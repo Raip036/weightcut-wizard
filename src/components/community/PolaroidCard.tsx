@@ -26,9 +26,21 @@
  *     fades in via opacity on its `onLoad` event.
  */
 import { memo, useState } from "react";
-import { motion } from "motion/react";
+import { motion, useReducedMotion, type TargetAndTransition, type Transition } from "motion/react";
 import { format } from "date-fns";
 import type { FeedPost } from "@/hooks/community/useGymFeed";
+
+// ── Develop animation timing (spec §4) ─────────────────────────────────
+// All values are in ms (converted to seconds where motion expects sec).
+// `DEVELOP_*` constants are scoped to this file because they describe a
+// single, self-contained effect — no need to surface them through props.
+const DEVELOP_BLUR_DURATION_MS = 600; // blur(20px) → blur(0px)
+const DEVELOP_SHAKE_DURATION_MS = 200; // ±4° wiggle, settles to 0°
+const DEVELOP_META_DELAY_MS = 100; // metadata fade-in starts
+const DEVELOP_META_END_MS = 700; // metadata fade-in completes
+const DEVELOP_REDUCED_DURATION_MS = 200; // reduced-motion cross-fade
+// Material standard "ease-out" curve from the spec.
+const EASE_OUT: [number, number, number, number] = [0.4, 0, 0.2, 1];
 
 interface PolaroidCardProps {
   post: FeedPost;
@@ -41,6 +53,14 @@ interface PolaroidCardProps {
   /** Long-press the author overlay → enter profile. Wired by parent so
    *  the same handler can also intercept tap-vs-long-press in one place. */
   onAuthorLongPress?: () => void;
+  /** When true, plays the "polaroid developing" effect once on mount:
+   *  image blur 20px → 0px over 600ms, a brief ±4° rotational wiggle on
+   *  the whole frame for the first 200ms, and a metadata fade-in that
+   *  finishes flush with the blur. Honours `prefers-reduced-motion` by
+   *  collapsing to a 200ms opacity cross-fade. Designed for the
+   *  ReviewSheet "Log & post" tap (spec §3.5 / §4). Defaults to `false`
+   *  so existing call sites (PolaroidStack) are untouched. */
+  developing?: boolean;
 }
 
 // Position table — same numbers as `StackSkeleton`. Kept duplicated
@@ -58,15 +78,27 @@ function PolaroidCardBase({
   isTop,
   rotationDeg,
   onAuthorLongPress,
+  developing = false,
 }: PolaroidCardProps) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const offsets = STACK_OFFSETS[stackPosition];
+  // `useReducedMotion` matches what PolaroidStack already uses — same
+  // import surface, same null/false semantics. We coerce to a boolean
+  // so the conditional below stays readable.
+  const prefersReducedMotion = useReducedMotion() ?? false;
+  const reducedDevelop = developing && prefersReducedMotion;
+  const fullDevelop = developing && !prefersReducedMotion;
 
   // For non-top cards, we bake the rotation into the static layout
   // value so they don't compete with the top card's live drag rotate.
   // The top card's rotation is owned by the parent stack (rotate
   // motion value bound on the wrapping motion.div).
-  const staticTransform = isTop
+  //
+  // When `developing` is true, the polaroid is rendered outside the
+  // stack (e.g. ReviewSheet preview) and the shake takes ownership of
+  // the `rotate` animation for its first 200ms. We don't run the
+  // staticTransform spring in that case — it would fight the shake.
+  const staticTransform = isTop || developing
     ? undefined
     : {
         scale: offsets.scale,
@@ -75,12 +107,49 @@ function PolaroidCardBase({
         rotate: rotationDeg,
       };
 
+  // Develop animation on the OUTER wrapper.
+  //
+  //  - Full motion: a damped wiggle from ±4° back to 0° across 200ms.
+  //    Keyframe arrays in motion accept their own `times` so we can
+  //    weight the peaks correctly (overshoot at 25%, return at 75%).
+  //  - Reduced motion: a 200ms opacity cross-fade with no rotation
+  //    change — the whole point of the reduced-motion branch is to
+  //    avoid the shake entirely.
+  let developWrapperAnimate: TargetAndTransition | undefined;
+  let developWrapperTransition: Transition | undefined;
+  if (fullDevelop) {
+    developWrapperAnimate = {
+      rotate: [-4, 4, -2, 0],
+      opacity: 1,
+    };
+    developWrapperTransition = {
+      rotate: {
+        duration: DEVELOP_SHAKE_DURATION_MS / 1000,
+        times: [0, 0.4, 0.75, 1],
+        ease: EASE_OUT,
+      },
+      opacity: { duration: 0 },
+    };
+  } else if (reducedDevelop) {
+    developWrapperAnimate = { opacity: 1 };
+    developWrapperTransition = {
+      opacity: {
+        duration: DEVELOP_REDUCED_DURATION_MS / 1000,
+        ease: "linear",
+      },
+    };
+  }
+
   return (
     <motion.div
-      className={`absolute inset-0 ${isTop ? "" : "pointer-events-none"}`}
+      className={`absolute inset-0 ${isTop || developing ? "" : "pointer-events-none"}`}
       style={{ zIndex: offsets.z }}
-      animate={staticTransform}
-      transition={{ type: "spring", stiffness: 220, damping: 28, mass: 1 }}
+      // When developing, ignore the stack's static spring and run the
+      // shake (or reduced-motion fade) instead. Otherwise behave exactly
+      // as before for existing call sites.
+      initial={developing ? { opacity: reducedDevelop ? 0 : 1, rotate: fullDevelop ? -4 : 0 } : false}
+      animate={developing ? developWrapperAnimate : staticTransform}
+      transition={developing ? developWrapperTransition : { type: "spring", stiffness: 220, damping: 28, mass: 1 }}
     >
       <div className="bg-white p-4 pb-10 rounded-sm shadow-2xl select-none">
         {/* Image well */}
@@ -118,8 +187,38 @@ function PolaroidCardBase({
               onLoad={() => setImgLoaded(true)}
               loading={isTop ? "eager" : "lazy"}
               decoding="async"
-              className="absolute inset-0 h-full w-full object-cover transition-opacity duration-300"
-              style={{ opacity: imgLoaded ? 1 : 0 }}
+              className={`absolute inset-0 h-full w-full object-cover ${developing ? "" : "transition-opacity duration-300"}`}
+              // Default (non-developing) path is unchanged — Tailwind's
+              // opacity transition drives the LQIP-to-full crossfade.
+              //
+              // Developing path: motion owns both filter (blur 20→0) and
+              // opacity (0→1 for the reduced-motion fade). `style`
+              // declares the initial frame so there's no flash on mount.
+              {...(fullDevelop
+                ? {
+                    initial: { filter: "blur(20px)", opacity: imgLoaded ? 1 : 0 },
+                    animate: { filter: "blur(0px)", opacity: imgLoaded ? 1 : 0 },
+                    transition: {
+                      filter: {
+                        duration: DEVELOP_BLUR_DURATION_MS / 1000,
+                        ease: EASE_OUT,
+                      },
+                    },
+                  }
+                : reducedDevelop
+                  ? {
+                      initial: { opacity: 0, filter: "blur(0px)" },
+                      animate: { opacity: imgLoaded ? 1 : 0, filter: "blur(0px)" },
+                      transition: {
+                        opacity: {
+                          duration: DEVELOP_REDUCED_DURATION_MS / 1000,
+                          ease: "linear",
+                        },
+                      },
+                    }
+                  : {
+                      style: { opacity: imgLoaded ? 1 : 0 },
+                    })}
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center text-neutral-500 text-xs">
@@ -163,10 +262,26 @@ function PolaroidCardBase({
 
         {/* Caption strip — 44px bottom region of the polaroid. The
             spec leans on date + relative time only; the session
-            metadata + caption belong on the info-card below. */}
-        <div className="h-7 flex items-center justify-center text-[11px] text-neutral-700 tabular-nums tracking-wide">
+            metadata + caption belong on the info-card below.
+            When developing, this strip fades in from +100ms and lands
+            at full opacity at +700ms — flush with the blur finish.
+            Reduced-motion: appears statically (no transition). */}
+        <motion.div
+          className="h-7 flex items-center justify-center text-[11px] text-neutral-700 tabular-nums tracking-wide"
+          {...(fullDevelop
+            ? {
+                initial: { opacity: 0 },
+                animate: { opacity: 1 },
+                transition: {
+                  duration: (DEVELOP_META_END_MS - DEVELOP_META_DELAY_MS) / 1000,
+                  delay: DEVELOP_META_DELAY_MS / 1000,
+                  ease: EASE_OUT,
+                },
+              }
+            : {})}
+        >
           {formatPolaroidDate(post.createdAt)}
-        </div>
+        </motion.div>
       </div>
     </motion.div>
   );
@@ -186,7 +301,11 @@ function areEqual(prev: PolaroidCardProps, next: PolaroidCardProps): boolean {
     // fade-in animation when the real image arrives.
     prev.post.url === next.post.url &&
     prev.post.thumbUrl === next.post.thumbUrl &&
-    prev.post.thumbDataUrl === next.post.thumbDataUrl
+    prev.post.thumbDataUrl === next.post.thumbDataUrl &&
+    // `developing` flips when ReviewSheet hands the polaroid off to the
+    // stack (true → false). The render tree needs to re-evaluate so the
+    // blur/shake props clear and the static stack transform takes over.
+    prev.developing === next.developing
   );
 }
 

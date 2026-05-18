@@ -41,7 +41,14 @@ export interface UploadedSessionMedia {
 export async function uploadSessionMediaV2(
   sessionId: Id<"fight_camp_calendar">,
   file: File,
-  opts?: { caption?: string; capturedAt?: string },
+  opts?: {
+    caption?: string;
+    capturedAt?: string;
+    /** Defaults to "gym" server-side. Pass "private" from the round-card
+     *  "Log only" CTA so the polaroid lands in private history without
+     *  surfacing on the gym feed (spec §3.6). */
+    visibility?: "gym" | "private";
+  },
   client: ConvexReactClient = defaultConvex,
 ): Promise<UploadedSessionMedia> {
   if (file.size > MAX_FILE_SIZE) {
@@ -91,6 +98,7 @@ export async function uploadSessionMediaV2(
     kind,
     caption: opts?.caption,
     capturedAt: opts?.capturedAt,
+    visibility: opts?.visibility,
   })) as Id<"session_media">;
 
   return { mediaId, kind };

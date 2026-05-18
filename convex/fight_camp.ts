@@ -7,7 +7,32 @@
  */
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
+import { getAuthUserId } from "@convex-dev/auth/server";
+import type { Id } from "./_generated/dataModel";
 import { requireUserId } from "./lib/auth";
+
+// ───────────────────────────────────────────────────────────────────────
+// Smart-defaults constants
+// ───────────────────────────────────────────────────────────────────────
+
+/**
+ * Mirror of the "Steady" preset in
+ * `src/components/nav/QuickLogDialog.tsx` (INTENSITY_PRESETS[1]). Kept here
+ * so `getSmartDefaults` returns the exact same values the QuickLog preset
+ * fills in when the user taps "Steady". If you change the preset over
+ * there, change this here too — there is no shared source of truth yet.
+ */
+const STEADY_PRESET = {
+  intensity: "Steady",
+  intensityLevel: 2,
+  rpe: 5,
+} as const;
+
+/** Final fallbacks when the user has no calendar history at all. */
+const FALLBACK_SESSION_TYPE = "Strength";
+const FALLBACK_DURATION_MINUTES = 60;
+const RECENT_HISTORY_TAKE = 200;
+const SAME_TYPE_SAMPLE_SIZE = 5;
 
 // ───────────────────────────────────────────────────────────────────────
 // Validation helpers
@@ -281,6 +306,128 @@ export const listCalendar = query({
 });
 
 /**
+ * Pre-fill the ReviewSheet chips (gym / sessionType / duration / intensity)
+ * for the photo-first round-card flow with a single DB round-trip.
+ *
+ * Resolution rules (see 2026-05-19-round-card-photo-first-tracking-design):
+ *  - gymId / gymName ........ user's primary active `gym_members` row,
+ *                             gym name resolved via `gyms` lookup
+ *  - sessionType ............ today's planned `fight_camp_calendar` row
+ *                             (if any), else most recent logged session,
+ *                             else "Strength"
+ *  - durationMinutes ........ rounded mean of the last 5 same-type
+ *                             durations; fallback 60
+ *  - intensity / *Level / rpe the "Steady" preset values from
+ *                             QuickLogDialog
+ *
+ * Returns the literal fallback shape when unauthenticated so the
+ * ReviewSheet never blocks on a missing identity (the spec calls for the
+ * sheet to render chips with whatever it can resolve and save anyway).
+ */
+export const getSmartDefaults = query({
+  args: {},
+  returns: v.object({
+    gymId: v.union(v.id("gyms"), v.null()),
+    gymName: v.union(v.string(), v.null()),
+    sessionType: v.string(),
+    durationMinutes: v.number(),
+    intensity: v.string(),
+    intensityLevel: v.number(),
+    rpe: v.number(),
+  }),
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      return {
+        gymId: null,
+        gymName: null,
+        sessionType: FALLBACK_SESSION_TYPE,
+        durationMinutes: FALLBACK_DURATION_MINUTES,
+        intensity: STEADY_PRESET.intensity,
+        intensityLevel: STEADY_PRESET.intensityLevel,
+        rpe: STEADY_PRESET.rpe,
+      };
+    }
+
+    // 1. Primary active gym (first active membership wins — multi-gym
+    //    leaderboards are out of scope; same heuristic as
+    //    `addSessionMedia` / `createCalendarEntry` below).
+    const membership = await ctx.db
+      .query("gym_members")
+      .withIndex("by_user_status", (q) =>
+        q.eq("userId", userId).eq("status", "active"),
+      )
+      .first();
+    let gymId: Id<"gyms"> | null = null;
+    let gymName: string | null = null;
+    if (membership) {
+      gymId = membership.gymId;
+      const gym = await ctx.db.get(membership.gymId);
+      gymName = gym?.name ?? null;
+    }
+
+    // 2. Session type — prefer today's planned row, else most recent
+    //    logged row, else the hard-coded fallback. Today's date is built
+    //    from the server clock as YYYY-MM-DD; the client renders the
+    //    chip from this string so there's no TZ drift to chase here.
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const todayRow = await ctx.db
+      .query("fight_camp_calendar")
+      .withIndex("by_user_date", (q) =>
+        q.eq("userId", userId).eq("date", todayIso),
+      )
+      .first();
+
+    let sessionType: string;
+    if (todayRow) {
+      sessionType = todayRow.sessionType;
+    } else {
+      // Most-recent logged session by date (descending). Bounded scan;
+      // typical users log < 1k sessions and we only need the newest.
+      const mostRecent = await ctx.db
+        .query("fight_camp_calendar")
+        .withIndex("by_user_date", (q) => q.eq("userId", userId))
+        .order("desc")
+        .first();
+      sessionType = mostRecent?.sessionType ?? FALLBACK_SESSION_TYPE;
+    }
+
+    // 3. Duration — mean of the last 5 same-type entries, rounded to the
+    //    nearest 5 minutes. Falls back to 60 when there's no history.
+    //    We pull a bounded slice via the user-date index (descending) and
+    //    filter in memory so we don't need a (userId, sessionType) index.
+    const recent = await ctx.db
+      .query("fight_camp_calendar")
+      .withIndex("by_user_date", (q) => q.eq("userId", userId))
+      .order("desc")
+      .take(RECENT_HISTORY_TAKE);
+    const sameType = recent
+      .filter((r) => r.sessionType === sessionType)
+      .slice(0, SAME_TYPE_SAMPLE_SIZE);
+
+    let durationMinutes: number = FALLBACK_DURATION_MINUTES;
+    if (sameType.length > 0) {
+      const sum = sameType.reduce((acc, r) => acc + r.durationMinutes, 0);
+      const mean = sum / sameType.length;
+      // Round to nearest 5 minutes; clamp to a sane minimum so a stale
+      // partial entry can't suggest a 0-minute session.
+      const rounded = Math.round(mean / 5) * 5;
+      durationMinutes = rounded > 0 ? rounded : FALLBACK_DURATION_MINUTES;
+    }
+
+    return {
+      gymId,
+      gymName,
+      sessionType,
+      durationMinutes,
+      intensity: STEADY_PRESET.intensity,
+      intensityLevel: STEADY_PRESET.intensityLevel,
+      rpe: STEADY_PRESET.rpe,
+    };
+  },
+});
+
+/**
  * Step 1 of the training-media upload flow: returns a one-time POST URL.
  * The client posts the image/video to it, receives a `storageId`, then
  * passes it to `createCalendarEntry` / `updateCalendarEntry` below.
@@ -323,6 +470,14 @@ export const createCalendarEntry = mutation({
     mobilityDone: v.optional(v.boolean()),
     mediaStorageId: v.optional(v.id("_storage")),
     notes: v.optional(v.string()),
+    // Provenance of the row — set by whichever entry surface created it.
+    // Optional so historical callers (legacy QuickLog, manual editor) still
+    // type-check while the photo-first round-card flow opts in explicitly.
+    source: v.optional(v.union(
+      v.literal("quicklog"),
+      v.literal("round_card"),
+      v.literal("manual"),
+    )),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
@@ -469,8 +624,17 @@ export const addSessionMedia = mutation({
     kind: v.union(v.literal("photo"), v.literal("video")),
     capturedAt: v.optional(v.string()),
     caption: v.optional(v.string()),
+    // Visibility override — defaults to "gym" so existing call sites
+    // (legacy QuickLog photo upload, post-workout media picker) are
+    // untouched. The photo-first round-card "Log only" CTA passes
+    // "private" so the polaroid lands in the user's history without
+    // appearing on the gym feed (spec §3.6).
+    visibility: v.optional(v.union(v.literal("gym"), v.literal("private"))),
   },
-  handler: async (ctx, { sessionId, storageId, kind, capturedAt, caption }) => {
+  handler: async (
+    ctx,
+    { sessionId, storageId, kind, capturedAt, caption, visibility },
+  ) => {
     const userId = await requireUserId(ctx);
     const session = await ctx.db.get(sessionId);
     if (!session) throw new Error("Session not found");
@@ -499,7 +663,7 @@ export const addSessionMedia = mutation({
       capturedAt: capturedAt ?? session.date,
       caption: caption?.trim() || undefined,
       gymId,
-      visibility: "gym",
+      visibility: visibility ?? "gym",
     });
   },
 });

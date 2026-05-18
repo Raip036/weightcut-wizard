@@ -371,6 +371,15 @@ export default defineSchema({
     // leaderboard query can range-scan by_gym_date directly. Optional
     // because historical rows are backfilled lazily (see migrations.ts).
     gymId: v.optional(v.id("gyms")),
+    // Provenance of the row — which entry surface created it. Optional so
+    // historical rows pre-dating this field still validate. Set by the
+    // photo-first round-card flow (`"round_card"`), the QuickLogDialog
+    // (`"quicklog"`), and the manual full-editor (`"manual"`).
+    source: v.optional(v.union(
+      v.literal("quicklog"),
+      v.literal("round_card"),
+      v.literal("manual"),
+    )),
   })
     .index("by_user_date", ["userId", "date"])
     .index("by_gym_date", ["gymId", "date"]),
