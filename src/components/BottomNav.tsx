@@ -334,7 +334,6 @@ export const BottomNav = memo(function BottomNav() {
             <RoundCardFab
               gestureProps={fabGesture}
               tooltip={tooltip}
-              onMoreOptions={() => setQuickLogOpen(true)}
             />
           </div>
         </LayoutGroup>
@@ -568,69 +567,55 @@ interface RoundCardFabProps {
    *  alive for the synchronous `Camera.getPhoto` invocation. */
   gestureProps: ReturnType<typeof useFabGesture>;
   tooltip: ReturnType<typeof useRoundCardTooltip>;
-  /** Fallback path for users who can't long-press — opens the legacy
-   *  QuickLogDialog directly via the tiny "…" sibling. */
-  onMoreOptions: () => void;
 }
 
 /**
- * Photo-first FAB block — the raised "+" circle, its one-time
- * discoverability popover, and the accessibility "…" affordance. Lives
- * as a separate component so `BottomNav` stays under the 500-line
- * project ceiling and the FAB's gesture wiring is testable in isolation.
+ * Photo-first FAB block — the raised "+" circle and its one-time
+ * discoverability popover. Lives as a separate component so `BottomNav`
+ * stays under the 500-line project ceiling and the FAB's gesture wiring
+ * is testable in isolation.
  *
  * The Popover wraps the FAB itself so the tooltip anchors to the same
  * element the gesture targets. We pass `onOpenAutoFocus` → preventDefault
  * so the popover doesn't steal focus on first render (which would
  * surface the iOS keyboard accessory bar over the bottom-nav).
  */
-function RoundCardFab({ gestureProps, tooltip, onMoreOptions }: RoundCardFabProps) {
+function RoundCardFab({ gestureProps, tooltip }: RoundCardFabProps) {
   return (
-    <>
-      <Popover open={tooltip.open} onOpenChange={tooltip.setOpen}>
-        <PopoverTrigger asChild>
-          <motion.button
-            whileTap={{ scale: 0.88 }}
-            transition={{ type: "spring", damping: 18, stiffness: 420 }}
-            {...gestureProps}
-            data-tutorial="nav-quick-log"
-            className="relative ml-0.5 z-10 h-[50px] w-[50px] -translate-y-2 rounded-full bg-primary flex items-center justify-center shadow-[0_9px_20px_-5px_hsl(var(--primary)/0.6),0_2px_0_rgba(255,255,255,0.22)_inset,0_-1.5px_0_rgba(0,0,0,0.18)_inset] ring-2 ring-background/40 select-none touch-none"
-            aria-label="Capture session photo (long-press for more options)"
-          >
-            <Plus className="h-6 w-6 text-primary-foreground" strokeWidth={2.75} />
-          </motion.button>
-        </PopoverTrigger>
-        <PopoverContent
-          side="top"
-          align="end"
-          sideOffset={10}
-          onOpenAutoFocus={(e) => e.preventDefault()}
-          className="w-auto max-w-[260px] px-3 py-2 text-[12px]"
+    <Popover open={tooltip.open} onOpenChange={tooltip.setOpen}>
+      <PopoverTrigger asChild>
+        <motion.button
+          whileTap={{ scale: 0.88 }}
+          transition={{ type: "spring", damping: 18, stiffness: 420 }}
+          {...gestureProps}
+          data-tutorial="nav-quick-log"
+          className="relative ml-0.5 z-10 h-[50px] w-[50px] -translate-y-2 rounded-full bg-primary flex items-center justify-center shadow-[0_9px_20px_-5px_hsl(var(--primary)/0.6),0_2px_0_rgba(255,255,255,0.22)_inset,0_-1.5px_0_rgba(0,0,0,0.18)_inset] ring-2 ring-background/40 select-none touch-none"
+          aria-label="Capture session photo (long-press for more options)"
         >
-          <div className="flex items-start gap-2">
-            <p className="leading-snug text-foreground">
-              Tap to capture &middot; long-press for more options
-            </p>
-            <button
-              type="button"
-              aria-label="Dismiss tooltip"
-              onClick={tooltip.dismiss}
-              className="-mr-1 -mt-0.5 flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-3.5 w-3.5" strokeWidth={2.2} />
-            </button>
-          </div>
-        </PopoverContent>
-      </Popover>
-
-      <button
-        type="button"
-        onClick={() => { triggerHapticSelection(); onMoreOptions(); tooltip.dismiss(); }}
-        aria-label="More log options"
-        className="relative ml-0.5 z-[11] -translate-y-2 flex h-6 w-6 items-center justify-center rounded-full bg-card/80 border border-white/10 text-muted-foreground active:scale-95 transition-transform"
+          <Plus className="h-6 w-6 text-primary-foreground" strokeWidth={2.75} />
+        </motion.button>
+      </PopoverTrigger>
+      <PopoverContent
+        side="top"
+        align="end"
+        sideOffset={10}
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        className="w-auto max-w-[260px] px-3 py-2 text-[12px]"
       >
-        <MoreHorizontal className="h-3.5 w-3.5" strokeWidth={2.2} />
-      </button>
-    </>
+        <div className="flex items-start gap-2">
+          <p className="leading-snug text-foreground">
+            Tap to capture &middot; long-press for more options
+          </p>
+          <button
+            type="button"
+            aria-label="Dismiss tooltip"
+            onClick={tooltip.dismiss}
+            className="-mr-1 -mt-0.5 flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-3.5 w-3.5" strokeWidth={2.2} />
+          </button>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }

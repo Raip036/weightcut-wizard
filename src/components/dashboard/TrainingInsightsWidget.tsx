@@ -11,8 +11,6 @@ import { triggerHapticSelection } from "@/lib/haptics";
 import { useSubscription } from "@/hooks/useSubscription";
 import { getSessionColor, getUserColors } from "@/lib/sessionColors";
 import { logger } from "@/lib/logger";
-// Touch unused exports to keep the diff small.
-void useQuery;
 
 interface TrainingInsightsWidgetProps {
   userId: string;
@@ -183,6 +181,24 @@ export const TrainingInsightsWidget = memo(function TrainingInsightsWidget({
 }: TrainingInsightsWidgetProps) {
   const { isPremium, openPaywall } = useSubscription();
   const [open, setOpen] = useState(false);
+  // Pre-flight check: hide the widget entirely when there's no recent
+  // training data to coach on. Mirrors the empty-render guard applied to
+  // other dashboard widgets so cold-start users don't see a placeholder
+  // card with nothing to say.
+  const recentSince = useMemo(
+    () => format(subDays(new Date(), LOOKBACK_DAYS), "yyyy-MM-dd"),
+    [],
+  );
+  const recentCalendar = useQuery(
+    api.fight_camp.listCalendar,
+    userId ? { from: recentSince } : "skip",
+  );
+  const hasRecentSessions = useMemo(() => {
+    if (recentCalendar == null) return null;
+    return (recentCalendar as any[]).some(
+      (r) => r.sessionType !== "Rest" && typeof r.notes === "string" && r.notes.trim().length > 0,
+    );
+  }, [recentCalendar]);
   // `coldLoading` blocks the UI on first render only — once we have any
   // cached or fetched insight, it flips false and stays false. Background
   // revalidation flips `refreshing` (a quiet "Refreshing…" hint), never
@@ -366,14 +382,16 @@ export const TrainingInsightsWidget = memo(function TrainingInsightsWidget({
     return `${types.length} disciplines reviewed`;
   }, [insights]);
 
+  if (hasRecentSessions === false) return null;
+
   return (
     <>
       <button
         onClick={handleCardPress}
-        className="w-full text-left card-surface rounded-2xl border border-border p-3 flex items-center gap-3 active:scale-[0.99] transition-all"
+        className="w-full text-left card-surface rounded-2xl border border-border p-3.5 flex items-center gap-3 active:scale-[0.99] transition-all"
       >
         <div
-          className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${
+          className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${
             isPremium ? "bg-primary/15" : "bg-muted/40"
           }`}
         >

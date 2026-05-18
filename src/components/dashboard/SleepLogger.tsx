@@ -97,16 +97,16 @@ export const SleepLogger = memo(function SleepLogger({ userId, compact }: SleepL
   const trigger = compact ? (
     <button
       type="button"
-      className="card-surface rounded-2xl border border-border p-2.5 flex items-center justify-center active:scale-[0.98] transition-all text-center w-full"
+      className="card-surface rounded-2xl border border-border px-3 py-3 flex items-center justify-center active:scale-[0.98] transition-all text-center w-full min-h-[3.25rem]"
       onClick={openSheet}
     >
       {saved ? (
-        <p className="text-[12px] font-semibold leading-tight">
+        <p className="text-[13px] font-semibold leading-tight">
           <span className="tabular-nums">{hours}</span>
           <span className="text-muted-foreground">h</span> sleep
         </p>
       ) : (
-        <p className="text-[12px] font-semibold leading-tight">Sleep</p>
+        <p className="text-[13px] font-semibold leading-tight">Sleep</p>
       )}
     </button>
   ) : (

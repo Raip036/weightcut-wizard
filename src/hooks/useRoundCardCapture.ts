@@ -32,6 +32,7 @@ import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import { ImpactStyle } from "@capacitor/haptics";
+import { format } from "date-fns";
 
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -220,7 +221,15 @@ export function useRoundCardCapture(
       // `developing` and triggers the polaroid blur→sharp.
       setState("developing");
 
-      const todayIso = new Date().toISOString().slice(0, 10);
+      // CRITICAL: TrainingCalendar filters rows by `format(selectedDate,
+      // "yyyy-MM-dd")` which uses the user's LOCAL timezone. Writing the
+      // row with `toISOString().slice(0,10)` (UTC) makes evening/early-AM
+      // sessions land on the wrong calendar day for any user east/west of
+      // UTC — the row exists, the gym feed renders it, but the calendar
+      // never finds it on "today". Match the calendar's local-date logic
+      // so a round-card capture taken at 11pm local time still lands on
+      // the same day the user is looking at.
+      const todayIso = format(new Date(), "yyyy-MM-dd");
 
       try {
         // 1. Create the calendar row. The session id from this insert

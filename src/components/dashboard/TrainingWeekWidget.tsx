@@ -185,7 +185,7 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
     // Compact skeleton: mimics exact final layout, clipped by overflow-hidden
     if (compact) {
       return (
-        <div className="card-surface rounded-2xl border border-border overflow-hidden p-3 aspect-square flex flex-col">
+        <div className="card-surface rounded-2xl border border-border overflow-hidden p-3.5 aspect-square flex flex-col">
           <div className="flex items-center gap-2.5 min-w-0">
             <Skeleton className="w-11 h-11 rounded-full shrink-0" />
             <div className="flex-1 min-w-0 space-y-1.5">
@@ -224,7 +224,7 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
   if (compact) {
     return (
       <div
-        className="card-surface p-3 rounded-2xl border border-border overflow-hidden cursor-pointer active:scale-[0.98] transition-all duration-200 aspect-square flex flex-col"
+        className="card-surface p-3.5 rounded-2xl border border-border overflow-hidden cursor-pointer active:scale-[0.98] transition-all duration-200 aspect-square flex flex-col"
         onClick={() => { triggerHapticSelection(); navigate("/training-calendar?openLogSession=true"); }}
       >
         {/* Header: ring + stats */}
@@ -301,11 +301,11 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
             render the row statically. */}
         {typeEntries.length > 0 && (
           typeEntries.length <= 2 ? (
-            <div className="flex items-center gap-1.5 mt-1.5 whitespace-nowrap overflow-hidden">
+            <div className="flex items-center gap-1.5 mt-2 whitespace-nowrap overflow-hidden">
               {typeEntries.map(([type, count]) => (
                 <span
                   key={type}
-                  className="inline-flex flex-shrink-0 items-center gap-1 text-[9px] font-medium px-1.5 py-0.5 rounded-full"
+                  className="inline-flex flex-shrink-0 items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full"
                   style={{
                     background: `${getSessionColor(type, customColors)}15`,
                     color: getSessionColor(type, customColors),
@@ -317,13 +317,13 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
               ))}
             </div>
           ) : (
-            <div className="mt-1.5 overflow-hidden" aria-label="Session types this week">
+            <div className="mt-2 overflow-hidden" aria-label="Session types this week">
               <div className="flex items-center gap-1.5 w-max animate-marquee hover:[animation-play-state:paused] pr-1.5">
                 {[...typeEntries, ...typeEntries].map(([type, count], i) => (
                   <span
                     key={`${type}-${i}`}
                     aria-hidden={i >= typeEntries.length}
-                    className="inline-flex flex-shrink-0 items-center gap-1 text-[9px] font-medium px-1.5 py-0.5 rounded-full"
+                    className="inline-flex flex-shrink-0 items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full"
                     style={{
                       background: `${getSessionColor(type, customColors)}15`,
                       color: getSessionColor(type, customColors),
