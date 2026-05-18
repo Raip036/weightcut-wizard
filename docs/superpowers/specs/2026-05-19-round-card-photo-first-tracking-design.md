@@ -1,297 +1,198 @@
-# Round Card — Photo-First Tracking Redesign
+# Round Card — Photo-First Tracking (Minimum Viable Flow)
 
 **Date:** 2026-05-19
 **Status:** Design — awaiting implementation plan
 **Owners:** Pratik (product), Claude (synthesis)
-**Related:** `docs/corner-social-tab-plan.md`, `docs/superpowers/specs/2026-05-16-gym-leaderboard-design.md`, `docs/superpowers/specs/2026-05-18-wizard-tutorial-redesign-design.md`
+**Supersedes:** the earlier 2026-05-19 draft of this spec (CV/AI-heavy version, dropped per Pratik on 2026-05-19)
 
 ## 1. Goal
 
-Convert the session-logging flow from a multi-modal 5–7-tap form into a **photo-first, two-tap capture** that lands a polaroid on the gym feed by default. This is the engagement loop for retention and the funnel mouth for subscription conversion. The brand already owns the polaroid metaphor; the flow does not yet honor it.
+Replace the current 5–7-tap session-logging flow with a **photo-first, three-tap capture** that lands a polaroid on the gym feed. Nothing more. Computer-vision, AI captions, AI Round-Card breakdowns, weekly recap reels, partner co-ownership, geofencing, dashboard hero tiles, throwback prompts — **all explicitly deferred** to a later phase. The only thing we are building right now is: **tap plus → take a photo → log the session → polaroid develops → posts to the gym feed.**
 
-**Success criteria (qualitative — quantitative targets land in the implementation plan):**
+## 2. Why this scope
 
-- Time from app open to "session saved + posted" ≤ 6 seconds for the happy path
-- Tap count from BottomNav FAB to "polaroid on gym feed" = **2 taps** (shutter + primary CTA)
-- The user types **zero characters** to complete a logged session
-- Existing power-user path (start active session, add exercises, finish) remains reachable via FAB long-press
-- No schema break — purely additive deltas
+The current flow's problem is friction, not feature gaps. Solve friction first. Every extra surface (AI, partner tags, recap reels) is a second project that depends on the basic capture flow existing and working. Ship the chassis; bolt on the body later.
 
-## 2. Diagnosis of current flow
-
-Current happy path (sourced from `BottomNav.tsx`, `QuickLogDialog.tsx`, `GymTracker.tsx`, `SessionMediaPicker.tsx`, `uploadSessionMediaV2`):
+## 3. The new flow — three taps
 
 ```
-1. Tap FAB
-2. Tap "Log Gym" tile
-3. (Optional) Tap session-type chip
-4. Tap "Start Workout"
-5. Tap "Finish"  (after timer runs)
-6. (Optional) Notes/duration/fatigue
-7. Tap "Add Photo or Video"  (auto-opened PostWorkoutMediaSheet)
-8. Tap "Take Photo" or "Choose from Library"
-9. Shutter / pick
-10. Tap "Share to Gym"  (or skip)
+Tap 1 — FAB "+"           → native camera opens immediately
+Tap 2 — Shutter           → photo captured; ReviewSheet slides up
+Tap 3 — "Log & post"      → polaroid develops, drops onto gym feed
 ```
 
-Friction: 5–7 deliberate taps, photo is opt-in *after* save, multiple modal boundaries. The good news: the primitives are already wired — `uploadSessionMediaV2` already auto-routes to the gym feed using denormalized `gymId`, `session_media.visibility` already supports `"gym" | "private"`, `PolaroidStack.tsx` already supports the fly-away gesture, and `PostWorkoutMediaSheet` already merges save + share into one moment. The fix is rewiring, not rebuilding.
-
-## 3. Decision: Approach A — "Photo-First Round Card"
-
-Three approaches were considered:
-
-| | A — Photo-First Round Card *(chosen)* | B — Timer-First w/ Prominent Photo | C — Dual-Mode FAB |
-|---|---|---|---|
-| FAB tap | Native camera opens immediately | Start active session timer | Sheet with 2 big tiles |
-| Tap count to feed | **2** | 4–5 | 3 |
-| Best for | Spontaneous post-roll snap (~80% case) | Power users (strength athletes) | Indecisive flows |
-| Risk | Power users miss the timer | Doesn't move retention | Re-introduces choice friction |
-| Code reuse | High (PostComposer + PostWorkoutMediaSheet merge) | Highest | Medium |
-
-**Chosen: A**, with B's active-session timer preserved as the **FAB long-press** option for users who want the structured workout. Discoverability handled by a one-time tooltip on first launch after the rewire ships.
-
-## 4. The new flow
-
-### 4.1 Entry — FAB rewire
+### 3.1 FAB rewire
 
 `BottomNav` center "+" button:
 
-- **Tap (≤ 350 ms):** fires `Capacitor.Camera.getPhoto({ source: Camera, quality: 80 })` synchronously in the tap handler. The same synchronous pattern works in `PostComposer.tsx` today — the user-gesture token must not be lost.
-- **Long-press (≥ 350 ms):** opens the existing `QuickLogDialog` 4-cell menu upward from the FAB.
-- **Haptics:** `ImpactStyle.Medium` on tap, `ImpactStyle.Light` on long-press recognized.
-- **Reduce-motion / accessibility:** long-press affordance also exposed as a "..." button inset on the FAB's right edge for users who can't long-press reliably.
+- **Tap (≤ 350 ms):** fires `Capacitor.Camera.getPhoto({ source: Camera, quality: 80 })` synchronously inside the tap handler. The synchronous origin is critical — iOS revokes the user-gesture token if we route through a sheet or state-driven branch first. `PostComposer.tsx` already proves this pattern works.
+- **Long-press (≥ 350 ms):** opens the existing `QuickLogDialog` 4-cell menu. This preserves the legacy structured "Start Workout → exercises → Finish" path for strength athletes who want timers + sets/reps.
+- **Haptics:** `ImpactStyle.Medium` on tap; `ImpactStyle.Light` on long-press recognized.
+- **Discoverability:** a one-time tooltip on the first BottomNav render after the rewire ships, dismissed forever after the user taps "Got it" or uses the FAB once.
 
-### 4.2 Capture flow — two taps
+### 3.2 The Camera
 
-```
-Tap 1 (FAB)        → native camera, full-screen, OS-owned
-Shutter            → app takes over: Review Sheet
-Tap 2 (primary)    → save + post; polaroid drops onto Corner stack
-```
+The native iOS camera UI takes over, owned by the OS. Front/rear toggle and shutter are Apple's. The only WeightCut affordance overlaid is a small ghost link bottom-left: **"Log without photo"** — taps this and we skip to the ReviewSheet with no media, for the "I just trained, didn't snap anything" case.
 
-The Review Sheet:
+### 3.3 The ReviewSheet
+
+After the shutter fires, the OS hands control back to the app. A full-screen ReviewSheet appears with:
 
 ```
 ┌──────────────────────────────────────────┐
-│  [developing polaroid 600 ms]            │   ← reuses PolaroidCard
-│   Muay Thai · 60 min · Steady            │   ← three pre-filled chips
-│   Crucible Gym · Wed 7:42 PM             │   ← geofenced gym banner
-│   + tag partner (suggested chips)        │   ← optional, top 5
-│   [optional caption — auto-dismiss 2 s]  │
 │                                          │
-│   [   Log & post to gym       →   ]      │   ← primary
-│       Log only · Discard                 │   ← secondary
+│       [polaroid frame, still blank]      │
+│                                          │
+│   ┌─ chips ──────────────────────────┐   │
+│   │  Muay Thai  ·  60 min  ·  Steady │   │  ← tappable to override
+│   └──────────────────────────────────┘   │
+│                                          │
+│   Gym: Crucible Gym                      │  ← from profile primary
+│   Caption (optional, single line)        │
+│                                          │
+│   [   Log & post to gym         →   ]    │  ← primary CTA
+│       Log only                           │  ← smaller, beneath
+│       Discard                            │  ← smallest, ghost
+│                                          │
 └──────────────────────────────────────────┘
 ```
 
-Camera UI carries a tiny ghost link bottom-left: **"Log without photo"** (stamp-only flow).
+Three chips are pre-filled from straightforward database reads (see §3.4). The user does **not** need to type anything. Caption is optional and explicitly single-line; pressing return saves.
 
-### 4.3 Photo treatment — "developing polaroid"
+### 3.4 Smart defaults — database-only, no CV
 
-- Reuses `PolaroidCard.tsx`.
-- Image lands on a white polaroid frame.
-- **Develop animation:** 600 ms blur-to-sharp transition + 4 deg micro-shake; the metadata strip writes itself in handwritten-feel mono ("Muay Thai · 60 min · Crucible Gym · Wed 7:42 PM").
-- **Optional stickers** on second tap: fight-camp day count · weight delta vs last week · @ partner.
-- **No filters.** The polaroid frame *is* the filter.
-- `prefers-reduced-motion` → 200 ms cross-fade; metadata writes statically.
-- VoiceOver: announces "Session logged. Muay Thai, sixty minutes, posted to Crucible Gym."
-
-### 4.4 Smart defaults — typing budget is zero
-
-New Convex query `fight_camp.getSmartDefaults` (one round-trip; called by the FAB tap handler so defaults are warm by the time the shutter clicks):
+A single Convex query `fight_camp.getSmartDefaults` fills the chips in one round-trip:
 
 | Field | Source |
 |---|---|
-| `gymId` | `gym_members.by_user_status` (primary active row); CoreLocation one-shot overrides if within 400 m of a different known gym |
-| `sessionType` | Today's `fight_camp_calendar` planned row if present; else last-used from `localStorage:RECENT_SESSION_KEY` |
-| `durationMinutes` | Mean of last 5 same-type sessions; fallback 60 |
-| `intensity / intensityLevel / rpe` | "Steady" (matches existing QuickLog preset) |
-| `bodyweight` | Latest `weight_logs` row from today/yesterday |
-| `sleepHours/Quality` | Today's `daily_wellness_checkins` if present |
-| `partnerSuggestions` | Top 5 gym members ranked by recent-30-day session overlap |
-| `fightCampPhase` | Active `fight_camps` row → build / peak / fight-week |
-| `weather` | OpenMeteo silent fetch on submit (no API key) |
+| `gymId` | `gym_members.by_user_status` — user's primary active gym membership |
+| `sessionType` | Today's `fight_camp_calendar` planned row if it exists; else last-used from `localStorage:RECENT_SESSION_KEY` |
+| `durationMinutes` | Mean of the last 5 same-type sessions in `fight_camp_calendar`; fallback 60 |
+| `intensity / intensityLevel / rpe` | "Steady" (matches the existing QuickLog preset) |
 
-Every field has a fallback. The Review Sheet never blocks on a defaults-failed state — it shows the chips it has, dims the rest, and saves anyway.
+No CoreLocation. No CV. No partner suggestions. No weather. No sleep/weight cross-references. The ReviewSheet never blocks on a defaults-failed state — if any field can't resolve, it shows the chips it has, dims the others, and saves anyway.
 
-### 4.5 Posting & visibility
+### 3.5 The "Log & post" tap
 
-- **Default-on** posting to the gym feed. Peer culture works only if default-on.
-- **"Log only"** is a smaller affordance one inch below the primary CTA. If a user picks "Log only" two posts in a row, the default flips for them. **No popup, no nag.** Stored as `profiles.defaultSessionVisibility`.
-- `session_media.visibility` already supports `"gym" | "private"`. Extend to add `"partners"` (visible only to author + tagged partners + author's gym leaderboard aggregates).
-- **Partner @-tag = co-ownership.** A `session_media` row with `partnerUserIds: [userB]` surfaces in `userB`'s gym feed and profile grid, counts for both users' streaks/leaderboards, and lets `userB` reciprocate-tag any included session without re-uploading.
+When the user taps the primary CTA:
 
-### 4.6 Edit-after-post grace
+1. The polaroid frame on-screen **develops**: a 600 ms blur-to-sharp animation, with the metadata strip writing itself in handwritten-feel mono at the bottom ("Muay Thai · 60 min · Crucible Gym · Wed 7:42 PM"). `prefers-reduced-motion` → 200 ms cross-fade.
+2. Concurrently, the app writes one row into `fight_camp_calendar` and uploads the photo via the existing `uploadSessionMediaV2`, which already creates the `session_media` row and stamps `gymId` for feed routing.
+3. The polaroid then animates from the ReviewSheet's centre into the Corner stack — reusing `PolaroidStack.tsx`'s existing animation. Success haptic on landing (`notificationOccurred(success)`).
+4. The user is back where they were before tapping the FAB. The ReviewSheet dismisses itself.
 
-- **6-second Undo toast** on post (mirrors iOS Mail delete-send).
-- **15-minute edit window** for caption, session-type chip, visibility. Triggered by long-press on the polaroid in Corner.
-- **Un-post within 15 min:** swipe the polaroid up off the top of the Corner stack — gesture already supported by `PolaroidStack.tsx`.
-- **After 15 min:** photo locked, caption stays editable forever, engagement counts preserved.
+### 3.6 "Log only" and "Discard"
 
-### 4.7 First-session magic (empty state)
+- **Log only:** saves the `fight_camp_calendar` row + uploads the photo as `visibility: "private"`. The polaroid lands in the user's private history (visible in `SessionHistoryList`) but does not appear on the gym feed.
+- **Discard:** dismisses the ReviewSheet, drops the photo, writes nothing.
 
-- Pre-log Corner shows three ghost polaroids, captioned *"Tomorrow's first session goes here."*
-- On the user's first-ever logged session:
-  - Develop animation runs **slower** (1.4 s vs 600 ms)
-  - Full-bleed `celebrateSuccess` haptic
-  - Coach-voiced toast: *"First one's logged — your gym just saw it"*
-  - **Pre-seed** the gym's three most recent posts below the new polaroid so the feed never feels empty.
+There is **no** sticky-default flip after repeated "Log only" picks. That's a Phase-2 polish. Default-on gym posting is the simple rule today.
 
-## 5. Reuse cases — one row, eleven surfaces
+## 4. Photo treatment
 
-A single insert into `fight_camp_calendar` + (optional) `session_media` lights up:
+The polaroid `PolaroidCard.tsx` component gets a new `developing` boolean prop. When `developing` is true, the image inside the frame is rendered with:
 
-1. **Gym feed** `TikTokFeedSwiper` — already auto-wired via denormalized `gymId`
-2. **Profile polaroid grid** — `session_media.by_user_created`
-3. **Dashboard "Today" widget hero image** — newest `session_media` thumb
-4. **Training-volume charts** — `TrainingLibrary`, `FightCampSummaryCard`; photos become tap-through evidence on chart bars
-5. **Fight-week timeline** — `FightWeekSummaryCard`; photo pinned to each day
-6. **AI training-insight prompts** — `trainingInsights.ts`, `trainingSummary.ts` already read the calendar; pass `aiCaption` and `partnerUserIds` to ground claims like "you sparred 3× with X this week"
-7. **Weekly recap reel** — Sunday cron renders 7-day stacked polaroids; Story export via existing `share/cards/` infra
-8. **Throwback prompts** — daily cron scans `by_user_date` − 365d ("1 year ago you sparred 90 min")
-9. **Gym leaderboard "Most Logged" board** — `gymLeaderboard.ts` already exists; volume + photo-attached rate becomes a new column
-10. **Fight-camp poster export** — `MadeWeightShareSheet` style poster built from camp-window `session_media` thumbs + totals
-11. **Partner-tag inbox** — tagged users see "Jake added you to a session" with a one-tap confirm/decline
+- `filter: blur(20px)` → animated to `blur(0px)` over 600 ms (cubic-bezier ease-out)
+- A very subtle `transform: rotate(-2deg)` shake (peak `±4deg`) over the first 200 ms
+- The metadata strip text fades in 100 ms after the blur transition starts and finishes at the same time as the blur
 
-Every surface is a thin query over an existing index (`by_user_date`, `by_user_created`, `by_gym_created`, or the new `by_partner_created`). **No fan-out writes.**
+That's the whole effect. No filters, no stickers, no weight-delta overlays — those were Phase-1 fluff and are explicitly cut. The polaroid frame **is** the entire visual treatment.
 
-## 6. Subscription conversion hooks (Pro)
-
-Habit stays free; intelligence is Pro. Conversion lands at peak emotional engagement, never blocks the core habit loop.
-
-- **AI Round-Card breakdown** — Groq `llama-4-scout` vision on the photo + `gpt-oss-120b` for analysis. Surfaces as a "Coach says…" expandable on the saved Round Card. Pro.
-- **Weekly recap reel** — motion video set to music for Pro; static grid for free. People will pay $4.99/mo to share *this* to IG/Stories.
-- **Fight-camp analytics + made-weight projection** unlocked at week-3 of an 8-week camp (when cutter anxiety peaks). Pro.
-- **AI caption suggestions** on the Review Sheet (post-upload, async). Pro.
-- **Recovery-coach post-session insight** stays free but gated at 1/day (matches existing freemium rule).
-
-## 7. Anti-patterns — explicitly out of scope
-
-Do **not** build any of these in any phase:
-
-- Public global feed beyond the gym
-- Public weight numbers on the feed (eating-disorder vector + privacy)
-- Strava-style kudos counts visible to others (status anxiety drives lurking not posting)
-- Streak punishment ("you lost your 47-day streak")
-- Generic motivational quotes / "rise & grind" overlays
-- AI-generated hype captions
-- AI face-tagging of partners (legal landmine)
-- Cross-gym leaderboards (privacy minefield)
-- Wearable / glove-tap / HR fusion
-- Video posts in v1 (schema supports; UX doesn't)
-- Stories-style timed expiry (polaroid fly-away already covers ephemerality)
-- Comment threading (flat comments only — already the shape in `feed_comments`)
-
-## 8. Schema deltas (additive, non-breaking)
+## 5. Schema deltas (additive, non-breaking)
 
 `fight_camp_calendar`:
 
 ```ts
-partnerUserIds: v.optional(v.array(v.id("users"))),
-locationLabel:  v.optional(v.string()),
-source:         v.optional(v.union(
-                  v.literal("quicklog"),
-                  v.literal("share_ext"),
-                  v.literal("widget"),
-                  v.literal("siri"),
-                  v.literal("manual"),
-                )),
+source: v.optional(v.union(
+  v.literal("quicklog"),
+  v.literal("round_card"),   // new — set by the photo-first flow
+  v.literal("manual"),
+)),
 ```
 
-`session_media`:
+`session_media`: **no changes**.
 
-```ts
-partnerUserIds: v.optional(v.array(v.id("users"))),  // denormalized from session row
-aiCaption:      v.optional(v.string()),
-dominantColor:  v.optional(v.string()),              // for share-card theming
-// extend visibility union:
-visibility: v.union(v.literal("gym"), v.literal("private"), v.literal("partners")),
-```
+`profiles`: **no changes**.
 
-`profiles`:
+That is the entire schema delta. No new indexes, no new tables, no `partnerUserIds`, no `aiCaption`, no `dominantColor`, no `defaultSessionVisibility`. The existing `session_media.visibility: "gym" | "private"` is enough.
 
-```ts
-defaultSessionVisibility: v.optional(v.union(
-                            v.literal("gym"),
-                            v.literal("private"),
-                          )),
-```
-
-New index on `session_media`:
-
-```ts
-.index("by_partner_created", ["partnerUserIds", "createdAt"])
-```
-
-(If the array-index approach proves expensive, fall back to a join table `session_media_partners` with `mediaId`, `partnerUserId`, `createdAt` — defer the call to implementation pass.)
-
-New Convex modules:
-
-- `convex/fight_camp.ts` → `getSmartDefaults` query, `repeatYesterday` mutation
-- Mutation `feedSocial.unpostMedia` (15-min window) — soft-delete pattern
-
-## 9. Component map — what changes
+## 6. Component map — what changes
 
 | File | Change |
 |---|---|
-| `src/components/BottomNav.tsx` | FAB tap → camera handler (synchronous Capacitor call); long-press → existing QuickLogDialog |
-| `src/components/nav/QuickLogDialog.tsx` | No behavior change; relegated to long-press menu |
-| `src/components/community/PostComposer.tsx` | Capture path extracted into shared hook `useSessionCapture` |
-| `src/components/fightcamp/PostWorkoutMediaSheet.tsx` | Merge with PostComposer into a single **ReviewSheet** component (new) |
-| `src/components/fightcamp/SessionMediaPicker.tsx` | Unchanged — still used for retroactive media on existing sessions |
-| `src/components/community/PolaroidCard.tsx` | Add `developing` prop driving the 600 ms blur→sharp transition |
-| `src/components/community/PolaroidStack.tsx` | Unchanged — already supports fly-away (un-post) |
-| `convex/schema.ts` | Additive deltas (see §8) |
-| `convex/fight_camp.ts` | New `getSmartDefaults`, `repeatYesterday` |
-| `convex/gymFeed.ts` | `listFeed` adds visibility branch for `"partners"` |
-| `convex/feedSocial.ts` | New `unpostMedia` (15-min soft-delete) |
-| `src/pages/Dashboard.tsx` | "Today" widget hero image tile (new). `Index.tsx` is the auth-spinner/redirect page and is unchanged. |
+| `src/components/BottomNav.tsx` | FAB tap handler: fire `Camera.getPhoto` synchronously. Long-press: open existing QuickLogDialog. Small "..." inset affordance on the FAB for users who can't long-press. |
+| `src/components/nav/QuickLogDialog.tsx` | No behavior change — relegated to long-press surface. |
+| `src/components/community/ReviewSheet.tsx` *(new)* | The full-screen sheet rendered after shutter. Renders the polaroid (with `developing` prop), the three chips, the caption field, and the CTAs. |
+| `src/components/community/PolaroidCard.tsx` | Add `developing?: boolean` prop driving the 600 ms blur→sharp transition. |
+| `src/components/community/PolaroidStack.tsx` | No behavior change — receives the new polaroid via existing stack-add animation. |
+| `convex/schema.ts` | Add `source` to `fight_camp_calendar` (§5). |
+| `convex/fight_camp.ts` | New `getSmartDefaults` query. |
+| `src/lib/uploadSessionMediaV2.ts` | No change — already does what we need. |
 
-## 10. MVP — Phase 1 (≈ 2 weeks, cohesive ship)
+## 7. Reuse — what we get for free
 
-1. FAB rewire — tap = camera, long-press = legacy menu, tooltip on first launch
-2. `getSmartDefaults` Convex query
-3. Schema deltas in §8 (additive)
-4. **ReviewSheet** component (merge `PostComposer` capture + `PostWorkoutMediaSheet`)
-5. Developing-polaroid animation in `PolaroidCard`
-6. **"Repeat yesterday"** chip on ReviewSheet → `fight_camp.repeatYesterday` single mutation
-7. **"Log without photo"** stamp-only ghost link in camera UI
-8. Partner @-tag chip + co-ownership (`partnerUserIds` array, visibility branch in `gymFeed.listFeed`)
-9. Today-widget hero image on Dashboard
-10. Undo toast (6 s) + 15-min edit window + un-post via fly-away
-11. First-session empty-state magic (slow develop, coach toast, gym pre-seed)
-12. One-time tooltip on first BottomNav render post-update
+Because we reuse `fight_camp_calendar` + `session_media`, the polaroid automatically appears in:
 
-### Deferred to Phase 2+
+- The **gym feed** (`gymFeed.listFeed` already filters on `gymId` from the denormalized `session_media.gymId`).
+- The user's **profile polaroid grid** (`session_media.by_user_created`).
+- The **GymTracker history** (`SessionHistoryList`, `SessionHistoryCalendar` — they query `fight_camp_calendar`).
+- The **Training Calendar** day cells.
 
-- iOS Share Extension
-- Live Activity / lock-screen widget
-- Siri Shortcut / App Intents
+These are not new features; they are existing surfaces that consume the existing tables. Nothing to build to light them up.
+
+## 8. Anti-patterns — explicitly **not** building
+
+Cut from the earlier draft and explicitly out of scope for this slice:
+
+- Computer-vision session-type inference
+- AI Round-Card breakdown (Groq vision + analysis on the photo)
+- AI caption suggestions
+- AI training-insight ground-truthing on captions
 - Weekly recap reel cron
 - Throwback prompts cron
-- AI caption suggestions (Pro)
-- AI Round-Card breakdown (Pro)
+- Dashboard "Today" widget hero image tile
+- Partner @-tag co-ownership (chips, schema, visibility branch — all deferred)
+- CoreLocation geofencing for gym detection
+- Weather / sleep / bodyweight cross-reads at save time
+- `aiCaption`, `dominantColor` denormalization
+- `defaultSessionVisibility` sticky preference flip
+- 6-second Undo toast (not in v1 — use existing edit/delete from history)
+- 15-min edit window with fly-away un-post (use the existing post-edit flow)
+- Empty-state first-session animation, coach toast, gym pre-seed
+- Stamp-only "Repeat yesterday" chip
+- iOS Share Extension, Live Activity, Siri Shortcut, Apple Watch
+- Made-weight pre/post diptych
 - Fight-camp poster export
-- Made-weight pre/post diptych composer
-- Apple Watch complication
+- Cross-gym leaderboards, public global feed, video posts, comment threading
 
-## 11. Risks
+Most of these are reasonable Phase-2/3 ideas. None of them are in this spec.
 
-- **Discoverability:** users may not know "tap = camera, long-press = menu." Mitigated by one-time tooltip + the small "..." affordance on the FAB.
-- **CoreLocation permission:** geofenced gym detection requires permission; flow degrades gracefully to primary-gym default.
-- **`partnerUserIds` array index** may not scale beyond ~50 k posts/gym. Fallback: join table `session_media_partners`.
-- **"Default-on" posting** could feel intrusive for the privacy-fighter cohort (cutters, late-night solo work). Mitigated by the silent sticky-preference flip after two "Log only" picks in a row.
-- **Synchronous Capacitor camera invocation** must originate from the user-gesture handler. If we route through a sheet/dialog first, iOS revokes the gesture token. The FAB tap handler must fire `Camera.getPhoto` directly with no intermediate state-driven branch.
+## 9. MVP — Phase 1 (≈ 1 week, cohesive)
 
-## 12. Open questions
+1. Add `source` to `fight_camp_calendar` schema (§5)
+2. Implement `fight_camp.getSmartDefaults` Convex query (§3.4)
+3. Build `ReviewSheet` component (§3.3)
+4. Add `developing` prop + animation to `PolaroidCard` (§4)
+5. Rewire `BottomNav` FAB: tap = `Camera.getPhoto` synchronous; long-press = QuickLogDialog (§3.1)
+6. Add "Log without photo" ghost link in the camera overlay; route to ReviewSheet with no media (§3.2)
+7. Wire ReviewSheet "Log & post" → `fight_camp.create` + `uploadSessionMediaV2` (`visibility: "gym"`) → develop animation → stack landing (§3.5)
+8. Wire "Log only" → same but `visibility: "private"` and skip stack landing (§3.6)
+9. One-time tooltip on first BottomNav render post-update explaining tap vs long-press
 
-These do not block writing the implementation plan but should be decided during planning:
+Estimated scope: small, single-PR-able. No new tables, one new query, one new component, one prop added, one handler rewired.
 
-- Does the developing-polaroid animation run on the device (Lottie / CSS) or as a pre-rendered video? CSS preferred for size.
-- Is "Repeat yesterday" gated to "same gym today" or unconditional?
-- Should `partnerUserIds` co-ownership be **bilateral** (both must confirm) or **unilateral with decline** (tag lands, partner can dismiss)? Recommended: unilateral with decline — bilateral adds friction.
-- Does the AI Round-Card breakdown run on every post (cost) or on-demand when the user taps "Coach says…"? Recommended: on-demand.
+## 10. Risks
 
-## 13. North star
+- **Discoverability of long-press for power users:** mitigated by the one-time tooltip and the "..." affordance on the FAB.
+- **Synchronous Capacitor invocation:** the FAB tap handler must call `Camera.getPhoto` directly. No intermediate sheet, no `setState` round-trip, no `await` before the call. Otherwise iOS revokes the gesture token and the prompt fails.
+- **Defaults wrong often enough to feel dumb:** the three chips are tappable to override. If `getSmartDefaults` returns nothing useful (new user, no history), the chips fall back to "Strength · 60 min · Steady" — the same defaults the current QuickLog uses.
 
-> *One tap, one shutter, one breath later — the polaroid is on the wall and the gym already saw it.*
+## 11. Open questions (decide during the implementation plan, not blocking this spec)
+
+- Is the develop animation CSS / Framer Motion, or a small Lottie file? Default to CSS / Framer Motion for bundle size.
+- Where does the caption field live — under the chips, or as a single-line bar above the CTA? Default: under the chips, single-line, autocomplete off.
+- Does "Log without photo" still need a session-type chip override, or can it skip the ReviewSheet entirely and write straight to `fight_camp_calendar` with the smart defaults? Default: skip the sheet, write immediately, show a small toast "Session logged."
+
+## 12. North star
+
+> *Tap, snap, done. The polaroid develops. The gym already saw it.*
