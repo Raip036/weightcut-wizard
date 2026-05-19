@@ -31,6 +31,11 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
 
+// Welcome cutscene — animated wizard intro shown on first "Get Started"
+// tap before the auth screen. Lazy-loaded so it never bloats the
+// returning-user critical path.
+const WizardIntroCutscene = lazy(() => import("@/components/welcome/WizardIntroCutscene"));
+
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Goals = lazy(() => import("./pages/Goals"));
 const Nutrition = lazy(() => import("./pages/nutrition/NutritionPage"));
@@ -89,7 +94,7 @@ _idle(() => {
 
 const queryClient = new QueryClient();
 
-const SKIP_ROUTES = ['/', '/auth', '/onboarding', '/legal'];
+const SKIP_ROUTES = ['/', '/welcome', '/auth', '/onboarding', '/legal'];
 
 import { App as CapacitorApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
@@ -250,6 +255,11 @@ const App = () => (
               <RouteTracker />
               <Routes>
                 <Route path="/" element={<Index />} />
+                <Route path="/welcome" element={
+                  <Suspense fallback={<DashboardSkeleton />}>
+                    <WizardIntroCutscene />
+                  </Suspense>
+                } />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/coach/login" element={<Suspense fallback={<DashboardSkeleton />}><CoachLogin /></Suspense>} />
                 <Route path="/legal" element={<Suspense fallback={null}><Legal /></Suspense>} />

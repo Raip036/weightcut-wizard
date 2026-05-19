@@ -1,9 +1,11 @@
 import { useEffect } from "react";
 import { useMutation, useQuery } from "convex/react";
+import { X } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import {
   Sheet,
+  SheetClose,
   SheetContent,
   SheetHeader,
   SheetTitle,
@@ -41,11 +43,20 @@ export function ActivitySheet({
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
       <SheetContent
         side="right"
+        hideClose
         className="w-full sm:max-w-md p-0 flex flex-col"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
       >
         <SheetHeader className="px-5 pt-5 pb-3 border-b border-border/40">
-          <SheetTitle>Activity</SheetTitle>
+          <div className="flex flex-row items-center justify-between space-y-0">
+            <SheetTitle>Activity</SheetTitle>
+            <SheetClose
+              aria-label="Close"
+              className="-mr-2 inline-flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            >
+              <X className="h-5 w-5" />
+            </SheetClose>
+          </div>
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto px-1 pt-1 pb-8">

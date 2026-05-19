@@ -17,18 +17,19 @@ import "./index.css";
 // scroll on previously fixed-height layouts.
 //
 // We reinforce that mode imperatively at boot (defensive in case a future
-// plugin or runtime override flips it) and:
-//   - Disable WKWebView's built-in scroll-into-view jump on focus
-//     (`setScroll({ isDisabled: true })`). Combined with `resize: none`,
-//     this stops the page from twitching when an input is tapped.
-//   - Mirror the keyboard height into `--keyboard-inset` on `:root`, which
-//     `.keyboard-aware-bottom` (and any other consumer) can use as the
-//     bottom inset while the keyboard is visible. Capacitor exposes
-//     `env(keyboard-inset-height)` on newer iOS but the listener is the
-//     portable fallback for older versions.
+// plugin or runtime override flips it), and mirror the keyboard height into
+// `--keyboard-inset` on `:root` so `.keyboard-aware-bottom` (and any other
+// consumer) can reserve room while the keyboard is visible. Capacitor
+// exposes `env(keyboard-inset-height)` on newer iOS but the listener is
+// the portable fallback for older versions.
+//
+// DO NOT add `Keyboard.setScroll({ isDisabled: true })` here. That flag
+// disables WKWebView scrolling entirely (not just the focus jump), which
+// killed vertical scroll on every page of the app. The "scroll returns
+// when keyboard closes" twitch is already handled by `resize: "none"`
+// alone — there's nothing further to disable.
 if (Capacitor.isNativePlatform()) {
   Keyboard.setResizeMode({ mode: KeyboardResize.None }).catch(() => {});
-  Keyboard.setScroll({ isDisabled: true }).catch(() => {});
 
   Keyboard.addListener("keyboardWillShow", (info) => {
     document.documentElement.style.setProperty(

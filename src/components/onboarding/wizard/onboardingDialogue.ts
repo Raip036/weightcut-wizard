@@ -1,0 +1,247 @@
+import type { WizardPose } from "@/tutorial/types";
+
+export type DialogueLine = {
+  /** 1–4 words, displayed bold above the body. */
+  headline: string;
+  /** 1–2 short sentences, typewritten character-by-character. */
+  body: string;
+  /** Mascot pose. Defaults to "idle" when omitted. */
+  pose?: WizardPose;
+};
+
+/**
+ * Lookup keys, in precedence order:
+ *   1. `${branch}:${step}:${fightSubStep}`  — only for cutting step 3
+ *   2. `${branch}:${step}`
+ *   3. `default:${step}`                    — shared between branches
+ *   4. generic fallback
+ *
+ * Keep lines tight: ~110 chars body, dry coach voice, no emoji.
+ */
+const LINES: Record<string, DialogueLine> = {
+  // ── Step 1 — shared welcome, hero mode ─────────────────────────────
+  "default:1": {
+    headline: "Round one.",
+    body: "Making weight, or losing it? Pick your tribe and we go.",
+    pose: "wave",
+  },
+
+  // ── Cutting branch ─────────────────────────────────────────────────
+  // Step 2: athlete type (multi-select)
+  "cutting:2": {
+    headline: "Your sport.",
+    body: "Boxers cut different from grapplers. Tell me what you do.",
+  },
+
+  // Step 3 sub-steps
+  "cutting:3:0": {
+    headline: "Level up.",
+    body: "Amateur or pro changes the whole protocol. Don't sandbag.",
+  },
+  "cutting:3:1": {
+    headline: "Fight date.",
+    body: "This is the gravity well. Every meal and run orbits it.",
+  },
+  "cutting:3:2": {
+    headline: "Weight class.",
+    body: "Pick the line you have to cross. Usually lighter than the ego wants.",
+  },
+  "cutting:3:3": {
+    headline: "Walk-in weight.",
+    body: "Your pre-dehydration target — not the scale at weigh-in, the one before water cut.",
+  },
+  "cutting:3:4": {
+    headline: "Camp name.",
+    body: "Optional. But naming the camp makes it real.",
+  },
+  // Step 3 fallback (rare; if substep undefined)
+  "cutting:3": {
+    headline: "Fight details.",
+    body: "A few specifics about your bout. This shapes the cut.",
+  },
+
+  // Step 4: age
+  "cutting:4": {
+    headline: "How old.",
+    body: "Metabolism is a real number, not a vibe. We need it.",
+    pose: "point",
+  },
+
+  // Step 5: height
+  "cutting:5": {
+    headline: "Stand tall.",
+    body: "Height feeds your real burn rate. No rounding up.",
+    pose: "point",
+  },
+
+  // Step 6: current weight — slam follows, keep grounded
+  "cutting:6": {
+    headline: "Step on.",
+    body: "Honest number, please. This is the starting line.",
+    pose: "point",
+  },
+
+  // Step 7: body fat slider
+  "cutting:7": {
+    headline: "Eyeball it.",
+    body: "Rough body fat is fine — we calibrate as you log.",
+    pose: "point",
+  },
+
+  // Step 8: experience
+  "cutting:8": {
+    headline: "How long.",
+    body: "Beginners cut different from vets. Be straight with me.",
+  },
+
+  // Step 9: training frequency
+  "cutting:9": {
+    headline: "Sessions a week.",
+    body: "Pads, sparring, gym, runs — count all of them.",
+  },
+
+  // Step 10: training types
+  "cutting:10": {
+    headline: "The work.",
+    body: "Wrestling burns more than shadowbox. Surprising no one.",
+  },
+
+  // Step 11: sleep
+  "cutting:11": {
+    headline: "Sleep hours.",
+    body: "This is when fat actually leaves. Wild, I know.",
+  },
+
+  // Step 12: struggle
+  "cutting:12": {
+    headline: "Your demon.",
+    body: "Pick the one that wrecks camps. Naming it is half the fight.",
+  },
+
+  // Step 13: name
+  "cutting:13": {
+    headline: "Your name.",
+    body: "Your gym needs something to chant at the weigh-in.",
+  },
+
+  // Step 14: final
+  "cutting:14": {
+    headline: "Hold the line.",
+    body: "Sign your name, fighter. Then we build the plan.",
+    pose: "celebrate",
+  },
+
+  // ── Losing branch ──────────────────────────────────────────────────
+  // Step 2: weeks
+  "losing:2": {
+    headline: "How long.",
+    body: "How many weeks do you want? Be realistic, not heroic.",
+  },
+
+  // Step 3: current weight — slam follows, stay calm
+  "losing:3": {
+    headline: "Step on.",
+    body: "No judgment, just data. This is where we start.",
+    pose: "point",
+  },
+
+  // Step 4: goal weight
+  "losing:4": {
+    headline: "Goal weight.",
+    body: "The number you actually want to see. Not the dream one.",
+    pose: "point",
+  },
+
+  // Step 5: height
+  "losing:5": {
+    headline: "Stand tall.",
+    body: "Height feeds the math behind your daily burn.",
+    pose: "point",
+  },
+
+  // Step 6: body fat
+  "losing:6": {
+    headline: "Body fat.",
+    body: "Estimate is fine. Skip if you don't know — we'll calibrate.",
+    pose: "point",
+  },
+
+  // Step 7: experience
+  "losing:7": {
+    headline: "Experience.",
+    body: "Where are you on the curve? No judgment, just context.",
+  },
+
+  // Step 8: training frequency
+  "losing:8": {
+    headline: "Sessions a week.",
+    body: "All of them count. Walks, lifts, classes — say the number.",
+  },
+
+  // Step 9: training types
+  "losing:9": {
+    headline: "What it looks like.",
+    body: "Tell me what training actually means for you. Truth only.",
+  },
+
+  // Step 10: sleep
+  "losing:10": {
+    headline: "Sleep hours.",
+    body: "The OG performance enhancer. Skipping it taxes everything.",
+  },
+
+  // Step 11: struggle
+  "losing:11": {
+    headline: "Your demon.",
+    body: "Stress, energy, bingeing, plateau — pick the loudest one.",
+  },
+
+  // Step 12: plan aggressiveness
+  "losing:12": {
+    headline: "How hard.",
+    body: "Faster is not better. Faster is just faster, and usually shorter.",
+  },
+
+  // Step 13: name
+  "losing:13": {
+    headline: "Your name.",
+    body: "Your gym sees this when you post. Pick something you'll answer to.",
+  },
+
+  // Step 14: final
+  "losing:14": {
+    headline: "Lock it in.",
+    body: "Sign your name. Then we build the plan around it.",
+    pose: "celebrate",
+  },
+};
+
+const FALLBACK: DialogueLine = {
+  headline: "Onward.",
+  body: "Keep going.",
+};
+
+export function getLine(args: {
+  step: number;
+  branch: "cutting" | "losing";
+  fightSubStep?: number;
+}): DialogueLine {
+  const { step, branch, fightSubStep } = args;
+
+  // 1. Branch + step + substep (cutting:3 only, but harmless elsewhere)
+  if (typeof fightSubStep === "number") {
+    const subKey = `${branch}:${step}:${fightSubStep}`;
+    if (LINES[subKey]) return LINES[subKey];
+  }
+
+  // 2. Branch + step
+  const branchKey = `${branch}:${step}`;
+  if (LINES[branchKey]) return LINES[branchKey];
+
+  // 3. Shared default for this step
+  const defaultKey = `default:${step}`;
+  if (LINES[defaultKey]) return LINES[defaultKey];
+
+  // 4. Safe generic
+  return FALLBACK;
+}

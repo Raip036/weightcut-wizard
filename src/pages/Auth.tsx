@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/UserContext";
 import { routeAfterAuth } from "@/lib/roleRouter";
-import { mapAuthError } from "@/lib/authErrors";
+import { mapAuthError, isAppleCancelError } from "@/lib/authErrors";
 import wizardLogo from "@/assets/wizard-logo.webp";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ChevronLeft, Mail, Lock, Eye, EyeOff } from "lucide-react";
@@ -289,13 +289,10 @@ export default function Auth() {
         await signIn("apple", { redirectTo: `${window.location.origin}/dashboard` });
       }
     } catch (error: any) {
-      const msg = error?.message?.toLowerCase() || "";
-      if (msg.includes("cancel") || error?.code === "ERR_CANCELED" || error?.code === 1001) {
-        setLoading(false);
-        return;
-      }
-      if (msg.includes("not complete")) {
-        toast({ title: "Please try again", description: "Apple Sign-In was interrupted." });
+      // User backed out of the Apple sheet (or closed the web popup) — never
+      // toast for this. `isAppleCancelError` covers every form we've seen
+      // across Capacitor, Convex, and the web flow.
+      if (isAppleCancelError(error)) {
         setLoading(false);
         return;
       }

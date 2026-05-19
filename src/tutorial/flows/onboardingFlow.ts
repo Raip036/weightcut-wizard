@@ -71,6 +71,15 @@ export const onboardingFlow: TutorialFlow = {
       route: "/dashboard",
     },
     {
+      id: "card-states",
+      title: "Light them up",
+      description:
+        "Cards stay dim until you log that day. Weight, training, sleep, food, log it and the card lights up. Empty days look quiet on purpose.",
+      position: "center",
+      route: "/dashboard",
+      wizardPose: "point",
+    },
+    {
       id: "nutrition-page",
       title: "Food in, fight out",
       description:

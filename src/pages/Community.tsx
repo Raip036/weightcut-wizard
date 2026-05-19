@@ -23,7 +23,7 @@
  * The page is full-screen, dark, with `pt-[env(safe-area-inset-top)]`
  * so the gym header doesn't collide with the iOS notch / status bar.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import { Camera } from "lucide-react";
@@ -43,6 +43,7 @@ import { CommentsSheet } from "@/components/gym-feed/CommentsSheet";
 import { Button } from "@/components/ui/button";
 import { useFeedEngagement } from "@/hooks/useFeedEngagement";
 import { logger } from "@/lib/logger";
+import { useTutorial } from "@/tutorial/useTutorial";
 
 export default function Community() {
   const navigate = useNavigate();
@@ -87,32 +88,43 @@ export default function Community() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gymId]);
 
-  // mark-post-viewed mutation — fires when the user swipes a card away.
-  // Server-side idempotent; filters the post from future feed loads.
+  // mark-post-viewed mutation — fires AFTER the exit animation completes,
+  // not when the swipe commits. See pendingDismissalRef below.
   const markPostViewed = useMutation(api.feedSocial.markPostViewed);
+
+  // Track the post that's currently in the middle of its fly-away animation.
+  // `onSwipeCommit` records the id here; `handleAdvance` flushes it once the
+  // animation finishes. Deferring both `setDismissedIds` and `markPostViewed`
+  // until that point keeps `CommunityFeedSection` mounted through the full
+  // exit, which fixes the last-card case where dismissing the post
+  // synchronously would unmount the entire `PolaroidStack` before its exit
+  // animation could paint.
+  const pendingDismissalRef = useRef<Id<"session_media"> | null>(null);
 
   const handlePostSwiped = useCallback(
     (postId: Id<"session_media">) => {
-      setDismissedIds((prev) => {
-        if (prev.has(postId as string)) return prev;
-        const next = new Set(prev);
-        next.add(postId as string);
-        return next;
-      });
-      markPostViewed({ postId }).catch((err) => {
-        logger.warn("markPostViewed failed", { err: String(err) });
-      });
+      // Just record — actual dismiss + server mutation fire in handleAdvance.
+      pendingDismissalRef.current = postId;
     },
-    [markPostViewed],
+    [],
   );
 
-  // No-op advance: dismissal is handled in handlePostSwiped which fires
-  // before this. The stack still calls advance() inside its exit-cleanup
-  // timeout (it resets x/y motion values on its own), so we just satisfy
-  // the prop contract.
   const handleAdvance = useCallback(() => {
-    /* dismissal already handled in handlePostSwiped */
-  }, []);
+    const pending = pendingDismissalRef.current;
+    if (!pending) return;
+    pendingDismissalRef.current = null;
+
+    setDismissedIds((prev) => {
+      if (prev.has(pending as string)) return prev;
+      const next = new Set(prev);
+      next.add(pending as string);
+      return next;
+    });
+
+    markPostViewed({ postId: pending }).catch((err) => {
+      logger.warn("markPostViewed failed", { err: String(err) });
+    });
+  }, [markPostViewed]);
 
   // Engagement-seen mutation — clear the bottom-nav red dot once the
   // user has *opened* the tab. Idempotent server-side, so we don't
@@ -125,7 +137,9 @@ export default function Community() {
     });
     // Run once per session per gym — the mutation is cheap enough that
     // re-running on mount of a remount is fine.
-  }, [gymId, markEngagementSeen]);
+    // markEngagementSeen identity is unstable from Convex; we only want to fire on gymId change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gymId]);
 
   // Activity sheet state — mounted at page root, opened by the bell
   // in GymHeader. Sheet auto-fires markActivitySeen on open to clear
@@ -145,6 +159,17 @@ export default function Community() {
   );
   const closeComments = useCallback(() => setCommentsPostId(null), []);
 
+  // Stable callbacks for CommunityFeedSection — keeps the memoized
+  // child from re-rendering whenever the parent rebuilds inline arrows.
+  const handleOpenProfile = useCallback(
+    (uid: Id<"users">) => navigate(`/profile/${uid}`),
+    [navigate],
+  );
+  const handlePostClick = useCallback(
+    () => navigate("/training-calendar"),
+    [navigate],
+  );
+
   // ── State 1: no gym ─────────────────────────────────────────────────
   // The user-id-based skeleton from `useMyGyms` falls into this branch
   // too — but we keep them visually distinct via the `gymsLoading` flag
@@ -153,7 +178,14 @@ export default function Community() {
   // The navigate must run from an effect, not during render, otherwise
   // React fires "Cannot update a component while rendering a different
   // component" — and on iOS that warning is a noisy red-screen in dev.
-  const shouldRedirectToJoin = !gymsLoading && !primaryGym;
+  //
+  // EXCEPTION: when the tutorial is mid-flight we hold position. The
+  // onboarding tour steps the user through Community as one of its
+  // beats; bouncing them to /join here would interrupt the tour, drop
+  // them on a different route, and stop the tutorial state machine.
+  // We render an inline empty state instead.
+  const { isActive: isTutorialActive } = useTutorial();
+  const shouldRedirectToJoin = !gymsLoading && !primaryGym && !isTutorialActive;
   useEffect(() => {
     if (shouldRedirectToJoin) {
       navigate("/join", { replace: true });
@@ -186,7 +218,17 @@ export default function Community() {
 
         {/* Content area — branches on member-count threshold + load state. */}
         <main className="px-5 pb-32 pt-2">
-          {!gymId || gymsLoading ? (
+          {!primaryGym && !gymsLoading ? (
+            // Tutorial-only: user has no gym but we held them on this
+            // route so the tour can keep narrating. Show the same
+            // EmptyFeed used elsewhere — "Bring a teammate" deep-links
+            // to /my-gym so the user has an obvious next step once
+            // the tour finishes.
+            <EmptyFeed
+              onInviteClick={() => navigate("/my-gym")}
+              onLogSessionClick={() => navigate("/training-calendar")}
+            />
+          ) : !gymId || gymsLoading ? (
             <div className="mt-8">
               <StackSkeleton />
             </div>
@@ -220,10 +262,10 @@ export default function Community() {
                 /* unused — dismissedIds drives the head */
               }}
               advance={handleAdvance}
-              onOpenProfile={(uid) => navigate(`/profile/${uid}`)}
+              onOpenProfile={handleOpenProfile}
               onOpenComments={openComments}
               onPostSwiped={handlePostSwiped}
-              onPostClick={() => navigate("/training-calendar")}
+              onPostClick={handlePostClick}
             />
           )}
         </main>
@@ -304,7 +346,7 @@ interface CommunityFeedSectionProps {
   onPostClick: () => void;
 }
 
-function CommunityFeedSection({
+const CommunityFeedSection = React.memo(function CommunityFeedSection({
   posts,
   status,
   loadMore,
@@ -318,19 +360,36 @@ function CommunityFeedSection({
 }: CommunityFeedSectionProps) {
   const topPost = posts[topIndex];
 
+  // Stabilize the server snapshot passed into useFeedEngagement so the
+  // hook's sync effects don't fire on every parent render — they should
+  // only fire when one of the three values actually changes.
+  const server = useMemo(
+    () =>
+      topPost
+        ? {
+            viewerLiked: topPost.viewerLiked,
+            likeCount: topPost.likeCount,
+            commentCount: topPost.commentCount,
+          }
+        : { viewerLiked: false, likeCount: 0, commentCount: 0 },
+    [topPost?.viewerLiked, topPost?.likeCount, topPost?.commentCount],
+  );
+
   // One engagement hook lives at this level so the double-tap on the
   // polaroid stack and the heart on the info-card mutate the SAME
   // optimistic state. Without this lift, the two surfaces would each
   // have their own optimistic mirror and could drift apart mid-tap.
   const topEngagement = useFeedEngagement(
     topPost ? topPost.id : ("placeholder" as unknown as Id<"session_media">),
-    topPost
-      ? {
-          viewerLiked: topPost.viewerLiked,
-          likeCount: topPost.likeCount,
-          commentCount: topPost.commentCount,
-        }
-      : { viewerLiked: false, likeCount: 0, commentCount: 0 },
+    server,
+  );
+
+  // Stable wrapper for PolaroidStack's onDoubleTapLike. `doubleTapLike`
+  // is wrapped in useCallback inside the hook; its identity only shifts
+  // when `liked` flips, so this stays stable across the bulk of renders.
+  const handleDoubleTapLike = useCallback(
+    () => topEngagement.doubleTapLike(),
+    [topEngagement.doubleTapLike],
   );
 
   return (
@@ -344,7 +403,7 @@ function CommunityFeedSection({
           advance={advance}
           onIndexChange={onTopIndexChange}
           onOpenProfile={onOpenProfile}
-          onDoubleTapLike={() => topEngagement.doubleTapLike()}
+          onDoubleTapLike={handleDoubleTapLike}
           onSwipeCommit={onPostSwiped}
           onPostClick={onPostClick}
         />
@@ -360,4 +419,4 @@ function CommunityFeedSection({
       )}
     </div>
   );
-}
+});

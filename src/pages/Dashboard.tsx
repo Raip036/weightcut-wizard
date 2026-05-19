@@ -4,10 +4,9 @@ import { useAction, useConvex, useMutation, useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import { FEATURE_FLAGS } from "@/lib/featureFlags";
 import { FightFormRing } from "@/components/dashboard/FightFormRing";
-import { FightFormStatChips } from "@/components/dashboard/FightFormStatChips";
 import { FightFormInsightStrip } from "@/components/dashboard/FightFormInsightStrip";
 import { FightFormDeltaBanner } from "@/components/dashboard/FightFormDeltaBanner";
-import { TodayPanel } from "@/components/dashboard/TodayPanel";
+import TodayStrip from "@/components/dashboard/TodayStrip";
 import { FightFormScoreSheet } from "@/components/dashboard/FightFormScoreSheet";
 // Lazy-load recharts wrapper so the ~100KB charts bundle defers until first paint.
 const DashboardWeightChart = lazy(() => import("@/components/charts/DashboardWeightChart"));
@@ -15,7 +14,6 @@ import { TrendingDown, Calendar, Lock, ChevronRight, Flame, Zap, CheckCircle2, S
 import { TrainingWeekWidget, preloadTrainingWeek } from "@/components/dashboard/TrainingWeekWidget";
 import { WeightProgressRing } from "@/components/dashboard/WeightProgressRing";
 import { StreakBadge } from "@/components/dashboard/StreakBadge";
-import { ConsistencyRing } from "@/components/dashboard/ConsistencyRing";
 import { MilestoneBadges } from "@/components/dashboard/MilestoneBadges";
 import { useGamification } from "@/hooks/useGamification";
 import { useUser } from "@/contexts/UserContext";
@@ -129,7 +127,7 @@ export default function Dashboard() {
   const recomputeFiredRef = useRef(false);
   const navigate = useNavigate();
   const { safeAsync, isMounted } = useSafeAsync();
-  const { streak, streakIncludesToday, weeklyConsistency, badges, badgesLoading, allAchievements } = useGamification(userId, weightLogs, todayCalories, profile);
+  const { streak, streakIncludesToday, badges, badgesLoading, allAchievements } = useGamification(userId, weightLogs, todayCalories, profile);
 
   const lastFetchRef = useRef(0);
 
@@ -829,21 +827,26 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Stat chips */}
-          <FightFormStatChips
-            weight={weightChip}
-            trend={ffTrend ?? null}
-            latestScore={ffScore.state === "ok" ? ffScore.displayedScore : null}
-            latestLabel={ffScore.state === "ok" ? ffScore.label : null}
-          />
+          {/* Inline weight summary — collapsed from FightFormStatChips. */}
+          {chartData.length === 0 ? (
+            <p className="text-[13px] text-muted-foreground px-1">
+              Log a weight to start tracking
+            </p>
+          ) : weightChip ? (
+            <p className="text-[13px] text-muted-foreground px-1 tabular-nums">
+              {weightChip.current.toFixed(1)} → {weightChip.goal.toFixed(1)} kg · {Math.round(weightChip.pctComplete * 100)}%
+              {(() => {
+                const okPts = (ffTrend ?? []).filter((p) => p.state === "ok");
+                if (okPts.length < 2) return null;
+                const first = okPts[0].score;
+                const last = okPts[okPts.length - 1].score;
+                const arrow = last > first ? "↗" : last < first ? "↘" : "→";
+                return <> · 14-day trend {arrow}</>;
+              })()}
+            </p>
+          ) : null}
 
-          {/* Today panel */}
-          <TodayPanel adherence={adherence} nextWorkout={null} />
-
-          {/* Below the fold — re-used legacy sections in the same order */}
-          <div>
-            <ConsistencyRing {...weeklyConsistency} />
-          </div>
+          <TodayStrip adherence={adherence} mealsLoggedToday={todayCalories > 0} />
 
           <div className="grid grid-cols-2 gap-2">
             <div className="card-surface rounded-2xl border border-border p-2.5 aspect-square flex flex-col">
@@ -906,6 +909,7 @@ export default function Dashboard() {
           topDriver={ffScore.topDriver}
           topLimiter={ffScore.topLimiter}
           appliedCeiling={ffScore.appliedCeiling}
+          trend={ffTrend ?? null}
         />
 
         <AchievementSheet
@@ -1034,11 +1038,6 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-        </div>
-
-        {/* Weekly Consistency Ring */}
-        <div>
-          <ConsistencyRing {...weeklyConsistency} />
         </div>
 
         {/* Weight History + Training — side by side */}

@@ -325,11 +325,15 @@ export const updateCurrentWeight = mutation({
 export const setUserName = mutation({
   args: { displayName: v.string() },
   handler: async (ctx, { displayName }) => {
+    const trimmed = displayName.trim();
+    if (trimmed.length < 2 || trimmed.length > 30) {
+      throw new Error("Display name must be 2–30 characters.");
+    }
     const userId = await requireUserId(ctx);
     const existing = await findByUser(ctx, userId);
     if (!existing) throw new Error("Profile not found");
     await ctx.db.patch(existing._id, {
-      displayName,
+      displayName: trimmed,
       updatedAt: Date.now(),
     });
   },

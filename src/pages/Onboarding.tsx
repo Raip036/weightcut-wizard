@@ -24,6 +24,7 @@ import { Capacitor } from "@capacitor/core";
 import { AnimatePresence, motion } from "motion/react";
 import { springs } from "@/lib/motion";
 import { XPProgressBar, DaysToFightSlam, WeightLossSlam, LossFrameCard, DeclarationButton, TaleOfTheTapeCard, WeeklyMilestonesScrubber, BlurredWeekOnePreview, MathWhisper, WittyValidation, sportVocab } from "@/components/onboarding/Gamification";
+import { OnboardingWizardMascot } from "@/components/onboarding/wizard/OnboardingWizardMascot";
 
 const ACTIVITY_MULTIPLIERS: Record<string, number> = {
   sedentary: 1.2,
@@ -33,11 +34,19 @@ const ACTIVITY_MULTIPLIERS: Record<string, number> = {
   extra_active: 1.9,
 };
 
-// Mirrors the real outer step ceiling (`step` clamps to 13 in `goNext`
-// and `isLast{Cutting,Losing}` both gate on `step === 13`). Displayed
+// Mirrors the real outer step ceiling (`step` clamps to 14 in `goNext`
+// and `isLast{Cutting,Losing}` both gate on `step === 14`). Displayed
 // as "Round X of TOTAL_STEPS" — keep this in sync with the actual flow
-// length so the user doesn't see "Round 13 of 15" on the finale.
-const TOTAL_STEPS = 13;
+// length so the user doesn't see "Round 14 of 15" on the finale.
+const TOTAL_STEPS = 14;
+
+// ── Display-name validation ──
+// Trimmed length must be 2–30 characters. Used by the step-13 name screen
+// to gate the Continue button and the Enter-key advance.
+function isNameValid(name: string): boolean {
+  const t = name.trim();
+  return t.length >= 2 && t.length <= 30;
+}
 
 // ── Selectable card ──
 function OptionCard({ selected, icon, label, description, onClick }: {
@@ -271,7 +280,7 @@ export default function Onboarding() {
   // on completion so the user lands on the page they started from.
   const [searchParams] = useSearchParams();
   const isRestartingCamp = searchParams.get("startCamp") === "1";
-  const { refreshProfile } = useProfile();
+  const { refreshProfile, setUserName } = useProfile();
   const { hasProfile, isLoading: authLoading, isCoach } = useAuth();
   const { userId, userName } = useUser();
   const { toast } = useToast();
@@ -305,6 +314,10 @@ export default function Onboarding() {
     // when the camp row is created so the list page never shows an empty
     // string. Captured on its own sub-step inside the fighter setup.
     camp_name: "",
+    // Step 13 — user-facing display name. Saved via UserContext.setUserName
+    // (which writes the Convex `profiles.setUserName` mutation) so the gym
+    // sees a real name from day one rather than the email-derived default.
+    display_name: "",
     // Screen 4
     height_cm: "",
     // Screen 5
@@ -425,17 +438,17 @@ export default function Onboarding() {
       return;
     }
 
-    // End-of-flow: cutting ends at step 13 (preview chart + generate);
-    // losing ends at step 13 (plan_aggressiveness). Submit instead of advancing.
-    const isLastCutting = isFighterFlow && step === 13;
-    const isLastLosing = !isFighterFlow && step === 13;
+    // End-of-flow: cutting ends at step 14 (preview chart + generate);
+    // losing ends at step 14 (plan_aggressiveness). Submit instead of advancing.
+    const isLastCutting = isFighterFlow && step === 14;
+    const isLastLosing = !isFighterFlow && step === 14;
     if (isLastCutting || isLastLosing) {
       submitRef.current();
       return;
     }
     setDirection(1);
     setStep(prev => {
-      const next = Math.min(prev + 1, 13);
+      const next = Math.min(prev + 1, 14);
       // Entering step 3 cutting from step 2 — start at first sub-page
       if (isFighterFlow && next === 3) {
         setFightSubStep(0);
@@ -473,7 +486,7 @@ export default function Onboarding() {
     if (pendingWeightAdvance) {
       setPendingWeightAdvance(false);
       setDirection(1);
-      setStep(prev => Math.min(prev + 1, 13));
+      setStep(prev => Math.min(prev + 1, 14));
     }
   }, [pendingWeightAdvance]);
 
@@ -503,6 +516,18 @@ export default function Onboarding() {
     setFormData(prev => ({ ...prev, [field]: value }));
     triggerHapticSelection();
   }, []);
+
+  // Step 13 — Display-name Continue. Trims the input, validates length,
+  // optimistically commits the trimmed value to local state, fires the
+  // UserContext setter (which writes to Convex + caches locally and logs on
+  // failure itself, so this stays fire-and-forget), then advances.
+  const handleNameContinue = useCallback(() => {
+    const trimmed = formData.display_name.trim();
+    if (!isNameValid(trimmed)) return;
+    setFormData(prev => ({ ...prev, display_name: trimmed }));
+    setUserName(trimmed);
+    goNext();
+  }, [formData.display_name, setUserName, goNext]);
 
   const toggleMulti = useCallback((field: "training_types" | "athlete_types", value: string) => {
     triggerHapticSelection();
@@ -608,7 +633,7 @@ export default function Onboarding() {
     let label: string | null = null;
     if (step === 4) label = "Goal Locked";
     else if (step === 8) label = "Discipline Declared";
-    else if (step === 13) label = "Camp Sealed";
+    else if (step === 14) label = "Camp Sealed";
     if (!label) return;
     setAchievementLabel(label);
     triggerHaptic(ImpactStyle.Medium);
@@ -1042,7 +1067,7 @@ export default function Onboarding() {
             <div className="h-7 w-7" />
           )}
         </div>
-        <XPProgressBar step={step} totalSteps={13} />
+        <XPProgressBar step={step} totalSteps={14} />
       </div>
 
       <AnimatePresence mode="wait" initial={false}>
@@ -1870,9 +1895,58 @@ export default function Onboarding() {
           </StepLayout>
         )}
 
-        {/* ── Screen 13: Aggressiveness (losing flow only) ── */}
-        {step === 13 && formData.goal_type === "losing" && !declared && (
-          <StepLayout step={13} title={`${vocab.campNoun} — last call.`} subtitle="One commitment, then we build the plan.">
+        {/* ── Screen 13: Display name ──
+            Captures the public-facing name the gym sees. Trimmed length
+            2–30. Persists via UserContext.setUserName (Convex
+            `profiles.setUserName` mutation) so the dashboard, coach view,
+            and camp roster all see a real name from day one. Skipping is
+            blocked (Continue disabled until valid). */}
+        {step === 13 && (
+          <StepLayout
+            step={13}
+            title="What should we call you?"
+            subtitle="Your gym sees this name. Real name, nickname, fight name — your call."
+            footer={
+              <Button
+                onClick={handleNameContinue}
+                disabled={!isNameValid(formData.display_name)}
+                className="no-tap-select w-full h-12 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50"
+              >
+                Continue
+              </Button>
+            }
+          >
+            <div className="space-y-3">
+              <input
+                type="text"
+                value={formData.display_name}
+                onChange={(e) =>
+                  setFormData(prev => ({ ...prev, display_name: e.target.value }))
+                }
+                maxLength={30}
+                placeholder="Your name"
+                autoFocus
+                autoCapitalize="words"
+                autoComplete="name"
+                enterKeyHint="next"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && isNameValid(formData.display_name)) {
+                    e.preventDefault();
+                    handleNameContinue();
+                  }
+                }}
+                className="w-full h-14 rounded-2xl border border-border/50 bg-card px-4 text-[17px] font-medium focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+              <p className="text-[11px] text-muted-foreground text-right tabular-nums">
+                {formData.display_name.trim().length}/30
+              </p>
+            </div>
+          </StepLayout>
+        )}
+
+        {/* ── Screen 14: Aggressiveness (losing flow only) ── */}
+        {step === 14 && formData.goal_type === "losing" && !declared && (
+          <StepLayout step={14} title={`${vocab.campNoun} — last call.`} subtitle="One commitment, then we build the plan.">
             <div className="space-y-4 px-1 pt-4">
               <h2 className="text-[28px] font-black leading-tight text-center">{userName ? userName + ", " : ""}lock it in.</h2>
               <p className="text-[14px] text-center text-muted-foreground">
@@ -1883,8 +1957,8 @@ export default function Onboarding() {
             </div>
           </StepLayout>
         )}
-        {step === 13 && formData.goal_type === "losing" && declared && (
-          <StepLayout step={13} title="Here's your plan." subtitle="Review the snapshot, then tap Generate to lock it in."
+        {step === 14 && formData.goal_type === "losing" && declared && (
+          <StepLayout step={14} title="Here's your plan." subtitle="Review the snapshot, then tap Generate to lock it in."
             footer={
               generatedPlan ? null : generatingPlan ? (
                 <div className="w-full flex justify-center">
@@ -1982,8 +2056,8 @@ export default function Onboarding() {
           </StepLayout>
         )}
 
-        {/* ── Screen 13: Cut Preview (cutting flow only) — projected weight chart ── */}
-        {step === 13 && formData.goal_type === "cutting" && (() => {
+        {/* ── Screen 14: Cut Preview (cutting flow only) — projected weight chart ── */}
+        {step === 14 && formData.goal_type === "cutting" && (() => {
           const currentWeight = parseFloat(formData.current_weight_kg) || 0;
           const fightWeekTarget = parseFloat(formData.fight_week_target_kg) || 0;
           const fightWeight = parseFloat(formData.goal_weight_kg) || 0;
@@ -2076,7 +2150,7 @@ export default function Onboarding() {
           // the existing final-step content remains intact.
           if (!declared) {
             return (
-              <StepLayout step={13} title={`${vocab.campNoun} — last call.`} subtitle="One commitment, then we build the plan.">
+              <StepLayout step={14} title={`${vocab.campNoun} — last call.`} subtitle="One commitment, then we build the plan.">
                 <div className="space-y-4 px-1 pt-4">
                   <h2 className="text-[28px] font-black leading-tight text-center">{userName ? userName + ", " : ""}lock it in.</h2>
                   <p className="text-[14px] text-center text-muted-foreground">
@@ -2090,7 +2164,7 @@ export default function Onboarding() {
           }
 
           return (
-            <StepLayout step={13} title={`Your projected ${vocab.campNoun.toLowerCase()}`} subtitle="Review before we generate your plan."
+            <StepLayout step={14} title={`Your projected ${vocab.campNoun.toLowerCase()}`} subtitle="Review before we generate your plan."
               footer={
                 generatedPlan ? null : generatingPlan ? (
                   <div className="w-full flex justify-center">
@@ -2223,6 +2297,12 @@ export default function Onboarding() {
           above). The standalone floating toast was removed so the two
           surfaces don't compete for the eye. */}
 
+      <OnboardingWizardMascot
+        step={step}
+        branch={isFighterFlow ? "cutting" : "losing"}
+        fightSubStep={fightSubStep}
+        hidden={daysSlamArmed || weightSlamArmed}
+      />
     </div>
   );
 }

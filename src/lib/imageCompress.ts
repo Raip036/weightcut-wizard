@@ -48,6 +48,13 @@ export interface CompressOptions {
   quality?: number;
   /** Output MIME. Defaults to `image/jpeg`. */
   mime?: "image/jpeg" | "image/webp";
+  /**
+   * When true, flip the image horizontally before encoding. Used to undo
+   * iOS's "Mirror Front Camera" baked-in mirror so selfies post as the
+   * user appears in real life (text readable, not reversed). Defaults to
+   * false; callers opt in.
+   */
+  flipHorizontal?: boolean;
 }
 
 type AnyCanvas = OffscreenCanvas | HTMLCanvasElement;
@@ -202,6 +209,7 @@ export async function compressImage(
   const maxWidth = opts.maxWidth ?? COMPRESS_DEFAULTS.maxWidth;
   const quality = opts.quality ?? COMPRESS_DEFAULTS.quality;
   const mime = opts.mime ?? COMPRESS_DEFAULTS.mime;
+  const flipHorizontal = opts.flipHorizontal ?? false;
 
   const blob = typeof input === "string" ? base64ToBlob(input, "image/jpeg") : input;
   const img = await loadImage(blob);
@@ -217,6 +225,10 @@ export async function compressImage(
   // and we're outputting to JPEG (which would render the alpha as black).
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, w, h);
+  if (flipHorizontal) {
+    ctx.translate(w, 0);
+    ctx.scale(-1, 1);
+  }
   ctx.drawImage(img, 0, 0, w, h);
 
   return await canvasToBlob(canvas, mime, quality);
@@ -264,7 +276,11 @@ export async function generateThumb256(blob: Blob): Promise<Blob> {
  * `filter: blur(8px)` which needs a few extra pixels of source detail to
  * avoid the flat-grey "I have no idea what's here" look.
  */
-export async function generateThumbDataUrl(blob: Blob): Promise<string> {
+export async function generateThumbDataUrl(
+  blob: Blob,
+  opts: { flipHorizontal?: boolean } = {},
+): Promise<string> {
+  const flipHorizontal = opts.flipHorizontal ?? false;
   const img = await loadImage(blob);
   const { sx, sy, size } = centerSquareCrop(img.naturalWidth, img.naturalHeight);
 
@@ -272,6 +288,10 @@ export async function generateThumbDataUrl(blob: Blob): Promise<string> {
   const ctx = get2dCtx(out);
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, THUMB_LQIP_SIZE, THUMB_LQIP_SIZE);
+  if (flipHorizontal) {
+    ctx.translate(THUMB_LQIP_SIZE, 0);
+    ctx.scale(-1, 1);
+  }
   ctx.drawImage(
     img,
     sx,

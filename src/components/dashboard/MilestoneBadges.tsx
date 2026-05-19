@@ -33,6 +33,7 @@ const SCROLL_TRACK_CLASS =
   "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
 export const MilestoneBadges = memo(function MilestoneBadges({ badges, loading, onTap }: MilestoneBadgesProps) {
+  if (!loading && badges.length === 0) return null;
   if (loading) {
     return (
       <div>

@@ -57,9 +57,15 @@ export function useFeedEngagement(
   const [commentCount, setCommentCount] = useState(server.commentCount);
   const [burstKey, setBurstKey] = useState(0);
 
-  useEffect(() => { setLiked(server.viewerLiked); }, [server.viewerLiked]);
-  useEffect(() => { setLikeCount(server.likeCount); }, [server.likeCount]);
-  useEffect(() => { setCommentCount(server.commentCount); }, [server.commentCount]);
+  // Single sync effect — collapses three separate re-renders into one
+  // when the upstream server snapshot changes. Caller is expected to
+  // memoize the `server` object so this fires only on actual value
+  // changes, not on every parent render.
+  useEffect(() => {
+    setLiked(server.viewerLiked);
+    setLikeCount(server.likeCount);
+    setCommentCount(server.commentCount);
+  }, [server.viewerLiked, server.likeCount, server.commentCount]);
 
   const toggleLike = useCallback(() => {
     // Capture pre-tap state so we can roll back.

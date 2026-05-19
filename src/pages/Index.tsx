@@ -64,7 +64,7 @@ function LegendRow({ color, label, price }: { color: string; label: string; pric
 
 const Index = () => {
   const navigate = useNavigate();
-  const { userId, hasProfile, isLoading, isCoach } = useAuth();
+  const { userId, hasProfile, isLoading, isCoach, isSessionValid } = useAuth();
   const prefersReducedMotion = useReducedMotion();
 
   // Hold the splash for a brief window even when auth has "settled" to
@@ -123,7 +123,13 @@ const Index = () => {
     [navigate],
   );
 
-  if (isLoading || userId || !bootGraceExpired) {
+  // Guard against the bar-chart flashing in the gap between Convex auth
+  // resolving (`isSessionValid` → true) and the profile query landing.
+  // During that window `userId` is internally "pending" (exposed as null)
+  // and `isLoading` is already false, so without `isSessionValid` here a
+  // returning user would briefly see the landing page after the 1200ms
+  // boot grace before the navigation effect kicks in.
+  if (isLoading || isSessionValid || userId || !bootGraceExpired) {
     return <WizardLoader />;
   }
 
@@ -274,7 +280,12 @@ const Index = () => {
         {/* CTA stack */}
         <div className="w-full space-y-2.5 pb-2">
           <button
-            onClick={() => navigateWithTransition("/auth?mode=signup")}
+            // First-time "Get Started" routes through the animated wizard
+            // intro cutscene at /welcome. The cutscene's own CTAs forward
+            // to /auth?mode=signup, so the existing sign-up contract is
+            // preserved. "I already have an account" still bypasses the
+            // cutscene and goes straight to /auth below.
+            onClick={() => navigateWithTransition("/welcome")}
             disabled={exiting}
             className="no-tap-select w-full h-[54px] rounded-2xl bg-primary text-primary-foreground font-bold text-[16px] flex items-center justify-center gap-2 active:scale-[0.97] transition-transform disabled:opacity-70 shadow-lg shadow-primary/20"
           >

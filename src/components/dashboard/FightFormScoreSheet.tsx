@@ -4,9 +4,11 @@ import { Progress } from "@/components/ui/progress";
 import { ShareButton } from "@/components/share/ShareButton";
 import { ShareCardDialog } from "@/components/share/ShareCardDialog";
 import { FightFormScoreCard } from "@/components/share/cards/FightFormScoreCard";
-import type { FightFormLabel, ScoringPhase, SubScoreKey, SubScore as SubScoreType } from "@/scoring/types";
+import { FightFormTrendSparkline } from "./FightFormTrendSparkline";
+import type { FightFormLabel, FightFormState, ScoringPhase, SubScoreKey, SubScore as SubScoreType } from "@/scoring/types";
 
 type SubScore = { value: number; weight: number; reason: string };
+export type FightFormTrendPoint = { date: string; score: number; state: FightFormState };
 
 type Props = {
   open: boolean;
@@ -20,6 +22,14 @@ type Props = {
   topDriver: string | null;
   topLimiter: string | null;
   appliedCeiling: { ruleId: string; cap: number } | null;
+  trend?: FightFormTrendPoint[] | null;
+};
+
+const LABEL_ACCENT: Record<string, { stroke: string; fill: string }> = {
+  sharp: { stroke: "stroke-emerald-400", fill: "fill-emerald-400" },
+  sharpening: { stroke: "stroke-amber-400", fill: "fill-amber-400" },
+  off_pace: { stroke: "stroke-orange-400", fill: "fill-orange-400" },
+  at_risk: { stroke: "stroke-rose-400", fill: "fill-rose-400" },
 };
 
 const SUBSCORE_LABEL: Record<string, string> = {
@@ -160,6 +170,21 @@ export function FightFormScoreSheet(p: Props) {
                   </div>
                 );
               })}
+          </div>
+        )}
+
+        {p.trend && p.trend.length > 0 && (
+          <div className="mt-6 space-y-2">
+            <div className="section-header">14-day trend</div>
+            <div className="h-12">
+              <FightFormTrendSparkline
+                points={p.trend}
+                accentClass={(() => {
+                  const accent = LABEL_ACCENT[p.label];
+                  return accent ? `${accent.stroke} ${accent.fill}` : undefined;
+                })()}
+              />
+            </div>
           </div>
         )}
 

@@ -1,22 +1,19 @@
 /**
  * PolaroidStack — the centerpiece of the Corner tab.
  *
- * Renders exactly the top 3 cards from `posts.slice(topIndex)` and
- * binds drag / tap / double-tap / long-press to the topmost one. The
- * stack physics + gesture thresholds are spec-locked:
- *
- *   - Card stack: top {scale 1, opacity 1, rot from hash}, second
- *     {scale 0.96, opacity 0.7, y+10}, third {scale 0.92, opacity 0.4,
- *     y+20}. Rotations are deterministic per-card via a tiny string
- *     hash so the deck looks intentional, not random.
- *   - Springs: damping 18, stiffness 220, mass 0.9 (resting position).
- *     Snap-back on insufficient flick: damping 30 (firmer).
- *   - Flick trigger: |offset.x| > 120px OR |velocity.x| > 600. Below
- *     that, snap back to centre.
- *   - Exit animation: x → dir * vw * 1.4, rotate ±30°, opacity 0, 350ms.
- *   - Tap-to-flick: random direction ±vw*1.4, same physics. Single
- *     tap on a card → flick; double-tap → glove burst (like, card
- *     stays).
+ * Tinder-style swipe deck (spec 2026-05-19-polaroid-tinder-swipe-design):
+ *   - Top card is drag-bound on the X axis. A horizontal commit (offset
+ *     past 32% of viewport OR velocity > 600px/s) sends the card flying
+ *     in the throw direction; under-threshold releases snap back to 0.
+ *   - The second card (position 1) scales/rises live-bound to the top
+ *     card's drag offset via a shared `dragX` MotionValue → derived
+ *     `dragMagnitude` (0..1). Position 2 stays at static offsets.
+ *   - Tap (single OR double) = like. The previous random-direction
+ *     fly-away on single tap has been removed.
+ *   - End-of-feed: when fewer than 3 real posts remain we slot an
+ *     `EndOfFeedCard` sentinel into the deck so the scale-up reveal works
+ *     even at the last real post. When the top is the sentinel itself,
+ *     swipes always snap back regardless of threshold.
  *
  * Why we DON'T use AnimatePresence keyed on `topIndex`:
  *   AnimatePresence's "exit" treatment would also try to animate the
@@ -30,18 +27,23 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { animate, motion, useMotionValue, useTransform, useDragControls, useReducedMotion, type PanInfo } from "motion/react";
 import { triggerHaptic } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
-import { useDoubleTap } from "@/hooks/useDoubleTap";
 import { PolaroidCard } from "./PolaroidCard";
+import { EndOfFeedCard } from "./EndOfFeedCard";
 import { EmptyStackState } from "./EmptyStackState";
 import type { FeedPost, FeedStatus } from "@/hooks/community/useGymFeed";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 const STACK_DEPTH = 3;
-const FLICK_OFFSET_PX = 120;
-const FLICK_VELOCITY = 600;
 const EXIT_DURATION_MS = 280;
 const REDUCED_EXIT_DURATION_MS = 110;
 const PREFETCH_TRIGGER = 5; // load more when within N cards of end
+
+// Tinder-style commit thresholds — mirror src/components/training/TinderMediaSwiper.tsx.
+const COMMIT_RATIO = 0.32; // |offset.x| / viewportWidth threshold
+const COMMIT_VELOCITY = 600; // px/s
+const EXIT_DISTANCE_MULT = 1.5; // multiplier of vw for the off-screen target
+const EXIT_TILT_DEG = 14; // degrees, signed by direction
+const DRAG_ELASTIC = 0.18;
 
 // iOS-pop-tier spring for the fling exit. Tuned for snappy start with
 // a smooth follow-through rather than a hard mechanical snap.
@@ -50,6 +52,12 @@ const EXIT_SPRING = { type: "spring", stiffness: 420, damping: 34, mass: 0.8 } a
 const SNAPBACK_SPRING = { type: "spring", stiffness: 520, damping: 30, mass: 0.7 } as const;
 // Softer spring for the card behind rising to top position.
 const SETTLE_SPRING = { type: "spring", stiffness: 220, damping: 28, mass: 1 } as const;
+
+// Sentinel for the end-of-feed slot. Using a unique symbol so the
+// type system can discriminate `Post | typeof END_OF_FEED` without
+// any chance of a string-id collision.
+const END_OF_FEED: unique symbol = Symbol("end-of-feed");
+type StackItem = FeedPost | typeof END_OF_FEED;
 
 interface PolaroidStackProps {
   posts: FeedPost[];
@@ -93,14 +101,17 @@ export function PolaroidStack({
   onSwipeCommit,
 }: PolaroidStackProps) {
   const prefersReducedMotion = useReducedMotion();
-  // Motion primitives for the top card. We instantiate them HERE rather
-  // than reach into `usePolaroidStack` so the hook stays decoupled from
-  // the stack's render tree (testable in isolation, can drive multiple
-  // stacks later if needed).
+  // Motion primitives for the top card. `dragX` is the source of truth
+  // for the gesture — motion mutates it during drag, and we drive both
+  // the exit animation and the second card's scale-up from the same
+  // value. `dragMagnitude` is a 0..1 derivation passed to position 1.
   const dragControls = useDragControls();
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const rotate = useTransform(x, [-200, 0, 200], [-18, 0, 18]);
+  const dragX = useMotionValue(0);
+  const rotate = useTransform(dragX, [-200, 0, 200], [-18, 0, 18]);
+  const dragMagnitude = useTransform(dragX, (v) => {
+    const vw = window.innerWidth || 375;
+    return Math.min(Math.abs(v) / (vw * COMMIT_RATIO), 1);
+  });
 
   // Track which card is mid-flick so we render its exit animation
   // without unmounting the still-visible underneath cards.
@@ -121,10 +132,29 @@ export function PolaroidStack({
   const burstIdRef = useRef(0);
 
   // ── Stack slice ────────────────────────────────────────────────────
-  // Always EXACTLY the next 3 cards (or fewer near the end). Slicing
-  // keeps memory bounded — we never have more than 3 polaroid DOM
-  // subtrees alive, regardless of how big the feed grows.
-  const visible = useMemo(() => posts.slice(topIndex, topIndex + STACK_DEPTH), [posts, topIndex]);
+  // Always EXACTLY the next 3 slots. When fewer than 3 real posts
+  // remain at/after `topIndex`, we substitute the END_OF_FEED sentinel
+  // so the deck visually slots an `EndOfFeedCard` into the missing
+  // positions. The sentinel keeps the scale-up reveal working at the
+  // last real post — there's always *something* behind to peek through.
+  const visibleSlots: StackItem[] = useMemo(() => {
+    const top: StackItem = posts[topIndex] ?? END_OF_FEED;
+    const second: StackItem = posts[topIndex + 1] ?? END_OF_FEED;
+    const third: StackItem = posts[topIndex + 2] ?? END_OF_FEED;
+    // While a card is mid-fly-away, exclude it from the static stack — it's
+    // rendered separately as `exitingNode` and shouldn't appear as a duplicate
+    // background card. This matters when the parent has NOT yet dropped the
+    // post from `posts` (e.g. dismissal deferred until after the animation
+    // so the stack survives the last-card case without unmounting).
+    if (!exitingPost) return [top, second, third];
+    return [top, second, third].filter(
+      (slot) => typeof slot === "symbol" || slot.id !== exitingPost.id,
+    );
+  }, [posts, topIndex, exitingPost]);
+
+  // True when the current top slot is the end-of-feed sentinel.
+  // Used to disable swipe commits when there are no real posts left.
+  const isAtEnd = posts[topIndex] === undefined;
 
   // Notify parent when the top index changes so the info-card binds
   // to the new top post.
@@ -138,12 +168,13 @@ export function PolaroidStack({
   // until first paint, and we want the browser cache populated before
   // the user starts swiping.
   useEffect(() => {
-    visible.forEach((post) => {
-      if (!post.url) return;
+    visibleSlots.forEach((slot) => {
+      if (slot === END_OF_FEED) return;
+      if (!slot.url) return;
       const img = new Image();
-      img.src = post.url;
+      img.src = slot.url;
     });
-  }, [visible]);
+  }, [visibleSlots]);
 
   // ── Pagination trigger ─────────────────────────────────────────────
   // When we're within `PREFETCH_TRIGGER` cards of the end and Convex
@@ -156,7 +187,7 @@ export function PolaroidStack({
   }, [topIndex, posts.length, status, loadMore]);
 
   // ── Flick mechanics ────────────────────────────────────────────────
-  const topPost = visible[0];
+  const topPost: FeedPost | undefined = posts[topIndex];
 
   const commitFlick = useCallback(
     (direction: 1 | -1, vx = 0, vy = 0) => {
@@ -170,40 +201,53 @@ export function PolaroidStack({
       onSwipeCommit?.(topPost.id);
       triggerHaptic(ImpactStyle.Medium);
 
-      // After the exit animation, drop the snapshot and reset motion
-      // values so the next top card starts at rest. We schedule via
-      // setTimeout (not onAnimationComplete) so timing is deterministic
-      // even if motion re-evaluates the animation prop mid-flight.
+      // Animate the same `dragX` MotionValue that powered the drag past
+      // the edge — keeps the gesture and the exit feeling continuous
+      // (the card doesn't "jump" between motion sources mid-fly). We
+      // schedule the cleanup via setTimeout (not onAnimationComplete) so
+      // timing is deterministic even if motion re-evaluates the prop
+      // mid-flight.
+      const vw = window.innerWidth || 375;
+      animate(dragX, direction * vw * EXIT_DISTANCE_MULT, EXIT_SPRING);
       const exitMs = prefersReducedMotion ? REDUCED_EXIT_DURATION_MS : EXIT_DURATION_MS;
       window.setTimeout(() => {
         setExitingPost(null);
-        x.set(0);
-        y.set(0);
+        // Reset dragX to 0 so the new top card starts at rest and the
+        // derived `dragMagnitude` returns to 0 — which springs the
+        // now-position-1 card back to its background offsets.
+        dragX.set(0);
         advance();
       }, exitMs);
     },
-    [topPost, exitingPost, advance, x, y, onSwipeCommit, prefersReducedMotion],
+    [topPost, exitingPost, advance, dragX, onSwipeCommit, prefersReducedMotion],
   );
 
   const handleDragEnd = useCallback(
     (_e: unknown, info: PanInfo) => {
+      // End-of-feed short-circuit: when the top card is the sentinel,
+      // every drag snap-backs regardless of distance/velocity — there's
+      // nothing left to commit to.
+      if (isAtEnd) {
+        animate(dragX, 0, SNAPBACK_SPRING);
+        return;
+      }
       const dx = info.offset.x;
       const vx = info.velocity.x;
       const vy = info.velocity.y;
-      const shouldFlick = Math.abs(dx) > FLICK_OFFSET_PX || Math.abs(vx) > FLICK_VELOCITY;
+      const vw = window.innerWidth || 375;
+      const shouldFlick =
+        Math.abs(dx) > vw * COMMIT_RATIO || Math.abs(vx) > COMMIT_VELOCITY;
       if (shouldFlick) {
         commitFlick(dx > 0 ? 1 : -1, vx, vy);
       }
       // Below the flick threshold — spring the card smoothly back to
-      // centre. `motion.set()` is synchronous, which makes the snap-back
-      // visually instantaneous. Animating gives the gesture proper
-      // weight without slowing the user down.
+      // centre. Animating gives the gesture proper weight without
+      // slowing the user down.
       else {
-        animate(x, 0, SNAPBACK_SPRING);
-        animate(y, 0, SNAPBACK_SPRING);
+        animate(dragX, 0, SNAPBACK_SPRING);
       }
     },
-    [commitFlick, x, y],
+    [commitFlick, dragX, isAtEnd],
   );
 
   // ── Glove-tap delight ──────────────────────────────────────────────
@@ -218,39 +262,23 @@ export function PolaroidStack({
     }, 520);
   }, []);
 
-  // Combined tap handler — single tap (after the double-tap timer
-  // resolves) flicks; double tap fires the glove burst and like.
-  const lastTapCoords = useRef<{ clientX: number; clientY: number; rect: DOMRect } | null>(null);
-
-  const doubleTap = useDoubleTap({
-    onSingleTap: () => {
-      // Tap-to-flick: random direction so consecutive taps don't all
-      // pile up on the same side. No real velocity for a tap so pass 0.
-      if (!topPost || exitingPost) return;
-      const dir = Math.random() > 0.5 ? 1 : -1;
-      commitFlick(dir, 0, 0);
-    },
-    onDoubleTap: () => {
-      if (!topPost) return;
-      const coords = lastTapCoords.current;
-      if (coords) {
-        spawnBurst(coords.clientX, coords.clientY, coords.rect);
-      }
-      onDoubleTapLike(topPost);
-    },
-  });
-
+  // Tap → like. Per spec, single AND double tap both fire the like
+  // handler — no more disambiguation, no more random-direction flick.
+  // The glove burst still spawns on tap as visual feedback.
   const handleCardClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
+      if (!topPost || exitingPost || isAtEnd) return;
       const rect = e.currentTarget.getBoundingClientRect();
-      lastTapCoords.current = { clientX: e.clientX, clientY: e.clientY, rect };
-      doubleTap();
+      spawnBurst(e.clientX, e.clientY, rect);
+      onDoubleTapLike(topPost);
     },
-    [doubleTap],
+    [topPost, exitingPost, isAtEnd, spawnBurst, onDoubleTapLike],
   );
 
   // ── Empty state ────────────────────────────────────────────────────
-  if (visible.length === 0) {
+  // True "no posts at all" → render the CTA empty state. The end-of-feed
+  // sentinel handles the "scrolled through everything" case below.
+  if (posts.length === 0 && !exitingPost) {
     return <EmptyStackState onPostClick={onPostClick} />;
   }
 
@@ -262,11 +290,11 @@ export function PolaroidStack({
     const dir = exitDirRef.current;
     const { vx, vy } = exitVelocityRef.current;
     const velocityBoost = Math.min(Math.abs(vx) / 1200, 0.4);
-    const exitX = dir * window.innerWidth * (1.4 + velocityBoost);
+    const exitX = dir * window.innerWidth * (EXIT_DISTANCE_MULT - 0.1 + velocityBoost);
     const exitY = vy * 0.3;
     const exitRotate = prefersReducedMotion
       ? computeRotation(exitingPost.id)
-      : dir * 18;
+      : dir * EXIT_TILT_DEG;
     const rotationDeg = computeRotation(exitingPost.id);
 
     if (prefersReducedMotion) {
@@ -274,8 +302,12 @@ export function PolaroidStack({
         <motion.div
           key={exitingPost.id}
           className="absolute inset-0"
-          style={{ zIndex: 40 }}
-          initial={{ x: x.get(), y: y.get(), rotate: rotationDeg, opacity: 1 }}
+          // `willChange` proactively promotes this layer to the GPU on
+          // iOS WebKit, eliminating first-frame stutter when the exit
+          // animation begins. Scoped to this wrapper only — it IS the
+          // element being animated.
+          style={{ zIndex: 40, willChange: "transform, opacity" }}
+          initial={{ x: dragX.get(), y: 0, rotate: rotationDeg, opacity: 1 }}
           animate={{ x: exitX, y: exitY, rotate: exitRotate, opacity: 0 }}
           transition={{ duration: REDUCED_EXIT_DURATION_MS / 1000, ease: "linear" }}
         >
@@ -288,8 +320,12 @@ export function PolaroidStack({
       <motion.div
         key={exitingPost.id}
         className="absolute inset-0"
-        style={{ zIndex: 40 }}
-        initial={{ x: x.get(), y: y.get(), rotate: rotate.get(), opacity: 1 }}
+        // `willChange` proactively promotes this layer to the GPU on
+        // iOS WebKit, eliminating first-frame stutter when the exit
+        // animation begins. Scoped to this wrapper only — it IS the
+        // element being animated.
+        style={{ zIndex: 40, willChange: "transform, opacity" }}
+        initial={{ x: dragX.get(), y: 0, rotate: rotate.get(), opacity: 1 }}
         animate={{ x: exitX, y: exitY, rotate: exitRotate, opacity: 0 }}
         transition={{
           x: EXIT_SPRING,
@@ -308,14 +344,73 @@ export function PolaroidStack({
     <div className="relative mx-auto" style={{ width: 312, height: 396 }}>
       {exitingNode}
 
-      {visible.map((post, idx) => {
+      {visibleSlots.map((slot, idx) => {
         const stackPos = idx as 0 | 1 | 2;
-        // If a card is mid-flight, the new visible[0] is the NEXT post.
+        // If a card is mid-flight, the new slot[0] is the NEXT post.
         // Render it as a background card (not top) for the duration of
         // the exit animation so it doesn't catch taps for a card that's
         // about to land on it. Once the exit completes, exitingPost
         // clears and idx=0 becomes the real top again.
         const isTop = idx === 0 && !exitingPost;
+
+        // ── End-of-feed sentinel branch ───────────────────────────────
+        // Slot the static "you're all caught up" card into the deck.
+        // It mirrors the polaroid frame so positioning matches the real
+        // cards exactly. When the sentinel IS the top card (no real
+        // posts left at this index), we still wrap it in a motion.div
+        // bound to `dragX` so the user gets the snap-back feedback when
+        // they try to swipe — see `handleDragEnd`'s `isAtEnd` branch.
+        if (slot === END_OF_FEED) {
+          if (isTop) {
+            return (
+              <motion.div
+                key={`end-of-feed-top-${idx}`}
+                className="absolute inset-0"
+                // `touchAction: "pan-y pinch-zoom"` lets the page keep
+                // scrolling vertically while motion still owns horizontal
+                // drag. iOS WKWebView ignores motion's `dragDirectionLock`
+                // release for vertical-intent gestures, so we have to tell
+                // the browser at the CSS layer which axis to surrender.
+                style={{
+                  x: dragX,
+                  rotate,
+                  zIndex: 30,
+                  willChange: "transform",
+                  touchAction: "pan-y pinch-zoom",
+                }}
+                drag="x"
+                dragDirectionLock
+                dragControls={dragControls}
+                dragElastic={DRAG_ELASTIC}
+                dragMomentum={false}
+                onDragEnd={handleDragEnd}
+              >
+                <EndOfFeedCard />
+              </motion.div>
+            );
+          }
+          // Background end-of-feed slot — no gesture, just visual.
+          // Wrap in a positioned div so the static scale/offset matches
+          // the equivalent PolaroidCard background position.
+          return (
+            <motion.div
+              key={`end-of-feed-${idx}`}
+              className="absolute inset-0 pointer-events-none"
+              style={{ zIndex: idx === 1 ? 20 : 10 }}
+              animate={
+                idx === 1
+                  ? { scale: 0.96, y: 10, opacity: 0.7 }
+                  : { scale: 0.92, y: 20, opacity: 0.4 }
+              }
+              transition={SETTLE_SPRING}
+            >
+              <EndOfFeedCard />
+            </motion.div>
+          );
+        }
+
+        // ── Real post branch ──────────────────────────────────────────
+        const post = slot;
         const rotationDeg = computeRotation(post.id);
 
         if (isTop) {
@@ -325,11 +420,29 @@ export function PolaroidStack({
           return (
             <motion.div
               key={post.id}
-              className="absolute inset-0 touch-none"
-              style={{ x, y, rotate, zIndex: 30 }}
+              className="absolute inset-0"
+              // `willChange` keeps the top card on its own GPU layer so
+              // the very first frame of a drag is rasterised without
+              // the WebKit compositor having to promote it on demand.
+              //
+              // `touchAction: "pan-y pinch-zoom"` lets vertical scroll
+              // bubble up to the page's main scroll container while motion
+              // still owns horizontal drag. The previous `touch-none`
+              // Tailwind class set `touch-action: none`, which on iOS
+              // WKWebView caused the polaroid to swallow ALL touchmove
+              // events — vertical-intent gestures included — making the
+              // entire `/community` page unscrollable.
+              style={{
+                x: dragX,
+                rotate,
+                zIndex: 30,
+                willChange: "transform, opacity",
+                touchAction: "pan-y pinch-zoom",
+              }}
               drag="x"
+              dragDirectionLock
               dragControls={dragControls}
-              dragElastic={0.55}
+              dragElastic={DRAG_ELASTIC}
               dragMomentum={false}
               onDragEnd={handleDragEnd}
               onClick={handleCardClick}
@@ -354,9 +467,11 @@ export function PolaroidStack({
 
         // Background cards — static layout per stack position. No
         // gesture wiring, no pointer events (the card sets
-        // `pointer-events-none` when not top). When a flick is in flight
-        // the would-be next card sits here at stack position 0 so it
-        // visually settles into place as the old top lifts off.
+        // `pointer-events-none` when not top). The position-1 card
+        // (immediately behind the top) receives the live `dragMagnitude`
+        // MotionValue so it scales up in lockstep with the drag. The
+        // deepest card (position 2) keeps its static offsets — only one
+        // card animates per drag.
         return (
           <PolaroidCard
             key={post.id}
@@ -364,6 +479,7 @@ export function PolaroidStack({
             stackPosition={stackPos}
             isTop={false}
             rotationDeg={rotationDeg}
+            progress={stackPos === 1 ? dragMagnitude : undefined}
           />
         );
       })}

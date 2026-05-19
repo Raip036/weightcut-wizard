@@ -242,8 +242,16 @@ export function ReviewSheet({
         <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-2">
           {/* Polaroid preview. Cap shrunk 260→240 to reclaim vertical
               budget (see SE math) — the ±4° developing shake also gets
-              less perceived crowd with a smaller card. */}
-          <div className="mx-auto mt-2 w-full max-w-[240px]">
+              less perceived crowd with a smaller card.
+
+              The polaroid frame (`bg-white p-4 pb-10` around an
+              aspect-square image) extends ~56px below the wrapper's
+              `aspect-square` box because PolaroidCard is positioned
+              `absolute inset-0`. We reserve that overflow via
+              `pb-14` (56px) on the outer wrapper so the gym banner
+              below never visually collides with the polaroid frame
+              or its ±4° developing shake. */}
+          <div className="mx-auto mt-2 w-full max-w-[240px] pb-14">
             <div className="relative aspect-square w-full">
               <PolaroidCard
                 post={previewPost}
@@ -261,9 +269,10 @@ export function ReviewSheet({
           </div>
 
           {/* Gym banner — static read of `gymName`, not editable in v1.
-              `mt-7` (28px) replaces the previous `mt-3` (12px) so the
-              polaroid's shadow + ±4° developing shake never visually
-              touch the banner below. */}
+              `mt-7` (28px) gives breathing room on top of the polaroid
+              wrapper's reserved overflow (`pb-14`) so the polaroid's
+              shadow + ±4° developing shake never visually touch the
+              banner below. */}
           <div
             className={cn(
               "mt-7 flex items-center justify-between rounded-2xl px-4 py-2.5",

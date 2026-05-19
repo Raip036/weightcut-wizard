@@ -104,6 +104,66 @@ export function mapAuthError(err: unknown, flow: AuthFlow): string {
 }
 
 /**
+ * True when an Apple Sign-In rejection represents the user dismissing the
+ * native sheet (or closing the web popup) — not a real failure. The plugin,
+ * Convex's wrapper, and the web fallback each surface cancels differently;
+ * we accept any of them as "silent, no-op" so the UI never toasts an error
+ * just because the user changed their mind.
+ *
+ * Recognises:
+ *  - `code === 1001` or `"1001"` (Apple's ASAuthorizationError.canceled)
+ *  - `code === "ERR_CANCELED"` (Capacitor plugin convention)
+ *  - `code === "ASAUTHORIZATION_ERROR_CANCELED"` (verbose plugin variants)
+ *  - `error === "popup_closed_by_user"` / `"user_cancelled_authorize"` (web)
+ *  - iOS "The operation couldn't be completed … error 1001" string
+ *  - Any message containing "cancel" / "cancelled" / "canceled"
+ */
+export function isAppleCancelError(err: unknown): boolean {
+  if (!err) return false;
+  const e = err as {
+    code?: unknown;
+    error?: unknown;
+    message?: unknown;
+    name?: unknown;
+  };
+
+  const code = e.code;
+  if (
+    code === 1001 ||
+    code === "1001" ||
+    code === "ERR_CANCELED" ||
+    code === "ASAUTHORIZATION_ERROR_CANCELED"
+  ) {
+    return true;
+  }
+
+  if (typeof e.error === "string") {
+    const errStr = e.error.toLowerCase();
+    if (
+      errStr === "popup_closed_by_user" ||
+      errStr === "user_cancelled_authorize" ||
+      errStr.includes("cancel")
+    ) {
+      return true;
+    }
+  }
+
+  const raw = extractRaw(err).toLowerCase();
+  if (raw.includes("cancel")) return true;
+  // iOS surfaces the canceled sheet as "The operation couldn't be completed.
+  // (com.apple.AuthenticationServices.AuthorizationError error 1001.)" — no
+  // literal "cancel" word, so match on the error number embedded in the
+  // message as a last-resort heuristic.
+  if (/authorizationerror error 1001/.test(raw)) return true;
+
+  if (typeof e.name === "string" && e.name.toLowerCase().includes("cancel")) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Strict-enough email regex. Intentionally simple — the server is the
  * authority. We only block obvious garbage so the user gets immediate feedback
  * rather than a round-trip-late server error.

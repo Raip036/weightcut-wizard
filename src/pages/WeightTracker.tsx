@@ -317,7 +317,7 @@ export default function WeightTracker() {
       )}
       <div className="animate-page-in space-y-4 px-5 py-3 sm:p-5 md:p-6 max-w-2xl mx-auto">
         {/* ── Hero log form — primary action, prominent ───────── */}
-        <div className="card-surface rounded-3xl px-5 py-5">
+        <div className="card-surface rounded-none px-5 py-5">
           <div className="flex items-center justify-between mb-3">
             <div>
               <p className="text-[10px] uppercase tracking-[0.15em] font-semibold text-muted-foreground/60">
@@ -530,17 +530,17 @@ export default function WeightTracker() {
             long ones like "Deadline" / "To lose" fit comfortably. */}
         {profile && (
           <div className="grid grid-cols-4 gap-2">
-            <div className="card-surface rounded-3xl aspect-square p-2 flex flex-col items-center justify-center gap-1 text-center">
+            <div className="card-surface rounded-none aspect-square p-2 flex flex-col items-center justify-center gap-1 text-center">
               <p className="text-[9px] uppercase tracking-wider text-muted-foreground/60 font-semibold leading-tight">Current</p>
               <p className="text-[17px] font-bold tabular-nums text-foreground leading-none">{getCurrentWeight().toFixed(1)}</p>
               <p className="text-[9px] text-muted-foreground/60 leading-none">kg</p>
             </div>
-            <div className="card-surface rounded-3xl aspect-square p-2 flex flex-col items-center justify-center gap-1 text-center">
+            <div className="card-surface rounded-none aspect-square p-2 flex flex-col items-center justify-center gap-1 text-center">
               <p className="text-[9px] uppercase tracking-wider text-muted-foreground/60 font-semibold leading-tight">Target</p>
               <p className="text-[17px] font-bold tabular-nums text-foreground leading-none">{(profile.fight_week_target_kg || profile.goal_weight_kg).toFixed(1)}</p>
               <p className="text-[9px] text-muted-foreground/60 leading-none">kg</p>
             </div>
-            <div className="card-surface rounded-3xl aspect-square p-2 flex flex-col items-center justify-center gap-1 text-center">
+            <div className="card-surface rounded-none aspect-square p-2 flex flex-col items-center justify-center gap-1 text-center">
               {(() => {
                 const current = getCurrentWeight();
                 const target = profile.fight_week_target_kg || profile.goal_weight_kg;
@@ -550,7 +550,7 @@ export default function WeightTracker() {
                 return (<><p className="text-[9px] uppercase tracking-wider text-muted-foreground/60 font-semibold leading-tight">Status</p><p className="text-[17px] font-bold tabular-nums text-emerald-500 leading-none">✓</p><p className="text-[9px] text-muted-foreground/60 leading-none">At target</p></>);
               })()}
             </div>
-            <div className="card-surface rounded-3xl aspect-square p-2 flex flex-col items-center justify-center gap-1 text-center">
+            <div className="card-surface rounded-none aspect-square p-2 flex flex-col items-center justify-center gap-1 text-center">
               <p className="text-[9px] uppercase tracking-wider text-muted-foreground/60 font-semibold leading-tight">Deadline</p>
               <p className="text-[13px] font-bold text-foreground leading-none">{format(new Date(profile.target_date), "MMM dd")}</p>
               <p className="text-[9px] text-muted-foreground/60 leading-none">{format(new Date(profile.target_date), "yyyy")}</p>

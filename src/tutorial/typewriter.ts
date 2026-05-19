@@ -1,8 +1,8 @@
 import type { VoicePace } from "./types";
 
 const PACE_MS: Record<VoicePace, number> = {
-  normal: 28,
-  slow: 55,
+  normal: 14,
+  slow: 32,
 };
 
 export function charIntervalMs(pace: VoicePace | undefined): number {

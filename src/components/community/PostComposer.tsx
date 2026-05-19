@@ -17,7 +17,7 @@
  *                                              │
  *                                              └──▶ generateThumbDataUrl (LQIP)
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Capacitor } from "@capacitor/core";
 import { Image as ImageIcon, Camera as CameraIcon, Lock, Loader2 } from "lucide-react";
@@ -46,6 +46,33 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 const CAPTION_MAX = 240;
+
+/**
+ * Memoised caption input. Isolated so per-keystroke `caption` updates
+ * only re-render this subtree — the preview <img>, privacy toggle, and
+ * Post button stay quiescent. `setCaption` (from useState) is a stable
+ * identity so the memo never invalidates on parent re-renders for
+ * unrelated reasons.
+ */
+const CaptionInput = memo(function CaptionInput({
+  value,
+  onChange,
+  max,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  max: number;
+}) {
+  return (
+    <Textarea
+      value={value}
+      onChange={(e) => onChange(e.target.value.slice(0, max))}
+      placeholder="Add a caption…"
+      maxLength={max}
+      className="mt-4 min-h-[88px] resize-none rounded-2xl border border-white/10 bg-white/[0.04] text-sm text-white placeholder:text-white/40 focus-visible:ring-1 focus-visible:ring-white/20"
+    />
+  );
+});
 
 type Step = "capture" | "preview" | "uploading" | "error";
 
@@ -86,9 +113,27 @@ export function PostComposer({
   // avoiding an unnecessary round-trip for the standard "open from a
   // logged session" flow.
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
+
+  // Defer the Convex subscription until *after* the sheet's slide-in
+  // animation lands. The sheet's open transition runs ~400 ms; firing
+  // a fresh `useQuery` on the same render that flips `open` to true
+  // causes Convex to suspend mid-animation (websocket round-trip +
+  // reactive re-render), which the user perceives as a stutter half-
+  // way through the slide. A 450 ms gate gives the animation a tiny
+  // buffer to finish before we hot-mount the subscription.
+  const [queryEnabled, setQueryEnabled] = useState(false);
+  useEffect(() => {
+    if (!open) {
+      setQueryEnabled(false);
+      return;
+    }
+    const t = setTimeout(() => setQueryEnabled(true), 450);
+    return () => clearTimeout(t);
+  }, [open]);
+
   const calendarRows = useQuery(
     api.fight_camp.listCalendar,
-    open && !defaultSessionId ? { from: todayIso, to: todayIso } : "skip",
+    queryEnabled && !defaultSessionId ? { from: todayIso, to: todayIso } : "skip",
   );
 
   // Pick the most-recent today-row. `_creationTime` is the canonical
@@ -121,6 +166,12 @@ export function PostComposer({
   const [caption, setCaption] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Un-mirror the image before saving. Default true because iOS's
+  // "Mirror Front Camera" setting (ON by default since iOS 14) bakes a
+  // horizontal mirror into selfie pixels, which makes text/logos read
+  // reversed in the gym feed. Users can toggle off for rear-camera shots
+  // that come in already-correct.
+  const [flipHorizontal, setFlipHorizontal] = useState(true);
 
   // Reset state whenever the sheet closes so a reopened composer is fresh.
   useEffect(() => {
@@ -130,6 +181,7 @@ export function PostComposer({
       setCaption("");
       setIsPrivate(false);
       setErrorMsg(null);
+      setFlipHorizontal(true);
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
     }
@@ -269,10 +321,11 @@ export function PostComposer({
       // blob independently, so there's no work-sharing benefit to
       // sequencing. Saves ~80 ms on midrange iPhones.
       const [compressed, thumbDataUrl] = await Promise.all([
-        compressImage(sourceBlob, { maxWidth: 1024, quality: 0.82 }),
+        compressImage(sourceBlob, { maxWidth: 1024, quality: 0.82, flipHorizontal }),
         // LQIP encodes from the *original* source for max source fidelity.
         // Tiny by design (≤ 2 KB) so this is a near-instant generate.
-        generateThumbDataUrl(sourceBlob),
+        // Matches the main image's flip so the blur-up doesn't pop.
+        generateThumbDataUrl(sourceBlob, { flipHorizontal }),
       ]);
 
       // Decode the compressed blob once to read its final dimensions —
@@ -310,6 +363,7 @@ export function PostComposer({
     createPost,
     caption,
     isPrivate,
+    flipHorizontal,
     onPosted,
     onOpenChange,
   ]);
@@ -403,6 +457,9 @@ export function PostComposer({
                 src={previewUrl}
                 alt="Preview"
                 className="absolute inset-0 h-full w-full object-cover"
+                style={{
+                  transform: flipHorizontal ? "scaleX(-1)" : undefined,
+                }}
               />
               <button
                 type="button"
@@ -416,14 +473,23 @@ export function PostComposer({
               >
                 Change
               </button>
+              {/* Un-mirror toggle. Default ON un-flips iOS's baked-in
+                  selfie mirror so text reads correctly; user can flip
+                  off for rear-camera shots. */}
+              <button
+                type="button"
+                onClick={() => setFlipHorizontal((v) => !v)}
+                aria-pressed={flipHorizontal}
+                className="absolute right-3 top-3 rounded-full bg-black/55 px-3 py-1 text-xs font-medium backdrop-blur-sm active:scale-[0.97]"
+              >
+                {flipHorizontal ? "Un-mirrored" : "Mirrored"}
+              </button>
             </div>
 
-            <Textarea
+            <CaptionInput
               value={caption}
-              onChange={(e) => setCaption(e.target.value.slice(0, CAPTION_MAX))}
-              placeholder="Add a caption…"
-              maxLength={CAPTION_MAX}
-              className="mt-4 min-h-[88px] resize-none rounded-2xl border border-white/10 bg-white/[0.04] text-sm text-white placeholder:text-white/40 focus-visible:ring-1 focus-visible:ring-white/20"
+              onChange={setCaption}
+              max={CAPTION_MAX}
             />
             <div className="mt-1 flex items-center justify-end text-[11px] text-white/40">
               {captionLeft} left
