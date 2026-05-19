@@ -257,6 +257,11 @@ const App = () => (
                     <WizardIntroCutscene />
                   </Suspense>
                 } />
+                <Route path="/coach/welcome" element={
+                  <Suspense fallback={<DashboardSkeleton />}>
+                    <WizardIntroCutscene variant="coach" />
+                  </Suspense>
+                } />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/coach/login" element={<Suspense fallback={<DashboardSkeleton />}><CoachLogin /></Suspense>} />
                 <Route path="/legal" element={<Suspense fallback={null}><Legal /></Suspense>} />

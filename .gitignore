@@ -44,3 +44,7 @@ CLAUDE.md
 AGENTS.md
 skills-lock.json
 convex/_generated/ai/
+
+# Playwright MCP artifacts
+.playwright-mcp/
+.playwright/

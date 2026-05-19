@@ -1,6 +1,35 @@
+/**
+ * Coach Dashboard — redesigned for engagement, hierarchy, and scan-ability.
+ *
+ * Vibe: Bold + status-coded (Apple Health). Solid primary blue accents,
+ * semantic colors (emerald/amber/rose) for status, no gradients on UI.
+ *
+ * Layout top → bottom:
+ *   1. Header (coach name + refresh + settings chip)
+ *   2. Gym header card (logo, name, invite code + share)
+ *   3. EITHER:
+ *      - Stats grid (3 tiles: On plan / Watch / Alert)   when athletes exist
+ *      - "Getting started" hero with checklist            when no athletes
+ *   4. Athlete roster (status-edge cards, sorted by severity)
+ *   5. Fight offers tile
+ *   6. Gym feed widget
+ *   7. Weekly leaderboard
+ *   8. Floating action button (bottom-right) — "Announce" — only when athletes
+ */
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { ChevronRight, Copy, Check, Share2, Megaphone, RefreshCw } from "lucide-react";
+import {
+  ChevronRight,
+  Copy,
+  Check,
+  Share2,
+  Megaphone,
+  RefreshCw,
+  UserPlus,
+  Building2,
+  Eye,
+} from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
 import { useUser } from "@/contexts/UserContext";
 import { useCoachData, type AthleteOverviewRow, type GymRow } from "@/hooks/coach/useCoachData";
 import { DashboardSkeleton } from "@/components/ui/skeleton-loader";
@@ -12,15 +41,18 @@ import { CoachSettingsSheet } from "@/components/coach/CoachSettingsSheet";
 import { GymLogoUpload } from "@/components/coach/GymLogoUpload";
 import { AthleteAvatar } from "@/components/coach/AthleteAvatar";
 import { StrainSparkline } from "@/components/coach/StrainSparkline";
-import { FightTargetBadge } from "@/components/coach/FightTargetBadge";
 import { AnnouncementComposeSheet } from "@/components/coach/AnnouncementComposeSheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { CoachFightOffersTile } from "@/components/coach/CoachFightOffersTile";
 import { LeaderboardSection } from "@/components/leaderboard/LeaderboardSection";
 import { GymFeedWidget } from "@/components/coach/GymFeedWidget";
+import { WizardCharacter } from "@/tutorial/WizardCharacter";
 import { localCache } from "@/lib/localCache";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { registerPullRefresh } from "@/lib/pullRefreshRegistry";
 import type { Id } from "../../../convex/_generated/dataModel";
+
+// ── Helpers ──────────────────────────────────────────────────────────
 
 function daysSince(iso: string | null): number | null {
   if (!iso) return null;
@@ -34,10 +66,9 @@ function relativeWeight(a: AthleteOverviewRow): { delta: number | null; target: 
   return { delta: +(a.current_weight_kg - target).toFixed(1), target };
 }
 
-function flagSeverity(a: AthleteOverviewRow): "ok" | "warn" | "alert" {
-  // Fight-form label is the strongest single signal — promote it to the
-  // headline severity when present so the dashboard surfaces athletes who
-  // are at-risk on the readiness model itself, not just on log staleness.
+type Severity = "ok" | "warn" | "alert";
+
+function flagSeverity(a: AthleteOverviewRow): Severity {
   if (a.fight_form && a.fight_form.state === "ok") {
     if (a.fight_form.label === "at_risk") return "alert";
     if (a.fight_form.label === "off_pace") return "warn";
@@ -51,10 +82,33 @@ function flagSeverity(a: AthleteOverviewRow): "ok" | "warn" | "alert" {
   return "ok";
 }
 
-const flagDot: Record<"ok" | "warn" | "alert", string> = {
-  ok: "bg-emerald-500/70",
-  warn: "bg-amber-500/80",
-  alert: "bg-red-500/80",
+// Severity sort order: alert first → warn → ok. Within each bucket,
+// freshest stale logs first so "5d no log" lands at the very top.
+const SEV_RANK: Record<Severity, number> = { alert: 0, warn: 1, ok: 2 };
+function bySeverity(a: AthleteOverviewRow, b: AthleteOverviewRow): number {
+  const da = SEV_RANK[flagSeverity(a)];
+  const db = SEV_RANK[flagSeverity(b)];
+  if (da !== db) return da - db;
+  const ad = daysSince(a.last_weight_at) ?? -1;
+  const bd = daysSince(b.last_weight_at) ?? -1;
+  return bd - ad;
+}
+
+// Apple Health-style edge bars + accent classes per severity.
+const SEV_EDGE: Record<Severity, string> = {
+  ok: "bg-emerald-500",
+  warn: "bg-amber-500",
+  alert: "bg-rose-500",
+};
+const SEV_BADGE_BG: Record<Severity, string> = {
+  ok: "bg-emerald-500/12 text-emerald-300 ring-emerald-400/25",
+  warn: "bg-amber-500/12 text-amber-300 ring-amber-400/25",
+  alert: "bg-rose-500/12 text-rose-300 ring-rose-400/25",
+};
+const SEV_LABEL: Record<Severity, string> = {
+  ok: "On plan",
+  warn: "Watch",
+  alert: "Alert",
 };
 
 const FIGHT_FORM_LABEL: Record<string, string> = {
@@ -64,27 +118,17 @@ const FIGHT_FORM_LABEL: Record<string, string> = {
   at_risk: "At Risk",
 };
 
-const FIGHT_FORM_COLOR: Record<string, string> = {
-  sharp: "text-emerald-400",
-  sharpening: "text-amber-400",
-  off_pace: "text-orange-500",
-  at_risk: "text-rose-500",
-};
+// ── Page ─────────────────────────────────────────────────────────────
 
 export default function CoachDashboard() {
   const { userId, userName } = useUser();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { gyms, athletes, loading, refresh } = useCoachData(userId);
-
-  // No realtime hook needed — Convex queries are reactive by default.
-  // Any athlete writing to weight_logs/meals/fight_camp_calendar/etc.
-  // triggers an automatic re-run of `useCoachData`'s underlying
-  // `coach.athletesOverview` query.
+  const prefersReduced = useReducedMotion();
 
   const handleLogoUploaded = (gymId: string, newUrl: string | null) => {
     if (!userId) return;
-    // Optimistically patch the cached gyms list so the UI repaints instantly
     try {
       const cached = localCache.get<GymRow[]>(userId, "coach_gyms") || [];
       const updated = cached.map((g) => (g.id === gymId ? { ...g, logo_url: newUrl } : g));
@@ -95,14 +139,12 @@ export default function CoachDashboard() {
   const [copied, setCopied] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [composingForGym, setComposingForGym] = useState<GymRow | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
-  // Clear intended-role marker once dashboard renders (prevents stale redirect loops)
   useEffect(() => {
     try { localStorage.removeItem("wcw_intended_role"); } catch {}
   }, []);
 
-  // Wire pull-to-refresh to a soft refetch instead of window.reload — keeps
-  // realtime channels alive and React state intact.
   useEffect(() => registerPullRefresh(() => refresh()), [refresh]);
 
   const grouped = useMemo(() => {
@@ -118,7 +160,8 @@ export default function CoachDashboard() {
     const total = athletes.length;
     const alerts = athletes.filter((a) => flagSeverity(a) === "alert").length;
     const warns = athletes.filter((a) => flagSeverity(a) === "warn").length;
-    return { total, alerts, warns };
+    const okCount = total - alerts - warns;
+    return { total, alerts, warns, okCount };
   }, [athletes]);
 
   const copyCode = async (code: string) => {
@@ -145,38 +188,35 @@ export default function CoachDashboard() {
 
   if (loading && athletes.length === 0) return <DashboardSkeleton />;
 
-  // Coach signed up but hasn't created a gym yet — punt them straight into
-  // the onboarding flow. This also catches the post-signup race where
-  // routeAfterAuth lands here before CoachLogin's explicit navigate fires.
   if (!loading && gyms.length === 0) {
     return <Navigate to="/coach/onboarding" replace />;
   }
 
+  // For the FAB — only show the announce button when there's a roster to
+  // announce TO. A new coach pre-invite doesn't need this affordance yet.
+  const hasAnyAthletes = athletes.length > 0;
+  const fabGym = composingForGym ?? gyms[0];
+
   return (
     <ErrorBoundary>
       <div
-        className="animate-page-in space-y-5 px-5 py-3 sm:p-5 md:p-6 w-full max-w-3xl mx-auto"
+        className="animate-page-in space-y-4 px-5 py-3 sm:p-5 md:p-6 w-full max-w-3xl mx-auto"
         style={{
-          // Coach surface lives OUTSIDE the ProtectedAppLayout, so it
-          // doesn't inherit the global `safe-area-inset-top` padding.
-          // Without this, notched iPhones clip the profile/settings
-          // chip in the top-right of the header (logout becomes
-          // unreachable). 1rem keeps a comfortable visual gap on
-          // non-notched and desktop where env() resolves to 0.
           paddingTop: "calc(env(safe-area-inset-top, 0px) + 1rem)",
-          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)",
+          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 6rem)",
         }}
       >
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] uppercase tracking-wider text-muted-foreground/70 font-semibold">Coach</p>
-            <h1 className="text-[17px] font-semibold leading-tight truncate">{userName || gyms[0].name}</h1>
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground/70 font-semibold">
+              Coach
+            </p>
+            <h1 className="text-[19px] font-bold leading-tight truncate">
+              {userName || gyms[0].name}
+            </h1>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <span className="text-[11px] text-muted-foreground tabular-nums">
-              {stats.total} {stats.total === 1 ? "athlete" : "athletes"}
-            </span>
             <button
               onClick={() => { triggerHaptic(ImpactStyle.Light); void refresh(); }}
               disabled={loading}
@@ -197,31 +237,24 @@ export default function CoachDashboard() {
           </div>
         </div>
 
-        {/* Quick stats — minimal, no heavy iconography */}
-        {stats.total > 0 && (
-          <div className="grid grid-cols-3 gap-2">
-            <div className="card-surface rounded-2xl border border-border px-3 py-2.5 text-center">
-              <p className="text-[18px] font-semibold tabular-nums leading-none">{stats.total}</p>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Active</p>
-            </div>
-            <div className="card-surface rounded-2xl border border-border px-3 py-2.5 text-center">
-              <p className="text-[18px] font-semibold tabular-nums leading-none text-amber-500">{stats.warns}</p>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Watch</p>
-            </div>
-            <div className="card-surface rounded-2xl border border-border px-3 py-2.5 text-center">
-              <p className="text-[18px] font-semibold tabular-nums leading-none text-red-500">{stats.alerts}</p>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Alerts</p>
-            </div>
-          </div>
-        )}
-
-        {/* Per-gym sections — supports multiple gyms per coach */}
+        {/* Per-gym sections */}
         {gyms.map((gym) => {
-          const gymAthletes = grouped.get(gym.id) ?? [];
+          const gymAthletes = (grouped.get(gym.id) ?? []).slice().sort(bySeverity);
+          const hasAthletes = gymAthletes.length > 0;
+
+          // Per-gym stats (only computed when needed)
+          const gymStats = {
+            total: gymAthletes.length,
+            alerts: gymAthletes.filter((a) => flagSeverity(a) === "alert").length,
+            warns: gymAthletes.filter((a) => flagSeverity(a) === "warn").length,
+          };
+          gymStats.alerts;
+          const okCount = gymStats.total - gymStats.alerts - gymStats.warns;
+
           return (
-            <section key={gym.id} className="space-y-3">
-              {/* Gym header + share/copy controls */}
-              <div className="card-surface rounded-2xl border border-border p-3">
+            <section key={gym.id} className="space-y-4">
+              {/* Gym header — compact identity card */}
+              <div className="rounded-2xl border border-border/60 bg-card/60 p-3">
                 <div className="flex items-center justify-between gap-3">
                   <GymLogoUpload
                     gymId={gym.id}
@@ -232,7 +265,7 @@ export default function CoachDashboard() {
                     hideRemove
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-semibold truncate">{gym.name}</p>
+                    <p className="text-[14px] font-bold truncate">{gym.name}</p>
                     {gym.location && (
                       <p className="text-[11px] text-muted-foreground truncate">{gym.location}</p>
                     )}
@@ -263,177 +296,77 @@ export default function CoachDashboard() {
                 </div>
               </div>
 
-              {/* Prominent announcement CTA — full width so it's unmissable */}
-              <button
-                onClick={() => setComposingForGym(gym)}
-                className="w-full h-11 rounded-2xl bg-primary text-primary-foreground text-[13px] font-semibold active:scale-[0.99] transition-transform inline-flex items-center justify-center gap-2"
-                aria-label="New announcement"
-              >
-                <Megaphone className="h-4 w-4" /> New announcement
-              </button>
-
-              {/* Fight offers — only renders when there's at least one offer
-                  in the gym. Self-renders the detail sheet on tap. */}
-              <CoachFightOffersTile gymId={gym.id} />
-
-              {/* Weekly training-volume leaderboard for this gym */}
-              <LeaderboardSection
-                gymId={gym.id as Id<"gyms">}
-                viewer="coach"
-                onRowClick={(userId) => navigate(`/coach/athletes/${userId}`)}
-              />
-
-              {/* Gym social feed — horizontal preview row of the most recent
-                  training-media posts from this gym's members. Tapping any
-                  thumbnail (or "See all") opens the full TikTok-style swiper.
-                  Gated server-side via `requireGymViewer` so the widget only
-                  renders content for gyms the coach is an active member of. */}
-              <GymFeedWidget gymId={gym.id as Id<"gyms">} gymName={gym.name} />
-
-              {/* Athletes for this gym */}
-              {gymAthletes.length === 0 ? (
-                <div className="card-surface rounded-2xl border border-border p-5 text-center">
-                  <p className="text-[13px] font-semibold mb-1">No athletes yet</p>
-                  <p className="text-[12px] text-muted-foreground leading-snug mb-3">
-                    Share the invite link to get fighters logged in.
-                  </p>
-                  <button
-                    onClick={() => shareInvite(gym)}
-                    className="h-9 px-4 rounded-xl bg-primary text-primary-foreground text-[13px] font-semibold active:scale-[0.98] transition-transform inline-flex items-center gap-1.5"
-                  >
-                    <Share2 className="h-3.5 w-3.5" /> Share invite
-                  </button>
-                </div>
+              {/* Stats grid OR Getting Started hero */}
+              {hasAthletes ? (
+                <StatsGrid
+                  okCount={okCount}
+                  warns={gymStats.warns}
+                  alerts={gymStats.alerts}
+                  prefersReduced={prefersReduced}
+                />
               ) : (
+                <GettingStartedHero
+                  gym={gym}
+                  onShareInvite={() => shareInvite(gym)}
+                  onOpenSettings={() => setSettingsOpen(true)}
+                  onTour={() => {
+                    triggerHaptic(ImpactStyle.Light);
+                    setPreviewOpen(true);
+                  }}
+                  prefersReduced={prefersReduced}
+                />
+              )}
+
+              {/* Athlete roster — comes BEFORE offers/feed/leaderboard so
+                  triage is the first thing the coach scans through. */}
+              {hasAthletes && (
                 <div className="space-y-2">
-                  {gymAthletes.map((a) => {
-                    const sev = flagSeverity(a);
-                    const { delta, target } = relativeWeight(a);
-                    const wDays = daysSince(a.last_weight_at);
-                    return (
-                      <button
-                        key={a.user_id}
-                        onClick={() => navigate(`/coach/athletes/${a.user_id}`)}
-                        className="w-full flex items-center gap-3 px-3 py-3 min-h-[56px] card-surface rounded-2xl border border-border active:bg-muted/30 transition-colors text-left"
-                      >
-                        <AthleteAvatar avatarUrl={a.avatar_url} name={a.display_name} size={36} />
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className={`h-1.5 w-1.5 rounded-full ${flagDot[sev]} flex-shrink-0`} aria-hidden />
-                            <p className="text-[13px] font-medium truncate">{a.display_name}</p>
-                          </div>
-                          <div className="mt-1 flex items-center gap-1.5 tabular-nums">
-                            <span className="text-[12px] font-semibold text-foreground/90">
-                              {a.current_weight_kg != null ? `${a.current_weight_kg.toFixed(1)}` : "—"}
-                              <span className="ml-0.5 text-[10px] font-normal text-muted-foreground">kg</span>
-                            </span>
-                            {target != null && delta != null && (
-                              <>
-                                <span
-                                  className={`text-[10px] font-semibold leading-none ${
-                                    Math.abs(delta) < 0.1
-                                      ? "text-emerald-400"
-                                      : delta > 0
-                                      ? "text-amber-500"
-                                      : "text-emerald-400"
-                                  }`}
-                                >
-                                  {Math.abs(delta) < 0.1
-                                    ? "0.0"
-                                    : delta > 0
-                                    ? `−${delta.toFixed(1)}`
-                                    : `+${Math.abs(delta).toFixed(1)}`}
-                                </span>
-                                <span className="text-[10px] leading-none text-muted-foreground/70">
-                                  to {target.toFixed(1)}
-                                </span>
-                              </>
-                            )}
-                            {wDays != null && wDays >= 2 && (
-                              <span className="text-[10px] text-muted-foreground/60 ml-auto">
-                                {wDays}d ago
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* 7-day training strain — sparkline updates in
-                            realtime because Convex re-runs
-                            coach.athletesOverview on any athlete write. */}
-                        <StrainSparkline
-                          values={a.strain_7d ?? []}
-                          width={56}
-                          height={22}
-                          className="flex-shrink-0 hidden sm:block"
-                        />
-                        <StrainSparkline
-                          values={a.strain_7d ?? []}
-                          width={44}
-                          height={20}
-                          className="flex-shrink-0 sm:hidden"
-                        />
-
-                        {/* Right rail priority:
-                            1. Fight form score (the headline readiness number)
-                            2. Fight target badge (if no score yet)
-                            3. kcal today (last resort) */}
-                        {a.fight_form && a.fight_form.state === "ok" ? (
-                          <div className="text-right flex-shrink-0 min-w-[44px]">
-                            <p
-                              className={`text-[20px] font-semibold tabular-nums leading-none ${
-                                FIGHT_FORM_COLOR[a.fight_form.label] ?? "text-foreground"
-                              }`}
-                            >
-                              {a.fight_form.score}
-                            </p>
-                            <p className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5">
-                              {FIGHT_FORM_LABEL[a.fight_form.label] ?? "Form"}
-                            </p>
-                          </div>
-                        ) : a.fight_form && a.fight_form.state === "calibrating" ? (
-                          <div className="text-right flex-shrink-0 min-w-[44px]">
-                            <p className="text-[12px] font-semibold tabular-nums leading-none text-muted-foreground">
-                              —
-                            </p>
-                            <p className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5">
-                              Calibrating
-                            </p>
-                          </div>
-                        ) : a.target_date ? (
-                          <FightTargetBadge
-                            targetDate={a.target_date}
-                            fightWeekTargetKg={a.fight_week_target_kg}
-                            goalWeightKg={a.goal_weight_kg}
-                            currentWeightKg={a.current_weight_kg}
-                            goalType={a.goal_type}
-                            variant="row"
-                            className="flex-shrink-0"
-                          />
-                        ) : (
-                          <div className="text-right flex-shrink-0">
-                            <p className="text-[11px] font-medium tabular-nums">
-                              {Math.round(a.todays_calories || 0)}
-                            </p>
-                            <p className="text-[10px] text-muted-foreground">kcal today</p>
-                          </div>
-                        )}
-
-                        <ChevronRight className="h-3 w-3 text-muted-foreground/40 flex-shrink-0" />
-                      </button>
-                    );
-                  })}
+                  <SectionLabel>Roster · sorted by who needs you</SectionLabel>
+                  {gymAthletes.map((a) => (
+                    <AthleteRow
+                      key={a.user_id}
+                      athlete={a}
+                      onOpen={() => navigate(`/coach/athletes/${a.user_id}`)}
+                    />
+                  ))}
                 </div>
               )}
 
-              {/* Invite-by-user-id panel removed — fighters can only join
-                  via the gym's invite code (shared from this dashboard's
-                  header / settings). The user-id flow created friction
-                  and silently added members without clear consent. */}
+              {/* Fight offers, feed, leaderboard — operational/ambient
+                  context BELOW the roster so the coach scans triage first.
+                  Hidden entirely on the empty-roster state so the Getting
+                  Started hero is the only thing the coach sees. */}
+              {hasAthletes && (
+                <>
+                  <CoachFightOffersTile gymId={gym.id} />
+                  <GymFeedWidget gymId={gym.id as Id<"gyms">} gymName={gym.name} />
+                  <LeaderboardSection
+                    gymId={gym.id as Id<"gyms">}
+                    viewer="coach"
+                    onRowClick={(userId) => navigate(`/coach/athletes/${userId}`)}
+                  />
+                </>
+              )}
             </section>
           );
         })}
       </div>
+
+      {/* Floating Announce button — only when there's a roster to announce to */}
+      {hasAnyAthletes && fabGym && (
+        <button
+          onClick={() => { triggerHaptic(ImpactStyle.Medium); setComposingForGym(fabGym); }}
+          className="fixed z-40 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-xl shadow-primary/40 flex items-center justify-center active:scale-95 transition-transform"
+          style={{
+            right: "calc(env(safe-area-inset-right, 0px) + 18px)",
+            bottom: "calc(env(safe-area-inset-bottom, 0px) + 84px)",
+          }}
+          aria-label="New announcement"
+        >
+          <Megaphone className="h-5 w-5" strokeWidth={2.25} />
+        </button>
+      )}
+
       <CoachSettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} />
       {composingForGym && (
         <AnnouncementComposeSheet
@@ -444,6 +377,434 @@ export default function CoachDashboard() {
           athletes={grouped.get(composingForGym.id) ?? []}
         />
       )}
+      <AthletePreviewSheet open={previewOpen} onOpenChange={setPreviewOpen} />
     </ErrorBoundary>
+  );
+}
+
+// ── Sub-components ───────────────────────────────────────────────────
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="px-1 text-[10px] uppercase tracking-[0.14em] font-bold text-muted-foreground/70">
+      {children}
+    </p>
+  );
+}
+
+function StatsGrid({
+  okCount,
+  warns,
+  alerts,
+  prefersReduced,
+}: {
+  okCount: number;
+  warns: number;
+  alerts: number;
+  prefersReduced: boolean | null;
+}) {
+  const tiles = [
+    { value: okCount,  label: "On plan", edge: "bg-emerald-500", tone: "text-emerald-400", glow: "shadow-emerald-500/10" },
+    { value: warns,    label: "Watch",   edge: "bg-amber-500",   tone: "text-amber-400",   glow: "shadow-amber-500/10"   },
+    { value: alerts,   label: "Alert",   edge: "bg-rose-500",    tone: "text-rose-400",    glow: "shadow-rose-500/10"    },
+  ];
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {tiles.map((t, i) => (
+        <motion.div
+          key={t.label}
+          initial={prefersReduced ? false : { opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.32, ease: "easeOut", delay: i * 0.05 }}
+          className={`relative overflow-hidden rounded-2xl border border-border/50 bg-card/70 px-3 pt-3 pb-3 shadow-lg ${t.glow}`}
+        >
+          {/* Status edge — Apple Health-style top color bar */}
+          <span aria-hidden className={`absolute inset-x-0 top-0 h-1 ${t.edge}`} />
+          <p className={`display-number text-[28px] font-black leading-none tabular-nums ${t.tone}`}>
+            {t.value}
+          </p>
+          <p className="mt-1.5 text-[10px] uppercase tracking-[0.12em] font-bold text-muted-foreground">
+            {t.label}
+          </p>
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+
+function AthleteRow({
+  athlete,
+  onOpen,
+}: {
+  athlete: AthleteOverviewRow;
+  onOpen: () => void;
+}) {
+  const sev = flagSeverity(athlete);
+  const { delta, target } = relativeWeight(athlete);
+  const wDays = daysSince(athlete.last_weight_at);
+
+  // Pick the single most-relevant data point for the right side.
+  let keyMetric: { value: string; sub: string; tone: string };
+  if (sev === "alert" && wDays != null && wDays >= 3) {
+    keyMetric = {
+      value: `${wDays}d`,
+      sub: "no log",
+      tone: "text-rose-300",
+    };
+  } else if (athlete.fight_form && athlete.fight_form.state === "ok") {
+    keyMetric = {
+      value: String(athlete.fight_form.score),
+      sub: FIGHT_FORM_LABEL[athlete.fight_form.label] ?? "Form",
+      tone:
+        athlete.fight_form.label === "sharp" ? "text-emerald-300" :
+        athlete.fight_form.label === "sharpening" ? "text-amber-300" :
+        athlete.fight_form.label === "off_pace" ? "text-orange-300" :
+        "text-rose-300",
+    };
+  } else if (delta != null && target != null) {
+    const absV = Math.abs(delta);
+    const signed = absV < 0.1 ? "0.0" : delta > 0 ? `+${absV.toFixed(1)}` : `−${absV.toFixed(1)}`;
+    keyMetric = {
+      value: signed,
+      sub: "to target",
+      tone:
+        absV < 0.1 ? "text-emerald-300" :
+        delta > 0  ? "text-amber-300"   :
+        "text-emerald-300",
+    };
+  } else {
+    keyMetric = {
+      value: `${Math.round(athlete.todays_calories || 0)}`,
+      sub: "kcal today",
+      tone: "text-foreground/80",
+    };
+  }
+
+  return (
+    <button
+      onClick={onOpen}
+      className="group relative flex w-full items-center gap-3 overflow-hidden rounded-2xl border border-border/50 bg-card/60 pl-4 pr-3 py-3 min-h-[64px] text-left active:bg-muted/30 transition-colors"
+    >
+      {/* Apple Health-style status edge bar */}
+      <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${SEV_EDGE[sev]}`} />
+
+      <AthleteAvatar avatarUrl={athlete.avatar_url} name={athlete.display_name} size={36} />
+
+      {/* Name + meta — flexible width, truncates if name is long. Badge
+          moved to the right-side column so it stays in a vertical line
+          across rows regardless of name length. */}
+      <div className="flex-1 min-w-0">
+        <p className="text-[14px] font-semibold truncate">{athlete.display_name}</p>
+        <p className="mt-0.5 text-[11px] text-muted-foreground truncate tabular-nums">
+          {athlete.current_weight_kg != null ? `${athlete.current_weight_kg.toFixed(1)}kg` : "—"}
+          {target != null ? ` · target ${target.toFixed(1)}` : ""}
+          {wDays != null && wDays >= 1 ? ` · ${wDays}d ago` : " · logged today"}
+        </p>
+      </div>
+
+      {/* 7-day strain sparkline — hides on narrow viewports */}
+      <StrainSparkline
+        values={athlete.strain_7d ?? []}
+        width={52}
+        height={20}
+        className="flex-shrink-0 hidden sm:block"
+      />
+      <StrainSparkline
+        values={athlete.strain_7d ?? []}
+        width={40}
+        height={18}
+        className="flex-shrink-0 sm:hidden"
+      />
+
+      {/* Right column — fixed width keeps badge + value + sub aligned
+          vertically across every row. Width is wide enough to fit the
+          longest status label ("ON PLAN") + a 3-char metric. */}
+      <div className="flex-shrink-0 w-[78px] text-right">
+        <span
+          className={`inline-flex items-center text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full ring-1 ${SEV_BADGE_BG[sev]}`}
+        >
+          {SEV_LABEL[sev]}
+        </span>
+        <p className={`mt-1 text-[20px] font-bold tabular-nums leading-none ${keyMetric.tone}`}>
+          {keyMetric.value}
+        </p>
+        <p className="mt-0.5 text-[9px] uppercase tracking-wider text-muted-foreground">
+          {keyMetric.sub}
+        </p>
+      </div>
+
+      <ChevronRight className="h-4 w-4 text-muted-foreground/40 flex-shrink-0" />
+    </button>
+  );
+}
+
+// ── Getting Started Hero ────────────────────────────────────────────
+// Brand-new coach (zero athletes) — single consolidated card with the
+// wizard + a 3-item checklist replacing the row of 3 empty cards.
+
+function GettingStartedHero({
+  gym,
+  onShareInvite,
+  onOpenSettings,
+  onTour,
+  prefersReduced,
+}: {
+  gym: GymRow;
+  onShareInvite: () => void;
+  onOpenSettings: () => void;
+  onTour: () => void;
+  prefersReduced: boolean | null;
+}) {
+  const items: ChecklistItem[] = [
+    { id: "create",   done: true,                       label: "Create your gym",        meta: gym.name, action: null },
+    { id: "invite",   done: false, kind: "primary",     label: "Invite your first fighter", meta: gym.invite_code, action: onShareInvite, actionLabel: "Share invite", icon: UserPlus },
+    { id: "profile",  done: !!gym.logo_url,             label: "Complete gym profile",  meta: "Logo · disciplines · roster size", action: onOpenSettings, actionLabel: "Open settings", icon: Building2 },
+    { id: "tour",     done: false,                      label: "Tour the athlete view", meta: "Sample card preview",              action: onTour, actionLabel: "See preview", icon: Eye },
+  ];
+
+  return (
+    <motion.div
+      initial={prefersReduced ? false : { opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      className="relative overflow-hidden rounded-2xl border border-primary/25 bg-card/70 p-4 shadow-xl shadow-primary/10"
+    >
+      {/* Top mascot + greeting */}
+      <div className="flex items-start gap-3 mb-4">
+        <div className="relative shrink-0" style={{ width: 60, height: 60 }}>
+          <div style={{ width: 140, height: 140, transform: "scale(0.43)", transformOrigin: "top left" }}>
+            <WizardCharacter pose="wave" />
+          </div>
+        </div>
+        <div className="min-w-0 flex-1 pt-1">
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary/80">
+            Welcome, coach
+          </p>
+          <h2 className="mt-0.5 text-[17px] font-bold leading-tight">
+            Let's get your fighters in.
+          </h2>
+          <p className="mt-1 text-[12px] text-muted-foreground leading-snug">
+            Three quick steps to set up. The roster lands here once they join.
+          </p>
+        </div>
+      </div>
+
+      {/* Checklist */}
+      <ul className="space-y-2">
+        {items.map((item) => (
+          <ChecklistRow key={item.id} item={item} />
+        ))}
+      </ul>
+    </motion.div>
+  );
+}
+
+type ChecklistItem = {
+  id: string;
+  done: boolean;
+  label: string;
+  meta?: string;
+  action: (() => void) | null;
+  actionLabel?: string;
+  kind?: "primary";
+  icon?: typeof UserPlus;
+};
+
+function ChecklistRow({ item }: { item: ChecklistItem }) {
+  const Icon = item.icon;
+  return (
+    <li
+      className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${
+        item.done
+          ? "border-emerald-500/20 bg-emerald-500/[0.04]"
+          : item.kind === "primary"
+            ? "border-primary/30 bg-primary/[0.06]"
+            : "border-border/50 bg-card/50"
+      }`}
+    >
+      {/* Status circle */}
+      <span
+        aria-hidden
+        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+          item.done
+            ? "bg-emerald-500/20 ring-1 ring-emerald-400/40"
+            : "bg-primary/15 ring-1 ring-primary/30"
+        }`}
+      >
+        {item.done ? (
+          <Check className="h-3.5 w-3.5 text-emerald-300" strokeWidth={3} />
+        ) : Icon ? (
+          <Icon className="h-3.5 w-3.5 text-primary" strokeWidth={2.5} />
+        ) : (
+          <span className="text-[10px] font-bold text-primary">·</span>
+        )}
+      </span>
+
+      <div className="min-w-0 flex-1">
+        <p
+          className={`text-[13px] font-semibold leading-tight ${
+            item.done ? "text-muted-foreground line-through decoration-emerald-400/50" : "text-foreground"
+          }`}
+        >
+          {item.label}
+        </p>
+        {item.meta && (
+          <p className="mt-0.5 text-[11px] text-muted-foreground truncate">{item.meta}</p>
+        )}
+      </div>
+
+      {item.action && (
+        <button
+          onClick={item.action}
+          className={`shrink-0 h-9 w-[104px] rounded-lg text-[11px] font-semibold whitespace-nowrap leading-none flex items-center justify-center text-center active:scale-[0.96] transition-transform ${
+            item.kind === "primary"
+              ? "bg-primary text-primary-foreground shadow-md shadow-primary/30"
+              : "bg-muted/40 text-foreground hover:bg-muted/60"
+          }`}
+        >
+          {item.actionLabel ?? "Open"}
+        </button>
+      )}
+    </li>
+  );
+}
+
+// ── Athlete preview sheet ───────────────────────────────────────────
+// Mock-data tour so a new coach sees how the active roster will look
+// before any fighters have joined. Each sample row demonstrates one
+// severity state with annotations pointing at the moving parts.
+
+function AthletePreviewSheet({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="bottom" className="rounded-t-3xl border-border/60 px-5 pt-5 pb-8 max-h-[88vh] overflow-y-auto">
+        <SheetHeader className="text-left">
+          <SheetTitle className="text-[19px] font-bold">Your roster, at a glance</SheetTitle>
+          <SheetDescription className="text-[13px] text-muted-foreground">
+            Once fighters join your gym, you'll see them sorted by who needs you most. Here's how each row reads.
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="mt-4 space-y-2">
+          <SampleRow
+            sev="alert"
+            avatarInitial="S"
+            name="Sasha R."
+            meta="118.4kg · target 116.0 · 5d ago"
+            metric={{ value: "5d", sub: "no log", tone: "text-rose-300" }}
+            spark={[3, 2, 1, 1, 0, 0, 0]}
+          />
+          <SampleRow
+            sev="warn"
+            avatarInitial="M"
+            name="Mei L."
+            meta="120.1kg · target 118.0 · 1d ago"
+            metric={{ value: "+2.1", sub: "to target", tone: "text-amber-300" }}
+            spark={[6, 5, 6, 7, 6, 5, 6]}
+          />
+          <SampleRow
+            sev="ok"
+            avatarInitial="D"
+            name="Daniel V."
+            meta="70.3kg · target 70.0 · logged today"
+            metric={{ value: "82", sub: "Sharp", tone: "text-emerald-300" }}
+            spark={[4, 5, 6, 7, 7, 6, 7]}
+          />
+        </div>
+
+        {/* Annotation legend — fixed-width leading column so every row's
+            text starts at the same x position regardless of badge shape. */}
+        <ul className="mt-5 space-y-3 text-[12px] text-muted-foreground leading-snug">
+          <li className="flex items-start gap-3">
+            <span className="flex w-12 shrink-0 items-center justify-center pt-0.5">
+              <span aria-hidden className="h-4 w-1 rounded-sm bg-rose-500" />
+            </span>
+            <span className="flex-1">
+              <span className="font-semibold text-foreground">Left edge</span> = severity. Rose = alert, amber = watch, emerald = on plan.
+            </span>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="flex w-12 shrink-0 items-center justify-center pt-0.5">
+              <span aria-hidden className="inline-flex items-center justify-center rounded-full bg-rose-500/12 text-rose-300 ring-1 ring-rose-400/25 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider">
+                Alert
+              </span>
+            </span>
+            <span className="flex-1">
+              <span className="font-semibold text-foreground">Status pill</span> labels the severity in words.
+            </span>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="flex w-12 shrink-0 items-center justify-center pt-0.5">
+              <span aria-hidden className="inline-block h-3 w-8 rounded-sm bg-primary/30 ring-1 ring-primary/40" />
+            </span>
+            <span className="flex-1">
+              <span className="font-semibold text-foreground">Sparkline</span> shows 7-day training strain (RPE-hours).
+            </span>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="flex w-12 shrink-0 items-center justify-center pt-0.5">
+              <span aria-hidden className="text-[13px] font-bold leading-none text-emerald-300 tabular-nums">82</span>
+            </span>
+            <span className="flex-1">
+              <span className="font-semibold text-foreground">Right metric</span> is the one number that matters most for that athlete — readiness score, days since log, or delta to target.
+            </span>
+          </li>
+        </ul>
+
+        <button
+          onClick={() => onOpenChange(false)}
+          className="mt-6 w-full h-11 rounded-2xl bg-primary text-primary-foreground font-semibold text-[14px] shadow-md shadow-primary/30 active:scale-[0.98] transition-transform"
+        >
+          Got it
+        </button>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function SampleRow({
+  sev,
+  avatarInitial,
+  name,
+  meta,
+  metric,
+  spark,
+}: {
+  sev: Severity;
+  avatarInitial: string;
+  name: string;
+  meta: string;
+  metric: { value: string; sub: string; tone: string };
+  spark: number[];
+}) {
+  return (
+    <div className="relative flex items-center gap-3 overflow-hidden rounded-2xl border border-border/50 bg-card/60 pl-4 pr-3 py-3 min-h-[60px]">
+      <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${SEV_EDGE[sev]}`} />
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted/60 text-[12px] font-bold text-muted-foreground">
+        {avatarInitial}
+      </span>
+      <div className="flex-1 min-w-0">
+        <p className="text-[14px] font-semibold truncate">{name}</p>
+        <p className="mt-0.5 text-[11px] text-muted-foreground truncate tabular-nums">{meta}</p>
+      </div>
+      <StrainSparkline values={spark} width={44} height={18} className="flex-shrink-0" />
+      <div className="flex-shrink-0 w-[78px] text-right">
+        <span className={`inline-flex items-center text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full ring-1 ${SEV_BADGE_BG[sev]}`}>
+          {SEV_LABEL[sev]}
+        </span>
+        <p className={`mt-1 text-[18px] font-bold tabular-nums leading-none ${metric.tone}`}>
+          {metric.value}
+        </p>
+        <p className="mt-0.5 text-[9px] uppercase tracking-wider text-muted-foreground">
+          {metric.sub}
+        </p>
+      </div>
+    </div>
   );
 }

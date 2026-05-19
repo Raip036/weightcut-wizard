@@ -33,12 +33,15 @@ import type { WizardPose } from "@/tutorial/types";
 
 export type TailSide = "bottom-left" | "bottom-right" | "left";
 export type StageEffect =
-  | "sparkles"        // ambient gold sparkles drifting up
-  | "spotlight"       // soft radial vignette focused on the wizard
-  | "confetti"        // celebration burst (final beat only)
-  | "scroll-unroll"   // parchment-style line under the headline
-  | "weight-plates"   // floating 2.5kg-plate icons orbiting wizard
-  | "pulse-ring";     // expanding ring telegraphs an "important" beat
+  | "sparkles"          // ambient gold sparkles drifting up
+  | "spotlight"         // soft radial vignette focused on the wizard
+  | "confetti"          // celebration burst (final beat only)
+  | "scroll-unroll"     // parchment-style line under the headline
+  | "weight-plates"     // [fighter] animated digital scale showing the miss moment
+  | "protocol-timeline" // [fighter] D-7→weigh-in stages drawing in left-to-right
+  | "roster-status"     // [coach] mini athlete roster card with status dots
+  | "readiness-meter"   // [coach] fight-form readiness gauge (Sharp → At Risk)
+  | "pulse-ring";       // expanding ring telegraphs an "important" beat
 
 export interface CutsceneAct {
   /** Stable id — used as the React key + analytics event name. */
@@ -86,7 +89,7 @@ export const CUTSCENE_ACTS: CutsceneAct[] = [
   {
     id: "reveal",
     headline: "Hey, fighter.",
-    body: "I'm your camp wizard. I run cuts, plans, and the math nobody else wants to do.",
+    body: "I'm your weight-cut coach. I'll track your weight, plan your meals, and handle the math.",
     pose: "wave",
     position: { x: 0.5, y: 0.42 },
     scale: 1.2,
@@ -101,8 +104,8 @@ export const CUTSCENE_ACTS: CutsceneAct[] = [
   // benefits hang. This is the "what this app does" beat.
   {
     id: "promise",
-    headline: "Never miss weight again.",
-    body: "Most fighters miss by 1–2 lbs. With one screen for cut, food, and weigh-ins, you won't.",
+    headline: "Hit your number.",
+    body: "Most fighters miss by 1–2 lbs. We'll get you to the limit, every camp.",
     pose: "point",
     position: { x: 0.32, y: 0.45 },
     scale: 1.05,
@@ -118,14 +121,14 @@ export const CUTSCENE_ACTS: CutsceneAct[] = [
   {
     id: "differentiator",
     headline: "Built for fighters.",
-    body: "Water load. Sodium taper. Dry sauna. We know the names — and the order.",
+    body: "Every step of your cut, in the right order — so you peak on weigh-in day.",
     pose: "idle",
     position: { x: 0.68, y: 0.45 },
     scale: 1.05,
     tailSide: "bottom-right",
     bubbleSide: "left",
     dwellMs: 1100,
-    effects: ["sparkles"],
+    effects: ["protocol-timeline"],
   },
 
   // ── Act 4 — Social proof + speed ───────────────────────────────────
@@ -134,7 +137,7 @@ export const CUTSCENE_ACTS: CutsceneAct[] = [
   {
     id: "speed",
     headline: "Sign up in seconds.",
-    body: "One tap with Apple — no forms, no passwords, no email verification dance. You're in.",
+    body: "One tap with Apple. No forms, no passwords. You're in.",
     pose: "point",
     position: { x: 0.5, y: 0.48 },
     scale: 1.1,
@@ -150,8 +153,8 @@ export const CUTSCENE_ACTS: CutsceneAct[] = [
   // the bottom of the stage so the user lands on auth with a clear ask.
   {
     id: "cta",
-    headline: "Camp opens when you do.",
-    body: "Step on. We'll talk.",
+    headline: "Ready when you are.",
+    body: "Let's make weight.",
     pose: "celebrate",
     position: { x: 0.5, y: 0.4 },
     scale: 1.25,
@@ -169,5 +172,90 @@ export const CUTSCENE_ACTS: CutsceneAct[] = [
  * an account — first-time users get the full performance every time
  * they re-tap "Get Started" until they actually sign up. (The Index
  * page handles the "logged-in user" branch separately.)
+ *
+ * Per-variant so a coach completing the coach cutscene doesn't trip
+ * the fighter cutscene's already-seen flag and vice versa.
  */
 export const CUTSCENE_SEEN_KEY = "wcw_cutscene_seen";
+export const COACH_CUTSCENE_SEEN_KEY = "wcw_cutscene_seen_coach";
+
+// ── Coach variant ────────────────────────────────────────────────────
+// Mirrors the fighter 5-act structure but speaks to coaches: roster
+// management, alert system, fight-form readiness, gym setup. Plays
+// when a coach taps "I'm a coach" on the index page before they hit
+// the dedicated /coach/login.
+export const COACH_CUTSCENE_ACTS: CutsceneAct[] = [
+  // ── Act 1 — The reveal ────────────────────────────────────────────
+  {
+    id: "coach-reveal",
+    headline: "Hey, coach.",
+    body: "I'm your gym wizard. I track every fighter on your roster so you don't have to chase them.",
+    pose: "wave",
+    position: { x: 0.5, y: 0.42 },
+    scale: 1.2,
+    tailSide: "bottom-left",
+    bubbleSide: "above",
+    dwellMs: 1100,
+    effects: ["sparkles", "spotlight", "pulse-ring"],
+  },
+
+  // ── Act 2 — The promise ────────────────────────────────────────────
+  // Roster card visual lands here — coaches' #1 jobs is "see the team
+  // at a glance" so we lead with the roster, not the cut details.
+  {
+    id: "coach-promise",
+    headline: "Your whole gym, one screen.",
+    body: "Weight, strain, and last weigh-in for every athlete — at a glance.",
+    pose: "point",
+    position: { x: 0.32, y: 0.45 },
+    scale: 1.05,
+    tailSide: "left",
+    bubbleSide: "right",
+    dwellMs: 1200,
+    effects: ["roster-status"],
+  },
+
+  // ── Act 3 — Differentiator ─────────────────────────────────────────
+  // Readiness gauge — what coaches actually grade fighters on.
+  {
+    id: "coach-differentiator",
+    headline: "Spot trouble early.",
+    body: "Red flags before they cost a card — missed weigh-ins, overload, fight-form drift.",
+    pose: "idle",
+    position: { x: 0.68, y: 0.45 },
+    scale: 1.05,
+    tailSide: "bottom-right",
+    bubbleSide: "left",
+    dwellMs: 1100,
+    effects: ["readiness-meter"],
+  },
+
+  // ── Act 4 — Speed ──────────────────────────────────────────────────
+  {
+    id: "coach-speed",
+    headline: "Open in seconds.",
+    body: "One tap with Apple. Invite your fighters with a code right after.",
+    pose: "point",
+    position: { x: 0.5, y: 0.48 },
+    scale: 1.1,
+    tailSide: "bottom-left",
+    bubbleSide: "above",
+    dwellMs: 1300,
+    effects: ["spotlight", "pulse-ring"],
+  },
+
+  // ── Act 5 — Call to action ─────────────────────────────────────────
+  {
+    id: "coach-cta",
+    headline: "Open your gym.",
+    body: "Let's get them on plan.",
+    pose: "celebrate",
+    position: { x: 0.5, y: 0.4 },
+    scale: 1.25,
+    tailSide: "bottom-left",
+    bubbleSide: "above",
+    dwellMs: 0,
+    effects: ["confetti", "sparkles", "spotlight"],
+    showCta: true,
+  },
+];
