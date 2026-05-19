@@ -89,6 +89,13 @@ All colors MUST be HSL.
     --medal-gold: 45 95% 58%;
     --medal-silver: 220 13% 80%;
     --medal-bronze: 25 65% 55%;
+
+    /* iOS keyboard height — set by Capacitor's keyboardWillShow listener
+       in src/main.tsx. Falls back to the native env var when available
+       (newer iOS), then to 0 on web. Consumers use `.keyboard-aware-bottom`
+       (defined below) to reserve space so the focused input stays visible
+       while the WKWebView is in `resize: "none"` mode. */
+    --keyboard-inset: env(keyboard-inset-height, 0px);
   }
 
   .dark {
@@ -543,6 +550,18 @@ All colors MUST be HSL.
 
   .safe-area-inset-bottom {
     padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Reserve space below the focused input so the iOS keyboard doesn't
+     cover the caret. Uses the `--keyboard-inset` var maintained by
+     Capacitor's keyboardWillShow/Hide listeners in src/main.tsx (with an
+     env(keyboard-inset-height) fallback for newer iOS). On web both values
+     are 0 and this collapses to the regular safe-area inset. */
+  .keyboard-aware-bottom {
+    padding-bottom: max(
+      env(safe-area-inset-bottom, 0px),
+      var(--keyboard-inset, 0px)
+    );
   }
 
   /* Hide bottom nav when sheets/dialogs need full screen */

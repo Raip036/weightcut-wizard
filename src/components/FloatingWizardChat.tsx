@@ -287,10 +287,16 @@ export function FloatingWizardChat() {
             )}
           </div>
 
-          {/* ========== INPUT BAR — iOS pill style ========== */}
+          {/* ========== INPUT BAR — iOS pill style ==========
+              Keyboard is in `resize: "none"` app-wide, so we reserve
+              `--keyboard-inset` (set by the JS listener in main.tsx) in
+              addition to the safe-area inset. */}
           <div
             className="shrink-0 border-t border-border/40 bg-background px-4 pt-3"
-            style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 10px)" }}
+            style={{
+              paddingBottom:
+                "max(calc(env(safe-area-inset-bottom, 0px) + 10px), var(--keyboard-inset, 0px))",
+            }}
           >
             <form onSubmit={handleSend} className="flex items-center gap-2">
               <div className="flex-1 flex items-center h-11 rounded-full bg-muted px-5 ring-1 ring-border/40 focus-within:ring-primary/50 transition-[box-shadow,ring]">

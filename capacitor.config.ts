@@ -12,6 +12,28 @@ const config: CapacitorConfig = {
     androidScheme: 'https',
     iosScheme: 'capacitor',
   },
+  plugins: {
+    // Keep the WKWebView the same size when the iOS keyboard opens. The
+    // default `native` mode shrinks the webview, which shifts every absolutely
+    // positioned/`dvh`-sized element on the page (full-height sheets, the
+    // BottomNav, the polaroid in Round Card), producing visible flicker and
+    // re-introducing scroll on layouts that were previously fixed-height.
+    //
+    // With `resize: "none"` the keyboard floats over the bottom of the
+    // viewport instead. Focused inputs are kept visible by:
+    //   1. Capacitor's `keyboardWillShow` listener (see src/main.tsx),
+    //      which mirrors the keyboard height into a CSS custom property
+    //      `--keyboard-inset` on `:root`.
+    //   2. The `.keyboard-aware-bottom` utility in src/index.css, which
+    //      reserves bottom padding equal to `max(safe-area, --keyboard-inset)`.
+    //   3. `setScroll({ isDisabled: true })` in src/main.tsx, which kills
+    //      WKWebView's built-in scroll-into-view jump that contributes to
+    //      the flicker.
+    Keyboard: {
+      resize: 'none',
+      resizeOnFullScreen: true,
+    },
+  },
 };
 
 export default config;

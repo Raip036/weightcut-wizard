@@ -329,6 +329,7 @@ export const getSmartDefaults = query({
   returns: v.object({
     gymId: v.union(v.id("gyms"), v.null()),
     gymName: v.union(v.string(), v.null()),
+    gymLogoUrl: v.union(v.string(), v.null()),
     sessionType: v.string(),
     durationMinutes: v.number(),
     intensity: v.string(),
@@ -341,6 +342,7 @@ export const getSmartDefaults = query({
       return {
         gymId: null,
         gymName: null,
+        gymLogoUrl: null,
         sessionType: FALLBACK_SESSION_TYPE,
         durationMinutes: FALLBACK_DURATION_MINUTES,
         intensity: STEADY_PRESET.intensity,
@@ -360,10 +362,17 @@ export const getSmartDefaults = query({
       .first();
     let gymId: Id<"gyms"> | null = null;
     let gymName: string | null = null;
+    // `gyms.logoStorageId` is a Convex Storage reference (v.id("_storage")),
+    // so we materialise it to a long-lived URL here for the polaroid's
+    // bottom strip. Null when the gym has no logo set (or no membership).
+    let gymLogoUrl: string | null = null;
     if (membership) {
       gymId = membership.gymId;
       const gym = await ctx.db.get(membership.gymId);
       gymName = gym?.name ?? null;
+      if (gym?.logoStorageId) {
+        gymLogoUrl = await ctx.storage.getUrl(gym.logoStorageId);
+      }
     }
 
     // 2. Session type — prefer today's planned row, else most recent
@@ -418,6 +427,7 @@ export const getSmartDefaults = query({
     return {
       gymId,
       gymName,
+      gymLogoUrl,
       sessionType,
       durationMinutes,
       intensity: STEADY_PRESET.intensity,

@@ -51,6 +51,10 @@ import type {
 export const ROUND_CARD_FALLBACK_DEFAULTS: ReviewSheetDefaults = {
   gymId: null,
   gymName: null,
+  // No gym ⇒ no logo. The polaroid omits the gym strip when `gymName`
+  // is null in ReviewSheet, so this field is never read in the fallback
+  // path — kept here to satisfy the `ReviewSheetDefaults` shape.
+  gymLogoUrl: null,
   sessionType: "Strength",
   durationMinutes: 60,
   intensity: "Steady",

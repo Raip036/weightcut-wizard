@@ -203,13 +203,16 @@ export function CommentsSheet({
           )}
         </div>
 
-        {/* Pinned input bar — Capacitor's native keyboard resize shrinks
-            the WKWebView, so this just needs to sit at the bottom of the
-            sheet with safe-area padding. No manual transform. */}
+        {/* Pinned input bar. Capacitor Keyboard is in `resize: "none"`
+            mode app-wide (see src/main.tsx), so the WKWebView no longer
+            resizes when the keyboard opens — instead we mirror the
+            keyboard height into `--keyboard-inset` and reserve that
+            space here so the input never sits behind the keyboard. */}
         <div
-          className="border-t border-border/40 bg-background px-3 pt-2.5 pb-3 shrink-0"
+          className="border-t border-border/40 bg-background px-3 pt-2.5 shrink-0"
           style={{
-            paddingBottom: "max(env(safe-area-inset-bottom, 0px), 12px)",
+            paddingBottom:
+              "max(env(safe-area-inset-bottom, 0px), 12px, var(--keyboard-inset, 0px))",
           }}
         >
           <div className="flex items-end gap-2">

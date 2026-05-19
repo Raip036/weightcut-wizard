@@ -23,6 +23,12 @@ import type { Id } from "../../../convex/_generated/dataModel";
 export interface ReviewSheetDefaults {
   gymId: Id<"gyms"> | null;
   gymName: string | null;
+  // Resolved gym logo URL from Convex storage. Optional in the data
+  // model (gyms without a logo are valid), so `null` flows through
+  // verbatim. Consumed only by the polaroid's bottom strip — not
+  // round-tripped into `ReviewMeta` because the calendar row doesn't
+  // need it (denormalised by the feed pipeline).
+  gymLogoUrl: string | null;
   sessionType: string;
   durationMinutes: number;
   intensity: string;
@@ -234,9 +240,10 @@ export function ReviewSheet({
             `overflow-y-auto` stays so the iOS keyboard can scroll the
             caption input into view if it covers it. */}
         <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-2">
-          {/* Polaroid preview. Tighter cap (260px square) keeps the
-              gym/chips/caption visible above the CTA without scrolling. */}
-          <div className="mx-auto mt-2 w-full max-w-[260px]">
+          {/* Polaroid preview. Cap shrunk 260→240 to reclaim vertical
+              budget (see SE math) — the ±4° developing shake also gets
+              less perceived crowd with a smaller card. */}
+          <div className="mx-auto mt-2 w-full max-w-[240px]">
             <div className="relative aspect-square w-full">
               <PolaroidCard
                 post={previewPost}
@@ -244,14 +251,22 @@ export function ReviewSheet({
                 isTop
                 rotationDeg={0}
                 developing={developing}
+                gymBrand={
+                  defaults.gymName
+                    ? { name: defaults.gymName, logoUrl: defaults.gymLogoUrl }
+                    : undefined
+                }
               />
             </div>
           </div>
 
-          {/* Gym banner — static read of `gymName`, not editable in v1. */}
+          {/* Gym banner — static read of `gymName`, not editable in v1.
+              `mt-7` (28px) replaces the previous `mt-3` (12px) so the
+              polaroid's shadow + ±4° developing shake never visually
+              touch the banner below. */}
           <div
             className={cn(
-              "mt-3 flex items-center justify-between rounded-2xl px-4 py-2.5",
+              "mt-7 flex items-center justify-between rounded-2xl px-4 py-2.5",
               "bg-muted/40 dark:bg-white/[0.04] border border-border/40",
             )}
           >

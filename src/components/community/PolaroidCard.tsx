@@ -25,8 +25,16 @@
  *     `<img>`'s parent so the blur-up is instant; the full `<img>`
  *     fades in via opacity on its `onLoad` event.
  */
-import { memo, useState } from "react";
-import { motion, useReducedMotion, type TargetAndTransition, type Transition } from "motion/react";
+import React, { useMemo, useState } from "react";
+import {
+  motion,
+  useMotionValue,
+  useReducedMotion,
+  useTransform,
+  type MotionValue,
+  type TargetAndTransition,
+  type Transition,
+} from "motion/react";
 import { format } from "date-fns";
 import type { FeedPost } from "@/hooks/community/useGymFeed";
 
@@ -61,6 +69,24 @@ interface PolaroidCardProps {
    *  ReviewSheet "Log & post" tap (spec §3.5 / §4). Defaults to `false`
    *  so existing call sites (PolaroidStack) are untouched. */
   developing?: boolean;
+  /** Drag-progress driver from the parent stack. 0 = at rest behind the
+   *  top card; 1 = top card has fully crossed its commit threshold and
+   *  this card has fully risen to the foreground. Only the IMMEDIATE
+   *  next card (position 1) is expected to receive this — the deeper
+   *  card (position 2) keeps its static resting transform. When
+   *  `undefined`, this card falls back to the existing static
+   *  `animate`-based path for full backwards compat. `MotionValue`
+   *  identity is stable across re-renders (parent uses `useMotionValue`
+   *  once), so the `areEqual` reference check is correct. */
+  progress?: MotionValue<number>;
+  /** Optional gym branding for the white bottom strip. When provided,
+   *  the strip renders a small circular logo + bold black gym name in
+   *  place of the date/caption. When undefined/null, the polaroid
+   *  renders exactly as before — zero change for existing consumers. */
+  gymBrand?: {
+    name: string;
+    logoUrl?: string | null;
+  } | null;
 }
 
 // Position table — same numbers as `StackSkeleton`. Kept duplicated
@@ -79,8 +105,18 @@ function PolaroidCardBase({
   rotationDeg,
   onAuthorLongPress,
   developing = false,
+  progress,
+  gymBrand,
 }: PolaroidCardProps) {
   const [imgLoaded, setImgLoaded] = useState(false);
+  // Track logo load errors so we can swap to the letter-circle fallback
+  // without leaving a broken-image icon in the strip. Reset to false
+  // whenever the URL changes (a new brand should get a fresh attempt).
+  const [logoErrored, setLogoErrored] = useState(false);
+  const logoUrl = gymBrand?.logoUrl ?? null;
+  React.useEffect(() => {
+    setLogoErrored(false);
+  }, [logoUrl]);
   const offsets = STACK_OFFSETS[stackPosition];
   // `useReducedMotion` matches what PolaroidStack already uses — same
   // import surface, same null/false semantics. We coerce to a boolean
@@ -98,14 +134,42 @@ function PolaroidCardBase({
   // stack (e.g. ReviewSheet preview) and the shake takes ownership of
   // the `rotate` animation for its first 200ms. We don't run the
   // staticTransform spring in that case — it would fight the shake.
-  const staticTransform = isTop || developing
-    ? undefined
-    : {
-        scale: offsets.scale,
-        y: offsets.y,
-        opacity: offsets.opacity,
-        rotate: rotationDeg,
-      };
+  // Memoised so framer doesn't see a new object identity for the
+  // animate target every parent re-render — that would otherwise force
+  // the background-card spring to re-evaluate mid-drag, causing
+  // redundant work on the iOS WebKit raster thread.
+  const staticTransform = useMemo(
+    () =>
+      isTop || developing
+        ? undefined
+        : {
+            scale: offsets.scale,
+            y: offsets.y,
+            opacity: offsets.opacity,
+            rotate: rotationDeg,
+          },
+    [isTop, developing, offsets.scale, offsets.y, offsets.opacity, rotationDeg],
+  );
+
+  // ── Drag-progress wiring (spec §3.x — live background scale-up) ──────
+  // Hooks must run unconditionally. We always create a fallback
+  // `MotionValue(0)` and feed whichever is current (the parent's
+  // `progress` when wired, the zero fallback otherwise) into the three
+  // `useTransform` calls. When `progress` is undefined the derived
+  // values stay pinned to the resting offsets — but we only actually
+  // *consume* them on the position-1 background-card branch (see the
+  // `useProgress` flag below). Position 2 keeps the existing static
+  // `animate={staticTransform}` path, and the top/developing branches
+  // are unchanged.
+  const fallbackZero = useMotionValue(0);
+  const sourceProgress = progress ?? fallbackZero;
+  const animatedScale = useTransform(sourceProgress, [0, 1], [offsets.scale, 1]);
+  const animatedY = useTransform(sourceProgress, [0, 1], [offsets.y, 0]);
+  const animatedOpacity = useTransform(sourceProgress, [0, 1], [offsets.opacity, 1]);
+  // Only the immediate next card (position 1, with a real progress MV)
+  // animates live. Position 2 — and any card whose parent hasn't wired
+  // progress — keeps the existing static path for full backwards compat.
+  const useProgress = !isTop && !developing && progress !== undefined && stackPosition === 1;
 
   // Develop animation on the OUTER wrapper.
   //
@@ -143,13 +207,35 @@ function PolaroidCardBase({
   return (
     <motion.div
       className={`absolute inset-0 ${isTop || developing ? "" : "pointer-events-none"}`}
-      style={{ zIndex: offsets.z }}
+      // When `useProgress` is true (position-1 background card with a
+      // wired progress MV), Motion reads `scale`/`y`/`opacity` directly
+      // from MotionValues — no React re-render per drag frame. Otherwise
+      // we fall back to the existing `animate={staticTransform}` spring
+      // path (position 2, or any caller that hasn't wired `progress`).
+      style={
+        useProgress
+          ? {
+              zIndex: offsets.z,
+              scale: animatedScale,
+              y: animatedY,
+              opacity: animatedOpacity,
+              rotate: rotationDeg,
+              willChange: "transform, opacity",
+            }
+          : { zIndex: offsets.z }
+      }
       // When developing, ignore the stack's static spring and run the
       // shake (or reduced-motion fade) instead. Otherwise behave exactly
       // as before for existing call sites.
       initial={developing ? { opacity: reducedDevelop ? 0 : 1, rotate: fullDevelop ? -4 : 0 } : false}
-      animate={developing ? developWrapperAnimate : staticTransform}
-      transition={developing ? developWrapperTransition : { type: "spring", stiffness: 220, damping: 28, mass: 1 }}
+      animate={developing ? developWrapperAnimate : useProgress ? undefined : staticTransform}
+      transition={
+        developing
+          ? developWrapperTransition
+          : useProgress
+            ? undefined
+            : { type: "spring", stiffness: 220, damping: 28, mass: 1 }
+      }
     >
       <div className="bg-white p-4 pb-10 rounded-sm shadow-2xl select-none">
         {/* Image well */}
@@ -187,6 +273,13 @@ function PolaroidCardBase({
               onLoad={() => setImgLoaded(true)}
               loading={isTop ? "eager" : "lazy"}
               decoding="async"
+              // Intrinsic dimensions give the browser an aspect-ratio
+              // hint so it can pre-allocate the layout box before the
+              // image decodes — eliminates CLS without changing the
+              // rendered size (the parent's `aspect-square` +
+              // `object-cover` still own actual layout).
+              width={1000}
+              height={1000}
               className={`absolute inset-0 h-full w-full object-cover ${developing ? "" : "transition-opacity duration-300"}`}
               // Default (non-developing) path is unchanged — Tailwind's
               // opacity transition drives the LQIP-to-full crossfade.
@@ -265,9 +358,19 @@ function PolaroidCardBase({
             metadata + caption belong on the info-card below.
             When developing, this strip fades in from +100ms and lands
             at full opacity at +700ms — flush with the blur finish.
-            Reduced-motion: appears statically (no transition). */}
+            Reduced-motion: appears statically (no transition).
+
+            When `gymBrand` is set, the strip renders the gym logo + name
+            INSTEAD of the date — two competing labels on a 28px strip
+            looks cluttered, so the brand fully replaces the date.
+            Same h-7 height + same fade-in transition keep layout +
+            develop-animation parity. */}
         <motion.div
-          className="h-7 flex items-center justify-center text-[11px] text-neutral-700 tabular-nums tracking-wide"
+          className={
+            gymBrand
+              ? "h-7 flex items-center gap-2 px-1"
+              : "h-7 flex items-center justify-center text-[11px] text-neutral-700 tabular-nums tracking-wide"
+          }
           {...(fullDevelop
             ? {
                 initial: { opacity: 0 },
@@ -280,7 +383,33 @@ function PolaroidCardBase({
               }
             : {})}
         >
-          {formatPolaroidDate(post.createdAt)}
+          {gymBrand ? (
+            <>
+              {logoUrl && !logoErrored ? (
+                <img
+                  src={logoUrl}
+                  alt=""
+                  width={24}
+                  height={24}
+                  draggable={false}
+                  onError={() => setLogoErrored(true)}
+                  className="h-6 w-6 rounded-full object-cover shrink-0"
+                />
+              ) : (
+                <div
+                  aria-hidden="true"
+                  className="h-6 w-6 rounded-full bg-neutral-300 text-neutral-700 font-bold flex items-center justify-center text-[12px] shrink-0"
+                >
+                  {gymBrand.name.slice(0, 1).toUpperCase()}
+                </div>
+              )}
+              <span className="text-[15px] font-bold text-black truncate">
+                {gymBrand.name}
+              </span>
+            </>
+          ) : (
+            formatPolaroidDate(post.createdAt)
+          )}
         </motion.div>
       </div>
     </motion.div>
@@ -305,11 +434,27 @@ function areEqual(prev: PolaroidCardProps, next: PolaroidCardProps): boolean {
     // `developing` flips when ReviewSheet hands the polaroid off to the
     // stack (true → false). The render tree needs to re-evaluate so the
     // blur/shake props clear and the static stack transform takes over.
-    prev.developing === next.developing
+    prev.developing === next.developing &&
+    // `progress` is a MotionValue created once in the parent via
+    // `useMotionValue` and reused across renders — its identity is
+    // stable, so a reference check is sufficient. We need this in the
+    // compare so that when the parent rewires which card receives the
+    // progress driver (top advances, position-1 becomes position-0,
+    // etc.), the memoized child re-renders to pick up the new branch.
+    prev.progress === next.progress &&
+    // `gymBrand` is an optional object — most call sites will pass
+    // undefined/null. Compare by-value on the two visible fields so a
+    // newly-resolved logoUrl (or a rename) triggers a re-render without
+    // requiring the parent to memoize the object literal.
+    (prev.gymBrand?.name ?? null) === (next.gymBrand?.name ?? null) &&
+    (prev.gymBrand?.logoUrl ?? null) === (next.gymBrand?.logoUrl ?? null) &&
+    // Distinguish "no brand" (undefined/null) from "brand present" even
+    // when both name + logoUrl happen to be null/empty.
+    Boolean(prev.gymBrand) === Boolean(next.gymBrand)
   );
 }
 
-export const PolaroidCard = memo(PolaroidCardBase, areEqual);
+export const PolaroidCard = React.memo(PolaroidCardBase, areEqual);
 
 /* ─── caption helpers ─── */
 
