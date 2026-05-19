@@ -193,8 +193,34 @@ All colors MUST be HSL.
     -webkit-overflow-scrolling: touch;
     /* Prevent iOS tap highlight */
     -webkit-tap-highlight-color: transparent;
+    /* Native-feel: no text selection, no long-press callout (copy/paste/
+       share) anywhere by default. Inputs and editable surfaces opt back in
+       below. */
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
     /* Smooth fade-in on cold start to eliminate launch screen flash */
     animation: appLaunchFadeIn 0.35s ease-out both;
+  }
+
+  /* Editable surfaces keep native selection so users can type, edit, and
+     paste into them. Anything that should be selectable for any other
+     reason can add `.user-selectable` (defined below). */
+  input,
+  textarea,
+  [contenteditable="true"],
+  [contenteditable=""] {
+    -webkit-user-select: text;
+    user-select: text;
+    -webkit-touch-callout: default;
+  }
+
+  /* Opt-in selectable utility for the rare case content should be
+     copyable (e.g. an error code, a share link). */
+  .user-selectable {
+    -webkit-user-select: text;
+    user-select: text;
+    -webkit-touch-callout: default;
   }
 
   /* Dark mode: solid background for performance */
