@@ -9,7 +9,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ImpactStyle } from "@capacitor/haptics";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, ChevronDown, Loader2 } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
@@ -230,13 +230,14 @@ export function ReviewSheet({
           </SheetHeader>
         </div>
 
-        {/* Scrollable body — keeps the polaroid above the keyboard; the
-            CTA block below stays pinned outside the scroll area. */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-3">
-          {/* Polaroid preview. PolaroidCard is absolutely-positioned
-              inside its parent, so we host it in a sized aspect box. */}
-          <div className="mx-auto mt-2 w-full max-w-[360px]">
-            <div className="relative aspect-[7/8] w-full">
+        {/* Body — sized so everything fits one screen on iPhone SE+.
+            `overflow-y-auto` stays so the iOS keyboard can scroll the
+            caption input into view if it covers it. */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-2">
+          {/* Polaroid preview. Tighter cap (260px square) keeps the
+              gym/chips/caption visible above the CTA without scrolling. */}
+          <div className="mx-auto mt-2 w-full max-w-[260px]">
+            <div className="relative aspect-square w-full">
               <PolaroidCard
                 post={previewPost}
                 stackPosition={0}
@@ -250,7 +251,7 @@ export function ReviewSheet({
           {/* Gym banner — static read of `gymName`, not editable in v1. */}
           <div
             className={cn(
-              "mt-4 flex items-center justify-between rounded-2xl px-4 py-3",
+              "mt-3 flex items-center justify-between rounded-2xl px-4 py-2.5",
               "bg-muted/40 dark:bg-white/[0.04] border border-border/40",
             )}
           >
@@ -262,8 +263,20 @@ export function ReviewSheet({
             </span>
           </div>
 
-          {/* Chips */}
-          <div className="mt-3 flex flex-wrap gap-2">
+          {/* "Tap to edit" hint above chips — the chevrons reinforce
+              it visually, but a one-liner removes any doubt. */}
+          <div className="mt-3 mb-1.5 flex items-center justify-between px-1">
+            <span className="text-[10px] uppercase tracking-[0.14em] font-semibold text-muted-foreground/60">
+              Session
+            </span>
+            <span className="text-[10px] uppercase tracking-[0.12em] font-medium text-muted-foreground/50">
+              Tap to edit
+            </span>
+          </div>
+
+          {/* Chips — each shows a ChevronDown to read as a dropdown,
+              not a static badge. */}
+          <div className="flex flex-wrap gap-2">
             <ChipPopover
               label={sessionType}
               ariaLabel="Session type"
@@ -329,15 +342,17 @@ export function ReviewSheet({
             maxLength={140}
             disabled={submitting}
             className={cn(
-              "mt-3 h-12 rounded-2xl text-[15px]",
+              "mt-3 h-11 rounded-2xl text-[15px]",
               "bg-muted/40 dark:bg-white/[0.04] border-border/30",
             )}
           />
         </div>
 
-        {/* CTA stack — pinned. Safe-area-inset-bottom is applied on the
-            outer SheetContent so the home indicator never clips a button. */}
-        <div className="shrink-0 px-5 pt-2 pb-3 space-y-1.5">
+        {/* CTA stack — pinned. The primary button gets extra top padding
+            (pt-5) so it sits noticeably lower on the screen, separated
+            from the form. Log-only + Discard share a horizontal row to
+            save vertical space (Log-only left, Discard right). */}
+        <div className="shrink-0 px-5 pt-5 pb-3 space-y-3">
           <button
             type="button"
             onClick={() => void submit("post")}
@@ -357,22 +372,24 @@ export function ReviewSheet({
               </>
             )}
           </button>
-          <button
-            type="button"
-            onClick={() => void submit("private")}
-            disabled={submitting}
-            className="w-full h-10 rounded-2xl text-[13px] font-semibold text-foreground/80 active:scale-[0.98] transition-transform disabled:opacity-50 disabled:active:scale-100"
-          >
-            Log only
-          </button>
-          <button
-            type="button"
-            onClick={handleDiscard}
-            disabled={submitting}
-            className="w-full h-9 rounded-2xl text-[12px] font-medium text-muted-foreground/70 active:text-foreground/90 transition-colors disabled:opacity-50"
-          >
-            Discard
-          </button>
+          <div className="flex items-center justify-between px-2">
+            <button
+              type="button"
+              onClick={() => void submit("private")}
+              disabled={submitting}
+              className="h-9 px-2 -ml-2 text-[13px] font-semibold text-foreground/80 active:opacity-70 transition-opacity disabled:opacity-50"
+            >
+              Log only
+            </button>
+            <button
+              type="button"
+              onClick={handleDiscard}
+              disabled={submitting}
+              className="h-9 px-2 -mr-2 text-[13px] font-medium text-muted-foreground/70 active:text-foreground/90 transition-colors disabled:opacity-50"
+            >
+              Discard
+            </button>
+          </div>
         </div>
       </SheetContent>
     </Sheet>
@@ -412,9 +429,15 @@ function ChipPopover({
           type="button"
           aria-label={ariaLabel}
           disabled={disabled}
-          className="h-10 px-4 rounded-full text-[13px] font-semibold text-foreground/90 bg-muted/50 dark:bg-white/[0.06] border border-border/40 active:scale-[0.97] transition-all disabled:opacity-50 disabled:active:scale-100"
+          className={cn(
+            "h-10 pl-4 pr-3 rounded-full text-[13px] font-semibold text-foreground/90",
+            "bg-primary/10 dark:bg-primary/15 border border-primary/30",
+            "flex items-center gap-1.5 active:scale-[0.97] transition-all",
+            "disabled:opacity-50 disabled:active:scale-100",
+          )}
         >
-          {label}
+          <span>{label}</span>
+          <ChevronDown className="h-3.5 w-3.5 opacity-70" aria-hidden />
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" sideOffset={6} className="w-56 p-1.5 rounded-2xl">
