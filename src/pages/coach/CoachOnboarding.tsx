@@ -16,7 +16,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, Check, Building2 } from "lucide-react";
+import { Loader2, Check, Building2, ArrowLeftRight } from "lucide-react";
 import { useMutation, useQuery } from "convex/react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { api } from "../../../convex/_generated/api";
@@ -132,6 +132,8 @@ export default function CoachOnboarding() {
 
   const createGym = useMutation(api.gyms.create);
   const updateGym = useMutation(api.gyms.update);
+  const setRole = useMutation(api.profiles.setRole);
+  const [switchingRole, setSwitchingRole] = useState(false);
 
   // Reactive subscription to the gym row once created.
   const gymRow = useQuery(api.gyms.getById, gymId ? { gymId } : "skip");
@@ -225,6 +227,37 @@ export default function CoachOnboarding() {
     navigate("/coach", { replace: true });
   };
 
+  /**
+   * Escape hatch: a user whose profile was created with `role: "coach"`
+   * (e.g. they previously walked through the coach cutscene/login) but
+   * who actually wants to be a fighter lands here. Without this they'd
+   * be stuck filling out gym fields. One tap flips their role and routes
+   * them to the fighter onboarding.
+   */
+  const handleSwitchToFighter = async () => {
+    if (switchingRole) return;
+    setSwitchingRole(true);
+    triggerHaptic(ImpactStyle.Medium);
+    try {
+      await setRole({ role: "fighter" });
+      try { localStorage.setItem("wcw_intended_role", "fighter"); } catch {}
+      toast({
+        title: "Switched to fighter",
+        description: "Setting up your athlete profile.",
+      });
+      navigate("/onboarding", { replace: true });
+    } catch (err: any) {
+      logger.warn("CoachOnboarding: switch to fighter failed", { err });
+      toast({
+        title: "Could not switch",
+        description: err?.message ?? "Try again in a moment.",
+        variant: "destructive",
+      });
+    } finally {
+      setSwitchingRole(false);
+    }
+  };
+
   const prompt = FIELD_PROMPTS[focusKey];
 
   return (
@@ -312,6 +345,23 @@ export default function CoachOnboarding() {
                     ) : (
                       "Continue"
                     )}
+                  </button>
+
+                  {/* Wrong door? Quick switch to fighter mode. Bridges
+                      the gap when an existing coach-role profile lands a
+                      user here even though they meant to be a fighter. */}
+                  <button
+                    type="button"
+                    onClick={handleSwitchToFighter}
+                    disabled={creating || switchingRole}
+                    className="mt-1 w-full flex items-center justify-center gap-1.5 py-3 text-[12px] font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                  >
+                    {switchingRole ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <ArrowLeftRight className="h-3.5 w-3.5" />
+                    )}
+                    I'm not a coach — switch to fighter
                   </button>
                 </motion.form>
               ) : (

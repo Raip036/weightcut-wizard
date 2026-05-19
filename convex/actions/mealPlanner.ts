@@ -152,7 +152,13 @@ ${snap.block}`;
       if (!isJsonValidationFail) throw err;
       content = await callGroqText(callOpts);
     }
-    const mealPlanData = parseJSON(content);
+    const mealPlanData = parseJSON<{
+      meals?: Array<Record<string, any>>;
+      totalProtein?: number;
+      totalCarbs?: number;
+      totalFats?: number;
+      totalCalories?: number;
+    }>(content);
 
     // Server-side macro reconciliation. Two passes:
     //   1. Meal-level: recompute calories from P/C/F so the headline numbers
