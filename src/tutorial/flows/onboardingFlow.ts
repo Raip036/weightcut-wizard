@@ -167,7 +167,7 @@ export const onboardingFlow: TutorialFlow = {
       id: "quick-tips",
       title: "Two buttons to know",
       description:
-        "The plus on the nav is your fast log, weight, meals, sessions, in seconds. The sparkle opens me up for a chat, any question, any time.",
+        "Tap the plus on the nav and the camera opens straight away. Snap a photo of your session, confirm the chips, and it's logged and posted to your gym in two taps. The sparkle opens me up for a chat, any question, any time.",
       position: "center",
       navigateTo: "/dashboard",
       wizardPose: "point",
