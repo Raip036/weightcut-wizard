@@ -828,11 +828,7 @@ export default function Dashboard() {
           </div>
 
           {/* Inline weight summary — collapsed from FightFormStatChips. */}
-          {chartData.length === 0 ? (
-            <p className="text-[13px] text-muted-foreground px-1">
-              Log a weight to start tracking
-            </p>
-          ) : weightChip ? (
+          {chartData.length > 0 && weightChip ? (
             <p className="text-[13px] text-muted-foreground px-1 tabular-nums">
               {weightChip.current.toFixed(1)} → {weightChip.goal.toFixed(1)} kg · {Math.round(weightChip.pctComplete * 100)}%
               {(() => {
