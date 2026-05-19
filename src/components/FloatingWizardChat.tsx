@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import { useWizardBackground } from "@/contexts/WizardBackgroundContext";
-import { Send, Trash2, User, X } from "lucide-react";
+import { Send, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
 import { triggerHapticSelection, triggerHapticSuccess, triggerHaptic } from "@/lib/haptics";

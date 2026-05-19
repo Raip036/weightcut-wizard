@@ -17,8 +17,18 @@ export function stripEmDashes(text: string): string {
   return text.replace(/—/g, " - ").replace(/–/g, "-");
 }
 
-export function extractContent(data: any): { content: string | null; filtered: boolean } {
-  let content = data?.choices?.[0]?.message?.content;
+interface ChatCompletionLike {
+  choices?: Array<{
+    message?: { content?: string | null; reasoning_content?: string | null };
+    finish_reason?: string;
+  }>;
+}
+
+export function extractContent(data: ChatCompletionLike | null | undefined): {
+  content: string | null;
+  filtered: boolean;
+} {
+  let content: string | null | undefined = data?.choices?.[0]?.message?.content;
   if (!content && data?.choices?.[0]?.message?.reasoning_content) {
     content = data.choices[0].message.reasoning_content;
   }
@@ -37,7 +47,7 @@ function cleanJsonString(text: string): string {
     .replace(/(?<=:\s*"[^"]*)\n(?=[^"]*")/g, "\\n");
 }
 
-export function parseJSON<T = any>(text: string): T {
+export function parseJSON<T = unknown>(text: string): T {
   const cleaned = stripThinkTags(text).trim();
   try {
     return JSON.parse(cleaned);

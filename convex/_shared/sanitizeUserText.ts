@@ -8,6 +8,7 @@
 
 // Control chars (excluding tab/LF/CR) + DEL.
 const CONTROL_CHARS_RE = new RegExp(
+  // eslint-disable-next-line no-control-regex
   "[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]",
   "g",
 );

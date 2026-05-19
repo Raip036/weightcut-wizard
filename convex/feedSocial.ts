@@ -26,7 +26,6 @@ import { requireGymViewer } from "./lib/gymAccess";
 /** Body length cap, in unicode code points. Generous compared to Twitter
  *  (280) but tight enough that 30-comment threads still scroll smoothly. */
 const COMMENT_BODY_MAX = 500;
-const COMMENTS_PAGE_DEFAULT = 20;
 const COMMENTS_PAGE_MAX = 50;
 /** Upper bound for the unread badge — beyond this we just say "99+". */
 const UNREAD_BADGE_CAP = 99;

@@ -24,11 +24,16 @@ export const SECOND_PERSON_DIRECTIVE =
 import type { ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
+import type { FunctionReturnType } from "convex/server";
 import {
   buildAthleteSnapshot,
   snapshotToPromptBlock,
   type AthleteSnapshot,
 } from "../_shared/athleteSnapshot";
+
+type SnapshotProfile = FunctionReturnType<
+  typeof internal.actions_internal.fetchSnapshotData
+>["profile"];
 
 export async function requireUserIdFromAction(
   ctx: ActionCtx,
@@ -41,7 +46,7 @@ export async function requireUserIdFromAction(
 export async function loadAthleteSnapshot(
   ctx: ActionCtx,
   userId: Id<"users">,
-): Promise<{ snapshot: AthleteSnapshot; block: string; profile: any }> {
+): Promise<{ snapshot: AthleteSnapshot; block: string; profile: SnapshotProfile }> {
   const data = await ctx.runQuery(internal.actions_internal.fetchSnapshotData, {
     userId,
   });
@@ -77,8 +82,8 @@ export function logDecision(
   args: {
     userId: Id<"users">;
     feature: string;
-    inputSnapshot: any;
-    outputJson: any;
+    inputSnapshot: unknown;
+    outputJson: unknown;
     predictionFacts?: Record<string, number>;
     model?: string;
   },

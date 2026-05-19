@@ -24,14 +24,40 @@ export class GroqError extends Error {
   }
 }
 
+/**
+ * OpenAI-compatible message content. Plain text for chat-only models;
+ * the array form is used for vision (image_url parts) in analyze-meal.
+ */
+export type GroqMessageContent =
+  | string
+  | Array<
+      | { type: "text"; text: string }
+      | { type: "image_url"; image_url: { url: string; detail?: "low" | "high" | "auto" } }
+    >;
+
 export interface GroqCallOptions {
   model: string;
-  messages: Array<{ role: "system" | "user" | "assistant"; content: any }>;
+  messages: Array<{ role: "system" | "user" | "assistant"; content: GroqMessageContent }>;
   temperature?: number;
   max_tokens?: number;
   response_format?: { type: "json_object" };
   reasoning_effort?: "low" | "medium" | "high";
   timeoutMs?: number;
+}
+
+/**
+ * Raw OpenAI-compatible chat completion response shape. Only the fields
+ * we actually read are listed; Groq passes through extras unchanged.
+ */
+export interface GroqChatCompletionResponse {
+  id?: string;
+  model?: string;
+  choices?: Array<{
+    index?: number;
+    message?: { role?: string; content?: string | null; reasoning_content?: string | null };
+    finish_reason?: string;
+  }>;
+  usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
 }
 
 function getGroqKey(): string {
@@ -48,7 +74,7 @@ function getGroqKey(): string {
  * non-2xx or timeout. Use this when you need to massage payloads manually
  * (e.g. multi-stage analyze-meal).
  */
-export async function callGroqRaw(opts: GroqCallOptions): Promise<any> {
+export async function callGroqRaw(opts: GroqCallOptions): Promise<GroqChatCompletionResponse> {
   const key = getGroqKey();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? 15000);
@@ -70,8 +96,8 @@ export async function callGroqRaw(opts: GroqCallOptions): Promise<any> {
       }),
       signal: controller.signal,
     });
-  } catch (err: any) {
-    if (err?.name === "AbortError") {
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === "AbortError") {
       throw new GroqError("AI service timed out", "AI_TIMEOUT");
     }
     throw err;

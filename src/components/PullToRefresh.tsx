@@ -6,7 +6,6 @@ import { getPullRefreshHandler } from "@/lib/pullRefreshRegistry";
 
 const THRESHOLD = 110;
 const DAMPEN = 0.4;
-const ARMED_HAPTIC_AT = THRESHOLD * 0.95;
 // If the finger moves upward at all before pulling down past this guard,
 // treat the gesture as a scroll-to-top — not a pull-to-refresh.
 const UPWARD_CANCEL_PX = 8;

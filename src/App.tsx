@@ -4,7 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate, Outlet } from "react-router-dom";
-import { SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -58,7 +58,6 @@ const CoachLogin = lazy(() => import("./pages/coach/CoachLogin"));
 const AthleteDetail = lazy(() => import("./pages/coach/AthleteDetail"));
 const JoinGym = lazy(() => import("./pages/JoinGym"));
 const MyGym = lazy(() => import("./pages/MyGym"));
-const GymFeed = lazy(() => import("./pages/GymFeed"));
 const Community = lazy(() => import("./pages/Community"));
 const Profile = lazy(() => import("./pages/Profile"));
 const CommunityModeration = lazy(() => import("./pages/community/Moderation"));
@@ -177,8 +176,6 @@ function RouteTracker() {
 }
 
 const AppLayoutContent = () => {
-  const { openMobile } = useSidebar();
-
   return (
     <>
       {/* Mobile-first layout: sidebar hidden on mobile, shown on desktop */}

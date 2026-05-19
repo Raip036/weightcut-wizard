@@ -20,7 +20,7 @@
  */
 import { v } from "convex/values";
 import { query, mutation, type MutationCtx } from "./_generated/server";
-import type { Doc, Id } from "./_generated/dataModel";
+import type { Id } from "./_generated/dataModel";
 import { requireUserId } from "./lib/auth";
 import { assertGymOwner, assertGymMember } from "./gyms";
 import { internal } from "./_generated/api";

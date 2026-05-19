@@ -42,7 +42,7 @@ export function ProfileDropdown() {
     try {
       setUserName(editedName);
       setIsProfileOpen(false);
-    } catch (error) {
+    } catch {
       toast({
         description: "Failed to update profile",
         variant: "destructive",

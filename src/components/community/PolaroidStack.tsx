@@ -33,7 +33,6 @@ import { EmptyStackState } from "./EmptyStackState";
 import type { FeedPost, FeedStatus } from "@/hooks/community/useGymFeed";
 import type { Id } from "../../../convex/_generated/dataModel";
 
-const STACK_DEPTH = 3;
 const EXIT_DURATION_MS = 280;
 const REDUCED_EXIT_DURATION_MS = 110;
 const PREFETCH_TRIGGER = 5; // load more when within N cards of end

@@ -30,7 +30,8 @@ export function CutPlanDialog({ open, onOpenChange }: CutPlanDialogProps) {
     }
     // Re-read every time the sheet opens — the plan can be regenerated
     // elsewhere in the app and we want fresh data on each present.
-  }, [open]);
+
+  }, []);
 
   if (!planData) return null;
 

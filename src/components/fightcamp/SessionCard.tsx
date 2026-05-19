@@ -137,13 +137,13 @@ export const SessionCard = memo(function SessionCard({ session, customColors, us
       )}
 
       {/* Secondary pills */}
-      {!isRest && (session.soreness_level > 0 || session.sleep_hours > 0) && (
+      {!isRest && ((session.soreness_level ?? 0) > 0 || (session.sleep_hours ?? 0) > 0) && (
         <div className="flex items-center gap-1.5 mt-2">
-          {session.soreness_level > 0 && (
+          {(session.soreness_level ?? 0) > 0 && (
             <span className="text-[11px] font-medium text-red-400/80">Sore {session.soreness_level}/10</span>
           )}
-          {session.soreness_level > 0 && session.sleep_hours > 0 && <span className="text-foreground/15">·</span>}
-          {session.sleep_hours > 0 && (
+          {(session.soreness_level ?? 0) > 0 && (session.sleep_hours ?? 0) > 0 && <span className="text-foreground/15">·</span>}
+          {(session.sleep_hours ?? 0) > 0 && (
             <span className="text-[11px] font-medium text-indigo-400/80">
               <Moon className="w-3 h-3 inline -mt-0.5 mr-0.5" />{session.sleep_hours}h
             </span>
