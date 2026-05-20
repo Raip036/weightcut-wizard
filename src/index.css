@@ -231,19 +231,19 @@ All colors MUST be HSL.
     --radius-xl:  24px;
     --radius-full: 999px;
 
-    /* ---- GLASS recipe (extracted from Figma nav 67:887, tuned for true
-       frosted-glass read on iOS/Safari) ----
-       Apply together: bg + backdrop-filter + border + inset highlight +
-       shadow. Surface opacity is 0.55 (denser than typical glass) and
-       blur is 80px — iOS-native glass uses both heavy blur AND a dense
-       tint together to make text behind genuinely unreadable. Lower
-       than 0.5 opacity allowed individual words behind the nav to be
-       legible, which read as "the blur isn't working" to the user. */
-    --glass-surface:         rgba(2, 11, 24, 0.55);
-    --glass-blur:            blur(80px) saturate(180%);
-    --glass-border:          1px solid rgba(255, 255, 255, 0.10);
+    /* ---- GLASS recipe — Premium dark frosted glass for the bottom nav.
+       The surface (0.85 opacity) does the heavy lifting for obscuring
+       content behind; backdrop-blur softens edges so it still reads as
+       glass rather than solid plastic. A second gradient overlay layer
+       lives inside the nav element itself (see BottomNav.tsx) to add
+       extra darkening top-to-bottom. Shadow casts UPWARD (negative y)
+       so the floating nav has visible separation from page content
+       above it on a dark background. */
+    --glass-surface:         rgba(8, 12, 20, 0.85);
+    --glass-blur:            blur(24px) saturate(140%);
+    --glass-border:          1px solid rgba(255, 255, 255, 0.08);
     --glass-inset-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.10);
-    --glass-shadow:          0 4px 24px 0 rgba(0, 0, 0, 0.4);
+    --glass-shadow:          0 -8px 32px 0 rgba(0, 0, 0, 0.45);
 
     /* Bubble variant — slightly more translucent so content behind reads through. */
     --glass-bubble-surface:  rgba(8, 13, 32, 0.55);
@@ -401,7 +401,7 @@ All colors MUST be HSL.
      iOS 16+/Safari 18+), thicken the surface tint so the glass surfaces still
      read as opaque cards rather than washed-out boxes. */
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    .glass-nav    { background: rgba(2, 11, 24, 0.94); }
+    .glass-nav    { background: rgba(8, 12, 20, 0.96); }
     .glass-bubble { background: rgba(8, 13, 32, 0.94); }
   }
 
