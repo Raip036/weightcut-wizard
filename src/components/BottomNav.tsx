@@ -1,7 +1,7 @@
 import { Home, Utensils, Plus, Weight, Target, MoreHorizontal, Trophy, Calendar, HeartPulse, Dumbbell, TrendingDown, Moon, Users, X, type LucideIcon } from "lucide-react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
-import { useState, useEffect, memo } from "react";
-import { motion, LayoutGroup } from "motion/react";
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, memo } from "react";
+import { motion } from "motion/react";
 import { triggerHaptic, triggerHapticSelection } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -271,6 +271,55 @@ export const BottomNav = memo(function BottomNav() {
   const GymIcon = mainNavItems[2].icon;
   const WeightIcon = mainNavItems[3].icon;
 
+  // ───────────────────────────────────────────────────────────────────────
+  // Active-tab bubble — single-element pattern
+  // ───────────────────────────────────────────────────────────────────────
+  // We render ONE absolutely-positioned motion.div inside the nav pill and
+  // animate its `x` + `width` to match the active tab's measured rect. The
+  // previous implementation conditionally mounted a motion.div inside each
+  // tab and relied on Framer's `layoutId` shared-element transition to
+  // bridge between mounts — that pattern is fragile inside WKWebView and
+  // under React-Router-driven re-renders, and would snap rather than glide.
+  // With a single element that never unmounts, Framer's `animate` prop
+  // simply springs `x` and `width` between values and the glide always
+  // works.
+  // ───────────────────────────────────────────────────────────────────────
+  const tabRefs = useRef<Array<HTMLElement | null>>([]);
+  const [bubble, setBubble] = useState<{ x: number; width: number; visible: boolean }>({
+    x: 0,
+    width: 0,
+    visible: false,
+  });
+
+  // Resolve which of the 5 nav slots (0=Home, 1=Nutrition, 2=Gym,
+  // 3=Weight, 4=More) the current route maps to. -1 means none → bubble
+  // hides.
+  const activeIndex = useMemo(() => {
+    const mainHit = mainNavItems.findIndex((item) => location.pathname === item.url);
+    if (mainHit >= 0) return mainHit;
+    if (filteredMoreMenuItems.some((i) => i.url === location.pathname)) return 4;
+    return -1;
+  }, [location.pathname, filteredMoreMenuItems]);
+
+  // Measure synchronously after layout so the bubble settles on the right
+  // tab on first paint (no flicker). Re-runs whenever the active tab
+  // changes or the viewport resizes (tab widths are flex-1 so they shift
+  // with the container).
+  useLayoutEffect(() => {
+    const measure = () => {
+      if (activeIndex < 0) {
+        setBubble((prev) => ({ ...prev, visible: false }));
+        return;
+      }
+      const el = tabRefs.current[activeIndex];
+      if (!el) return;
+      setBubble({ x: el.offsetLeft, width: el.offsetWidth, visible: true });
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [activeIndex]);
+
   if (!isMobile) return null;
 
   return (
@@ -283,55 +332,63 @@ export const BottomNav = memo(function BottomNav() {
         className="fixed left-1/2 z-[9999] md:hidden"
         style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 0.5rem)" }}
       >
-        <LayoutGroup id="bottom-nav">
-          {/* Bottom-nav pill — sized ~23% smaller than the original spec
-              (30% shrink, then +10% bump per follow-up). Item / icon sizes
-              and the FAB scale together so the visual rhythm is preserved.
-              Glass recipe (Design System v1) is applied via `.glass-nav`:
-              translucent Void surface + backdrop-blur + 1px border + inset
-              highlight + drop shadow. See src/index.css and the
-              floating-nav node in the Figma Branding file. */}
-          {/* Width is set to ~92% of viewport (capped at 26rem ≈ 416px) so
-              each tab gets real breathing room and the labels don't crowd
-              the icons. Tabs flex-1 evenly inside, with gap-2 between. */}
-          <div className="flex items-stretch justify-around gap-2 p-1.5 w-[92vw] max-w-[26rem] rounded-pill glass-nav">
-            <NavItem
-              to={mainNavItems[0].url}
-              icon={HomeIcon}
-              label={mainNavItems[0].title}
-              isActive={location.pathname === mainNavItems[0].url}
-              tutorial="nav-home"
-            />
-            <NavItem
-              to={mainNavItems[1].url}
-              icon={NutritionIcon}
-              label={mainNavItems[1].title}
-              isActive={location.pathname === mainNavItems[1].url}
-              tutorial="nav-nutrition"
-            />
-            <NavItem
-              to={mainNavItems[2].url}
-              icon={GymIcon}
-              label={mainNavItems[2].title}
-              isActive={location.pathname === mainNavItems[2].url}
-              tutorial="nav-gym"
-            />
-            <NavItem
-              to={mainNavItems[3].url}
-              icon={WeightIcon}
-              label={mainNavItems[3].title}
-              isActive={location.pathname === mainNavItems[3].url}
-              tutorial="nav-weight"
-            />
-            <NavButton
-              onClick={() => { setMoreMenuOpen(true); triggerHapticSelection(); }}
-              icon={MoreHorizontal}
-              label="More"
-              isActive={filteredMoreMenuItems.some(i => i.url === location.pathname)}
-              tutorial="nav-more"
-            />
-          </div>
-        </LayoutGroup>
+        {/* Bottom-nav pill — glass recipe (Design System v1) via `.glass-nav`:
+            translucent Void surface + backdrop-blur + 1px border + inset
+            highlight + drop shadow. See src/index.css and the floating-nav
+            node in the Figma Branding file. Width is ~92vw capped at 26rem
+            so each tab gets breathing room.
+
+            The active-tab bubble is rendered ONCE here (not inside each
+            tab) and animates its `x` + `width` to the measured rect of
+            the active tab — see the useLayoutEffect above. */}
+        <div className="relative flex items-stretch justify-around gap-2 p-1.5 w-[92vw] max-w-[26rem] rounded-pill glass-nav">
+          <motion.div
+            aria-hidden
+            className="absolute top-1.5 bottom-1.5 rounded-pill bg-[rgba(139,126,234,0.12)] pointer-events-none"
+            initial={false}
+            animate={{
+              x: bubble.x,
+              width: bubble.width,
+              opacity: bubble.visible ? 1 : 0,
+            }}
+            transition={{ type: "spring", stiffness: 350, damping: 32, mass: 0.7 }}
+          />
+          <NavItem
+            ref={(el) => { tabRefs.current[0] = el; }}
+            to={mainNavItems[0].url}
+            icon={HomeIcon}
+            label={mainNavItems[0].title}
+            tutorial="nav-home"
+          />
+          <NavItem
+            ref={(el) => { tabRefs.current[1] = el; }}
+            to={mainNavItems[1].url}
+            icon={NutritionIcon}
+            label={mainNavItems[1].title}
+            tutorial="nav-nutrition"
+          />
+          <NavItem
+            ref={(el) => { tabRefs.current[2] = el; }}
+            to={mainNavItems[2].url}
+            icon={GymIcon}
+            label={mainNavItems[2].title}
+            tutorial="nav-gym"
+          />
+          <NavItem
+            ref={(el) => { tabRefs.current[3] = el; }}
+            to={mainNavItems[3].url}
+            icon={WeightIcon}
+            label={mainNavItems[3].title}
+            tutorial="nav-weight"
+          />
+          <NavButton
+            ref={(el) => { tabRefs.current[4] = el; }}
+            onClick={() => { setMoreMenuOpen(true); triggerHapticSelection(); }}
+            icon={MoreHorizontal}
+            label="More"
+            tutorial="nav-more"
+          />
+        </div>
       </motion.nav>
 
       <QuickLogDialog
@@ -447,144 +504,103 @@ export const BottomNav = memo(function BottomNav() {
   );
 });
 
+/* Shared layout class for every tab slot — keeps icon + label centered in
+   a flex-1 column so the bubble (sibling element) can measure each tab's
+   rect uniformly. */
+const NAV_SLOT_CLASS =
+  "relative z-10 flex flex-1 flex-col items-center justify-center gap-[3px] h-14 px-2 rounded-pill";
+const NAV_ICON_CLASS = "relative h-[22px] w-[22px] text-[#8A95A6]";
+const NAV_LABEL_CLASS =
+  "relative font-semibold text-[10px] leading-[14px] tracking-[0.1px] text-[#8A95A6]";
+
 interface NavItemProps {
   to: string;
   icon: LucideIcon;
   label: string;
-  isActive: boolean;
   tutorial?: string;
 }
 
-function NavItem({ to, icon: Icon, label, isActive, tutorial }: NavItemProps) {
-  return (
-    <NavLink
-      to={to}
-      data-tutorial={tutorial}
-      onClick={() => triggerHaptic(ImpactStyle.Light)}
-      aria-label={label}
-      className="relative flex flex-1 flex-col items-center justify-center gap-[3px] h-14 px-2 rounded-pill"
-    >
-      {isActive && (
-        <motion.div
-          layoutId="nav-active-pill"
-          /* rgba arbitrary value — Tailwind cannot apply opacity modifiers
-             (`/[0.12]`) to colors defined as `var(--…)` because it doesn't
-             know the underlying format. Inline the rgba(139,126,234) =
-             Wizard Lilac so the 12% tint actually renders. */
-          className="absolute inset-0 rounded-pill bg-[rgba(139,126,234,0.12)]"
-          /* `initial={false}` is the key to true shared-layout transitions:
-             without it Framer Motion animates each mount from initial state
-             (so each tap looks like a quick fade-in at the new tab instead
-             of the bubble traveling). With initial={false}, FM uses the
-             prior layoutId measurement as the from-position and animates
-             the rect to the new tab's position — the iOS liquid-glass
-             glide the user is asking for. */
-          initial={false}
-          transition={{ type: "spring", stiffness: 350, damping: 30, mass: 0.6 }}
-        />
-      )}
-      <Icon
-        /* Filled silhouette style (Wise/SF Symbols feel): fill="currentColor"
-           + minimal stroke so closed Lucide shapes render as solid icons.
-           Color never changes between states — only the lilac glass bubble
-           moves between tabs. */
-        className="relative h-[22px] w-[22px] text-[#8A95A6]"
-        fill="currentColor"
-        strokeWidth={1.25}
-      />
-      <span className="relative font-semibold text-[10px] leading-[14px] tracking-[0.1px] text-[#8A95A6]">
-        {label}
-      </span>
-    </NavLink>
-  );
-}
+const NavItem = React.forwardRef<HTMLAnchorElement, NavItemProps>(
+  function NavItem({ to, icon: Icon, label, tutorial }, ref) {
+    return (
+      <NavLink
+        ref={ref}
+        to={to}
+        data-tutorial={tutorial}
+        onClick={() => triggerHaptic(ImpactStyle.Light)}
+        aria-label={label}
+        className={NAV_SLOT_CLASS}
+      >
+        <Icon className={NAV_ICON_CLASS} fill="currentColor" strokeWidth={1.25} />
+        <span className={NAV_LABEL_CLASS}>{label}</span>
+      </NavLink>
+    );
+  },
+);
 
 interface NavItemWithBadgeProps extends NavItemProps {
   badge?: boolean;
 }
 
 /** NavItem variant that overlays a small red dot when `badge` is true.
- *  Used by the Corner tab for unread-engagement indication. */
-function NavItemWithBadge({ to, icon: Icon, label, isActive, tutorial, badge }: NavItemWithBadgeProps) {
-  return (
-    <NavLink
-      to={to}
-      data-tutorial={tutorial}
-      onClick={() => triggerHaptic(ImpactStyle.Light)}
-      aria-label={label}
-      className="relative flex flex-1 flex-col items-center justify-center gap-[3px] h-14 px-2 rounded-pill"
-    >
-      {isActive && (
-        <motion.div
-          layoutId="nav-active-pill"
-          className="absolute inset-0 rounded-pill bg-[rgba(139,126,234,0.12)]"
-          initial={false}
-          transition={{ type: "spring", stiffness: 350, damping: 30, mass: 0.6 }}
-        />
-      )}
-      <Icon
-        className="relative h-[22px] w-[22px] text-[#8A95A6]"
-        fill="currentColor"
-        strokeWidth={1.25}
-      />
-      <span className="relative font-semibold text-[10px] leading-[14px] tracking-[0.1px] text-[#8A95A6]">
-        {label}
-      </span>
-      {badge && (
-        <span
-          aria-hidden
-          className="absolute top-1.5 right-2 h-2 w-2 rounded-full bg-destructive ring-2 ring-background"
-        />
-      )}
-    </NavLink>
-  );
-}
+ *  Currently unused (the Corner badge moved to More) but kept available
+ *  if a future tab needs the same indicator. */
+const NavItemWithBadge = React.forwardRef<HTMLAnchorElement, NavItemWithBadgeProps>(
+  function NavItemWithBadge({ to, icon: Icon, label, tutorial, badge }, ref) {
+    return (
+      <NavLink
+        ref={ref}
+        to={to}
+        data-tutorial={tutorial}
+        onClick={() => triggerHaptic(ImpactStyle.Light)}
+        aria-label={label}
+        className={NAV_SLOT_CLASS}
+      >
+        <Icon className={NAV_ICON_CLASS} fill="currentColor" strokeWidth={1.25} />
+        <span className={NAV_LABEL_CLASS}>{label}</span>
+        {badge && (
+          <span
+            aria-hidden
+            className="absolute top-1.5 right-2 h-2 w-2 rounded-full bg-destructive ring-2 ring-background"
+          />
+        )}
+      </NavLink>
+    );
+  },
+);
 
 interface NavButtonProps {
   onClick: () => void;
   icon: LucideIcon;
   label: string;
-  isActive: boolean;
   tutorial?: string;
   /** When true, render a small red dot on the top-right of the icon to
-   *  signal unread activity (e.g. gym-feed engagement). Doesn't affect
-   *  the click target. */
+   *  signal unread activity. Doesn't affect the click target. */
   badge?: boolean;
 }
 
-function NavButton({ onClick, icon: Icon, label, isActive, tutorial, badge }: NavButtonProps) {
-  return (
-    <button
-      onClick={onClick}
-      data-tutorial={tutorial}
-      aria-label={label}
-      className="relative flex flex-1 flex-col items-center justify-center gap-[3px] h-14 px-2 rounded-pill"
-    >
-      {isActive && (
-        <motion.div
-          layoutId="nav-active-pill"
-          className="absolute inset-0 rounded-pill bg-[rgba(139,126,234,0.12)]"
-          initial={false}
-          transition={{ type: "spring", stiffness: 350, damping: 30, mass: 0.6 }}
-        />
-      )}
-      <Icon
-        className="relative h-[22px] w-[22px] text-[#8A95A6]"
-        fill="currentColor"
-        strokeWidth={1.25}
-      />
-      <span className="relative font-semibold text-[10px] leading-[14px] tracking-[0.1px] text-[#8A95A6]">
-        {label}
-      </span>
-      {badge && (
-        <span
-          aria-hidden
-          className="absolute top-1.5 right-2 h-2 w-2 rounded-full bg-destructive ring-2 ring-background"
-        />
-      )}
-    </button>
-  );
-}
+const NavButton = React.forwardRef<HTMLButtonElement, NavButtonProps>(
+  function NavButton({ onClick, icon: Icon, label, tutorial, badge }, ref) {
+    return (
+      <button
+        ref={ref}
+        onClick={onClick}
+        data-tutorial={tutorial}
+        aria-label={label}
+        className={NAV_SLOT_CLASS}
+      >
+        <Icon className={NAV_ICON_CLASS} fill="currentColor" strokeWidth={1.25} />
+        <span className={NAV_LABEL_CLASS}>{label}</span>
+        {badge && (
+          <span
+            aria-hidden
+            className="absolute top-1.5 right-2 h-2 w-2 rounded-full bg-destructive ring-2 ring-background"
+          />
+        )}
+      </button>
+    );
+  },
+);
 
 interface RoundCardFabProps {
   /** Tap + long-press gesture handlers from `useFabGesture`. Spread
