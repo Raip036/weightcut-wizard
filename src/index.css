@@ -1,4 +1,26 @@
-/* Satoshi — app-wide primary font. Variable font: one file covers weights 300-900. */
+/* Sora — display family for headings + impact (Display 1/2, Heading 1/2). */
+@font-face {
+  font-family: "Sora";
+  src: url("/fonts/sora/Sora-Variable.woff2") format("woff2-variations"),
+       url("/fonts/sora/Sora-Variable.woff2") format("woff2");
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Inter — body family for paragraphs, labels, captions, overlines. */
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter/Inter-Variable.woff2") format("woff2-variations"),
+       url("/fonts/inter/Inter-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Satoshi — retained for share-card components (FightCampSummaryCard,
+   CampComparisonCard, CardShell) that render to PNG via html-to-image
+   with hardcoded font-family. Remove once share cards migrate to Sora/Inter. */
 @font-face {
   font-family: "Satoshi";
   src: url("/fonts/satoshi/Satoshi-Variable.woff2") format("woff2-variations"),
@@ -162,11 +184,92 @@ All colors MUST be HSL.
     --medal-silver: 220 13% 80%;
     --medal-bronze: 25 65% 55%;
   }
+
+  /* =========================================================================
+     Fight Camp Wizard — Design System v1
+     Source of truth: Figma "Branding" file (fileKey GdczXC0vxl2xADN7QzhoHy).
+     These tokens are dark-only. The shadcn HSL vars above are legacy and will
+     be retired component-by-component as we migrate.
+     ========================================================================= */
+  :root {
+    /* ---- BRAND palette (hex) ---- */
+    --brand-spirit-blue:   #4068EF;
+    --brand-wizard-lilac:  #8B7EEA;
+    --brand-dream-cyan:    #4AB4ED;
+    --brand-night-indigo:  #080D20;
+    --brand-void:          #020811;
+
+    /* ---- FUNCTIONAL palette ---- */
+    --func-danger-red:     #F7403F;
+    --func-warning-yellow: #FAC146;
+    --func-recovery-green: #23C599;
+    --func-carbs-orange:   #F08439;
+    --func-fats-purple:    #7B31EA;
+    --func-protein-blue:   #2A5BDD;
+    --func-hydration-cyan: #12CAE6;
+
+    /* ---- NEUTRALS ---- */
+    --neutral-100:         #E2E5F2;
+    --neutral-200:         #DEDEF7;
+    --neutral-400:         #8C96B4;
+    --neutral-500:         #4D5877;
+    --neutral-700:         #162137;
+    --neutral-800:         #081225;
+    --neutral-900:         #030B18;
+    --neutral-1000:        #000513;
+
+    /* ---- GRADIENTS ---- */
+    --gradient-aurora:  linear-gradient(90deg, #4068EF 0%, #2A5BDD 50%, #4AB4ED 100%);
+    --gradient-cosmic:  linear-gradient(90deg, #7B31EA 0%, #F08439 100%);
+    --gradient-mystic:  linear-gradient(90deg, #4068EF 0%, #020811 100%);
+    /* CTA-specific 4-stop gradient (Figma BUTTONS section). Spirit Blue
+       → Wizard Lilac → mid-pink → Carbs Orange. Used by Button variant
+       "cta" for primary calls-to-action that want the full brand sweep. */
+    --gradient-cta:     linear-gradient(90deg, #4068EF 0%, #8B7EEA 40%, #D96CB8 50%, #F08439 100%);
+
+    /* ---- RADIUS scale ---- */
+    --radius-xs:   8px;
+    --radius-s:   12px;
+    --radius-m:   16px;
+    --radius-l:   20px;
+    --radius-xl:  24px;
+    --radius-full: 999px;
+
+    /* ---- GLASS recipe — Dark frosted glass that obscures content
+       without going fully opaque. The wash effect comes from heavy
+       blur (50px); the surface tint (0.62) plus a soft internal
+       gradient overlay are just enough to ensure text behind is
+       unreadable while the nav still reads as glassy/translucent.
+       Shadow casts UPWARD (negative y) so the floating nav has
+       visible separation from page content above it. */
+    --glass-surface:         rgba(8, 12, 20, 0.62);
+    --glass-blur:            blur(50px) saturate(160%);
+    --glass-border:          1px solid rgba(255, 255, 255, 0.08);
+    --glass-inset-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.10);
+    --glass-shadow:          0 -8px 32px 0 rgba(0, 0, 0, 0.45);
+
+    /* Bubble variant — slightly more translucent so content behind reads through. */
+    --glass-bubble-surface:  rgba(8, 13, 32, 0.55);
+    --glass-bubble-blur:     blur(24px) saturate(150%);
+    --glass-bubble-border:   1px solid rgba(255, 255, 255, 0.12);
+    --glass-bubble-inset:    inset 0 1px 0 0 rgba(255, 255, 255, 0.14);
+    --glass-bubble-shadow:   0 8px 32px 0 rgba(0, 0, 0, 0.45);
+  }
 }
 
 @layer base {
   * {
     @apply border-border;
+  }
+
+  /* Design System v1 — all semantic heading tags default to Sora (the
+     display family). Per-component size + weight stay in JSX; this rule
+     only changes the family. Anywhere a non-heading element should also
+     render as a display heading (big numeric displays, hero stats),
+     opt in with the `font-display` Tailwind class. To keep a heading in
+     the body family (Inter), apply `font-sans` on that element. */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display;
   }
 
   *:focus-visible {
@@ -286,6 +389,34 @@ All colors MUST be HSL.
 }
 
 @layer components {
+
+  /* =========================================================================
+     Design System v1 — Glassmorphism utilities
+     Used by the floating nav (PR 2) and wizard speech bubbles (PR 3).
+     ========================================================================= */
+  .glass-nav {
+    background: var(--glass-surface);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    border: var(--glass-border);
+    box-shadow: var(--glass-shadow), var(--glass-inset-highlight);
+  }
+
+  .glass-bubble {
+    background: var(--glass-bubble-surface);
+    -webkit-backdrop-filter: var(--glass-bubble-blur);
+    backdrop-filter: var(--glass-bubble-blur);
+    border: var(--glass-bubble-border);
+    box-shadow: var(--glass-bubble-shadow), var(--glass-bubble-inset);
+  }
+
+  /* Graceful fallback: if the browser doesn't support backdrop-filter (rare on
+     iOS 16+/Safari 18+), thicken the surface tint so the glass surfaces still
+     read as opaque cards rather than washed-out boxes. */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .glass-nav    { background: rgba(8, 12, 20, 0.96); }
+    .glass-bubble { background: rgba(8, 13, 32, 0.94); }
+  }
 
   /* Disclosure panel: expand/collapse via grid-template-rows */
   .disclosure-panel {
