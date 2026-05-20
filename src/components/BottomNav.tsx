@@ -1,4 +1,4 @@
-import { Home, Utensils, Plus, Weight, Target, MoreHorizontal, Trophy, Calendar, HeartPulse, Dumbbell, TrendingDown, Moon, Users, X } from "lucide-react";
+import { Home, Utensils, Plus, Weight, Target, MoreHorizontal, Trophy, Calendar, HeartPulse, Dumbbell, TrendingDown, Moon, Users, X, type LucideIcon } from "lucide-react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect, memo } from "react";
 import { motion, LayoutGroup } from "motion/react";
@@ -458,7 +458,7 @@ export const BottomNav = memo(function BottomNav() {
 
 interface NavItemProps {
   to: string;
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  icon: LucideIcon;
   label: string;
   isActive: boolean;
   tutorial?: string;
@@ -477,12 +477,21 @@ function NavItem({ to, icon: Icon, label, isActive, tutorial }: NavItemProps) {
         <motion.div
           layoutId="nav-active-pill"
           className="absolute inset-0 rounded-full bg-brand-wizard-lilac/[0.12]"
-          transition={{ type: "spring", damping: 26, stiffness: 320 }}
+          /* iOS-26 liquid-glass feel: lower stiffness + lower damping so the
+             pill eases between tabs with a soft trailing settle, instead of
+             snapping. Pair with the .glass-nav surface so the bubble reads
+             as glass-on-glass rather than a chip slamming into place. */
+          transition={{ type: "spring", damping: 20, stiffness: 180, mass: 0.8 }}
         />
       )}
       <Icon
-        className={`relative h-[22px] w-[22px] transition-colors duration-150 ${isActive ? "text-brand-wizard-lilac" : "text-neutral-400"}`}
-        strokeWidth={isActive ? 2.4 : 1.9}
+        /* Filled silhouette style (Wise/SF Symbols feel): fill="currentColor"
+           + minimal stroke so closed Lucide shapes (Home, Utensils, Users,
+           Weight) render as solid icons rather than outlines. Color never
+           changes between states — only the lilac glass bubble below moves. */
+        className="relative h-[22px] w-[22px] text-[#8A95A6]"
+        fill="currentColor"
+        strokeWidth={1.25}
       />
     </NavLink>
   );
@@ -507,12 +516,21 @@ function NavItemWithBadge({ to, icon: Icon, label, isActive, tutorial, badge }: 
         <motion.div
           layoutId="nav-active-pill"
           className="absolute inset-0 rounded-full bg-brand-wizard-lilac/[0.12]"
-          transition={{ type: "spring", damping: 26, stiffness: 320 }}
+          /* iOS-26 liquid-glass feel: lower stiffness + lower damping so the
+             pill eases between tabs with a soft trailing settle, instead of
+             snapping. Pair with the .glass-nav surface so the bubble reads
+             as glass-on-glass rather than a chip slamming into place. */
+          transition={{ type: "spring", damping: 20, stiffness: 180, mass: 0.8 }}
         />
       )}
       <Icon
-        className={`relative h-[22px] w-[22px] transition-colors duration-150 ${isActive ? "text-brand-wizard-lilac" : "text-neutral-400"}`}
-        strokeWidth={isActive ? 2.4 : 1.9}
+        /* Filled silhouette style (Wise/SF Symbols feel): fill="currentColor"
+           + minimal stroke so closed Lucide shapes (Home, Utensils, Users,
+           Weight) render as solid icons rather than outlines. Color never
+           changes between states — only the lilac glass bubble below moves. */
+        className="relative h-[22px] w-[22px] text-[#8A95A6]"
+        fill="currentColor"
+        strokeWidth={1.25}
       />
       {badge && (
         <span
@@ -526,7 +544,7 @@ function NavItemWithBadge({ to, icon: Icon, label, isActive, tutorial, badge }: 
 
 interface NavButtonProps {
   onClick: () => void;
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  icon: LucideIcon;
   label: string;
   isActive: boolean;
   tutorial?: string;
@@ -548,12 +566,21 @@ function NavButton({ onClick, icon: Icon, label, isActive, tutorial, badge }: Na
         <motion.div
           layoutId="nav-active-pill"
           className="absolute inset-0 rounded-full bg-brand-wizard-lilac/[0.12]"
-          transition={{ type: "spring", damping: 26, stiffness: 320 }}
+          /* iOS-26 liquid-glass feel: lower stiffness + lower damping so the
+             pill eases between tabs with a soft trailing settle, instead of
+             snapping. Pair with the .glass-nav surface so the bubble reads
+             as glass-on-glass rather than a chip slamming into place. */
+          transition={{ type: "spring", damping: 20, stiffness: 180, mass: 0.8 }}
         />
       )}
       <Icon
-        className={`relative h-[22px] w-[22px] transition-colors duration-150 ${isActive ? "text-brand-wizard-lilac" : "text-neutral-400"}`}
-        strokeWidth={isActive ? 2.4 : 1.9}
+        /* Filled silhouette style (Wise/SF Symbols feel): fill="currentColor"
+           + minimal stroke so closed Lucide shapes (Home, Utensils, Users,
+           Weight) render as solid icons rather than outlines. Color never
+           changes between states — only the lilac glass bubble below moves. */
+        className="relative h-[22px] w-[22px] text-[#8A95A6]"
+        fill="currentColor"
+        strokeWidth={1.25}
       />
       {badge && (
         <span
