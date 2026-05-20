@@ -31,6 +31,8 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton-loader";
 import { cn } from "@/lib/utils";
 import { api } from "@/../convex/_generated/api";
+import { useUser } from "@/contexts/UserContext";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 // ─── Types — local view-models only ────────────────────────────────────
 
@@ -66,9 +68,26 @@ export function HealthTilesPanel({
   days = 14,
   className,
 }: HealthTilesPanelProps): JSX.Element {
-  const raw = useQuery(api.health.listDailySummary, { days }) as
-    | DailySummary[]
-    | undefined;
+  // Wrap inner content so a Convex / render error here surfaces a small
+  // local fallback instead of crashing the Recovery page.
+  return (
+    <ErrorBoundary fallback={<HealthTilesErrorFallback className={className} />}>
+      <HealthTilesPanelInner days={days} className={className} />
+    </ErrorBoundary>
+  );
+}
+
+function HealthTilesPanelInner({
+  days = 14,
+  className,
+}: HealthTilesPanelProps): JSX.Element {
+  const { userId } = useUser();
+  // Skip the query until auth has resolved. Backend also returns null on
+  // unauth so we cover both cases below.
+  const raw = useQuery(
+    api.health.listDailySummary,
+    userId ? { days } : "skip",
+  ) as DailySummary[] | null | undefined;
 
   // Sort oldest → newest so the sparkline reads left-to-right.
   const summaries = useMemo<DailySummary[]>(() => {
@@ -76,12 +95,18 @@ export function HealthTilesPanel({
     return [...raw].sort((a, b) => a.date.localeCompare(b.date));
   }, [raw]);
 
-  if (raw === undefined) {
+  // Loading: still resolving the query AND we have auth. (If userId is
+  // missing the query is skipped, which also returns undefined — but we
+  // shouldn't show a perpetual skeleton in that case, so fall through to
+  // the empty state.)
+  if (raw === undefined && userId) {
     return <LoadingState className={className} />;
   }
 
-  // Empty: connected but no rows yet (first sync still pending).
-  if (summaries.length === 0) {
+  // Empty / unauth / explicit null from server: treat as "no data yet".
+  // The parent page only renders this panel for tier_1+ users, so this
+  // typically means first sync is still pending.
+  if (!raw || summaries.length === 0) {
     return <EmptySyncingState className={className} />;
   }
 
@@ -102,6 +127,39 @@ export function HealthTilesPanel({
         ))}
       </div>
     </div>
+  );
+}
+
+function HealthTilesErrorFallback({
+  className,
+}: {
+  className?: string;
+}): JSX.Element {
+  return (
+    <Card
+      className={cn(
+        "rounded-2xl border border-border/50 bg-card/60 p-4",
+        className,
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/50 bg-background/60">
+          <HeartPulse
+            className="h-4 w-4 text-rose-400"
+            strokeWidth={2.2}
+            aria-hidden
+          />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[13px] font-semibold tracking-tight">
+            Couldn't load health data
+          </p>
+          <p className="mt-0.5 text-[11.5px] leading-snug text-muted-foreground">
+            Pull to refresh — your tiles will reload once we reconnect.
+          </p>
+        </div>
+      </div>
+    </Card>
   );
 }
 

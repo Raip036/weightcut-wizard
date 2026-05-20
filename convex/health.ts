@@ -13,7 +13,7 @@ import {
 } from "./_generated/server";
 import type { Id, Doc } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
-import { requireUserId } from "./lib/auth";
+import { requireUserId, optionalUserId } from "./lib/auth";
 import { KNOWN_METRICS, BASELINE_METRICS } from "./lib/health/constants";
 import {
   aggregateSamplesIntoSummary,
@@ -124,7 +124,11 @@ export const insertSamples = mutation({
 export const listDailySummary = query({
   args: { days: v.optional(v.number()) },
   handler: async (ctx, { days }) => {
-    const userId = await requireUserId(ctx);
+    // Unauth (cold-start / sign-out / page-transition races): return null
+    // instead of throwing so the caller can branch on it the same way every
+    // other read-only query on Recovery does (e.g. fightFormScore.getToday).
+    const userId = await optionalUserId(ctx);
+    if (!userId) return null;
     const limit = days ?? 14;
     const rows = await ctx.db
       .query("daily_health_summary")
@@ -143,7 +147,11 @@ export const listDailySummary = query({
 export const getTier = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await requireUserId(ctx);
+    // Unauth: return null. HealthTilesPanel / HealthSettingsCard mount
+    // during the same render the auth context is still resolving, so
+    // throwing here crashes the Recovery page's error boundary.
+    const userId = await optionalUserId(ctx);
+    if (!userId) return null;
     const profile = await ctx.db
       .query("profiles")
       .withIndex("by_user", (q) => q.eq("userId", userId))

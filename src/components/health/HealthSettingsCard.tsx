@@ -31,6 +31,8 @@ import { cn } from "@/lib/utils";
 import { logger } from "@/lib/logger";
 import { healthKit } from "@/services/healthKit";
 import { api } from "@/../convex/_generated/api";
+import { useUser } from "@/contexts/UserContext";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 import { ConnectAppleHealthSheet } from "./ConnectAppleHealthSheet";
 
@@ -62,19 +64,41 @@ interface HealthSettingsCardProps {
 export function HealthSettingsCard({
   className,
 }: HealthSettingsCardProps): JSX.Element {
+  // Wrap the inner card in an ErrorBoundary so a future Convex/render error
+  // here degrades into a small inline fallback instead of unwinding to the
+  // page-level boundary (which crashes the entire Profile/Recovery screen).
+  return (
+    <ErrorBoundary fallback={<HealthCardErrorFallback className={className} />}>
+      <HealthSettingsCardInner className={className} />
+    </ErrorBoundary>
+  );
+}
+
+function HealthSettingsCardInner({
+  className,
+}: HealthSettingsCardProps): JSX.Element {
+  const { userId } = useUser();
   const [available, setAvailable] = useState<boolean | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [openingSettings, setOpeningSettings] = useState(false);
 
-  const tierInfo = useQuery(api.health.getTier, {}) as
-    | {
-        tier?: Tier;
-        grantedMetrics?: string[];
-        lastSyncAt?: number | null;
-        connectedAt?: number | null;
-      }
-    | undefined;
+  // Skip the query until Convex auth has resolved a userId. Backend also
+  // returns null on unauth, so the downstream code handles both cases.
+  type TierInfo = {
+    tier?: Tier;
+    grantedMetrics?: string[];
+    lastSyncAt?: number | null;
+    connectedAt?: number | null;
+  };
+  const tierInfoRaw = useQuery(
+    api.health.getTier,
+    userId ? {} : "skip",
+  ) as TierInfo | null | undefined;
+  // Normalise both `null` (unauth from server) and `undefined` (loading /
+  // skipped) into "no data yet" so the rest of the component just checks
+  // optional fields.
+  const tierInfo: TierInfo | undefined = tierInfoRaw ?? undefined;
 
   const markDisconnected = useMutation(api.health.markDisconnected);
 
@@ -369,6 +393,31 @@ function ConnectedBody({
         </button>
       </div>
     </div>
+  );
+}
+
+function HealthCardErrorFallback({
+  className,
+}: {
+  className?: string;
+}): JSX.Element {
+  return (
+    <Card
+      className={cn(
+        "rounded-2xl border border-border/50 bg-card/60 p-4 space-y-2",
+        className,
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <HeartPulse className="h-4 w-4 text-rose-400" />
+        <h3 className="text-[14px] font-semibold tracking-tight">
+          Apple Health
+        </h3>
+      </div>
+      <p className="text-[12px] leading-snug text-muted-foreground">
+        Couldn't load health data — pull to refresh.
+      </p>
+    </Card>
   );
 }
 

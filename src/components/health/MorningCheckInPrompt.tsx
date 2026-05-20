@@ -22,6 +22,7 @@ import {
 import { cn } from "@/lib/utils";
 import { WellnessCheckIn } from "@/components/fightcamp/WellnessCheckIn";
 import type { WellnessCheckIn as WellnessCheckInData } from "@/utils/performanceEngine";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 interface MorningCheckInPromptProps {
   userId: string;
@@ -30,7 +31,22 @@ interface MorningCheckInPromptProps {
   className?: string;
 }
 
-export function MorningCheckInPrompt({
+export function MorningCheckInPrompt(
+  props: MorningCheckInPromptProps,
+): JSX.Element {
+  // Defensive wrapper — the inner check-in flow renders WellnessCheckIn,
+  // which has its own Convex hooks. A failure there shouldn't crash the
+  // Recovery page; show a small inline fallback instead.
+  return (
+    <ErrorBoundary
+      fallback={<MorningCheckInErrorFallback className={props.className} />}
+    >
+      <MorningCheckInPromptInner {...props} />
+    </ErrorBoundary>
+  );
+}
+
+function MorningCheckInPromptInner({
   userId,
   onCheckedIn,
   className,
@@ -131,5 +147,39 @@ export function MorningCheckInPrompt({
         </SheetContent>
       </Sheet>
     </>
+  );
+}
+
+function MorningCheckInErrorFallback({
+  className,
+}: {
+  className?: string;
+}): JSX.Element {
+  return (
+    <Card
+      className={cn(
+        "rounded-2xl border border-border/50 bg-card/60 p-4",
+        className,
+      )}
+      aria-live="polite"
+    >
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-border/50 bg-background/60">
+          <Sunrise
+            className="h-5 w-5 text-amber-300"
+            strokeWidth={2.2}
+            aria-hidden
+          />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[13.5px] font-semibold leading-tight text-foreground">
+            Morning check-in unavailable
+          </p>
+          <p className="mt-0.5 text-[11.5px] leading-snug text-muted-foreground">
+            Couldn't load health data — pull to refresh.
+          </p>
+        </div>
+      </div>
+    </Card>
   );
 }

@@ -23,6 +23,8 @@ import { useMutation } from "convex/react";
 
 import { logger } from "@/lib/logger";
 import { api } from "@/../convex/_generated/api";
+import { cn } from "@/lib/utils";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 import { ConnectAppleHealthSheet } from "@/components/health/ConnectAppleHealthSheet";
 
@@ -32,7 +34,25 @@ interface ConnectHealthStepProps {
   className?: string;
 }
 
-export function ConnectHealthStep({
+export function ConnectHealthStep(props: ConnectHealthStepProps): JSX.Element {
+  // Wrap the inner step so a Convex / render error here doesn't crash the
+  // onboarding flow. Onboarding can't recover from an unwound page boundary,
+  // so we render an inline fallback that still advances the wizard.
+  return (
+    <ErrorBoundary
+      fallback={
+        <ConnectHealthStepErrorFallback
+          onAdvance={props.onAdvance}
+          className={props.className}
+        />
+      }
+    >
+      <ConnectHealthStepInner {...props} />
+    </ErrorBoundary>
+  );
+}
+
+function ConnectHealthStepInner({
   onAdvance,
   className,
 }: ConnectHealthStepProps): JSX.Element {
@@ -63,5 +83,31 @@ export function ConnectHealthStep({
       onSkip={handleSkip}
       className={className}
     />
+  );
+}
+
+function ConnectHealthStepErrorFallback({
+  onAdvance,
+  className,
+}: {
+  onAdvance: () => void;
+  className?: string;
+}): JSX.Element {
+  return (
+    <div className={cn("space-y-4 p-4 text-center", className)}>
+      <p className="text-[13px] font-semibold tracking-tight">
+        Couldn't load Apple Health setup
+      </p>
+      <p className="text-[12px] leading-snug text-muted-foreground">
+        You can connect Apple Health later from Profile → Apple Health.
+      </p>
+      <button
+        type="button"
+        onClick={onAdvance}
+        className="h-10 w-full rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 active:scale-[0.98] transition"
+      >
+        Continue
+      </button>
+    </div>
   );
 }
