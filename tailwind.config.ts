@@ -95,14 +95,78 @@ export default {
         health: "hsl(var(--health))",
         hydration: "hsl(var(--hydration))",
         recovery: "hsl(var(--recovery))",
+
+        /* Design System v1 — Brand palette (Figma "Branding" file). */
+        brand: {
+          "spirit-blue":  "var(--brand-spirit-blue)",
+          "wizard-lilac": "var(--brand-wizard-lilac)",
+          "dream-cyan":   "var(--brand-dream-cyan)",
+          "night-indigo": "var(--brand-night-indigo)",
+          void:           "var(--brand-void)",
+        },
+        /* Design System v1 — Functional palette (status, macros). */
+        func: {
+          "danger-red":     "var(--func-danger-red)",
+          "warning-yellow": "var(--func-warning-yellow)",
+          "recovery-green": "var(--func-recovery-green)",
+          "carbs-orange":   "var(--func-carbs-orange)",
+          "fats-purple":    "var(--func-fats-purple)",
+          "protein-blue":   "var(--func-protein-blue)",
+          "hydration-cyan": "var(--func-hydration-cyan)",
+        },
+        /* Design System v1 — Neutral scale. */
+        neutral: {
+          100: "var(--neutral-100)",
+          200: "var(--neutral-200)",
+          400: "var(--neutral-400)",
+          500: "var(--neutral-500)",
+          700: "var(--neutral-700)",
+          800: "var(--neutral-800)",
+          900: "var(--neutral-900)",
+          1000: "var(--neutral-1000)",
+        },
       },
       fontFamily: {
-        sans: ["Satoshi", "SF Pro Display", "SF Pro Text", "SF Pro", "-apple-system", "BlinkMacSystemFont", "system-ui", "sans-serif"],
+        /* Body / UI default — Inter (Design System v1). Satoshi remains as a
+           fallback so share-card components that hardcode it keep rendering
+           until they migrate. */
+        sans: ["Inter", "Satoshi", "SF Pro Text", "-apple-system", "BlinkMacSystemFont", "system-ui", "sans-serif"],
+        /* Display — Sora. Use via `font-display` for Display 1/2 + Heading 1/2. */
+        display: ["Sora", "SF Pro Display", "-apple-system", "BlinkMacSystemFont", "system-ui", "sans-serif"],
+      },
+      /* Design System v1 — Type scale (Figma).
+         Use as `text-display-1`, `text-heading-1`, `text-body`, etc.
+         Each value is [size, { lineHeight }]. */
+      fontSize: {
+        "display-1":  ["40px", { lineHeight: "48px", letterSpacing: "-0.02em" }],
+        "display-2":  ["32px", { lineHeight: "40px", letterSpacing: "-0.02em" }],
+        "heading-1":  ["24px", { lineHeight: "32px", letterSpacing: "-0.01em" }],
+        "heading-2":  ["20px", { lineHeight: "28px", letterSpacing: "-0.01em" }],
+        "subheading": ["16px", { lineHeight: "24px" }],
+        "body":       ["16px", { lineHeight: "24px" }],
+        "caption":    ["12px", { lineHeight: "16px" }],
+        "overline":   ["10px", { lineHeight: "14px", letterSpacing: "0.08em" }],
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        /* Design System v1 — radius scale */
+        xs: "var(--radius-xs)",   /*  8px */
+        s:  "var(--radius-s)",    /* 12px */
+        m:  "var(--radius-m)",    /* 16px */
+        l:  "var(--radius-l)",    /* 20px */
+        xl: "var(--radius-xl)",   /* 24px */
+        pill: "var(--radius-full)", /* 999px */
+      },
+      /* Design System v1 — Brand + functional palette, exposed as Tailwind
+         color shortcuts so components can use `bg-brand-spirit-blue`,
+         `text-func-recovery-green`, `border-neutral-700`, etc. without
+         reaching for arbitrary values. */
+      backgroundImage: {
+        "gradient-aurora": "var(--gradient-aurora)",
+        "gradient-cosmic": "var(--gradient-cosmic)",
+        "gradient-mystic": "var(--gradient-mystic)",
       },
       keyframes: {
         "accordion-down": {
