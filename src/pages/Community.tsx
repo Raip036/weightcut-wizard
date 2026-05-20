@@ -38,7 +38,6 @@ import { usePolaroidStack } from "@/hooks/community/usePolaroidStack";
 import { GymHeader } from "@/components/community/GymHeader";
 import { PolaroidStack } from "@/components/community/PolaroidStack";
 import { SessionInfoCard } from "@/components/community/SessionInfoCard";
-import { StackSkeleton } from "@/components/community/StackSkeleton";
 import { ActivitySheet } from "@/components/community/ActivitySheet";
 import { CommentsSheet } from "@/components/gym-feed/CommentsSheet";
 import { useFeedEngagement } from "@/hooks/useFeedEngagement";
@@ -237,6 +236,12 @@ export default function Community() {
                           : "feed";
 
               if (branch === "loading") {
+                // Neutral loader instead of the polaroid-shaped skeleton —
+                // when the feed resolves empty, the user previously saw a
+                // polaroid flash before the EmptyFeed appeared. A soft,
+                // non-card-shaped loader avoids implying a card will land
+                // there and matches the smooth-load feel of the rest of
+                // the app.
                 return (
                   <motion.div
                     key="loading"
@@ -244,9 +249,9 @@ export default function Community() {
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.18 }}
-                    className="mt-8"
+                    className="mt-10 flex items-center justify-center min-h-[280px]"
                   >
-                    <StackSkeleton />
+                    <div className="h-7 w-7 rounded-full border-2 border-muted-foreground/20 border-t-primary animate-spin" aria-label="Loading feed" />
                   </motion.div>
                 );
               }
