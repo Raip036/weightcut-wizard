@@ -371,7 +371,16 @@ export const BottomNav = memo(function BottomNav() {
              breathing room. `pointer-events-auto` re-enables tap on the
              nav itself (the outer wrapper has pointer-events-none so
              taps pass through to page content elsewhere along the bottom). */
-          className="pointer-events-auto relative flex items-stretch gap-2 p-1.5 w-[92vw] max-w-[26rem] rounded-pill glass-nav"
+          /* Horizontal padding is 10px (`px-2.5`) while vertical stays at
+             6px (`py-1.5`) — top/bottom padding is unchanged per the
+             "top/bottom are fine" feedback. The 10px horizontal padding
+             accounts for the bubble's 6px overhang on each side and
+             leaves a ~4px visual gap between the bubble and the nav's
+             outer edge, matching the 4px top/bottom gap (top-1
+             bottom-1) for symmetric breathing room around the pill.
+             max-w bumped 26rem → 27rem to add slight overall width
+             without crowding the tabs. */
+          className="pointer-events-auto relative flex items-stretch gap-2 px-2.5 py-1.5 w-[92vw] max-w-[27rem] rounded-pill glass-nav"
         >
           <motion.div
             aria-hidden
