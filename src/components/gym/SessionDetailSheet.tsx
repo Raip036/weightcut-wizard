@@ -159,7 +159,7 @@ export function SessionDetailSheet({ session, open, onOpenChange, onDelete, onUp
             {/* Premium hero card — discipline edge + 3-stat row */}
             <motion.div
               variants={staggerItem}
-              className="relative mt-3 rounded-2xl card-surface border border-border/50 pl-4 pr-3 py-3 overflow-hidden"
+              className="relative mt-3 rounded-xs card-surface pl-4 pr-3 py-3 overflow-hidden"
             >
               <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${edgeColor}`} />
               <div className="flex items-center justify-between gap-2">
@@ -202,7 +202,7 @@ export function SessionDetailSheet({ session, open, onOpenChange, onDelete, onUp
 
             {/* Notes */}
             {session.notes && (
-              <motion.div variants={staggerItem} className="mt-3 card-surface rounded-2xl border border-border/50 p-3.5 text-[13px] text-muted-foreground leading-snug">
+              <motion.div variants={staggerItem} className="mt-3 card-surface rounded-xs p-3.5 text-[13px] text-muted-foreground leading-snug">
                 {session.notes}
               </motion.div>
             )}
@@ -222,7 +222,7 @@ export function SessionDetailSheet({ session, open, onOpenChange, onDelete, onUp
                   <motion.div
                     key={key}
                     variants={staggerItem}
-                    className="rounded-2xl card-surface border border-border/50 overflow-hidden"
+                    className="rounded-xs card-surface overflow-hidden"
                   >
                     <button
                       type="button"

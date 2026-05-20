@@ -225,7 +225,7 @@ export default function Profile() {
       </div>
 
       {/* ─── Stats row ──────────────────────────────────────────────── */}
-      <div className="mx-5 grid grid-cols-3 rounded-2xl border border-white/[0.06] bg-white/[0.03]">
+      <div className="mx-5 grid grid-cols-3 rounded-xs bg-neutral-800">
         <StatCell label="Sessions" value={compactNumber(sessionsLogged)} />
         <StatCell
           label="kg cut"

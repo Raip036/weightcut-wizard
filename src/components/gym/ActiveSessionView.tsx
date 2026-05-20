@@ -103,7 +103,7 @@ export function ActiveSessionView({
         initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={springs.responsive}
-        className="card-surface rounded-2xl border border-border/50 p-5 relative overflow-hidden"
+        className="card-surface rounded-xs p-5 relative overflow-hidden"
       >
         {/* Subtle gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />

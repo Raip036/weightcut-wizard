@@ -399,15 +399,15 @@ export default function GymTracker() {
               {/* Quick stats row */}
               {analytics.totalSessions > 0 && (
                 <div className="grid grid-cols-3 gap-2.5">
-                  <div className="card-surface rounded-2xl border border-border p-3 text-center">
+                  <div className="card-surface rounded-xs p-3 text-center">
                     <div className="display-number text-lg">{analytics.sessionsThisWeek}</div>
                     <div className="text-[13px] text-muted-foreground mt-0.5">This Week</div>
                   </div>
-                  <div className="card-surface rounded-2xl border border-border p-3 text-center">
+                  <div className="card-surface rounded-xs p-3 text-center">
                     <div className="display-number text-lg">{analytics.avgDuration}<span className="text-xs text-muted-foreground font-normal">m</span></div>
                     <div className="text-[13px] text-muted-foreground mt-0.5">Avg Duration</div>
                   </div>
-                  <div className="card-surface rounded-2xl border border-border p-3 text-center">
+                  <div className="card-surface rounded-xs p-3 text-center">
                     <div className="display-number text-lg">{formatVol(weeklyVolume)}<span className="text-xs text-muted-foreground font-normal">kg</span></div>
                     <div className="text-[13px] text-muted-foreground mt-0.5">Week Volume</div>
                   </div>
@@ -417,7 +417,7 @@ export default function GymTracker() {
               {/* Wizard-led start hero — restricted to Strength /
                   Hypertrophy / Explosiveness. Wizard avatar uses the
                   transparent tutorial PNG so it sits chrome-free. */}
-              <div className="card-surface rounded-3xl border border-primary/20 p-4">
+              <div className="card-surface rounded-xs p-4">
                 <div className="flex items-start gap-3 mb-3">
                   <div className="h-12 w-12 shrink-0 flex items-center justify-center">
                     <img
@@ -771,7 +771,7 @@ function ProgressTabContent({
       {/* Tab content */}
       {sub === "prs" && (
         loggedExercises.length === 0 ? (
-          <div className="card-surface rounded-2xl border border-border/40 p-6 text-center">
+          <div className="card-surface rounded-xs p-6 text-center">
             <p className="text-[13px] text-muted-foreground">No exercises logged yet</p>
             <p className="text-[12px] text-muted-foreground/60 mt-0.5">Complete a workout to track PRs</p>
           </div>
@@ -808,7 +808,7 @@ function ProgressTabContent({
       )}
 
       {sub === "volume" && (
-        <div className="card-surface rounded-2xl border border-border/40 p-4">
+        <div className="card-surface rounded-xs p-4">
           <div className="flex items-baseline justify-between">
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Last 7 days</p>
             <p className="text-[18px] font-bold tabular-nums text-foreground">
@@ -841,12 +841,12 @@ function ProgressTabContent({
 
       {sub === "frequency" && (
         muscleRows.length === 0 ? (
-          <div className="card-surface rounded-2xl border border-border/40 p-6 text-center">
+          <div className="card-surface rounded-xs p-6 text-center">
             <p className="text-[13px] text-muted-foreground">No data yet</p>
             <p className="text-[12px] text-muted-foreground/60 mt-0.5">Log workouts to see muscle frequency</p>
           </div>
         ) : (
-          <div className="card-surface rounded-2xl border border-border/40 p-4 space-y-2.5">
+          <div className="card-surface rounded-xs p-4 space-y-2.5">
             <div className="flex items-baseline justify-between">
               <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Sessions per muscle</p>
               <p className="text-[10px] text-muted-foreground/70">All-time</p>

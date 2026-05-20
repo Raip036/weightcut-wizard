@@ -734,9 +734,13 @@ export default function Dashboard() {
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               {daysUntilTarget > 0 && (
-                <div className="card-surface rounded-2xl border border-border/50 px-2.5 py-1.5 text-center">
-                  <p className="text-[15px] font-bold display-number tabular-nums leading-none">{daysUntilTarget}</p>
-                  <p className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5">Days left</p>
+                /* Days-left badge — solid Spirit Blue (#4068EF) fill with
+                   Dream Cyan (#4AB4ED) text so the badge reads as the
+                   highest-priority signal in the header at a glance.
+                   No border per Design System v1. */
+                <div className="rounded-xs px-2.5 py-1.5 text-center bg-brand-spirit-blue">
+                  <p className="text-[15px] font-bold display-number tabular-nums leading-none text-brand-dream-cyan">{daysUntilTarget}</p>
+                  <p className="text-[9px] uppercase tracking-wider text-brand-dream-cyan/80 mt-0.5">Days left</p>
                 </div>
               )}
             </div>
@@ -901,11 +905,21 @@ export default function Dashboard() {
                 (Figma node 67:725). Eyebrow → big bold value → smaller
                 chart → date + trend at the bottom. The kg/lb toggle
                 lives in the expanded weight tracker now; this card
-                follows whatever unit was last selected there. */}
-            <div className="card-surface rounded-xs p-3 aspect-square flex flex-col">
-              <span className="text-[10px] font-normal uppercase tracking-[0.08em] text-muted-foreground">
-                WEIGHT
-              </span>
+                follows whatever unit was last selected there. The
+                whole card is a button so tapping anywhere opens the
+                expanded /weight view (the chevron in the top-right is
+                a visual affordance for that tap). */}
+            <button
+              type="button"
+              onClick={() => { triggerHapticSelection(); navigate('/weight'); }}
+              className="card-surface rounded-xs p-3 aspect-square flex flex-col text-left active:scale-[0.98] transition-transform"
+            >
+              <div className="flex items-start justify-between">
+                <span className="text-[10px] font-normal uppercase tracking-[0.08em] text-muted-foreground">
+                  WEIGHT
+                </span>
+                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60 -mr-1 -mt-0.5" strokeWidth={2.2} />
+              </div>
 
               <div className="mt-2 flex items-baseline gap-1.5">
                 <span className="font-display font-bold text-[28px] leading-none text-foreground tabular-nums">
@@ -959,7 +973,7 @@ export default function Dashboard() {
                   </div>
                 );
               })()}
-            </div>
+            </button>
             {userId && <TrainingWeekWidget userId={userId} compact />}
           </div>
 

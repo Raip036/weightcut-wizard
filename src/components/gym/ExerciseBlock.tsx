@@ -104,7 +104,7 @@ export function ExerciseBlock({
   return (
     <motion.div
       variants={staggerItem}
-      className={`card-surface rounded-2xl border border-border/50 border-l-[3px] ${borderColor} overflow-hidden`}
+      className={`card-surface rounded-xs border-l-[3px] ${borderColor} overflow-hidden`}
     >
       {/* Header — tappable to toggle collapse when onToggleCollapse is wired.
           The exercise name + chevron-right is the existing tap into stats

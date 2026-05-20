@@ -123,7 +123,10 @@ All colors MUST be HSL.
   .dark {
     /* Dark mode - Clean blue dark */
 
-    --background: 0 0% 4%;
+    /* Design System v1 — page background is brand --neutral-1000 (#000513)
+       so cards (#081225 / neutral-800) sit on a subtly bluer dark ground
+       rather than neutral black. HSL form: 224 100% 4% ≈ #000513. */
+    --background: 224 100% 4%;
     --foreground: 0 0% 95%;
 
     /* Solid card surface */

@@ -317,7 +317,7 @@ export default function WeightTracker() {
       )}
       <div className="animate-page-in space-y-4 px-5 py-3 sm:p-5 md:p-6 max-w-2xl mx-auto">
         {/* ── Hero log form — primary action, prominent ───────── */}
-        <div className="card-surface rounded-none px-5 py-5">
+        <div className="card-surface rounded-xs px-5 py-5">
           <div className="flex items-center justify-between mb-3">
             <div>
               <p className="text-[10px] uppercase tracking-[0.15em] font-semibold text-muted-foreground/60">
@@ -396,7 +396,7 @@ export default function WeightTracker() {
         </div>
 
         {/* Chart + History */}
-        <div className="card-surface rounded-3xl p-4 space-y-3">
+        <div className="card-surface rounded-xs p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex rounded-full bg-muted/40 dark:bg-white/[0.06] border border-border/30 p-1">
               {(["1W", "1M", "ALL"] as const).map((filter) => (
