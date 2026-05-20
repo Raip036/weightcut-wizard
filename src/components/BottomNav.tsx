@@ -349,12 +349,18 @@ export const BottomNav = memo(function BottomNav() {
       <div
         data-bottom-nav
         className="fixed inset-x-0 z-[9999] md:hidden flex justify-center pointer-events-none"
-        /* Flush against the iOS home-indicator safe area — no extra
-           gap. `env(safe-area-inset-bottom)` already accounts for the
-           home-indicator zone, so the nav sits directly on top of it.
-           Add a small positive offset (e.g. + 0.25rem) only if it
-           visually crowds the indicator on a specific device. */
-        style={{ bottom: "env(safe-area-inset-bottom, 0px)" }}
+        /* iOS reports `safe-area-inset-bottom` ≈ 34px on home-indicator
+           devices, but the indicator BAR itself only occupies the
+           bottom ~10–13px of the screen — the remaining ~20px is just
+           Apple's recommended margin. Sitting flush with the safe-area
+           top edge therefore leaves a visible gap above the bar. We
+           subtract 1rem (16px) so the nav floats just above the
+           indicator bar with only ~5px of breathing room. `max()`
+           keeps the nav at least 4px above the screen bottom on
+           older devices where the safe-area inset is 0. */
+        style={{
+          bottom: "max(0.25rem, calc(env(safe-area-inset-bottom, 0px) - 1rem))",
+        }}
       >
         <motion.div
           initial={{ y: 24, opacity: 0 }}
