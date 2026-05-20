@@ -38,7 +38,9 @@
 	<key>NSCameraUsageDescription</key>
 	<string>FightCamp Wizard needs access to your camera to let you take a profile picture.</string>
 	<key>NSHealthShareUsageDescription</key>
-	<string>Personalised accurate metrics </string>
+	<string>FightCamp Wizard reads HRV, resting heart rate, sleep, workouts, body mass, VO2 Max, wrist temperature, respiratory rate, steps and active energy from Apple Health to compute a personalised Fight Form recovery and readiness score and tailor your camp coaching. Data is never used for advertising or sold.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>FightCamp Wizard does not currently write data to Apple Health; this entry is required by Apple because the HealthKit framework includes write APIs even when only read access is used.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>FightCamp Wizard needs access to your microphone to allow you to log food and training notes via voice dictation.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
