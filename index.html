@@ -29,16 +29,16 @@
   <meta name="twitter:site" content="@lovable_dev" />
   <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
 
-  <!-- Script to prevent Flash of Unstyled Content and set default theme to dark -->
+  <!-- Design System v1 is dark-only. Force `.dark` on <html> at parse time so
+       descendant `.dark X` selectors and shadcn dark tokens always apply, and
+       to prevent any flash of light styling on first paint. Also writes
+       `theme=dark` to localStorage so the legacy ThemeToggle (now a no-op)
+       and any other code reading the value sees a consistent state. -->
   <script>
     (function () {
       try {
-        var savedTheme = localStorage.getItem("theme");
-        if (savedTheme === "dark" || !savedTheme) {
-          document.documentElement.classList.add("dark");
-        } else {
-          document.documentElement.classList.remove("dark");
-        }
+        document.documentElement.classList.add("dark");
+        localStorage.setItem("theme", "dark");
       } catch (e) { }
     })();
   </script>
