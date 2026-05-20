@@ -234,11 +234,13 @@ All colors MUST be HSL.
     /* ---- GLASS recipe (extracted from Figma nav 67:887, tuned for true
        frosted-glass read on iOS/Safari) ----
        Apply together: bg + backdrop-filter + border + inset highlight +
-       shadow. Surface opacity is kept low (~38%) so the backdrop blur
+       shadow. Surface opacity is kept low (~32%) so the backdrop blur
        actually shows through; pushing it past ~55% causes the surface to
-       read as solid tinted plastic instead of glass. */
-    --glass-surface:         rgba(2, 11, 24, 0.38);
-    --glass-blur:            blur(40px) saturate(180%);
+       read as solid tinted plastic instead of glass. Blur strength is
+       60px + saturate(200%) so the frosting is unmistakable across the
+       whole nav and doesn't read as merely-translucent at the ends. */
+    --glass-surface:         rgba(2, 11, 24, 0.32);
+    --glass-blur:            blur(60px) saturate(200%);
     --glass-border:          1px solid rgba(255, 255, 255, 0.10);
     --glass-inset-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.10);
     --glass-shadow:          0 4px 24px 0 rgba(0, 0, 0, 0.4);

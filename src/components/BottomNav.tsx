@@ -349,11 +349,12 @@ export const BottomNav = memo(function BottomNav() {
       <div
         data-bottom-nav
         className="fixed inset-x-0 z-[9999] md:hidden flex justify-center pointer-events-none"
-        /* Sit tight against the iOS home-indicator safe area — 4px of
-           breathing room above the system grey bar is enough to feel
-           floating without floating *high*. Increase if it ever looks
-           crowded; do not drop below ~2px or the pill kisses the bar. */
-        style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 0.25rem)" }}
+        /* Flush against the iOS home-indicator safe area — no extra
+           gap. `env(safe-area-inset-bottom)` already accounts for the
+           home-indicator zone, so the nav sits directly on top of it.
+           Add a small positive offset (e.g. + 0.25rem) only if it
+           visually crowds the indicator on a specific device. */
+        style={{ bottom: "env(safe-area-inset-bottom, 0px)" }}
       >
         <motion.div
           initial={{ y: 24, opacity: 0 }}
@@ -370,19 +371,18 @@ export const BottomNav = memo(function BottomNav() {
             aria-hidden
             /* Explicit `left-0 top-1 bottom-1` keeps the bubble pinned
                to the parent's inner edges with 4px breathing room top
-               and bottom — closer to the nav pill's outer rim than the
-               previous top-2/bottom-2 (8px) inset. `rounded-pill` gives
-               fully rounded semi-circular ends. We also widen the
-               bubble's animated x/width by 4px on each side so the pill
-               extends slightly past the tab content. NOTE: do NOT use
-               `rounded-l` — Tailwind treats it as the directional
-               shorthand for "left corners only" and produces a
-               flat-right-edge bug. */
+               and bottom. `rounded-pill` gives fully rounded semi-
+               circular ends. We widen the bubble's animated x/width by
+               6px on each horizontal side so the pill extends slightly
+               past the tab content — fatter pill, more present.
+               NOTE: do NOT use `rounded-l` — Tailwind treats it as the
+               directional shorthand for "left corners only" and
+               produces a flat-right-edge bug. */
             className="absolute left-0 top-1 bottom-1 rounded-pill bg-[rgba(139,126,234,0.12)] pointer-events-none"
             initial={false}
             animate={{
-              x: bubble.x - 4,
-              width: bubble.width + 8,
+              x: bubble.x - 6,
+              width: bubble.width + 12,
               opacity: bubble.visible ? 1 : 0,
             }}
             transition={{ type: "spring", stiffness: 350, damping: 32, mass: 0.7 }}
@@ -548,9 +548,10 @@ export const BottomNav = memo(function BottomNav() {
   );
 });
 
-/* Shared layout class for every tab slot. */
+/* Shared layout class for every tab slot. h-12 (48px) keeps the icon +
+   label comfortably stacked while shrinking total nav height vs. h-14. */
 const NAV_SLOT_CLASS =
-  "relative z-10 flex flex-1 flex-col items-center justify-center gap-[3px] h-14 px-2 rounded-pill";
+  "relative z-10 flex flex-1 flex-col items-center justify-center gap-[3px] h-12 px-2 rounded-pill";
 
 /* Color helpers — active is white, inactive is the neutral grey from the
    Figma nav. Applied to both the icon and the label so they switch in
