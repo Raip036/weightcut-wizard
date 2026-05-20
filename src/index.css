@@ -336,10 +336,14 @@ All colors MUST be HSL.
     -webkit-touch-callout: default;
   }
 
-  /* Dark mode: solid background for performance */
+  /* Dark mode: solid background. Uses `var(--background)` (#000513 /
+     brand void) instead of a hardcoded neutral black so the page picks
+     up the Design System v1 page color. Was previously hardcoded
+     `hsl(0 0% 4%)`, which overrode the variable and kept the page
+     reading as neutral black. */
   .dark html,
   .dark body {
-    background-color: hsl(0 0% 4%);
+    background-color: hsl(var(--background));
     color: hsl(var(--foreground));
   }
 
