@@ -135,19 +135,21 @@ function StageInner({
         onClick={handleBackdropTap}
       />
 
-      {/* Skip pill, top-right, screen-relative */}
+      {/* Skip pill, top-right, screen-relative. Brand-tinted Void surface
+          + glass blur (Design System v1) so it sits visibly on any page
+          background without screaming for attention. */}
       <button
         type="button"
         onClick={handleSkip}
         aria-label="Skip tutorial"
-        className="absolute z-10 flex h-9 items-center gap-1.5 rounded-full px-3 text-[12px] font-medium text-white/85"
+        className="absolute z-10 flex h-9 items-center gap-1.5 rounded-full px-3 text-[12px] font-medium text-neutral-200"
         style={{
           top: "calc(env(safe-area-inset-top) + 14px)",
           right: "calc(env(safe-area-inset-right) + 14px)",
-          background: "rgba(0,0,0,0.55)",
-          backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)",
-          border: "1px solid rgba(255,255,255,0.10)",
+          background: "rgba(8, 12, 20, 0.62)",
+          backdropFilter: "blur(20px) saturate(160%)",
+          WebkitBackdropFilter: "blur(20px) saturate(160%)",
+          border: "1px solid rgba(255, 255, 255, 0.08)",
           WebkitTapHighlightColor: "transparent",
         }}
       >
