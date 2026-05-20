@@ -137,7 +137,10 @@ export function WellnessCheckIn({ userId, onSubmit, isSubmitting }: WellnessChec
       hooper_index: hooperIndex,
     };
 
-    const today = new Date().toISOString().split("T")[0];
+    // Local date — must match the dashboard's TodayStrip query so the
+    // Wellness pill lights up immediately, even just past local midnight.
+    const _now = new Date();
+    const today = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}-${String(_now.getDate()).padStart(2, "0")}`;
     try {
       await upsertCheckin({
         date: today,

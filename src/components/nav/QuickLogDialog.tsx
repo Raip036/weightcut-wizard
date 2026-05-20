@@ -173,7 +173,8 @@ export function QuickLogDialog({ open, onOpenChange, onLogFood, onLogWeight, onL
       return;
     }
     const weight_kg = unit === "lb" ? raw / 2.20462 : raw;
-    const today = new Date().toISOString().split("T")[0];
+    const _now = new Date();
+    const today = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}-${String(_now.getDate()).padStart(2, "0")}`;
     setSavingWeight(true);
     try {
       await logWeightMut({ date: today, weightKg: weight_kg });
@@ -193,7 +194,8 @@ export function QuickLogDialog({ open, onOpenChange, onLogFood, onLogWeight, onL
 
   const handleQuickTraining = async () => {
     if (!userId) return;
-    const today = new Date().toISOString().split("T")[0];
+    const _now = new Date();
+    const today = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}-${String(_now.getDate()).padStart(2, "0")}`;
     const intensityPreset = INTENSITY_PRESETS[selectedIntensityIdx];
     setSavingTraining(true);
     try {

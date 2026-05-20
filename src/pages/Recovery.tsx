@@ -12,6 +12,8 @@ import { localCache } from "@/lib/localCache";
 import { Skeleton } from "@/components/ui/skeleton-loader";
 import { Card } from "@/components/ui/card";
 import { triggerHapticSelection } from "@/lib/haptics";
+import { HealthTilesPanel } from "@/components/health/HealthTilesPanel";
+import { MorningCheckInPrompt } from "@/components/health/MorningCheckInPrompt";
 
 // Local row shape — snake_case shape consumed by RecoveryDashboard / performanceEngine.
 interface TrainingCalendarRow {
@@ -90,6 +92,17 @@ export default function Recovery() {
     const isLoading = rawSessions === undefined && cachedSessions.length === 0;
     const display = rawSessions ? sessions28d : cachedSessions;
 
+    // Apple Health tier — drives whether we surface the tiles panel or the
+    // self-report morning check-in banner. Hand-off contract: Agent B's
+    // `api.health.getTier` returns `{ tier, grantedMetrics, lastSyncAt,
+    // connectedAt }`. Treated as any until codegen runs.
+    const tierInfo = useQuery(
+        (api as any).health?.getTier,
+        userId ? {} : "skip",
+    ) as { tier?: "tier_0" | "tier_1" | "tier_2" } | undefined;
+    const healthTier = tierInfo?.tier ?? "tier_0";
+    const showHealthTiles = healthTier !== "tier_0";
+
     if (isLoading) {
         return (
             <div className="space-y-3 px-5 py-3 sm:p-5 md:p-6 max-w-7xl mx-auto pb-16 md:pb-6">
@@ -104,6 +117,11 @@ export default function Recovery() {
     if (display.length === 0) {
         return (
             <div className="animate-page-in space-y-3 px-5 py-3 sm:p-5 md:p-6 max-w-7xl mx-auto pb-16 md:pb-6">
+                {userId && (
+                    showHealthTiles
+                        ? <HealthTilesPanel />
+                        : <MorningCheckInPrompt userId={userId} />
+                )}
                 <motion.div
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -151,6 +169,11 @@ export default function Recovery() {
 
     return (
         <div className="animate-page-in space-y-3 px-5 py-3 sm:p-5 md:p-6 max-w-7xl mx-auto pb-16 md:pb-6">
+            {userId && (
+                showHealthTiles
+                    ? <HealthTilesPanel />
+                    : <MorningCheckInPrompt userId={userId} />
+            )}
             {userId && (
                 <RecoveryDashboard
                     sessions28d={display as any}

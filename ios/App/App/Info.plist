@@ -2,23 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleURLTypes</key>
-    <array>
-      <dict>
-        <key>CFBundleURLName</key>
-        <string>com.weightcutwizard.app</string>
-        <key>CFBundleURLSchemes</key>
-        <array>
-          <string>weightcutwizard</string>
-        </array>
-      </dict>
-    </array>
-    <key>CAPACITOR_DEBUG</key>
+	<key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>FightCamp Wizard</string>
+	<string>FightCamp Wizard</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -31,10 +20,35 @@
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.weightcutwizard.app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>weightcutwizard</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>2</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>FightCamp Wizard needs access to your camera to let you take a profile picture.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>FightCamp Wizard reads HRV, resting heart rate, sleep, workouts, body mass, VO2 Max, wrist temperature, respiratory rate, steps and active energy from Apple Health to compute a personalised Fight Form recovery and readiness score and tailor your camp coaching. Data is never used for advertising or sold.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>FightCamp Wizard does not currently write data to Apple Health; this entry is required by Apple because the HealthKit framework includes write APIs even when only read access is used.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>FightCamp Wizard needs access to your microphone to allow you to log food and training notes via voice dictation.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>FightCamp Wizard needs access to save photos to your library.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>FightCamp Wizard needs access to your photo library to let you upload a profile picture.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>FightCamp Wizard uses speech recognition to convert your voice into session notes.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -58,15 +72,5 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
-    <key>NSPhotoLibraryUsageDescription</key>
-    <string>FightCamp Wizard needs access to your photo library to let you upload a profile picture.</string>
-    <key>NSCameraUsageDescription</key>
-    <string>FightCamp Wizard needs access to your camera to let you take a profile picture.</string>
-    <key>NSMicrophoneUsageDescription</key>
-    <string>FightCamp Wizard needs access to your microphone to allow you to log food and training notes via voice dictation.</string>
-    <key>NSSpeechRecognitionUsageDescription</key>
-    <string>FightCamp Wizard uses speech recognition to convert your voice into session notes.</string>
-    <key>NSPhotoLibraryAddUsageDescription</key>
-    <string>FightCamp Wizard needs access to save photos to your library.</string>
 </dict>
 </plist>
