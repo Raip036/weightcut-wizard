@@ -258,6 +258,16 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
+  /* Design System v1 — all semantic heading tags default to Sora (the
+     display family). Per-component size + weight stay in JSX; this rule
+     only changes the family. Anywhere a non-heading element should also
+     render as a display heading (big numeric displays, hero stats),
+     opt in with the `font-display` Tailwind class. To keep a heading in
+     the body family (Inter), apply `font-sans` on that element. */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display;
+  }
+
   *:focus-visible {
     outline: 2px solid hsl(var(--ring));
     outline-offset: 2px;
