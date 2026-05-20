@@ -382,18 +382,19 @@ export const BottomNav = memo(function BottomNav() {
              without crowding the tabs. */
           className="pointer-events-auto relative flex items-stretch gap-2 px-2.5 py-1.5 w-[92vw] max-w-[27rem] rounded-pill glass-nav"
         >
-          {/* Internal darkening overlay — paired with the glass surface
-              (rgba(8,12,20,0.85)) and backdrop-blur so content behind
-              the nav is genuinely unreadable, not just dimmed. The
-              gradient deepens slightly toward the bottom for a premium
-              "heavier-glass-on-the-bottom" feel. Sits below the bubble
-              and tabs (which have z-10) so neither is darkened by it. */}
+          {/* Internal darkening overlay — kept LIGHT (0.18 → 0.32) so
+              the nav still reads as glass rather than solid plastic.
+              Paired with the surface (rgba(8,12,20,0.62)) and the
+              50px backdrop-blur, this is enough to wash out and
+              obscure content behind the nav without fully opaquing
+              it. Sits below the bubble and tabs (which have z-10) so
+              neither is darkened by it. */}
           <div
             aria-hidden
             className="absolute inset-0 rounded-pill pointer-events-none"
             style={{
               background:
-                "linear-gradient(180deg, rgba(20, 24, 35, 0.65), rgba(8, 12, 20, 0.88))",
+                "linear-gradient(180deg, rgba(20, 24, 35, 0.18), rgba(8, 12, 20, 0.32))",
             }}
           />
           <motion.div

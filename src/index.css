@@ -231,16 +231,15 @@ All colors MUST be HSL.
     --radius-xl:  24px;
     --radius-full: 999px;
 
-    /* ---- GLASS recipe — Premium dark frosted glass for the bottom nav.
-       The surface (0.85 opacity) does the heavy lifting for obscuring
-       content behind; backdrop-blur softens edges so it still reads as
-       glass rather than solid plastic. A second gradient overlay layer
-       lives inside the nav element itself (see BottomNav.tsx) to add
-       extra darkening top-to-bottom. Shadow casts UPWARD (negative y)
-       so the floating nav has visible separation from page content
-       above it on a dark background. */
-    --glass-surface:         rgba(8, 12, 20, 0.85);
-    --glass-blur:            blur(24px) saturate(140%);
+    /* ---- GLASS recipe — Dark frosted glass that obscures content
+       without going fully opaque. The wash effect comes from heavy
+       blur (50px); the surface tint (0.62) plus a soft internal
+       gradient overlay are just enough to ensure text behind is
+       unreadable while the nav still reads as glassy/translucent.
+       Shadow casts UPWARD (negative y) so the floating nav has
+       visible separation from page content above it. */
+    --glass-surface:         rgba(8, 12, 20, 0.62);
+    --glass-blur:            blur(50px) saturate(160%);
     --glass-border:          1px solid rgba(255, 255, 255, 0.08);
     --glass-inset-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.10);
     --glass-shadow:          0 -8px 32px 0 rgba(0, 0, 0, 0.45);
