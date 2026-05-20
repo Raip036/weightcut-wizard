@@ -672,7 +672,7 @@ export default function Dashboard() {
       ? Math.max(0, Math.min(1, (startingWeight - currentWeightValue) / totalCut))
       : 0;
     const weightChip = profile
-      ? { current: currentWeightValue, goal: goalWeight, pctComplete }
+      ? { start: startingWeight, current: currentWeightValue, goal: goalWeight, pctComplete }
       : null;
     // Ring's calibrating mini-counter mirrors the union-of-sources progress
     // surfaced by `calibrationProgress` (which matches the scoring engine's
@@ -827,20 +827,72 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Inline weight summary — collapsed from FightFormStatChips. */}
-          {chartData.length > 0 && weightChip ? (
-            <p className="text-[13px] text-muted-foreground px-1 tabular-nums">
-              {weightChip.current.toFixed(1)} → {weightChip.goal.toFixed(1)} kg · {Math.round(weightChip.pctComplete * 100)}%
-              {(() => {
-                const okPts = (ffTrend ?? []).filter((p) => p.state === "ok");
-                if (okPts.length < 2) return null;
-                const first = okPts[0].score;
-                const last = okPts[okPts.length - 1].score;
-                const arrow = last > first ? "↗" : last < first ? "↘" : "→";
-                return <> · 14-day trend {arrow}</>;
-              })()}
-            </p>
-          ) : null}
+          {/* Weight journey track — visual start → you → goal progression.
+              Replaces the dense single-line text (83.3 → 70.0 kg · 0%) with
+              a positional marker showing where the user is between start
+              and goal. Tap-target opens the full weight tracker. */}
+          {chartData.length > 0 && weightChip ? (() => {
+            const okPts = (ffTrend ?? []).filter((p) => p.state === "ok");
+            const trendArrow =
+              okPts.length < 2
+                ? null
+                : okPts[okPts.length - 1].score > okPts[0].score
+                  ? "↗"
+                  : okPts[okPts.length - 1].score < okPts[0].score
+                    ? "↘"
+                    : "→";
+            const pct = weightChip.pctComplete;
+            const pctLabel = Math.round(pct * 100);
+            const direction = weightChip.start > weightChip.goal ? "lose" : "gain";
+            // Clamp marker x so it never sits ON the start/goal end dots
+            // (would visually collide). Cap to [4%, 96%] of the track width.
+            const markerLeft = `${Math.min(96, Math.max(4, pct * 100))}%`;
+            return (
+              <button
+                type="button"
+                onClick={() => { triggerHapticSelection(); navigate("/weight"); }}
+                className="w-full text-left rounded-xl border border-border/50 bg-card/40 px-3 py-1.5 active:scale-[0.99] transition-transform"
+                aria-label="Open weight tracker"
+              >
+                {/* Single-row track: Start label · rail · Goal label.
+                    Current weight lives in the meta line below so it
+                    never collides with the end labels regardless of
+                    where the marker sits. */}
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-semibold tabular-nums text-muted-foreground shrink-0">
+                    {weightChip.start.toFixed(1)}
+                  </span>
+                  <div className="relative flex-1 h-[3px] rounded-full bg-muted/60">
+                    <div
+                      className="absolute inset-y-0 left-0 rounded-full bg-primary"
+                      style={{ width: markerLeft }}
+                    />
+                    <span aria-hidden className="absolute -left-0.5 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-primary" />
+                    <span
+                      aria-hidden
+                      className={`absolute -right-0.5 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full ${pct >= 1 ? "bg-emerald-400" : "bg-muted-foreground/40"}`}
+                    />
+                    <span
+                      aria-hidden
+                      className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary ring-2 ring-background"
+                      style={{ left: markerLeft }}
+                    />
+                  </div>
+                  <span className="text-[10px] font-semibold tabular-nums text-muted-foreground shrink-0">
+                    {weightChip.goal.toFixed(1)}
+                  </span>
+                </div>
+
+                {/* Meta line — current weight + progress + trend */}
+                <p className="mt-1 text-[10px] text-muted-foreground tabular-nums">
+                  <span className="font-bold text-primary">{weightChip.current.toFixed(1)} kg</span>
+                  {" · "}
+                  <span className="font-semibold text-foreground">{pctLabel}%</span> {direction === "lose" ? "cut" : "gained"}
+                  {trendArrow ? <> · 14d {trendArrow}</> : null}
+                </p>
+              </button>
+            );
+          })() : null}
 
           <TodayStrip adherence={adherence} mealsLoggedToday={todayCalories > 0} />
 

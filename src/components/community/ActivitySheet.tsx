@@ -129,7 +129,7 @@ function EmptyActivity() {
   return (
     <div className="flex flex-col items-center justify-center h-48 px-6 text-center">
       <p className="text-sm text-muted-foreground leading-relaxed">
-        No activity yet. Post a session and rack up some gloves.
+        No activity yet. Post a session and rack up some likes.
       </p>
     </div>
   );

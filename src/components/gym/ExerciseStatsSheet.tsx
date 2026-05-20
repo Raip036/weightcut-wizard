@@ -68,13 +68,12 @@ export function ExerciseStatsSheet({ exercise, pr, open, onOpenChange }: Exercis
           animate="visible"
           className="space-y-5 mt-4"
         >
-          {/* PR records — derived from actual sets for accuracy */}
+          {/* Hero PR — single big card with the headline lift */}
           {sets.length > 0 && (() => {
-            const workingSets = sets.filter(s => !s.is_warmup);
-            const maxWeight = Math.max(0, ...workingSets.map(s => s.weight_kg ?? 0));
-            const maxReps = Math.max(0, ...workingSets.map(s => s.reps));
-            const maxVolume = Math.max(0, ...workingSets.map(s => (s.weight_kg ?? 0) * s.reps));
-            // Best set = heaviest weight, show its reps
+            const workingSets = sets.filter((s) => !s.is_warmup);
+            const maxWeight = Math.max(0, ...workingSets.map((s) => s.weight_kg ?? 0));
+            const maxReps = Math.max(0, ...workingSets.map((s) => s.reps));
+            const maxVolume = Math.max(0, ...workingSets.map((s) => (s.weight_kg ?? 0) * s.reps));
             const bestSet = workingSets.reduce<typeof workingSets[number] | null>((best, s) => {
               const w = s.weight_kg ?? 0;
               if (!best || w > (best.weight_kg ?? 0)) return s;
@@ -83,81 +82,94 @@ export function ExerciseStatsSheet({ exercise, pr, open, onOpenChange }: Exercis
             }, null);
 
             return (
-              <motion.div variants={staggerItem} className="space-y-2.5">
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Personal Records</h4>
-                <div className="grid grid-cols-2 gap-2">
-                  {maxWeight > 0 && (
-                    <div className="card-surface rounded-2xl border border-border p-3 space-y-1.5">
-                      <div className="flex items-center gap-1.5">
-                        <div className="h-5 w-5 rounded-md bg-yellow-500/15 flex items-center justify-center">
-                          <Trophy className="h-3 w-3 text-yellow-500" />
-                        </div>
-                        <span className="text-[10px] text-muted-foreground font-medium">Heaviest</span>
-                      </div>
-                      <div className="display-number text-xl">{formatWeight(maxWeight)} <span className="text-xs text-muted-foreground font-normal">kg</span></div>
-                    </div>
+              <>
+                {/* Hero PR card */}
+                <motion.div
+                  variants={staggerItem}
+                  className="relative rounded-3xl border border-primary/25 bg-primary/[0.06] p-5 text-center overflow-hidden"
+                >
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary/80">
+                    Heaviest set
+                  </p>
+                  {maxWeight > 0 ? (
+                    <>
+                      <p className="mt-2 display-number text-[44px] font-black tabular-nums leading-none text-primary">
+                        {formatWeight(maxWeight)}
+                        <span className="text-[18px] font-bold text-primary/80 ml-1">kg</span>
+                      </p>
+                      <p className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-bold text-foreground">
+                        × {bestSet?.reps ?? maxReps} reps
+                        <Trophy className="h-3.5 w-3.5 text-yellow-400" />
+                      </p>
+                    </>
+                  ) : maxReps > 0 ? (
+                    <>
+                      <p className="mt-2 display-number text-[44px] font-black tabular-nums leading-none text-primary">
+                        {maxReps}
+                      </p>
+                      <p className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-bold text-foreground">
+                        max reps
+                        <Trophy className="h-3.5 w-3.5 text-yellow-400" />
+                      </p>
+                    </>
+                  ) : (
+                    <p className="mt-2 text-[13px] text-muted-foreground">No working sets yet</p>
                   )}
-                  {bestSet && maxWeight > 0 && (
-                    <div className="card-surface rounded-2xl border border-border p-3 space-y-1.5">
-                      <div className="flex items-center gap-1.5">
-                        <div className="h-5 w-5 rounded-md bg-yellow-500/15 flex items-center justify-center">
-                          <Trophy className="h-3 w-3 text-yellow-500" />
-                        </div>
-                        <span className="text-[10px] text-muted-foreground font-medium">Best Set</span>
-                      </div>
-                      <div className="display-number text-xl">{formatWeight(maxWeight)} <span className="text-xs text-muted-foreground font-normal">× {bestSet.reps}</span></div>
-                    </div>
-                  )}
-                  {maxReps > 0 && (
-                    <div className="card-surface rounded-2xl border border-border p-3 space-y-1.5">
-                      <div className="flex items-center gap-1.5">
-                        <div className="h-5 w-5 rounded-md bg-yellow-500/15 flex items-center justify-center">
-                          <Trophy className="h-3 w-3 text-yellow-500" />
-                        </div>
-                        <span className="text-[10px] text-muted-foreground font-medium">Max Reps</span>
-                      </div>
-                      <div className="display-number text-xl">{maxReps}</div>
-                    </div>
-                  )}
-                  {maxVolume > 0 && (
-                    <div className="card-surface rounded-2xl border border-border p-3 space-y-1.5">
-                      <div className="flex items-center gap-1.5">
-                        <div className="h-5 w-5 rounded-md bg-yellow-500/15 flex items-center justify-center">
-                          <Trophy className="h-3 w-3 text-yellow-500" />
-                        </div>
-                        <span className="text-[10px] text-muted-foreground font-medium">Best Volume</span>
-                      </div>
-                      <div className="display-number text-xl">{formatVolume(maxVolume)} <span className="text-xs text-muted-foreground font-normal">kg</span></div>
-                    </div>
-                  )}
-                </div>
-              </motion.div>
+                </motion.div>
+
+                {/* Strength Progression Chart */}
+                <motion.div variants={staggerItem} className="rounded-2xl card-surface border border-border/50 p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/70 mb-2 px-1">
+                    Trend over time
+                  </p>
+                  <ExercisePerformanceChart sets={sets} loading={loading} />
+                </motion.div>
+
+                {/* Mini stat tiles */}
+                <motion.div variants={staggerItem} className="grid grid-cols-3 gap-2">
+                  <div className="rounded-2xl card-surface border border-border/50 px-2 py-3 text-center">
+                    <p className="display-number text-[18px] font-black tabular-nums leading-none text-foreground">
+                      {maxReps}
+                    </p>
+                    <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">max reps</p>
+                  </div>
+                  <div className="rounded-2xl card-surface border border-border/50 px-2 py-3 text-center">
+                    <p className="display-number text-[18px] font-black tabular-nums leading-none text-foreground">
+                      {maxVolume > 0 ? formatVolume(maxVolume) : "—"}
+                    </p>
+                    <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">best vol kg</p>
+                  </div>
+                  <div className="rounded-2xl card-surface border border-border/50 px-2 py-3 text-center">
+                    <p className="display-number text-[18px] font-black tabular-nums leading-none text-foreground">
+                      {workingSets.length}
+                    </p>
+                    <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">sets</p>
+                  </div>
+                </motion.div>
+              </>
             );
           })()}
 
-          {/* Strength Progression Chart */}
-          <motion.div variants={staggerItem} className="space-y-2.5">
-            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Strength Progression</h4>
-            <div className="card-surface rounded-2xl border border-border p-3">
-              <ExercisePerformanceChart sets={sets} loading={loading} />
-            </div>
-          </motion.div>
-
-          {/* Recent sets */}
+          {/* Recent sets — slightly compact list */}
           {sets.length > 0 && (
-            <motion.div variants={staggerItem} className="space-y-2.5">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Recent Sets</h4>
-              <div className="card-surface rounded-2xl border border-border overflow-hidden divide-y divide-border/20">
-                {sets.slice(0, 10).map(set => (
+            <motion.div variants={staggerItem} className="space-y-2">
+              <p className="px-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/70">
+                Recent sets · {Math.min(10, sets.length)} of {sets.length}
+              </p>
+              <div className="card-surface rounded-2xl border border-border/50 overflow-hidden divide-y divide-border/20">
+                {sets.slice(0, 10).map((set) => (
                   <div key={set.id} className="flex items-center gap-3 text-xs px-3 py-2.5">
                     <span className="text-muted-foreground w-16 shrink-0">
                       {new Date(set.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                     </span>
-                    <span className="display-number text-sm">
+                    <span className="display-number text-[13px] font-bold text-foreground">
                       {set.is_bodyweight ? "BW" : `${formatWeight(set.weight_kg)} kg`}
                     </span>
-                    <span className="text-muted-foreground">x</span>
-                    <span className="display-number text-sm">{set.reps}</span>
+                    <span className="text-muted-foreground/60">×</span>
+                    <span className="display-number text-[13px] font-bold text-foreground">{set.reps}</span>
+                    {set.is_warmup && (
+                      <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">warmup</span>
+                    )}
                   </div>
                 ))}
               </div>

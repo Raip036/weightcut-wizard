@@ -1,4 +1,4 @@
-import { Home, Utensils, Plus, Weight, Target, MoreHorizontal, Trophy, Calendar, HeartPulse, Dumbbell, TrendingDown, Moon, Users, X } from "lucide-react";
+import { Home, Utensils, Plus, Weight, Target, MoreHorizontal, Trophy, Calendar, HeartPulse, Dumbbell, TrendingDown, Moon, Users, X, type LucideIcon } from "lucide-react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect, memo } from "react";
 import { motion, LayoutGroup } from "motion/react";
@@ -226,7 +226,7 @@ export const BottomNav = memo(function BottomNav() {
     try {
       setUserName(editedName);
       setSettingsDialogOpen(false);
-    } catch (error) {
+    } catch {
       toast({ description: "Failed to update profile", variant: "destructive" });
     }
   };
@@ -454,7 +454,7 @@ export const BottomNav = memo(function BottomNav() {
 
 interface NavItemProps {
   to: string;
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  icon: LucideIcon;
   label: string;
   isActive: boolean;
   tutorial?: string;
@@ -522,7 +522,7 @@ function NavItemWithBadge({ to, icon: Icon, label, isActive, tutorial, badge }: 
 
 interface NavButtonProps {
   onClick: () => void;
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  icon: LucideIcon;
   label: string;
   isActive: boolean;
   tutorial?: string;

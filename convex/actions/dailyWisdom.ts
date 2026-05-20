@@ -102,7 +102,7 @@ ${snap.block}`;
       max_tokens: 500,
       response_format: { type: "json_object" },
     });
-    const wisdom = parseJSON(content);
+    const wisdom = parseJSON<Record<string, unknown>>(content);
     wisdom.daysToFight = daysRemaining;
     wisdom.requiredWeeklyKg = parseFloat(requiredWeeklyKg.toFixed(2));
     wisdom.weeklyPaceKg = parseFloat(weeklyPaceKg.toFixed(2));

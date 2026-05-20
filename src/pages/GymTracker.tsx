@@ -1,6 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Plus, ChevronRight, List, CalendarDays } from "lucide-react";
+import { Plus, ChevronRight, List, CalendarDays, Sparkles, Dumbbell, Target, Award, Zap, Footprints, RotateCw, Activity, Flame } from "lucide-react";
+import { motion, LayoutGroup } from "motion/react";
+import wizardLogo from "@/assets/wizard-tutorial.png";
 import { useMutation } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import { Button } from "@/components/ui/button";
@@ -26,6 +28,36 @@ import { RoutineLibrary } from "@/components/gym/RoutineLibrary";
 import { RoutineGeneratorSheet } from "@/components/gym/RoutineGeneratorSheet";
 import { ManualRoutineSheet } from "@/components/gym/ManualRoutineSheet";
 import { SESSION_TYPES } from "@/data/exerciseDatabase";
+
+// Restrict the start-workout picker to the 3 disciplines the user wants
+// surfaced. Other types (Powerlifting / Conditioning / Circuit / etc.)
+// stay in the schema so historical sessions still render, but they're
+// not pickable from the new-session UI.
+const VISIBLE_SESSION_TYPES: ReadonlyArray<"Strength" | "Hypertrophy" | "Explosiveness"> = [
+  "Strength",
+  "Hypertrophy",
+  "Explosiveness",
+];
+
+// Compact volume formatter shared between the page render and the
+// Progress sub-tab helper. Lifted to module scope so the helper can
+// use it without prop-drilling.
+function formatVol(v: number): string {
+  return v >= 1000 ? `${(v / 1000).toFixed(1)}k` : `${v}`;
+}
+
+// Icon + accent color per session type for the start-workout grid.
+const SESSION_TYPE_META: Record<string, { icon: typeof Dumbbell; accent: string }> = {
+  "Strength":      { icon: Dumbbell,    accent: "text-blue-400" },
+  "Hypertrophy":   { icon: Target,      accent: "text-violet-400" },
+  "Powerlifting":  { icon: Award,       accent: "text-amber-400" },
+  "Explosiveness": { icon: Zap,         accent: "text-yellow-400" },
+  "Conditioning":  { icon: Flame,       accent: "text-orange-400" },
+  "Circuit":       { icon: RotateCw,    accent: "text-rose-400" },
+  "Endurance":     { icon: Footprints,  accent: "text-emerald-400" },
+  "Mobility":      { icon: Activity,    accent: "text-cyan-400" },
+  "Custom":        { icon: Plus,        accent: "text-muted-foreground" },
+};
 import { triggerHaptic } from "@/lib/haptics";
 import { useAITask } from "@/contexts/AITaskContext";
 import { AICompactOverlay } from "@/components/AICompactOverlay";
@@ -293,7 +325,7 @@ export default function GymTracker() {
   const weeklyVolume = analytics.weeklyVolumes.length > 0
     ? analytics.weeklyVolumes[analytics.weeklyVolumes.length - 1].volume
     : 0;
-  const formatVol = (v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : `${v}`;
+  // formatVol lifted to module scope above
 
   return (
     <div className="space-y-2.5 px-5 py-3 sm:p-5 md:p-6 max-w-7xl mx-auto md:pb-6" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" }}>
@@ -307,53 +339,41 @@ export default function GymTracker() {
         />
       )}
       <div className="space-y-3">
-        {/* Header */}
-        <div>
-          <p className="text-[13px] text-muted-foreground font-medium uppercase tracking-widest mb-0.5">{todayLabel}</p>
-          <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text text-transparent">
-            Gym
-          </h1>
-        </div>
-
-        {/* Tab switcher — always visible */}
-        <div className="flex gap-1 p-1 rounded-2xl bg-muted/30 border border-border">
-          <button
-            onClick={() => { setTab("workouts"); triggerHaptic(ImpactStyle.Light); }}
-            className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all relative ${
-              tab === "workouts"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground"
-            }`}
-          >
-            Workouts
-            {activeSession && (
-              <span className="absolute top-1.5 right-2 flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => { setTab("routines"); triggerHaptic(ImpactStyle.Light); }}
-            className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
-              tab === "routines"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground"
-            }`}
-          >
-            Routines
-          </button>
-          <button
-            onClick={() => { setTab("progress"); triggerHaptic(ImpactStyle.Light); }}
-            className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
-              tab === "progress"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground"
-            }`}
-          >
-            Progress
-          </button>
-        </div>
+        {/* Animated pill tabs */}
+        <LayoutGroup id="gym-tabs">
+          <div className="relative grid grid-cols-3 gap-1 rounded-full bg-muted/30 p-1 border border-border/30">
+            {(["workouts", "routines", "progress"] as const).map((tk) => {
+              const active = tab === tk;
+              const label = tk === "workouts" ? "Workouts" : tk === "routines" ? "Routines" : "Progress";
+              return (
+                <button
+                  key={tk}
+                  type="button"
+                  onClick={() => { setTab(tk); triggerHaptic(ImpactStyle.Light); }}
+                  aria-pressed={active}
+                  className="relative h-9 text-[12px] font-bold transition-colors"
+                >
+                  {active && (
+                    <motion.span
+                      layoutId="gym-tab-pill"
+                      className="absolute inset-0 rounded-full bg-primary"
+                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                    />
+                  )}
+                  <span className={`relative z-10 inline-flex items-center gap-1.5 ${active ? "text-primary-foreground" : "text-muted-foreground"}`}>
+                    {label}
+                    {tk === "workouts" && activeSession && (
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+                      </span>
+                    )}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </LayoutGroup>
 
         {/* Tab content */}
         {tab === "workouts" ? (
@@ -394,35 +414,59 @@ export default function GymTracker() {
                 </div>
               )}
 
-              {/* Start workout card */}
-              <div className="card-surface rounded-2xl border border-border p-3 space-y-2.5">
-                <h2 className="font-semibold text-sm">Start Workout</h2>
-                <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1 snap-x snap-mandatory" style={{ WebkitOverflowScrolling: "touch" } as any}>
-                  {SESSION_TYPES.map(t => (
-                    <button
-                      key={t}
-                      onClick={() => {
-                        setSessionType(t as SessionType);
-                        triggerHaptic(ImpactStyle.Light);
-                      }}
-                      className={`shrink-0 px-3 py-1.5 rounded-full text-[13px] font-semibold transition-all snap-start ${
-                        sessionType === t
-                          ? "bg-primary text-primary-foreground shadow-sm"
-                          : "bg-muted/40 text-muted-foreground active:bg-muted/60"
-                      }`}
-                    >
-                      {t}
-                    </button>
-                  ))}
+              {/* Wizard-led start hero — restricted to Strength /
+                  Hypertrophy / Explosiveness. Wizard avatar uses the
+                  transparent tutorial PNG so it sits chrome-free. */}
+              <div className="card-surface rounded-3xl border border-primary/20 p-4">
+                <div className="flex items-start gap-3 mb-3">
+                  <div className="h-12 w-12 shrink-0 flex items-center justify-center">
+                    <img
+                      src={wizardLogo}
+                      alt=""
+                      className="h-full w-full object-contain pointer-events-none select-none"
+                      draggable={false}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0 pt-0.5">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary/80">Coach</p>
+                    <p className="mt-0.5 text-[15px] font-bold leading-tight text-foreground">Ready to train?</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground leading-snug">Pick a focus — we'll start the timer.</p>
+                  </div>
                 </div>
+
+                {/* Restricted session-type grid — 3 cards */}
+                <div className="grid grid-cols-2 gap-2">
+                  {VISIBLE_SESSION_TYPES.map((t) => {
+                    const active = sessionType === t;
+                    const meta = SESSION_TYPE_META[t] ?? { icon: Dumbbell, accent: "text-foreground" };
+                    const Icon = meta.icon;
+                    return (
+                      <button
+                        key={t}
+                        onClick={() => {
+                          setSessionType(t as SessionType);
+                          triggerHaptic(ImpactStyle.Light);
+                        }}
+                        className={`relative flex items-center gap-2 rounded-2xl border px-3 py-2.5 text-left active:scale-[0.97] transition-all ${
+                          active
+                            ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/30"
+                            : "bg-muted/30 border-border/30 hover:bg-muted/50"
+                        }`}
+                      >
+                        <Icon className={`h-4 w-4 shrink-0 ${active ? "text-primary-foreground" : meta.accent}`} strokeWidth={2.2} />
+                        <span className="text-[13px] font-semibold truncate">{t}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Big start button — no sparkle icon */}
                 <button
                   onClick={handleStartWorkout}
                   disabled={startingWorkout}
-                  className="w-full h-12 rounded-2xl text-sm font-semibold text-white flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-60"
-                  style={{ background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)))" }}
+                  className="mt-3 w-full h-12 rounded-2xl text-[15px] font-bold text-primary-foreground bg-primary flex items-center justify-center active:scale-[0.98] transition-transform disabled:opacity-60 shadow-lg shadow-primary/30"
                 >
-                  <Plus className="h-4.5 w-4.5" />
-                  {startingWorkout ? "Starting..." : "Start Workout"}
+                  {startingWorkout ? "Starting…" : `Start ${sessionType.toLowerCase()} workout`}
                 </button>
               </div>
 
@@ -494,68 +538,14 @@ export default function GymTracker() {
             onOpenManualCreator={() => setManualRoutineOpen(true)}
           />
         ) : (
-          /* Progress tab — only exercises with actual logged sets */
-          (() => {
-            // Derive unique exercises from completed session history — track best set (heaviest weight + its reps)
-            const exerciseStats = new Map<string, { bestWeight: number; bestReps: number; exercise: typeof exercises[number] | undefined }>();
-            for (const session of history) {
-              for (const group of session.exerciseGroups) {
-                for (const set of group.sets) {
-                  if (set.is_warmup) continue;
-                  const w = set.weight_kg ?? 0;
-                  const r = set.reps ?? 0;
-                  const prev = exerciseStats.get(group.exercise.id);
-                  if (!prev) {
-                    exerciseStats.set(group.exercise.id, { bestWeight: w, bestReps: r, exercise: exercises.find(e => e.id === group.exercise.id) || group.exercise as any });
-                  } else if (w > prev.bestWeight) {
-                    // New best weight — use this set's reps
-                    prev.bestWeight = w;
-                    prev.bestReps = r;
-                  } else if (w === prev.bestWeight && r > prev.bestReps) {
-                    // Same weight, more reps
-                    prev.bestReps = r;
-                  }
-                }
-              }
-            }
-            const loggedExercises = Array.from(exerciseStats.entries())
-              .map(([id, stats]) => ({ id, exercise: stats.exercise!, bestWeight: stats.bestWeight, bestReps: stats.bestReps }))
-              .filter(item => !!item.exercise);
-
-            return (
-              <div className="space-y-1">
-                {loggedExercises.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-[13px] text-muted-foreground">No exercises logged yet</p>
-                    <p className="text-[13px] text-muted-foreground/60 mt-0.5">Complete a workout to see your progress</p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-border/20">
-                    {loggedExercises.map(({ id, exercise: ex, bestWeight, bestReps }) => (
-                      <button
-                        key={id}
-                        onClick={() => { setStatsExercise(ex); setStatsOpen(true); triggerHaptic(ImpactStyle.Light); }}
-                        className="w-full flex items-center gap-2.5 px-2 py-2 active:bg-muted/50 transition-colors text-left"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[13px] font-medium truncate">{ex.name}</p>
-                          <p className="text-[13px] text-muted-foreground">{ex.muscle_group?.replace("_", " ")}</p>
-                        </div>
-                        <div className="flex items-center gap-2 text-[13px] tabular-nums text-muted-foreground shrink-0">
-                          {bestWeight > 0 ? (
-                            <span><span className="font-semibold text-foreground">{bestWeight}</span>kg <span className="text-muted-foreground/60">× {bestReps}</span></span>
-                          ) : bestReps > 0 ? (
-                            <span><span className="font-semibold text-foreground">{bestReps}</span> reps</span>
-                          ) : null}
-                        </div>
-                        <ChevronRight className="h-3 w-3 text-muted-foreground/30 shrink-0" />
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })()
+          /* Progress tab — internal sub-tabs: PRs / Volume / Frequency */
+          <ProgressTabContent
+            history={history}
+            exercises={exercises}
+            analytics={analytics}
+            weeklyVolume={weeklyVolume}
+            onExerciseTap={(ex) => { setStatsExercise(ex); setStatsOpen(true); triggerHaptic(ImpactStyle.Light); }}
+          />
         )}
       </div>
 
@@ -671,6 +661,219 @@ export default function GymTracker() {
         exercises={exercises}
         onSave={saveRoutine}
       />
+    </div>
+  );
+}
+
+// ── ProgressTabContent ─────────────────────────────────────────────
+// 3 inner tabs: PRs / Volume / Frequency. Replaces the flat PR-only
+// list with a tabbed analytical view.
+type ProgressSubTab = "prs" | "volume" | "frequency";
+
+function ProgressTabContent({
+  history,
+  exercises,
+  analytics,
+  weeklyVolume,
+  onExerciseTap,
+}: {
+  history: SessionWithSets[];
+  exercises: Exercise[];
+  analytics: { totalSessions: number; sessionsThisWeek: number; avgDuration: number; topMuscle: string | null };
+  weeklyVolume: number;
+  onExerciseTap: (ex: Exercise) => void;
+}) {
+  const [sub, setSub] = useState<ProgressSubTab>("prs");
+
+  // PRs — per-exercise heaviest set
+  const exerciseStats = new Map<string, { bestWeight: number; bestReps: number; exercise: Exercise | undefined }>();
+  for (const session of history) {
+    for (const group of session.exerciseGroups) {
+      for (const set of group.sets) {
+        if (set.is_warmup) continue;
+        const w = set.weight_kg ?? 0;
+        const r = set.reps ?? 0;
+        const prev = exerciseStats.get(group.exercise.id);
+        if (!prev) {
+          exerciseStats.set(group.exercise.id, { bestWeight: w, bestReps: r, exercise: exercises.find(e => e.id === group.exercise.id) || (group.exercise as Exercise) });
+        } else if (w > prev.bestWeight) {
+          prev.bestWeight = w;
+          prev.bestReps = r;
+        } else if (w === prev.bestWeight && r > prev.bestReps) {
+          prev.bestReps = r;
+        }
+      }
+    }
+  }
+  const loggedExercises = Array.from(exerciseStats.entries())
+    .map(([id, stats]) => ({ id, exercise: stats.exercise!, bestWeight: stats.bestWeight, bestReps: stats.bestReps }))
+    .filter(item => !!item.exercise);
+
+  // Volume — last 7 days of session volume
+  const now = Date.now();
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(now - (6 - i) * 86_400_000);
+    const dateStr = d.toISOString().slice(0, 10);
+    const dayVolume = history
+      .filter((s) => s.date === dateStr)
+      .reduce((sum, s) => sum + (s.totalVolume || 0), 0);
+    return { date: dateStr, label: d.toLocaleDateString("en-US", { weekday: "short" })[0], volume: dayVolume };
+  });
+  const maxVol = Math.max(1, ...days.map((d) => d.volume));
+
+  // Frequency — sessions per muscle group across all history
+  const muscleFreq = new Map<string, number>();
+  for (const session of history) {
+    const groupsSeen = new Set<string>();
+    for (const group of session.exerciseGroups) {
+      const mg = (group.exercise.muscle_group ?? "other").replace(/_/g, " ");
+      if (groupsSeen.has(mg)) continue;
+      groupsSeen.add(mg);
+      muscleFreq.set(mg, (muscleFreq.get(mg) ?? 0) + 1);
+    }
+  }
+  const muscleRows = Array.from(muscleFreq.entries())
+    .sort((a, b) => b[1] - a[1]);
+  const maxMuscleCount = Math.max(1, ...muscleRows.map(([, n]) => n));
+
+  return (
+    <div className="space-y-3">
+      {/* Inner sub-tab pills */}
+      <LayoutGroup id="gym-progress-subtabs">
+        <div className="relative grid grid-cols-3 gap-1 rounded-full bg-muted/30 p-1 border border-border/30">
+          {(["prs", "volume", "frequency"] as const).map((s) => {
+            const active = sub === s;
+            const label = s === "prs" ? "PRs" : s === "volume" ? "Volume" : "Frequency";
+            return (
+              <button
+                key={s}
+                type="button"
+                onClick={() => { setSub(s); triggerHaptic(ImpactStyle.Light); }}
+                aria-pressed={active}
+                className="relative h-8 text-[11px] font-bold transition-colors"
+              >
+                {active && (
+                  <motion.span
+                    layoutId="gym-progress-subtab-pill"
+                    className="absolute inset-0 rounded-full bg-primary"
+                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                  />
+                )}
+                <span className={`relative z-10 ${active ? "text-primary-foreground" : "text-muted-foreground"}`}>
+                  {label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </LayoutGroup>
+
+      {/* Tab content */}
+      {sub === "prs" && (
+        loggedExercises.length === 0 ? (
+          <div className="card-surface rounded-2xl border border-border/40 p-6 text-center">
+            <p className="text-[13px] text-muted-foreground">No exercises logged yet</p>
+            <p className="text-[12px] text-muted-foreground/60 mt-0.5">Complete a workout to track PRs</p>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {loggedExercises.map(({ id, exercise: ex, bestWeight, bestReps }) => (
+              <button
+                key={id}
+                onClick={() => onExerciseTap(ex)}
+                className="w-full flex items-center gap-3 rounded-2xl border border-border/40 bg-card/50 px-3 py-2.5 active:bg-muted/30 transition-colors text-left"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-[14px] font-semibold truncate text-foreground">{ex.name}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">{ex.muscle_group?.replace(/_/g, " ")}</p>
+                </div>
+                {bestWeight > 0 ? (
+                  <div className="text-right shrink-0">
+                    <p className="text-[16px] font-bold tabular-nums text-primary leading-none">
+                      {bestWeight}<span className="text-[11px] font-medium text-muted-foreground ml-0.5">kg</span>
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">× {bestReps} reps</p>
+                  </div>
+                ) : bestReps > 0 ? (
+                  <div className="text-right shrink-0">
+                    <p className="text-[16px] font-bold tabular-nums text-primary leading-none">{bestReps}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">reps</p>
+                  </div>
+                ) : null}
+                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
+              </button>
+            ))}
+          </div>
+        )
+      )}
+
+      {sub === "volume" && (
+        <div className="card-surface rounded-2xl border border-border/40 p-4">
+          <div className="flex items-baseline justify-between">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Last 7 days</p>
+            <p className="text-[18px] font-bold tabular-nums text-foreground">
+              {formatVol(weeklyVolume)}
+              <span className="text-[11px] text-muted-foreground font-medium ml-0.5">kg</span>
+            </p>
+          </div>
+          {/* Bar chart */}
+          <div className="mt-4 flex items-end gap-1.5 h-28">
+            {days.map((d, i) => {
+              const h = d.volume > 0 ? Math.max(6, Math.round((d.volume / maxVol) * 100)) : 4;
+              return (
+                <div key={i} className="flex-1 flex flex-col items-center justify-end gap-1.5">
+                  <div className="w-full flex flex-col justify-end" style={{ height: 100 }}>
+                    <div
+                      className={`w-full rounded-md ${d.volume > 0 ? "bg-primary" : "bg-muted/40"}`}
+                      style={{ height: `${h}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] font-bold uppercase text-muted-foreground">{d.label}</span>
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-3 text-[11px] text-muted-foreground text-center">
+            Total weekly volume across all working sets (warmups excluded).
+          </p>
+        </div>
+      )}
+
+      {sub === "frequency" && (
+        muscleRows.length === 0 ? (
+          <div className="card-surface rounded-2xl border border-border/40 p-6 text-center">
+            <p className="text-[13px] text-muted-foreground">No data yet</p>
+            <p className="text-[12px] text-muted-foreground/60 mt-0.5">Log workouts to see muscle frequency</p>
+          </div>
+        ) : (
+          <div className="card-surface rounded-2xl border border-border/40 p-4 space-y-2.5">
+            <div className="flex items-baseline justify-between">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Sessions per muscle</p>
+              <p className="text-[10px] text-muted-foreground/70">All-time</p>
+            </div>
+            {muscleRows.map(([muscle, count]) => {
+              const pct = (count / maxMuscleCount) * 100;
+              return (
+                <div key={muscle}>
+                  <div className="flex items-baseline justify-between mb-1">
+                    <span className="text-[12px] font-semibold capitalize text-foreground">{muscle}</span>
+                    <span className="text-[12px] font-bold tabular-nums text-foreground">
+                      {count}
+                      <span className="text-[10px] font-medium text-muted-foreground ml-0.5">sessions</span>
+                    </span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-muted/40 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-primary transition-all duration-500"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )
+      )}
     </div>
   );
 }

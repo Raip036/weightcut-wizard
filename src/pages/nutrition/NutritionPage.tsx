@@ -375,25 +375,8 @@ export default function NutritionPage() {
           mealsVisibleCount={meals.length}
         />
 
-        <EmptyMealsBanner
-          visible={meals.length === 0 && selectedDate === todayStr && !loading && !nutritionData.mealsLoading}
-          previousDayMealCount={quickActions.previousDayMealCount}
-          copyingPreviousDay={quickActions.copyingPreviousDay}
-          lastMeal={quickActions.lastMeal}
-          onQuickAdd={() => {
-            // Pin the meal_type before opening so the AI-saved meal lands in
-            // the section matching current time-of-day instead of whatever
-            // stale type is in form state.
-            const h = new Date().getHours();
-            const defaultType: "breakfast" | "lunch" | "dinner" | "snack" =
-              h < 10 ? "breakfast" : h < 15 ? "lunch" : h < 21 ? "dinner" : "snack";
-            setManualMeal((prev) => ({ ...prev, meal_type: defaultType }));
-            setQuickAddTab("ai");
-            setIsQuickAddSheetOpen(true);
-          }}
-          onCopyPreviousDay={quickActions.copyPreviousDay}
-          onRepeatLast={() => quickActions.repeatLastMeal()}
-        />
+        {/* EmptyMealsBanner suppressed — the new MealSections renders
+            its own wizard-led empty state with quick chips. */}
 
         {showMealSuccess && (
           <div className="flex items-center justify-center gap-1.5 text-success animate-[fadeSlideUp_0.3s_ease-out_both]">
@@ -413,6 +396,11 @@ export default function NutritionPage() {
           onOpenFoodSearch={openFoodSearch}
           onOpenQuickAdd={openQuickAdd}
           onOpenManualAdd={openManualAdd}
+          onOpenFavorites={
+            quickActions.favorites && quickActions.favorites.length > 0
+              ? () => toggleFavoritesCollapsed("favorites")
+              : undefined
+          }
         />
 
         <FavoritesSheet

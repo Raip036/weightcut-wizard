@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { ChevronLeft, Users, Loader2 } from "lucide-react";
+import { ChevronLeft, ClipboardList, Loader2 } from "lucide-react";
+import { motion } from "motion/react";
 import { Capacitor } from "@capacitor/core";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation } from "convex/react";
@@ -146,10 +147,26 @@ export default function CoachLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.28, ease: "easeOut" }}
+      className="relative min-h-screen bg-background text-foreground flex flex-col overflow-hidden"
+    >
+      {/* Subtle blue→teal radial wash in the upper third so the coach
+          door reads visually distinct from the fighter door at a glance. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-[60vh] opacity-60"
+        style={{
+          background:
+            "radial-gradient(ellipse at 50% 0%, rgba(56, 189, 248, 0.18) 0%, rgba(20, 184, 166, 0.08) 35%, transparent 70%)",
+        }}
+      />
+
       {/* Nav bar */}
       <div
-        className="flex items-center justify-between px-4 shrink-0"
+        className="relative flex items-center justify-between px-4 shrink-0"
         style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: 8 }}
       >
         <button
@@ -165,7 +182,7 @@ export default function CoachLogin() {
       </div>
 
       <div
-        className="flex-1 flex flex-col items-center px-6 overflow-y-auto"
+        className="relative flex-1 flex flex-col items-center px-6 overflow-y-auto"
         style={{
           paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)",
           opacity: exiting ? 0 : 1,
@@ -174,13 +191,20 @@ export default function CoachLogin() {
         }}
       >
         <div className="w-full max-w-[360px] pt-4 animate-page-in">
-          {/* Coach brand mark */}
+          {/* Coach brand mark — blue/teal gradient + clipboard icon makes
+              this door instantly recognizable as "for coaches" so fighters
+              don't accidentally complete signup here. */}
           <div className="flex flex-col items-center text-center mb-8">
-            <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-              <Users className="h-6 w-6 text-primary" strokeWidth={2.25} />
+            <div className="relative mb-4">
+              <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-card ring-2 ring-primary/60 shadow-xl shadow-primary/20">
+                <ClipboardList className="h-7 w-7 text-primary" strokeWidth={2.25} />
+              </div>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight">
-              {showForgot ? "Reset Password" : isLogin ? "Coach Sign In" : "Create Coach Account"}
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary/90">
+              Coach sign-in
+            </p>
+            <h1 className="mt-1.5 text-2xl font-bold tracking-tight">
+              {showForgot ? "Reset Password" : isLogin ? "Welcome back, coach" : "Open your gym"}
             </h1>
             <p className="text-[13px] text-muted-foreground mt-1">
               {showForgot ? "We'll email you a reset link" : "Manage your gym + athletes"}
@@ -226,7 +250,7 @@ export default function CoachLogin() {
                     <Input type="password" placeholder="Confirm password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={8} className={inputClass} />
                   )}
                   {errorMsg && <p className="text-xs text-red-500 text-center">{errorMsg}</p>}
-                  <Button type="submit" disabled={loading} className="w-full h-[50px] rounded-2xl bg-primary text-primary-foreground font-semibold text-[16px] active:scale-[0.98] transition-transform disabled:opacity-50">
+                  <Button type="submit" disabled={loading} className="w-full h-[50px] rounded-2xl bg-primary text-primary-foreground font-semibold text-[16px] active:scale-[0.98] transition-transform disabled:opacity-50 shadow-lg shadow-primary/20">
                     {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : isLogin ? "Sign In" : "Create Account"}
                   </Button>
                 </form>
@@ -277,6 +301,6 @@ export default function CoachLogin() {
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

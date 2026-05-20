@@ -1,5 +1,7 @@
-import { format, subDays, addDays } from "date-fns";
-import { Loader2, ChevronRight, ChevronLeft } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { format, subDays, isToday, isYesterday } from "date-fns";
+import { Loader2, ChevronRight, Sparkles } from "lucide-react";
+import { motion } from "motion/react";
 import wizardLogo from "@/assets/wizard-logo.webp";
 import { MacroPieChart } from "@/components/nutrition/MacroPieChart";
 import { SyncingIndicator } from "@/components/SyncingIndicator";
@@ -30,8 +32,12 @@ interface NutritionHeroProps {
 }
 
 /**
- * Wisdom card + MacroPieChart + date navigator + pending sync pill.
- * Route component owns all state; this file is a pure presentational block.
+ * Hero layout (top → bottom):
+ *   1. Horizontal scrollable date strip (7 days, Apple Fitness style)
+ *   2. MacroPieChart (calorie ring + 3 macro tiles)
+ *   3. Slim wizard wisdom chip (tap → full advice sheet)
+ *
+ * Route component owns all state; this file is pure presentation.
  */
 export function NutritionHero({
   wisdom,
@@ -47,95 +53,169 @@ export function NutritionHero({
   mealsLoading,
   mealsVisibleCount,
 }: NutritionHeroProps) {
-  const todayStr = format(new Date(), "yyyy-MM-dd");
-
   return (
     <>
-      {/* Wizard's Nutrition Wisdom */}
-      <button
-        className="w-full text-left rounded-2xl card-surface px-3 py-2 border border-border hover:border-primary/30 active:scale-[0.99] transition-all group"
-        onClick={() => wisdom.generateTrainingFoodIdeas()}
-      >
-        <div className="flex items-center gap-2.5">
-          <div className="rounded-full bg-primary/15 p-1 flex-shrink-0 group-hover:bg-primary/20 transition-colors">
-            <img src={wizardLogo} alt="Wizard" className="w-6 h-6 rounded-full object-cover" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="font-semibold text-[13px] leading-tight">Wizard's Daily Wisdom</h3>
-              <div className="flex items-center gap-1 flex-shrink-0">
-                {wisdom.trainingWisdomLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />}
-                <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
-              </div>
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug line-clamp-2">
-              {wisdom.aiWisdomLoading ? (
-                <span className="inline-flex items-center gap-1">
-                  <Loader2 className="h-3 w-3 animate-spin text-primary/50" />
-                  <span className="text-muted-foreground/50">Updating advice…</span>
-                </span>
-              ) : wisdom.aiWisdomAdvice ? (
-                <span>{wisdom.aiWisdomAdvice}</span>
-              ) : (
-                wisdom.getNutritionWisdom()
-              )}
-            </p>
-          </div>
-        </div>
-      </button>
+      {/* Horizontal date strip — 7-day scrollable picker */}
+      <DateStrip selectedDate={selectedDate} setSelectedDate={setSelectedDate} />
 
-      {/* MFP Dashboard: Calories + Macros */}
-      <MacroPieChart
-        calories={totalCalories}
-        calorieTarget={dailyCalorieTarget}
-        protein={totalProtein}
-        carbs={totalCarbs}
-        fats={totalFats}
-        proteinGoal={effectiveMacroGoals.proteinGrams}
-        carbsGoal={effectiveMacroGoals.carbsGrams}
-        fatsGoal={effectiveMacroGoals.fatsGrams}
-        onEditTargets={onEditTargets}
-      />
-
-      {/* Date Navigator — Cal AI / MyFitnessPal pattern. Bare chevron
-          glyphs (no chip bg, no outline) flank a single subtle date pill.
-          Two-line date stack when off-today gives a "Today" jump cue below
-          the weekday without a separate reset button. */}
-      <div className="relative flex items-center justify-center gap-1">
-        <button
-          onClick={() => { setSelectedDate(format(subDays(new Date(selectedDate), 1), "yyyy-MM-dd")); triggerHapticSelection(); }}
-          aria-label="Previous day"
-          className="h-10 w-10 rounded-full flex items-center justify-center text-muted-foreground/70 active:text-foreground active:bg-foreground/5 transition-colors touch-manipulation"
-        >
-          <ChevronLeft className="h-[22px] w-[22px]" strokeWidth={2.2} />
-        </button>
-        <button
-          onClick={() => { setSelectedDate(format(new Date(), "yyyy-MM-dd")); triggerHapticSelection(); }}
-          className="min-w-[160px] h-11 px-5 rounded-full bg-foreground/[0.04] dark:bg-white/[0.05] active:bg-foreground/[0.08] dark:active:bg-white/[0.09] active:scale-[0.98] transition-all touch-manipulation flex flex-col items-center justify-center leading-none"
-        >
-          {selectedDate === todayStr ? (
-            <span className="text-[15px] font-semibold tracking-tight">Today</span>
-          ) : (
-            <>
-              <span className="text-[15px] font-semibold tracking-tight">
-                {format(new Date(selectedDate), "EEE, MMM d")}
-              </span>
-              <span className="text-[10px] text-muted-foreground/70 mt-0.5 uppercase tracking-wider">
-                Tap for today
-              </span>
-            </>
-          )}
-        </button>
-        <button
-          onClick={() => { setSelectedDate(format(addDays(new Date(selectedDate), 1), "yyyy-MM-dd")); triggerHapticSelection(); }}
-          aria-label="Next day"
-          className="h-10 w-10 rounded-full flex items-center justify-center text-muted-foreground/70 active:text-foreground active:bg-foreground/5 transition-colors touch-manipulation"
-        >
-          <ChevronRight className="h-[22px] w-[22px]" strokeWidth={2.2} />
-        </button>
+      {/* Calorie ring + 3 macro tiles */}
+      <div className="relative">
+        <MacroPieChart
+          calories={totalCalories}
+          calorieTarget={dailyCalorieTarget}
+          protein={totalProtein}
+          carbs={totalCarbs}
+          fats={totalFats}
+          proteinGoal={effectiveMacroGoals.proteinGrams}
+          carbsGoal={effectiveMacroGoals.carbsGrams}
+          fatsGoal={effectiveMacroGoals.fatsGrams}
+          onEditTargets={onEditTargets}
+        />
         <SyncingIndicator active={mealsLoading && mealsVisibleCount > 0} />
       </div>
 
+      {/* Slim wisdom chip — replaces the big banner */}
+      <WisdomChip wisdom={wisdom} />
     </>
+  );
+}
+
+// ── Date strip ─────────────────────────────────────────────────────────
+// Apple Fitness-style horizontal picker. Renders 14 trailing days (today
+// at the right, scrolls left for history). Selected day pops with primary
+// background + bold weekday. Tap = navigate to that date. Auto-scrolls
+// the selected day into view on mount and on jump-to-today.
+function DateStrip({
+  selectedDate,
+  setSelectedDate,
+}: {
+  selectedDate: string;
+  setSelectedDate: (date: string) => void;
+}) {
+  const today = new Date();
+  // 14 days: 13 days ago through today. Render newest at the right end
+  // so the "Today" cell sits at the end naturally.
+  const days = Array.from({ length: 14 }, (_, i) =>
+    subDays(today, 13 - i),
+  );
+  const todayStr = format(today, "yyyy-MM-dd");
+  const isOnToday = selectedDate === todayStr;
+
+  // Auto-scroll the active day into view. Animates whenever selectedDate
+  // changes — including the "Today →" pill tap, which now visually
+  // slides the strip rather than just changing the highlight.
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const active = container.querySelector<HTMLElement>(
+      `[data-date="${selectedDate}"]`,
+    );
+    if (!active) return;
+    // Compute offset so the active cell lands roughly centered within
+    // the scroll viewport (instead of jumping to either edge).
+    const targetLeft =
+      active.offsetLeft - container.clientWidth / 2 + active.clientWidth / 2;
+    container.scrollTo({ left: targetLeft, behavior: "smooth" });
+  }, [selectedDate]);
+
+  return (
+    <div className="relative">
+      <div
+        ref={scrollRef}
+        className={
+          "flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scroll-smooth " +
+          "[-webkit-overflow-scrolling:touch] [touch-action:pan-x] " +
+          "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        }
+      >
+        {days.map((d) => {
+          const ds = format(d, "yyyy-MM-dd");
+          const active = ds === selectedDate;
+          const isTodayCell = isToday(d);
+          const isYest = isYesterday(d);
+          return (
+            <motion.button
+              key={ds}
+              data-date={ds}
+              onClick={() => { triggerHapticSelection(); setSelectedDate(ds); }}
+              whileTap={{ scale: 0.94 }}
+              className={`relative flex-shrink-0 flex flex-col items-center justify-center w-[52px] h-[64px] rounded-2xl border transition-colors ${
+                active
+                  ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/30"
+                  : "bg-card/40 text-foreground/85 border-border/40 hover:bg-muted/40"
+              }`}
+              aria-label={format(d, "EEEE, MMMM d")}
+              aria-current={active ? "date" : undefined}
+            >
+              <span
+                className={`text-[10px] font-bold uppercase tracking-wider leading-none ${
+                  active ? "text-primary-foreground/85" : "text-muted-foreground/70"
+                }`}
+              >
+                {isTodayCell ? "TODAY" : isYest ? "YEST" : format(d, "EEE")}
+              </span>
+              <span
+                className={`mt-1.5 text-[18px] font-bold tabular-nums leading-none ${
+                  active ? "text-primary-foreground" : "text-foreground"
+                }`}
+              >
+                {format(d, "d")}
+              </span>
+              {/* Today indicator dot when not selected */}
+              {isTodayCell && !active && (
+                <span className="absolute bottom-1.5 h-1 w-1 rounded-full bg-primary" aria-hidden />
+              )}
+            </motion.button>
+          );
+        })}
+      </div>
+      {/* Jump-to-today affordance — tiny chip top-right when off-today */}
+      {!isOnToday && (
+        <button
+          onClick={() => { triggerHapticSelection(); setSelectedDate(todayStr); }}
+          className="absolute -top-1 right-1 inline-flex items-center gap-1 rounded-full bg-muted/60 border border-border/40 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-foreground/80 hover:bg-muted/80 active:scale-[0.96] transition"
+        >
+          Today →
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ── Wisdom chip ────────────────────────────────────────────────────────
+// One-line chip: wizard avatar + truncated advice text + chevron. Subtle,
+// scannable, never dominates the hero. Tap fires the same wisdom action
+// the original card did (opens TrainingWisdomSheet via parent route).
+function WisdomChip({ wisdom }: { wisdom: WisdomState }) {
+  const text = wisdom.aiWisdomLoading
+    ? "Updating advice…"
+    : wisdom.aiWisdomAdvice || wisdom.getNutritionWisdom();
+
+  return (
+    <button
+      onClick={() => wisdom.generateTrainingFoodIdeas()}
+      className="group w-full flex items-center gap-2.5 rounded-2xl border border-border/40 bg-card/40 px-3 py-2 active:scale-[0.99] transition hover:border-primary/30"
+    >
+      <div className="relative shrink-0 h-7 w-7 rounded-full bg-primary/15 ring-1 ring-primary/25 flex items-center justify-center overflow-hidden">
+        <img src={wizardLogo} alt="Wizard" className="h-full w-full object-contain p-0.5" />
+      </div>
+      <div className="min-w-0 flex-1 text-left">
+        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary/80 leading-none">
+          Today's tip
+        </p>
+        <p className="mt-0.5 text-[11.5px] text-muted-foreground line-clamp-1 leading-snug">
+          {text}
+        </p>
+      </div>
+      {wisdom.trainingWisdomLoading ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-primary/70 shrink-0" />
+      ) : (
+        <span className="flex items-center gap-0.5 shrink-0 text-muted-foreground/40 group-hover:text-primary transition-colors">
+          <Sparkles className="h-3 w-3" />
+          <ChevronRight className="h-3.5 w-3.5" />
+        </span>
+      )}
+    </button>
   );
 }

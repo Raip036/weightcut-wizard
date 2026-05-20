@@ -1,17 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
-import { AlertTriangle, Target, TrendingDown, ChevronRight } from "lucide-react";
+import { AlertTriangle, Check, ChevronRight, TrendingDown } from "lucide-react";
 import { ImpactStyle } from "@capacitor/haptics";
+import { motion, AnimatePresence } from "motion/react";
 import { profileSchema } from "@/lib/validation";
 import { useUser } from "@/contexts/UserContext";
 import { celebrateSuccess, triggerHaptic, triggerHapticSelection } from "@/lib/haptics";
 import { GoalsSkeleton } from "@/components/ui/skeleton-loader";
-import { SwipeDial } from "@/components/ui/SwipeDial";
 import { ProfilePictureUpload } from "@/components/ProfilePictureUpload";
 
 const ACTIVITY_MULTIPLIERS = {
@@ -36,9 +36,41 @@ const AGGRESSIVENESS_LABELS: Record<string, string> = {
   conservative: "Conservative", balanced: "Balanced", aggressive: "Aggressive",
 };
 
+const SEX_LABELS: Record<string, string> = { male: "Male", female: "Female" };
+
+const ACTIVITY_LABELS: Record<string, string> = {
+  sedentary: "Sedentary",
+  lightly_active: "Light",
+  moderately_active: "Moderate",
+  very_active: "Active",
+  extra_active: "Extreme",
+};
+
+const GOAL_LABELS: Record<string, string> = {
+  cutting: "Cut",
+  losing: "Lose",
+  maintaining: "Maintain",
+  gaining: "Gain",
+};
+
+const SLEEP_LABELS: Record<string, string> = {
+  "<5": "<5h",
+  "5-6": "5–6h",
+  "6-7": "6–7h",
+  "7-8": "7–8h",
+  "8+": "8h+",
+};
+
+type FieldKey =
+  | "age" | "sex" | "height_cm" | "current_weight_kg" | "body_fat_pct" | "sleep_hours"
+  | "goal_weight_kg" | "fight_week_target_kg" | "target_date"
+  | "activity_level" | "training_frequency"
+  | "athlete_type" | "goal_type" | "experience_level" | "plan_aggressiveness";
+
+type ActiveField = { key: FieldKey; title: string } | null;
+
 export default function Goals() {
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   const {
@@ -54,42 +86,26 @@ export default function Goals() {
   } = useUser();
   const updateGoals = useMutation(api.profiles.updateGoals);
   const setUserNameMut = useMutation(api.profiles.setUserName);
-  // Active camp — used to keep `fight_camps.fightDate` in sync when the
-  // user edits their target_date on this page. Without this, the profile
-  // points at one date and the camp points at another and the rest of the
-  // app gets two conflicting answers depending on which it reads.
   const updateCampMut = useMutation(api.fight_camp.updateCamp);
   const activeCamp = useQuery(api.fight_camp.getActiveCamp, userId ? {} : "skip");
 
-  // Local mirror of the editable display name. Kept separate from the
-  // context value so typing doesn't immediately mutate the cache, then
-  // flushed via `setUserNameMut` on blur (mirrors the Settings panel).
+  // Editable display name — mirrored so typing doesn't churn the auth cache.
   const [editedName, setEditedName] = useState<string>(userName ?? "");
-  const [savingName, setSavingName] = useState(false);
   useEffect(() => { setEditedName(userName ?? ""); }, [userName]);
 
-  const flushName = async () => {
+  const flushName = useCallback(async () => {
     const next = editedName.trim();
     if (!userId || !next || next === userName) return;
-    setSavingName(true);
     try {
       await setUserNameMut({ displayName: next });
       setUserName(next);
+      flagSaved();
     } catch (err) {
-      // The mutation also runs from UserContext.setUserName as a side-
-      // effect; surfacing here would double-toast. Just log and move on.
       console.warn("Goals: setUserName failed", err);
-    } finally {
-      setSavingName(false);
     }
-  };
+  }, [editedName, userId, userName, setUserNameMut, setUserName]);
 
-  // Cut plan — surfaces the onboarding-generated plan here so users can
-  // re-open it from the profile without hunting through Dashboard. Mirrors
-  // Dashboard's lazy-rehydrate: trust localStorage first, fall back to the
-  // profile row (cut_plan_json) which iOS WebView occasionally wipes.
-  // Tap → navigate to /cut-plan (or /weight-plan) which renders the
-  // canonical InlinePlanDisplay timeline; no bespoke sheet here anymore.
+  // Cut plan summary surfaced as a tappable row in YOUR PLAN group.
   const [cutPlanSummary, setCutPlanSummary] = useState<{
     totalWeeks: number;
     weeklyLossTarget: string;
@@ -110,16 +126,10 @@ export default function Goals() {
           goalWeight: parsed.goalWeight ?? last?.targetWeight ?? 0,
           planType: parsed.planType === "weight_loss" ? "weight_loss" : "weight_cut",
         } as const;
-      } catch {
-        return null;
-      }
+      } catch { return null; }
     };
-
     const local = readSummaryFromRaw(localStorage.getItem("wcw_cut_plan"));
-    if (local) {
-      setCutPlanSummary(local);
-      return;
-    }
+    if (local) { setCutPlanSummary(local); return; }
     if (!userId) return;
     let cancelled = false;
     (async () => {
@@ -132,28 +142,27 @@ export default function Goals() {
   }, [userId, loadCutPlan]);
 
   const [formData, setFormData] = useState({
-    age: "",
-    sex: "",
-    height_cm: "",
-    current_weight_kg: "",
-    goal_weight_kg: "",
-    fight_week_target_kg: "",
-    target_date: "",
-    activity_level: "",
-    training_frequency: "",
-    // New onboarding v2 fields
-    athlete_type: "",
-    goal_type: "",
-    experience_level: "",
+    age: "", sex: "", height_cm: "", current_weight_kg: "", goal_weight_kg: "",
+    fight_week_target_kg: "", target_date: "",
+    activity_level: "", training_frequency: "",
+    athlete_type: "", goal_type: "", experience_level: "",
     training_types: [] as string[],
-    sleep_hours: "",
-    primary_struggle: "",
-    plan_aggressiveness: "",
+    sleep_hours: "", primary_struggle: "", plan_aggressiveness: "",
     body_fat_pct: "",
   });
 
   const [useAutoTarget, setUseAutoTarget] = useState(true);
-  const [targetSafetyLevel, setTargetSafetyLevel] = useState<"safe" | "moderate" | "risky">("safe");
+  const [activeField, setActiveField] = useState<ActiveField>(null);
+
+  // Transient "Saved ✓" header chip — set on every successful auto-save.
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flagSaved = () => {
+    setSavedAt(Date.now());
+    if (savedTimer.current) clearTimeout(savedTimer.current);
+    savedTimer.current = setTimeout(() => setSavedAt(null), 1800);
+  };
+  useEffect(() => () => { if (savedTimer.current) clearTimeout(savedTimer.current); }, []);
 
   useEffect(() => {
     if (!userId) { navigate("/auth"); return; }
@@ -179,126 +188,114 @@ export default function Goals() {
         plan_aggressiveness: p.plan_aggressiveness || "",
         body_fat_pct: p.body_fat_pct?.toString() || "",
       });
-
       if (contextProfile.goal_weight_kg && contextProfile.fight_week_target_kg) {
-        const recommended = calculateRecommendedTarget(contextProfile.goal_weight_kg);
+        const recommended = Math.round(contextProfile.goal_weight_kg * 1.055 * 10) / 10;
         setUseAutoTarget(Math.abs(contextProfile.fight_week_target_kg - recommended) < 0.1);
       }
       setLoading(false);
     } else {
       setLoading(false);
     }
-  }, [userId, contextProfile]);
+  }, [userId, contextProfile, currentWeight, navigate]);
 
-  const calculateBMR = () => {
-    const weight = parseFloat(formData.current_weight_kg) || 70;
-    const height = parseFloat(formData.height_cm) || 175;
-    const age = parseInt(formData.age) || 25;
-    return formData.sex === "male"
+  const calculateBMR = (data = formData) => {
+    const weight = parseFloat(data.current_weight_kg) || 70;
+    const height = parseFloat(data.height_cm) || 175;
+    const age = parseInt(data.age) || 25;
+    return data.sex === "male"
       ? 10 * weight + 6.25 * height - 5 * age + 5
       : 10 * weight + 6.25 * height - 5 * age - 161;
   };
-
-  const calculateRecommendedTarget = (fightNightWeight: number) => {
-    return Math.round(fightNightWeight * 1.055 * 10) / 10;
-  };
+  const calculateRecommendedTarget = (fightNightWeight: number) =>
+    Math.round(fightNightWeight * 1.055 * 10) / 10;
 
   const assessTargetSafety = (fightNightWeight: number, fightWeekTarget: number) => {
-    const cutPercentage = ((fightWeekTarget - fightNightWeight) / fightNightWeight) * 100;
-    if (cutPercentage <= 5) return { level: "safe" as const, message: "Safe range (≤5%)" };
-    if (cutPercentage <= 7) return { level: "moderate" as const, message: "Moderate risk (5-7%)" };
+    const cutPct = ((fightWeekTarget - fightNightWeight) / fightNightWeight) * 100;
+    if (cutPct <= 5) return { level: "safe" as const, message: "Safe range (≤5%)" };
+    if (cutPct <= 7) return { level: "moderate" as const, message: "Moderate risk (5-7%)" };
     return { level: "risky" as const, message: "High risk (>7%)" };
   };
 
+  // Auto-recompute diet target when goal weight changes (auto mode only).
   useEffect(() => {
     if (useAutoTarget && formData.goal_weight_kg) {
       const rec = calculateRecommendedTarget(parseFloat(formData.goal_weight_kg));
       setFormData(prev => ({ ...prev, fight_week_target_kg: rec.toString() }));
-      setTargetSafetyLevel("safe");
     }
   }, [formData.goal_weight_kg, useAutoTarget]);
 
-  useEffect(() => {
-    if (!useAutoTarget && formData.goal_weight_kg && formData.fight_week_target_kg) {
-      setTargetSafetyLevel(assessTargetSafety(parseFloat(formData.goal_weight_kg), parseFloat(formData.fight_week_target_kg)).level);
-    }
-  }, [formData.fight_week_target_kg, formData.goal_weight_kg, useAutoTarget]);
+  // ── Auto-save ────────────────────────────────────────────────────────
+  // Each field commit calls autoSave with the next snapshot. We pass the
+  // override explicitly rather than reading state to avoid the stale-closure
+  // race that happens when the sheet closes before React re-renders.
+  const autoSave = useCallback(async (overrides: Partial<typeof formData>) => {
+    if (!userId) return;
+    const next = { ...formData, ...overrides };
+    setFormData(next);
 
-  const handleSubmit = async () => {
-    const goalType = formData.goal_type || 'cutting';
+    // Don't even try saving until the core profile fields exist — first-run
+    // users hit the onboarding flow instead. updateGoals fails validation on
+    // missing core fields, which would noisily toast on every tap.
+    const haveCore = next.age && next.height_cm && next.current_weight_kg && next.training_frequency;
+    if (!haveCore) return;
+
     const validationResult = profileSchema.safeParse({
-      age: parseInt(formData.age),
-      height_cm: parseFloat(formData.height_cm),
-      current_weight_kg: parseFloat(formData.current_weight_kg),
-      goal_weight_kg: parseFloat(formData.goal_weight_kg),
-      fight_week_target_kg: goalType === 'cutting' ? parseFloat(formData.fight_week_target_kg) : undefined,
-      training_frequency: parseInt(formData.training_frequency),
+      age: parseInt(next.age),
+      height_cm: parseFloat(next.height_cm),
+      current_weight_kg: parseFloat(next.current_weight_kg),
+      goal_weight_kg: parseFloat(next.goal_weight_kg) || 0,
+      fight_week_target_kg: next.goal_type === "cutting"
+        ? parseFloat(next.fight_week_target_kg) || undefined
+        : undefined,
+      training_frequency: parseInt(next.training_frequency),
     });
-
     if (!validationResult.success) {
-      toast({ variant: "destructive", title: "Validation Error", description: validationResult.error.errors[0].message });
+      toast({ variant: "destructive", title: "Invalid value", description: validationResult.error.errors[0].message });
       return;
     }
 
-    setSaving(true);
     try {
-      if (!userId) throw new Error("No user found");
-      const bmr = calculateBMR();
-      const tdee = bmr * (ACTIVITY_MULTIPLIERS[formData.activity_level as keyof typeof ACTIVITY_MULTIPLIERS] ?? 1.55);
-
+      const bmr = calculateBMR(next);
+      const tdee = bmr * (ACTIVITY_MULTIPLIERS[next.activity_level as keyof typeof ACTIVITY_MULTIPLIERS] ?? 1.55);
       await updateGoals({
-        age: parseInt(formData.age),
-        sex: formData.sex,
-        heightCm: parseFloat(formData.height_cm),
-        currentWeightKg: parseFloat(formData.current_weight_kg),
-        goalWeightKg: parseFloat(formData.goal_weight_kg),
-        fightWeekTargetKg: goalType === 'cutting' ? parseFloat(formData.fight_week_target_kg) : undefined,
-        targetDate: formData.target_date,
-        activityLevel: formData.activity_level,
-        trainingFrequency: parseInt(formData.training_frequency),
+        age: parseInt(next.age),
+        sex: next.sex,
+        heightCm: parseFloat(next.height_cm),
+        currentWeightKg: parseFloat(next.current_weight_kg),
+        goalWeightKg: parseFloat(next.goal_weight_kg),
+        fightWeekTargetKg: next.goal_type === "cutting" ? parseFloat(next.fight_week_target_kg) : undefined,
+        targetDate: next.target_date,
+        activityLevel: next.activity_level,
+        trainingFrequency: parseInt(next.training_frequency),
         bmr,
         tdee,
-        athleteType: formData.athlete_type || undefined,
-        goalType: formData.goal_type || undefined,
-        experienceLevel: formData.experience_level || undefined,
-        trainingTypes: formData.training_types.length > 0 ? formData.training_types : undefined,
-        sleepHours: formData.sleep_hours || undefined,
-        primaryStruggle: formData.primary_struggle || undefined,
-        planAggressiveness: formData.plan_aggressiveness || undefined,
-        bodyFatPct: formData.body_fat_pct ? parseFloat(formData.body_fat_pct) : undefined,
+        athleteType: next.athlete_type || undefined,
+        goalType: next.goal_type || undefined,
+        experienceLevel: next.experience_level || undefined,
+        trainingTypes: next.training_types.length > 0 ? next.training_types : undefined,
+        sleepHours: next.sleep_hours || undefined,
+        primaryStruggle: next.primary_struggle || undefined,
+        planAggressiveness: next.plan_aggressiveness || undefined,
+        bodyFatPct: next.body_fat_pct ? parseFloat(next.body_fat_pct) : undefined,
       });
 
-      // Keep the active fight_camp's fightDate aligned with the profile's
-      // target_date so dashboard / camp views don't disagree. We only touch
-      // a non-completed active camp; completed camps are historical and must
-      // stay anchored to their actual fight date.
-      // NOTE: the camp schema does not currently store an end-weight target
-      // separate from the retrospective endWeightKg, so we do NOT mirror
-      // goalWeightKg → camp here. (See prompt fix #7.)
-      const newTargetDate = formData.target_date;
+      // Mirror target_date → active camp.fightDate so the dashboard / camp
+      // pages don't read two conflicting dates.
       if (
-        activeCamp &&
-        !activeCamp.isCompleted &&
-        newTargetDate &&
-        newTargetDate !== activeCamp.fightDate
+        activeCamp && !activeCamp.isCompleted &&
+        next.target_date && next.target_date !== activeCamp.fightDate
       ) {
-        try {
-          await updateCampMut({ id: activeCamp._id, fightDate: newTargetDate });
-        } catch (campErr) {
-          // Don't block the navigation — the profile save already succeeded.
-          console.warn("Goals: failed to sync active camp fightDate", campErr);
-        }
+        try { await updateCampMut({ id: activeCamp._id, fightDate: next.target_date }); }
+        catch (e) { console.warn("Goals: failed to sync active camp fightDate", e); }
       }
 
       await refreshProfile();
-      celebrateSuccess();
-      navigate("/dashboard");
+      flagSaved();
+      triggerHaptic(ImpactStyle.Light);
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Error", description: error.message });
-    } finally {
-      setSaving(false);
+      toast({ variant: "destructive", title: "Save failed", description: error.message });
     }
-  };
+  }, [formData, userId, updateGoals, updateCampMut, activeCamp, refreshProfile, toast]);
 
   if (loading) return <GoalsSkeleton />;
 
@@ -307,443 +304,460 @@ export default function Goals() {
     ? assessTargetSafety(parseFloat(formData.goal_weight_kg), parseFloat(formData.fight_week_target_kg))
     : null;
 
-  // Multi-select sport list — kept as a comma-separated string in the
-  // DB column to avoid a schema migration. The UI uses a single primary
-  // sport via the SwipeDial; if the user previously selected multiple,
-  // we honour the first as the active one and keep the rest in storage.
   const selectedSports = formData.athlete_type
     ? formData.athlete_type.split(",").map((s) => s.trim()).filter(Boolean)
     : [];
   const primarySport = selectedSports[0] ?? "";
-  const setPrimarySport = (v: string) => {
-    setFormData((prev) => ({ ...prev, athlete_type: v }));
-  };
+
+  // Subtitle: age · sex · height · weight as a single line.
+  const subtitle = [
+    formData.age && `${formData.age}`,
+    formData.sex && SEX_LABELS[formData.sex],
+    formData.height_cm && `${formData.height_cm}cm`,
+    formData.current_weight_kg && `${formData.current_weight_kg}kg`,
+  ].filter(Boolean).join(" · ");
 
   return (
-    <div className="animate-page-in space-y-3 px-5 py-3 sm:p-5 max-w-2xl mx-auto pb-20 md:pb-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-[20px] font-bold tracking-tight">Profile</h1>
-        <p className="text-muted-foreground text-[12px]">Tap to edit</p>
-      </div>
+    <div className="animate-page-in px-5 py-3 sm:p-5 max-w-2xl mx-auto pb-20 md:pb-8">
+      {/* Hero header — large-title with centered avatar + name + subtitle */}
+      <header className="relative pt-2 pb-6">
+        <AnimatePresence>
+          {savedAt && (
+            <motion.div
+              initial={{ opacity: 0, y: -4, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -4, scale: 0.9 }}
+              transition={{ duration: 0.18 }}
+              className="absolute top-2 right-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-500 text-[11px] font-semibold"
+            >
+              <Check className="h-3 w-3" strokeWidth={3} />
+              Saved
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-      {!contextProfile?.goal_weight_kg && (
-        <div className="rounded-2xl bg-primary/5 border border-primary/15 p-3 flex items-start gap-2">
-          <Target className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-          <p className="text-[13px] text-foreground/80 leading-snug">
-            Finish your profile so the Wizard can calculate targets and guide your cut.
-          </p>
+        <div className="flex flex-col items-center gap-3">
+          <ProfilePictureUpload
+            currentAvatarUrl={avatarUrl}
+            onUploadSuccess={(url) => { setAvatarUrl(url); flagSaved(); }}
+            size="lg"
+            showRemove={false}
+          />
+          <input
+            value={editedName}
+            onChange={(e) => setEditedName(e.target.value)}
+            onBlur={() => void flushName()}
+            placeholder="Your name"
+            className="text-[28px] font-bold tracking-tight text-center bg-transparent border-0 focus:outline-none focus:ring-0 placeholder:text-muted-foreground/40 max-w-[280px]"
+            aria-label="Display name"
+          />
+          {subtitle && (
+            <p className="text-[13px] text-muted-foreground tabular-nums tracking-tight">
+              {subtitle}
+            </p>
+          )}
         </div>
-      )}
+      </header>
 
-      <div className="space-y-4">
-        {/* ── Profile (top) ──────────────────────────────────────────── */}
-        {/* Picture + display name. Moved here from the Settings panel so
-            the most personal fields live with the rest of the profile. */}
-        <Section title="You">
-          <div className="flex items-center gap-3 px-3 py-3">
-            <ProfilePictureUpload
-              currentAvatarUrl={avatarUrl}
-              onUploadSuccess={(url) => setAvatarUrl(url)}
-              size="lg"
-              showRemove={false}
-            />
-            <div className="flex-1 min-w-0">
-              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Display name
-              </Label>
-              <Input
-                value={editedName}
-                onChange={(e) => setEditedName(e.target.value)}
-                onBlur={() => void flushName()}
-                placeholder="Your name"
-                className="mt-1 h-10 rounded-xl bg-muted/40 border-border/30 text-[15px]"
-                disabled={savingName}
-              />
-            </div>
-          </div>
-        </Section>
-
-        {/* ── Your Plan ─────────────────────────────────────────────────
-            Routes to /cut-plan (or /weight-plan for weight-loss users),
-            both of which render the canonical InlinePlanDisplay timeline
-            via CutPlanReview — the same UI shown post-onboarding. */}
+      <div className="space-y-6">
+        {/* YOUR PLAN — quick link to the canonical timeline */}
         {cutPlanSummary && (
-          <Section title={cutPlanSummary.planType === "weight_loss" ? "Your Weight Loss Plan" : "Your Cut Plan"}>
+          <SettingsGroup title={cutPlanSummary.planType === "weight_loss" ? "Your weight loss plan" : "Your cut plan"}>
             <button
               type="button"
               onClick={() => {
                 triggerHaptic(ImpactStyle.Light);
                 navigate(cutPlanSummary.planType === "weight_loss" ? "/weight-plan" : "/cut-plan");
               }}
-              className="w-full flex items-center gap-3 px-3 py-3 min-h-[44px] active:bg-muted/30 transition-colors text-left"
+              className="w-full flex items-center gap-3 px-4 py-3 min-h-[52px] active:bg-muted/30 transition-colors text-left"
             >
-              <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
-                <TrendingDown className="h-5 w-5 text-primary" />
+              <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                <TrendingDown className="h-4.5 w-4.5 text-primary" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[14px] font-medium leading-tight">View full plan</p>
+                <p className="text-[15px] font-medium leading-tight">View full plan</p>
                 <p className="text-[12px] text-muted-foreground mt-0.5 leading-snug truncate">
                   {cutPlanSummary.totalWeeks} weeks · {cutPlanSummary.weeklyLossTarget}
                   {cutPlanSummary.goalWeight ? ` · target ${cutPlanSummary.goalWeight}kg` : ""}
                 </p>
               </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+              <ChevronRight className="h-4 w-4 text-muted-foreground/60 shrink-0" />
             </button>
-          </Section>
+          </SettingsGroup>
         )}
 
-        {/* ── Personal Details (above Athlete Profile) ───────────────── */}
-        <Section title="Personal Details">
-          <Row label="Age">
-            <NumericInput
-              value={formData.age}
-              onChange={(v) => setFormData((p) => ({ ...p, age: v }))}
-            />
-          </Row>
-          <Row label="Sex">
-            <SegmentedTwo
-              value={formData.sex}
-              options={[
-                { value: "male", label: "Male" },
-                { value: "female", label: "Female" },
-              ]}
-              onChange={(v) => setFormData((p) => ({ ...p, sex: v }))}
-            />
-          </Row>
-          <Row label="Height">
-            <NumericInput
-              value={formData.height_cm}
-              onChange={(v) => setFormData((p) => ({ ...p, height_cm: v }))}
-              suffix="cm"
-            />
-          </Row>
-          <Row label="Weight">
-            <NumericInput
-              step="0.1"
-              value={formData.current_weight_kg}
-              onChange={(v) => setFormData((p) => ({ ...p, current_weight_kg: v }))}
-              suffix="kg"
-            />
-          </Row>
-          {formData.body_fat_pct !== undefined && (
-            <Row label="Body Fat">
-              <NumericInput
-                step="0.1"
-                value={formData.body_fat_pct}
-                onChange={(v) => setFormData((p) => ({ ...p, body_fat_pct: v }))}
-                suffix="%"
-              />
-            </Row>
-          )}
-          <DialRow label="Sleep">
-            <SwipeDial
-              value={formData.sleep_hours}
-              cellWidth={88}
-              ariaLabel="Sleep hours per night"
-              options={[
-                { value: "<5", label: "<5h" },
-                { value: "5-6", label: "5–6h" },
-                { value: "6-7", label: "6–7h" },
-                { value: "7-8", label: "7–8h" },
-                { value: "8+", label: "8h+" },
-              ]}
-              onChange={(v) => setFormData((p) => ({ ...p, sleep_hours: v }))}
-            />
-          </DialRow>
-        </Section>
+        {/* PERSONAL DETAILS */}
+        <SettingsGroup title="Personal details">
+          <SettingsRow label="Age" value={formData.age || "—"} onTap={() => setActiveField({ key: "age", title: "Age" })} />
+          <SettingsRow label="Sex" value={SEX_LABELS[formData.sex] ?? "—"} onTap={() => setActiveField({ key: "sex", title: "Sex" })} />
+          <SettingsRow label="Height" value={formData.height_cm ? `${formData.height_cm} cm` : "—"} onTap={() => setActiveField({ key: "height_cm", title: "Height" })} />
+          <SettingsRow label="Weight" value={formData.current_weight_kg ? `${formData.current_weight_kg} kg` : "—"} onTap={() => setActiveField({ key: "current_weight_kg", title: "Weight" })} />
+          <SettingsRow label="Body fat" value={formData.body_fat_pct ? `${formData.body_fat_pct}%` : "—"} onTap={() => setActiveField({ key: "body_fat_pct", title: "Body fat %" })} />
+          <SettingsRow label="Sleep" value={SLEEP_LABELS[formData.sleep_hours] ?? "—"} onTap={() => setActiveField({ key: "sleep_hours", title: "Sleep per night" })} />
+        </SettingsGroup>
 
-        {/* ── Targets (below Personal Details) ──────────────────────── */}
-        <Section title="Targets">
-          <Row label={isFighter ? "Weight Class" : "Goal Weight"}>
-            <NumericInput
-              step="0.1"
-              value={formData.goal_weight_kg}
-              onChange={(v) => setFormData((p) => ({ ...p, goal_weight_kg: v }))}
-              suffix="kg"
-              accent
-            />
-          </Row>
-
+        {/* TARGETS */}
+        <SettingsGroup title="Targets">
+          <SettingsRow
+            label={isFighter ? "Weight class" : "Goal weight"}
+            value={formData.goal_weight_kg ? `${formData.goal_weight_kg} kg` : "—"}
+            accent
+            onTap={() => setActiveField({ key: "goal_weight_kg", title: isFighter ? "Weight class" : "Goal weight" })}
+          />
           {isFighter && (
-            <div className="px-3 py-2.5 bg-muted/15 space-y-1.5">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <Label className="text-[14px] font-medium truncate">Diet Target</Label>
-                  <button
-                    type="button"
-                    onClick={() => setUseAutoTarget(!useAutoTarget)}
-                    className={`text-[9px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider shrink-0 transition-colors ${
-                      useAutoTarget
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted/40 text-muted-foreground"
-                    }`}
-                  >
-                    {useAutoTarget ? "Auto" : "Manual"}
-                  </button>
-                </div>
-                <NumericInput
-                  step="0.1"
-                  value={formData.fight_week_target_kg}
-                  onChange={(v) => {
-                    setFormData((p) => ({ ...p, fight_week_target_kg: v }));
-                    setUseAutoTarget(false);
-                  }}
-                  suffix="kg"
-                  disabled={useAutoTarget}
-                />
-              </div>
-              {useAutoTarget ? (
-                <p className="text-[12px] text-muted-foreground leading-snug">
-                  Safe pre-cut weight (5.5% buffer)
-                </p>
-              ) : (
-                safetyFeedback && (
-                  <div
-                    className={`flex items-center gap-1.5 text-[12px] font-medium leading-snug ${
-                      targetSafetyLevel === "safe"
-                        ? "text-emerald-500"
-                        : targetSafetyLevel === "moderate"
-                        ? "text-amber-500"
-                        : "text-rose-500"
-                    }`}
-                  >
-                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">{safetyFeedback.message}</span>
-                  </div>
-                )
-              )}
-            </div>
+            <SettingsRow
+              label="Diet target"
+              value={
+                formData.fight_week_target_kg
+                  ? `${formData.fight_week_target_kg} kg${useAutoTarget ? " · auto" : ""}`
+                  : "—"
+              }
+              hint={!useAutoTarget && safetyFeedback ? safetyFeedback.message : undefined}
+              hintTone={
+                !useAutoTarget && safetyFeedback
+                  ? (safetyFeedback.level === "safe" ? "ok" : safetyFeedback.level === "moderate" ? "warn" : "bad")
+                  : undefined
+              }
+              onTap={() => setActiveField({ key: "fight_week_target_kg", title: "Diet target" })}
+            />
           )}
+          <SettingsRow
+            label="Target date"
+            value={formData.target_date ? formatDate(formData.target_date) : "—"}
+            onTap={() => setActiveField({ key: "target_date", title: "Target date" })}
+          />
+        </SettingsGroup>
 
-          <Row label="Target Date">
-            <Input
-              type="date"
-              value={formData.target_date}
-              onChange={(e) => setFormData((p) => ({ ...p, target_date: e.target.value }))}
-              className="w-auto h-7 border-transparent focus-visible:ring-0 bg-transparent p-0 text-[14px] text-right"
-            />
-          </Row>
-        </Section>
+        {/* ACTIVITY & TRAINING */}
+        <SettingsGroup title="Activity & training">
+          <SettingsRow label="Activity level" value={ACTIVITY_LABELS[formData.activity_level] ?? "—"} onTap={() => setActiveField({ key: "activity_level", title: "Activity level" })} />
+          <SettingsRow label="Training" value={formData.training_frequency ? `${formData.training_frequency} / week` : "—"} onTap={() => setActiveField({ key: "training_frequency", title: "Sessions per week" })} />
+        </SettingsGroup>
 
-        {/* ── Activity & Training (below Targets) ────────────────────── */}
-        <Section title="Activity & Training">
-          <DialRow label="Activity Level">
-            <SwipeDial
-              value={formData.activity_level}
-              cellWidth={120}
-              ariaLabel="Daily activity level"
-              options={[
-                { value: "sedentary", label: "Sedentary" },
-                { value: "lightly_active", label: "Light" },
-                { value: "moderately_active", label: "Moderate" },
-                { value: "very_active", label: "Active" },
-                { value: "extra_active", label: "Extreme" },
-              ]}
-              onChange={(v) => setFormData((p) => ({ ...p, activity_level: v }))}
-            />
-          </DialRow>
-          <Row label="Training">
-            <NumericInput
-              value={formData.training_frequency}
-              onChange={(v) => setFormData((p) => ({ ...p, training_frequency: v }))}
-              suffix="/wk"
-            />
-          </Row>
-        </Section>
-
-        {/* ── Athlete Profile (bottom) — swipe dials replace the chip
-              grids that used to dominate the page ────────────────────── */}
-        <Section title="Athlete Profile">
-          <DialRow label="Sport">
-            <SwipeDial
-              value={primarySport}
-              cellWidth={100}
-              ariaLabel="Primary sport"
-              options={Object.entries(ATHLETE_TYPES).map(([k, v]) => ({
-                value: k,
-                label: v,
-              }))}
-              onChange={(v) => setPrimarySport(v)}
-            />
-          </DialRow>
-          <DialRow label="Goal">
-            <SwipeDial
-              value={formData.goal_type}
-              cellWidth={120}
-              ariaLabel="Primary goal"
-              options={[
-                { value: "cutting", label: "Cut" },
-                { value: "losing", label: "Lose" },
-                { value: "maintaining", label: "Maintain" },
-                { value: "gaining", label: "Gain" },
-              ]}
-              onChange={(v) => setFormData((p) => ({ ...p, goal_type: v }))}
-            />
-          </DialRow>
-          <DialRow label="Experience">
-            <SwipeDial
-              value={formData.experience_level}
-              cellWidth={150}
-              ariaLabel="Experience level"
-              options={Object.entries(EXPERIENCE_LABELS).map(([k, v]) => ({
-                value: k,
-                label: v,
-              }))}
-              onChange={(v) => setFormData((p) => ({ ...p, experience_level: v }))}
-            />
-          </DialRow>
-          <DialRow label="Plan Style">
-            <SwipeDial
-              value={formData.plan_aggressiveness}
-              cellWidth={130}
-              ariaLabel="Plan aggressiveness"
-              options={Object.entries(AGGRESSIVENESS_LABELS).map(([k, v]) => ({
-                value: k,
-                label: v,
-              }))}
-              onChange={(v) => setFormData((p) => ({ ...p, plan_aggressiveness: v }))}
-            />
-          </DialRow>
-        </Section>
-
-        {/* Save */}
-        <div className="pt-2 pb-4">
-          <button
-            onClick={handleSubmit}
-            disabled={saving}
-            className="w-full h-12 rounded-2xl text-[15px] font-semibold text-primary-foreground bg-primary active:scale-[0.98] transition-transform disabled:opacity-40"
-          >
-            {saving ? "Saving…" : "Save Profile"}
-          </button>
-        </div>
+        {/* ATHLETE PROFILE */}
+        <SettingsGroup title="Athlete profile">
+          <SettingsRow label="Sport" value={ATHLETE_TYPES[primarySport] ?? "—"} onTap={() => setActiveField({ key: "athlete_type", title: "Sport" })} />
+          <SettingsRow label="Goal" value={GOAL_LABELS[formData.goal_type] ?? "—"} onTap={() => setActiveField({ key: "goal_type", title: "Primary goal" })} />
+          <SettingsRow label="Experience" value={EXPERIENCE_LABELS[formData.experience_level] ?? "—"} onTap={() => setActiveField({ key: "experience_level", title: "Experience" })} />
+          <SettingsRow label="Plan style" value={AGGRESSIVENESS_LABELS[formData.plan_aggressiveness] ?? "—"} onTap={() => setActiveField({ key: "plan_aggressiveness", title: "Plan style" })} />
+        </SettingsGroup>
       </div>
+
+      {/* Field edit sheet — focused single-field editor */}
+      <EditFieldSheet
+        active={activeField}
+        formData={formData}
+        isFighter={isFighter}
+        useAutoTarget={useAutoTarget}
+        onUseAutoTargetChange={(v) => {
+          setUseAutoTarget(v);
+          if (v && formData.goal_weight_kg) {
+            const rec = calculateRecommendedTarget(parseFloat(formData.goal_weight_kg));
+            void autoSave({ fight_week_target_kg: rec.toString() });
+          }
+        }}
+        onCommit={(overrides) => {
+          void autoSave(overrides);
+        }}
+        onClose={() => setActiveField(null)}
+      />
     </div>
   );
 }
 
-// ──────────────────────────────────────────────────────────────────────
-// Layout primitives — kept inline so the page reads top-to-bottom and
-// each row's structure is obvious without jumping files. They share one
-// styling vocabulary so the page reads as a single coherent settings
-// surface rather than a stack of bespoke cards.
-// ──────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
+// Inline UI primitives — iOS Settings-style grouped rows + focused
+// edit sheet. Kept in this file so the page reads top-to-bottom.
+// ─────────────────────────────────────────────────────────────────────
 
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function SettingsGroup({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="card-surface rounded-2xl border border-border overflow-hidden">
-      <h2 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80 px-3 pt-3 pb-2">
+    <section>
+      <h2 className="px-4 mb-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground/80">
         {title}
       </h2>
-      <div className="divide-y divide-border/40 border-t border-border/40">
+      <div className="rounded-2xl bg-card/60 backdrop-blur-sm border border-border/40 overflow-hidden divide-y divide-border/30">
         {children}
       </div>
     </section>
   );
 }
 
-function Row({
-  label,
-  children,
+function SettingsRow({
+  label, value, accent, hint, hintTone, onTap,
 }: {
   label: string;
-  children: React.ReactNode;
+  value: string;
+  accent?: boolean;
+  hint?: string;
+  hintTone?: "ok" | "warn" | "bad";
+  onTap: () => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 px-3 py-2.5 min-h-[44px]">
-      <Label className="text-[14px] font-medium truncate">{label}</Label>
-      <div className="flex items-center gap-0.5 max-w-[60%] justify-end">
-        {children}
+    <button
+      type="button"
+      onClick={() => { triggerHapticSelection(); onTap(); }}
+      className="w-full min-h-[52px] flex items-center gap-3 px-4 py-2.5 text-left active:bg-muted/40 transition-colors"
+    >
+      <div className="flex-1 min-w-0">
+        <p className="text-[15px] font-medium leading-tight truncate">{label}</p>
+        {hint && (
+          <p className={`mt-0.5 text-[12px] font-medium leading-snug flex items-center gap-1 ${
+            hintTone === "ok" ? "text-emerald-500" : hintTone === "warn" ? "text-amber-500" : "text-rose-500"
+          }`}>
+            <AlertTriangle className="h-3 w-3 shrink-0" />
+            <span className="truncate">{hint}</span>
+          </p>
+        )}
       </div>
-    </div>
+      <span className={`text-[15px] tabular-nums shrink-0 truncate max-w-[55%] text-right ${
+        accent ? "text-primary font-semibold" : "text-muted-foreground"
+      }`}>
+        {value}
+      </span>
+      <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+    </button>
   );
 }
 
-function DialRow({
-  label,
-  children,
+function EditFieldSheet({
+  active, formData, isFighter, useAutoTarget, onUseAutoTargetChange, onCommit, onClose,
 }: {
-  label: string;
-  children: React.ReactNode;
+  active: ActiveField;
+  formData: any;
+  isFighter: boolean;
+  useAutoTarget: boolean;
+  onUseAutoTargetChange: (v: boolean) => void;
+  onCommit: (overrides: Record<string, any>) => void;
+  onClose: () => void;
 }) {
+  const [draft, setDraft] = useState<string>("");
+  useEffect(() => {
+    if (!active) return;
+    setDraft(formData[active.key] ?? "");
+  }, [active, formData]);
+
+  if (!active) return null;
+
+  const commit = (value: string) => {
+    let key: string = active.key;
+    if (active.key === "athlete_type") {
+      // Sport is stored as CSV; honour primary slot only on this page.
+      onCommit({ athlete_type: value });
+    } else {
+      onCommit({ [key]: value });
+    }
+    onClose();
+  };
+
+  const commitNumber = () => {
+    onCommit({ [active.key]: draft });
+    onClose();
+  };
+
+  const renderBody = () => {
+    switch (active.key) {
+      case "age":
+      case "height_cm":
+      case "current_weight_kg":
+      case "body_fat_pct":
+      case "goal_weight_kg":
+      case "fight_week_target_kg":
+      case "training_frequency":
+        return (
+          <NumericEditor
+            value={draft}
+            unit={
+              active.key === "age" ? "yrs"
+                : active.key === "height_cm" ? "cm"
+                : active.key === "body_fat_pct" ? "%"
+                : active.key === "training_frequency" ? "/wk"
+                : "kg"
+            }
+            step={
+              active.key === "current_weight_kg" || active.key === "goal_weight_kg" ||
+              active.key === "fight_week_target_kg" || active.key === "body_fat_pct" ? "0.1" : "1"
+            }
+            extraControl={
+              active.key === "fight_week_target_kg" && isFighter ? (
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => onUseAutoTargetChange(!useAutoTarget)}
+                    className={`flex-1 h-10 rounded-xl text-[13px] font-semibold transition-colors ${
+                      useAutoTarget ? "bg-primary text-primary-foreground" : "bg-muted/40 text-muted-foreground"
+                    }`}
+                  >
+                    Auto (5.5% buffer)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onUseAutoTargetChange(false)}
+                    className={`flex-1 h-10 rounded-xl text-[13px] font-semibold transition-colors ${
+                      !useAutoTarget ? "bg-primary text-primary-foreground" : "bg-muted/40 text-muted-foreground"
+                    }`}
+                  >
+                    Manual
+                  </button>
+                </div>
+              ) : null
+            }
+            disabled={active.key === "fight_week_target_kg" && useAutoTarget}
+            onChange={setDraft}
+            onCommit={commitNumber}
+          />
+        );
+
+      case "target_date":
+        return (
+          <div className="space-y-3">
+            <label className="block">
+              <span className="sr-only">Target date</span>
+              <Input
+                type="date"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                className="h-12 rounded-xl text-[16px] bg-muted/30 border-border/40"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={commitNumber}
+              className="w-full h-12 rounded-xl bg-primary text-primary-foreground text-[15px] font-semibold active:scale-[0.98] transition-transform"
+            >
+              Save
+            </button>
+          </div>
+        );
+
+      case "sex":
+        return <ChipPicker value={draft} onPick={commit} options={[
+          { value: "male", label: "Male" },
+          { value: "female", label: "Female" },
+        ]} />;
+
+      case "sleep_hours":
+        return <ChipPicker value={draft} onPick={commit} options={Object.entries(SLEEP_LABELS).map(([v, l]) => ({ value: v, label: l }))} />;
+
+      case "activity_level":
+        return <ChipPicker value={draft} onPick={commit} options={Object.entries(ACTIVITY_LABELS).map(([v, l]) => ({ value: v, label: l }))} />;
+
+      case "goal_type":
+        return <ChipPicker value={draft} onPick={commit} options={Object.entries(GOAL_LABELS).map(([v, l]) => ({ value: v, label: l }))} />;
+
+      case "experience_level":
+        return <ChipPicker value={draft} onPick={commit} options={Object.entries(EXPERIENCE_LABELS).map(([v, l]) => ({ value: v, label: l }))} />;
+
+      case "plan_aggressiveness":
+        return <ChipPicker value={draft} onPick={commit} options={Object.entries(AGGRESSIVENESS_LABELS).map(([v, l]) => ({ value: v, label: l }))} />;
+
+      case "athlete_type":
+        return <ChipPicker value={draft} onPick={commit} options={Object.entries(ATHLETE_TYPES).map(([v, l]) => ({ value: v, label: l }))} columns={2} />;
+
+      default:
+        return null;
+    }
+  };
+
   return (
-    <div className="px-3 py-2.5 space-y-1.5">
-      <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        {label}
-      </Label>
-      {children}
-    </div>
+    <Sheet open={!!active} onOpenChange={(o) => !o && onClose()}>
+      <SheetContent side="bottom" className="rounded-t-3xl px-5 pb-8 pt-3 max-h-[80vh] overflow-y-auto">
+        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-muted-foreground/30" aria-hidden />
+        <SheetHeader>
+          <SheetTitle className="text-[17px] font-semibold text-center">{active.title}</SheetTitle>
+        </SheetHeader>
+        <div className="mt-4">
+          {renderBody()}
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 
-function NumericInput({
-  value,
-  onChange,
-  suffix,
-  step,
-  disabled,
-  accent,
+function NumericEditor({
+  value, unit, step, disabled, extraControl, onChange, onCommit,
 }: {
   value: string;
-  onChange: (v: string) => void;
-  suffix?: string;
-  step?: string;
+  unit: string;
+  step: string;
   disabled?: boolean;
-  accent?: boolean;
+  extraControl?: React.ReactNode;
+  onChange: (v: string) => void;
+  onCommit: () => void;
 }) {
+  const stepNum = parseFloat(step);
+  const bump = (delta: number) => {
+    const cur = parseFloat(value) || 0;
+    const next = Math.round((cur + delta) * 10) / 10;
+    if (next < 0) return;
+    onChange(next.toString());
+  };
   return (
-    <>
-      <Input
-        type="number"
-        step={step}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={disabled}
-        className={`w-16 text-right h-8 border-transparent focus-visible:ring-0 bg-transparent p-0 text-[15px] tabular-nums disabled:opacity-60 ${
-          accent ? "font-semibold text-primary" : ""
-        }`}
-        placeholder="–"
-        inputMode="decimal"
-      />
-      {suffix && (
-        <span className="text-muted-foreground text-[13px] tabular-nums">
-          {suffix}
-        </span>
-      )}
-    </>
+    <div className="space-y-3">
+      <div className="flex items-center justify-center gap-3">
+        <button
+          type="button"
+          onClick={() => bump(-stepNum)}
+          disabled={disabled}
+          className="h-12 w-12 rounded-full bg-muted/40 text-foreground text-[20px] font-light active:scale-95 transition-transform disabled:opacity-40"
+        >
+          −
+        </button>
+        <div className="flex items-baseline gap-1.5 min-w-[140px] justify-center">
+          <Input
+            type="number"
+            step={step}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            disabled={disabled}
+            className="w-[110px] h-14 text-center text-[34px] font-bold tabular-nums bg-transparent border-0 focus-visible:ring-0 px-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            placeholder="—"
+            inputMode="decimal"
+          />
+          <span className="text-[15px] text-muted-foreground font-medium">{unit}</span>
+        </div>
+        <button
+          type="button"
+          onClick={() => bump(stepNum)}
+          disabled={disabled}
+          className="h-12 w-12 rounded-full bg-muted/40 text-foreground text-[20px] font-light active:scale-95 transition-transform disabled:opacity-40"
+        >
+          +
+        </button>
+      </div>
+      {extraControl}
+      <button
+        type="button"
+        onClick={onCommit}
+        className="w-full h-12 rounded-xl bg-primary text-primary-foreground text-[15px] font-semibold active:scale-[0.98] transition-transform"
+      >
+        Save
+      </button>
+    </div>
   );
 }
 
-function SegmentedTwo({
-  value,
-  options,
-  onChange,
+function ChipPicker({
+  value, options, onPick, columns = 1,
 }: {
   value: string;
   options: { value: string; label: string }[];
-  onChange: (v: string) => void;
+  onPick: (v: string) => void;
+  columns?: 1 | 2;
 }) {
   return (
-    <div className="flex items-center gap-1 bg-muted/30 rounded-xl p-0.5">
+    <div className={`grid gap-2 ${columns === 2 ? "grid-cols-2" : "grid-cols-1"}`}>
       {options.map((o) => {
         const active = value === o.value;
         return (
           <button
             key={o.value}
             type="button"
-            onClick={() => {
-              triggerHapticSelection();
-              onChange(o.value);
-            }}
-            className={`min-w-[60px] h-8 px-3 rounded-lg text-[13px] font-medium transition-all ${
+            onClick={() => { triggerHapticSelection(); onPick(o.value); }}
+            className={`min-h-[48px] px-4 rounded-xl text-[15px] font-medium transition-all active:scale-[0.98] ${
               active
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-muted/30 text-foreground border border-border/40"
             }`}
           >
             {o.label}
@@ -752,4 +766,16 @@ function SegmentedTwo({
       })}
     </div>
   );
+}
+
+function formatDate(iso: string): string {
+  // ISO yyyy-mm-dd → "Jun 18, 2026"
+  try {
+    const [y, m, d] = iso.split("-").map(Number);
+    if (!y || !m || !d) return iso;
+    const date = new Date(Date.UTC(y, m - 1, d));
+    return date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" });
+  } catch {
+    return iso;
+  }
 }

@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { ArrowRight, Loader2, ChevronRight, Share2 } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import { useMyGyms, type MyGymRow } from "@/hooks/coach/useMyGyms";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { Switch } from "@/components/ui/switch";
@@ -50,7 +50,6 @@ export default function MyGym() {
         memberId: gym.member_id as Id<"gym_members">,
         shareData: next,
       });
-      // Convex re-runs `gyms.listMine` automatically; no manual refetch.
       toast({
         title: next ? "Sharing enabled" : "Sharing paused",
         description: next ? "Your coach can see your data again." : "Your coach can't see your data until re-enabled.",
@@ -70,8 +69,6 @@ export default function MyGym() {
     globalLoading.show(`Leaving ${target.gym_name}…`);
     try {
       await leaveGym({ memberId: target.member_id as Id<"gym_members"> });
-      // Convex re-runs gyms.listMine — the gym disappears from the list
-      // without any client-side cache plumbing.
       triggerHaptic(ImpactStyle.Medium);
       setLeaveTarget(null);
       globalLoading.hide();
@@ -88,15 +85,10 @@ export default function MyGym() {
   return (
     <ErrorBoundary>
       <div
-        className="space-y-3 px-5 py-3 sm:p-5 md:p-6 w-full max-w-2xl mx-auto"
+        className="space-y-4 px-5 py-3 sm:p-5 md:p-6 w-full max-w-2xl mx-auto"
         style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" }}
       >
-        <div>
-          <p className="text-[11px] uppercase tracking-wider text-muted-foreground/70 font-semibold">My gyms</p>
-          <h1 className="text-[17px] font-semibold leading-tight">
-            {gyms.length === 0 ? "Not in a gym yet" : `${gyms.length} ${gyms.length === 1 ? "gym" : "gyms"}`}
-          </h1>
-        </div>
+        <h1 className="text-[28px] font-bold tracking-tight">Your gym</h1>
 
         {/* Live announcements from coach (broadcast + targeted) */}
         {gyms.length > 0 && (
@@ -104,83 +96,28 @@ export default function MyGym() {
         )}
 
         {gyms.length === 0 ? (
-          <div className="card-surface rounded-2xl border border-border p-6 text-center">
-            <p className="text-[13px] font-semibold mb-1">Join your coach's gym</p>
-            <p className="text-[12px] text-muted-foreground leading-snug mb-3">
+          <div className="rounded-3xl bg-card/60 border border-border/40 p-6 text-center">
+            <p className="text-[15px] font-semibold mb-1">Join your coach's gym</p>
+            <p className="text-[13px] text-muted-foreground leading-snug mb-4">
               Enter the 6-character invite code from your coach.
             </p>
             <button
               onClick={() => navigate("/join")}
-              className="h-10 px-4 rounded-xl bg-primary text-primary-foreground text-[13px] font-semibold active:scale-[0.98] transition-transform"
+              className="h-11 px-5 rounded-xl bg-primary text-primary-foreground text-[14px] font-semibold active:scale-[0.98] transition-transform"
             >
               Enter invite code
             </button>
           </div>
         ) : (
           gyms.map((gym) => (
-            <div key={gym.member_id} className="card-surface rounded-2xl border border-border p-3 space-y-3">
-              <div className="flex items-start gap-3">
-                <GymLogoAvatar logoUrl={gym.gym_logo_url} name={gym.gym_name} size={44} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[14px] font-semibold leading-tight">{gym.gym_name}</p>
-                  {gym.gym_location && (
-                    <p className="text-[11px] text-muted-foreground">{gym.gym_location}</p>
-                  )}
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    Coach: {gym.coach_name ?? "—"}
-                    <span className="ml-1.5">
-                      · joined {new Date(gym.joined_at).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
-                    </span>
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between gap-3 py-1 border-t border-border/30 pt-3">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[12px] font-medium">Share data with coach</p>
-                  <p className="text-[10px] text-muted-foreground leading-snug">
-                    Pause this to hide your weight, meals, and training from your coach.
-                  </p>
-                </div>
-                <Switch
-                  checked={gym.share_data}
-                  onCheckedChange={(v) => handleToggleShare(gym, v)}
-                  disabled={pendingShareToggle === gym.member_id}
-                  aria-label="Share data with coach"
-                />
-              </div>
-
-              {/* Gym social feed — full-screen TikTok-style swiper. Lives
-                  on a separate route so the immersive viewer can take over
-                  the whole viewport without conflicting with the gym
-                  settings UI on this page. */}
-              <button
-                type="button"
-                onClick={() => navigate(`/gym-feed?gym=${gym.gym_id}`)}
-                className="w-full flex items-center justify-between gap-3 py-2.5 px-3 -mx-1 rounded-xl bg-muted/40 dark:bg-white/[0.04] border border-border/30 active:scale-[0.99] transition-transform"
-              >
-                <div className="text-left">
-                  <p className="text-[13px] font-semibold">Gym feed</p>
-                  <p className="text-[11px] text-muted-foreground">See what your gym is training</p>
-                </div>
-                <span className="text-[11px] font-semibold text-primary">Open →</span>
-              </button>
-
-              <div className="flex justify-end pt-1">
-                <button
-                  onClick={() => setLeaveTarget(gym)}
-                  className="h-8 px-3 text-[12px] font-medium text-destructive active:bg-destructive/10 rounded-lg transition-colors"
-                >
-                  Leave gym
-                </button>
-              </div>
-
-              {/* Weekly training-volume leaderboard for this gym */}
-              <LeaderboardSection
-                gymId={gym.gym_id as Id<"gyms">}
-                viewer="athlete"
-              />
-            </div>
+            <GymCard
+              key={gym.member_id}
+              gym={gym}
+              pendingShare={pendingShareToggle === gym.member_id}
+              onShareToggle={(v) => handleToggleShare(gym, v)}
+              onOpenFeed={() => navigate(`/gym-feed?gym=${gym.gym_id}`)}
+              onLeave={() => setLeaveTarget(gym)}
+            />
           ))
         )}
       </div>
@@ -202,5 +139,125 @@ export default function MyGym() {
         </AlertDialogContent>
       </AlertDialog>
     </ErrorBoundary>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Member ID card hero — big logo, name, coach/location, stats belt, then
+// quick-action rows for feed + share + leave. Leaderboard sits below.
+// ─────────────────────────────────────────────────────────────────────
+
+function GymCard({
+  gym, pendingShare, onShareToggle, onOpenFeed, onLeave,
+}: {
+  gym: MyGymRow;
+  pendingShare: boolean;
+  onShareToggle: (v: boolean) => void;
+  onOpenFeed: () => void;
+  onLeave: () => void;
+}) {
+  // Reuse the leaderboard query for member count + viewer rank so the
+  // hero stats stay coherent with what the leaderboard below displays.
+  const leaderboard = useQuery(api.gymLeaderboard.weekly, {
+    gymId: gym.gym_id as Id<"gyms">,
+    discipline: undefined,
+  });
+  const memberCount = leaderboard?.totalRankedFighters ?? null;
+  const myRank = leaderboard?.myRank?.rank ?? null;
+  const joined = new Date(gym.joined_at).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+
+  return (
+    <section className="space-y-4">
+      {/* Hero — member ID card */}
+      <div className="rounded-3xl bg-card/60 border border-border/40 overflow-hidden">
+        <div className="p-5 flex items-center gap-4">
+          <GymLogoAvatar logoUrl={gym.gym_logo_url} name={gym.gym_name} size={64} />
+          <div className="min-w-0 flex-1">
+            <p className="text-[19px] font-bold tracking-tight leading-tight truncate">{gym.gym_name}</p>
+            {gym.gym_location && (
+              <p className="text-[12px] text-muted-foreground mt-0.5 truncate">{gym.gym_location}</p>
+            )}
+            <p className="text-[12px] text-muted-foreground/90 mt-0.5 truncate">
+              Coach <span className="text-foreground font-medium">{gym.coach_name ?? "—"}</span>
+              <span className="mx-1.5 text-muted-foreground/50">·</span>
+              <span className="text-muted-foreground/80">Joined {joined}</span>
+            </p>
+          </div>
+        </div>
+
+        {/* Stats belt — Members / Your rank. Hidden when both values are
+            unavailable so we don't show a row of em-dashes. */}
+        {leaderboard !== null && (
+          <div className="grid grid-cols-2 border-t border-border/40 divide-x divide-border/40">
+            <div className="py-3 px-2 text-center">
+              <p className="text-[22px] font-bold tabular-nums tracking-tight">
+                {memberCount ?? "—"}
+              </p>
+              <p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/70 mt-0.5">
+                {memberCount === 1 ? "Member" : "Members"}
+              </p>
+            </div>
+            <div className="py-3 px-2 text-center">
+              <p className="text-[22px] font-bold tabular-nums tracking-tight text-primary">
+                {myRank != null ? `#${myRank}` : "—"}
+              </p>
+              <p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/70 mt-0.5">
+                Your rank
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Quick actions group */}
+      <div className="rounded-2xl bg-card/60 border border-border/40 overflow-hidden divide-y divide-border/30">
+        <button
+          type="button"
+          onClick={() => { triggerHaptic(ImpactStyle.Light); onOpenFeed(); }}
+          className="w-full min-h-[56px] flex items-center gap-3 px-4 py-3 text-left active:bg-muted/40 transition-colors"
+        >
+          <div className="h-9 w-9 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+            <Share2 className="h-4 w-4 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[15px] font-medium leading-tight">Gym feed</p>
+            <p className="text-[12px] text-muted-foreground mt-0.5 leading-snug truncate">
+              See what your gym is training
+            </p>
+          </div>
+          <ArrowRight className="h-4 w-4 text-muted-foreground/60 shrink-0" />
+        </button>
+
+        <div className="min-h-[56px] flex items-center gap-3 px-4 py-2.5">
+          <div className="flex-1 min-w-0">
+            <p className="text-[15px] font-medium leading-tight">Share data with coach</p>
+            <p className="text-[12px] text-muted-foreground mt-0.5 leading-snug">
+              Pause this to hide your weight, meals, and training.
+            </p>
+          </div>
+          <Switch
+            checked={gym.share_data}
+            onCheckedChange={onShareToggle}
+            disabled={pendingShare}
+            aria-label="Share data with coach"
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={onLeave}
+          className="w-full min-h-[52px] flex items-center gap-3 px-4 py-2.5 text-left active:bg-destructive/10 transition-colors"
+        >
+          <p className="flex-1 text-[15px] font-medium text-destructive">Leave gym</p>
+          <ChevronRight className="h-4 w-4 text-destructive/60 shrink-0" />
+        </button>
+      </div>
+
+      {/* Weekly training-volume leaderboard for this gym */}
+      <LeaderboardSection
+        gymId={gym.gym_id as Id<"gyms">}
+        viewer="athlete"
+      />
+    </section>
   );
 }

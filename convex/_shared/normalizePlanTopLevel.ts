@@ -84,7 +84,7 @@ const PHASE_INTENT: Record<WeekPhase, string> = {
 };
 
 export interface NormalisePlanInput {
-  raw: any;
+  raw: unknown;
   weeklyPlan: WeeklyPlanRow[];
   primaryStruggle?: string;
 }
@@ -98,20 +98,21 @@ export function normalisePlanTopLevel(input: NormalisePlanInput) {
   let phases: ReturnType<typeof derivePhases> = derivePhases(weeklyPlan);
   if (rawPhases && rawPhases.length > 0) {
     const cleaned = rawPhases
-      .map((p: any) => {
+      .map((p: unknown) => {
+        const phase = (p ?? {}) as Record<string, unknown>;
         const name = ["foundation", "build", "peak", "final", "fight_week"].includes(
-          String(p?.name),
+          String(phase.name),
         )
-          ? (p.name as WeekPhase)
+          ? (phase.name as WeekPhase)
           : null;
         if (!name) return null;
         return {
           name,
-          label: trim(typeof p.label === "string" ? p.label : PHASE_LABEL[name], 24),
-          weekStart: Math.max(1, Math.min(20, Math.round(Number(p.weekStart) || 1))),
-          weekEnd: Math.max(1, Math.min(20, Math.round(Number(p.weekEnd) || 1))),
+          label: trim(typeof phase.label === "string" ? phase.label : PHASE_LABEL[name], 24),
+          weekStart: Math.max(1, Math.min(20, Math.round(Number(phase.weekStart) || 1))),
+          weekEnd: Math.max(1, Math.min(20, Math.round(Number(phase.weekEnd) || 1))),
           intent: trim(
-            typeof p.intent === "string" ? p.intent : PHASE_INTENT[name],
+            typeof phase.intent === "string" ? phase.intent : PHASE_INTENT[name],
             120,
           ),
         };

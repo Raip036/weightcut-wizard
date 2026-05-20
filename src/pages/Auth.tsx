@@ -9,10 +9,9 @@ import { routeAfterAuth } from "@/lib/roleRouter";
 import { mapAuthError, isAppleCancelError } from "@/lib/authErrors";
 import wizardLogo from "@/assets/wizard-logo.webp";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { ChevronLeft, Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { ChevronLeft, Mail, Lock, Eye, EyeOff, Swords } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
-import { motion, LayoutGroup, AnimatePresence } from "motion/react";
-import { triggerHapticSelection } from "@/lib/haptics";
+import { motion, AnimatePresence } from "motion/react";
 import { logger } from "@/lib/logger";
 
 // ──────────────────────────────────────────────────────────────────────
@@ -101,10 +100,10 @@ export default function Auth() {
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [passwordError, setPasswordError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<"fighter" | "coach">(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("role") === "coach" ? "coach" : "fighter";
-  });
+  // /auth is now the athlete-only door. Coaches go through /coach/login
+  // which is themed distinctly so neither role can accidentally sign up
+  // through the wrong page. Role is hard-coded to "fighter" here.
+  const ROLE = "fighter" as const;
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
@@ -122,9 +121,9 @@ export default function Auth() {
       }
       // Role-aware: if a coach signs in via the athlete door, bounce them
       // to /coach instead of /dashboard. Single-column read on indexed `role`.
-      void routeAfterAuth(userId, selectedRole, navigate, toast);
+      void routeAfterAuth(userId, ROLE, navigate, toast);
     }
-  }, [userId, isPasswordReset, navigate, searchParams, toast, selectedRole]);
+  }, [userId, isPasswordReset, navigate, searchParams, toast]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -152,25 +151,17 @@ export default function Auth() {
           return;
         }
         // Stash intended role so the profile bootstrap / onboarding flow picks it up.
-        // The role is also passed into the signUp params; Convex Auth's
-        // Password.profile callback can read it (Phase-3 wiring will update
-        // the profile row's `role` field to match).
-        try { localStorage.setItem("wcw_intended_role", selectedRole); } catch {}
+        try { localStorage.setItem("wcw_intended_role", ROLE); } catch {}
 
         try {
-          await signIn("password", { email, password, flow: "signUp", role: selectedRole });
+          await signIn("password", { email, password, flow: "signUp", role: ROLE });
         } catch (error) {
           toast({ variant: "destructive", title: "Sign up failed", description: mapAuthError(error, "signUp") });
           return;
         }
-
-        // Coaches go to the dedicated onboarding flow (gym name, location,
-        // logo, disciplines, etc); fighters fall through to the post-auth
-        // router which lands on /onboarding via ProfileCompletionGuard.
-        if (selectedRole === "coach") {
-          navigate("/coach/onboarding", { replace: true });
-          return;
-        }
+        // Fighters fall through to the post-auth router which lands on
+        // /onboarding via ProfileCompletionGuard. Coach sign-up is owned
+        // by /coach/login exclusively.
       }
     } finally {
       setLoading(false);
@@ -277,9 +268,8 @@ export default function Auth() {
           ...(result.response.email ? { email: result.response.email } : {}),
           ...(result.response.givenName ? { givenName: result.response.givenName } : {}),
           ...(result.response.familyName ? { familyName: result.response.familyName } : {}),
-          // Match the role the user chose in the signup UI so coaches
-          // bootstrap correctly atomically with sign-in.
-          role: selectedRole,
+          // /auth is the fighter door — coaches must use /coach/login.
+          role: ROLE,
         });
         console.log("[apple-signin] Convex signIn resolved", { result: signInResult });
       } else {
@@ -333,16 +323,32 @@ export default function Auth() {
   const errorInputClass = "border-red-500/50 focus:ring-red-500/40";
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.28, ease: "easeOut" }}
+      className="relative min-h-screen bg-background text-foreground flex flex-col overflow-hidden"
+    >
+      {/* Subtle red→amber radial wash in the upper third so the fighter
+          door reads visually distinct from the coach door at a glance. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-[60vh] opacity-60"
+        style={{
+          background:
+            "radial-gradient(ellipse at 50% 0%, rgba(244, 63, 94, 0.18) 0%, rgba(245, 158, 11, 0.08) 35%, transparent 70%)",
+        }}
+      />
+
       {/* Nav bar — iOS style */}
       <div
-        className="flex items-center justify-between px-4 shrink-0"
+        className="relative flex items-center justify-between px-4 shrink-0"
         style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "8px" }}
       >
         <button
           type="button"
           onClick={() => navigate("/")}
-          className="flex items-center gap-0.5 min-h-[44px] min-w-[44px] -ml-2 pl-2 pr-3 rounded-full text-primary active:opacity-60 transition-opacity touch-manipulation"
+          className="flex items-center gap-0.5 min-h-[44px] min-w-[44px] -ml-2 pl-2 pr-3 rounded-full text-foreground/85 active:opacity-60 transition-opacity touch-manipulation"
           aria-label="Back"
         >
           <ChevronLeft className="h-5 w-5 shrink-0" strokeWidth={2.5} />
@@ -352,17 +358,27 @@ export default function Auth() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 flex flex-col items-center px-6 overflow-y-auto" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)" }}>
+      <div className="relative flex-1 flex flex-col items-center px-6 overflow-y-auto" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)" }}>
         <div className="w-full max-w-[360px] pt-4">
-          {/* Logo + title */}
+          {/* Fighter brand badge — red/amber gradient ring + swords icon
+              over the existing logo so the door reads "fighter" the
+              instant someone lands. */}
           <div className="flex flex-col items-center text-center mb-8">
-            <img
-              src={wizardLogo}
-              alt="FightCamp Wizard"
-              className="h-16 w-16 object-contain rounded-2xl shadow-lg shadow-primary/10 mb-4"
-            />
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              {isPasswordReset ? "New Password" : showForgotPassword ? "Reset Password" : isLogin ? "Welcome Back" : "Create Account"}
+            <div className="relative mb-4">
+              <img
+                src={wizardLogo}
+                alt="FightCamp Wizard"
+                className="relative h-16 w-16 object-contain rounded-2xl ring-2 ring-primary/60 shadow-xl shadow-primary/20"
+              />
+              <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-primary ring-2 ring-background shadow-lg shadow-primary/30">
+                <Swords className="h-3.5 w-3.5 text-primary-foreground" strokeWidth={2.5} />
+              </span>
+            </div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary/90">
+              Fighter sign-in
+            </p>
+            <h1 className="mt-1.5 text-2xl font-bold tracking-tight text-foreground">
+              {isPasswordReset ? "New Password" : showForgotPassword ? "Reset Password" : isLogin ? "Welcome back, fighter" : "Start your cut"}
             </h1>
             <div className="text-sm text-muted-foreground mt-1 h-5 relative w-full">
               <AnimatePresence mode="wait" initial={false}>
@@ -372,7 +388,7 @@ export default function Auth() {
                       ? "reset"
                       : showForgotPassword
                       ? "forgot"
-                      : `${isLogin ? "in" : "up"}-${selectedRole}`
+                      : isLogin ? "in" : "up"
                   }
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -385,12 +401,8 @@ export default function Auth() {
                     : showForgotPassword
                     ? "We'll send you a reset link"
                     : isLogin
-                    ? selectedRole === "coach"
-                      ? "Sign in to your coach account"
-                      : "Sign in to your athlete account"
-                    : selectedRole === "coach"
-                    ? "Get started as a coach"
-                    : "Get started as an athlete"}
+                    ? "Pick up where you left off"
+                    : "Make weight. Stay safe."}
                 </motion.p>
               </AnimatePresence>
             </div>
@@ -417,54 +429,6 @@ export default function Auth() {
               </form>
             ) : (
               <>
-                {/* Role toggle — pulled out of the email form so it
-                    applies to both auth paths (Apple + email). */}
-                <LayoutGroup id="auth-role-toggle">
-                  <div
-                    role="tablist"
-                    aria-label={isLogin ? "Sign in as" : "Sign up as"}
-                    className="relative flex bg-muted/40 dark:bg-white/[0.06] rounded-2xl p-1 border border-border/40"
-                  >
-                    {(["fighter", "coach"] as const).map((role) => {
-                      const active = selectedRole === role;
-                      const label = role === "fighter" ? "I'm an athlete" : "I'm a coach";
-                      return (
-                        <button
-                          key={role}
-                          type="button"
-                          role="tab"
-                          aria-selected={active}
-                          onClick={() => {
-                            if (active) return;
-                            setSelectedRole(role);
-                            void triggerHapticSelection();
-                          }}
-                          className="no-tap-select relative flex-1 h-[42px] rounded-xl text-[14px] font-medium active:scale-[0.97] transition-transform touch-manipulation"
-                        >
-                          {active && (
-                            <motion.div
-                              layoutId="auth-role-pill"
-                              className="absolute inset-0 rounded-xl bg-background shadow-sm ring-1 ring-border/30"
-                              transition={{ type: "spring", damping: 28, stiffness: 380 }}
-                            />
-                          )}
-                          <motion.span
-                            className="relative z-10"
-                            animate={{
-                              color: active
-                                ? "hsl(var(--foreground))"
-                                : "hsl(var(--muted-foreground))",
-                            }}
-                            transition={{ duration: 0.18 }}
-                          >
-                            {label}
-                          </motion.span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </LayoutGroup>
-
                 {/* Apple Sign-In — primary CTA, sits above the email form
                     so the lowest-friction path is the first thing the
                     user sees. iOS-native black-pill styling. */}
@@ -591,6 +555,18 @@ export default function Auth() {
                   {isLogin ? "Don't have an account? Sign Up" : "Already have an account? Sign In"}
                 </button>
               </div>
+              {/* Wrong door? Route through the coach cutscene so they
+                  see what they're signing up for before landing on the
+                  coach login page. */}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => navigate("/coach/welcome")}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-card/40 px-3 py-1.5 text-[12px] text-muted-foreground hover:text-foreground hover:border-border transition-colors"
+                >
+                  Are you a coach? <span className="text-foreground/90 font-semibold">Coach sign-in →</span>
+                </button>
+              </div>
             </div>
           )}
 
@@ -602,6 +578,6 @@ export default function Auth() {
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
