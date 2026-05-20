@@ -25,7 +25,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { ArrowRight, UserPlus, History, Dumbbell } from "lucide-react";
 import wizardMascot from "@/assets/wizard-tutorial.png";
 import { useMutation } from "convex/react";
@@ -216,58 +216,84 @@ export default function Community() {
           />
         )}
 
-        {/* Content area — branches on member-count threshold + load state. */}
+        {/* Content area — branches on member-count threshold + load state.
+            Wrapped in AnimatePresence so the swap between the feed and
+            the "all caught up" empty state cross-fades smoothly when the
+            user swipes the last polaroid (or when posts refill). */}
         <main className="px-5 pb-32 pt-2">
-          {!primaryGym && !gymsLoading ? (
-            // Tutorial-only: user has no gym but we held them on this
-            // route so the tour can keep narrating. Show the same
-            // EmptyFeed used elsewhere — "Bring a teammate" deep-links
-            // to /my-gym so the user has an obvious next step once
-            // the tour finishes.
-            <EmptyFeed
-              onInviteClick={() => navigate("/my-gym")}
-              onLogSessionClick={() => navigate("/training-calendar")}
-            />
-          ) : !gymId || gymsLoading ? (
-            <div className="mt-8">
-              <StackSkeleton />
-            </div>
-          ) : status === "LoadingFirstPage" ? (
-            <div className="mt-8">
-              <StackSkeleton />
-            </div>
-          ) : posts.length === 0 ? (
-            // Empty feed: encourage the user to post their first session.
-            // Solo-member gyms see this same card; they can post and the
-            // feed will populate with their own posts on the next tick.
-            <EmptyFeed
-              onInviteClick={() => navigate("/my-gym")}
-              onLogSessionClick={() => navigate("/training-calendar")}
-            />
-          ) : effectivePosts.length === 0 ? (
-            // All known posts consumed this session. Same friendly state
-            // as the global empty feed — encourage the user to log a
-            // session so the feed refills.
-            <EmptyFeed
-              onInviteClick={() => navigate("/my-gym")}
-              onLogSessionClick={() => navigate("/training-calendar")}
-            />
-          ) : (
-            <CommunityFeedSection
-              posts={effectivePosts}
-              status={status}
-              loadMore={loadMore}
-              topIndex={0}
-              onTopIndexChange={() => {
-                /* unused — dismissedIds drives the head */
-              }}
-              advance={handleAdvance}
-              onOpenProfile={handleOpenProfile}
-              onOpenComments={openComments}
-              onPostSwiped={handlePostSwiped}
-              onPostClick={handlePostClick}
-            />
-          )}
+          <AnimatePresence mode="wait" initial={false}>
+            {(() => {
+              const branch =
+                !primaryGym && !gymsLoading
+                  ? "empty"
+                  : !gymId || gymsLoading
+                    ? "loading"
+                    : status === "LoadingFirstPage"
+                      ? "loading"
+                      : posts.length === 0
+                        ? "empty"
+                        : effectivePosts.length === 0
+                          ? "empty"
+                          : "feed";
+
+              if (branch === "loading") {
+                return (
+                  <motion.div
+                    key="loading"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.18 }}
+                    className="mt-8"
+                  >
+                    <StackSkeleton />
+                  </motion.div>
+                );
+              }
+
+              if (branch === "empty") {
+                return (
+                  <motion.div
+                    key="empty"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
+                  >
+                    <EmptyFeed
+                      onInviteClick={() => navigate("/my-gym")}
+                      onLogSessionClick={() => navigate("/training-calendar")}
+                    />
+                  </motion.div>
+                );
+              }
+
+              return (
+                <motion.div
+                  key="feed"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  transition={{ duration: 0.24, ease: [0.32, 0.72, 0, 1] }}
+                >
+                  <CommunityFeedSection
+                    posts={effectivePosts}
+                    status={status}
+                    loadMore={loadMore}
+                    topIndex={0}
+                    onTopIndexChange={() => {
+                      /* unused — dismissedIds drives the head */
+                    }}
+                    advance={handleAdvance}
+                    onOpenProfile={handleOpenProfile}
+                    onOpenComments={openComments}
+                    onPostSwiped={handlePostSwiped}
+                    onPostClick={handlePostClick}
+                  />
+                </motion.div>
+              );
+            })()}
+          </AnimatePresence>
         </main>
       </motion.div>
 

@@ -96,21 +96,51 @@ export const SessionCard = memo(function SessionCard({
         className="w-full flex items-stretch gap-3 px-3 py-3 text-left active:bg-muted/20 transition-colors"
         aria-expanded={expanded}
       >
-        {/* Solid color tile — long-press opens the color picker via the Popover. */}
+        {/* Left tile — photo thumbnail when media exists, solid color
+            fallback otherwise. Tap opens the color picker either way; the
+            colored ring around the photo keeps the session-type color
+            recognisable without re-introducing the letter overlay on top
+            of an arbitrary image. */}
         <Popover>
           <PopoverTrigger asChild>
-            <span
-              role="button"
-              tabIndex={0}
-              onClick={(e) => e.stopPropagation()}
-              className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ring-1 ring-white/[0.06]"
-              style={{ backgroundColor: sessionColor }}
-              aria-label={`${session.session_type} color tile, tap to change`}
-            >
-              <span className="text-[12px] font-black uppercase tracking-tight text-white/95 drop-shadow-sm">
-                {session.session_type.charAt(0)}
+            {hasMedia ? (
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={(e) => e.stopPropagation()}
+                className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl overflow-hidden ring-2"
+                style={{ borderColor: sessionColor, boxShadow: `inset 0 0 0 2px ${sessionColor}` }}
+                aria-label={`${session.session_type} photo, tap to change color`}
+              >
+                <img
+                  src={session.media_url!}
+                  alt={`${session.session_type} session`}
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
+                {/* Tiny type-letter chip in the bottom-right corner so the
+                    session type is still legible at a glance. */}
+                <span
+                  className="absolute bottom-0 right-0 px-1 py-px text-[8px] font-black uppercase tracking-tight text-white/95 leading-none rounded-tl-md"
+                  style={{ backgroundColor: sessionColor }}
+                >
+                  {session.session_type.charAt(0)}
+                </span>
               </span>
-            </span>
+            ) : (
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={(e) => e.stopPropagation()}
+                className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ring-1 ring-white/[0.06]"
+                style={{ backgroundColor: sessionColor }}
+                aria-label={`${session.session_type} color tile, tap to change`}
+              >
+                <span className="text-[12px] font-black uppercase tracking-tight text-white/95 drop-shadow-sm">
+                  {session.session_type.charAt(0)}
+                </span>
+              </span>
+            )}
           </PopoverTrigger>
           <PopoverContent className="w-auto p-3" side="bottom" align="start" onClick={(e) => e.stopPropagation()}>
             <div className="grid grid-cols-4 gap-2">

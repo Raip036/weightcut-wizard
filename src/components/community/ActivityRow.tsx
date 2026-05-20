@@ -41,7 +41,7 @@ function formatLikeText(item: LikeGroup): string {
     prefix = `${names[0]}, ${names[1]} and ${names[2]}`;
   }
 
-  return `${prefix} gave you a glove`;
+  return `${prefix} liked your post`;
 }
 
 function timeAgo(ts: number): string {
