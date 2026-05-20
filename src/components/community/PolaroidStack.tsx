@@ -305,7 +305,11 @@ export function PolaroidStack({
           // iOS WebKit, eliminating first-frame stutter when the exit
           // animation begins. Scoped to this wrapper only — it IS the
           // element being animated.
-          style={{ zIndex: 40, willChange: "transform, opacity" }}
+          // `pointer-events-none` blocks the exiting card from intercepting
+        // taps on the newly-visible top card while it's still in mid-flight.
+        // Without this, a rapid double-swipe could land on the exiting card
+        // and trigger an extra like.
+        style={{ zIndex: 40, willChange: "transform, opacity", pointerEvents: "none" }}
           initial={{ x: dragX.get(), y: 0, rotate: rotationDeg, opacity: 1 }}
           animate={{ x: exitX, y: exitY, rotate: exitRotate, opacity: 0 }}
           transition={{ duration: REDUCED_EXIT_DURATION_MS / 1000, ease: "linear" }}
@@ -323,7 +327,11 @@ export function PolaroidStack({
         // iOS WebKit, eliminating first-frame stutter when the exit
         // animation begins. Scoped to this wrapper only — it IS the
         // element being animated.
-        style={{ zIndex: 40, willChange: "transform, opacity" }}
+        // `pointer-events-none` blocks the exiting card from intercepting
+        // taps on the newly-visible top card while it's still in mid-flight.
+        // Without this, a rapid double-swipe could land on the exiting card
+        // and trigger an extra like.
+        style={{ zIndex: 40, willChange: "transform, opacity", pointerEvents: "none" }}
         initial={{ x: dragX.get(), y: 0, rotate: rotate.get(), opacity: 1 }}
         animate={{ x: exitX, y: exitY, rotate: exitRotate, opacity: 0 }}
         transition={{

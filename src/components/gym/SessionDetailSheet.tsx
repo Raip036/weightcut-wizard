@@ -2,8 +2,8 @@ import { useState, useCallback } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Clock, Dumbbell, TrendingUp, Brain, Trash2, Pencil, Check, Share2 } from "lucide-react";
-import { motion } from "motion/react";
+import { Clock, Dumbbell, TrendingUp, Brain, Trash2, Pencil, Check, Share2, ChevronDown } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 import { staggerContainer, staggerItem } from "@/lib/motion";
 import { formatWeight, formatVolume } from "@/lib/gymCalculations";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
@@ -88,9 +88,36 @@ function EditableSetRow({ set, label, onUpdateSet, onDeleteSet }: EditableSetRow
 export function SessionDetailSheet({ session, open, onOpenChange, onDelete, onUpdateSet, onDeleteSet, onShare }: SessionDetailSheetProps) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [expandedExercises, setExpandedExercises] = useState<Set<string>>(new Set());
   const canEdit = Boolean(onUpdateSet && onDeleteSet);
 
   if (!session) return null;
+
+  // Auto-expand all in edit mode; collapse all otherwise (one expanded at a
+  // time after the user manually opens one).
+  const isExerciseOpen = (key: string) => editMode || expandedExercises.has(key);
+  const toggleExercise = (key: string) => {
+    setExpandedExercises((prev) => {
+      const next = new Set<string>();
+      if (!prev.has(key)) next.add(key);
+      return next;
+    });
+  };
+
+  // Discipline-colored edge for the hero card.
+  const edgeColor = (() => {
+    switch ((session.session_type ?? "").toLowerCase()) {
+      case "strength":      return "bg-blue-400";
+      case "hypertrophy":   return "bg-violet-400";
+      case "powerlifting":  return "bg-amber-400";
+      case "explosiveness": return "bg-yellow-400";
+      case "conditioning":  return "bg-orange-400";
+      case "circuit":       return "bg-rose-400";
+      case "endurance":     return "bg-emerald-400";
+      case "mobility":      return "bg-cyan-400";
+      default:              return "bg-primary";
+    }
+  })();
 
   // Reset edit mode when sheet closes
   const handleOpenChange = (next: boolean) => {
@@ -102,25 +129,26 @@ export function SessionDetailSheet({ session, open, onOpenChange, onDelete, onUp
     <>
       <Sheet open={open} onOpenChange={handleOpenChange}>
         <SheetContent side="bottom" className="h-[80vh] rounded-t-3xl overflow-y-auto" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" }}>
-          <SheetHeader className="pb-1">
-            <SheetTitle className="flex items-center gap-2.5">
-              <span className="px-3 py-1 rounded-full bg-primary/12 text-primary text-xs font-semibold">
-                {session.session_type}
-              </span>
-              <span className="text-sm text-muted-foreground font-normal">
-                {new Date(session.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
-              </span>
-              {onShare && (
+          {/* Share lives in the top-LEFT (absolute) and the sheet's own
+              close X stays in the top-right. The title sits centered between
+              them so neither button collides with it. Mirrors the
+              ExerciseStatsSheet pattern. */}
+          <SheetHeader className="relative flex flex-col items-center justify-center min-h-9 space-y-0 pb-1 px-9">
+            <SheetTitle className="text-[15px] font-bold tracking-tight text-center">
+              Workout
+            </SheetTitle>
+            {onShare && (
+              <div className="absolute left-0 top-0">
                 <button
                   type="button"
                   onClick={() => onShare(session)}
-                  className="ml-auto h-9 w-9 inline-flex items-center justify-center rounded-full text-muted-foreground active:text-foreground active:bg-muted/40 transition-colors"
+                  className="h-9 w-9 inline-flex items-center justify-center rounded-full text-muted-foreground active:text-foreground active:bg-muted/40 transition-colors"
                   aria-label="Share session"
                 >
                   <Share2 className="h-4 w-4" />
                 </button>
-              )}
-            </SheetTitle>
+              </div>
+            )}
           </SheetHeader>
 
           <motion.div
@@ -128,97 +156,148 @@ export function SessionDetailSheet({ session, open, onOpenChange, onDelete, onUp
             initial="hidden"
             animate="visible"
           >
-            {/* Stats */}
-            {(() => {
-              const hasDuration = session.duration_minutes != null && session.duration_minutes > 0;
-              const hasVolume = session.totalVolume > 0;
-              const hasFatigue = session.perceived_fatigue != null && session.perceived_fatigue > 0;
-              const count = 1 + (hasDuration ? 1 : 0) + (hasVolume ? 1 : 0) + (hasFatigue ? 1 : 0);
-              const cols = count === 1 ? "grid-cols-1" : count === 2 ? "grid-cols-2" : count === 3 ? "grid-cols-3" : "grid-cols-2";
-              return (
-                <motion.div variants={staggerItem} className={`grid ${cols} gap-2 mt-4 mb-5`}>
-                  {hasDuration && (
-                    <div className="card-surface rounded-2xl border border-border text-center p-3">
-                      <Clock className="h-4 w-4 mx-auto mb-1.5 text-primary" />
-                      <div className="display-number text-base">{session.duration_minutes}<span className="text-xs text-muted-foreground font-normal">m</span></div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5">Duration</div>
-                    </div>
-                  )}
-                  <div className="card-surface rounded-2xl border border-border text-center p-3">
-                    <Dumbbell className="h-4 w-4 mx-auto mb-1.5 text-primary" />
-                    <div className="display-number text-base">{session.exerciseCount}</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5">Exercises</div>
-                  </div>
-                  {hasVolume && (
-                    <div className="card-surface rounded-2xl border border-border text-center p-3">
-                      <TrendingUp className="h-4 w-4 mx-auto mb-1.5 text-primary" />
-                      <div className="display-number text-base">{formatVolume(session.totalVolume)} <span className="text-xs text-muted-foreground font-normal">kg</span></div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5">Volume</div>
-                    </div>
-                  )}
-                  {hasFatigue && (
-                    <div className="card-surface rounded-2xl border border-border text-center p-3">
-                      <Brain className="h-4 w-4 mx-auto mb-1.5 text-primary" />
-                      <div className="display-number text-base">{session.perceived_fatigue}<span className="text-xs text-muted-foreground font-normal">/10</span></div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5">Fatigue</div>
-                    </div>
-                  )}
-                </motion.div>
-              );
-            })()}
+            {/* Premium hero card — discipline edge + 3-stat row */}
+            <motion.div
+              variants={staggerItem}
+              className="relative mt-3 rounded-2xl card-surface border border-border/50 pl-4 pr-3 py-3 overflow-hidden"
+            >
+              <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${edgeColor}`} />
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-foreground">
+                  {session.session_type}
+                </span>
+                <span className="text-[11px] text-muted-foreground/80">
+                  {new Date(session.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                </span>
+              </div>
+              {/* 3-up stats */}
+              <div className="mt-2.5 grid grid-cols-3 gap-2">
+                <div className="text-center">
+                  <p className="display-number text-[20px] font-black tabular-nums leading-none text-foreground">
+                    {session.duration_minutes ?? "—"}
+                  </p>
+                  <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">min</p>
+                </div>
+                <div className="text-center border-x border-border/30">
+                  <p className="display-number text-[20px] font-black tabular-nums leading-none text-foreground">
+                    {session.exerciseCount}
+                  </p>
+                  <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">exer</p>
+                </div>
+                <div className="text-center">
+                  <p className="display-number text-[20px] font-black tabular-nums leading-none text-foreground">
+                    {session.totalVolume > 0 ? formatVolume(session.totalVolume) : "—"}
+                  </p>
+                  <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">kg vol</p>
+                </div>
+              </div>
+              {/* Fatigue + notes inline */}
+              {(session.perceived_fatigue != null && session.perceived_fatigue > 0) && (
+                <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <Brain className="h-3 w-3 text-primary" />
+                  Fatigue {session.perceived_fatigue}/10
+                </div>
+              )}
+            </motion.div>
 
             {/* Notes */}
             {session.notes && (
-              <motion.div variants={staggerItem} className="mb-5 card-surface rounded-2xl border border-border p-3.5 text-sm text-muted-foreground">
+              <motion.div variants={staggerItem} className="mt-3 card-surface rounded-2xl border border-border/50 p-3.5 text-[13px] text-muted-foreground leading-snug">
                 {session.notes}
               </motion.div>
             )}
 
-            {/* Exercises + sets */}
-            <div className="space-y-4">
-              {session.exerciseGroups.map((group) => (
-                <motion.div
-                  key={`${group.exerciseOrder}-${group.exercise.id}`}
-                  variants={staggerItem}
-                  className="space-y-1.5"
-                >
-                  <h4 className="font-bold text-sm tracking-tight">{group.exercise.name}</h4>
-                  <div className="card-surface rounded-2xl border border-border overflow-hidden divide-y divide-border/15">
-                    {group.sets.map((set, i) => {
-                      const label = set.is_warmup
-                        ? "W"
-                        : String(group.sets.filter((s, j) => j <= i && !s.is_warmup).length);
+            {/* Collapsible exercise cards — one expanded at a time. Edit
+                mode auto-expands everything so the user can edit any set. */}
+            <div className="mt-4 space-y-2">
+              {session.exerciseGroups.map((group) => {
+                const key = `${group.exerciseOrder}-${group.exercise.id}`;
+                const open = isExerciseOpen(key);
+                const workingSets = group.sets.filter((s) => !s.is_warmup);
+                const groupVolume = group.sets.reduce(
+                  (sum, s) => sum + (s.is_warmup ? 0 : (s.weight_kg ?? 0) * (s.reps ?? 0)),
+                  0,
+                );
+                return (
+                  <motion.div
+                    key={key}
+                    variants={staggerItem}
+                    className="rounded-2xl card-surface border border-border/50 overflow-hidden"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => !editMode && toggleExercise(key)}
+                      className="w-full flex items-center gap-3 px-3 py-3 text-left active:bg-muted/20 transition-colors"
+                      aria-expanded={open}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[14px] font-semibold text-foreground truncate">{group.exercise.name}</p>
+                        <p className="mt-0.5 text-[11px] text-muted-foreground tabular-nums">
+                          {workingSets.length} {workingSets.length === 1 ? "set" : "sets"}
+                          {groupVolume > 0 ? <> · {formatVolume(groupVolume)} kg</> : null}
+                          {group.exercise.muscle_group ? <> · {group.exercise.muscle_group.replace(/_/g, " ")}</> : null}
+                        </p>
+                      </div>
+                      <motion.span
+                        className="shrink-0 text-muted-foreground/40"
+                        animate={{ rotate: open ? 180 : 0 }}
+                        transition={{ duration: 0.18 }}
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </motion.span>
+                    </button>
+                    <AnimatePresence initial={false}>
+                      {open && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                          className="overflow-hidden border-t border-border/30"
+                        >
+                          <div className="divide-y divide-border/15">
+                            {group.sets.map((set, i) => {
+                              const label = set.is_warmup
+                                ? "W"
+                                : String(group.sets.filter((s, j) => j <= i && !s.is_warmup).length);
 
-                      if (editMode && onUpdateSet && onDeleteSet) {
-                        return (
-                          <EditableSetRow
-                            key={set.id}
-                            set={set}
-                            label={label}
-                            onUpdateSet={onUpdateSet}
-                            onDeleteSet={onDeleteSet}
-                          />
-                        );
-                      }
+                              if (editMode && onUpdateSet && onDeleteSet) {
+                                return (
+                                  <EditableSetRow
+                                    key={set.id}
+                                    set={set}
+                                    label={label}
+                                    onUpdateSet={onUpdateSet}
+                                    onDeleteSet={onDeleteSet}
+                                  />
+                                );
+                              }
 
-                      return (
-                        <div key={set.id} className={`flex items-center gap-3 text-xs px-3 py-2.5 ${set.is_warmup ? "opacity-40" : ""}`}>
-                          <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                            set.is_warmup ? "bg-muted text-muted-foreground" : "bg-primary/12 text-primary"
-                          }`}>
-                            {label}
-                          </span>
-                          <span className="tabular-nums font-semibold text-sm">
-                            {set.is_bodyweight ? "BW" : `${formatWeight(set.weight_kg)} kg`}
-                          </span>
-                          <span className="text-muted-foreground">x</span>
-                          <span className="tabular-nums font-semibold text-sm">{set.reps}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </motion.div>
-              ))}
+                              return (
+                                <div key={set.id} className="flex items-center gap-3 text-xs px-3 py-2.5">
+                                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                                    set.is_warmup ? "bg-muted/60 text-muted-foreground" : "bg-primary/15 text-primary"
+                                  }`}>
+                                    {label}
+                                  </span>
+                                  <span className="tabular-nums font-semibold text-[13px] text-foreground">
+                                    {set.is_bodyweight ? "BW" : `${formatWeight(set.weight_kg)} kg`}
+                                  </span>
+                                  <span className="text-muted-foreground/60">×</span>
+                                  <span className="tabular-nums font-semibold text-[13px] text-foreground">{set.reps}</span>
+                                  {set.is_warmup && (
+                                    <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">warmup</span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                );
+              })}
             </div>
           </motion.div>
 

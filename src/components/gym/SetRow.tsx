@@ -37,22 +37,28 @@ export function SetRow({ set, index, prTypes, onUpdate, onDelete }: SetRowProps)
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={springs.snappy}
-      className={`group flex items-center gap-2 px-3 py-2.5 transition-colors ${
-        set.is_warmup ? "opacity-50" : ""
-      } ${hasPR ? "bg-yellow-500/5" : ""}`}
+      className={`group relative flex items-center gap-2 px-3 py-2.5 transition-colors ${
+        set.is_warmup ? "opacity-60" : ""
+      } ${hasPR ? "bg-gradient-to-r from-amber-500/[0.06] via-transparent to-transparent" : ""}`}
     >
+      {/* PR shimmer rail — subtle gold edge on the left when this set is a PR */}
+      {hasPR && (
+        <span aria-hidden className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-amber-400 via-yellow-400 to-amber-500 rounded-l-2xl" />
+      )}
+
       {/* Set number badge */}
       <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
         set.is_warmup
           ? "bg-muted text-muted-foreground"
           : hasPR
-            ? "bg-gradient-to-br from-yellow-500/25 to-yellow-600/15 text-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.15)]"
+            ? "bg-gradient-to-br from-amber-400 to-yellow-500 text-black shadow-md shadow-amber-500/30"
             : "bg-gradient-to-br from-primary/20 to-primary/10 text-primary"
       }`}>
         {set.is_warmup ? "W" : index + 1}
       </div>
 
-      {/* Weight input */}
+      {/* Weight input — wider so 3-digit values aren't clipped, native
+          spinners stripped so the visible characters use the full width. */}
       <Input
         type="number"
         inputMode="decimal"
@@ -60,11 +66,11 @@ export function SetRow({ set, index, prTypes, onUpdate, onDelete }: SetRowProps)
         value={weightStr}
         onChange={(e) => setWeightStr(e.target.value)}
         onBlur={handleWeightBlur}
-        className="h-10 w-[72px] text-center text-sm font-medium tabular-nums bg-background/50 border-border/40 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:border-primary/40"
+        className="h-10 w-[84px] text-center text-[15px] font-bold tabular-nums bg-background/50 border-border/40 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:border-primary/40 px-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
         disabled={set.is_bodyweight}
       />
 
-      {/* Reps input */}
+      {/* Reps input — same width treatment */}
       <Input
         type="number"
         inputMode="numeric"
@@ -72,7 +78,7 @@ export function SetRow({ set, index, prTypes, onUpdate, onDelete }: SetRowProps)
         value={repsStr}
         onChange={(e) => setRepsStr(e.target.value)}
         onBlur={handleRepsBlur}
-        className="h-10 w-[72px] text-center text-sm font-medium tabular-nums bg-background/50 border-border/40 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:border-primary/40"
+        className="h-10 w-[84px] text-center text-[15px] font-bold tabular-nums bg-background/50 border-border/40 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:border-primary/40 px-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
       />
 
       {/* Warmup toggle */}
@@ -88,20 +94,20 @@ export function SetRow({ set, index, prTypes, onUpdate, onDelete }: SetRowProps)
         <Flame className="h-3 w-3" />
       </button>
 
-      {/* PR slot — fixed width, always present for alignment */}
-      <div className="shrink-0 w-9 flex items-center justify-center">
-        {hasPR && (
-          <motion.span
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={springs.bouncy}
-            className="flex items-center gap-0.5 px-1 py-0.5 rounded-full bg-yellow-500/15 text-yellow-500"
-          >
-            <Trophy className="h-2.5 w-2.5" />
-            <span className="text-[8px] font-bold">PR</span>
-          </motion.span>
-        )}
-      </div>
+      {/* PR badge — only renders when a PR; takes its own slot so it can
+          breathe without crowding the delete button. */}
+      {hasPR && (
+        <motion.span
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={springs.bouncy}
+          className="shrink-0 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-400/95 to-yellow-500/95 text-black px-2 py-0.5 shadow-md shadow-amber-500/30"
+          title={prTypes.includes("weight") ? "New heaviest set" : "New rep max"}
+        >
+          <Trophy className="h-3 w-3" strokeWidth={2.6} fill="currentColor" />
+          <span className="text-[10px] font-black tracking-wider">PR</span>
+        </motion.span>
+      )}
 
       {/* Delete button */}
       <button

@@ -160,6 +160,23 @@ export default function FightCamps() {
     else setSelectedForDelete(camps.map((c) => c.id));
   };
 
+  // Lifetime stats hero — derived from the camps list. Declared BEFORE any
+  // conditional early return so hook ordering stays identical across the
+  // loading → loaded transition (Rules of Hooks).
+  const stats = useMemo(() => {
+    const total = camps.length;
+    const completed = camps.filter((c) => c.is_completed).length;
+    const lifetimeCut = camps.reduce(
+      (sum, c) => sum + (c.is_completed && c.total_weight_cut ? c.total_weight_cut : 0),
+      0,
+    );
+    return {
+      total,
+      completed,
+      lifetimeCut: Math.round(lifetimeCut * 10) / 10,
+    };
+  }, [camps]);
+
   if (loading) {
     return (
       <div className="space-y-3 px-5 py-3 sm:p-5 md:p-6 max-w-2xl mx-auto">
@@ -184,18 +201,17 @@ export default function FightCamps() {
 
   return (
     <div
-      className="animate-page-in space-y-3 px-5 py-3 sm:p-5 md:p-6 max-w-2xl mx-auto"
+      className="animate-page-in space-y-4 px-5 py-3 sm:p-5 md:p-6 max-w-2xl mx-auto"
       style={
         selectMode && selectedForDelete.length > 0
           ? { paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 9rem)" }
           : undefined
       }
     >
-
-        {/* Header */}
+        {/* Header row — title + chrome icons (select / compare / new) */}
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold">
-            {selectMode ? "Select Camps" : compareMode ? "Compare Camps" : "Fight Camps"}
+          <h1 className="text-[28px] font-bold tracking-tight">
+            {selectMode ? "Select camps" : compareMode ? "Compare camps" : "Fight camps"}
           </h1>
           <div className="flex items-center gap-1.5">
             {selectMode ? (
@@ -256,6 +272,39 @@ export default function FightCamps() {
             )}
           </div>
         </div>
+
+        {/* Lifetime stats hero — only when we actually have camps to brag
+            about. New users see the empty-state card instead, which has its
+            own onboarding tone. */}
+        {!compareMode && !selectMode && camps.length > 0 && (
+          <div className="rounded-3xl bg-card/60 border border-border/40 overflow-hidden">
+            <div className="grid grid-cols-3 divide-x divide-border/40">
+              <div className="py-4 px-2 text-center">
+                <p className="text-[26px] font-bold tabular-nums tracking-tight">{stats.total}</p>
+                <p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/70 mt-0.5">
+                  {stats.total === 1 ? "Camp" : "Camps"}
+                </p>
+              </div>
+              <div className="py-4 px-2 text-center">
+                <p className="text-[26px] font-bold tabular-nums tracking-tight text-primary">
+                  {stats.lifetimeCut > 0 ? `${stats.lifetimeCut}` : "—"}
+                  {stats.lifetimeCut > 0 && <span className="text-[13px] text-primary/70 font-medium ml-0.5">kg</span>}
+                </p>
+                <p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/70 mt-0.5">
+                  Cut total
+                </p>
+              </div>
+              <div className="py-4 px-2 text-center">
+                <p className="text-[26px] font-bold tabular-nums tracking-tight">
+                  {stats.completed}<span className="text-[18px] text-muted-foreground/60">/{stats.total}</span>
+                </p>
+                <p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/70 mt-0.5">
+                  Completed
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Primary CTA — only brand-new users (no profile yet) get routed to
             the full 13-step onboarding. Returning users who deleted their

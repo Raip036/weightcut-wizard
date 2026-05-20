@@ -169,69 +169,83 @@ export function RoutineDetailCard({ routine, onDelete, onRename, onStartWorkout 
         <div className="absolute inset-0 bg-gradient-to-r from-primary/[0.02] to-transparent pointer-events-none" />
 
         <div className="relative">
-          {/* Header */}
-          <CollapsibleTrigger asChild>
-            <button className="w-full p-4 text-left active:scale-[0.98] transition-transform">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  {editing ? (
-                    <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                      <Input
-                        ref={inputRef}
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") handleRename();
-                          if (e.key === "Escape") handleCancelEdit();
-                        }}
-                        className="h-7 text-sm font-semibold bg-muted/30 border-border/30 rounded-lg px-2"
-                      />
-                      <button onClick={handleRename} className="p-1 rounded hover:bg-muted/40">
-                        <Check className="h-3.5 w-3.5 text-green-400" />
-                      </button>
-                      <button onClick={handleCancelEdit} className="p-1 rounded hover:bg-muted/40">
-                        <X className="h-3.5 w-3.5 text-muted-foreground" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold truncate">{routine.name}</span>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setEditing(true); }}
-                        className="p-1 rounded hover:bg-muted/40 shrink-0 opacity-40 hover:opacity-100 transition-opacity"
-                      >
-                        <Pencil className="h-3 w-3 text-muted-foreground" />
-                      </button>
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold capitalize ${GOAL_BADGE[routine.goal] || "bg-muted/50 text-muted-foreground"}`}>
-                      {routine.goal}
-                    </span>
-                    {routine.is_ai_generated && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-400 font-semibold">
-                        AI
-                      </span>
-                    )}
-                    {routine.sport && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted/50 text-muted-foreground border border-border/20 capitalize">
-                        {routine.sport.replace("_", " ")}
-                      </span>
-                    )}
-                    <span className="text-[10px] text-muted-foreground/60">
-                      {routine.exercises.length} exercises
-                    </span>
-                    <span className="text-[10px] text-muted-foreground/60">
-                      {formattedDate}
-                    </span>
-                  </div>
+          {/* Header — name + always-visible Start button + chevron */}
+          <div className="flex items-start gap-2 p-4">
+            <div className="flex-1 min-w-0">
+              {editing ? (
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    ref={inputRef}
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleRename();
+                      if (e.key === "Escape") handleCancelEdit();
+                    }}
+                    className="h-7 text-sm font-semibold bg-muted/30 border-border/30 rounded-lg px-2"
+                  />
+                  <button onClick={handleRename} className="p-1 rounded hover:bg-muted/40">
+                    <Check className="h-3.5 w-3.5 text-green-400" />
+                  </button>
+                  <button onClick={handleCancelEdit} className="p-1 rounded hover:bg-muted/40">
+                    <X className="h-3.5 w-3.5 text-muted-foreground" />
+                  </button>
                 </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-[15px] font-bold truncate">{routine.name}</span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setEditing(true); }}
+                    className="p-1 rounded hover:bg-muted/40 shrink-0 opacity-40 hover:opacity-100 transition-opacity"
+                    aria-label="Rename routine"
+                  >
+                    <Pencil className="h-3 w-3 text-muted-foreground" />
+                  </button>
+                </div>
+              )}
 
-                <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 mt-1 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`} />
+              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${GOAL_BADGE[routine.goal] || "bg-muted/50 text-muted-foreground"}`}>
+                  {routine.goal}
+                </span>
+                {routine.is_ai_generated && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-300 font-bold uppercase tracking-wider">
+                    AI
+                  </span>
+                )}
+                {routine.sport && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted/50 text-muted-foreground border border-border/20 capitalize">
+                    {routine.sport.replace("_", " ")}
+                  </span>
+                )}
+                <span className="text-[10px] text-muted-foreground/60 tabular-nums">
+                  {routine.exercises.length} exer · {formattedDate}
+                </span>
               </div>
-            </button>
-          </CollapsibleTrigger>
+            </div>
+
+            {/* Always-visible Start button + expand chevron */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onStartWorkout(routine); }}
+                aria-label="Start routine"
+                className="h-9 px-3 rounded-full bg-primary text-primary-foreground text-[12px] font-bold inline-flex items-center gap-1.5 active:scale-[0.96] transition-transform shadow-md shadow-primary/30"
+              >
+                <Play className="h-3.5 w-3.5" strokeWidth={2.6} />
+                Start
+              </button>
+              <CollapsibleTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={expanded ? "Collapse routine" : "Expand routine"}
+                  className="h-9 w-9 rounded-full flex items-center justify-center text-muted-foreground active:bg-muted/40 transition-colors"
+                >
+                  <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`} />
+                </button>
+              </CollapsibleTrigger>
+            </div>
+          </div>
 
           {/* Exercises list — grouped by day if available. Tap a day header to
               start just that day; for single-day / flat routines the footer
