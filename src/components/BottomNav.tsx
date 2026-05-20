@@ -34,9 +34,10 @@ import {
 const mainNavItems = [
   { title: "Home", url: "/dashboard", icon: Home },
   { title: "Nutrition", url: "/nutrition", icon: Utensils },
-  // Gym promoted from the More menu into the main nav. Routes to the
-  // Gym Tracker (/gym), not the gym-scoped social feed (/community).
-  { title: "Gym", url: "/gym", icon: Dumbbell },
+  // "Gym" tab points at the gym-scoped social feed (/community). The
+  // Users (people) icon reads as the social/friends meaning rather
+  // than literal gym equipment; the Gym Tracker still lives in More.
+  { title: "Gym", url: "/community", icon: Users },
   { title: "Weight", url: "/weight", icon: Weight },
 ];
 
@@ -47,9 +48,7 @@ const moreMenuItems = [
   { title: "Recovery", url: "/recovery", icon: HeartPulse },
   { title: "Sleep", url: "/sleep", icon: Moon },
   { title: "Weight Cut", url: "/weight-cut", icon: TrendingDown },
-  // Corner — gym-scoped social feed. Moved to More now that Gym Tracker
-  // owns the main-nav slot. Keep accessible so the feature isn't lost.
-  { title: "Corner", url: "/community", icon: Users },
+  { title: "Gym Tracker", url: "/gym", icon: Dumbbell },
 ];
 
 export const BottomNav = memo(function BottomNav() {
@@ -268,6 +267,7 @@ export const BottomNav = memo(function BottomNav() {
 
   const HomeIcon = mainNavItems[0].icon;
   const NutritionIcon = mainNavItems[1].icon;
+  // Gym tab uses the Users (social/friends) icon — see mainNavItems comment.
   const GymIcon = mainNavItems[2].icon;
   const WeightIcon = mainNavItems[3].icon;
 
@@ -291,7 +291,10 @@ export const BottomNav = memo(function BottomNav() {
               translucent Void surface + backdrop-blur + 1px border + inset
               highlight + drop shadow. See src/index.css and the
               floating-nav node in the Figma Branding file. */}
-          <div className="flex items-stretch gap-1 p-1.5 rounded-pill glass-nav">
+          {/* Width is set to ~92% of viewport (capped at 26rem ≈ 416px) so
+              each tab gets real breathing room and the labels don't crowd
+              the icons. Tabs flex-1 evenly inside, with gap-2 between. */}
+          <div className="flex items-stretch justify-around gap-2 p-1.5 w-[92vw] max-w-[26rem] rounded-pill glass-nav">
             <NavItem
               to={mainNavItems[0].url}
               icon={HomeIcon}
@@ -459,7 +462,7 @@ function NavItem({ to, icon: Icon, label, isActive, tutorial }: NavItemProps) {
       data-tutorial={tutorial}
       onClick={() => triggerHaptic(ImpactStyle.Light)}
       aria-label={label}
-      className="relative flex flex-col items-center justify-center gap-[3px] h-14 px-3 rounded-pill"
+      className="relative flex flex-1 flex-col items-center justify-center gap-[3px] h-14 px-2 rounded-pill"
     >
       {isActive && (
         <motion.div
@@ -469,10 +472,15 @@ function NavItem({ to, icon: Icon, label, isActive, tutorial }: NavItemProps) {
              know the underlying format. Inline the rgba(139,126,234) =
              Wizard Lilac so the 12% tint actually renders. */
           className="absolute inset-0 rounded-pill bg-[rgba(139,126,234,0.12)]"
-          /* iOS-26 liquid-glass feel: lower stiffness + lower damping so the
-             pill eases between tabs with a soft trailing settle, instead of
-             snapping. */
-          transition={{ type: "spring", damping: 20, stiffness: 180, mass: 0.8 }}
+          /* `initial={false}` is the key to true shared-layout transitions:
+             without it Framer Motion animates each mount from initial state
+             (so each tap looks like a quick fade-in at the new tab instead
+             of the bubble traveling). With initial={false}, FM uses the
+             prior layoutId measurement as the from-position and animates
+             the rect to the new tab's position — the iOS liquid-glass
+             glide the user is asking for. */
+          initial={false}
+          transition={{ type: "spring", stiffness: 350, damping: 30, mass: 0.6 }}
         />
       )}
       <Icon
@@ -504,13 +512,14 @@ function NavItemWithBadge({ to, icon: Icon, label, isActive, tutorial, badge }: 
       data-tutorial={tutorial}
       onClick={() => triggerHaptic(ImpactStyle.Light)}
       aria-label={label}
-      className="relative flex flex-col items-center justify-center gap-[3px] h-14 px-3 rounded-pill"
+      className="relative flex flex-1 flex-col items-center justify-center gap-[3px] h-14 px-2 rounded-pill"
     >
       {isActive && (
         <motion.div
           layoutId="nav-active-pill"
           className="absolute inset-0 rounded-pill bg-[rgba(139,126,234,0.12)]"
-          transition={{ type: "spring", damping: 20, stiffness: 180, mass: 0.8 }}
+          initial={false}
+          transition={{ type: "spring", stiffness: 350, damping: 30, mass: 0.6 }}
         />
       )}
       <Icon
@@ -549,13 +558,14 @@ function NavButton({ onClick, icon: Icon, label, isActive, tutorial, badge }: Na
       onClick={onClick}
       data-tutorial={tutorial}
       aria-label={label}
-      className="relative flex flex-col items-center justify-center gap-[3px] h-14 px-3 rounded-pill"
+      className="relative flex flex-1 flex-col items-center justify-center gap-[3px] h-14 px-2 rounded-pill"
     >
       {isActive && (
         <motion.div
           layoutId="nav-active-pill"
           className="absolute inset-0 rounded-pill bg-[rgba(139,126,234,0.12)]"
-          transition={{ type: "spring", damping: 20, stiffness: 180, mass: 0.8 }}
+          initial={false}
+          transition={{ type: "spring", stiffness: 350, damping: 30, mass: 0.6 }}
         />
       )}
       <Icon
