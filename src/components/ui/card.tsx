@@ -2,8 +2,20 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
+/* Design System v1 — Card surface (Figma CARDS section, node 67:721).
+ *  Solid `#081225` (neutral-800) on the dark page background creates
+ *  visual hierarchy via contrast alone; no border, no shadow. 8px
+ *  radius via the `rounded-xs` token. Existing call sites can still
+ *  override anything via className. */
 const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn("rounded-2xl border border-white/20 bg-card/80 text-card-foreground shadow-xl transition-shadow transition-colors duration-300", className)} {...props} />
+  <div
+    ref={ref}
+    className={cn(
+      "rounded-xs bg-neutral-800 text-card-foreground transition-colors duration-200",
+      className,
+    )}
+    {...props}
+  />
 ));
 Card.displayName = "Card";
 
@@ -16,7 +28,14 @@ CardHeader.displayName = "CardHeader";
 
 const CardTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLHeadingElement>>(
   ({ className, ...props }, ref) => (
-    <h3 ref={ref} className={cn("text-xl sm:text-2xl font-semibold leading-none tracking-tight", className)} {...props} />
+    <h3
+      ref={ref}
+      /* Sora Bold per Design System v1. The global @layer base rule
+         already promotes h3 to font-display, but kept explicit here so
+         the intent is obvious at the call site. */
+      className={cn("font-display font-bold text-xl sm:text-2xl leading-tight tracking-tight", className)}
+      {...props}
+    />
   ),
 );
 CardTitle.displayName = "CardTitle";
