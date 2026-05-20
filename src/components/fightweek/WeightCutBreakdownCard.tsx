@@ -12,10 +12,14 @@ interface WeightCutBreakdownCardProps {
 
 const COMPONENTS = [
   { key: "glycogen", label: "Glycogen + Water", color: "#3b82f6", icon: Zap },
-  { key: "fibre", label: "Fibre / Gut", color: "#22c55e", icon: Leaf },
-  { key: "sodium", label: "Sodium / Water", color: "#06b6d4", icon: Waves },
-  { key: "waterLoading", label: "Water Loading", color: "#a855f7", icon: Droplets },
-  { key: "dehydration", label: "Dehydration", color: "#f59e0b", icon: Droplets },
+  /* Design System v1 FUNCTIONAL palette where it maps cleanly:
+     Recovery Green for fibre/gut, Hydration Cyan for sodium and
+     dehydration (both water-related), Fats Purple for water-loading
+     to keep visual distinction from the cyan stack. */
+  { key: "fibre", label: "Fibre / Gut", color: "#23C599", icon: Leaf },
+  { key: "sodium", label: "Sodium / Water", color: "#12CAE6", icon: Waves },
+  { key: "waterLoading", label: "Water Loading", color: "#7B31EA", icon: Droplets },
+  { key: "dehydration", label: "Dehydration", color: "#12CAE6", icon: Droplets },
 ] as const;
 
 export function WeightCutBreakdownCard({

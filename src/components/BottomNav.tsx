@@ -1,4 +1,4 @@
-import { Home, Utensils, Plus, Weight, Target, MoreHorizontal, Trophy, Calendar, HeartPulse, Dumbbell, TrendingDown, Moon, Users, X, Camera, type LucideIcon } from "lucide-react";
+import { Home, Utensils, Flag, Users, X, Camera, type LucideIcon } from "lucide-react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, memo } from "react";
 import { motion, useAnimationControls, type TargetAndTransition } from "motion/react";
@@ -9,9 +9,7 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useToast } from "@/hooks/use-toast";
 import { useProfile, useUser, useAuth } from "@/contexts/UserContext";
-import { useMyGyms } from "@/hooks/coach/useMyGyms";
 import { useTutorial } from "@/tutorial/useTutorial";
-import { FIGHT_ONLY_PATHS, isFighter } from "@/lib/goalType";
 import { capturePhotoBase64 } from "@/lib/capturePhoto";
 import {
   AlertDialog,
@@ -22,7 +20,6 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { QuickLogDialog } from "@/components/nav/QuickLogDialog";
-import { MoreMenuSheet } from "@/components/nav/MoreMenuSheet";
 import { SettingsPanel } from "@/components/nav/SettingsPanel";
 import { ReviewSheet } from "@/components/community/ReviewSheet";
 import {
@@ -33,22 +30,9 @@ import {
 
 const mainNavItems = [
   { title: "Home", url: "/dashboard", icon: Home },
+  { title: "Camp", url: "/camp", icon: Flag },
+  { title: "Community", url: "/community", icon: Users },
   { title: "Nutrition", url: "/nutrition", icon: Utensils },
-  // "Gym" tab points at the gym-scoped social feed (/community). The
-  // Users (people) icon reads as the social/friends meaning rather
-  // than literal gym equipment; the Gym Tracker still lives in More.
-  { title: "Gym", url: "/community", icon: Users },
-  { title: "Weight", url: "/weight", icon: Weight },
-];
-
-const moreMenuItems = [
-  { title: "Profile", url: "/goals", icon: Target },
-  { title: "Fight Camps", url: "/fight-camps", icon: Trophy },
-  { title: "Training Calendar", url: "/training-calendar", icon: Calendar },
-  { title: "Recovery", url: "/recovery", icon: HeartPulse },
-  { title: "Sleep", url: "/sleep", icon: Moon },
-  { title: "Weight Cut", url: "/weight-cut", icon: TrendingDown },
-  { title: "Gym Tracker", url: "/gym", icon: Dumbbell },
 ];
 
 export const BottomNav = memo(function BottomNav() {
@@ -58,10 +42,6 @@ export const BottomNav = memo(function BottomNav() {
   const { toast } = useToast();
   const { userName, avatarUrl, setUserName, setAvatarUrl } = useProfile();
   const { userId, profile, refreshProfile } = useUser();
-  // Only fetch gym memberships for athletes — coaches use the /coach surface
-  const isAthlete = profile?.role !== "coach";
-  const { gyms: myGyms } = useMyGyms(isAthlete ? userId : null);
-  const primaryGym = myGyms[0] ?? null;
   const { signOut } = useAuth();
   const deleteAccount = useAction(api.actions.deleteAccount.run);
   const updateGoalsMut = useMutation(api.profiles.updateGoals);
@@ -77,11 +57,7 @@ export const BottomNav = memo(function BottomNav() {
   const hasUnreadFeedEngagement = (unreadEngagement?.count ?? 0) > 0;
   const { replayTutorial } = useTutorial();
   const goalType = (profile?.goal_type as 'cutting' | 'losing') ?? 'cutting';
-  const filteredMoreMenuItems = isFighter(goalType)
-    ? moreMenuItems
-    : moreMenuItems.filter(item => !FIGHT_ONLY_PATHS.includes(item.url));
   const [quickLogOpen, setQuickLogOpen] = useState(false);
-  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const [deleteAccountDialogOpen, setDeleteAccountDialogOpen] = useState(false);
@@ -126,19 +102,16 @@ export const BottomNav = memo(function BottomNav() {
     setEditedName(userName);
   }, [userName]);
 
-  // Preload More menu page chunks when the menu opens
+  // Open settings panel via custom event — triggered from Dashboard avatar or Profile page
   useEffect(() => {
-    if (moreMenuOpen) {
-      import("../pages/Goals").catch(() => {});
-      import("../pages/TrainingCalendar").catch(() => {});
-      import("../pages/Recovery").catch(() => {});
-      import("../pages/GymTracker").catch(() => {});
-      if (isFighter(goalType)) {
-        import("../pages/FightCamps").catch(() => {});
-        import("../pages/WeightCut").catch(() => {});
-      }
-    }
-  }, [moreMenuOpen, goalType]);
+    const openSettings = () => {
+      setEditedName(userName);
+      setSettingsDialogOpen(true);
+      if (authUser?.email) setUserEmail(authUser.email);
+    };
+    window.addEventListener('wcw:open-settings', openSettings);
+    return () => window.removeEventListener('wcw:open-settings', openSettings);
+  }, [userName, authUser?.email]);
 
   const toggleTheme = () => {
     const newTheme = theme === "light" ? "dark" : "light";
@@ -178,13 +151,7 @@ export const BottomNav = memo(function BottomNav() {
     navigate("/gym");
   };
 
-  const handleMoreItemClick = (url: string) => {
-    setMoreMenuOpen(false);
-    navigate(url);
-  };
-
   const handleSettings = async () => {
-    setMoreMenuOpen(false);
     setEditedName(userName);
     setSettingsDialogOpen(true);
     if (authUser?.email) setUserEmail(authUser.email);
@@ -217,7 +184,6 @@ export const BottomNav = memo(function BottomNav() {
 
   const handleReplayTutorial = () => {
     setSettingsDialogOpen(false);
-    setMoreMenuOpen(false);
     navigate("/dashboard");
     setTimeout(() => replayTutorial("onboarding"), 600);
   };
@@ -235,7 +201,6 @@ export const BottomNav = memo(function BottomNav() {
     if (loggingOut) return;
     setLoggingOut(true);
     setLogoutDialogOpen(false);
-    setMoreMenuOpen(false);
     await signOut();
     navigate("/auth");
     toast({ title: "Signed out", description: "You have been successfully signed out." });
@@ -266,10 +231,9 @@ export const BottomNav = memo(function BottomNav() {
   };
 
   const HomeIcon = mainNavItems[0].icon;
-  const NutritionIcon = mainNavItems[1].icon;
-  // Gym tab uses the Users (social/friends) icon — see mainNavItems comment.
-  const GymIcon = mainNavItems[2].icon;
-  const WeightIcon = mainNavItems[3].icon;
+  const CampIcon = mainNavItems[1].icon;
+  const CommunityIcon = mainNavItems[2].icon;
+  const NutritionIcon = mainNavItems[3].icon;
 
   // ───────────────────────────────────────────────────────────────────────
   // Active-tab bubble — single-element pattern
@@ -292,14 +256,15 @@ export const BottomNav = memo(function BottomNav() {
   });
 
   // Resolve which of the 5 nav slots (0=Home, 1=Nutrition, 2=Gym,
-  // 3=Weight, 4=More) the current route maps to. -1 means none → bubble
-  // hides.
+  // 3=Nutrition) the current route maps to. -1 means none → bubble hides.
+  const campSubRoutes = ['/training-calendar', '/fight-camps', '/gym', '/weight-cut', '/training-library'];
   const activeIndex = useMemo(() => {
     const mainHit = mainNavItems.findIndex((item) => location.pathname === item.url);
     if (mainHit >= 0) return mainHit;
-    if (filteredMoreMenuItems.some((i) => i.url === location.pathname)) return 4;
+    if (campSubRoutes.some((r) => location.pathname === r || location.pathname.startsWith(r + '/'))) return 1;
+    if (location.pathname.startsWith('/profile/') || location.pathname === '/my-gym') return 2;
     return -1;
-  }, [location.pathname, filteredMoreMenuItems]);
+  }, [location.pathname]);
 
   // Measure synchronously after layout so the bubble settles on the right
   // tab on first paint (no flicker). Re-runs whenever the active tab
@@ -423,38 +388,30 @@ export const BottomNav = memo(function BottomNav() {
           <NavItem
             ref={(el) => { tabRefs.current[1] = el; }}
             to={mainNavItems[1].url}
-            icon={NutritionIcon}
+            icon={CampIcon}
             label={mainNavItems[1].title}
-            tutorial="nav-nutrition"
+            tutorial="nav-camp"
             isActive={activeIndex === 1}
             tapAnimation={TAP_ANIMATIONS.nutrition}
           />
-          <NavItem
+          <NavItemWithBadge
             ref={(el) => { tabRefs.current[2] = el; }}
             to={mainNavItems[2].url}
-            icon={GymIcon}
+            icon={CommunityIcon}
             label={mainNavItems[2].title}
-            tutorial="nav-gym"
+            tutorial="nav-community"
             isActive={activeIndex === 2}
             tapAnimation={TAP_ANIMATIONS.gym}
+            badge={hasUnreadFeedEngagement}
           />
           <NavItem
             ref={(el) => { tabRefs.current[3] = el; }}
             to={mainNavItems[3].url}
-            icon={WeightIcon}
+            icon={NutritionIcon}
             label={mainNavItems[3].title}
-            tutorial="nav-weight"
+            tutorial="nav-nutrition"
             isActive={activeIndex === 3}
             tapAnimation={TAP_ANIMATIONS.weight}
-          />
-          <NavButton
-            ref={(el) => { tabRefs.current[4] = el; }}
-            onClick={() => { setMoreMenuOpen(true); triggerHapticSelection(); }}
-            icon={MoreHorizontal}
-            label="More"
-            tutorial="nav-more"
-            isActive={activeIndex === 4}
-            tapAnimation={TAP_ANIMATIONS.more}
           />
         </div>
 
@@ -488,18 +445,6 @@ export const BottomNav = memo(function BottomNav() {
         onSubmit={roundCard.submit}
         onDiscard={roundCard.discard}
         developing={roundCard.developing}
-      />
-
-      <MoreMenuSheet
-        open={moreMenuOpen}
-        onOpenChange={setMoreMenuOpen}
-        menuItems={filteredMoreMenuItems}
-        onItemClick={handleMoreItemClick}
-        onMyGym={() => { setMoreMenuOpen(false); navigate("/my-gym"); }}
-        gymLogoUrl={primaryGym?.gym_logo_url ?? null}
-        gymName={primaryGym?.gym_name ?? null}
-        onSettings={handleSettings}
-        onLogout={() => setLogoutDialogOpen(true)}
       />
 
       <SettingsPanel

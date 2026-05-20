@@ -629,9 +629,10 @@ function FoodDetailSheet({
 
         {/* Macro rings — animated */}
         <div className="px-5 py-4 grid grid-cols-3 gap-2">
-          <MacroRing value={scaledProtein} goalApprox={approxP} label="Protein" color="rgb(59 130 246)" />
-          <MacroRing value={scaledCarbs} goalApprox={approxC} label="Carbs" color="rgb(249 115 22)" />
-          <MacroRing value={scaledFats} goalApprox={approxF} label="Fats" color="rgb(168 85 247)" />
+          {/* Design System v1 FUNCTIONAL palette */}
+          <MacroRing value={scaledProtein} goalApprox={approxP} label="Protein" color="rgb(42 91 221)" />
+          <MacroRing value={scaledCarbs} goalApprox={approxC} label="Carbs" color="rgb(240 132 57)" />
+          <MacroRing value={scaledFats} goalApprox={approxF} label="Fats" color="rgb(123 49 234)" />
         </div>
 
         {/* Serving slider + stepper */}

@@ -129,9 +129,10 @@ export const MacroPieChart = memo(function MacroPieChart({
 
             {/* Macro grid — 3 cards, each with its own ring; backgrounds neutral, only numbers tinted */}
             <div className="grid grid-cols-3 gap-3">
-                <MacroCard label="Protein" value={protein} goal={proteinGoal ?? 0} color="#3b82f6" />
-                <MacroCard label="Carbs" value={carbs} goal={carbsGoal ?? 0} color="#f97316" />
-                <MacroCard label="Fat" value={fats} goal={fatsGoal ?? 0} color="#a855f7" />
+                {/* Design System v1 FUNCTIONAL palette */}
+                <MacroCard label="Protein" value={protein} goal={proteinGoal ?? 0} color="#2A5BDD" />
+                <MacroCard label="Carbs" value={carbs} goal={carbsGoal ?? 0} color="#F08439" />
+                <MacroCard label="Fat" value={fats} goal={fatsGoal ?? 0} color="#7B31EA" />
             </div>
         </div>
     );

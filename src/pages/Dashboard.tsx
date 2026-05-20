@@ -16,7 +16,8 @@ import { WeightProgressRing } from "@/components/dashboard/WeightProgressRing";
 import { StreakBadge } from "@/components/dashboard/StreakBadge";
 import { MilestoneBadges } from "@/components/dashboard/MilestoneBadges";
 import { useGamification } from "@/hooks/useGamification";
-import { useUser } from "@/contexts/UserContext";
+import { useUser, useProfile } from "@/contexts/UserContext";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { DashboardSkeleton } from "@/components/ui/skeleton-loader";
 import { useSafeAsync } from "@/hooks/useSafeAsync";
@@ -69,6 +70,7 @@ interface DailyWisdom {
 
 export default function Dashboard() {
   const { userName, currentWeight, userId, profile, loadCutPlan } = useUser();
+  const { avatarUrl } = useProfile();
   const convex = useConvex();
   const dailyWisdomAction = useAction(api.actions.dailyWisdom.run);
   const [weightLogs, setWeightLogs] = useState<any[]>(() => {
@@ -1017,9 +1019,21 @@ export default function Dashboard() {
   return (
     <ErrorBoundary>
       <div className="dashboard-zoom animate-page-in space-y-3.5 px-5 py-3 sm:p-5 md:p-6 w-full max-w-7xl mx-auto">
-        {/* Greeting header — Apple Fitness style: weekday eyebrow + name, days/streak right */}
-        <header className="flex items-end justify-between gap-3 pt-1">
-          <div className="min-w-0 flex-1">
+        {/* Greeting header — avatar left, greeting centre, days/streak right */}
+        <header className="flex items-center justify-between gap-3 pt-1">
+          <button
+            onClick={() => navigate(`/profile/${userId}`)}
+            className="flex-shrink-0 active:opacity-70 transition-opacity"
+            aria-label="View profile"
+          >
+            <Avatar className="h-9 w-9">
+              <AvatarImage src={avatarUrl ?? undefined} />
+              <AvatarFallback className="text-[13px] font-semibold bg-primary/10 text-primary">
+                {userName?.[0]?.toUpperCase() ?? 'U'}
+              </AvatarFallback>
+            </Avatar>
+          </button>
+          <div className="min-w-0 flex-1 pl-1">
             <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground/70 font-bold">
               {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
             </p>
@@ -1331,9 +1345,9 @@ export default function Dashboard() {
 
                     <div className="grid grid-cols-3 gap-2">
                       {[
-                        { label: 'Protein', g: proteinG, pct: pcts[0], color: 'text-blue-500' },
-                        { label: 'Carbs', g: carbsG, pct: pcts[1], color: 'text-orange-500' },
-                        { label: 'Fats', g: fatsG, pct: pcts[2], color: 'text-purple-500' },
+                        { label: 'Protein', g: proteinG, pct: pcts[0], color: 'text-func-protein-blue' },
+                        { label: 'Carbs', g: carbsG, pct: pcts[1], color: 'text-func-carbs-orange' },
+                        { label: 'Fats', g: fatsG, pct: pcts[2], color: 'text-func-fats-purple' },
                       ].map((m) => (
                         <div key={m.label} className="rounded-lg bg-background/40 p-2 text-center">
                           <p className={`text-[15px] font-bold tabular-nums ${m.color}`}>{m.g}g</p>

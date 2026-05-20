@@ -629,9 +629,9 @@ export default function WeightTracker() {
               <div className="grid grid-cols-4 gap-2">
                 {[
                   { label: "Calories", value: targetCal, unit: "kcal", color: "text-foreground" },
-                  { label: "Protein", value: proteinG, unit: "g", color: "text-blue-400" },
-                  { label: "Carbs", value: carbsG, unit: "g", color: "text-orange-400" },
-                  { label: "Fats", value: fatsG, unit: "g", color: "text-purple-400" },
+                  { label: "Protein", value: proteinG, unit: "g", color: "text-func-protein-blue" },
+                  { label: "Carbs", value: carbsG, unit: "g", color: "text-func-carbs-orange" },
+                  { label: "Fats", value: fatsG, unit: "g", color: "text-func-fats-purple" },
                 ].map((m) => (
                   <div key={m.label} className="rounded-2xl bg-muted/20 px-2 py-2.5 text-center">
                     <p className={`text-[16px] font-bold tabular-nums ${m.color}`}>
