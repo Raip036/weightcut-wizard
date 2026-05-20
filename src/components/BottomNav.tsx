@@ -1,4 +1,4 @@
-import { Home, Utensils, Plus, Weight, Target, MoreHorizontal, Trophy, Calendar, HeartPulse, Dumbbell, TrendingDown, Moon, Users, X, type LucideIcon } from "lucide-react";
+import { Home, Utensils, Plus, Weight, Target, MoreHorizontal, Trophy, Calendar, HeartPulse, Dumbbell, TrendingDown, Moon, Users, X, Camera, type LucideIcon } from "lucide-react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, memo } from "react";
 import { motion, useAnimationControls, type TargetAndTransition } from "motion/react";
@@ -350,7 +350,7 @@ export const BottomNav = memo(function BottomNav() {
           See: https://bugs.webkit.org/show_bug.cgi?id=212706 */}
       <div
         data-bottom-nav
-        className="fixed inset-x-0 z-[9999] md:hidden flex justify-center pointer-events-none"
+        className="fixed inset-x-0 z-[9999] md:hidden flex items-center justify-center gap-2 pointer-events-none"
         /* iOS reports `safe-area-inset-bottom` ≈ 34px on home-indicator
            devices, but the indicator BAR itself only occupies the
            bottom ~10–13px of the screen — the remaining ~20px is just
@@ -456,6 +456,15 @@ export const BottomNav = memo(function BottomNav() {
             isActive={activeIndex === 4}
             tapAnimation={TAP_ANIMATIONS.more}
           />
+        </div>
+
+        {/* Quick-log FAB — blue circle alongside the nav pill.
+            Tap = `roundCard.beginCapture()` fires Camera.getPhoto
+            synchronously in the gesture token, then opens ReviewSheet
+            with smart defaults so a session photo is logged in one tap.
+            Long-press = full QuickLogDialog with all 4 log surfaces. */}
+        <div className="pointer-events-auto">
+          <RoundCardFab gestureProps={fabGesture} tooltip={tooltip} />
         </div>
       </div>
 
@@ -767,10 +776,10 @@ function RoundCardFab({ gestureProps, tooltip }: RoundCardFabProps) {
           transition={{ type: "spring", damping: 18, stiffness: 420 }}
           {...gestureProps}
           data-tutorial="nav-quick-log"
-          className="relative ml-0.5 z-10 h-[50px] w-[50px] -translate-y-2 rounded-full bg-primary flex items-center justify-center shadow-[0_9px_20px_-5px_hsl(var(--primary)/0.6),0_2px_0_rgba(255,255,255,0.22)_inset,0_-1.5px_0_rgba(0,0,0,0.18)_inset] ring-2 ring-background/40 select-none touch-none"
+          className="relative z-10 h-[52px] w-[52px] rounded-full bg-primary flex items-center justify-center shadow-[0_9px_20px_-5px_hsl(var(--primary)/0.6),0_2px_0_rgba(255,255,255,0.22)_inset,0_-1.5px_0_rgba(0,0,0,0.18)_inset] ring-2 ring-background/40 select-none touch-none"
           aria-label="Capture session photo (long-press for more options)"
         >
-          <Plus className="h-6 w-6 text-primary-foreground" strokeWidth={2.75} />
+          <Camera className="h-[22px] w-[22px] text-primary-foreground" strokeWidth={2.4} />
         </motion.button>
       </PopoverTrigger>
       <PopoverContent
