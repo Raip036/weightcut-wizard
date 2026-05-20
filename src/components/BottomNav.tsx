@@ -349,7 +349,11 @@ export const BottomNav = memo(function BottomNav() {
       <div
         data-bottom-nav
         className="fixed inset-x-0 z-[9999] md:hidden flex justify-center pointer-events-none"
-        style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 0.5rem)" }}
+        /* Sit tight against the iOS home-indicator safe area — 4px of
+           breathing room above the system grey bar is enough to feel
+           floating without floating *high*. Increase if it ever looks
+           crowded; do not drop below ~2px or the pill kisses the bar. */
+        style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 0.25rem)" }}
       >
         <motion.div
           initial={{ y: 24, opacity: 0 }}
