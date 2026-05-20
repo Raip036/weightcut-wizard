@@ -25,6 +25,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { springs } from "@/lib/motion";
 import { XPProgressBar, DaysToFightSlam, WeightLossSlam, LossFrameCard, DeclarationButton, TaleOfTheTapeCard, WeeklyMilestonesScrubber, BlurredWeekOnePreview, MathWhisper, WittyValidation, sportVocab } from "@/components/onboarding/Gamification";
 import { OnboardingWizardMascot } from "@/components/onboarding/wizard/OnboardingWizardMascot";
+import { ConnectHealthStep } from "@/components/onboarding/wizard/ConnectHealthStep";
 
 const ACTIVITY_MULTIPLIERS: Record<string, number> = {
   sedentary: 1.2,
@@ -34,11 +35,13 @@ const ACTIVITY_MULTIPLIERS: Record<string, number> = {
   extra_active: 1.9,
 };
 
-// Mirrors the real outer step ceiling (`step` clamps to 14 in `goNext`
-// and `isLast{Cutting,Losing}` both gate on `step === 14`). Displayed
+// Mirrors the real outer step ceiling (`step` clamps to 15 in `goNext`
+// and `isLast{Cutting,Losing}` both gate on `step === 15`). Displayed
 // as "Round X of TOTAL_STEPS" — keep this in sync with the actual flow
 // length so the user doesn't see "Round 14 of 15" on the finale.
-const TOTAL_STEPS = 14;
+// 2026-05-20: bumped 14 → 15 to make room for the Apple Health connect
+// step (step 10) inserted directly after the training-frequency screen.
+const TOTAL_STEPS = 15;
 
 // ── Display-name validation ──
 // Trimmed length must be 2–30 characters. Used by the step-13 name screen
@@ -438,17 +441,17 @@ export default function Onboarding() {
       return;
     }
 
-    // End-of-flow: cutting ends at step 14 (preview chart + generate);
-    // losing ends at step 14 (plan_aggressiveness). Submit instead of advancing.
-    const isLastCutting = isFighterFlow && step === 14;
-    const isLastLosing = !isFighterFlow && step === 14;
+    // End-of-flow: cutting ends at step 15 (preview chart + generate);
+    // losing ends at step 15 (plan_aggressiveness). Submit instead of advancing.
+    const isLastCutting = isFighterFlow && step === 15;
+    const isLastLosing = !isFighterFlow && step === 15;
     if (isLastCutting || isLastLosing) {
       submitRef.current();
       return;
     }
     setDirection(1);
     setStep(prev => {
-      const next = Math.min(prev + 1, 14);
+      const next = Math.min(prev + 1, 15);
       // Entering step 3 cutting from step 2 — start at first sub-page
       if (isFighterFlow && next === 3) {
         setFightSubStep(0);
@@ -486,7 +489,7 @@ export default function Onboarding() {
     if (pendingWeightAdvance) {
       setPendingWeightAdvance(false);
       setDirection(1);
-      setStep(prev => Math.min(prev + 1, 14));
+      setStep(prev => Math.min(prev + 1, 15));
     }
   }, [pendingWeightAdvance]);
 
@@ -633,7 +636,7 @@ export default function Onboarding() {
     let label: string | null = null;
     if (step === 4) label = "Goal Locked";
     else if (step === 8) label = "Discipline Declared";
-    else if (step === 14) label = "Camp Sealed";
+    else if (step === 15) label = "Camp Sealed";
     if (!label) return;
     setAchievementLabel(label);
     triggerHaptic(ImpactStyle.Medium);
@@ -1067,7 +1070,7 @@ export default function Onboarding() {
             <div className="h-7 w-7" />
           )}
         </div>
-        <XPProgressBar step={step} totalSteps={14} />
+        <XPProgressBar step={step} totalSteps={15} />
       </div>
 
       <AnimatePresence mode="wait" initial={false}>
@@ -1810,9 +1813,26 @@ export default function Onboarding() {
           </StepLayout>
         )}
 
-        {/* ── Screen 10: Training Types ── */}
+        {/* ── Screen 10: Connect Apple Health (inserted 2026-05-20) ──
+            The component owns its own Connect / Skip CTAs and calls
+            `onAdvance` for both branches, so we don't render a
+            StepLayout footer here — the step body fills the space.
+            Wrapped in the same StepLayout chrome so the header /
+            progress / mascot all stay consistent with neighbouring
+            screens. */}
         {step === 10 && (
-          <StepLayout step={10} title="What does your training include?" subtitle="Select all that apply."
+          <StepLayout
+            step={10}
+            title="Connect Apple Health"
+            subtitle="Optional. Powers your Fight Form score with real recovery data."
+          >
+            <ConnectHealthStep onAdvance={goNext} />
+          </StepLayout>
+        )}
+
+        {/* ── Screen 11: Training Types ── */}
+        {step === 11 && (
+          <StepLayout step={11} title="What does your training include?" subtitle="Select all that apply."
             footer={<Button onClick={goNext} disabled={formData.training_types.length === 0}
               className="no-tap-select w-full h-12 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
@@ -1825,9 +1845,9 @@ export default function Onboarding() {
           </StepLayout>
         )}
 
-        {/* ── Screen 11: Sleep ── */}
-        {step === 11 && (
-          <StepLayout step={11} title="How many hours do you sleep?" subtitle="Recovery is half the game."
+        {/* ── Screen 12: Sleep ── */}
+        {step === 12 && (
+          <StepLayout step={12} title="How many hours do you sleep?" subtitle="Recovery is half the game."
             footer={<Button onClick={goNext} disabled={!formData.sleep_hours}
               className="no-tap-select w-full h-12 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
@@ -1848,13 +1868,13 @@ export default function Onboarding() {
           </StepLayout>
         )}
 
-        {/* ── Screen 12: Struggles (cutting flow) ──
+        {/* ── Screen 13: Struggles (cutting flow) ──
             Fighters get the "what holds you back" picker — feeds the
             cut-plan AI's framing. Losing flow takes a different
-            question on this step (see below) so the shared step 13
+            question on this step (see below) so the shared step 14
             stays a clean declaration + generate-plan finale. */}
-        {step === 12 && formData.goal_type !== "losing" && (
-          <StepLayout step={12} title="What do you struggle with most?" subtitle="Be real. We'll build around your weak spots."
+        {step === 13 && formData.goal_type !== "losing" && (
+          <StepLayout step={13} title="What do you struggle with most?" subtitle="Be real. We'll build around your weak spots."
             footer={<Button onClick={goNext} disabled={!formData.primary_struggle}
               className="no-tap-select w-full h-12 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
@@ -1872,13 +1892,13 @@ export default function Onboarding() {
           </StepLayout>
         )}
 
-        {/* ── Screen 12: Plan style (losing flow only) ──
+        {/* ── Screen 13: Plan style (losing flow only) ──
             Promoted up from the previous step-13 finale so the LAST
             step is purely declaration → tale-of-the-tape → generate.
             Was the source of "round 13 asks me how aggressive when it
             should just be Generate" — this fixes that. */}
-        {step === 12 && formData.goal_type === "losing" && (
-          <StepLayout step={12} title="How aggressive do you want to go?" subtitle="Picks the pace of your cut. You can change it later in Settings."
+        {step === 13 && formData.goal_type === "losing" && (
+          <StepLayout step={13} title="How aggressive do you want to go?" subtitle="Picks the pace of your cut. You can change it later in Settings."
             footer={<Button onClick={goNext} disabled={!formData.plan_aggressiveness}
               className="no-tap-select w-full h-12 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
@@ -1895,15 +1915,15 @@ export default function Onboarding() {
           </StepLayout>
         )}
 
-        {/* ── Screen 13: Display name ──
+        {/* ── Screen 14: Display name ──
             Captures the public-facing name the gym sees. Trimmed length
             2–30. Persists via UserContext.setUserName (Convex
             `profiles.setUserName` mutation) so the dashboard, coach view,
             and camp roster all see a real name from day one. Skipping is
             blocked (Continue disabled until valid). */}
-        {step === 13 && (
+        {step === 14 && (
           <StepLayout
-            step={13}
+            step={14}
             title="What should we call you?"
             subtitle="Your gym sees this name. Real name, nickname, fight name — your call."
             footer={
@@ -1944,9 +1964,9 @@ export default function Onboarding() {
           </StepLayout>
         )}
 
-        {/* ── Screen 14: Aggressiveness (losing flow only) ── */}
-        {step === 14 && formData.goal_type === "losing" && !declared && (
-          <StepLayout step={14} title={`${vocab.campNoun} — last call.`} subtitle="One commitment, then we build the plan.">
+        {/* ── Screen 15: Aggressiveness (losing flow only) ── */}
+        {step === 15 && formData.goal_type === "losing" && !declared && (
+          <StepLayout step={15} title={`${vocab.campNoun} — last call.`} subtitle="One commitment, then we build the plan.">
             <div className="space-y-4 px-1 pt-4">
               <h2 className="text-[28px] font-black leading-tight text-center">{userName ? userName + ", " : ""}lock it in.</h2>
               <p className="text-[14px] text-center text-muted-foreground">
@@ -1957,8 +1977,8 @@ export default function Onboarding() {
             </div>
           </StepLayout>
         )}
-        {step === 14 && formData.goal_type === "losing" && declared && (
-          <StepLayout step={14} title="Here's your plan." subtitle="Review the snapshot, then tap Generate to lock it in."
+        {step === 15 && formData.goal_type === "losing" && declared && (
+          <StepLayout step={15} title="Here's your plan." subtitle="Review the snapshot, then tap Generate to lock it in."
             footer={
               generatedPlan ? null : generatingPlan ? (
                 <div className="w-full flex justify-center">
@@ -2056,8 +2076,8 @@ export default function Onboarding() {
           </StepLayout>
         )}
 
-        {/* ── Screen 14: Cut Preview (cutting flow only) — projected weight chart ── */}
-        {step === 14 && formData.goal_type === "cutting" && (() => {
+        {/* ── Screen 15: Cut Preview (cutting flow only) — projected weight chart ── */}
+        {step === 15 && formData.goal_type === "cutting" && (() => {
           const currentWeight = parseFloat(formData.current_weight_kg) || 0;
           const fightWeekTarget = parseFloat(formData.fight_week_target_kg) || 0;
           const fightWeight = parseFloat(formData.goal_weight_kg) || 0;
@@ -2150,7 +2170,7 @@ export default function Onboarding() {
           // the existing final-step content remains intact.
           if (!declared) {
             return (
-              <StepLayout step={14} title={`${vocab.campNoun} — last call.`} subtitle="One commitment, then we build the plan.">
+              <StepLayout step={15} title={`${vocab.campNoun} — last call.`} subtitle="One commitment, then we build the plan.">
                 <div className="space-y-4 px-1 pt-4">
                   <h2 className="text-[28px] font-black leading-tight text-center">{userName ? userName + ", " : ""}lock it in.</h2>
                   <p className="text-[14px] text-center text-muted-foreground">
@@ -2164,7 +2184,7 @@ export default function Onboarding() {
           }
 
           return (
-            <StepLayout step={14} title={`Your projected ${vocab.campNoun.toLowerCase()}`} subtitle="Review before we generate your plan."
+            <StepLayout step={15} title={`Your projected ${vocab.campNoun.toLowerCase()}`} subtitle="Review before we generate your plan."
               footer={
                 generatedPlan ? null : generatingPlan ? (
                   <div className="w-full flex justify-center">

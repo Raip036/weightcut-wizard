@@ -2,6 +2,115 @@ import { v } from "convex/values";
 import { internalQuery, internalMutation } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { CURRENT_CONFIG } from "../src/scoring/config";
+import type { HealthSignal, HealthSignals } from "../src/scoring/types";
+
+/**
+ * Metric strings written by `internal.health.computeBaselines` (spec §5.1).
+ * Centralised here so a typo can't silently produce a null baseline.
+ */
+const HEALTH_METRIC = {
+  hrv: "hrv_sdnn",
+  restingHr: "resting_hr",
+  sleepTotal: "sleep_total",
+  sleepEfficiency: "sleep_efficiency",
+  wristTempDelta: "wrist_temp_delta",
+  vo2Max: "vo2_max",
+} as const;
+
+/**
+ * Confidence floor based on how many days of history backed the baseline.
+ * Mirrors the tier thresholds in spec §6: ≥7 days → full confidence,
+ * 3–6 days → partial, <3 days → unknown baseline (we still surface the
+ * raw value but flag z as null so the engine doesn't react).
+ */
+function confidenceForSampleCount(sampleCount: number): number {
+  if (sampleCount >= 7) return 1.0;
+  if (sampleCount >= 3) return 0.6;
+  if (sampleCount >= 1) return 0.3;
+  return 0.0;
+}
+
+/**
+ * Compose a `HealthSignal` from today's value + the matching baseline row.
+ * Clips deviationZ to [-3, 3] (the engine assumes clipped z) and degrades
+ * gracefully when either operand is missing.
+ *
+ * For wrist-temp delta we treat `value` as the deviation itself (HealthKit
+ * pre-computes it against the user's 30-day baseline) — pass `treatValueAsDeviation`
+ * to skip the baseline-vs-value subtraction.
+ */
+function buildSignal(
+  value: number | null | undefined,
+  baseline: { rolling14dMean: number; rolling14dStdDev: number; sampleCount: number } | null,
+  options: { treatValueAsDeviation?: boolean } = {},
+): HealthSignal {
+  if (value === null || value === undefined) {
+    return { value: null, baseline: null, deviationZ: null, confidence: 0 };
+  }
+
+  // Wrist temp: value IS the deviation, baseline is 0 by definition.
+  if (options.treatValueAsDeviation) {
+    return {
+      value,
+      baseline: 0,
+      deviationZ: Math.max(-3, Math.min(3, value)),
+      // Wrist temp has no rolling baseline (HealthKit owns it); trust the
+      // sample directly with full confidence whenever a value exists.
+      confidence: 1.0,
+    };
+  }
+
+  if (!baseline || baseline.rolling14dStdDev <= 0) {
+    return {
+      value,
+      baseline: baseline?.rolling14dMean ?? null,
+      deviationZ: null,
+      confidence: confidenceForSampleCount(baseline?.sampleCount ?? 0),
+    };
+  }
+
+  const rawZ = (value - baseline.rolling14dMean) / baseline.rolling14dStdDev;
+  return {
+    value,
+    baseline: baseline.rolling14dMean,
+    deviationZ: Math.max(-3, Math.min(3, rawZ)),
+    confidence: confidenceForSampleCount(baseline.sampleCount),
+  };
+}
+
+/**
+ * Build the full `HealthSignals` bundle for a given user/date. Returns
+ * `null` when the user has no `daily_health_summary` row for the target
+ * date — the engine then falls back to the pre-HealthKit self-report
+ * path and behaviour is identical to today.
+ */
+type BaselineRow = {
+  rolling14dMean: number;
+  rolling14dStdDev: number;
+  sampleCount: number;
+};
+
+function assembleHealthSignals(
+  summary: {
+    hrvAvgMs?: number;
+    restingHrBpm?: number;
+    sleepMinutes?: number;
+    sleepEfficiencyPct?: number;
+    wristTempDeltaC?: number;
+    vo2Max?: number;
+  } | null,
+  baselineByMetric: Map<string, BaselineRow>,
+): HealthSignals | null {
+  if (summary === null) return null;
+  return {
+    hrv: buildSignal(summary.hrvAvgMs ?? null, baselineByMetric.get(HEALTH_METRIC.hrv) ?? null),
+    restingHr: buildSignal(summary.restingHrBpm ?? null, baselineByMetric.get(HEALTH_METRIC.restingHr) ?? null),
+    sleepMinutes: buildSignal(summary.sleepMinutes ?? null, baselineByMetric.get(HEALTH_METRIC.sleepTotal) ?? null),
+    sleepEfficiency: buildSignal(summary.sleepEfficiencyPct ?? null, baselineByMetric.get(HEALTH_METRIC.sleepEfficiency) ?? null),
+    wristTempDelta: buildSignal(summary.wristTempDeltaC ?? null, null, { treatValueAsDeviation: true }),
+    vo2Max: buildSignal(summary.vo2Max ?? null, baselineByMetric.get(HEALTH_METRIC.vo2Max) ?? null),
+  };
+}
 
 export const fetchScoringInputs = internalQuery({
   args: { userId: v.id("users"), date: v.string() },
@@ -39,6 +148,52 @@ export const fetchScoringInputs = internalQuery({
       .query("daily_wellness_checkins")
       .withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", lookbackStartIso))
       .collect();
+
+    // HealthKit-derived signals (Agent B owns these tables).
+    // `daily_health_summary` is keyed (userId, date); we want the row for
+    // the target `date` exactly. `health_baselines` is keyed (userId, metric)
+    // and there's at most one row per metric per user, so a single index
+    // scan and a map lookup is fine.
+    const healthSummaryRow = await ctx.db
+      .query("daily_health_summary")
+      .withIndex("by_user_date", (q) => q.eq("userId", userId).eq("date", date))
+      .first();
+    const healthBaselineRows = await ctx.db
+      .query("health_baselines")
+      .withIndex("by_user_metric", (q) => q.eq("userId", userId))
+      .collect();
+    const baselineByMetric = new Map<string, BaselineRow>();
+    for (const row of healthBaselineRows) {
+      baselineByMetric.set(row.metric, {
+        rolling14dMean: row.rolling14dMean,
+        rolling14dStdDev: row.rolling14dStdDev,
+        sampleCount: row.sampleCount,
+      });
+    }
+    const healthSignals = assembleHealthSignals(
+      healthSummaryRow
+        ? {
+            hrvAvgMs: healthSummaryRow.hrvAvgMs,
+            restingHrBpm: healthSummaryRow.restingHrBpm,
+            sleepMinutes: healthSummaryRow.sleepMinutes,
+            sleepEfficiencyPct: healthSummaryRow.sleepEfficiencyPct,
+            wristTempDeltaC: healthSummaryRow.wristTempDeltaC,
+            vo2Max: healthSummaryRow.vo2Max,
+          }
+        : null,
+      baselineByMetric,
+    );
+
+    // Self-report soreness/energy from the morning check-in for the
+    // target date — augments (not replaces) the HealthKit signals.
+    const todayCheckIn = wellness.find((w) => w.date === date);
+    const selfReportRecovery = todayCheckIn
+      ? {
+          // `sorenessLevel` is on a 1..10 scale; `energyLevel` likewise.
+          soreness: todayCheckIn.sorenessLevel ?? null,
+          energy: todayCheckIn.energyLevel ?? null,
+        }
+      : null;
     const meals = await ctx.db
       .query("meals")
       .withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", lookbackStartIso))
@@ -115,6 +270,8 @@ export const fetchScoringInputs = internalQuery({
         .map((w) => ({ date: w.date, hooper: w.hooperIndex! })),
       meals: Array.from(mealsByDay.values()),
       priorRawScores: priorRaw.map((p) => ({ date: p.date, rawScore: p.rawScore })),
+      healthSignals,
+      selfReportRecovery,
     };
   },
 });
