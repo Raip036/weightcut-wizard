@@ -303,9 +303,20 @@ export const BottomNav = memo(function BottomNav() {
 
   // Measure synchronously after layout so the bubble settles on the right
   // tab on first paint (no flicker). Re-runs whenever the active tab
-  // changes or the viewport resizes (tab widths are flex-1 so they shift
-  // with the container).
+  // changes, the viewport resizes (tab widths are flex-1 so they shift
+  // with the container), or `isMobile` flips from false → true.
+  //
+  // `isMobile` is in the deps for an important reason: `useIsMobile`
+  // returns `false` on the very first render (it initialises before its
+  // own useEffect runs `matchMedia`). On that first render the nav's JSX
+  // returns null below, so the tab refs are never attached. When
+  // `isMobile` then flips to `true`, the JSX mounts and the refs attach
+  // — but without `isMobile` in this dep array, the layout effect would
+  // not re-run (activeIndex hasn't changed), `tabRefs.current[…]` would
+  // stay null, and the bubble would stay invisible until the user
+  // navigated to a different tab.
   useLayoutEffect(() => {
+    if (!isMobile) return;
     const measure = () => {
       if (activeIndex < 0) {
         setBubble((prev) => ({ ...prev, visible: false }));
@@ -318,7 +329,7 @@ export const BottomNav = memo(function BottomNav() {
     measure();
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
-  }, [activeIndex]);
+  }, [activeIndex, isMobile]);
 
   if (!isMobile) return null;
 
