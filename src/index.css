@@ -222,6 +222,10 @@ All colors MUST be HSL.
     --gradient-aurora:  linear-gradient(90deg, #4068EF 0%, #2A5BDD 50%, #4AB4ED 100%);
     --gradient-cosmic:  linear-gradient(90deg, #7B31EA 0%, #F08439 100%);
     --gradient-mystic:  linear-gradient(90deg, #4068EF 0%, #020811 100%);
+    /* CTA-specific 4-stop gradient (Figma BUTTONS section). Spirit Blue
+       → Wizard Lilac → mid-pink → Carbs Orange. Used by Button variant
+       "cta" for primary calls-to-action that want the full brand sweep. */
+    --gradient-cta:     linear-gradient(90deg, #4068EF 0%, #8B7EEA 40%, #D96CB8 50%, #F08439 100%);
 
     /* ---- RADIUS scale ---- */
     --radius-xs:   8px;
