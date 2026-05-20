@@ -32,12 +32,11 @@ import {
 } from "@/hooks/useRoundCardCapture";
 
 const mainNavItems = [
-  { title: "Dashboard", url: "/dashboard", icon: Home },
+  { title: "Home", url: "/dashboard", icon: Home },
   { title: "Nutrition", url: "/nutrition", icon: Utensils },
-  // Corner — gym-scoped social feed. Inserted as a new middle slot
-  // alongside the existing nav (no slot replaced); engagement red-dot
-  // moved here from the More button.
-  { title: "Corner", url: "/community", icon: Users },
+  // Gym promoted from the More menu into the main nav. Routes to the
+  // Gym Tracker (/gym), not the gym-scoped social feed (/community).
+  { title: "Gym", url: "/gym", icon: Dumbbell },
   { title: "Weight", url: "/weight", icon: Weight },
 ];
 
@@ -48,7 +47,9 @@ const moreMenuItems = [
   { title: "Recovery", url: "/recovery", icon: HeartPulse },
   { title: "Sleep", url: "/sleep", icon: Moon },
   { title: "Weight Cut", url: "/weight-cut", icon: TrendingDown },
-  { title: "Gym Tracker", url: "/gym", icon: Dumbbell },
+  // Corner — gym-scoped social feed. Moved to More now that Gym Tracker
+  // owns the main-nav slot. Keep accessible so the feature isn't lost.
+  { title: "Corner", url: "/community", icon: Users },
 ];
 
 export const BottomNav = memo(function BottomNav() {
@@ -265,9 +266,9 @@ export const BottomNav = memo(function BottomNav() {
     }
   };
 
-  const DashboardIcon = mainNavItems[0].icon;
+  const HomeIcon = mainNavItems[0].icon;
   const NutritionIcon = mainNavItems[1].icon;
-  const CornerIcon = mainNavItems[2].icon;
+  const GymIcon = mainNavItems[2].icon;
   const WeightIcon = mainNavItems[3].icon;
 
   if (!isMobile) return null;
@@ -290,13 +291,13 @@ export const BottomNav = memo(function BottomNav() {
               translucent Void surface + backdrop-blur + 1px border + inset
               highlight + drop shadow. See src/index.css and the
               floating-nav node in the Figma Branding file. */}
-          <div className="flex items-center gap-1.5 p-1.5 rounded-pill glass-nav">
+          <div className="flex items-stretch gap-1 p-1.5 rounded-pill glass-nav">
             <NavItem
               to={mainNavItems[0].url}
-              icon={DashboardIcon}
+              icon={HomeIcon}
               label={mainNavItems[0].title}
               isActive={location.pathname === mainNavItems[0].url}
-              tutorial="nav-dashboard"
+              tutorial="nav-home"
             />
             <NavItem
               to={mainNavItems[1].url}
@@ -305,20 +306,13 @@ export const BottomNav = memo(function BottomNav() {
               isActive={location.pathname === mainNavItems[1].url}
               tutorial="nav-nutrition"
             />
-
-            {/* Corner — gym-scoped social feed, new middle slot. Red-dot
-                badge surfaces here (previously on More) because the
-                social tab IS where the user goes to clear unread
-                engagement. */}
-            <NavItemWithBadge
+            <NavItem
               to={mainNavItems[2].url}
-              icon={CornerIcon}
+              icon={GymIcon}
               label={mainNavItems[2].title}
-              isActive={location.pathname === mainNavItems[2].url || location.pathname.startsWith("/profile/")}
-              tutorial="nav-corner"
-              badge={hasUnreadFeedEngagement}
+              isActive={location.pathname === mainNavItems[2].url}
+              tutorial="nav-gym"
             />
-
             <NavItem
               to={mainNavItems[3].url}
               icon={WeightIcon}
@@ -326,18 +320,12 @@ export const BottomNav = memo(function BottomNav() {
               isActive={location.pathname === mainNavItems[3].url}
               tutorial="nav-weight"
             />
-
             <NavButton
               onClick={() => { setMoreMenuOpen(true); triggerHapticSelection(); }}
               icon={MoreHorizontal}
               label="More"
               isActive={filteredMoreMenuItems.some(i => i.url === location.pathname)}
               tutorial="nav-more"
-            />
-
-            <RoundCardFab
-              gestureProps={fabGesture}
-              tooltip={tooltip}
             />
           </div>
         </LayoutGroup>
@@ -471,28 +459,34 @@ function NavItem({ to, icon: Icon, label, isActive, tutorial }: NavItemProps) {
       data-tutorial={tutorial}
       onClick={() => triggerHaptic(ImpactStyle.Light)}
       aria-label={label}
-      className="relative flex h-11 w-11 items-center justify-center rounded-full"
+      className="relative flex flex-col items-center justify-center gap-[3px] h-14 px-3 rounded-pill"
     >
       {isActive && (
         <motion.div
           layoutId="nav-active-pill"
-          className="absolute inset-0 rounded-full bg-brand-wizard-lilac/[0.12]"
+          /* rgba arbitrary value — Tailwind cannot apply opacity modifiers
+             (`/[0.12]`) to colors defined as `var(--…)` because it doesn't
+             know the underlying format. Inline the rgba(139,126,234) =
+             Wizard Lilac so the 12% tint actually renders. */
+          className="absolute inset-0 rounded-pill bg-[rgba(139,126,234,0.12)]"
           /* iOS-26 liquid-glass feel: lower stiffness + lower damping so the
              pill eases between tabs with a soft trailing settle, instead of
-             snapping. Pair with the .glass-nav surface so the bubble reads
-             as glass-on-glass rather than a chip slamming into place. */
+             snapping. */
           transition={{ type: "spring", damping: 20, stiffness: 180, mass: 0.8 }}
         />
       )}
       <Icon
         /* Filled silhouette style (Wise/SF Symbols feel): fill="currentColor"
-           + minimal stroke so closed Lucide shapes (Home, Utensils, Users,
-           Weight) render as solid icons rather than outlines. Color never
-           changes between states — only the lilac glass bubble below moves. */
+           + minimal stroke so closed Lucide shapes render as solid icons.
+           Color never changes between states — only the lilac glass bubble
+           moves between tabs. */
         className="relative h-[22px] w-[22px] text-[#8A95A6]"
         fill="currentColor"
         strokeWidth={1.25}
       />
+      <span className="relative font-semibold text-[10px] leading-[14px] tracking-[0.1px] text-[#8A95A6]">
+        {label}
+      </span>
     </NavLink>
   );
 }
@@ -510,28 +504,23 @@ function NavItemWithBadge({ to, icon: Icon, label, isActive, tutorial, badge }: 
       data-tutorial={tutorial}
       onClick={() => triggerHaptic(ImpactStyle.Light)}
       aria-label={label}
-      className="relative flex h-11 w-11 items-center justify-center rounded-full"
+      className="relative flex flex-col items-center justify-center gap-[3px] h-14 px-3 rounded-pill"
     >
       {isActive && (
         <motion.div
           layoutId="nav-active-pill"
-          className="absolute inset-0 rounded-full bg-brand-wizard-lilac/[0.12]"
-          /* iOS-26 liquid-glass feel: lower stiffness + lower damping so the
-             pill eases between tabs with a soft trailing settle, instead of
-             snapping. Pair with the .glass-nav surface so the bubble reads
-             as glass-on-glass rather than a chip slamming into place. */
+          className="absolute inset-0 rounded-pill bg-[rgba(139,126,234,0.12)]"
           transition={{ type: "spring", damping: 20, stiffness: 180, mass: 0.8 }}
         />
       )}
       <Icon
-        /* Filled silhouette style (Wise/SF Symbols feel): fill="currentColor"
-           + minimal stroke so closed Lucide shapes (Home, Utensils, Users,
-           Weight) render as solid icons rather than outlines. Color never
-           changes between states — only the lilac glass bubble below moves. */
         className="relative h-[22px] w-[22px] text-[#8A95A6]"
         fill="currentColor"
         strokeWidth={1.25}
       />
+      <span className="relative font-semibold text-[10px] leading-[14px] tracking-[0.1px] text-[#8A95A6]">
+        {label}
+      </span>
       {badge && (
         <span
           aria-hidden
@@ -560,28 +549,23 @@ function NavButton({ onClick, icon: Icon, label, isActive, tutorial, badge }: Na
       onClick={onClick}
       data-tutorial={tutorial}
       aria-label={label}
-      className="relative flex h-11 w-11 items-center justify-center rounded-full"
+      className="relative flex flex-col items-center justify-center gap-[3px] h-14 px-3 rounded-pill"
     >
       {isActive && (
         <motion.div
           layoutId="nav-active-pill"
-          className="absolute inset-0 rounded-full bg-brand-wizard-lilac/[0.12]"
-          /* iOS-26 liquid-glass feel: lower stiffness + lower damping so the
-             pill eases between tabs with a soft trailing settle, instead of
-             snapping. Pair with the .glass-nav surface so the bubble reads
-             as glass-on-glass rather than a chip slamming into place. */
+          className="absolute inset-0 rounded-pill bg-[rgba(139,126,234,0.12)]"
           transition={{ type: "spring", damping: 20, stiffness: 180, mass: 0.8 }}
         />
       )}
       <Icon
-        /* Filled silhouette style (Wise/SF Symbols feel): fill="currentColor"
-           + minimal stroke so closed Lucide shapes (Home, Utensils, Users,
-           Weight) render as solid icons rather than outlines. Color never
-           changes between states — only the lilac glass bubble below moves. */
         className="relative h-[22px] w-[22px] text-[#8A95A6]"
         fill="currentColor"
         strokeWidth={1.25}
       />
+      <span className="relative font-semibold text-[10px] leading-[14px] tracking-[0.1px] text-[#8A95A6]">
+        {label}
+      </span>
       {badge && (
         <span
           aria-hidden
