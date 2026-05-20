@@ -1,7 +1,7 @@
 import { Home, Utensils, Plus, Weight, Target, MoreHorizontal, Trophy, Calendar, HeartPulse, Dumbbell, TrendingDown, Moon, Users, X, type LucideIcon } from "lucide-react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, memo } from "react";
-import { motion } from "motion/react";
+import { motion, useAnimationControls, type TargetAndTransition } from "motion/react";
 import { triggerHaptic, triggerHapticSelection } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -348,9 +348,12 @@ export const BottomNav = memo(function BottomNav() {
             aria-hidden
             /* Explicit `left-0 top-2 bottom-2` so the bubble's baseline is
                the parent's inner-left edge (not affected by flex auto
-               positioning). `rounded-l` (20px) + a slightly inset top/bottom
-               give a wider rounded-rect look rather than a near-circle. */
-            className="absolute left-0 top-2 bottom-2 rounded-l bg-[rgba(139,126,234,0.12)] pointer-events-none"
+               positioning). `rounded-pill` (999px) gives fully rounded
+               semi-circular ends on a wider-than-tall bubble — the
+               stretched-pill look. NOTE: do NOT use `rounded-l` here —
+               that is Tailwind's directional shorthand for "left corners
+               only" and creates a flat-right-edge bug. */
+            className="absolute left-0 top-2 bottom-2 rounded-pill bg-[rgba(139,126,234,0.12)] pointer-events-none"
             initial={false}
             animate={{
               x: bubble.x,
@@ -365,6 +368,8 @@ export const BottomNav = memo(function BottomNav() {
             icon={HomeIcon}
             label={mainNavItems[0].title}
             tutorial="nav-home"
+            isActive={activeIndex === 0}
+            tapAnimation={TAP_ANIMATIONS.home}
           />
           <NavItem
             ref={(el) => { tabRefs.current[1] = el; }}
@@ -372,6 +377,8 @@ export const BottomNav = memo(function BottomNav() {
             icon={NutritionIcon}
             label={mainNavItems[1].title}
             tutorial="nav-nutrition"
+            isActive={activeIndex === 1}
+            tapAnimation={TAP_ANIMATIONS.nutrition}
           />
           <NavItem
             ref={(el) => { tabRefs.current[2] = el; }}
@@ -379,6 +386,8 @@ export const BottomNav = memo(function BottomNav() {
             icon={GymIcon}
             label={mainNavItems[2].title}
             tutorial="nav-gym"
+            isActive={activeIndex === 2}
+            tapAnimation={TAP_ANIMATIONS.gym}
           />
           <NavItem
             ref={(el) => { tabRefs.current[3] = el; }}
@@ -386,6 +395,8 @@ export const BottomNav = memo(function BottomNav() {
             icon={WeightIcon}
             label={mainNavItems[3].title}
             tutorial="nav-weight"
+            isActive={activeIndex === 3}
+            tapAnimation={TAP_ANIMATIONS.weight}
           />
           <NavButton
             ref={(el) => { tabRefs.current[4] = el; }}
@@ -393,6 +404,8 @@ export const BottomNav = memo(function BottomNav() {
             icon={MoreHorizontal}
             label="More"
             tutorial="nav-more"
+            isActive={activeIndex === 4}
+            tapAnimation={TAP_ANIMATIONS.more}
           />
         </div>
       </motion.nav>
@@ -510,35 +523,72 @@ export const BottomNav = memo(function BottomNav() {
   );
 });
 
-/* Shared layout class for every tab slot — keeps icon + label centered in
-   a flex-1 column so the bubble (sibling element) can measure each tab's
-   rect uniformly. */
+/* Shared layout class for every tab slot. */
 const NAV_SLOT_CLASS =
   "relative z-10 flex flex-1 flex-col items-center justify-center gap-[3px] h-14 px-2 rounded-pill";
-const NAV_ICON_CLASS = "relative h-[22px] w-[22px] text-[#8A95A6]";
-const NAV_LABEL_CLASS =
-  "relative font-semibold text-[10px] leading-[14px] tracking-[0.1px] text-[#8A95A6]";
+
+/* Color helpers — active is white, inactive is the neutral grey from the
+   Figma nav. Applied to both the icon and the label so they switch in
+   lockstep when the active tab changes. */
+const navTextColor = (isActive: boolean) =>
+  isActive ? "text-white" : "text-[#8A95A6]";
+
+/* Per-tab tap micro-animations. Each one targets the icon's wrapping
+   motion.span via useAnimationControls — playing on click only, not on
+   active-state change. Each tab has a slightly different signature so
+   the nav has personality without anything feeling busy. */
+export const TAP_ANIMATIONS = {
+  // Home: confident scale pulse.
+  home:      { scale: [1, 1.25, 1], transition: { duration: 0.35, ease: "easeOut" } },
+  // Nutrition: utensils give a little shake (like cutlery being picked up).
+  nutrition: { rotate: [0, -15, 12, -6, 0], transition: { duration: 0.45 } },
+  // Gym: friends icon hops once.
+  gym:       { y: [0, -5, 0], transition: { duration: 0.35, ease: "easeOut" } },
+  // Weight: full spin (like a dumbbell wheel turning).
+  weight:    { rotate: [0, 360], transition: { duration: 0.55, ease: "easeOut" } },
+  // More: squish-and-pop (three dots compress then bounce back).
+  more:      { scaleY: [1, 0.7, 1.1, 1], transition: { duration: 0.4 } },
+} satisfies Record<string, TargetAndTransition>;
 
 interface NavItemProps {
   to: string;
   icon: LucideIcon;
   label: string;
+  isActive: boolean;
   tutorial?: string;
+  tapAnimation?: TargetAndTransition;
 }
 
 const NavItem = React.forwardRef<HTMLAnchorElement, NavItemProps>(
-  function NavItem({ to, icon: Icon, label, tutorial }, ref) {
+  function NavItem({ to, icon: Icon, label, isActive, tutorial, tapAnimation }, ref) {
+    const iconControls = useAnimationControls();
+    const handleClick = () => {
+      triggerHaptic(ImpactStyle.Light);
+      if (tapAnimation) iconControls.start(tapAnimation);
+    };
     return (
       <NavLink
         ref={ref}
         to={to}
         data-tutorial={tutorial}
-        onClick={() => triggerHaptic(ImpactStyle.Light)}
+        onClick={handleClick}
         aria-label={label}
         className={NAV_SLOT_CLASS}
       >
-        <Icon className={NAV_ICON_CLASS} fill="currentColor" strokeWidth={1.25} />
-        <span className={NAV_LABEL_CLASS}>{label}</span>
+        <motion.span
+          aria-hidden
+          animate={iconControls}
+          /* `initial` keeps the icon at its resting transform when the
+             component first mounts. The controls then trigger a one-shot
+             play on each click. */
+          initial={{ scale: 1, rotate: 0, y: 0, scaleY: 1 }}
+          className="relative inline-flex"
+        >
+          <Icon className={`h-[22px] w-[22px] ${navTextColor(isActive)}`} fill="none" strokeWidth={2} />
+        </motion.span>
+        <span className={`relative font-semibold text-[10px] leading-[14px] tracking-[0.1px] ${navTextColor(isActive)}`}>
+          {label}
+        </span>
       </NavLink>
     );
   },
@@ -552,18 +602,32 @@ interface NavItemWithBadgeProps extends NavItemProps {
  *  Currently unused (the Corner badge moved to More) but kept available
  *  if a future tab needs the same indicator. */
 const NavItemWithBadge = React.forwardRef<HTMLAnchorElement, NavItemWithBadgeProps>(
-  function NavItemWithBadge({ to, icon: Icon, label, tutorial, badge }, ref) {
+  function NavItemWithBadge({ to, icon: Icon, label, isActive, tutorial, badge, tapAnimation }, ref) {
+    const iconControls = useAnimationControls();
+    const handleClick = () => {
+      triggerHaptic(ImpactStyle.Light);
+      if (tapAnimation) iconControls.start(tapAnimation);
+    };
     return (
       <NavLink
         ref={ref}
         to={to}
         data-tutorial={tutorial}
-        onClick={() => triggerHaptic(ImpactStyle.Light)}
+        onClick={handleClick}
         aria-label={label}
         className={NAV_SLOT_CLASS}
       >
-        <Icon className={NAV_ICON_CLASS} fill="currentColor" strokeWidth={1.25} />
-        <span className={NAV_LABEL_CLASS}>{label}</span>
+        <motion.span
+          aria-hidden
+          animate={iconControls}
+          initial={{ scale: 1, rotate: 0, y: 0, scaleY: 1 }}
+          className="relative inline-flex"
+        >
+          <Icon className={`h-[22px] w-[22px] ${navTextColor(isActive)}`} fill="none" strokeWidth={2} />
+        </motion.span>
+        <span className={`relative font-semibold text-[10px] leading-[14px] tracking-[0.1px] ${navTextColor(isActive)}`}>
+          {label}
+        </span>
         {badge && (
           <span
             aria-hidden
@@ -579,24 +643,40 @@ interface NavButtonProps {
   onClick: () => void;
   icon: LucideIcon;
   label: string;
+  isActive: boolean;
   tutorial?: string;
   /** When true, render a small red dot on the top-right of the icon to
    *  signal unread activity. Doesn't affect the click target. */
   badge?: boolean;
+  tapAnimation?: TargetAndTransition;
 }
 
 const NavButton = React.forwardRef<HTMLButtonElement, NavButtonProps>(
-  function NavButton({ onClick, icon: Icon, label, tutorial, badge }, ref) {
+  function NavButton({ onClick, icon: Icon, label, isActive, tutorial, badge, tapAnimation }, ref) {
+    const iconControls = useAnimationControls();
+    const handleClick = () => {
+      if (tapAnimation) iconControls.start(tapAnimation);
+      onClick();
+    };
     return (
       <button
         ref={ref}
-        onClick={onClick}
+        onClick={handleClick}
         data-tutorial={tutorial}
         aria-label={label}
         className={NAV_SLOT_CLASS}
       >
-        <Icon className={NAV_ICON_CLASS} fill="currentColor" strokeWidth={1.25} />
-        <span className={NAV_LABEL_CLASS}>{label}</span>
+        <motion.span
+          aria-hidden
+          animate={iconControls}
+          initial={{ scale: 1, rotate: 0, y: 0, scaleY: 1 }}
+          className="relative inline-flex"
+        >
+          <Icon className={`h-[22px] w-[22px] ${navTextColor(isActive)}`} fill="none" strokeWidth={2} />
+        </motion.span>
+        <span className={`relative font-semibold text-[10px] leading-[14px] tracking-[0.1px] ${navTextColor(isActive)}`}>
+          {label}
+        </span>
         {badge && (
           <span
             aria-hidden
