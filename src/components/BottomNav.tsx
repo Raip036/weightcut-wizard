@@ -335,17 +335,19 @@ export const BottomNav = memo(function BottomNav() {
 
   return (
     <>
-      {/* Outer fixed wrapper does NOT have any transform — that is
-          essential. WebKit ignores a child's `backdrop-filter` when the
-          child's stacking context is created by an ancestor's `transform`
-          (the previous structure had `transform: translateX(-50%)` on the
-          parent motion.nav, which is why the screen behind read as
-          plain translucent instead of frosted). Centering is now done
-          with `mx-auto w-fit` on a transform-free div; the entrance
-          animation (y + opacity) moved onto the same element as
-          `glass-nav`, which is allowed because the transform on the
-          backdrop-filter element itself doesn't break the blur — only
-          an ancestor transform does. */}
+      {/* CRITICAL: the .glass-nav element MUST be a static element with
+          no transform / will-change / opacity-animation / filter. WKWebView
+          has a long-standing bug where any of those properties — even on
+          the same element as backdrop-filter — silently disables the blur.
+          Previous attempts had `motion.div` wrapping the glass element
+          for the entrance slide-up, and Framer Motion's persistent
+          `transform: translateY(0px)` (left after the animation ends)
+          was enough to kill the blur. The entrance animation has been
+          removed entirely from the nav pill; the bubble and the per-
+          icon tap animations live INSIDE the glass element (which is
+          fine — descendants don't break their ancestor's backdrop-
+          filter, only ancestors break descendants').
+          See: https://bugs.webkit.org/show_bug.cgi?id=212706 */}
       <div
         data-bottom-nav
         className="fixed inset-x-0 z-[9999] md:hidden flex justify-center pointer-events-none"
@@ -362,24 +364,16 @@ export const BottomNav = memo(function BottomNav() {
           bottom: "max(0.25rem, calc(env(safe-area-inset-bottom, 0px) - 1rem))",
         }}
       >
-        <motion.div
-          initial={{ y: 24, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ type: "spring", damping: 22, stiffness: 260, mass: 0.6 }}
+        <div
           /* Bottom-nav pill — glass recipe (Design System v1) via
-             `.glass-nav`. Width ~92vw capped at 26rem so each tab gets
+             `.glass-nav`. Width ~92vw capped at 27rem so each tab gets
              breathing room. `pointer-events-auto` re-enables tap on the
              nav itself (the outer wrapper has pointer-events-none so
-             taps pass through to page content elsewhere along the bottom). */
-          /* Horizontal padding is 10px (`px-2.5`) while vertical stays at
-             6px (`py-1.5`) — top/bottom padding is unchanged per the
-             "top/bottom are fine" feedback. The 10px horizontal padding
-             accounts for the bubble's 6px overhang on each side and
-             leaves a ~4px visual gap between the bubble and the nav's
-             outer edge, matching the 4px top/bottom gap (top-1
-             bottom-1) for symmetric breathing room around the pill.
-             max-w bumped 26rem → 27rem to add slight overall width
-             without crowding the tabs. */
+             taps pass through to page content elsewhere along the bottom).
+             Horizontal padding 10px (`px-2.5`) leaves a ~4px gap between
+             the bubble (which overhangs each tab by 6px) and the nav's
+             outer edge, matching the 4px top/bottom gap (top-1 bottom-1)
+             for symmetric breathing room. */
           className="pointer-events-auto relative flex items-stretch gap-2 px-2.5 py-1.5 w-[92vw] max-w-[27rem] rounded-pill glass-nav"
         >
           {/* Internal darkening overlay — kept LIGHT (0.18 → 0.32) so
@@ -462,7 +456,7 @@ export const BottomNav = memo(function BottomNav() {
             isActive={activeIndex === 4}
             tapAnimation={TAP_ANIMATIONS.more}
           />
-        </motion.div>
+        </div>
       </div>
 
       <QuickLogDialog
