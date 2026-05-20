@@ -1,7 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, subMonths, addMonths, subDays, startOfWeek } from "date-fns";
-import { ChevronLeft, ChevronRight, Plus, Activity, BookOpen, Images } from "lucide-react";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, subMonths, addMonths, subDays, startOfWeek, isToday as isDateToday, isYesterday as isDateYesterday, getISOWeek } from "date-fns";
+import { ChevronLeft, ChevronRight, Plus, BookOpen, Images, CalendarDays } from "lucide-react";
+import { motion } from "motion/react";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { WizardCharacter } from "@/tutorial/WizardCharacter";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import type { Id } from "@/../convex/_generated/dataModel";
@@ -136,6 +140,7 @@ export default function TrainingCalendar() {
     const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
     // Coaching library state
     const [libraryOpen, setLibraryOpen] = useState(false);
+    const [monthSheetOpen, setMonthSheetOpen] = useState(false);
 
     const DISPLAY_TTL = 24 * 60 * 60 * 1000; // 24h — show stale cache instantly, refresh in background
     const fetchingRef = useRef(false);
@@ -761,63 +766,143 @@ export default function TrainingCalendar() {
 
     const sessionsForSelectedDate = sessions.filter(s => s.date === format(selectedDate, 'yyyy-MM-dd'));
 
+    // ── Week-strip helpers ────────────────────────────────────────────
+    // Render the 7 days of the week that contains `selectedDate`. Sunday
+    // is the locale-neutral start; this is consistent with the existing
+    // CalendarMonthGrid header (S M T W T F S).
+    const weekStart = startOfWeek(selectedDate, { weekStartsOn: 0 });
+    const weekDays = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(weekStart);
+        d.setDate(weekStart.getDate() + i);
+        return d;
+    });
+    const sessionsByDate = new Map<string, TrainingCalendarRow[]>();
+    for (const s of sessions) {
+        const k = s.date;
+        if (!sessionsByDate.has(k)) sessionsByDate.set(k, []);
+        sessionsByDate.get(k)!.push(s);
+    }
+    const weekSessions = weekDays.flatMap((d) => sessionsByDate.get(format(d, "yyyy-MM-dd")) ?? []);
+    const weekMinutes = weekSessions.reduce((sum, s) => sum + (s.duration_minutes ?? 0), 0);
+    const weekSessionCount = weekSessions.length;
+    const isoWeek = getISOWeek(selectedDate);
+
+    const openLogModal = () => {
+        triggerHapticSelection();
+        setIsAddModalOpen(true);
+    };
+
     return (
-        <div className="animate-page-in space-y-3 px-5 py-3 sm:p-5 md:p-6 max-w-7xl mx-auto pb-16 md:pb-6">
-                {/* Calendar View */}
-                <Card className="p-4 rounded-2xl shadow-sm card-surface mb-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-xl font-bold">{format(currentDate, "MMMM yyyy")}</h2>
-                        <div className="flex items-center gap-1">
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => { triggerHapticSelection(); navigate("/training-library"); }}
-                                aria-label="Open media library"
-                                className="rounded-full h-8 w-8"
-                            >
-                                <Images className="h-4 w-4" />
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => { triggerHapticSelection(); setLibraryOpen(true); }}
-                                aria-label="Open coaching library"
-                                className="rounded-full h-8 w-8"
-                            >
-                                <BookOpen className="h-4 w-4" />
-                            </Button>
-                            {sessions.length > 0 && <ShareButton onClick={() => setShareOpen(true)} />}
-                            <Button variant="ghost" size="icon" onClick={prevMonth} aria-label="Previous month" className="rounded-full h-8 w-8">
-                                <ChevronLeft className="h-5 w-5" />
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={nextMonth} aria-label="Next month" className="rounded-full h-8 w-8">
-                                <ChevronRight className="h-5 w-5" />
-                            </Button>
-                        </div>
+        <div className="animate-page-in space-y-4 px-5 py-3 sm:p-5 md:p-6 max-w-7xl mx-auto pb-16 md:pb-6">
+                {/* Top action row + week-summary chip */}
+                <div className="flex items-center justify-between gap-2">
+                    <button
+                        type="button"
+                        onClick={() => { triggerHapticSelection(); setMonthSheetOpen(true); }}
+                        className="inline-flex items-center gap-2 rounded-full border border-border/40 bg-card/50 px-3 py-1.5 text-[12px] font-semibold hover:bg-muted/40 active:scale-[0.97] transition"
+                        aria-label="Open month calendar"
+                    >
+                        <CalendarDays className="h-3.5 w-3.5 text-primary" />
+                        <span className="text-foreground/90">Week {isoWeek}</span>
+                        <span className="text-muted-foreground/70 tabular-nums">
+                            · {weekSessionCount} {weekSessionCount === 1 ? "session" : "sessions"} · {weekMinutes}min
+                        </span>
+                    </button>
+                    <div className="flex items-center gap-1">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => { triggerHapticSelection(); navigate("/training-library"); }}
+                            aria-label="Open media library"
+                            className="rounded-full h-9 w-9"
+                        >
+                            <Images className="h-4 w-4" />
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => { triggerHapticSelection(); setLibraryOpen(true); }}
+                            aria-label="Open coaching library"
+                            className="rounded-full h-9 w-9"
+                        >
+                            <BookOpen className="h-4 w-4" />
+                        </Button>
+                        {sessions.length > 0 && <ShareButton onClick={() => setShareOpen(true)} />}
                     </div>
+                </div>
 
-                    <CalendarMonthGrid
-                        daysInMonth={daysInMonth}
-                        selectedDate={selectedDate}
-                        sessions={sessions}
-                        onSelectDate={setSelectedDate}
-                    />
-                </Card>
+                {/* Horizontal week strip — 7 days, selected day pops. Auto-scrolls
+                    via flex layout (no overflow needed since 7 fits naturally). */}
+                <div className="grid grid-cols-7 gap-1.5">
+                    {weekDays.map((d) => {
+                        const ds = format(d, "yyyy-MM-dd");
+                        const active = ds === format(selectedDate, "yyyy-MM-dd");
+                        const isTodayCell = isDateToday(d);
+                        const isYestCell = isDateYesterday(d);
+                        const dayCount = (sessionsByDate.get(ds) ?? []).length;
+                        return (
+                            <motion.button
+                                key={ds}
+                                whileTap={{ scale: 0.94 }}
+                                onClick={() => { triggerHapticSelection(); setSelectedDate(d); }}
+                                className={`relative flex flex-col items-center justify-center h-[68px] rounded-2xl border transition-colors ${
+                                    active
+                                        ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/30"
+                                        : "bg-card/40 text-foreground/85 border-border/40 hover:bg-muted/40"
+                                }`}
+                                aria-label={format(d, "EEEE, MMMM d")}
+                                aria-current={active ? "date" : undefined}
+                            >
+                                <span
+                                    className={`text-[9.5px] font-bold uppercase tracking-wider leading-none ${
+                                        active ? "text-primary-foreground/85" : "text-muted-foreground/70"
+                                    }`}
+                                >
+                                    {isTodayCell ? "TODAY" : isYestCell ? "YEST" : format(d, "EEE")}
+                                </span>
+                                <span
+                                    className={`mt-1.5 text-[17px] font-bold tabular-nums leading-none ${
+                                        active ? "text-primary-foreground" : "text-foreground"
+                                    }`}
+                                >
+                                    {format(d, "d")}
+                                </span>
+                                {/* Session count dot(s) below */}
+                                {dayCount > 0 && (
+                                    <span className="absolute bottom-1.5 flex items-center gap-0.5">
+                                        {Array.from({ length: Math.min(3, dayCount) }).map((_, i) => (
+                                            <span
+                                                key={i}
+                                                className={`h-1 w-1 rounded-full ${active ? "bg-primary-foreground" : "bg-primary"}`}
+                                            />
+                                        ))}
+                                    </span>
+                                )}
+                            </motion.button>
+                        );
+                    })}
+                </div>
 
-                {/* Selected Date Details */}
-                <div className="mb-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-xl font-bold">{format(selectedDate, "EEEE, MMM do")}</h3>
-                        <Dialog open={isAddModalOpen} onOpenChange={(open) => {
-                            setIsAddModalOpen(open);
-                            if (!open) resetForm();
-                        }}>
-                            <DialogTrigger asChild>
-                                <Button className="rounded-full h-10 w-10 p-0 shadow-md">
-                                    <Plus className="h-5 w-5" />
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent
+                {/* Selected date header */}
+                <div>
+                    <h3 className="text-[18px] font-bold tracking-tight">{format(selectedDate, "EEEE, MMM do")}</h3>
+                </div>
+
+                {/* Big primary "Log a session" button */}
+                <Dialog open={isAddModalOpen} onOpenChange={(open) => {
+                    setIsAddModalOpen(open);
+                    if (!open) resetForm();
+                }}>
+                    <DialogTrigger asChild>
+                        <button
+                            onClick={openLogModal}
+                            className="w-full h-12 rounded-2xl bg-primary text-primary-foreground font-bold text-[14px] flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-lg shadow-primary/30"
+                        >
+                            <Plus className="h-4 w-4" strokeWidth={2.6} />
+                            Log a session
+                        </button>
+                    </DialogTrigger>
+                    <DialogContent
                                 className="w-[calc(100vw-1.5rem)] max-w-[420px] max-h-[calc(100dvh-3rem)] flex flex-col rounded-[28px] p-0 border-0 bg-card/95 backdrop-blur-xl shadow-2xl gap-0 overflow-hidden"
                             >
                                 <div className="px-5 pt-5 pb-3 shrink-0">
@@ -861,9 +946,8 @@ export default function TrainingCalendar() {
                                 </div>
                             </DialogContent>
                         </Dialog>
-                    </div>
 
-                    <div className="space-y-3">
+                    <div className="space-y-2.5">
                         {isLoading ? (
                             <div className="flex flex-col gap-3">
                                 {[1, 2].map(i => (
@@ -887,13 +971,13 @@ export default function TrainingCalendar() {
                                 ))}
                             </div>
                         ) : sessionsForSelectedDate.length === 0 ? (
-                            <div className="card-surface rounded-2xl border-dashed border-border p-10 flex flex-col items-center justify-center text-center">
-                                <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center mb-3">
-                                    <Activity className="w-5 h-5 text-foreground/30" />
-                                </div>
-                                <p className="text-sm text-foreground/40 font-medium">No sessions logged</p>
-                                <p className="text-xs text-foreground/25 mt-1">Tap + to record your training</p>
-                            </div>
+                            <WizardTrainingEmptyState
+                                onQuickLog={(type) => {
+                                    triggerHapticSelection();
+                                    setSessionType(type);
+                                    setIsAddModalOpen(true);
+                                }}
+                            />
                         ) : (
                             sessionsForSelectedDate.map(session => (
                                 <SessionCard
@@ -903,6 +987,8 @@ export default function TrainingCalendar() {
                                     userId={userId}
                                     onView={handleViewSession}
                                     onColorChange={handleColorChange}
+                                    onEdit={handleEditSession}
+                                    onDelete={(s) => handleDeleteSession(s.id)}
                                 />
                             ))
                         )}
@@ -917,7 +1003,37 @@ export default function TrainingCalendar() {
                             customColors={customColors}
                         />
                     )}
-                </div>
+
+                    {/* Month grid sheet — opened from the Week chip top-left */}
+                    <Sheet open={monthSheetOpen} onOpenChange={setMonthSheetOpen}>
+                        <SheetContent
+                            side="bottom"
+                            className="rounded-t-3xl p-0 max-h-[88vh] overflow-y-auto [&>button]:hidden"
+                            style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1.5rem)" }}
+                        >
+                            <VisuallyHidden><SheetTitle>Month calendar</SheetTitle></VisuallyHidden>
+                            <div className="flex justify-center pt-2 pb-1">
+                                <div className="w-10 h-1 rounded-full bg-muted-foreground/25" aria-hidden />
+                            </div>
+                            <div className="px-5 pt-2 pb-4">
+                                <div className="flex items-center justify-between mb-3">
+                                    <Button variant="ghost" size="icon" onClick={prevMonth} aria-label="Previous month" className="rounded-full h-9 w-9">
+                                        <ChevronLeft className="h-5 w-5" />
+                                    </Button>
+                                    <h2 className="text-[17px] font-bold tracking-tight">{format(currentDate, "MMMM yyyy")}</h2>
+                                    <Button variant="ghost" size="icon" onClick={nextMonth} aria-label="Next month" className="rounded-full h-9 w-9">
+                                        <ChevronRight className="h-5 w-5" />
+                                    </Button>
+                                </div>
+                                <CalendarMonthGrid
+                                    daysInMonth={daysInMonth}
+                                    selectedDate={selectedDate}
+                                    sessions={sessions}
+                                    onSelectDate={(d) => { setSelectedDate(d); setMonthSheetOpen(false); }}
+                                />
+                            </div>
+                        </SheetContent>
+                    </Sheet>
 
             {/* Coaching Library Sheet */}
             <CoachingLibrarySheet
@@ -1092,4 +1208,58 @@ export default function TrainingCalendar() {
 
         </div>
     );
+}
+
+// ── Wizard-led empty state ─────────────────────────────────────────────
+// Shown when the selected day has no logged sessions. Wizard mascot +
+// "What did you train?" + 3 quick chips that pre-fill the log form
+// with that discipline before opening it.
+function WizardTrainingEmptyState({
+  onQuickLog,
+}: {
+  onQuickLog: (sessionType: string) => void;
+}) {
+  const quickTypes: Array<{ label: string; type: string }> = [
+    { label: "BJJ", type: "BJJ" },
+    { label: "Boxing", type: "Boxing" },
+    { label: "Run", type: "Run" },
+  ];
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: "easeOut" }}
+      className="relative overflow-hidden rounded-3xl border border-border/50 bg-card/60 p-4"
+    >
+      <div className="flex items-start gap-3 mb-3">
+        <div className="relative shrink-0" style={{ width: 64, height: 64 }}>
+          <div style={{ width: 140, height: 140, transform: "scale(0.46)", transformOrigin: "top left" }}>
+            <WizardCharacter pose="wave" />
+          </div>
+        </div>
+        <div className="min-w-0 flex-1 pt-1.5">
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary/80">
+            Coach
+          </p>
+          <h4 className="mt-0.5 text-[17px] font-bold leading-tight">
+            What did you train?
+          </h4>
+          <p className="mt-1 text-[12px] text-muted-foreground leading-snug">
+            Pick a discipline or tap Log a session for the full form.
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {quickTypes.map((q) => (
+          <button
+            key={q.type}
+            onClick={() => onQuickLog(q.type)}
+            className="inline-flex items-center gap-1.5 rounded-full bg-muted/40 border border-border/40 px-3 py-1.5 text-[12px] font-semibold text-foreground hover:bg-muted/60 active:scale-[0.97] transition"
+          >
+            {q.label}
+          </button>
+        ))}
+      </div>
+    </motion.div>
+  );
 }

@@ -16,7 +16,7 @@ interface MilestoneBadgesProps {
 
 function BadgeSkeleton() {
   return (
-    <div className="w-28 flex-shrink-0 rounded-2xl border border-border p-3 text-center card-surface">
+    <div className="rounded-2xl border border-border p-3 text-center card-surface">
       <div className="w-10 h-10 rounded-full mx-auto shimmer-skeleton" />
       <div className="h-3 w-16 mx-auto mt-2 rounded shimmer-skeleton" />
       <div className="h-1 w-full mt-2 rounded-full shimmer-skeleton" />
@@ -24,13 +24,11 @@ function BadgeSkeleton() {
   );
 }
 
-// iOS-friendly horizontal scroll: -webkit-overflow-scrolling for momentum,
-// touch-action: pan-x so the gesture is recognised as horizontal pan and
-// not eaten by a parent button or the page's vertical scroll.
-const SCROLL_TRACK_CLASS =
-  "flex gap-3 overflow-x-auto pb-1 scrollbar-hide snap-x scroll-smooth " +
-  "[-webkit-overflow-scrolling:touch] [touch-action:pan-x] " +
-  "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+// Two-column grid — no horizontal scroll, no truncated labels. The 4 most
+// recent badges sit in a tidy 2×2 layout. "See all →" routes through the
+// achievement sheet (via the header tap) to view the full set.
+const GRID_CLASS = "grid grid-cols-2 gap-2";
+const MAX_VISIBLE = 4;
 
 export const MilestoneBadges = memo(function MilestoneBadges({ badges, loading, onTap }: MilestoneBadgesProps) {
   if (!loading && badges.length === 0) return null;
@@ -40,7 +38,7 @@ export const MilestoneBadges = memo(function MilestoneBadges({ badges, loading, 
         <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">
           Achievements
         </div>
-        <div className={SCROLL_TRACK_CLASS}>
+        <div className={GRID_CLASS}>
           {Array.from({ length: 4 }).map((_, i) => (
             <BadgeSkeleton key={i} />
           ))}
@@ -49,11 +47,8 @@ export const MilestoneBadges = memo(function MilestoneBadges({ badges, loading, 
     );
   }
 
-  // NOTE: tap target is the header row only. The scroll track sits OUTSIDE
-  // any button so horizontal swipes aren't intercepted on iOS — wrapping the
-  // whole component in <button> swallows the gesture before the inner
-  // overflow-x container can scroll. Individual badges are also tap targets
-  // for users who land directly on a badge.
+  const visible = badges.slice(0, MAX_VISIBLE);
+  const remaining = Math.max(0, badges.length - MAX_VISIBLE);
   const handleHeaderTap = onTap;
   const handleBadgeTap = onTap;
 
@@ -76,9 +71,18 @@ export const MilestoneBadges = memo(function MilestoneBadges({ badges, loading, 
             Achievements
           </div>
         )}
+        {remaining > 0 && handleHeaderTap && (
+          <button
+            type="button"
+            onClick={handleHeaderTap}
+            className="text-[11px] font-semibold text-primary hover:text-primary/80 transition-colors"
+          >
+            +{remaining} more
+          </button>
+        )}
       </div>
-      <div className={SCROLL_TRACK_CLASS}>
-        {badges.map((badge) => {
+      <div className={GRID_CLASS}>
+        {visible.map((badge) => {
           const Icon = iconMap[badge.icon];
           const BadgeWrapper = handleBadgeTap ? "button" : "div";
           return (
@@ -87,14 +91,11 @@ export const MilestoneBadges = memo(function MilestoneBadges({ badges, loading, 
               {...(handleBadgeTap
                 ? { onClick: handleBadgeTap, type: "button" as const }
                 : {})}
-              className="w-28 flex-shrink-0 snap-start rounded-2xl border border-border p-3 text-center card-surface active:scale-[0.98] transition-transform"
+              className="rounded-2xl border border-border p-3 text-center card-surface active:scale-[0.98] transition-transform"
             >
-              {/* Icon circle */}
               <div
                 className={`w-10 h-10 rounded-full mx-auto flex items-center justify-center ${
-                  badge.unlocked
-                    ? "bg-primary/20"
-                    : "bg-muted/20"
+                  badge.unlocked ? "bg-primary/20" : "bg-muted/20"
                 }`}
                 style={
                   badge.unlocked
@@ -109,8 +110,7 @@ export const MilestoneBadges = memo(function MilestoneBadges({ badges, loading, 
                 )}
               </div>
 
-              {/* Title + checkmark */}
-              <div className="flex items-center justify-center gap-1 mt-2">
+              <div className="flex items-center justify-center gap-1 mt-2 min-w-0">
                 <span className="text-xs font-semibold truncate">
                   {badge.title}
                 </span>
@@ -119,7 +119,6 @@ export const MilestoneBadges = memo(function MilestoneBadges({ badges, loading, 
                 )}
               </div>
 
-              {/* Progress bar */}
               {!badge.unlocked && (
                 <div className="h-1 rounded-full bg-muted mt-2 overflow-hidden">
                   <motion.div

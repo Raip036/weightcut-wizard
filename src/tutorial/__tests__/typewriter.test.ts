@@ -2,14 +2,14 @@ import { describe, it, expect } from "vitest";
 import { charIntervalMs, endsAtSentence } from "../typewriter";
 
 describe("charIntervalMs", () => {
-  it("returns 28ms for normal pace", () => {
-    expect(charIntervalMs("normal")).toBe(28);
+  it("returns 14ms for normal pace", () => {
+    expect(charIntervalMs("normal")).toBe(14);
   });
-  it("returns 55ms for slow pace", () => {
-    expect(charIntervalMs("slow")).toBe(55);
+  it("returns 32ms for slow pace", () => {
+    expect(charIntervalMs("slow")).toBe(32);
   });
   it("defaults to normal when undefined", () => {
-    expect(charIntervalMs(undefined)).toBe(28);
+    expect(charIntervalMs(undefined)).toBe(14);
   });
 });
 

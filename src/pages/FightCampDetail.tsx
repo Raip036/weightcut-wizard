@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
@@ -6,10 +6,13 @@ import type { Id } from "@/../convex/_generated/dataModel";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Save, Trophy, Scale, Camera, CheckCircle2, FileText, Zap, Share2 } from "lucide-react";
-import { triggerHapticSelection } from "@/lib/haptics";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Slider } from "@/components/ui/slider";
+import { ArrowLeft, Trophy, Camera, CheckCircle2, Share2, ChevronRight, Check, Droplet, Wheat } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { triggerHapticSelection, triggerHaptic } from "@/lib/haptics";
+import { ImpactStyle } from "@capacitor/haptics";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { logger } from "@/lib/logger";
@@ -34,27 +37,41 @@ interface FightCamp {
   is_completed: boolean;
 }
 
+type FieldKey =
+  | "starting_weight_kg" | "end_weight_kg"
+  | "breakdown" | "weigh_in_timing"
+  | "performance_feeling" | "rehydration_notes";
+
+type ActiveField = { key: FieldKey; title: string } | null;
+
 export default function FightCampDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { safeAsync, isMounted } = useSafeAsync();
-  // Reactive Convex query — undefined while loading.
   const campRow = useQuery(
     api.fight_camp.getCamp,
     id ? { id: id as Id<"fight_camps"> } : "skip",
   );
   const updateCamp = useMutation(api.fight_camp.updateCamp);
   const generateMediaUploadUrl = useMutation(api.fight_camp.generateMediaUploadUrl);
-  const getMediaUrl = useQuery; // hoisted alias to avoid TS unused-var lint
-  void getMediaUrl;
 
   const [camp, setCamp] = useState<FightCamp | null>(null);
   const [uploading, setUploading] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [activeField, setActiveField] = useState<ActiveField>(null);
 
-  // Project Convex row → legacy FightCamp shape so the component body stays
-  // unchanged. Convex returns camelCase; the UI was built around snake_case.
+  // Saved ✓ flash — mirrors the Goals page.
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flagSaved = () => {
+    setSavedAt(Date.now());
+    if (savedTimer.current) clearTimeout(savedTimer.current);
+    savedTimer.current = setTimeout(() => setSavedAt(null), 1800);
+  };
+  useEffect(() => () => { if (savedTimer.current) clearTimeout(savedTimer.current); }, []);
+
+  // Project Convex row → legacy FightCamp shape.
   useEffect(() => {
     if (!campRow) return;
     const c: any = campRow;
@@ -78,57 +95,59 @@ export default function FightCampDetail() {
 
   const loading = campRow === undefined && !camp;
 
-  const handleUpdate = async () => {
+  // ── Auto-save ────────────────────────────────────────────────────────
+  // Each field commit merges overrides into local state + persists via the
+  // Convex updateCamp mutation. Total weight cut is auto-derived from
+  // Start − End on commit so downstream consumers stay coherent.
+  const autoSave = useCallback(async (overrides: Partial<FightCamp>) => {
     if (!camp || !id) return;
+    const next: FightCamp = { ...camp, ...overrides };
+
+    const start = next.starting_weight_kg;
+    const end = next.end_weight_kg;
+    const computedTotal =
+      start != null && end != null && start > end
+        ? Math.round((start - end) * 10) / 10
+        : null;
+    if (computedTotal !== next.total_weight_cut) {
+      next.total_weight_cut = computedTotal;
+    }
+
+    setCamp(next);
     try {
       await updateCamp({
         id: id as Id<"fight_camps">,
-        startingWeightKg: camp.starting_weight_kg ?? undefined,
-        endWeightKg: camp.end_weight_kg ?? undefined,
-        totalWeightCut: camp.total_weight_cut ?? undefined,
-        weightViaDehydration: camp.weight_via_dehydration ?? undefined,
-        weightViaCarbReduction: camp.weight_via_carb_reduction ?? undefined,
-        weighInTiming: camp.weigh_in_timing ?? undefined,
-        rehydrationNotes: camp.rehydration_notes ?? undefined,
-        performanceFeeling: camp.performance_feeling ?? undefined,
-        isCompleted: camp.is_completed,
+        startingWeightKg: next.starting_weight_kg ?? undefined,
+        endWeightKg: next.end_weight_kg ?? undefined,
+        totalWeightCut: next.total_weight_cut ?? undefined,
+        weightViaDehydration: next.weight_via_dehydration ?? undefined,
+        weightViaCarbReduction: next.weight_via_carb_reduction ?? undefined,
+        weighInTiming: next.weigh_in_timing ?? undefined,
+        rehydrationNotes: next.rehydration_notes ?? undefined,
+        performanceFeeling: next.performance_feeling ?? undefined,
+        isCompleted: next.is_completed,
       });
-      navigate("/fight-camps");
+      flagSaved();
+      triggerHaptic(ImpactStyle.Light);
     } catch (err) {
-      logger.warn("FightCampDetail: update failed", { err });
-      toast({ title: "Error", description: "Failed to update camp", variant: "destructive" });
+      logger.warn("FightCampDetail: autoSave failed", { err });
+      toast({ title: "Save failed", description: "Couldn't save your changes.", variant: "destructive" });
     }
-  };
+  }, [camp, id, updateCamp, toast]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0 || !camp) return;
-
     const file = e.target.files[0];
-
-    // Basic client-side guards. Server can re-validate but we keep the user
-    // from waiting on an upload that's destined to fail.
     if (file.size > 5 * 1024 * 1024) {
-      toast({
-        title: "Image too large",
-        description: "Keep camp images under 5 MB.",
-        variant: "destructive",
-      });
+      toast({ title: "Image too large", description: "Keep camp images under 5 MB.", variant: "destructive" });
       return;
     }
     if (file.type && !file.type.startsWith("image/")) {
-      toast({
-        title: "Unsupported file",
-        description: "Please choose an image.",
-        variant: "destructive",
-      });
+      toast({ title: "Unsupported file", description: "Please choose an image.", variant: "destructive" });
       return;
     }
-
     safeAsync(setUploading)(true);
-
     try {
-      // 1. Generate a Convex storage upload URL, POST the bytes, resolve the
-      //    long-lived public URL.
       const uploadUrl = await generateMediaUploadUrl({});
       const uploadRes = await fetch(uploadUrl, {
         method: "POST",
@@ -137,30 +156,20 @@ export default function FightCampDetail() {
       });
       if (!uploadRes.ok) throw new Error(`Upload failed (${uploadRes.status})`);
       const { storageId } = (await uploadRes.json()) as { storageId: string };
-      // Resolve the canonical public URL via the existing Convex query
-      // module surface; we lazy-import to keep the synchronous render light.
       const { convex } = await import("@/integrations/convex/client");
       const publicUrl = (await convex.query(api.fight_camp.getMediaUrl, {
         storageId: storageId as any,
       })) as string | null;
       if (!publicUrl) throw new Error("Could not resolve uploaded image URL");
-
       if (!isMounted()) return;
-
-      // 2. Persist `profilePicUrl` on the Convex fight_camps row.
-      await updateCamp({
-        id: camp.id as Id<"fight_camps">,
-        profilePicUrl: publicUrl,
-      });
-
-      if (isMounted()) setCamp({ ...camp, profile_pic_url: publicUrl });
+      await updateCamp({ id: camp.id as Id<"fight_camps">, profilePicUrl: publicUrl });
+      if (isMounted()) {
+        setCamp({ ...camp, profile_pic_url: publicUrl });
+        flagSaved();
+      }
     } catch (err) {
       logger.error("Failed to upload fight-camp image", { err });
-      toast({
-        title: "Error",
-        description: "Failed to upload image",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to upload image", variant: "destructive" });
     } finally {
       if (isMounted()) setUploading(false);
     }
@@ -178,9 +187,6 @@ export default function FightCampDetail() {
   }
 
   if (!camp) {
-    // Convex resolved the query but found no row — id is invalid, deleted, or
-    // not owned by this user. Render an explicit error card with a back
-    // affordance so the user isn't staring at a blank screen.
     return (
       <div className="animate-page-in space-y-3 px-5 py-3 sm:p-5 md:p-6 max-w-2xl mx-auto">
         <div className="card-surface rounded-2xl p-6 text-center space-y-3">
@@ -206,145 +212,170 @@ export default function FightCampDetail() {
     );
   }
 
-  const weightCut = camp.starting_weight_kg && camp.end_weight_kg
-    ? (camp.starting_weight_kg - camp.end_weight_kg).toFixed(1)
-    : null;
+  const computedTotal =
+    camp.starting_weight_kg != null && camp.end_weight_kg != null && camp.starting_weight_kg > camp.end_weight_kg
+      ? Math.round((camp.starting_weight_kg - camp.end_weight_kg) * 10) / 10
+      : null;
+
+  // Outcome chip: a soft Apple Health-style status. We don't have a true
+  // win/loss field so we derive from completion + cut depth — "Strong finish"
+  // when the cut hit a meaningful number, "Wrap-up pending" otherwise.
+  const outcome = (() => {
+    if (!camp.is_completed) return { label: "In progress", tone: "muted" as const };
+    if (computedTotal != null && computedTotal > 0) {
+      return { label: `${computedTotal}kg cut · complete`, tone: "ok" as const };
+    }
+    return { label: "Camp complete", tone: "ok" as const };
+  })();
 
   return (
-    <div className="animate-page-in space-y-3 px-5 py-3 sm:p-5 md:p-6 max-w-2xl mx-auto">
-
+    <div className="animate-page-in px-5 py-3 sm:p-5 md:p-6 max-w-2xl mx-auto pb-20 md:pb-8">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 mb-3">
         <Button variant="ghost" size="icon" onClick={() => navigate("/fight-camps")} aria-label="Back to fight camps" className="h-9 w-9 rounded-full bg-muted hover:bg-muted/80 border border-border shrink-0">
           <ArrowLeft className="w-4 h-4" />
         </Button>
-        <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-bold truncate">{camp.name}</h1>
-          <p className="text-sm text-muted-foreground">
-            {camp.event_name && <span className="text-primary font-medium">{camp.event_name} &middot; </span>}
-            {format(new Date(camp.fight_date), "MMM dd, yyyy")}
-          </p>
+        <div className="min-w-0 flex-1 relative">
+          <AnimatePresence>
+            {savedAt && (
+              <motion.div
+                initial={{ opacity: 0, y: -2, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -2, scale: 0.9 }}
+                transition={{ duration: 0.18 }}
+                className="absolute -top-1 right-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 text-[10px] font-semibold"
+              >
+                <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                Saved
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
         <Button variant="ghost" size="icon" onClick={() => setShareOpen(true)} aria-label="Share camp" className="h-9 w-9 rounded-full bg-muted hover:bg-muted/80 border border-border shrink-0">
           <Share2 className="w-4 h-4" />
         </Button>
       </div>
 
-      {/* Hero Card — Camp Picture + Quick Stats */}
-      <div className="card-surface p-3 space-y-3">
-        <div className="flex items-center gap-3">
-          {/* Picture */}
-          <label className="relative cursor-pointer shrink-0 group">
+      {/* Hero — outcome chip, camp name, date, 3-up stat tiles */}
+      <header className="rounded-3xl bg-card/60 border border-border/40 overflow-hidden mb-6">
+        <div className="px-5 pt-5 pb-4 flex flex-col items-center gap-3">
+          <label className="relative cursor-pointer group">
             {camp.profile_pic_url ? (
               <img
                 src={camp.profile_pic_url}
                 alt={camp.name}
-                className="w-16 h-16 rounded-2xl object-cover border border-border"
+                className="w-20 h-20 rounded-2xl object-cover border border-border/40"
               />
             ) : (
-              <div className="w-16 h-16 rounded-2xl bg-muted/50 border border-border flex items-center justify-center">
-                <Trophy className="w-6 h-6 text-muted-foreground/50" />
+              <div className="w-20 h-20 rounded-2xl bg-muted/40 border border-border/40 flex items-center justify-center">
+                <Trophy className="w-7 h-7 text-muted-foreground/50" />
               </div>
             )}
             <div className="absolute inset-0 bg-black/40 rounded-2xl opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity flex items-center justify-center">
               <Camera className="w-5 h-5 text-white" />
             </div>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImageUpload}
-              disabled={uploading}
-              className="hidden"
-            />
+            <input type="file" accept="image/*" onChange={handleImageUpload} disabled={uploading} className="hidden" />
           </label>
 
-          {/* Quick Stats */}
-          <div className="flex-1 grid grid-cols-3 gap-2">
-            <div className="text-center rounded-2xl bg-muted border border-border py-2.5 px-1">
-              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Start</p>
-              <p className="text-base font-bold display-number mt-0.5">{camp.starting_weight_kg ? `${camp.starting_weight_kg}` : '—'}<span className="text-xs font-normal text-muted-foreground">kg</span></p>
-            </div>
-            <div className="text-center rounded-2xl bg-primary/10 border border-primary/20 py-2.5 px-1">
-              <p className="text-[10px] uppercase tracking-widest text-primary/70">Cut</p>
-              <p className="text-base font-bold display-number text-primary mt-0.5">{weightCut ? `-${weightCut}` : '—'}<span className="text-xs font-normal text-primary/60">kg</span></p>
-            </div>
-            <div className="text-center rounded-2xl bg-muted border border-border py-2.5 px-1">
-              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">End</p>
-              <p className="text-base font-bold display-number mt-0.5">{camp.end_weight_kg ? `${camp.end_weight_kg}` : '—'}<span className="text-xs font-normal text-muted-foreground">kg</span></p>
-            </div>
+          <div className="text-center">
+            <h1 className="text-[24px] font-bold tracking-tight leading-tight">{camp.name}</h1>
+            <p className="text-[13px] text-muted-foreground mt-0.5">
+              {camp.event_name && <span className="text-primary font-medium">{camp.event_name} · </span>}
+              {format(new Date(camp.fight_date), "MMM dd, yyyy")}
+            </p>
+          </div>
+
+          <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold ${
+            outcome.tone === "ok"
+              ? "bg-emerald-500/15 text-emerald-500"
+              : "bg-muted/40 text-muted-foreground"
+          }`}>
+            {outcome.tone === "ok" && <CheckCircle2 className="h-3 w-3" />}
+            {outcome.label}
           </div>
         </div>
 
-        {/* Completion Badge */}
-        {camp.is_completed && (
-          <div className="flex items-center gap-2 rounded-2xl bg-green-500/10 border border-green-500/20 px-3 py-2">
-            <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
-            <span className="text-xs font-medium text-green-600 dark:text-green-400">Camp Completed</span>
-          </div>
-        )}
-      </div>
-
-      {/* Unified Weight Cut card — single piece of chrome that holds the
-          before/after weights, the auto-computed total, the breakdown split,
-          the proportional bar, and the weigh-in chip row. Inputs share one
-          common label style (no per-row icons) so columns line up cleanly. */}
-      <WeightCutCard camp={camp} setCamp={setCamp} />
-
-      {/* Notes */}
-      <div className="card-surface overflow-hidden">
-        <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-          <FileText className="w-4 h-4 text-primary" />
-          <h2 className="text-sm font-bold">Rehydration Notes</h2>
+        {/* 3-up stat tiles: Start → Cut → End */}
+        <div className="grid grid-cols-3 border-t border-border/40 divide-x divide-border/40">
+          <StatTile label="Start" value={camp.starting_weight_kg} unit="kg" />
+          <StatTile label="Cut" value={computedTotal != null ? -computedTotal : null} unit="kg" accent />
+          <StatTile label="End" value={camp.end_weight_kg} unit="kg" />
         </div>
-        <div className="p-4">
-          <Textarea
-            placeholder="How did rehydration go? What worked well? What would you change?"
-            value={camp.rehydration_notes || ""}
-            onChange={(e) => setCamp({ ...camp, rehydration_notes: e.target.value })}
-            rows={4}
-            className="rounded-2xl border-border bg-muted focus:border-primary/50 resize-none"
+      </header>
+
+      <div className="space-y-6">
+        {/* WEIGHT CUT group */}
+        <SettingsGroup title="Weight cut">
+          <SettingsRow
+            label="Start"
+            value={camp.starting_weight_kg != null ? `${camp.starting_weight_kg} kg` : "—"}
+            onTap={() => setActiveField({ key: "starting_weight_kg", title: "Start weight" })}
           />
-        </div>
-      </div>
-
-      <div className="card-surface overflow-hidden">
-        <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-          <Zap className="w-4 h-4 text-primary" />
-          <h2 className="text-sm font-bold">Performance Feeling</h2>
-        </div>
-        <div className="p-4">
-          <Textarea
-            placeholder="How did you feel on fight day? Energy levels, strength, mental clarity?"
-            value={camp.performance_feeling || ""}
-            onChange={(e) => setCamp({ ...camp, performance_feeling: e.target.value })}
-            rows={4}
-            className="rounded-2xl border-border bg-muted focus:border-primary/50 resize-none"
+          <SettingsRow
+            label="End"
+            value={camp.end_weight_kg != null ? `${camp.end_weight_kg} kg` : "—"}
+            onTap={() => setActiveField({ key: "end_weight_kg", title: "End weight" })}
           />
-        </div>
+          <SettingsRow
+            label="Breakdown"
+            value={
+              camp.weight_via_dehydration != null || camp.weight_via_carb_reduction != null
+                ? `${camp.weight_via_dehydration ?? 0} / ${camp.weight_via_carb_reduction ?? 0} kg`
+                : "—"
+            }
+            hint={computedTotal != null ? `Total ${computedTotal}kg` : undefined}
+            onTap={() => setActiveField({ key: "breakdown", title: "Cut breakdown" })}
+          />
+          <SettingsRow
+            label="Weigh-in timing"
+            value={camp.weigh_in_timing === "day_before" ? "Day before" : camp.weigh_in_timing === "day_of" ? "Day of" : "—"}
+            onTap={() => setActiveField({ key: "weigh_in_timing", title: "Weigh-in timing" })}
+          />
+        </SettingsGroup>
+
+        {/* FEEL group */}
+        <SettingsGroup title="Feel">
+          <SettingsRow
+            label="Performance"
+            value={camp.performance_feeling ? truncate(camp.performance_feeling, 28) : "—"}
+            onTap={() => setActiveField({ key: "performance_feeling", title: "Performance feeling" })}
+          />
+          <SettingsRow
+            label="Rehydration notes"
+            value={camp.rehydration_notes ? truncate(camp.rehydration_notes, 28) : "—"}
+            onTap={() => setActiveField({ key: "rehydration_notes", title: "Rehydration notes" })}
+          />
+        </SettingsGroup>
+
+        {/* STATUS group — inline completed toggle */}
+        <SettingsGroup title="Status">
+          <button
+            type="button"
+            onClick={() => {
+              triggerHapticSelection();
+              void autoSave({ is_completed: !camp.is_completed });
+            }}
+            className="w-full min-h-[52px] flex items-center gap-3 px-4 py-2.5 text-left active:bg-muted/40 transition-colors"
+          >
+            <p className="flex-1 text-[15px] font-medium leading-tight truncate">Mark as completed</p>
+            <span className={`relative inline-flex h-7 w-12 rounded-full transition-colors ${
+              camp.is_completed ? "bg-primary" : "bg-muted-foreground/25"
+            }`}>
+              <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform ${
+                camp.is_completed ? "translate-x-[22px]" : "translate-x-0.5"
+              }`} />
+            </span>
+          </button>
+        </SettingsGroup>
       </div>
 
-      {/* Footer — Completion + Save */}
-      <div className="card-surface p-4">
-        <div className="flex items-center justify-between">
-          <label htmlFor="completed" className="flex items-center gap-2.5 cursor-pointer select-none">
-            <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${camp.is_completed ? 'bg-primary border-primary' : 'border-border/60 bg-muted/20'}`}>
-              {camp.is_completed && <CheckCircle2 className="w-3.5 h-3.5 text-primary-foreground" />}
-            </div>
-            <input
-              type="checkbox"
-              id="completed"
-              checked={camp.is_completed}
-              onChange={(e) => setCamp({ ...camp, is_completed: e.target.checked })}
-              className="hidden"
-            />
-            <span className="text-sm font-medium">Mark as completed</span>
-          </label>
-          <Button onClick={handleUpdate} className="rounded-2xl h-10 px-5 font-bold bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-lg shadow-primary/20">
-            <Save className="w-4 h-4 mr-2" />
-            Save
-          </Button>
-        </div>
-      </div>
+      <EditFieldSheet
+        active={activeField}
+        camp={camp}
+        computedTotal={computedTotal}
+        onCommit={(overrides) => void autoSave(overrides)}
+        onClose={() => setActiveField(null)}
+      />
 
       <ShareCardDialog
         open={shareOpen}
@@ -361,257 +392,369 @@ export default function FightCampDetail() {
   );
 }
 
-const INPUT_CLASS =
-  "h-11 rounded-2xl bg-muted/40 dark:bg-white/[0.06] border-border/30 text-[15px] text-foreground placeholder:text-muted-foreground/50 px-4 focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all text-right tabular-nums";
+// ─────────────────────────────────────────────────────────────────────
+// Inline primitives
+// ─────────────────────────────────────────────────────────────────────
 
-const LABEL_CLASS =
-  "text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/70";
-
-/**
- * Single unified weight-cut card.
- *
- * Design goals:
- *   - One piece of chrome, no nested cards.
- *   - Inputs in matched 2-col grids with identical label structure so the
- *     columns never visually shift (the old "Via Dehydration" label had a
- *     droplet icon and "Via Carb Reduction" didn't, which pushed the inputs
- *     out of alignment).
- *   - Total Weight Cut is auto-computed from Start − End and shown as a
- *     read-only badge; we still keep the underlying field in state so the
- *     existing save mutation continues to receive it.
- *   - Cut breakdown auto-fills Carb Reduction = Total − Dehydration the
- *     first time the user types in Dehydration, but a subsequent edit to
- *     Carb releases the auto-link so the user keeps full control.
- *   - Visual breakdown bar is always present; reads "Enter values below"
- *     when empty so the column heights don't jump when the user fills it.
- *   - Weigh-in is a 2-chip row matching the chip pattern used by the
- *     nutrition page, wellness check-in, and the next-camp wizard.
- */
-function WeightCutCard({
-  camp,
-  setCamp,
-}: {
-  camp: FightCamp;
-  setCamp: (c: FightCamp) => void;
-}) {
-  const [carbAuto, setCarbAuto] = useState(true);
-
-  const start = camp.starting_weight_kg ?? null;
-  const end = camp.end_weight_kg ?? null;
-  const computedTotal =
-    start != null && end != null && start > end
-      ? Math.round((start - end) * 10) / 10
-      : null;
-
-  // Keep the persisted total_weight_cut in sync with the live Start − End so
-  // downstream consumers (share cards, comparison view) get the right number
-  // without an extra "save and refresh" trip.
-  useEffect(() => {
-    if (computedTotal !== camp.total_weight_cut) {
-      setCamp({ ...camp, total_weight_cut: computedTotal });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [computedTotal]);
-
-  const dehydration = camp.weight_via_dehydration;
-  const carbs = camp.weight_via_carb_reduction;
-  const breakdownTotal = (dehydration ?? 0) + (carbs ?? 0);
-  const dehydrationPct = breakdownTotal > 0 ? ((dehydration ?? 0) / breakdownTotal) * 100 : 0;
-  const carbsPct = breakdownTotal > 0 ? ((carbs ?? 0) / breakdownTotal) * 100 : 0;
-
-  const handleStart = (v: string) => {
-    const n = parseFloat(v);
-    setCamp({ ...camp, starting_weight_kg: Number.isFinite(n) ? n : null });
-  };
-  const handleEnd = (v: string) => {
-    const n = parseFloat(v);
-    setCamp({ ...camp, end_weight_kg: Number.isFinite(n) ? n : null });
-  };
-
-  const handleDehydration = (v: string) => {
-    const n = parseFloat(v);
-    const next = Number.isFinite(n) ? n : null;
-    const patch: Partial<FightCamp> = { weight_via_dehydration: next };
-    if (carbAuto && computedTotal != null && next != null) {
-      const auto = Math.max(0, Math.round((computedTotal - next) * 10) / 10);
-      patch.weight_via_carb_reduction = auto;
-    }
-    setCamp({ ...camp, ...patch });
-  };
-
-  const handleCarb = (v: string) => {
-    const n = parseFloat(v);
-    setCarbAuto(false); // user took manual control
-    setCamp({ ...camp, weight_via_carb_reduction: Number.isFinite(n) ? n : null });
-  };
-
-  const setWeighIn = (value: "day_before" | "day_of") => {
-    triggerHapticSelection();
-    setCamp({ ...camp, weigh_in_timing: value });
-  };
-
+function StatTile({ label, value, unit, accent }: { label: string; value: number | null; unit: string; accent?: boolean }) {
+  const display = value == null
+    ? "—"
+    : value < 0 ? `${value}` : `${value}`;
   return (
-    <div className="card-surface overflow-hidden">
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-        <Scale className="w-4 h-4 text-primary" />
-        <h2 className="text-sm font-bold">Weight Cut</h2>
+    <div className="py-3 px-2 text-center">
+      <p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/70">{label}</p>
+      <p className={`mt-1 text-[22px] font-bold tabular-nums tracking-tight ${accent ? "text-primary" : "text-foreground"}`}>
+        {display}
+        {value != null && <span className={`text-[12px] font-medium ml-0.5 ${accent ? "text-primary/70" : "text-muted-foreground"}`}>{unit}</span>}
+      </p>
+    </div>
+  );
+}
+
+function SettingsGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section>
+      <h2 className="px-4 mb-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground/80">
+        {title}
+      </h2>
+      <div className="rounded-2xl bg-card/60 backdrop-blur-sm border border-border/40 overflow-hidden divide-y divide-border/30">
+        {children}
       </div>
+    </section>
+  );
+}
 
-      <div className="p-4 space-y-5">
-        {/* Start + End in matched columns */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label className={LABEL_CLASS}>Start (kg)</Label>
-            <Input
-              type="number"
-              inputMode="decimal"
-              step="0.1"
-              value={start ?? ""}
-              onChange={(e) => handleStart(e.target.value)}
-              placeholder="0"
-              className={INPUT_CLASS}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className={LABEL_CLASS}>End (kg)</Label>
-            <Input
-              type="number"
-              inputMode="decimal"
-              step="0.1"
-              value={end ?? ""}
-              onChange={(e) => handleEnd(e.target.value)}
-              placeholder="0"
-              className={INPUT_CLASS}
-            />
-          </div>
-        </div>
+function SettingsRow({
+  label, value, hint, onTap,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  onTap: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => { triggerHapticSelection(); onTap(); }}
+      className="w-full min-h-[52px] flex items-center gap-3 px-4 py-2.5 text-left active:bg-muted/40 transition-colors"
+    >
+      <div className="flex-1 min-w-0">
+        <p className="text-[15px] font-medium leading-tight truncate">{label}</p>
+        {hint && <p className="mt-0.5 text-[11px] text-muted-foreground/80 truncate">{hint}</p>}
+      </div>
+      <span className="text-[15px] tabular-nums shrink-0 truncate max-w-[55%] text-right text-muted-foreground">
+        {value}
+      </span>
+      <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+    </button>
+  );
+}
 
-        {/* Total — auto-computed badge */}
-        <div className="flex items-center justify-between px-3 py-2.5 rounded-2xl bg-primary/10 border border-primary/20">
-          <span className="text-[12px] font-semibold uppercase tracking-[0.12em] text-primary/80">
-            Total weight cut
-          </span>
-          <span className="text-[15px] font-bold tabular-nums text-primary">
-            {computedTotal != null ? `${computedTotal} kg` : "—"}
-          </span>
-        </div>
+function EditFieldSheet({
+  active, camp, computedTotal, onCommit, onClose,
+}: {
+  active: ActiveField;
+  camp: FightCamp;
+  computedTotal: number | null;
+  onCommit: (overrides: Partial<FightCamp>) => void;
+  onClose: () => void;
+}) {
+  const [draftText, setDraftText] = useState("");
+  const [draftNumber, setDraftNumber] = useState("");
 
-        {/* Breakdown — matched columns, identical label structure */}
-        <div className="space-y-2.5">
-          <div className="flex items-center justify-between">
-            <span className={LABEL_CLASS}>Breakdown</span>
-            {!carbAuto && computedTotal != null && (
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHapticSelection();
-                  setCarbAuto(true);
-                  if (dehydration != null) {
-                    const auto = Math.max(0, Math.round((computedTotal - dehydration) * 10) / 10);
-                    setCamp({ ...camp, weight_via_carb_reduction: auto });
-                  }
-                }}
-                className="text-[10px] font-semibold text-primary/80 active:text-primary uppercase tracking-wider"
-              >
-                Reset auto
-              </button>
-            )}
-          </div>
+  useEffect(() => {
+    if (!active) return;
+    if (active.key === "performance_feeling") setDraftText(camp.performance_feeling ?? "");
+    else if (active.key === "rehydration_notes") setDraftText(camp.rehydration_notes ?? "");
+    else if (active.key === "starting_weight_kg") setDraftNumber(camp.starting_weight_kg?.toString() ?? "");
+    else if (active.key === "end_weight_kg") setDraftNumber(camp.end_weight_kg?.toString() ?? "");
+  }, [active, camp]);
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className={LABEL_CLASS}>Dehydration</Label>
-              <Input
-                type="number"
-                inputMode="decimal"
-                step="0.1"
-                value={dehydration ?? ""}
-                onChange={(e) => handleDehydration(e.target.value)}
-                placeholder="kg"
-                className={INPUT_CLASS}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className={LABEL_CLASS}>Carb reduction</Label>
-              <Input
-                type="number"
-                inputMode="decimal"
-                step="0.1"
-                value={carbs ?? ""}
-                onChange={(e) => handleCarb(e.target.value)}
-                placeholder={carbAuto && computedTotal != null && dehydration != null ? "auto" : "kg"}
-                className={INPUT_CLASS}
-              />
-            </div>
-          </div>
+  if (!active) return null;
 
-          {/* Proportional bar — always present so heights don't jump */}
-          <div className="space-y-1.5">
-            <div className="flex h-2.5 rounded-full overflow-hidden bg-muted/40 border border-border/40">
-              {breakdownTotal > 0 ? (
-                <>
-                  <div
-                    className="bg-blue-500/85 transition-all duration-500"
-                    style={{ width: `${dehydrationPct}%` }}
-                  />
-                  <div
-                    className="bg-primary/80 transition-all duration-500"
-                    style={{ width: `${carbsPct}%` }}
-                  />
-                </>
-              ) : (
-                <div className="flex-1 bg-muted-foreground/10" />
-              )}
-            </div>
-            <div className="flex items-center justify-between text-[10px] text-muted-foreground/80">
-              <span className="inline-flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-blue-500/85" />
-                Dehydration
-                {breakdownTotal > 0 && (
-                  <span className="tabular-nums ml-0.5 text-muted-foreground/60">
-                    {Math.round(dehydrationPct)}%
-                  </span>
-                )}
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-primary/80" />
-                Carb reduction
-                {breakdownTotal > 0 && (
-                  <span className="tabular-nums ml-0.5 text-muted-foreground/60">
-                    {Math.round(carbsPct)}%
-                  </span>
-                )}
-              </span>
-            </div>
-          </div>
-        </div>
+  const commitText = () => {
+    if (active.key === "performance_feeling") onCommit({ performance_feeling: draftText.trim() || null });
+    if (active.key === "rehydration_notes") onCommit({ rehydration_notes: draftText.trim() || null });
+    onClose();
+  };
 
-        {/* Weigh-in — two-chip row matches the rest of the app */}
-        <div className="space-y-1.5">
-          <Label className={LABEL_CLASS}>Weigh-in timing</Label>
-          <div className="grid grid-cols-2 gap-2">
-            {(["day_before", "day_of"] as const).map((value) => {
-              const active = camp.weigh_in_timing === value;
+  const commitNumber = () => {
+    const n = parseFloat(draftNumber);
+    const val = Number.isFinite(n) ? n : null;
+    if (active.key === "starting_weight_kg") onCommit({ starting_weight_kg: val });
+    if (active.key === "end_weight_kg") onCommit({ end_weight_kg: val });
+    onClose();
+  };
+
+  const renderBody = () => {
+    switch (active.key) {
+      case "starting_weight_kg":
+      case "end_weight_kg":
+        return (
+          <NumericEditor
+            value={draftNumber}
+            unit="kg"
+            step="0.1"
+            onChange={setDraftNumber}
+            onCommit={commitNumber}
+          />
+        );
+
+      case "breakdown":
+        return (
+          <BreakdownEditor
+            total={computedTotal}
+            dehydration={camp.weight_via_dehydration}
+            carbs={camp.weight_via_carb_reduction}
+            onChange={(d, c) => onCommit({ weight_via_dehydration: d, weight_via_carb_reduction: c })}
+            onClose={onClose}
+          />
+        );
+
+      case "weigh_in_timing":
+        return (
+          <div className="grid gap-2">
+            {[
+              { value: "day_before", label: "Day before" },
+              { value: "day_of", label: "Day of" },
+            ].map((o) => {
+              const active = camp.weigh_in_timing === o.value;
               return (
                 <button
-                  key={value}
+                  key={o.value}
                   type="button"
-                  onClick={() => setWeighIn(value)}
-                  aria-pressed={active}
-                  className={`h-11 rounded-2xl text-[13px] font-semibold transition-colors ${
+                  onClick={() => { triggerHapticSelection(); onCommit({ weigh_in_timing: o.value }); onClose(); }}
+                  className={`min-h-[48px] px-4 rounded-xl text-[15px] font-medium transition-all active:scale-[0.98] ${
                     active
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted/40 text-muted-foreground/85 active:bg-muted/60 border border-border/30"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "bg-muted/30 text-foreground border border-border/40"
                   }`}
                 >
-                  {value === "day_before" ? "Day before" : "Day of"}
+                  {o.label}
                 </button>
               );
             })}
           </div>
+        );
+
+      case "performance_feeling":
+      case "rehydration_notes":
+        return (
+          <div className="space-y-3">
+            <Textarea
+              autoFocus
+              value={draftText}
+              onChange={(e) => setDraftText(e.target.value)}
+              placeholder={
+                active.key === "performance_feeling"
+                  ? "How did you feel on fight day? Energy levels, strength, mental clarity…"
+                  : "How did rehydration go? What worked well? What would you change?"
+              }
+              rows={6}
+              className="rounded-xl bg-muted/30 border-border/40 text-[15px] resize-none focus:border-primary/40 focus:ring-2 focus:ring-primary/20"
+            />
+            <button
+              type="button"
+              onClick={commitText}
+              className="w-full h-12 rounded-xl bg-primary text-primary-foreground text-[15px] font-semibold active:scale-[0.98] transition-transform"
+            >
+              Save
+            </button>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <Sheet open={!!active} onOpenChange={(o) => !o && onClose()}>
+      <SheetContent side="bottom" className="rounded-t-3xl px-5 pb-8 pt-3 max-h-[80vh] overflow-y-auto">
+        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-muted-foreground/30" aria-hidden />
+        <SheetHeader>
+          <SheetTitle className="text-[17px] font-semibold text-center">{active.title}</SheetTitle>
+        </SheetHeader>
+        <div className="mt-4">{renderBody()}</div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function NumericEditor({
+  value, unit, step, onChange, onCommit,
+}: {
+  value: string;
+  unit: string;
+  step: string;
+  onChange: (v: string) => void;
+  onCommit: () => void;
+}) {
+  const stepNum = parseFloat(step);
+  const bump = (delta: number) => {
+    const cur = parseFloat(value) || 0;
+    const next = Math.round((cur + delta) * 10) / 10;
+    if (next < 0) return;
+    onChange(next.toString());
+  };
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-center gap-3">
+        <button
+          type="button"
+          onClick={() => bump(-stepNum)}
+          className="h-12 w-12 rounded-full bg-muted/40 text-foreground text-[20px] font-light active:scale-95 transition-transform"
+        >
+          −
+        </button>
+        <div className="flex items-baseline gap-1.5 min-w-[140px] justify-center">
+          <Input
+            type="number"
+            step={step}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="w-[110px] h-14 text-center text-[34px] font-bold tabular-nums bg-transparent border-0 focus-visible:ring-0 px-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            placeholder="—"
+            inputMode="decimal"
+          />
+          <span className="text-[15px] text-muted-foreground font-medium">{unit}</span>
         </div>
+        <button
+          type="button"
+          onClick={() => bump(stepNum)}
+          className="h-12 w-12 rounded-full bg-muted/40 text-foreground text-[20px] font-light active:scale-95 transition-transform"
+        >
+          +
+        </button>
       </div>
+      <button
+        type="button"
+        onClick={onCommit}
+        className="w-full h-12 rounded-xl bg-primary text-primary-foreground text-[15px] font-semibold active:scale-[0.98] transition-transform"
+      >
+        Save
+      </button>
     </div>
   );
+}
+
+function BreakdownEditor({
+  total, dehydration, carbs, onChange, onClose,
+}: {
+  total: number | null;
+  dehydration: number | null;
+  carbs: number | null;
+  onChange: (d: number, c: number) => void;
+  onClose: () => void;
+}) {
+  // Slider value = dehydration share (0–100). If no total yet, default to 0
+  // and show a soft prompt.
+  const effectiveTotal = total ?? ((dehydration ?? 0) + (carbs ?? 0));
+  const initialPct = useMemo(() => {
+    if (effectiveTotal <= 0) return 50;
+    return Math.round(((dehydration ?? 0) / effectiveTotal) * 100);
+  }, [effectiveTotal, dehydration]);
+
+  const [pct, setPct] = useState<number>(initialPct);
+  useEffect(() => { setPct(initialPct); }, [initialPct]);
+
+  const dehydKg = effectiveTotal > 0 ? Math.round((effectiveTotal * pct) / 10) / 10 : 0;
+  const carbsKg = effectiveTotal > 0 ? Math.round((effectiveTotal - dehydKg) * 10) / 10 : 0;
+
+  const commit = () => {
+    onChange(dehydKg, carbsKg);
+    onClose();
+  };
+
+  if (effectiveTotal <= 0) {
+    return (
+      <div className="space-y-3 text-center py-6">
+        <p className="text-[14px] text-muted-foreground">
+          Enter your <span className="font-semibold text-foreground">Start</span> and{" "}
+          <span className="font-semibold text-foreground">End</span> weights first so we know your total cut.
+        </p>
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full h-12 rounded-xl bg-muted/40 text-foreground text-[15px] font-semibold"
+        >
+          Got it
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="text-center">
+        <p className="text-[11px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/80">
+          Total cut
+        </p>
+        <p className="text-[28px] font-bold tabular-nums tracking-tight">{effectiveTotal} kg</p>
+      </div>
+
+      {/* Split bar — drag to rebalance */}
+      <div>
+        <div className="flex h-7 rounded-full overflow-hidden bg-muted/40 border border-border/40">
+          <div
+            className="bg-blue-500/85 transition-[width] duration-100"
+            style={{ width: `${pct}%` }}
+          />
+          <div
+            className="bg-primary/85 transition-[width] duration-100"
+            style={{ width: `${100 - pct}%` }}
+          />
+        </div>
+
+        {/* Slider for drag — accessible + touch-friendly */}
+        <div className="px-1 pt-3">
+          <Slider
+            value={[pct]}
+            onValueChange={([v]) => { triggerHapticSelection(); setPct(v); }}
+            min={0}
+            max={100}
+            step={1}
+            aria-label="Dehydration vs carb reduction split"
+          />
+        </div>
+      </div>
+
+      {/* Big split readout */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-2xl bg-blue-500/10 border border-blue-500/20 p-3 text-center">
+          <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-blue-400/90">
+            <Droplet className="h-3 w-3" /> Dehydration
+          </p>
+          <p className="mt-1 text-[24px] font-bold tabular-nums tracking-tight text-blue-400">
+            {dehydKg}
+            <span className="text-[12px] font-medium text-blue-400/70 ml-1">kg</span>
+          </p>
+          <p className="text-[11px] text-muted-foreground tabular-nums">{pct}%</p>
+        </div>
+        <div className="rounded-2xl bg-primary/10 border border-primary/20 p-3 text-center">
+          <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-primary/90">
+            <Wheat className="h-3 w-3" /> Carbs
+          </p>
+          <p className="mt-1 text-[24px] font-bold tabular-nums tracking-tight text-primary">
+            {carbsKg}
+            <span className="text-[12px] font-medium text-primary/70 ml-1">kg</span>
+          </p>
+          <p className="text-[11px] text-muted-foreground tabular-nums">{100 - pct}%</p>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={commit}
+        className="w-full h-12 rounded-xl bg-primary text-primary-foreground text-[15px] font-semibold active:scale-[0.98] transition-transform"
+      >
+        Save split
+      </button>
+    </div>
+  );
+}
+
+function truncate(s: string, max: number) {
+  if (s.length <= max) return s;
+  return s.slice(0, max - 1).trimEnd() + "…";
 }

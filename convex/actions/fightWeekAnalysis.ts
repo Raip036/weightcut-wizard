@@ -200,7 +200,7 @@ Risk: ${projection.riskLevel}. Dehydration needed: ${projection.breakdown.dehydr
 ${carbLine}
 
 Recent fight-week logs:
-${data.fightWeekLogs.slice(0, 5).map((l) => `${l.log_date}: ${l.weight_kg ?? "?"}kg, fluid ${l.fluid_intake_ml ?? "?"}ml, carbs ${l.carbs_g ?? "?"}g`).join("\n") || "(none)"}
+${data.fightWeekLogs.slice(0, 5).map((l: { log_date: string; weight_kg?: number | null; fluid_intake_ml?: number | null; carbs_g?: number | null }) => `${l.log_date}: ${l.weight_kg ?? "?"}kg, fluid ${l.fluid_intake_ml ?? "?"}ml, carbs ${l.carbs_g ?? "?"}g`).join("\n") || "(none)"}
 
 Days to comment on: ${projection.timeline.map((d) => d.day).join(", ")}.`;
 
@@ -216,12 +216,12 @@ Days to comment on: ${projection.timeline.map((d) => d.day).join(", ")}.`;
         response_format: { type: "json_object" },
         timeoutMs: 20000,
       });
-      const parsed = parseJSON(content);
+      const parsed = parseJSON<Record<string, unknown>>(content);
       if (typeof parsed.summary === "string" && parsed.summary.trim().length > 0) {
         summary = String(parsed.summary).replace(/—/g, " - ").replace(/–/g, "-").trim();
       }
       if (Array.isArray(parsed.medicalRedFlags) && parsed.medicalRedFlags.length > 0) {
-        medicalRedFlags = parsed.medicalRedFlags
+        medicalRedFlags = (parsed.medicalRedFlags as unknown[])
           .slice(0, 6)
           .map((s: unknown) => String(s).replace(/—/g, " - ").trim())
           .filter((s: string) => s.length > 0);

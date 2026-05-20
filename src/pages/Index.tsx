@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronRight } from "lucide-react";
+import { CalendarDays, Salad, Flame, ChevronRight } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import wizardNutrition from "@/assets/wizard-nutrition.webp";
@@ -44,6 +45,22 @@ const PRO_SEG_PCT = {
 // floor it so it's still readable + tappable without misrepresenting
 // the comparison (the size disparity is the message anyway).
 const APP_BAR_PX = Math.max(10, Math.round((APP_PRICE / PRO_TOTAL) * PLOT_HEIGHT_PX));
+
+// Feature pillar shown in the row above the price chart. Honest product
+// pitch — what the app actually does — instead of fabricated user
+// metrics. Three of these run horizontally across the page.
+function FeaturePillar({ Icon, label }: { Icon: LucideIcon; label: string }) {
+  return (
+    <div className="flex flex-col items-center text-center px-1">
+      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/12 ring-1 ring-primary/25">
+        <Icon className="h-[18px] w-[18px] text-primary" strokeWidth={2.25} />
+      </div>
+      <span className="mt-2 text-[11px] font-semibold leading-tight text-foreground/85">
+        {label}
+      </span>
+    </div>
+  );
+}
 
 // Legend row used under the bar chart. Colour dot matches the
 // corresponding segment in the stacked bar so the user can map
@@ -168,34 +185,50 @@ const Index = () => {
 
       {/* Body */}
       <div className="flex-1 flex flex-col px-6 pt-2">
-        {/* Headline */}
-        <div className="text-center">
-          <h1 className="text-[26px] font-black tracking-tight leading-tight text-foreground">
-            Stop paying a team.
+        {/* Outcome hero — promise comes first, price second.
+            Sells what the app DOES before what it costs. */}
+        <motion.div
+          initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: "easeOut" }}
+          className="text-center"
+        >
+          <h1 className="text-[28px] font-black tracking-tight leading-[1.05] text-foreground">
+            Make weight.
+            <br />
+            <span className="text-primary">Stay safe. Win the cut.</span>
           </h1>
-          <p className="text-[13px] text-muted-foreground mt-1.5 leading-snug">
-            Make weight without four invoices.
+          <p className="mt-2 text-[13px] text-muted-foreground leading-snug">
+            One app. Your cut, your meals, your weigh-ins.
           </p>
-        </div>
+        </motion.div>
 
-        {/* Savings hero */}
+        {/* Feature pillars — three icon-led benefit chips showing what
+            the app actually does. Honest product pitch above the price
+            chart so a cold visitor sees the value, not just the price. */}
         <motion.div
           initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, ease: "easeOut" }}
-          className="text-center mt-4"
+          transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
+          className="mt-5 grid grid-cols-3 gap-2 rounded-2xl border border-border/40 bg-card/40 py-3 px-2"
         >
-          <p className="text-[10px] uppercase tracking-[0.18em] text-primary/70 font-bold">
-            You save
-          </p>
-          <p className="display-number text-[48px] font-black leading-none tabular-nums text-primary mt-1">
-            £{MONTHLY_SAVINGS}
-            <span className="text-[18px] text-muted-foreground font-semibold ml-1">/mo</span>
-          </p>
-          <p className="text-[11px] text-muted-foreground/70 mt-1">
-            £{((PRO_TOTAL - APP_PRICE) * 12).toLocaleString("en-GB", { maximumFractionDigits: 0 })} a year vs hiring the team
-          </p>
+          <FeaturePillar Icon={CalendarDays} label="Cut plan" />
+          <div className="border-x border-border/30">
+            <FeaturePillar Icon={Salad} label="AI macro tracker" />
+          </div>
+          <FeaturePillar Icon={Flame} label="AI fight-week" />
         </motion.div>
+
+        {/* Slim price anchor — savings number stays prominent but plays
+            second fiddle to the outcome story above. */}
+        <p className="text-center text-[12px] text-muted-foreground/80 mt-3">
+          Save{" "}
+          <span className="font-bold tabular-nums text-primary">
+            £{MONTHLY_SAVINGS}
+            <span className="font-medium">/mo</span>
+          </span>{" "}
+          vs hiring the team
+        </p>
 
         {/* Chart card — each column owns its own label + price + bar,
             all centered on the bar's horizontal axis. Price labels live
@@ -300,7 +333,7 @@ const Index = () => {
             I already have an account
           </button>
           <button
-            onClick={() => navigateWithTransition("/coach/login")}
+            onClick={() => navigateWithTransition("/coach/welcome")}
             disabled={exiting}
             className="no-tap-select w-full text-center text-[12px] text-muted-foreground/70 hover:text-muted-foreground transition-colors py-1 disabled:opacity-50"
           >

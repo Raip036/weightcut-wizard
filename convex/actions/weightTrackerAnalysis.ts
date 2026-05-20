@@ -69,7 +69,10 @@ export const run = action({
     // `useAIAction` wrapper catches and opens the paywall.
     await enforceFeatureGate(ctx, userId, "AI_WEIGHT_ANALYSIS");
     const snap = await loadAthleteSnapshot(ctx, userId);
-    const profile = snap.profile ?? {};
+    // `snap.profile` can be null when the user is new — carry the
+    // typed shape through the fallback so downstream property reads
+    // stay typed instead of degrading to `{}`.
+    const profile = snap.profile ?? ({} as NonNullable<typeof snap.profile>);
 
     // ── Resolve inputs from args, then fall back to profile ────────────
     const currentWeight =

@@ -44,12 +44,11 @@ export function PageTransition({ children }: PageTransitionProps) {
           className="page-transition-page"
           initial={{ opacity: 0, y: 4, scale: 0.995 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0 }}
+          exit={{ opacity: 0, transition: { duration: EXIT_DURATION, ease: "easeOut" } }}
           transition={{
             opacity: { duration: ENTER_DURATION, ease: IOS_EASE },
             y: { duration: ENTER_DURATION, ease: IOS_EASE },
             scale: { duration: ENTER_DURATION, ease: IOS_EASE },
-            exit: { duration: EXIT_DURATION, ease: "easeOut" },
           }}
           style={{ willChange: "opacity, transform" }}
         >

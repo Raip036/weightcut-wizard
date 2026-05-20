@@ -95,14 +95,69 @@ export function LeaderboardSection({
       {showPodium ? (
         <PodiumHero podium={podium} />
       ) : (
-        <div className="glass-card rounded-2xl border border-border/50 p-3 text-center text-xs text-muted-foreground">
-          Need 3+ active fighters to rank a podium.
-        </div>
+        // Aspirational empty podium — silhouette of #2 / #1 / #3 slots with
+        // an invite CTA. Reads as "the trophy is waiting for you and your
+        // teammates" rather than a dead "need N more fighters" line.
+        <PlaceholderPodium viewer={viewer} />
       )}
       <RankedList ranks={ranks} onRowClick={onRowClick} />
       {viewer === "athlete" && myRank ? (
         <MyRankFooter myRank={myRank} podium={podium} />
       ) : null}
     </section>
+  );
+}
+
+function PlaceholderPodium({ viewer }: { viewer: "coach" | "athlete" }) {
+  const navigate =
+    typeof window !== "undefined"
+      ? (path: string) => {
+          window.location.assign(path);
+        }
+      : () => {};
+  return (
+    <div className="glass-card rounded-2xl border border-border/50 p-4 text-center">
+      <p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/80">
+        This week's podium
+      </p>
+      {/* Silhouette steps — #2 / #1 / #3 ordering mirrors the real PodiumHero */}
+      <div className="mt-3 flex items-end justify-center gap-2.5">
+        <PodiumSlot rank={2} height={48} />
+        <PodiumSlot rank={1} height={66} />
+        <PodiumSlot rank={3} height={36} />
+      </div>
+      <p className="mt-3 text-[12px] text-muted-foreground leading-snug max-w-[28ch] mx-auto">
+        {viewer === "coach"
+          ? "Once 3+ fighters log this week, your podium appears here."
+          : "Bring 2 more fighters into your gym to fill the podium."}
+      </p>
+      {viewer === "athlete" && (
+        <button
+          type="button"
+          onClick={() => navigate("/my-gym")}
+          className="mt-3 inline-flex items-center gap-1 h-10 px-4 rounded-xl bg-primary text-primary-foreground text-[13px] font-semibold active:scale-[0.98] transition-transform"
+        >
+          Invite a teammate →
+        </button>
+      )}
+    </div>
+  );
+}
+
+function PodiumSlot({ rank, height }: { rank: 1 | 2 | 3; height: number }) {
+  const isTop = rank === 1;
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <div className={`h-10 w-10 rounded-full border-2 border-dashed flex items-center justify-center ${
+        isTop ? "border-primary/40 text-primary/70" : "border-muted-foreground/30 text-muted-foreground/50"
+      }`}>
+        <span className="text-[11px] font-bold tabular-nums">#{rank}</span>
+      </div>
+      <div
+        className={`w-16 rounded-t-lg ${isTop ? "bg-primary/15 border border-primary/25" : "bg-muted/40 border border-border/40"}`}
+        style={{ height }}
+        aria-hidden
+      />
+    </div>
   );
 }

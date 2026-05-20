@@ -25,8 +25,9 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "motion/react";
-import { Camera } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { ArrowRight, UserPlus, History, Dumbbell } from "lucide-react";
+import wizardMascot from "@/assets/wizard-tutorial.png";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -40,7 +41,6 @@ import { SessionInfoCard } from "@/components/community/SessionInfoCard";
 import { StackSkeleton } from "@/components/community/StackSkeleton";
 import { ActivitySheet } from "@/components/community/ActivitySheet";
 import { CommentsSheet } from "@/components/gym-feed/CommentsSheet";
-import { Button } from "@/components/ui/button";
 import { useFeedEngagement } from "@/hooks/useFeedEngagement";
 import { logger } from "@/lib/logger";
 import { useTutorial } from "@/tutorial/useTutorial";
@@ -216,58 +216,84 @@ export default function Community() {
           />
         )}
 
-        {/* Content area — branches on member-count threshold + load state. */}
+        {/* Content area — branches on member-count threshold + load state.
+            Wrapped in AnimatePresence so the swap between the feed and
+            the "all caught up" empty state cross-fades smoothly when the
+            user swipes the last polaroid (or when posts refill). */}
         <main className="px-5 pb-32 pt-2">
-          {!primaryGym && !gymsLoading ? (
-            // Tutorial-only: user has no gym but we held them on this
-            // route so the tour can keep narrating. Show the same
-            // EmptyFeed used elsewhere — "Bring a teammate" deep-links
-            // to /my-gym so the user has an obvious next step once
-            // the tour finishes.
-            <EmptyFeed
-              onInviteClick={() => navigate("/my-gym")}
-              onLogSessionClick={() => navigate("/training-calendar")}
-            />
-          ) : !gymId || gymsLoading ? (
-            <div className="mt-8">
-              <StackSkeleton />
-            </div>
-          ) : status === "LoadingFirstPage" ? (
-            <div className="mt-8">
-              <StackSkeleton />
-            </div>
-          ) : posts.length === 0 ? (
-            // Empty feed: encourage the user to post their first session.
-            // Solo-member gyms see this same card; they can post and the
-            // feed will populate with their own posts on the next tick.
-            <EmptyFeed
-              onInviteClick={() => navigate("/my-gym")}
-              onLogSessionClick={() => navigate("/training-calendar")}
-            />
-          ) : effectivePosts.length === 0 ? (
-            // All known posts consumed this session. Same friendly state
-            // as the global empty feed — encourage the user to log a
-            // session so the feed refills.
-            <EmptyFeed
-              onInviteClick={() => navigate("/my-gym")}
-              onLogSessionClick={() => navigate("/training-calendar")}
-            />
-          ) : (
-            <CommunityFeedSection
-              posts={effectivePosts}
-              status={status}
-              loadMore={loadMore}
-              topIndex={0}
-              onTopIndexChange={() => {
-                /* unused — dismissedIds drives the head */
-              }}
-              advance={handleAdvance}
-              onOpenProfile={handleOpenProfile}
-              onOpenComments={openComments}
-              onPostSwiped={handlePostSwiped}
-              onPostClick={handlePostClick}
-            />
-          )}
+          <AnimatePresence mode="wait" initial={false}>
+            {(() => {
+              const branch =
+                !primaryGym && !gymsLoading
+                  ? "empty"
+                  : !gymId || gymsLoading
+                    ? "loading"
+                    : status === "LoadingFirstPage"
+                      ? "loading"
+                      : posts.length === 0
+                        ? "empty"
+                        : effectivePosts.length === 0
+                          ? "empty"
+                          : "feed";
+
+              if (branch === "loading") {
+                return (
+                  <motion.div
+                    key="loading"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.18 }}
+                    className="mt-8"
+                  >
+                    <StackSkeleton />
+                  </motion.div>
+                );
+              }
+
+              if (branch === "empty") {
+                return (
+                  <motion.div
+                    key="empty"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
+                  >
+                    <EmptyFeed
+                      onInviteClick={() => navigate("/my-gym")}
+                      onLogSessionClick={() => navigate("/training-calendar")}
+                    />
+                  </motion.div>
+                );
+              }
+
+              return (
+                <motion.div
+                  key="feed"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  transition={{ duration: 0.24, ease: [0.32, 0.72, 0, 1] }}
+                >
+                  <CommunityFeedSection
+                    posts={effectivePosts}
+                    status={status}
+                    loadMore={loadMore}
+                    topIndex={0}
+                    onTopIndexChange={() => {
+                      /* unused — dismissedIds drives the head */
+                    }}
+                    advance={handleAdvance}
+                    onOpenProfile={handleOpenProfile}
+                    onOpenComments={openComments}
+                    onPostSwiped={handlePostSwiped}
+                    onPostClick={handlePostClick}
+                  />
+                </motion.div>
+              );
+            })()}
+          </AnimatePresence>
         </main>
       </motion.div>
 
@@ -303,31 +329,76 @@ interface EmptyFeedProps {
 
 function EmptyFeed({ onInviteClick, onLogSessionClick }: EmptyFeedProps) {
   return (
-    <section className="glass-card rounded-2xl border border-border/50 p-6 mt-6 text-center">
-      <div className="mx-auto h-16 w-16 rounded-2xl bg-foreground/[0.06] dark:bg-white/[0.08] flex items-center justify-center mb-4">
-        <Camera className="h-8 w-8 text-foreground" strokeWidth={1.5} />
-      </div>
-      <h2 className="text-lg font-semibold">Feed cleared</h2>
-      <p className="text-sm text-muted-foreground mt-1 max-w-[30ch] mx-auto">
-        You've seen every post for now. Log a session and bring it back to life.
+    <section className="mt-8 text-center max-w-sm mx-auto">
+      <img
+        src={wizardMascot}
+        alt=""
+        className="mx-auto h-24 w-24 object-contain"
+      />
+      <h2 className="mt-3 text-[22px] font-bold tracking-tight">You're all caught up</h2>
+      <p className="text-[13px] text-muted-foreground mt-1.5 max-w-[28ch] mx-auto leading-snug">
+        Nothing new on the mat. Pick one to keep momentum.
       </p>
 
-      <Button
-        type="button"
-        onClick={onLogSessionClick}
-        className="mt-6 rounded-full px-6"
-      >
-        Log a training session
-      </Button>
-
-      <button
-        type="button"
-        onClick={onInviteClick}
-        className="mt-3 block w-full text-sm text-muted-foreground underline-offset-2 hover:underline"
-      >
-        Bring a teammate
-      </button>
+      <div className="mt-6 space-y-2.5">
+        <EmptyActionChip
+          icon={<Dumbbell className="h-4 w-4" />}
+          label="Log a session"
+          sublabel="Add it to the feed"
+          onClick={onLogSessionClick}
+          primary
+        />
+        <EmptyActionChip
+          icon={<UserPlus className="h-4 w-4" />}
+          label="Invite a teammate"
+          sublabel="Bring someone into the gym"
+          onClick={onInviteClick}
+        />
+        <EmptyActionChip
+          icon={<History className="h-4 w-4" />}
+          label="Browse history"
+          sublabel="Revisit past sessions"
+          onClick={onLogSessionClick}
+        />
+      </div>
     </section>
+  );
+}
+
+function EmptyActionChip({
+  icon, label, sublabel, primary, onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  sublabel: string;
+  primary?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full min-h-[60px] flex items-center gap-3 px-4 py-3 rounded-2xl text-left active:scale-[0.98] transition-all ${
+        primary
+          ? "bg-primary text-primary-foreground"
+          : "bg-card/60 border border-border/40 active:bg-muted/40"
+      }`}
+    >
+      <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${
+        primary ? "bg-white/15 text-primary-foreground" : "bg-primary/15 text-primary"
+      }`}>
+        {icon}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className={`text-[15px] font-semibold leading-tight ${primary ? "" : "text-foreground"}`}>{label}</p>
+        <p className={`text-[12px] mt-0.5 leading-snug truncate ${
+          primary ? "text-primary-foreground/80" : "text-muted-foreground"
+        }`}>
+          {sublabel}
+        </p>
+      </div>
+      <ArrowRight className={`h-4 w-4 shrink-0 ${primary ? "text-primary-foreground/80" : "text-muted-foreground/60"}`} />
+    </button>
   );
 }
 
@@ -393,8 +464,15 @@ const CommunityFeedSection = React.memo(function CommunityFeedSection({
   );
 
   return (
-    <div className="space-y-6 mt-2">
-      <div className="mt-4">
+    <div className="mt-2">
+      {/* Stack wrapper carries an explicit bottom buffer so the background
+          cards' y-offset (up to ~20px below the 396px container) and any
+          motion overshoot during a release can't visually creep into the
+          SessionInfoCard below. Without this margin, the deck and info
+          card sit ~24px apart (space-y-6), which the y-shifted backgrounds
+          can paint into. 56px gives the deck enough reserved space below
+          while staying compact on small viewports. */}
+      <div className="mt-4 mb-14">
         <PolaroidStack
           posts={posts}
           status={status}

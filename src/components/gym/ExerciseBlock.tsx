@@ -1,9 +1,9 @@
 import { useCallback, useMemo } from "react";
-import { Plus, Copy, X, ChevronRight, Trophy } from "lucide-react";
-import { motion } from "motion/react";
+import { Plus, Copy, X, ChevronRight, ChevronDown, Trophy } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 import { staggerItem } from "@/lib/motion";
 import { SetRow } from "./SetRow";
-import { formatWeight } from "@/lib/gymCalculations";
+import { formatWeight, formatVolume } from "@/lib/gymCalculations";
 import type { ExerciseGroup, PRType, GymSet } from "@/pages/gym/types";
 import type { ExercisePR } from "@/pages/gym/types";
 
@@ -12,6 +12,11 @@ interface ExerciseBlockProps {
   pr?: ExercisePR | null;
   newPRSetIds?: Set<string>;
   previousSets?: GymSet[];
+  /** When true, the block renders header-only (collapsed). Default false (expanded). */
+  collapsed?: boolean;
+  /** Toggle expand/collapse. When provided, a chevron appears in the header
+   *  and tapping the row toggles the block. */
+  onToggleCollapse?: () => void;
   onAddSet: (exerciseOrder: number, data: { weight_kg?: number | null; reps: number; rpe?: number | null; is_warmup?: boolean; is_bodyweight?: boolean }) => void;
   onUpdateSet: (setId: string, exerciseOrder: number, updates: Partial<{ weight_kg: number | null; reps: number; rpe: number | null; is_warmup: boolean }>) => void;
   onDeleteSet: (setId: string, exerciseOrder: number) => void;
@@ -55,9 +60,19 @@ const MUSCLE_COLORS: Record<string, string> = {
 };
 
 export function ExerciseBlock({
-  group, pr, newPRSetIds, previousSets, onAddSet, onUpdateSet, onDeleteSet,
+  group, pr, newPRSetIds, previousSets, collapsed = false, onToggleCollapse,
+  onAddSet, onUpdateSet, onDeleteSet,
   onDuplicateLastSet, onRemoveExercise, onExerciseTap,
 }: ExerciseBlockProps) {
+  // Volume of all working sets — surfaced in the collapsed header so the
+  // user can see this exercise's contribution at a glance.
+  const blockVolume = useMemo(
+    () => group.sets.reduce(
+      (sum, s) => sum + (s.is_warmup ? 0 : (s.weight_kg ?? 0) * (s.reps ?? 0)),
+      0,
+    ),
+    [group.sets],
+  );
   const workingSets = useMemo(
     () => group.sets.filter(s => !s.is_warmup),
     [group.sets]
@@ -91,11 +106,14 @@ export function ExerciseBlock({
       variants={staggerItem}
       className={`card-surface rounded-2xl border border-border/50 border-l-[3px] ${borderColor} overflow-hidden`}
     >
-      {/* Header */}
+      {/* Header — tappable to toggle collapse when onToggleCollapse is wired.
+          The exercise name + chevron-right is the existing tap into stats
+          (onExerciseTap); we expose a separate area on the right for collapse
+          to avoid swallowing the user's intent. */}
       <div className="flex items-center justify-between p-3 pb-2">
         <button
           onClick={() => onExerciseTap?.(group.exercise.id)}
-          className="flex items-center gap-2 min-w-0 group"
+          className="flex items-center gap-2 min-w-0 group flex-1 text-left"
         >
           <h3 className="font-bold text-[15px] tracking-tight truncate">{group.exercise.name}</h3>
           <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-medium ${muscleColor}`}>
@@ -103,6 +121,22 @@ export function ExerciseBlock({
           </span>
           <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0 group-hover:text-muted-foreground transition-colors" />
         </button>
+        {onToggleCollapse && (
+          <button
+            onClick={onToggleCollapse}
+            className="shrink-0 p-1.5 rounded-lg text-muted-foreground/60 hover:text-foreground hover:bg-muted/40 transition-colors"
+            aria-label={collapsed ? "Expand exercise" : "Collapse exercise"}
+            aria-expanded={!collapsed}
+          >
+            <motion.span
+              animate={{ rotate: collapsed ? 0 : 180 }}
+              transition={{ duration: 0.18 }}
+              className="inline-block"
+            >
+              <ChevronDown className="h-4 w-4" />
+            </motion.span>
+          </button>
+        )}
         <button
           onClick={() => onRemoveExercise(group.exerciseOrder)}
           className="shrink-0 p-1.5 rounded-lg text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors"
@@ -111,6 +145,35 @@ export function ExerciseBlock({
           <X className="h-4 w-4" />
         </button>
       </div>
+
+      {/* Compact summary visible in BOTH states so the user can see
+          set count + volume at a glance when collapsed. */}
+      {collapsed && (
+        <div className="px-3 pb-3 -mt-1 flex items-center gap-3 text-[11px] tabular-nums text-muted-foreground">
+          <span>
+            <span className="font-bold text-foreground">{workingSets.length}</span> {workingSets.length === 1 ? "set" : "sets"}
+          </span>
+          {blockVolume > 0 && (
+            <>
+              <span className="text-muted-foreground/40">·</span>
+              <span>
+                <span className="font-bold text-foreground">{formatVolume(blockVolume)}</span> kg vol
+              </span>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Expanded body — wrapped in AnimatePresence so collapse animates */}
+      <AnimatePresence initial={false}>
+        {!collapsed && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            className="overflow-hidden"
+          >
 
       {/* Last workout hint — beat this */}
       {previousSets && previousSets.length > 0 && (
@@ -134,10 +197,9 @@ export function ExerciseBlock({
       {group.sets.length > 0 && (
         <div className="flex items-center gap-2 px-3 pb-1.5 mb-1 text-[11px] text-muted-foreground/70 uppercase tracking-wider border-b border-border/20">
           <div className="w-8 shrink-0 text-center">Set</div>
-          <div className="w-[72px] text-center">Weight</div>
-          <div className="w-[72px] text-center">Reps</div>
+          <div className="w-[84px] text-center">Weight</div>
+          <div className="w-[84px] text-center">Reps</div>
           <div className="w-7 shrink-0" />
-          <div className="w-9 shrink-0" />
           <div className="w-7 shrink-0" />
         </div>
       )}
@@ -184,6 +246,9 @@ export function ExerciseBlock({
           </button>
         )}
       </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

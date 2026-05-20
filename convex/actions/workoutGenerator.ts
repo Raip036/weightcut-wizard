@@ -168,7 +168,7 @@ ${snap.block}`;
       response_format: { type: "json_object" },
     });
 
-    const routine = parseJSON(content);
+    const routine = parseJSON<{ exercises?: Array<Record<string, any>>; [key: string]: any }>(content);
 
     // Normalise exercise fields so the frontend's RoutineExercise type holds.
     if (Array.isArray(routine?.exercises)) {

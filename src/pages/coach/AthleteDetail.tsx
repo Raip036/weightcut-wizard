@@ -64,7 +64,10 @@ export default function AthleteDetail() {
 
   if (error || !data || !data.profile) {
     return (
-      <div className="animate-page-in px-5 py-6 max-w-2xl mx-auto space-y-3">
+      <div
+        className="animate-page-in px-5 pb-6 max-w-2xl mx-auto space-y-3"
+        style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 1.5rem)" }}
+      >
         <button
           onClick={() => navigate("/coach")}
           className="inline-flex items-center gap-1 text-[13px] text-primary"
@@ -113,8 +116,15 @@ export default function AthleteDetail() {
   return (
     <ErrorBoundary>
       <div
-        className="animate-page-in space-y-3 px-5 py-3 sm:p-5 md:p-6 w-full max-w-2xl mx-auto"
-        style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" }}
+        // px-5 + pb-3 (top padding moved to inline `paddingTop` so it can
+        // include the iOS safe-area inset). Without this, the notch/status
+        // bar overlaps the back button on devices like iPhone 15, making it
+        // un-tappable.
+        className="animate-page-in space-y-3 px-5 pb-3 sm:px-5 sm:pb-5 md:px-6 md:pb-6 w-full max-w-2xl mx-auto"
+        style={{
+          paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.75rem)",
+          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)",
+        }}
       >
         {/* Header — bigger avatar + name so the page reads as a person, not a row */}
         <div className="flex items-center gap-3">

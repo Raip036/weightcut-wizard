@@ -23,7 +23,11 @@ import { ManipulationCard, type SodiumStrategy, type FibreStrategy } from "@/com
 import { DehydrationTacticsCard, type DehydrationTactic } from "@/components/fightweek/DehydrationTacticsCard";
 import { PostWeighInCard, type PostWeighInData } from "@/components/fightweek/PostWeighInCard";
 import { sanitizeAIText } from "@/lib/sanitizeAIText";
-import { Activity, Shield, CheckCircle, AlertTriangle, Info, Trash2, Crown } from "lucide-react";
+import { Activity, Shield, CheckCircle, AlertTriangle, Info, Trash2, Crown, Sparkles, Minus, Plus, ChevronRight } from "lucide-react";
+import wizardLogo from "@/assets/wizard-tutorial.png";
+import { triggerHapticSelection } from "@/lib/haptics";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { ShareButton } from "@/components/share/ShareButton";
 import { ShareCardDialog } from "@/components/share/ShareCardDialog";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
@@ -110,6 +114,7 @@ export default function FightWeek() {
   const [saving, setSaving] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [deletePlanDialogOpen, setDeletePlanDialogOpen] = useState(false);
+  const [howItWorksOpen, setHowItWorksOpen] = useState(false);
 
   const handleDeletePlan = () => {
     if (!userId) return;
@@ -483,20 +488,21 @@ export default function FightWeek() {
         />
       )}
       <div className="space-y-3">
-        {/* Header + safety badge */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-[0.15em] font-semibold text-primary/80">
+        {/* Header — slim eyebrow + title + chip/safety badge */}
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1 pt-0.5">
+            <p className="text-[10px] uppercase tracking-[0.15em] font-bold text-primary/80">
               Fight Week
             </p>
-            <h1 className="text-[26px] font-bold tracking-tight leading-tight mt-0.5">
+            <h1 className="text-[22px] font-bold tracking-tight leading-tight">
               Protocol generator
             </h1>
-            <p className="text-[13px] text-muted-foreground/85 mt-1 leading-snug max-w-[28ch]">
-              Your day-by-day water, sodium &amp; carb cut for weigh-in.
-            </p>
+            <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-primary/12 ring-1 ring-primary/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+              <Sparkles className="h-3 w-3" />
+              Evidence-based
+            </div>
           </div>
-          <div className="flex items-center gap-1.5 shrink-0 pt-1">
+          <div className="flex items-center gap-1.5 shrink-0">
             {aiPlan && (
               <>
                 <ShareButton onClick={() => setShareOpen(true)} />
@@ -512,148 +518,109 @@ export default function FightWeek() {
               </>
             )}
             {safetyBadge && (
-              <div className={`px-3 py-1 rounded-full text-[11px] font-bold border ${safetyBadge.cls}`}>
+              <div className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${safetyBadge.cls}`}>
                 {safetyBadge.label}
               </div>
             )}
           </div>
         </div>
 
-        {/* ── Onboarding hero — first-time users only ─────────── */}
+        {/* ── Wizard-led "How it works" tile — replaces the big onboarding
+            hero with a slim coach-voice prompt + chip that opens the full
+            3-step explainer in a sheet. */}
         {!aiPlan && !isGenerating && (
-          <div className="card-surface rounded-3xl p-5 space-y-4">
-            <div>
-              <h2 className="text-[16px] font-semibold tracking-tight">How it works</h2>
-              <p className="text-[13px] text-muted-foreground/85 leading-relaxed mt-1">
-                An evidence-based fight-week protocol built around your bodyweight, weigh-in date and normal diet. It staggers carb depletion, sodium drop, water-load and cut, plus the final sweat so you make weight safely.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3 px-1">
-              {[
-                { n: 1, title: "Enter stats", body: "Current weight, target, days out" },
-                { n: 2, title: "Build plan", body: "AI runs the protocol math and risk check" },
-                { n: 3, title: "Follow daily", body: "Day-by-day steps with safety flags" },
-              ].map((s) => (
-                <div key={s.n}>
-                  <div className="h-6 w-6 rounded-full bg-primary/15 text-primary text-[12px] font-bold flex items-center justify-center mb-2 tabular-nums">
-                    {s.n}
-                  </div>
-                  <p className="text-[12px] font-semibold leading-tight text-foreground">{s.title}</p>
-                  <p className="text-[11px] text-muted-foreground/70 leading-snug mt-1">{s.body}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="space-y-2 px-1">
-              <div className="flex items-start gap-2">
-                <svg className="h-3.5 w-3.5 text-amber-500 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 9v4M12 17h.01M10.3 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.7 3.86a2 2 0 0 0-3.4 0z" />
-                </svg>
-                <p className="text-[11px] text-muted-foreground/70 leading-snug">
-                  Cuts over 8% of bodyweight in &lt;7 days carry serious health risk. The plan flags this and suggests safer pacing.
+          <button
+            type="button"
+            onClick={() => setHowItWorksOpen(true)}
+            className="group w-full text-left card-surface rounded-3xl p-4 border border-primary/20 hover:border-primary/35 active:scale-[0.99] transition-all"
+          >
+            <div className="flex items-start gap-3">
+              <div className="h-11 w-11 shrink-0 flex items-center justify-center bg-transparent">
+                <img src={wizardLogo} alt="" className="h-full w-full object-contain pointer-events-none select-none" draggable={false} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary/80">
+                  Coach
+                </p>
+                <p className="mt-0.5 text-[14px] font-semibold leading-snug text-foreground">
+                  Tell me your stats. I'll build a day-by-day protocol with safety checks.
+                </p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground leading-snug">
+                  How it works · risk flags · safe pacing →
                 </p>
               </div>
-              <div className="flex items-start gap-2">
-                <svg className="h-3.5 w-3.5 text-muted-foreground/60 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10" />
-                  <path d="M12 16v-4M12 8h.01" />
-                </svg>
-                <p className="text-[11px] text-muted-foreground/70 leading-snug">
-                  Science-backed but not perfectly accurate. For a high-stakes cut, working with a sports nutritionist is still the gold standard.
-                </p>
-              </div>
+              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/40 group-hover:translate-x-0.5 transition-transform self-center" />
             </div>
-          </div>
+          </button>
         )}
 
-        {/* ── Input card — iOS-native, generously spaced ───────── */}
+        {/* ── Stats card — inline pill steppers replace the 2x2 input grid ─── */}
         <div className="card-surface rounded-3xl p-5 space-y-4">
           <div>
             <p className="text-[10px] uppercase tracking-[0.15em] font-semibold text-muted-foreground/60">
               Your stats
             </p>
             <p className="text-[13px] text-foreground/85 mt-0.5">
-              {aiPlan ? "Tweak any input and regenerate." : "Tell us where you're starting from."}
+              {aiPlan ? "Tweak any input and regenerate." : "Tell me where you're starting from."}
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-2.5">
-            <div className="space-y-1.5">
-              <Label className="text-[11px] font-semibold text-foreground/75">Current weight</Label>
-              <div className="relative">
-                <Input
-                  type="number"
-                  step="0.1"
-                  value={currentWeight}
-                  onChange={(e) => setCurrentWeight(e.target.value)}
-                  className="h-12 rounded-2xl text-[15px] font-semibold tabular-nums pl-4 pr-9 bg-muted/40 dark:bg-white/[0.06] border-border/30"
-                  placeholder="77.0"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-muted-foreground/60 pointer-events-none">kg</span>
-              </div>
-              <p className="text-[10px] text-muted-foreground/60 px-1">What you weigh today</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[11px] font-semibold text-foreground/75">Weigh-in target</Label>
-              <div className="relative">
-                <Input
-                  type="number"
-                  step="0.1"
-                  value={targetWeight}
-                  onChange={(e) => setTargetWeight(e.target.value)}
-                  className="h-12 rounded-2xl text-[15px] font-semibold tabular-nums pl-4 pr-9 bg-muted/40 dark:bg-white/[0.06] border-border/30"
-                  placeholder="70.3"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-muted-foreground/60 pointer-events-none">kg</span>
-              </div>
-              <p className="text-[10px] text-muted-foreground/60 px-1">Number on the scale at weigh-in</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[11px] font-semibold text-foreground/75">Days until weigh-in</Label>
-              <div className="relative">
-                <Input
-                  type="number"
-                  min="1"
-                  max="14"
-                  value={daysUntilWeighIn}
-                  onChange={(e) => setDaysUntilWeighIn(e.target.value)}
-                  className="h-12 rounded-2xl text-[15px] font-semibold tabular-nums pl-4 pr-12 bg-muted/40 dark:bg-white/[0.06] border-border/30"
-                  placeholder="7"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-muted-foreground/60 pointer-events-none">days</span>
-              </div>
-              <p className="text-[10px] text-muted-foreground/60 px-1">5–7 is typical fight-week</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[11px] font-semibold text-foreground/75">Normal carbs/day</Label>
-              <div className="relative">
-                <Input
-                  type="number"
-                  min="0"
-                  step="10"
-                  value={normalDailyCarbs}
-                  onChange={(e) => setNormalDailyCarbs(e.target.value)}
-                  className="h-12 rounded-2xl text-[15px] font-semibold tabular-nums pl-4 pr-9 bg-muted/40 dark:bg-white/[0.06] border-border/30"
-                  placeholder="250"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-muted-foreground/60 pointer-events-none">g</span>
-              </div>
-              <p className="text-[10px] text-muted-foreground/60 px-1">Your usual training-day intake</p>
-            </div>
+          <div className="space-y-2.5">
+            <StepperPill
+              label="Current weight"
+              hint="What you weigh today"
+              unit="kg"
+              value={parseFloat(currentWeight) || 0}
+              step={0.5}
+              min={30}
+              max={200}
+              onChange={(v) => setCurrentWeight(v.toString())}
+              decimals={1}
+            />
+            <StepperPill
+              label="Weigh-in target"
+              hint="Number on the scale at weigh-in"
+              unit="kg"
+              value={parseFloat(targetWeight) || 0}
+              step={0.5}
+              min={30}
+              max={200}
+              onChange={(v) => setTargetWeight(v.toString())}
+              decimals={1}
+            />
+            <StepperPill
+              label="Days until weigh-in"
+              hint="5–7 is typical fight-week"
+              unit="days"
+              value={parseInt(daysUntilWeighIn) || 0}
+              step={1}
+              min={1}
+              max={14}
+              onChange={(v) => setDaysUntilWeighIn(v.toString())}
+              decimals={0}
+            />
+            <StepperPill
+              label="Normal carbs/day"
+              hint="Your usual training-day intake"
+              unit="g"
+              value={parseInt(normalDailyCarbs) || 0}
+              step={25}
+              min={0}
+              max={800}
+              onChange={(v) => setNormalDailyCarbs(v.toString())}
+              decimals={0}
+            />
           </div>
           {inputsValid && (
             <Button
               onClick={generateProtocol}
               disabled={isGenerating || !normalDailyCarbs}
-              className={`relative w-full h-12 rounded-2xl text-[15px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40 ${lastError && !isGenerating ? "ring-2 ring-red-500/40" : ""}`}
+              className={`relative w-full h-13 min-h-[52px] rounded-2xl text-[15px] font-bold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40 shadow-lg shadow-primary/30 ${lastError && !isGenerating ? "ring-2 ring-red-500/40" : ""}`}
             >
               {isGenerating ? (
-                <span className="inline-flex items-center gap-2">
-                  <span className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
-                  Building your plan…
-                </span>
+                <CastingMessage />
               ) : (
                 <span className="inline-flex items-center gap-1.5">
+                  <Sparkles className="h-4 w-4" strokeWidth={2.4} />
                   {lastError ? "Try again" : aiPlan ? "Regenerate plan" : "Build my fight-week plan"}
                 </span>
               )}
@@ -671,6 +638,64 @@ export default function FightWeek() {
             </p>
           )}
         </div>
+
+        {/* How-it-works detail sheet — opened from the wizard tile above */}
+        <Sheet open={howItWorksOpen} onOpenChange={setHowItWorksOpen}>
+          <SheetContent
+            side="bottom"
+            className="rounded-t-3xl p-0 max-h-[88vh] overflow-y-auto [&>button]:hidden"
+            style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1.25rem)" }}
+          >
+            <VisuallyHidden><SheetTitle>How it works</SheetTitle></VisuallyHidden>
+            <div className="flex justify-center pt-2 pb-1">
+              <div className="w-10 h-1 rounded-full bg-muted-foreground/25" aria-hidden />
+            </div>
+            <div className="px-5 pt-2 pb-6 space-y-4">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary/80">Fight Week</p>
+                <h2 className="text-[19px] font-bold tracking-tight mt-0.5">How this protocol works</h2>
+                <p className="mt-2 text-[13px] text-foreground/85 leading-snug">
+                  An evidence-based fight-week protocol built around your bodyweight, weigh-in date and normal diet. It staggers carb depletion, sodium drop, water-load and cut, plus the final sweat so you make weight safely.
+                </p>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { n: 1, title: "Enter stats", body: "Current weight, target, days out" },
+                  { n: 2, title: "Build plan", body: "AI runs the protocol math + risk check" },
+                  { n: 3, title: "Follow daily", body: "Day-by-day steps with safety flags" },
+                ].map((s) => (
+                  <div key={s.n}>
+                    <div className="h-6 w-6 rounded-full bg-primary/15 text-primary text-[12px] font-bold flex items-center justify-center mb-2 tabular-nums">
+                      {s.n}
+                    </div>
+                    <p className="text-[12px] font-semibold leading-tight text-foreground">{s.title}</p>
+                    <p className="text-[11px] text-muted-foreground/70 leading-snug mt-1">{s.body}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-start gap-2 rounded-xl bg-amber-500/10 ring-1 ring-amber-500/20 px-3 py-2">
+                  <AlertTriangle className="h-3.5 w-3.5 text-amber-400 mt-0.5 flex-shrink-0" strokeWidth={2.4} />
+                  <p className="text-[11px] text-foreground/80 leading-snug">
+                    Cuts over 8% of bodyweight in &lt;7 days carry serious health risk. The plan flags this and suggests safer pacing.
+                  </p>
+                </div>
+                <div className="flex items-start gap-2 rounded-xl bg-muted/30 ring-1 ring-border/30 px-3 py-2">
+                  <Info className="h-3.5 w-3.5 text-muted-foreground/80 mt-0.5 flex-shrink-0" strokeWidth={2.2} />
+                  <p className="text-[11px] text-muted-foreground leading-snug">
+                    Science-backed but not perfectly accurate. For a high-stakes cut, working with a sports nutritionist is still the gold standard.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setHowItWorksOpen(false)}
+                className="w-full h-11 rounded-2xl bg-primary text-primary-foreground font-semibold text-[14px] active:scale-[0.98] transition-transform shadow-md shadow-primary/30"
+              >
+                Got it
+              </button>
+            </div>
+          </SheetContent>
+        </Sheet>
 
         {/* Skeleton while generating — gives shape to the wait. */}
         {isGenerating && !aiPlan && <FightWeekSkeleton />}
@@ -813,5 +838,109 @@ export default function FightWeek() {
         itemName="this protocol — you'll go back to a blank slate"
       />
     </div>
+  );
+}
+
+// ── StepperPill ──────────────────────────────────────────────────────
+// Premium inline pill input with −/+ steppers + a centered editable
+// number. Replaces the basic input fields with a more tactile feel,
+// matching the food-search serving picker pattern.
+function StepperPill({
+  label,
+  hint,
+  unit,
+  value,
+  step,
+  min,
+  max,
+  onChange,
+  decimals = 0,
+}: {
+  label: string;
+  hint?: string;
+  unit: string;
+  value: number;
+  step: number;
+  min: number;
+  max: number;
+  onChange: (v: number) => void;
+  decimals?: number;
+}) {
+  const clamp = (n: number) => Math.min(max, Math.max(min, n));
+  const fmt = (n: number) => (decimals === 0 ? String(Math.round(n)) : n.toFixed(decimals));
+  return (
+    <div className="flex items-center gap-3 rounded-2xl bg-muted/30 dark:bg-white/[0.04] border border-border/30 px-3 py-2">
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] font-semibold text-foreground/80 leading-tight">{label}</p>
+        {hint && <p className="text-[10px] text-muted-foreground/70 leading-tight mt-0.5 truncate">{hint}</p>}
+      </div>
+      <div className="flex items-center gap-1.5 shrink-0">
+        <button
+          type="button"
+          onClick={() => { triggerHapticSelection(); onChange(clamp(value - step)); }}
+          aria-label={`Decrease ${label}`}
+          className="h-8 w-8 rounded-full bg-card/60 border border-border/40 flex items-center justify-center active:bg-muted/60 active:scale-95 transition disabled:opacity-40"
+          disabled={value <= min}
+        >
+          <Minus className="h-3.5 w-3.5" />
+        </button>
+        <div className="min-w-[68px] text-center">
+          <input
+            type="number"
+            inputMode="decimal"
+            value={value || ""}
+            min={min}
+            max={max}
+            step={step}
+            onChange={(e) => {
+              const n = parseFloat(e.target.value);
+              if (!isNaN(n)) onChange(clamp(n));
+              else if (e.target.value === "") onChange(0);
+            }}
+            className="w-full bg-transparent text-center text-[15px] font-bold tabular-nums text-foreground outline-none focus:ring-2 focus:ring-primary/40 rounded-lg px-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          />
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+            {unit}
+          </span>
+          {/* Hide the formatted value when input has focus — display attribute can't render alongside input, so just keep input as canonical */}
+          <span className="sr-only">{fmt(value)}</span>
+        </div>
+        <button
+          type="button"
+          onClick={() => { triggerHapticSelection(); onChange(clamp(value + step)); }}
+          aria-label={`Increase ${label}`}
+          className="h-8 w-8 rounded-full bg-card/60 border border-border/40 flex items-center justify-center active:bg-muted/60 active:scale-95 transition disabled:opacity-40"
+          disabled={value >= max}
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── CastingMessage ───────────────────────────────────────────────────
+// Multi-stage coach-voice loading copy that cycles through 4 stages
+// while the AI generates the protocol. Educates while it waits.
+function CastingMessage() {
+  const stages = useMemo(
+    () => [
+      "Analysing inputs…",
+      "Modeling glycogen depletion…",
+      "Drafting daily targets…",
+      "Cross-checking safe limits…",
+    ],
+    [],
+  );
+  const [stage, setStage] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setStage((s) => Math.min(s + 1, stages.length - 1)), 1200);
+    return () => clearInterval(id);
+  }, [stages.length]);
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+      <span className="tabular-nums">{stages[stage]}</span>
+    </span>
   );
 }

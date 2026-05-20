@@ -226,7 +226,7 @@ export const BottomNav = memo(function BottomNav() {
     try {
       setUserName(editedName);
       setSettingsDialogOpen(false);
-    } catch (error) {
+    } catch {
       toast({ description: "Failed to update profile", variant: "destructive" });
     }
   };

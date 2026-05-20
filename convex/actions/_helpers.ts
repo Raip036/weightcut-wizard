@@ -30,6 +30,38 @@ import {
   type AthleteSnapshot,
 } from "../_shared/athleteSnapshot";
 
+/**
+ * Profile projection returned by `actions_internal.fetchSnapshotData`.
+ * Spelled out explicitly because deriving it via
+ * `FunctionReturnType<typeof internal.actions_internal.fetchSnapshotData>`
+ * triggered a TS2456 circular reference (the generated API type chain
+ * touches this file). Keep this shape in sync with the projection in
+ * `convex/actions_internal.ts:160-181`.
+ */
+type SnapshotProfile = {
+  age?: number | null;
+  sex?: string | null;
+  height_cm?: number | null;
+  current_weight_kg?: number | null;
+  goal_weight_kg?: number | null;
+  fight_week_target_kg?: number | null;
+  target_date?: string | null;
+  activity_level?: string | null;
+  bmr?: number | null;
+  tdee?: number | null;
+  athlete_type?: string | null;
+  experience_level?: string | null;
+  training_frequency?: number | null;
+  ai_recommended_calories?: number | null;
+  ai_recommended_protein_g?: number | null;
+  ai_recommended_carbs_g?: number | null;
+  ai_recommended_fats_g?: number | null;
+  manual_nutrition_override?: boolean | null;
+  // Index signature for fields callers read defensively (e.g.
+  // `primaryStruggle`) that aren't in the canonical projection.
+  [key: string]: unknown;
+} | null;
+
 export async function requireUserIdFromAction(
   ctx: ActionCtx,
 ): Promise<Id<"users">> {
@@ -41,7 +73,7 @@ export async function requireUserIdFromAction(
 export async function loadAthleteSnapshot(
   ctx: ActionCtx,
   userId: Id<"users">,
-): Promise<{ snapshot: AthleteSnapshot; block: string; profile: any }> {
+): Promise<{ snapshot: AthleteSnapshot; block: string; profile: SnapshotProfile }> {
   const data = await ctx.runQuery(internal.actions_internal.fetchSnapshotData, {
     userId,
   });
@@ -77,8 +109,8 @@ export function logDecision(
   args: {
     userId: Id<"users">;
     feature: string;
-    inputSnapshot: any;
-    outputJson: any;
+    inputSnapshot: unknown;
+    outputJson: unknown;
     predictionFacts?: Record<string, number>;
     model?: string;
   },

@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { ImpactStyle } from "@capacitor/haptics";
-import { Scale, Dumbbell, Moon, Heart, Utensils } from "lucide-react";
+import { Scale, Dumbbell, Moon, Heart, Utensils, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { triggerHaptic } from "@/lib/haptics";
 
@@ -56,21 +56,36 @@ export default function TodayStrip({ adherence, mealsLoggedToday }: Props) {
             to={href}
             onClick={() => { void triggerHaptic(ImpactStyle.Light); }}
             className={cn(
-              "flex-1 min-h-[44px] rounded-md flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 transition-colors",
+              "relative flex-1 min-h-[48px] rounded-md flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 transition-colors",
               isLogged
-                ? "bg-primary/15 border border-primary/30 text-foreground"
+                ? "bg-primary text-primary-foreground border border-primary shadow-sm shadow-primary/30"
                 : "border border-border text-muted-foreground active:bg-muted/40",
             )}
             aria-label={`${label}${isLogged ? " logged" : " not logged"}`}
           >
+            {/* Done-state check badge — top-right corner, only when logged.
+                Makes the activated state unmistakable at a glance. */}
+            {isLogged && (
+              <span
+                aria-hidden
+                className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-400 ring-2 ring-background"
+              >
+                <Check className="h-2.5 w-2.5 text-background" strokeWidth={3.5} />
+              </span>
+            )}
             <Icon
               className={cn(
                 "h-4 w-4",
-                isLogged ? "text-primary" : "text-muted-foreground",
+                isLogged ? "text-primary-foreground" : "text-muted-foreground",
               )}
               strokeWidth={2.2}
             />
-            <span className="text-[10px] font-semibold leading-none">
+            <span
+              className={cn(
+                "text-[10px] font-semibold leading-none",
+                isLogged ? "text-primary-foreground" : "",
+              )}
+            >
               {label}
             </span>
           </Link>

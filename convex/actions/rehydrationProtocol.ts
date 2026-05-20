@@ -136,7 +136,7 @@ Write per-hour drinkRecipe + foods + notes. Foods: white rice, banana, honey, ri
         response_format: { type: "json_object" },
         timeoutMs: 30000,
       });
-      const parsed = parseJSON(content);
+      const parsed = parseJSON<Record<string, unknown>>(content);
       if (typeof parsed.summary === "string" && parsed.summary.trim().length > 0) {
         summary = String(parsed.summary).replace(/—/g, " - ").replace(/–/g, "-").trim();
       }

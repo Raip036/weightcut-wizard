@@ -44,3 +44,11 @@ CLAUDE.md
 AGENTS.md
 skills-lock.json
 convex/_generated/ai/
+
+# Playwright MCP artifacts
+.playwright-mcp/
+.playwright/
+.playwright-shots/
+
+# Ad-hoc dev screenshots saved to the repo root
+/*.png

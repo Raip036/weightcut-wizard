@@ -56,6 +56,21 @@ export function ActiveSessionView({
 }: ActiveSessionViewProps) {
   const [finishSheetOpen, setFinishSheetOpen] = useState(false);
   const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
+  // Only one exercise expanded at a time. Defaults to the LAST added exercise
+  // (assumed to be the one the user is currently working on). Re-keys when
+  // a new exercise is added.
+  const [expandedExerciseId, setExpandedExerciseId] = useState<string | null>(() =>
+    workout.exerciseGroups[workout.exerciseGroups.length - 1]?.exercise.id ?? null,
+  );
+  useEffect(() => {
+    const last = workout.exerciseGroups[workout.exerciseGroups.length - 1];
+    if (last && expandedExerciseId == null) setExpandedExerciseId(last.exercise.id);
+    // If the last exercise was just appended (not already in the list before),
+    // bring it into focus.
+    if (last && !workout.exerciseGroups.some((g) => g.exercise.id === expandedExerciseId)) {
+      setExpandedExerciseId(last.exercise.id);
+    }
+  }, [workout.exerciseGroups, expandedExerciseId]);
   const [notes, setNotes] = useState("");
   const [fatigue, setFatigue] = useState([5]);
 
@@ -152,6 +167,12 @@ export function ActiveSessionView({
             pr={prs.get(group.exercise.id)}
             newPRSetIds={newPRSetIds}
             previousSets={previousSetsMap?.get(group.exercise.id)}
+            collapsed={expandedExerciseId !== group.exercise.id}
+            onToggleCollapse={() =>
+              setExpandedExerciseId((prev) =>
+                prev === group.exercise.id ? null : group.exercise.id,
+              )
+            }
             onAddSet={onAddSet}
             onUpdateSet={onUpdateSet}
             onDeleteSet={onDeleteSet}
