@@ -331,15 +331,15 @@ export const BottomNav = memo(function BottomNav() {
       >
         <div
           /* Bottom-nav pill — glass recipe (Design System v1) via
-             `.glass-nav`. Width ~92vw capped at 27rem so each tab gets
-             breathing room. `pointer-events-auto` re-enables tap on the
-             nav itself (the outer wrapper has pointer-events-none so
-             taps pass through to page content elsewhere along the bottom).
-             Horizontal padding 10px (`px-2.5`) leaves a ~4px gap between
-             the bubble (which overhangs each tab by 6px) and the nav's
-             outer edge, matching the 4px top/bottom gap (top-1 bottom-1)
-             for symmetric breathing room. */
-          className="pointer-events-auto relative flex items-stretch gap-2 px-2.5 py-1.5 w-[92vw] max-w-[27rem] rounded-pill glass-nav"
+             `.glass-nav`. Width ~74vw capped at 20rem (compact mobile
+             tab bar). `pointer-events-auto` re-enables tap on the nav
+             itself (the outer wrapper has pointer-events-none so taps
+             pass through to page content elsewhere along the bottom).
+             Horizontal padding 10px (`px-2.5`) leaves a ~4px gap
+             between the bubble (which overhangs each tab by 6px) and
+             the nav's outer edge, matching the 4px top/bottom gap
+             (top-1 bottom-1) for symmetric breathing room. */
+          className="pointer-events-auto relative flex items-stretch gap-2 px-2.5 py-1.5 w-[74vw] max-w-[20rem] rounded-pill glass-nav"
         >
           {/* Internal darkening overlay — kept LIGHT (0.18 → 0.32) so
               the nav still reads as glass rather than solid plastic.
@@ -526,10 +526,12 @@ export const BottomNav = memo(function BottomNav() {
   );
 });
 
-/* Shared layout class for every tab slot. h-12 (48px) keeps the icon +
-   label comfortably stacked while shrinking total nav height vs. h-14. */
+/* Shared layout class for every tab slot. h-11 (44px) — Apple's
+   recommended minimum touch target. Icon (22px) + 3px gap + 14px
+   label = ~39px content, leaving ~3px of vertical breathing room.
+   With p-1.5 (12px total y-padding) the nav pill ends up ~56px tall. */
 const NAV_SLOT_CLASS =
-  "relative z-10 flex flex-1 flex-col items-center justify-center gap-[3px] h-12 px-2 rounded-pill";
+  "relative z-10 flex flex-1 flex-col items-center justify-center gap-[3px] h-11 px-2 rounded-pill";
 
 /* Color helpers — active is white, inactive is the neutral grey from the
    Figma nav. Applied to both the icon and the label so they switch in
@@ -721,7 +723,7 @@ function RoundCardFab({ gestureProps, tooltip }: RoundCardFabProps) {
           transition={{ type: "spring", damping: 18, stiffness: 420 }}
           {...gestureProps}
           data-tutorial="nav-quick-log"
-          className="relative z-10 h-[52px] w-[52px] rounded-full bg-primary flex items-center justify-center shadow-[0_9px_20px_-5px_hsl(var(--primary)/0.6),0_2px_0_rgba(255,255,255,0.22)_inset,0_-1.5px_0_rgba(0,0,0,0.18)_inset] ring-2 ring-background/40 select-none touch-none"
+          className="relative z-10 h-[52px] w-[52px] rounded-full bg-primary flex items-center justify-center select-none touch-none"
           aria-label="Capture session photo (long-press for more options)"
         >
           <Camera className="h-[22px] w-[22px] text-primary-foreground" strokeWidth={2.4} />
