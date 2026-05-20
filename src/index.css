@@ -497,64 +497,34 @@ All colors MUST be HSL.
     border-color: hsl(var(--primary-foreground) / 0.3);
   }
 
-  /* Card surfaces - lightweight, solid backgrounds */
+  /* Card surfaces — Design System v1. Solid neutral-800 (#081225),
+     no border, no shadow. Hierarchy comes from the surface contrast
+     against the darker page background. Dialogs and the sidebar
+     opt-in to the same recipe so the whole app reads consistently. */
   .glass-card,
   .card-surface,
   .bg-card,
-  [data-sidebar="sidebar"] {
-    background: hsl(var(--card));
-    border: 1px solid hsl(var(--border));
+  [data-sidebar="sidebar"],
+  [role="dialog"]:not([data-alert-dialog]),
+  .popover-content {
+    background: var(--neutral-800);
     border-radius: var(--radius);
-    transition: border-color 0.15s ease;
-  }
-
-  /* Light mode cards */
-  :root:not(.dark) .glass-card,
-  :root:not(.dark) .card-surface,
-  :root:not(.dark) .bg-card,
-  :root:not(.dark) .nutrition-dashboard,
-  :root:not(.dark) [role="dialog"],
-  :root:not(.dark) .popover-content,
-  :root:not(.dark) [data-sidebar="sidebar"] {
-    box-shadow: 0 1px 2px hsl(0 0% 0% / 0.05);
-  }
-
-  /* Dark mode cards - solid surfaces, no glass */
-  .dark .glass-card,
-  .dark .card-surface,
-  .dark .bg-card,
-  .dark [data-sidebar="sidebar"],
-  .dark [role="dialog"]:not([data-alert-dialog]),
-  .dark .popover-content {
-    background: hsl(var(--card));
-    border: 1px solid hsl(var(--border));
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-  }
-
-  /* Subtle hover on desktop only */
-  @media (hover: hover) {
-    .dark .glass-card:hover,
-    .dark .card-surface:hover {
-      border-color: hsl(0 0% 22%);
-    }
+    /* No border, no shadow per the design-system overhaul.
+       Add a hover state per call site if needed. */
   }
 
   .nutrition-dashboard {
-    background: hsl(var(--card));
-    border: 1px solid hsl(var(--border));
+    background: var(--neutral-800);
     border-radius: var(--radius);
     padding: 1.25rem;
+    /* No border per Design System v1. */
   }
 
-  .dark .nutrition-dashboard {
-    background: hsl(var(--card));
-    border-color: hsl(var(--border));
-  }
-
-  /* Section header utility */
+  /* Section header utility — uppercase eyebrow used above card content
+     and section titles. Design System v1: Inter regular, not bold. */
   .section-header {
     font-size: 0.6875rem;
-    font-weight: 600;
+    font-weight: 400;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: hsl(var(--muted-foreground));

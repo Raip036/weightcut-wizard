@@ -897,43 +897,68 @@ export default function Dashboard() {
           <TodayStrip adherence={adherence} mealsLoggedToday={todayCalories > 0} />
 
           <div className="grid grid-cols-2 gap-2">
-            <div className="card-surface rounded-2xl border border-border p-2.5 aspect-square flex flex-col">
-              <div className="flex items-center justify-between mb-1">
-                <span className="section-header text-foreground font-bold">Weight</span>
-                <div className="flex gap-0.5 bg-muted rounded-full p-0.5">
-                  <Button
-                    variant={weightUnit === 'kg' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => { setWeightUnit('kg'); triggerHapticSelection(); }}
-                    className="h-3 min-h-0 text-[9px] px-1 rounded-full leading-none"
-                  >
-                    kg
-                  </Button>
-                  <Button
-                    variant={weightUnit === 'lb' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => { setWeightUnit('lb'); triggerHapticSelection(); }}
-                    className="h-3 min-h-0 text-[9px] px-1 rounded-full leading-none"
-                  >
-                    lb
-                  </Button>
-                </div>
+            {/* Weight metric card — Design System v1 Metric Card layout
+                (Figma node 67:725). Eyebrow → big bold value → smaller
+                chart → date + trend at the bottom. The kg/lb toggle
+                lives in the expanded weight tracker now; this card
+                follows whatever unit was last selected there. */}
+            <div className="card-surface rounded-xs p-3 aspect-square flex flex-col">
+              <span className="text-[10px] font-normal uppercase tracking-[0.08em] text-muted-foreground">
+                WEIGHT
+              </span>
+
+              <div className="mt-2 flex items-baseline gap-1.5">
+                <span className="font-display font-bold text-[28px] leading-none text-foreground tabular-nums">
+                  {currentWeightValue
+                    ? convertWeight(currentWeightValue).toFixed(1)
+                    : "—"}
+                </span>
+                <span className="text-[12px] font-light text-muted-foreground">
+                  {weightUnit}
+                </span>
               </div>
-              <div className="flex-1 min-h-0">
+
+              <div className="flex-1 min-h-0 mt-2">
                 {chartData.length > 0 ? (
-                  <Suspense fallback={<div className="h-full w-full animate-pulse bg-muted/20 rounded-2xl" />}>
+                  <Suspense fallback={<div className="h-full w-full bg-neutral-700/40 rounded-xs" />}>
                     <DashboardWeightChart data={chartData} weightUnit={weightUnit} />
                   </Suspense>
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-center">
                     <TrendingDown className="h-5 w-5 text-muted-foreground/40 mb-1" />
-                    <p className="text-[13px] text-muted-foreground">No data yet</p>
-                    <Button variant="ghost" size="sm" className="h-6 text-[13px] px-2" onClick={() => navigate('/weight')}>
+                    <p className="text-[12px] text-muted-foreground">No data yet</p>
+                    <Button variant="ghost" size="sm" className="h-6 text-[12px] px-2" onClick={() => navigate('/weight')}>
                       Log Weight
                     </Button>
                   </div>
                 )}
               </div>
+
+              {/* Footer — most recent log date + delta vs previous log.
+                  Negative delta (weight loss) renders in func-recovery-green;
+                  positive (gain) renders in func-danger-red since the app's
+                  primary user is cutting weight. Hidden until we have >= 2
+                  data points to compare. */}
+              {chartData.length >= 2 && (() => {
+                const last = chartData[chartData.length - 1];
+                const prev = chartData[chartData.length - 2];
+                const delta = last.weight - prev.weight;
+                const isDown = delta < 0;
+                return (
+                  <div className="mt-1.5 flex items-center justify-between">
+                    <span className="text-[10px] text-muted-foreground">
+                      {last.date}
+                    </span>
+                    <div className={`flex items-center gap-1 text-[10px] font-medium tabular-nums ${isDown ? "text-func-recovery-green" : "text-func-danger-red"}`}>
+                      <TrendingDown
+                        className={`h-3 w-3 ${isDown ? "" : "rotate-180"}`}
+                        strokeWidth={2.4}
+                      />
+                      <span>{Math.abs(delta).toFixed(1)}</span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
             {userId && <TrainingWeekWidget userId={userId} compact />}
           </div>

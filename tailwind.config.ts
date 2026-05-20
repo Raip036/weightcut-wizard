@@ -127,10 +127,12 @@ export default {
         },
       },
       fontFamily: {
-        /* Body / UI default — Inter (Design System v1). Satoshi remains as a
-           fallback so share-card components that hardcode it keep rendering
-           until they migrate. */
-        sans: ["Inter", "Satoshi", "SF Pro Text", "-apple-system", "BlinkMacSystemFont", "system-ui", "sans-serif"],
+        /* Body / UI default — Inter (Design System v1). Satoshi is no longer
+           in the fallback chain so all body text renders as Inter. The
+           three share-card components that still hardcode
+           fontFamily="Satoshi..." inline keep working because their
+           @font-face is loaded in index.css. */
+        sans: ["Inter", "SF Pro Text", "-apple-system", "BlinkMacSystemFont", "system-ui", "sans-serif"],
         /* Display — Sora. Use via `font-display` for Display 1/2 + Heading 1/2. */
         display: ["Sora", "SF Pro Display", "-apple-system", "BlinkMacSystemFont", "system-ui", "sans-serif"],
       },
