@@ -332,19 +332,25 @@ export const BottomNav = memo(function BottomNav() {
         className="fixed left-1/2 z-[9999] md:hidden"
         style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 0.5rem)" }}
       >
-        {/* Bottom-nav pill — glass recipe (Design System v1) via `.glass-nav`:
-            translucent Void surface + backdrop-blur + 1px border + inset
-            highlight + drop shadow. See src/index.css and the floating-nav
-            node in the Figma Branding file. Width is ~92vw capped at 26rem
-            so each tab gets breathing room.
+        {/* Bottom-nav pill — glass recipe (Design System v1) via `.glass-nav`.
+            Width is ~92vw capped at 26rem so each tab gets breathing room.
+            `justify-around` was removed: it created a non-zero static
+            position for the absolutely-positioned bubble (an absolute flex
+            child still gets justified), which shifted the bubble by ~one
+            tab on each transition. With pure flex-1 + gap, every tab's
+            offsetLeft maps cleanly to a translateX value for the bubble.
 
-            The active-tab bubble is rendered ONCE here (not inside each
-            tab) and animates its `x` + `width` to the measured rect of
-            the active tab — see the useLayoutEffect above. */}
-        <div className="relative flex items-stretch justify-around gap-2 p-1.5 w-[92vw] max-w-[26rem] rounded-pill glass-nav">
+            The active-tab bubble is rendered ONCE here and animates its
+            `x` + `width` to the measured rect of the active tab — see the
+            useLayoutEffect above. */}
+        <div className="relative flex items-stretch gap-2 p-1.5 w-[92vw] max-w-[26rem] rounded-pill glass-nav">
           <motion.div
             aria-hidden
-            className="absolute top-1.5 bottom-1.5 rounded-pill bg-[rgba(139,126,234,0.12)] pointer-events-none"
+            /* Explicit `left-0 top-2 bottom-2` so the bubble's baseline is
+               the parent's inner-left edge (not affected by flex auto
+               positioning). `rounded-l` (20px) + a slightly inset top/bottom
+               give a wider rounded-rect look rather than a near-circle. */
+            className="absolute left-0 top-2 bottom-2 rounded-l bg-[rgba(139,126,234,0.12)] pointer-events-none"
             initial={false}
             animate={{
               x: bubble.x,
