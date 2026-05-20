@@ -285,8 +285,12 @@ export const BottomNav = memo(function BottomNav() {
         <LayoutGroup id="bottom-nav">
           {/* Bottom-nav pill — sized ~23% smaller than the original spec
               (30% shrink, then +10% bump per follow-up). Item / icon sizes
-              and the FAB scale together so the visual rhythm is preserved. */}
-          <div className="flex items-center gap-1.5 p-1.5 rounded-full bg-card/70 backdrop-blur-2xl border border-white/10 shadow-[0_12px_30px_-8px_rgba(0,0,0,0.55),0_2px_0_rgba(255,255,255,0.04)_inset,0_-1px_0_rgba(0,0,0,0.35)_inset]">
+              and the FAB scale together so the visual rhythm is preserved.
+              Glass recipe (Design System v1) is applied via `.glass-nav`:
+              translucent Void surface + backdrop-blur + 1px border + inset
+              highlight + drop shadow. See src/index.css and the
+              floating-nav node in the Figma Branding file. */}
+          <div className="flex items-center gap-1.5 p-1.5 rounded-pill glass-nav">
             <NavItem
               to={mainNavItems[0].url}
               icon={DashboardIcon}
@@ -472,12 +476,12 @@ function NavItem({ to, icon: Icon, label, isActive, tutorial }: NavItemProps) {
       {isActive && (
         <motion.div
           layoutId="nav-active-pill"
-          className="absolute inset-0 rounded-full bg-primary/15"
+          className="absolute inset-0 rounded-full bg-brand-wizard-lilac/[0.12]"
           transition={{ type: "spring", damping: 26, stiffness: 320 }}
         />
       )}
       <Icon
-        className={`relative h-[22px] w-[22px] transition-colors duration-150 ${isActive ? "text-primary" : "text-muted-foreground/75"}`}
+        className={`relative h-[22px] w-[22px] transition-colors duration-150 ${isActive ? "text-brand-wizard-lilac" : "text-neutral-400"}`}
         strokeWidth={isActive ? 2.4 : 1.9}
       />
     </NavLink>
@@ -502,12 +506,12 @@ function NavItemWithBadge({ to, icon: Icon, label, isActive, tutorial, badge }: 
       {isActive && (
         <motion.div
           layoutId="nav-active-pill"
-          className="absolute inset-0 rounded-full bg-primary/15"
+          className="absolute inset-0 rounded-full bg-brand-wizard-lilac/[0.12]"
           transition={{ type: "spring", damping: 26, stiffness: 320 }}
         />
       )}
       <Icon
-        className={`relative h-[22px] w-[22px] transition-colors duration-150 ${isActive ? "text-primary" : "text-muted-foreground/75"}`}
+        className={`relative h-[22px] w-[22px] transition-colors duration-150 ${isActive ? "text-brand-wizard-lilac" : "text-neutral-400"}`}
         strokeWidth={isActive ? 2.4 : 1.9}
       />
       {badge && (
@@ -543,12 +547,12 @@ function NavButton({ onClick, icon: Icon, label, isActive, tutorial, badge }: Na
       {isActive && (
         <motion.div
           layoutId="nav-active-pill"
-          className="absolute inset-0 rounded-full bg-primary/15"
+          className="absolute inset-0 rounded-full bg-brand-wizard-lilac/[0.12]"
           transition={{ type: "spring", damping: 26, stiffness: 320 }}
         />
       )}
       <Icon
-        className={`relative h-[22px] w-[22px] transition-colors duration-150 ${isActive ? "text-primary" : "text-muted-foreground/75"}`}
+        className={`relative h-[22px] w-[22px] transition-colors duration-150 ${isActive ? "text-brand-wizard-lilac" : "text-neutral-400"}`}
         strokeWidth={isActive ? 2.4 : 1.9}
       />
       {badge && (
