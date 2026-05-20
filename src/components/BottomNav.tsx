@@ -335,40 +335,50 @@ export const BottomNav = memo(function BottomNav() {
 
   return (
     <>
-      <motion.nav
+      {/* Outer fixed wrapper does NOT have any transform — that is
+          essential. WebKit ignores a child's `backdrop-filter` when the
+          child's stacking context is created by an ancestor's `transform`
+          (the previous structure had `transform: translateX(-50%)` on the
+          parent motion.nav, which is why the screen behind read as
+          plain translucent instead of frosted). Centering is now done
+          with `mx-auto w-fit` on a transform-free div; the entrance
+          animation (y + opacity) moved onto the same element as
+          `glass-nav`, which is allowed because the transform on the
+          backdrop-filter element itself doesn't break the blur — only
+          an ancestor transform does. */}
+      <div
         data-bottom-nav
-        initial={{ y: 24, x: "-50%", opacity: 0 }}
-        animate={{ y: 0, x: "-50%", opacity: 1 }}
-        transition={{ type: "spring", damping: 22, stiffness: 260, mass: 0.6 }}
-        className="fixed left-1/2 z-[9999] md:hidden"
+        className="fixed inset-x-0 z-[9999] md:hidden flex justify-center pointer-events-none"
         style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 0.5rem)" }}
       >
-        {/* Bottom-nav pill — glass recipe (Design System v1) via `.glass-nav`.
-            Width is ~92vw capped at 26rem so each tab gets breathing room.
-            `justify-around` was removed: it created a non-zero static
-            position for the absolutely-positioned bubble (an absolute flex
-            child still gets justified), which shifted the bubble by ~one
-            tab on each transition. With pure flex-1 + gap, every tab's
-            offsetLeft maps cleanly to a translateX value for the bubble.
-
-            The active-tab bubble is rendered ONCE here and animates its
-            `x` + `width` to the measured rect of the active tab — see the
-            useLayoutEffect above. */}
-        <div className="relative flex items-stretch gap-2 p-1.5 w-[92vw] max-w-[26rem] rounded-pill glass-nav">
+        <motion.div
+          initial={{ y: 24, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: "spring", damping: 22, stiffness: 260, mass: 0.6 }}
+          /* Bottom-nav pill — glass recipe (Design System v1) via
+             `.glass-nav`. Width ~92vw capped at 26rem so each tab gets
+             breathing room. `pointer-events-auto` re-enables tap on the
+             nav itself (the outer wrapper has pointer-events-none so
+             taps pass through to page content elsewhere along the bottom). */
+          className="pointer-events-auto relative flex items-stretch gap-2 p-1.5 w-[92vw] max-w-[26rem] rounded-pill glass-nav"
+        >
           <motion.div
             aria-hidden
-            /* Explicit `left-0 top-2 bottom-2` so the bubble's baseline is
-               the parent's inner-left edge (not affected by flex auto
-               positioning). `rounded-pill` (999px) gives fully rounded
-               semi-circular ends on a wider-than-tall bubble — the
-               stretched-pill look. NOTE: do NOT use `rounded-l` here —
-               that is Tailwind's directional shorthand for "left corners
-               only" and creates a flat-right-edge bug. */
-            className="absolute left-0 top-2 bottom-2 rounded-pill bg-[rgba(139,126,234,0.12)] pointer-events-none"
+            /* Explicit `left-0 top-1 bottom-1` keeps the bubble pinned
+               to the parent's inner edges with 4px breathing room top
+               and bottom — closer to the nav pill's outer rim than the
+               previous top-2/bottom-2 (8px) inset. `rounded-pill` gives
+               fully rounded semi-circular ends. We also widen the
+               bubble's animated x/width by 4px on each side so the pill
+               extends slightly past the tab content. NOTE: do NOT use
+               `rounded-l` — Tailwind treats it as the directional
+               shorthand for "left corners only" and produces a
+               flat-right-edge bug. */
+            className="absolute left-0 top-1 bottom-1 rounded-pill bg-[rgba(139,126,234,0.12)] pointer-events-none"
             initial={false}
             animate={{
-              x: bubble.x,
-              width: bubble.width,
+              x: bubble.x - 4,
+              width: bubble.width + 8,
               opacity: bubble.visible ? 1 : 0,
             }}
             transition={{ type: "spring", stiffness: 350, damping: 32, mass: 0.7 }}
@@ -418,8 +428,8 @@ export const BottomNav = memo(function BottomNav() {
             isActive={activeIndex === 4}
             tapAnimation={TAP_ANIMATIONS.more}
           />
-        </div>
-      </motion.nav>
+        </motion.div>
+      </div>
 
       <QuickLogDialog
         open={quickLogOpen}
@@ -555,8 +565,9 @@ export const TAP_ANIMATIONS = {
   nutrition: { rotate: [0, -15, 12, -6, 0], transition: { duration: 0.45 } },
   // Gym: friends icon hops once.
   gym:       { y: [0, -5, 0], transition: { duration: 0.35, ease: "easeOut" } },
-  // Weight: full spin (like a dumbbell wheel turning).
-  weight:    { rotate: [0, 360], transition: { duration: 0.55, ease: "easeOut" } },
+  // Weight: subtle wobble — like a scale settling. (Previously a full
+  // 360° spin which felt too aggressive against the rest of the row.)
+  weight:    { rotate: [0, -12, 8, -3, 0], transition: { duration: 0.4, ease: "easeOut" } },
   // More: squish-and-pop (three dots compress then bounce back).
   more:      { scaleY: [1, 0.7, 1.1, 1], transition: { duration: 0.4 } },
 } satisfies Record<string, TargetAndTransition>;
