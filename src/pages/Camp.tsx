@@ -202,7 +202,7 @@ export default function Camp() {
           }}
           className="w-full rounded-xs card-surface p-4 flex items-center gap-3.5 active:scale-[0.99] transition-all text-left"
         >
-          <div className="h-10 w-10 rounded-xs bg-primary/15 flex items-center justify-center flex-shrink-0">
+          <div className="h-10 w-10 flex items-center justify-center flex-shrink-0">
             <TrendingDown className="h-5 w-5 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
@@ -234,43 +234,20 @@ export default function Camp() {
                 key={section.url}
                 type="button"
                 onClick={() => navigate(section.url)}
-                className={[
-                  "w-full rounded-xs p-4 flex items-center gap-3.5 active:scale-[0.99] transition-all text-left",
-                  section.primary ? "bg-primary/10" : "card-surface",
-                ].join(" ")}
+                className="w-full rounded-xs card-surface p-4 flex items-center gap-3.5 active:scale-[0.99] transition-all text-left"
               >
-                <div
-                  className={[
-                    "h-10 w-10 rounded-xs flex items-center justify-center flex-shrink-0",
-                    section.primary ? "bg-primary/20" : "bg-muted/30",
-                  ].join(" ")}
-                >
-                  <Icon
-                    className={[
-                      "h-5 w-5",
-                      section.primary ? "text-primary" : "text-muted-foreground",
-                    ].join(" ")}
-                  />
+                <div className="h-10 w-10 flex items-center justify-center flex-shrink-0">
+                  <Icon className="h-5 w-5 text-muted-foreground" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p
-                    className={[
-                      "text-body-sm leading-tight",
-                      section.primary ? "font-bold text-foreground" : "font-semibold text-foreground",
-                    ].join(" ")}
-                  >
+                  <p className="text-body-sm font-semibold text-foreground leading-tight">
                     {section.title}
                   </p>
                   <p className="text-note text-muted-foreground leading-snug mt-0.5">
                     {section.description}
                   </p>
                 </div>
-                <ChevronRight
-                  className={[
-                    "h-4 w-4 flex-shrink-0",
-                    section.primary ? "text-primary/60" : "text-muted-foreground/40",
-                  ].join(" ")}
-                />
+                <ChevronRight className="h-4 w-4 text-muted-foreground/40 flex-shrink-0" />
               </button>
             );
           })}
@@ -291,20 +268,20 @@ export default function Camp() {
                   key={section.url}
                   type="button"
                   onClick={() => navigate(section.url)}
-                  className="w-full rounded-xs bg-primary/10 p-4 flex items-center gap-3.5 active:scale-[0.99] transition-all text-left"
+                  className="w-full rounded-xs card-surface p-4 flex items-center gap-3.5 active:scale-[0.99] transition-all text-left"
                 >
-                  <div className="h-10 w-10 rounded-xs bg-primary/20 flex items-center justify-center flex-shrink-0">
-                    <Icon className="h-5 w-5 text-primary" />
+                  <div className="h-10 w-10 flex items-center justify-center flex-shrink-0">
+                    <Icon className="h-5 w-5 text-muted-foreground" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-body-sm font-bold text-foreground leading-tight">
+                    <p className="text-body-sm font-semibold text-foreground leading-tight">
                       {section.title}
                     </p>
                     <p className="text-note text-muted-foreground leading-snug mt-0.5">
                       {section.description}
                     </p>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-primary/60 flex-shrink-0" />
+                  <ChevronRight className="h-4 w-4 text-muted-foreground/40 flex-shrink-0" />
                 </button>
               );
             })}

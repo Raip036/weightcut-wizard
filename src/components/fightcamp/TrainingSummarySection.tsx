@@ -244,11 +244,11 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
 
     const handleToggleAutoSummary = async (next: boolean) => {
         if (settingsLoading) return;
-        // TEMP: Pro gate dropped for QA. Restore before shipping.
-        // if (next && coachSettings && !coachSettings.isPro) {
-        //     openPaywall();
-        //     return;
-        // }
+        // Free-tier guard: don't even call the mutation when enabling without Pro.
+        if (next && coachSettings && !coachSettings.isPro) {
+            openPaywall();
+            return;
+        }
         try {
             await setAutoSummaryMut({ enabled: next });
         } catch (error: any) {
@@ -265,12 +265,10 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
 
     const handleGenerateOrUpdate = async () => {
         if (sessionsWithNotes.length === 0) return;
-        // TEMP: Pro gate dropped for QA. Restore before shipping.
-        // if (!hasAiAccess) {
-        //     openPaywall();
-        //     return;
-        // }
-        void hasAiAccess;
+        if (!hasAiAccess) {
+            openPaywall();
+            return;
+        }
         abortRef.current?.abort();
         const controller = new AbortController();
         abortRef.current = controller;

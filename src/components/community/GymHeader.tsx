@@ -24,6 +24,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { Skeleton } from "@/components/ui/skeleton";
+import { GymLogoAvatar } from "@/components/coach/GymLogoAvatar";
 import { ActivityBell } from "./ActivityBell";
 
 interface GymHeaderProps {
@@ -43,6 +44,18 @@ interface GymHeaderProps {
   memberCount?: number | null;
   onInviteClick: () => void;
   onActivityClick: () => void;
+  /**
+   * Resolved logo URL for the active gym (already resolved server-side via
+   * Convex File Storage). Optional — when absent or null, GymLogoAvatar
+   * falls back to a single-letter avatar derived from `gymName`.
+   */
+  logoUrl?: string | null;
+  /**
+   * Tap handler for the gym title cluster (logo + name + counts). Opens
+   * the GymProfileSheet. Optional — when omitted, the cluster renders as
+   * a non-interactive div so existing call sites keep working.
+   */
+  onProfileOpen?: () => void;
 }
 
 interface MemberCountResult {
@@ -78,6 +91,8 @@ export function GymHeader({
   // The invite affordance now lives on the EmptyFeed card only.
   onInviteClick: _onInviteClick,
   onActivityClick,
+  logoUrl,
+  onProfileOpen,
 }: GymHeaderProps) {
   void _memberCount;
   void _onInviteClick;
@@ -105,37 +120,60 @@ export function GymHeader({
   const memberCount = memberData?.memberCount ?? 0;
   const activePosters = memberData?.activePosters7d ?? 0;
 
-  return (
+  // The left cluster (logo + title + counts) is the tap target that opens
+  // the gym profile sheet. When `onProfileOpen` is supplied we render it as
+  // a <button>; otherwise we fall back to a plain <div> so non-interactive
+  // call sites keep their non-clickable header. ActivityBell sits as a
+  // sibling so we never nest <button>s.
+  const clusterContent = (
     <>
-      <header className="flex items-start justify-between px-5 pt-1 pb-3">
-        <div className="flex-1 min-w-0 mr-3">
-          <h1 className="text-[22px] font-semibold leading-tight truncate">
-            {gymName}
-          </h1>
-          {isLoading ? (
-            <div className="mt-1 space-y-1">
-              <Skeleton className="h-3.5 w-24" />
-              <Skeleton className="h-3.5 w-32" />
-            </div>
-          ) : hasCounts ? (
-            <div className="mt-1 space-y-0.5">
-              <p className="text-sm text-muted-foreground">
-                {memberCount} {memberCount === 1 ? "member" : "members"}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {activePosters} training this week
-              </p>
-            </div>
-          ) : null}
-        </div>
-
-        {/* Right-side: activity bell only. The "Bring a teammate" pill
-            has been removed from this header — invites live on the
-            EmptyFeed card now. */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <ActivityBell gymId={gymId ?? null} onClick={onActivityClick} />
-        </div>
-      </header>
+      <GymLogoAvatar logoUrl={logoUrl ?? null} name={gymName} size={44} />
+      <div className="flex-1 min-w-0">
+        <h1 className="text-[22px] font-semibold leading-tight truncate">
+          {gymName}
+        </h1>
+        {isLoading ? (
+          <div className="mt-1 space-y-1">
+            <Skeleton className="h-3.5 w-24" />
+            <Skeleton className="h-3.5 w-32" />
+          </div>
+        ) : hasCounts ? (
+          <div className="mt-1 space-y-0.5">
+            <p className="text-sm text-muted-foreground">
+              {memberCount} {memberCount === 1 ? "member" : "members"}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {activePosters} training this week
+            </p>
+          </div>
+        ) : null}
+      </div>
     </>
+  );
+
+  return (
+    <header className="flex items-start justify-between px-5 pt-1 pb-3">
+      {onProfileOpen ? (
+        <button
+          type="button"
+          onClick={onProfileOpen}
+          className="flex-1 min-w-0 mr-3 flex items-center gap-3 text-left active:opacity-80 transition-opacity"
+          aria-label={`Open ${gymName} profile`}
+        >
+          {clusterContent}
+        </button>
+      ) : (
+        <div className="flex-1 min-w-0 mr-3 flex items-center gap-3">
+          {clusterContent}
+        </div>
+      )}
+
+      {/* Right-side: activity bell only. The "Bring a teammate" pill
+          has been removed from this header — invites live on the
+          EmptyFeed card now. */}
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <ActivityBell gymId={gymId ?? null} onClick={onActivityClick} />
+      </div>
+    </header>
   );
 }

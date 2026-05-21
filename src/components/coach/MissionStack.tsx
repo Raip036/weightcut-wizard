@@ -38,9 +38,7 @@ export function MissionStack() {
   >(undefined);
 
   if (feature === undefined || missions === undefined) return null;
-  // TEMP: Pro gate disabled for visual QA. Restore before shipping.
-  // if (!feature.isPro) return <LockedMissionCard />;
-  void feature;
+  if (!feature.isPro) return <LockedMissionCard />;
 
   if (missions.length === 0) {
     return (
@@ -49,7 +47,7 @@ export function MissionStack() {
         className="block w-full rounded-xs card-surface p-4"
       >
         <div className="flex items-start gap-3">
-          <div className="h-10 w-10 rounded-xs bg-primary/15 flex items-center justify-center flex-shrink-0">
+          <div className="h-10 w-10 flex items-center justify-center flex-shrink-0">
             <ClipboardList
               className="h-5 w-5 text-primary"
               aria-hidden

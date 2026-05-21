@@ -43,14 +43,15 @@ export const setAutoSummary = mutation({
   handler: async (ctx, { enabled }): Promise<{ autoSummary: boolean }> => {
     const userId = await requireUserId(ctx);
 
-    // TEMP: Pro gate dropped for QA. Restore the block below before shipping.
-    // const profile = await ctx.db
-    //   .query("profiles")
-    //   .withIndex("by_user", (q) => q.eq("userId", userId))
-    //   .first();
-    // if (effectiveTier(profile) !== "pro") {
-    //   throw new Error("PRO_FEATURE_REQUIRED:AUTO_SUMMARY");
-    // }
+    // Pro-gate the WRITE — frontend may also gate the UI, but the
+    // server is the source of truth.
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+    if (effectiveTier(profile) !== "pro") {
+      throw new Error("PRO_FEATURE_REQUIRED:AUTO_SUMMARY");
+    }
 
     const existing = await ctx.db
       .query("user_coach_settings")

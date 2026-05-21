@@ -145,9 +145,7 @@ export const run = action({
   args: { weekStart: v.string() },
   handler: async (ctx, { weekStart }) => {
     const userId = await requireUserIdFromAction(ctx);
-    // TEMP: Pro gate dropped for QA. Restore before shipping.
-    // await enforceFeatureGate(ctx, userId, "AI_TRAINING_SUMMARY");
-    void enforceFeatureGate;
+    await enforceFeatureGate(ctx, userId, "AI_TRAINING_SUMMARY");
 
     const data = await ctx.runQuery(
       internal.actions_internal.fetchTrainingWeek,

@@ -4,7 +4,6 @@ import { useMutation, useQuery } from "convex/react";
 import type { Doc, Id } from "@/../convex/_generated/dataModel";
 import { api } from "@/../convex/_generated/api";
 import { triggerHapticSelection } from "@/lib/haptics";
-import { ImpactStyle } from "@capacitor/haptics";
 import { disciplineLabel, disciplineToken } from "@/lib/coachColors";
 import { levelFromXp } from "@/lib/xp";
 import { cn } from "@/lib/utils";
@@ -120,7 +119,7 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
         <button
           type="button"
           onClick={() => {
-            triggerHapticSelection(ImpactStyle.Light);
+            triggerHapticSelection();
             onToggle();
           }}
           aria-expanded={expanded}
@@ -312,7 +311,7 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
               <button
                 type="button"
                 onClick={() => {
-                  triggerHapticSelection(ImpactStyle.Light);
+                  triggerHapticSelection();
                   setItemsExpanded((e) => !e);
                 }}
                 className="w-full min-h-[36px] flex items-center justify-center gap-1.5 text-note font-semibold text-muted-foreground/80 active:text-foreground"

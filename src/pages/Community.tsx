@@ -36,6 +36,7 @@ import { useMyGyms } from "@/hooks/coach/useMyGyms";
 import { useGymFeed, type FeedPost } from "@/hooks/community/useGymFeed";
 import { usePolaroidStack } from "@/hooks/community/usePolaroidStack";
 import { GymHeader } from "@/components/community/GymHeader";
+import { GymProfileSheet } from "@/components/community/GymProfileSheet";
 import { PolaroidStack } from "@/components/community/PolaroidStack";
 import { SessionInfoCard } from "@/components/community/SessionInfoCard";
 import { ActivitySheet } from "@/components/community/ActivitySheet";
@@ -145,6 +146,11 @@ export default function Community() {
   // the unread badge.
   const [activityOpen, setActivityOpen] = useState(false);
 
+  // Gym profile sheet — opens when the user taps the GymHeader cluster
+  // (logo + title + counts). Mounted at page root so the sheet keeps its
+  // own animation/dismiss lifecycle independent of the feed below.
+  const [profileSheetOpen, setProfileSheetOpen] = useState(false);
+
   // Comments sheet state — mounted once at page root so it survives
   // deck advances (matches the existing TikTokFeedSwiper pattern).
   const [commentsPostId, setCommentsPostId] = useState<Id<"session_media"> | null>(null);
@@ -221,9 +227,11 @@ export default function Community() {
           <GymHeader
             gymId={primaryGym.gym_id as Id<"gyms">}
             gymName={primaryGym.gym_name}
+            logoUrl={primaryGym.gym_logo_url}
             memberCount={null}
             onInviteClick={() => navigate("/my-gym")}
             onActivityClick={() => setActivityOpen(true)}
+            onProfileOpen={() => setProfileSheetOpen(true)}
           />
         )}
 
@@ -322,6 +330,13 @@ export default function Community() {
         onOpenComments={(postId) => openComments(postId, 0)}
       />
 
+      {/* Gym profile sheet — opens from the GymHeader title cluster. */}
+      <GymProfileSheet
+        gymId={gymId}
+        open={profileSheetOpen}
+        onOpenChange={setProfileSheetOpen}
+      />
+
       {/* Comments sheet — mounted at page root, gated on postId. */}
       <CommentsSheet
         postId={commentsPostId}
@@ -401,8 +416,8 @@ function EmptyActionChip({
           : "bg-card/60 border border-border/40 active:bg-muted/40"
       }`}
     >
-      <div className={`h-9 w-9 rounded-xs flex items-center justify-center shrink-0 ${
-        primary ? "bg-white/15 text-primary-foreground" : "bg-primary/15 text-primary"
+      <div className={`h-9 w-9 flex items-center justify-center shrink-0 ${
+        primary ? "text-primary-foreground" : "text-primary"
       }`}>
         {icon}
       </div>

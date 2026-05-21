@@ -24,7 +24,7 @@ export function LockedMissionCard() {
   return (
     <div className="w-full rounded-xs card-surface p-4 flex flex-col items-start gap-3">
       <div className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-xs bg-primary/15 flex items-center justify-center flex-shrink-0">
+        <div className="h-10 w-10 flex items-center justify-center flex-shrink-0">
           <Sparkles className="h-5 w-5 text-primary" aria-hidden />
         </div>
         <div className="flex-1 min-w-0">
