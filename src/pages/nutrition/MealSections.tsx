@@ -3,8 +3,8 @@ import { Camera, Search, RotateCcw, ScanLine, Sparkles } from "lucide-react";
 import { motion } from "motion/react";
 import { MealCard } from "@/components/nutrition/MealCard";
 import { MealCardSkeleton } from "@/components/ui/skeleton-loader";
-import { WizardCharacter } from "@/tutorial/WizardCharacter";
 import { triggerHapticSelection } from "@/lib/haptics";
+import wizardFoodImage from "@/assets/wizard_food.png";
 import type { Meal } from "@/pages/nutrition/types";
 
 const BarcodeScanner = lazy(() =>
@@ -190,10 +190,17 @@ function WizardEmptyState({
     >
       {/* Wizard + headline */}
       <div className="flex items-start gap-3 mb-3">
-        <div className="relative shrink-0" style={{ width: 64, height: 64 }}>
-          <div style={{ width: 140, height: 140, transform: "scale(0.46)", transformOrigin: "top left" }}>
-            <WizardCharacter pose="wave" />
-          </div>
+        <div className="relative shrink-0 h-16 w-16">
+          <motion.img
+            src={wizardFoodImage}
+            alt=""
+            className="h-full w-full object-contain pointer-events-none select-none"
+            draggable={false}
+            /* Gentle bob — matches the FAB motion vocabulary
+               (3.2s y: 0 → -6 → 0). */
+            animate={{ y: [0, -6, 0] }}
+            transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
+          />
         </div>
         <div className="min-w-0 flex-1 pt-1.5">
           <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary/80">
