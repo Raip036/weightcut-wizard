@@ -732,7 +732,7 @@ export default function Dashboard() {
               (/goals); the old ProfileSheet bottom-sheet is no longer
               opened from here. Days-left tab uses the v1 glass recipe
               over a Void surface so it reads as on-brand chrome. */}
-          <header className="flex items-center justify-between gap-3 pt-1">
+          <header className="relative flex items-center justify-between gap-3 pt-1">
             <button
               onClick={() => navigate('/goals')}
               className="active:opacity-70 transition-opacity"
@@ -741,7 +741,7 @@ export default function Dashboard() {
               <Avatar className="h-10 w-10">
                 <AvatarImage src={avatarUrl ?? undefined} />
                 <AvatarFallback
-                  className="text-[13px] font-semibold"
+                  className="text-note font-semibold"
                   style={{ backgroundColor: '#162137', color: '#8C96B4' }}
                 >
                   {userName?.[0]?.toUpperCase() ?? 'U'}
@@ -749,7 +749,12 @@ export default function Dashboard() {
               </Avatar>
             </button>
 
-            <h2 className="text-[15px] font-semibold tracking-tight">
+            {/* Absolute-positioned so the title is centered relative to
+                the header's full width, independent of the avatar (40px)
+                and the days-left tab (variable width). flex
+                justify-between alone left the title visually off-center
+                because the two flanking elements have different widths. */}
+            <h2 className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-body-sm font-semibold tracking-tight">
               Dashboard
             </h2>
 
@@ -763,7 +768,7 @@ export default function Dashboard() {
                   border: '1px solid rgba(255, 255, 255, 0.08)',
                 }}
               >
-                <p className="text-[13px] font-semibold tabular-nums whitespace-nowrap text-foreground">
+                <p className="text-note font-semibold tabular-nums whitespace-nowrap text-foreground">
                   {daysUntilTarget} days left
                 </p>
               </div>
@@ -776,23 +781,13 @@ export default function Dashboard() {
           {/* Greeting + date — small caps Inter Light date below the
               greeting, with breathing room from the top row above. */}
           <div className="pt-1">
-            <h1 className="text-[22px] font-semibold leading-tight">
+            <h1 className="text-title font-semibold leading-tight">
               {userName ? `${getGreeting()}, ${userName}` : "Today"}
             </h1>
-            <p className="text-[10px] uppercase tracking-[0.15em] font-light text-muted-foreground/70 mt-1">
+            <p className="text-micro uppercase tracking-[0.15em] font-light text-muted-foreground/70 mt-1">
               {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
             </p>
           </div>
-
-          {/* Gym invites — pending invites must be accepted before the
-              athlete can interact with that gym's coach. Sits above the
-              announcement widget so action items are surfaced first. */}
-          {userId && <GymInvitesBanner />}
-
-          {/* Gym announcement — pinned above the ring so a fresh
-              message from the user's coach is the first thing they
-              see when they open the app, not buried at the bottom. */}
-          {userId && <NewAnnouncementWidget userId={userId} />}
 
           {/* Post-fight banner — auto-prompts the user to wrap up the camp
               and start the next one once the fight date has passed. The
@@ -809,14 +804,14 @@ export default function Dashboard() {
                   <Trophy className="h-5 w-5 text-primary" strokeWidth={2.4} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[14px] font-bold tracking-tight text-foreground leading-tight">
+                  <p className="text-body-sm font-bold tracking-tight text-foreground leading-tight">
                     How did {activeCamp.name} go?
                   </p>
-                  <p className="text-[12px] text-muted-foreground mt-0.5 leading-snug">
+                  <p className="text-note text-muted-foreground mt-0.5 leading-snug">
                     Wrap it up and line up your next fight camp.
                   </p>
                 </div>
-                <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-primary shrink-0">
+                <span className="inline-flex items-center gap-1 text-note font-semibold text-primary shrink-0">
                   <Sparkles className="h-3.5 w-3.5" />
                   Start next
                 </span>
@@ -861,7 +856,7 @@ export default function Dashboard() {
               />
             )}
             {ffScore.campAge && (
-              <p className="text-[11px] text-muted-foreground/80 mt-2">
+              <p className="text-micro text-muted-foreground/80 mt-2">
                 {ffScore.campAge.weeksAhead === 0
                   ? "Camp pace: on schedule"
                   : `Camp pace: ${Math.abs(ffScore.campAge.weeksAhead).toFixed(0)} ${Math.abs(ffScore.campAge.weeksAhead) === 1 ? "week" : "weeks"} ${ffScore.campAge.weeksAhead > 0 ? "ahead of" : "behind"} schedule`}
@@ -901,7 +896,7 @@ export default function Dashboard() {
                     never collides with the end labels regardless of
                     where the marker sits. */}
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-semibold tabular-nums text-muted-foreground shrink-0">
+                  <span className="text-micro font-semibold tabular-nums text-muted-foreground shrink-0">
                     {weightChip.start.toFixed(1)}
                   </span>
                   <div className="relative flex-1 h-[3px] rounded-full bg-muted/60">
@@ -920,13 +915,13 @@ export default function Dashboard() {
                       style={{ left: markerLeft }}
                     />
                   </div>
-                  <span className="text-[10px] font-semibold tabular-nums text-muted-foreground shrink-0">
+                  <span className="text-micro font-semibold tabular-nums text-muted-foreground shrink-0">
                     {weightChip.goal.toFixed(1)}
                   </span>
                 </div>
 
                 {/* Meta line — current weight + progress + trend */}
-                <p className="mt-1 text-[10px] text-muted-foreground tabular-nums">
+                <p className="mt-1 text-micro text-muted-foreground tabular-nums">
                   <span className="font-bold text-primary">{weightChip.current.toFixed(1)} kg</span>
                   {" · "}
                   <span className="font-semibold text-foreground">{pctLabel}%</span> {direction === "lose" ? "cut" : "gained"}
@@ -935,6 +930,11 @@ export default function Dashboard() {
               </button>
             );
           })() : null}
+
+          {/* Gym invites + announcements — below the hero ring so they
+              don't push Fight Form Score below the fold. */}
+          {userId && <GymInvitesBanner />}
+          {userId && <NewAnnouncementWidget userId={userId} />}
 
           <TodayStrip adherence={adherence} mealsLoggedToday={todayCalories > 0} />
 
@@ -953,7 +953,7 @@ export default function Dashboard() {
               className="card-surface rounded-xs p-3 aspect-square flex flex-col text-left active:scale-[0.98] transition-transform"
             >
               <div className="flex items-start justify-between">
-                <span className="text-[10px] font-normal uppercase tracking-[0.08em] text-muted-foreground">
+                <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
                   WEIGHT
                 </span>
                 <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60 -mr-1 -mt-0.5" strokeWidth={2.2} />
@@ -965,7 +965,7 @@ export default function Dashboard() {
                     ? convertWeight(currentWeightValue).toFixed(1)
                     : "—"}
                 </span>
-                <span className="text-[12px] font-light text-muted-foreground">
+                <span className="text-note font-light text-muted-foreground">
                   {weightUnit}
                 </span>
               </div>
@@ -978,8 +978,8 @@ export default function Dashboard() {
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-center">
                     <TrendingDown className="h-5 w-5 text-muted-foreground/40 mb-1" />
-                    <p className="text-[12px] text-muted-foreground">No data yet</p>
-                    <Button variant="ghost" size="sm" className="h-6 text-[12px] px-2" onClick={() => navigate('/weight')}>
+                    <p className="text-note text-muted-foreground">No data yet</p>
+                    <Button variant="ghost" size="sm" className="h-6 text-note px-2" onClick={() => navigate('/weight')}>
                       Log Weight
                     </Button>
                   </div>
@@ -998,10 +998,10 @@ export default function Dashboard() {
                 const isDown = delta < 0;
                 return (
                   <div className="mt-1.5 flex items-center justify-between">
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-micro text-muted-foreground">
                       {last.date}
                     </span>
-                    <div className={`flex items-center gap-1 text-[10px] font-medium tabular-nums ${isDown ? "text-func-recovery-green" : "text-func-danger-red"}`}>
+                    <div className={`flex items-center gap-1 text-micro font-medium tabular-nums ${isDown ? "text-func-recovery-green" : "text-func-danger-red"}`}>
                       <TrendingDown
                         className={`h-3 w-3 ${isDown ? "" : "rotate-180"}`}
                         strokeWidth={2.4}
@@ -1070,36 +1070,27 @@ export default function Dashboard() {
               <Avatar className="h-10 w-10">
                 <AvatarImage src={avatarUrl ?? undefined} />
                 <AvatarFallback
-                  className="text-[13px] font-semibold"
+                  className="text-note font-semibold"
                   style={{ backgroundColor: '#7B31EA', color: '#8B7EEA' }}
                 >
                   {userName?.[0]?.toUpperCase() ?? 'U'}
                 </AvatarFallback>
               </Avatar>
             </button>
-            <h1 className="text-[17px] font-semibold leading-tight truncate max-w-[180px]">
+            <h1 className="text-value font-semibold leading-tight truncate max-w-[180px]">
               {userName ? `${getGreeting()}, ${userName}` : "Today"}
             </h1>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             {daysUntilTarget > 0 && (
               <div className="rounded-2xl px-2.5 py-1.5 text-center backdrop-blur-md bg-white/10 border border-white/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]">
-                <p className="text-[15px] font-bold tabular-nums leading-none">{daysUntilTarget}</p>
-                <p className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5">Days left</p>
+                <p className="text-body-sm font-bold tabular-nums leading-none">{daysUntilTarget}</p>
+                <p className="text-micro uppercase tracking-wider text-muted-foreground mt-0.5">Days left</p>
               </div>
             )}
             {streak > 0 && <StreakBadge streak={streak} isActive={streakIncludesToday} />}
           </div>
         </header>
-
-        {/* Gym invites — surfaced above the announcement widget so the
-            athlete acts on pending invites before reading messages. */}
-        {userId && <GymInvitesBanner />}
-
-        {/* Gym announcement — pinned above the rest of the dashboard so
-            a fresh message from the user's coach is the first thing
-            they see, not buried mid-page. */}
-        {userId && <NewAnnouncementWidget userId={userId} />}
 
         {weightLogs.length === 0 && (
           <button onClick={() => navigate('/weight')} className="w-full card-surface rounded-2xl border border-border/50 p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all">
@@ -1107,8 +1098,8 @@ export default function Dashboard() {
               <Scale className="h-4 w-4 text-primary" />
             </div>
             <div className="flex-1 text-left min-w-0">
-              <p className="text-[13px] font-semibold">Welcome{userName ? `, ${userName}` : ''}</p>
-              <p className="text-[12px] text-muted-foreground leading-snug">Log your first weigh-in to get started</p>
+              <p className="text-note font-semibold">Welcome{userName ? `, ${userName}` : ''}</p>
+              <p className="text-note text-muted-foreground leading-snug">Log your first weigh-in to get started</p>
             </div>
             <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           </button>
@@ -1133,8 +1124,8 @@ export default function Dashboard() {
               <Lock className="h-3.5 w-3.5 text-muted-foreground" />
             </div>
             <div className="flex-1 text-left min-w-0">
-              <p className="text-[12px] font-semibold">Daily Insight</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+              <p className="text-note font-semibold">Daily Insight</p>
+              <p className="text-micro text-muted-foreground mt-0.5 leading-snug">
                 Log today's weight to unlock
               </p>
             </div>
@@ -1155,15 +1146,15 @@ export default function Dashboard() {
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-1.5">
-                <p className="text-[12px] font-semibold">Daily Insight</p>
+                <p className="text-note font-semibold">Daily Insight</p>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${riskColors[wisdom.riskLevel]}`}>
+                  <span className={`text-micro px-1.5 py-0.5 rounded-full font-medium ${riskColors[wisdom.riskLevel]}`}>
                     {wisdom.riskLevel.charAt(0).toUpperCase() + wisdom.riskLevel.slice(1)}
                   </span>
                   <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                 </div>
               </div>
-              <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug line-clamp-2">
+              <p className="text-micro text-muted-foreground mt-0.5 leading-snug line-clamp-2">
                 {wisdom.summary.replace(/[—–]/g, ',').replace(/\s*,\s*/g, ', ').replace(/\s{2,}/g, ' ').split(/\s+/).slice(0, 12).join(' ').replace(/[.,;:]+$/, '')}
               </p>
             </div>
@@ -1174,12 +1165,18 @@ export default function Dashboard() {
               <Zap className="h-3.5 w-3.5 text-muted-foreground" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[12px] font-semibold">Daily Insight</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug line-clamp-2">{getWizardWisdom()}</p>
+              <p className="text-note font-semibold">Daily Insight</p>
+              <p className="text-micro text-muted-foreground mt-0.5 leading-snug line-clamp-2">{getWizardWisdom()}</p>
             </div>
           </div>
         )}
         </div>
+
+        {/* Gym invites + announcements — below the hero metrics so they
+            don't push the primary content below the fold for the 95%
+            of sessions where there's nothing pending. */}
+        {userId && <GymInvitesBanner />}
+        {userId && <NewAnnouncementWidget userId={userId} />}
 
         {/* Weight History + Training — side by side */}
         <div className="grid grid-cols-2 gap-2">
@@ -1192,7 +1189,7 @@ export default function Dashboard() {
                   variant={weightUnit === 'kg' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => { setWeightUnit('kg'); triggerHapticSelection(); }}
-                  className="h-3 min-h-0 text-[9px] px-1 rounded-full leading-none"
+                  className="h-3 min-h-0 text-micro px-1 rounded-full leading-none"
                 >
                   kg
                 </Button>
@@ -1200,7 +1197,7 @@ export default function Dashboard() {
                   variant={weightUnit === 'lb' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => { setWeightUnit('lb'); triggerHapticSelection(); }}
-                  className="h-3 min-h-0 text-[9px] px-1 rounded-full leading-none"
+                  className="h-3 min-h-0 text-micro px-1 rounded-full leading-none"
                 >
                   lb
                 </Button>
@@ -1214,8 +1211,8 @@ export default function Dashboard() {
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-center">
                   <TrendingDown className="h-5 w-5 text-muted-foreground/40 mb-1" />
-                  <p className="text-[13px] text-muted-foreground">No data yet</p>
-                  <Button variant="ghost" size="sm" className="h-6 text-[13px] px-2" onClick={() => navigate('/weight')}>
+                  <p className="text-note text-muted-foreground">No data yet</p>
+                  <Button variant="ghost" size="sm" className="h-6 text-note px-2" onClick={() => navigate('/weight')}>
                     Log Weight
                   </Button>
                 </div>
@@ -1257,8 +1254,8 @@ export default function Dashboard() {
                 <Swords className="h-4 w-4 text-primary" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[12px] font-semibold leading-tight">Cut Plan</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">View your plan</p>
+                <p className="text-note font-semibold leading-tight">Cut Plan</p>
+                <p className="text-micro text-muted-foreground mt-0.5 leading-snug">View your plan</p>
               </div>
               <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
             </button>
@@ -1284,8 +1281,8 @@ export default function Dashboard() {
               <SheetHeader>
                 <div className="flex items-center gap-2">
                   <div>
-                    <SheetTitle className="text-[13px] font-semibold">Daily Insight</SheetTitle>
-                    <p className="text-[13px] text-muted-foreground">
+                    <SheetTitle className="text-note font-semibold">Daily Insight</SheetTitle>
+                    <p className="text-note text-muted-foreground">
                       {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
                     </p>
                   </div>
@@ -1297,55 +1294,55 @@ export default function Dashboard() {
               {/* 3-col status grid */}
               <div className="grid grid-cols-3 gap-1.5">
                 <button onClick={() => setExpandedInfo(expandedInfo === 'risk' ? null : 'risk')} className={`rounded-lg py-2 text-center transition-colors ${expandedInfo === 'risk' ? 'bg-muted/40' : 'bg-muted/20 active:bg-muted/30'}`}>
-                  <span className={`text-[13px] font-medium ${riskColors[wisdom.riskLevel]}`}>
+                  <span className={`text-note font-medium ${riskColors[wisdom.riskLevel]}`}>
                     {wisdom.riskLevel.charAt(0).toUpperCase() + wisdom.riskLevel.slice(1)}
                   </span>
-                  <p className="text-[13px] text-muted-foreground mt-0.5">Risk</p>
+                  <p className="text-note text-muted-foreground mt-0.5">Risk</p>
                 </button>
                 <div className="rounded-lg bg-muted/20 py-2 text-center">
-                  <p className="text-[17px] font-bold tabular-nums">{wisdom.daysToFight}</p>
-                  <p className="text-[13px] text-muted-foreground">Days Left</p>
+                  <p className="text-value font-bold tabular-nums">{wisdom.daysToFight}</p>
+                  <p className="text-note text-muted-foreground">Days Left</p>
                 </div>
                 <button onClick={() => setExpandedInfo(expandedInfo === 'pace' ? null : 'pace')} className={`rounded-lg py-2 text-center transition-colors ${expandedInfo === 'pace' ? 'bg-muted/40' : 'bg-muted/20 active:bg-muted/30'}`}>
-                  <p className={`text-[13px] font-semibold ${paceColors[wisdom.paceStatus] ?? 'text-foreground'}`}>
+                  <p className={`text-note font-semibold ${paceColors[wisdom.paceStatus] ?? 'text-foreground'}`}>
                     {paceLabels[wisdom.paceStatus] ?? wisdom.paceStatus}
                   </p>
-                  <p className="text-[13px] text-muted-foreground mt-0.5">Pace</p>
+                  <p className="text-note text-muted-foreground mt-0.5">Pace</p>
                 </button>
               </div>
               {expandedInfo === 'risk' && (
                 <div className="rounded-md bg-muted/30 px-2.5 py-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <p className="text-[13px] font-semibold mb-1">Risk Level</p>
-                  <p className="text-[13px] text-muted-foreground leading-snug mb-1">How aggressive your current cut rate is.</p>
-                  <p className="text-[13px] text-muted-foreground"><span className="text-green-400 font-medium">Green</span> — Safe, sustainable pace</p>
-                  <p className="text-[13px] text-muted-foreground"><span className="text-orange-400 font-medium">Orange</span> — High pace, may affect performance</p>
+                  <p className="text-note font-semibold mb-1">Risk Level</p>
+                  <p className="text-note text-muted-foreground leading-snug mb-1">How aggressive your current cut rate is.</p>
+                  <p className="text-note text-muted-foreground"><span className="text-green-400 font-medium">Green</span> — Safe, sustainable pace</p>
+                  <p className="text-note text-muted-foreground"><span className="text-orange-400 font-medium">Orange</span> — High pace, may affect performance</p>
                 </div>
               )}
               {expandedInfo === 'pace' && (
                 <div className="rounded-md bg-muted/30 px-2.5 py-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <p className="text-[13px] font-semibold mb-1">Pace</p>
-                  <p className="text-[13px] text-muted-foreground leading-snug mb-1">Is your weekly loss on track to hit your target?</p>
-                  <p className="text-[13px] text-muted-foreground"><span className="text-green-400 font-medium">On Track</span> — On schedule</p>
-                  <p className="text-[13px] text-muted-foreground"><span className="text-green-400 font-medium">At Target</span> — Already at goal</p>
-                  <p className="text-[13px] text-muted-foreground"><span className="text-blue-400 font-medium">Ahead</span> — Faster than needed</p>
-                  <p className="text-[13px] text-muted-foreground"><span className="text-yellow-400 font-medium">Behind</span> — May need to adjust</p>
+                  <p className="text-note font-semibold mb-1">Pace</p>
+                  <p className="text-note text-muted-foreground leading-snug mb-1">Is your weekly loss on track to hit your target?</p>
+                  <p className="text-note text-muted-foreground"><span className="text-green-400 font-medium">On Track</span> — On schedule</p>
+                  <p className="text-note text-muted-foreground"><span className="text-green-400 font-medium">At Target</span> — Already at goal</p>
+                  <p className="text-note text-muted-foreground"><span className="text-blue-400 font-medium">Ahead</span> — Faster than needed</p>
+                  <p className="text-note text-muted-foreground"><span className="text-yellow-400 font-medium">Behind</span> — May need to adjust</p>
                 </div>
               )}
 
               {/* Weight Pace */}
               <div className="rounded-2xl bg-muted/20 p-3">
-                <h4 className="text-[14px] font-semibold mb-2">Weight Pace</h4>
+                <h4 className="text-body-sm font-semibold mb-2">Weight Pace</h4>
                 <div className="grid grid-cols-2 gap-3 mb-2">
                   <div>
-                    <p className="text-[13px] text-muted-foreground">Actual / week</p>
-                    <p className="text-[17px] font-bold tabular-nums">{wisdom.weeklyPaceKg.toFixed(2)} kg</p>
+                    <p className="text-note text-muted-foreground">Actual / week</p>
+                    <p className="text-value font-bold tabular-nums">{wisdom.weeklyPaceKg.toFixed(2)} kg</p>
                   </div>
                   <div>
-                    <p className="text-[13px] text-muted-foreground">Needed / week</p>
-                    <p className="text-[17px] font-bold tabular-nums">{wisdom.requiredWeeklyKg.toFixed(2)} kg</p>
+                    <p className="text-note text-muted-foreground">Needed / week</p>
+                    <p className="text-value font-bold tabular-nums">{wisdom.requiredWeeklyKg.toFixed(2)} kg</p>
                   </div>
                 </div>
-                <p className="text-[14px] text-muted-foreground leading-relaxed">{wisdom.riskReason}</p>
+                <p className="text-body-sm text-muted-foreground leading-relaxed">{wisdom.riskReason}</p>
               </div>
 
               {/* Guidance — current/goal weight + calories + macros */}
@@ -1368,20 +1365,20 @@ export default function Dashboard() {
                 for (let k = 0; k < order.length && rem > 0; k++, rem--) pcts[order[k].i] += 1;
                 return (
                   <div className="rounded-2xl bg-muted/20 p-3 space-y-3">
-                    <h4 className="text-[14px] font-semibold">Guidance</h4>
+                    <h4 className="text-body-sm font-semibold">Guidance</h4>
 
                     <div className="grid grid-cols-3 gap-2">
                       <div className="rounded-lg bg-background/40 p-2 text-center">
-                        <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Current</p>
-                        <p className="text-[17px] font-bold tabular-nums">{cur.toFixed(1)}<span className="text-[11px] text-muted-foreground font-normal"> kg</span></p>
+                        <p className="text-micro uppercase tracking-wider text-muted-foreground">Current</p>
+                        <p className="text-value font-bold tabular-nums">{cur.toFixed(1)}<span className="text-micro text-muted-foreground font-normal"> kg</span></p>
                       </div>
                       <div className="rounded-lg bg-background/40 p-2 text-center">
-                        <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Goal</p>
-                        <p className="text-[17px] font-bold tabular-nums">{goal.toFixed(1)}<span className="text-[11px] text-muted-foreground font-normal"> kg</span></p>
+                        <p className="text-micro uppercase tracking-wider text-muted-foreground">Goal</p>
+                        <p className="text-value font-bold tabular-nums">{goal.toFixed(1)}<span className="text-micro text-muted-foreground font-normal"> kg</span></p>
                       </div>
                       <div className="rounded-lg bg-primary/10 p-2 text-center">
-                        <p className="text-[11px] uppercase tracking-wider text-primary/80">Daily</p>
-                        <p className="text-[17px] font-bold tabular-nums text-primary">{calorieTarget}<span className="text-[11px] font-normal"> kcal</span></p>
+                        <p className="text-micro uppercase tracking-wider text-primary/80">Daily</p>
+                        <p className="text-value font-bold tabular-nums text-primary">{calorieTarget}<span className="text-micro font-normal"> kcal</span></p>
                       </div>
                     </div>
 
@@ -1392,13 +1389,13 @@ export default function Dashboard() {
                         { label: 'Fats', g: fatsG, pct: pcts[2], color: 'text-func-fats-purple' },
                       ].map((m) => (
                         <div key={m.label} className="rounded-lg bg-background/40 p-2 text-center">
-                          <p className={`text-[15px] font-bold tabular-nums ${m.color}`}>{m.g}g</p>
-                          <p className="text-[11px] text-muted-foreground">{m.label} · {m.pct}%</p>
+                          <p className={`text-body-sm font-bold tabular-nums ${m.color}`}>{m.g}g</p>
+                          <p className="text-micro text-muted-foreground">{m.label} · {m.pct}%</p>
                         </div>
                       ))}
                     </div>
 
-                    <p className="text-[14px] text-muted-foreground leading-relaxed">{wisdom.adviceParagraph}</p>
+                    <p className="text-body-sm text-muted-foreground leading-relaxed">{wisdom.adviceParagraph}</p>
                   </div>
                 );
               })()}
@@ -1413,11 +1410,11 @@ export default function Dashboard() {
                 const items = [numericAction, ...wisdom.actionItems];
                 return (
                   <div className="rounded-2xl bg-muted/20 p-3">
-                    <h4 className="text-[14px] font-semibold mb-2">Action Items</h4>
+                    <h4 className="text-body-sm font-semibold mb-2">Action Items</h4>
                     <ol className="space-y-2">
                       {items.map((item, i) => (
-                        <li key={i} className="flex items-start gap-2.5 text-[14px]">
-                          <span className="shrink-0 w-5 h-5 rounded-full bg-primary/15 text-primary text-[12px] font-bold flex items-center justify-center mt-0.5">
+                        <li key={i} className="flex items-start gap-2.5 text-body-sm">
+                          <span className="shrink-0 w-5 h-5 rounded-full bg-primary/15 text-primary text-note font-bold flex items-center justify-center mt-0.5">
                             {i + 1}
                           </span>
                           <span className="leading-relaxed text-foreground/90">{item}</span>
@@ -1430,21 +1427,21 @@ export default function Dashboard() {
 
               {/* Nutrition — foods you eat often + swap ideas */}
               <div className="rounded-2xl bg-muted/20 p-3 space-y-2.5">
-                <h4 className="text-[14px] font-semibold">Nutrition</h4>
-                <p className="text-[14px] text-muted-foreground leading-relaxed">{wisdom.nutritionStatus}</p>
+                <h4 className="text-body-sm font-semibold">Nutrition</h4>
+                <p className="text-body-sm text-muted-foreground leading-relaxed">{wisdom.nutritionStatus}</p>
                 {frequentMeals.length > 0 && (
                   <div className="space-y-1.5 pt-1">
-                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground/80">Foods you eat often</p>
+                    <p className="text-micro uppercase tracking-wider text-muted-foreground/80">Foods you eat often</p>
                     <ul className="divide-y divide-border/20 rounded-lg bg-background/40 overflow-hidden">
                       {frequentMeals.map((m) => (
                         <li key={m.name} className="flex items-start gap-3 px-3 py-2.5">
                           <div className="flex-1 min-w-0">
-                            <p className="text-[14px] font-medium truncate">{m.name}</p>
-                            <p className="text-[12px] text-muted-foreground/80 mt-0.5 leading-snug">{getFoodSwap(m.name)}</p>
+                            <p className="text-body-sm font-medium truncate">{m.name}</p>
+                            <p className="text-note text-muted-foreground/80 mt-0.5 leading-snug">{getFoodSwap(m.name)}</p>
                           </div>
                           <div className="text-right shrink-0">
-                            <p className="text-[13px] font-semibold tabular-nums text-foreground/80">{m.avgCalories}<span className="text-[10px] text-muted-foreground font-normal"> kcal</span></p>
-                            <p className="text-[10px] text-muted-foreground">×{m.count}</p>
+                            <p className="text-note font-semibold tabular-nums text-foreground/80">{m.avgCalories}<span className="text-micro text-muted-foreground font-normal"> kcal</span></p>
+                            <p className="text-micro text-muted-foreground">×{m.count}</p>
                           </div>
                         </li>
                       ))}

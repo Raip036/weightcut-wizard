@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState, useCallback } from "react";
+import { motion } from "motion/react";
 import { useWizardBackground } from "@/contexts/WizardBackgroundContext";
 import { Send, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -6,6 +7,14 @@ import ReactMarkdown from "react-markdown";
 import { triggerHapticSelection, triggerHapticSuccess, triggerHaptic } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
 import wizardAvatar from "@/assets/wizard-logo.webp";
+/* FAB icon. To switch to the chat-attached orb image, save the PNG to
+   `src/assets/orb.png` and replace the wizardAvatar reference on the
+   <motion.img> below with this import. Currently falls back to
+   wizardAvatar so the build passes until the orb file is added.
+       import orbImage from "@/assets/orb.png";
+   The in-chat avatars inside the conversation panel keep using
+   wizardAvatar regardless for assistant-identity continuity. */
+const orbImage = wizardAvatar;
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 
 const FAB_SIZE = 48;
@@ -157,16 +166,36 @@ export function FloatingWizardChat() {
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         data-tutorial="wizard-chat"
-        className={`fixed top-0 left-0 z-[10000] w-12 h-12 rounded-full shadow-lg flex items-center justify-center md:hidden touch-none overflow-hidden ${
-          hasAccess
-            ? "bg-gradient-to-br from-primary to-secondary text-primary-foreground shadow-primary/30"
-            : "bg-zinc-800 text-zinc-400 shadow-none border border-white/10"
-        } ${open ? "pointer-events-none opacity-0" : "opacity-100"}`}
-        style={{ willChange: "transform", transition: open ? "opacity 0.15s" : undefined }}
+        /* Orb FAB — no background fill, no border. The orb image itself
+           provides the visual. Wrapping motion is applied to the INNER
+           image (not the button) so it doesn't fight with the drag/snap
+           transforms applied imperatively to the button. Soft glow via
+           drop-shadow filter so it doesn't get clipped by the round
+           bounding box. Dimmed (grayscale + opacity) when the user
+           lacks paid access. */
+        className={`fixed top-0 left-0 z-[10000] w-12 h-12 flex items-center justify-center md:hidden touch-none ${
+          open ? "pointer-events-none opacity-0" : "opacity-100"
+        }`}
+        style={{
+          willChange: "transform",
+          transition: open ? "opacity 0.15s" : undefined,
+          filter: hasAccess
+            ? "drop-shadow(0 0 12px rgba(139, 126, 234, 0.55)) drop-shadow(0 0 24px rgba(74, 180, 237, 0.30))"
+            : "grayscale(0.7) brightness(0.7) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.4))",
+        }}
         aria-label="Open AI Wizard"
         aria-hidden={open}
       >
-        <img src={wizardAvatar} alt="Wizard" className="w-full h-full object-cover rounded-full mix-blend-screen" />
+        <motion.img
+          src={orbImage}
+          alt="AI Coach"
+          className="w-full h-full object-contain pointer-events-none select-none"
+          draggable={false}
+          /* Subtle bobbing — 3px up/down on a 3.4s loop. Slow + small
+             so it reads as "alive" without being distracting. */
+          animate={{ y: [0, -3, 0] }}
+          transition={{ duration: 3.4, repeat: Infinity, ease: "easeInOut" }}
+        />
       </button>
 
       {/* Backdrop */}

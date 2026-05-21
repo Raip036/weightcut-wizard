@@ -92,22 +92,27 @@ export const SleepLogger = memo(function SleepLogger({ userId, compact }: SleepL
     setDraftHours((h) => Math.min(MAX_HOURS, Math.max(MIN_HOURS, Math.round((h + delta) * 10) / 10)));
   };
 
-  // Compact pill — stays the EXACT same size whether the sheet is open or not.
-  // The bottom sheet handles all input, so the dashboard tile never resizes.
+  // Compact widget — shows last night's logged hours prominently.
   const trigger = compact ? (
     <button
       type="button"
-      className="card-surface rounded-2xl border border-border px-3 py-3 flex items-center justify-center active:scale-[0.98] transition-all text-center w-full min-h-[3.25rem]"
+      className="card-surface rounded-xs px-4 py-3.5 flex items-center gap-3 active:scale-[0.98] transition-all text-left w-full"
       onClick={openSheet}
     >
-      {saved ? (
-        <p className="text-[13px] font-semibold leading-tight">
-          <span className="tabular-nums">{hours}</span>
-          <span className="text-muted-foreground">h</span> sleep
-        </p>
-      ) : (
-        <p className="text-[13px] font-semibold leading-tight">Sleep</p>
-      )}
+      <div className="h-9 w-9 rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+        <Moon className="h-4 w-4 text-primary" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-micro uppercase tracking-wider text-muted-foreground/70 font-semibold">Last night</p>
+        {saved ? (
+          <p className="text-value font-bold leading-tight tabular-nums">
+            {hours}<span className="text-note text-muted-foreground font-medium ml-0.5">h</span>
+          </p>
+        ) : (
+          <p className="text-note font-medium text-muted-foreground">Tap to log</p>
+        )}
+      </div>
+      <ChevronRight className="h-4 w-4 text-muted-foreground/40 flex-shrink-0" />
     </button>
   ) : (
     <button
@@ -151,7 +156,7 @@ export const SleepLogger = memo(function SleepLogger({ userId, compact }: SleepL
                 <Moon className="w-4 h-4 text-primary" />
                 <SheetTitle className="text-base font-semibold">Sleep</SheetTitle>
               </div>
-              <p className="text-[12px] text-muted-foreground truncate">
+              <p className="text-note text-muted-foreground truncate">
                 How long did you sleep last night?
               </p>
             </SheetHeader>
@@ -159,7 +164,7 @@ export const SleepLogger = memo(function SleepLogger({ userId, compact }: SleepL
               type="button"
               onClick={handleSave}
               disabled={saving}
-              className="h-9 px-4 rounded-full bg-primary text-primary-foreground text-[13px] font-semibold active:scale-[0.95] transition-transform disabled:opacity-40 flex-shrink-0"
+              className="h-9 px-4 rounded-full bg-primary text-primary-foreground text-note font-semibold active:scale-[0.95] transition-transform disabled:opacity-40 flex-shrink-0"
             >
               {saving ? "Saving…" : "Save"}
             </button>
@@ -191,7 +196,7 @@ export const SleepLogger = memo(function SleepLogger({ userId, compact }: SleepL
               <span className="text-[44px] font-bold tabular-nums leading-none tracking-tight">
                 {draftHours}
               </span>
-              <span className="text-[18px] text-muted-foreground font-medium">h</span>
+              <span className="text-value text-muted-foreground font-medium">h</span>
             </div>
             <button
               type="button"
@@ -216,7 +221,7 @@ export const SleepLogger = memo(function SleepLogger({ userId, compact }: SleepL
                     triggerHaptic(ImpactStyle.Light);
                     setDraftHours(preset);
                   }}
-                  className={`px-3 h-8 rounded-full text-[12px] font-medium tabular-nums transition-colors ${
+                  className={`px-3 h-8 rounded-full text-note font-medium tabular-nums transition-colors ${
                     active
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted/40 text-muted-foreground active:bg-muted/60"
