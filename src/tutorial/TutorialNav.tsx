@@ -26,7 +26,7 @@ const NEXT_GLOW =
 export function TutorialNav({ isFirstStep, isLastStep, onBack, onNext }: TutorialNavProps) {
   return (
     <motion.div
-      className="relative flex w-full max-w-[78vw] gap-2 self-center"
+      className="relative flex w-full max-w-[78vw] gap-2"
       style={{ zIndex: 50 }}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
