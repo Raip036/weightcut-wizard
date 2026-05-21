@@ -7,14 +7,10 @@ import ReactMarkdown from "react-markdown";
 import { triggerHapticSelection, triggerHapticSuccess, triggerHaptic } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
 import wizardAvatar from "@/assets/wizard-logo.webp";
-/* FAB icon. To switch to the chat-attached orb image, save the PNG to
-   `src/assets/orb.png` and replace the wizardAvatar reference on the
-   <motion.img> below with this import. Currently falls back to
-   wizardAvatar so the build passes until the orb file is added.
-       import orbImage from "@/assets/orb.png";
-   The in-chat avatars inside the conversation panel keep using
-   wizardAvatar regardless for assistant-identity continuity. */
-const orbImage = wizardAvatar;
+/* Orb illustration for the floating FAB. The in-chat avatars inside the
+   conversation panel still use wizardAvatar for assistant-identity
+   continuity — only the FAB swaps to the orb. */
+import orbImage from "@/assets/orb.png";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 
 const FAB_SIZE = 48;
