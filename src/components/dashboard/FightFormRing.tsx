@@ -281,14 +281,15 @@ export function FightFormRing({
           />
         )}
 
-        {/* Track */}
+        {/* Track — breathes slowly while calibrating to signal active scanning */}
         <circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke="hsl(var(--muted))"
+          stroke={showCalibSweep ? "hsl(var(--muted-foreground))" : "hsl(var(--muted))"}
           strokeWidth={10}
           fill="none"
+          className={showCalibSweep ? "ff-ring-calib-track" : undefined}
         />
         {/* Ghost arc — what the user WOULD have scored without the cap.
             Rendered first so the score arc + lock paint on top of it. */}
@@ -320,21 +321,56 @@ export function FightFormRing({
             state === "ok" ? LABEL_STROKE[label] : "stroke-muted-foreground/40",
           )}
         />
-        {/* Calibrating sweep — a small bright arc sweeping the ring perimeter
-            so the user can see data is "scanning in". */}
+        {/* Calibrating comet — four stacked arcs share the same rotation so
+            they read as a single streak with a bright head and fading tail.
+            Blur halo → wide tail → mid body → sharp head, all monochrome. */}
         {showCalibSweep && (
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            stroke={`rgba(${labelRgb}, 0.75)`}
-            strokeWidth={4}
-            fill="none"
-            strokeLinecap="round"
-            strokeDasharray={`${circumference * 0.08} ${circumference * 0.92}`}
-            className="ff-ring-calib-sweep"
-            style={{ transformOrigin: `${size / 2}px ${size / 2}px` }}
-          />
+          <>
+            {/* Blur halo behind the streak */}
+            <circle
+              cx={size / 2} cy={size / 2} r={radius}
+              stroke={`rgba(${labelRgb}, 0.07)`}
+              strokeWidth={18}
+              fill="none"
+              strokeLinecap="round"
+              strokeDasharray={`${circumference * 0.32} ${circumference * 0.68}`}
+              className="ff-ring-calib-sweep"
+              style={{ transformOrigin: `${size / 2}px ${size / 2}px`, filter: "blur(6px)" }}
+            />
+            {/* Tail — long, faint */}
+            <circle
+              cx={size / 2} cy={size / 2} r={radius}
+              stroke={`rgba(${labelRgb}, 0.18)`}
+              strokeWidth={7}
+              fill="none"
+              strokeLinecap="round"
+              strokeDasharray={`${circumference * 0.22} ${circumference * 0.78}`}
+              className="ff-ring-calib-sweep"
+              style={{ transformOrigin: `${size / 2}px ${size / 2}px` }}
+            />
+            {/* Body — medium */}
+            <circle
+              cx={size / 2} cy={size / 2} r={radius}
+              stroke={`rgba(${labelRgb}, 0.45)`}
+              strokeWidth={8}
+              fill="none"
+              strokeLinecap="round"
+              strokeDasharray={`${circumference * 0.09} ${circumference * 0.91}`}
+              className="ff-ring-calib-sweep"
+              style={{ transformOrigin: `${size / 2}px ${size / 2}px` }}
+            />
+            {/* Head — short, bright */}
+            <circle
+              cx={size / 2} cy={size / 2} r={radius}
+              stroke={`rgba(${labelRgb}, 0.9)`}
+              strokeWidth={9}
+              fill="none"
+              strokeLinecap="round"
+              strokeDasharray={`${circumference * 0.03} ${circumference * 0.97}`}
+              className="ff-ring-calib-sweep"
+              style={{ transformOrigin: `${size / 2}px ${size / 2}px` }}
+            />
+          </>
         )}
       </svg>
 
@@ -370,11 +406,21 @@ export function FightFormRing({
               <span className="display-number text-3xl">
                 {calibratingDays.current}/{calibratingDays.needed}
               </span>
-              <span className="section-header mt-1">Calibrating</span>
+              <span className="section-header mt-1">
+                Calibrating
+                <span aria-hidden className="ff-ring-calib-dot" style={{ animationDelay: "0s" }}>.</span>
+                <span aria-hidden className="ff-ring-calib-dot" style={{ animationDelay: "0.35s" }}>.</span>
+                <span aria-hidden className="ff-ring-calib-dot" style={{ animationDelay: "0.7s" }}>.</span>
+              </span>
             </>
           ) : (
             <>
-              <span className="section-header">Calibrating</span>
+              <span className="section-header">
+                Calibrating
+                <span aria-hidden className="ff-ring-calib-dot" style={{ animationDelay: "0s" }}>.</span>
+                <span aria-hidden className="ff-ring-calib-dot" style={{ animationDelay: "0.35s" }}>.</span>
+                <span aria-hidden className="ff-ring-calib-dot" style={{ animationDelay: "0.7s" }}>.</span>
+              </span>
               <span className="text-xs text-muted-foreground mt-1.5">computing…</span>
             </>
           )

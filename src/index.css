@@ -854,6 +854,8 @@ All colors MUST be HSL.
     .ff-ring-core,
     .ff-ring-particle,
     .ff-ring-calib-sweep,
+    .ff-ring-calib-track,
+    .ff-ring-calib-dot,
     .ff-ring-phase-pulse,
     .ff-ring-sharp-bloom {
       animation: none !important;
@@ -1040,17 +1042,37 @@ All colors MUST be HSL.
   }
 
   .ff-ring-calib-sweep {
-    animation: ffCalibSweep 3s linear infinite;
+    animation: ffCalibSweep 2.8s linear infinite;
     will-change: transform;
   }
 
   @keyframes ffCalibSweep {
-    from {
-      transform: rotate(0deg);
-    }
-    to {
-      transform: rotate(360deg);
-    }
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+
+  /* Track breathes while scanning — slow opacity pulse so the ring reads
+     as alive even before the comet passes over it. */
+  .ff-ring-calib-track {
+    animation: ffCalibTrack 2.4s ease-in-out infinite;
+  }
+
+  @keyframes ffCalibTrack {
+    0%, 100% { stroke-opacity: 0.08; }
+    50%      { stroke-opacity: 0.28; }
+  }
+
+  /* Sequential dots: each fades in then out on a shared 1.05s cycle with
+     staggered delays (set inline) to produce a rolling ". .. ..." effect. */
+  .ff-ring-calib-dot {
+    display: inline-block;
+    animation: ffCalibDot 1.05s ease-in-out infinite;
+    opacity: 0;
+  }
+
+  @keyframes ffCalibDot {
+    0%, 60%, 100% { opacity: 0; }
+    25%           { opacity: 1; }
   }
 
   /* Outer-ring fight-week pulse: slow stroke-opacity breath so the fighter
