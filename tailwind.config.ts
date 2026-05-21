@@ -96,34 +96,37 @@ export default {
         hydration: "hsl(var(--hydration))",
         recovery: "hsl(var(--recovery))",
 
-        /* Design System v1 — Brand palette (Figma "Branding" file). */
+        /* Design System v1 — Brand palette (Figma "Branding" file).
+           CSS vars store space-separated RGB triplets; wrapping in
+           `rgb(var(--x) / <alpha-value>)` lets Tailwind's `/N` opacity
+           modifier work (e.g. `bg-brand-spirit-blue/20`). */
         brand: {
-          "spirit-blue":  "var(--brand-spirit-blue)",
-          "wizard-lilac": "var(--brand-wizard-lilac)",
-          "dream-cyan":   "var(--brand-dream-cyan)",
-          "night-indigo": "var(--brand-night-indigo)",
-          void:           "var(--brand-void)",
+          "spirit-blue":  "rgb(var(--brand-spirit-blue) / <alpha-value>)",
+          "wizard-lilac": "rgb(var(--brand-wizard-lilac) / <alpha-value>)",
+          "dream-cyan":   "rgb(var(--brand-dream-cyan) / <alpha-value>)",
+          "night-indigo": "rgb(var(--brand-night-indigo) / <alpha-value>)",
+          void:           "rgb(var(--brand-void) / <alpha-value>)",
         },
         /* Design System v1 — Functional palette (status, macros). */
         func: {
-          "danger-red":     "var(--func-danger-red)",
-          "warning-yellow": "var(--func-warning-yellow)",
-          "recovery-green": "var(--func-recovery-green)",
-          "carbs-orange":   "var(--func-carbs-orange)",
-          "fats-purple":    "var(--func-fats-purple)",
-          "protein-blue":   "var(--func-protein-blue)",
-          "hydration-cyan": "var(--func-hydration-cyan)",
+          "danger-red":     "rgb(var(--func-danger-red) / <alpha-value>)",
+          "warning-yellow": "rgb(var(--func-warning-yellow) / <alpha-value>)",
+          "recovery-green": "rgb(var(--func-recovery-green) / <alpha-value>)",
+          "carbs-orange":   "rgb(var(--func-carbs-orange) / <alpha-value>)",
+          "fats-purple":    "rgb(var(--func-fats-purple) / <alpha-value>)",
+          "protein-blue":   "rgb(var(--func-protein-blue) / <alpha-value>)",
+          "hydration-cyan": "rgb(var(--func-hydration-cyan) / <alpha-value>)",
         },
         /* Design System v1 — Neutral scale. */
         neutral: {
-          100: "var(--neutral-100)",
-          200: "var(--neutral-200)",
-          400: "var(--neutral-400)",
-          500: "var(--neutral-500)",
-          700: "var(--neutral-700)",
-          800: "var(--neutral-800)",
-          900: "var(--neutral-900)",
-          1000: "var(--neutral-1000)",
+          100:  "rgb(var(--neutral-100) / <alpha-value>)",
+          200:  "rgb(var(--neutral-200) / <alpha-value>)",
+          400:  "rgb(var(--neutral-400) / <alpha-value>)",
+          500:  "rgb(var(--neutral-500) / <alpha-value>)",
+          700:  "rgb(var(--neutral-700) / <alpha-value>)",
+          800:  "rgb(var(--neutral-800) / <alpha-value>)",
+          900:  "rgb(var(--neutral-900) / <alpha-value>)",
+          1000: "rgb(var(--neutral-1000) / <alpha-value>)",
         },
       },
       fontFamily: {

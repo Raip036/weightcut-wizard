@@ -304,14 +304,28 @@ lives as a static `<div>` for exactly this reason.
 
 See: https://bugs.webkit.org/show_bug.cgi?id=212706
 
-### Tailwind opacity modifiers don't work on CSS-var colors
-`bg-brand-wizard-lilac/[0.12]` silently renders transparent. Tailwind can
-only apply the `/N` opacity modifier when it knows the color's underlying
-format. CSS vars like `var(--brand-wizard-lilac)` aren't parseable.
+### Tailwind opacity modifiers on brand/func/neutral tokens
+`bg-brand-wizard-lilac/20`, `border-func-danger-red/30`, `text-neutral-500/60`
+all work correctly. The `--brand-*`, `--func-*`, and `--neutral-*` CSS vars
+are stored as space-separated RGB triplets (e.g. `139 126 234`) and the
+Tailwind theme wraps them as `rgb(var(--x) / <alpha-value>)` so the `/N`
+modifier composes alpha.
 
-**Fix:** use an inline rgba: `bg-[rgba(139,126,234,0.12)]`. Or define the
-color in the Tailwind theme as `rgb(139 126 234 / <alpha-value>)` and pair
-with an RGB-triplet CSS var. We've been using the inline form.
+Direct uses of `var(--brand-*)` etc. in inline `style={}` or CSS must wrap
+in `rgb(...)`:
+
+```css
+/* ✗ broken — renders nothing, because the var is just "139 126 234" */
+background: var(--brand-wizard-lilac);
+
+/* ✓ works */
+background: rgb(var(--brand-wizard-lilac));
+background: rgb(var(--brand-wizard-lilac) / 0.12);
+```
+
+Legacy notes about the `bg-[rgba(...)]` inline-rgba workaround can be
+ignored — they predate the token format change. Prefer the Tailwind
+class with `/N` modifier in new code.
 
 ### `rounded-l` is the directional shorthand, not the L-size token
 Adding a custom `l: "var(--radius-l)"` borderRadius theme entry conflicts

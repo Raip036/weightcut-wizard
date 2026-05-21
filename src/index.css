@@ -195,31 +195,36 @@ All colors MUST be HSL.
      be retired component-by-component as we migrate.
      ========================================================================= */
   :root {
-    /* ---- BRAND palette (hex) ---- */
-    --brand-spirit-blue:   #4068EF;
-    --brand-wizard-lilac:  #8B7EEA;
-    --brand-dream-cyan:    #4AB4ED;
-    --brand-night-indigo:  #080D20;
-    --brand-void:          #020811;
+    /* ---- BRAND palette ----
+       Stored as space-separated RGB triplets so Tailwind can apply
+       opacity modifiers via `rgb(var(--x) / <alpha-value>)`. Use the
+       Tailwind classes (e.g. `bg-brand-spirit-blue/20`) rather than
+       `var(--brand-spirit-blue)` directly in style — direct uses must
+       wrap in `rgb(...)` to render as a color. */
+    --brand-spirit-blue:    64 104 239;   /* #4068EF */
+    --brand-wizard-lilac:  139 126 234;   /* #8B7EEA */
+    --brand-dream-cyan:     74 180 237;   /* #4AB4ED */
+    --brand-night-indigo:    8  13  32;   /* #080D20 */
+    --brand-void:            2   8  17;   /* #020811 */
 
     /* ---- FUNCTIONAL palette ---- */
-    --func-danger-red:     #F7403F;
-    --func-warning-yellow: #FAC146;
-    --func-recovery-green: #23C599;
-    --func-carbs-orange:   #F08439;
-    --func-fats-purple:    #7B31EA;
-    --func-protein-blue:   #2A5BDD;
-    --func-hydration-cyan: #12CAE6;
+    --func-danger-red:     247  64  63;   /* #F7403F */
+    --func-warning-yellow: 250 193  70;   /* #FAC146 */
+    --func-recovery-green:  35 197 153;   /* #23C599 */
+    --func-carbs-orange:   240 132  57;   /* #F08439 */
+    --func-fats-purple:    123  49 234;   /* #7B31EA */
+    --func-protein-blue:    42  91 221;   /* #2A5BDD */
+    --func-hydration-cyan:  18 202 230;   /* #12CAE6 */
 
     /* ---- NEUTRALS ---- */
-    --neutral-100:         #E2E5F2;
-    --neutral-200:         #DEDEF7;
-    --neutral-400:         #8C96B4;
-    --neutral-500:         #4D5877;
-    --neutral-700:         #162137;
-    --neutral-800:         #081225;
-    --neutral-900:         #030B18;
-    --neutral-1000:        #000513;
+    --neutral-100:         226 229 242;   /* #E2E5F2 */
+    --neutral-200:         222 222 247;   /* #DEDEF7 */
+    --neutral-400:         140 150 180;   /* #8C96B4 */
+    --neutral-500:          77  88 119;   /* #4D5877 */
+    --neutral-700:          22  33  55;   /* #162137 */
+    --neutral-800:           8  18  37;   /* #081225 */
+    --neutral-900:           3  11  24;   /* #030B18 */
+    --neutral-1000:          0   5  19;   /* #000513 */
 
     /* ---- GRADIENTS ----
        Kept for hero treatments (progress bars, large CTAs, splash). The
@@ -514,14 +519,14 @@ All colors MUST be HSL.
   [data-sidebar="sidebar"],
   [role="dialog"]:not([data-alert-dialog]),
   .popover-content {
-    background: var(--neutral-800);
+    background: rgb(var(--neutral-800));
     border-radius: var(--radius);
     /* No border, no shadow per the design-system overhaul.
        Add a hover state per call site if needed. */
   }
 
   .nutrition-dashboard {
-    background: var(--neutral-800);
+    background: rgb(var(--neutral-800));
     border-radius: var(--radius);
     padding: 1.25rem;
     /* No border per Design System v1. */
