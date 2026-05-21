@@ -357,72 +357,75 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
         <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60 -mr-1 -mt-0.5" strokeWidth={2.2} />
       </div>
 
-      {/* Ring + stats row */}
-      <div className="flex items-center gap-4">
-        <div className="relative w-16 h-16 flex-shrink-0">
-          <AnimatedRing
-            progress={ringProgress}
-            size={64}
-            strokeWidth={5}
-            gradientColors={[ringColor, ringColor]}
-            id="training-week-ring"
-          />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="display-number text-sm font-bold">{totalSessions}</span>
+      {/* Two-column body: ring+stats left, day bars right */}
+      <div className="flex items-end gap-4">
+        {/* Left: ring with session count + hours + days active */}
+        <div className="flex flex-col items-center gap-1.5 shrink-0">
+          <div className="relative w-14 h-14">
+            <AnimatedRing
+              progress={ringProgress}
+              size={56}
+              strokeWidth={5}
+              gradientColors={[ringColor, ringColor]}
+              id="training-week-ring"
+            />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="display-number text-sm font-bold">{totalSessions}</span>
+            </div>
           </div>
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-baseline gap-1.5">
-            <span className="display-number text-2xl font-bold">
-              {totalMinutes >= 60 ? Math.round(totalMinutes / 60) : totalMinutes}
-            </span>
-            <span className="text-xs text-muted-foreground font-medium">
-              {totalMinutes >= 60 ? "hrs" : "min"}
-            </span>
-          </div>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {totalSessions === 0 ? "No sessions yet" : `${activeDays} day${activeDays !== 1 ? "s" : ""} active`}
-          </p>
-        </div>
-      </div>
-
-      {/* Week day bar chart */}
-      <div className="flex items-end justify-between mt-4 px-1 gap-1.5">
-        {DAY_LABELS.map((label, i) => {
-          const daySessions = dayMap.get(i) ?? [];
-          const isToday = i === todayIdx;
-          const isFuture = i > todayIdx;
-          const totalDayMin = daySessions.reduce((s, x) => s + x.duration_minutes, 0);
-          const maxMin = 120;
-          const barH = daySessions.length > 0 ? Math.max(8, Math.round((totalDayMin / maxMin) * 36)) : 0;
-
-          return (
-            <div key={i} className="flex flex-col items-center gap-1 flex-1">
-              <div className="w-full flex flex-col justify-end items-center" style={{ height: 40 }}>
-                {daySessions.length > 0 ? (
-                  <div
-                    className="w-full rounded-md transition-all duration-500"
-                    style={{
-                      height: barH,
-                      background: daySessions.length === 1
-                        ? getSessionColor(daySessions[0].session_type, customColors)
-                        : `linear-gradient(to top, ${daySessions.map(s => getSessionColor(s.session_type, customColors)).join(", ")})`,
-                      maxWidth: 28,
-                    }}
-                  />
-                ) : (
-                  <div
-                    className="w-full rounded-md"
-                    style={{ height: 4, maxWidth: 28, background: isFuture ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.08)" }}
-                  />
-                )}
-              </div>
-              <span className={`text-[10px] font-medium ${isToday ? "text-foreground" : isFuture ? "text-foreground/20" : "text-muted-foreground"}`}>
-                {label}
+          <div className="text-center">
+            <div className="flex items-baseline gap-1 justify-center">
+              <span className="display-number text-xl font-bold">
+                {totalMinutes >= 60 ? Math.round(totalMinutes / 60) : totalMinutes}
+              </span>
+              <span className="text-[10px] text-muted-foreground font-medium">
+                {totalMinutes >= 60 ? "hrs" : "min"}
               </span>
             </div>
-          );
-        })}
+            <p className="text-[10px] text-muted-foreground leading-tight">
+              {totalSessions === 0 ? "No sessions" : `${activeDays} day${activeDays !== 1 ? "s" : ""} active`}
+            </p>
+          </div>
+        </div>
+
+        {/* Right: Mon–Sun bar chart */}
+        <div className="flex-1 flex items-end justify-between gap-1">
+          {DAY_LABELS.map((label, i) => {
+            const daySessions = dayMap.get(i) ?? [];
+            const isToday = i === todayIdx;
+            const isFuture = i > todayIdx;
+            const totalDayMin = daySessions.reduce((s, x) => s + x.duration_minutes, 0);
+            const maxMin = 120;
+            const barH = daySessions.length > 0 ? Math.max(6, Math.round((totalDayMin / maxMin) * 36)) : 0;
+
+            return (
+              <div key={i} className="flex flex-col items-center gap-0.5 flex-1">
+                <div className="w-full flex flex-col justify-end items-center" style={{ height: 36 }}>
+                  {daySessions.length > 0 ? (
+                    <div
+                      className="w-full rounded-sm transition-all duration-500"
+                      style={{
+                        height: barH,
+                        background: daySessions.length === 1
+                          ? getSessionColor(daySessions[0].session_type, customColors)
+                          : `linear-gradient(to top, ${daySessions.map(s => getSessionColor(s.session_type, customColors)).join(", ")})`,
+                        maxWidth: 24,
+                      }}
+                    />
+                  ) : (
+                    <div
+                      className="w-full rounded-sm"
+                      style={{ height: 3, maxWidth: 24, background: isFuture ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.08)" }}
+                    />
+                  )}
+                </div>
+                <span className={`text-[9px] font-medium ${isToday ? "text-foreground" : isFuture ? "text-foreground/20" : "text-muted-foreground"}`}>
+                  {label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Type legend pills — single-line carousel. ≤3 pills fit
