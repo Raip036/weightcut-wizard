@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import { motion } from "motion/react";
 import { useWizardBackground } from "@/contexts/WizardBackgroundContext";
-import { Send, Trash2, X } from "lucide-react";
+import { Send, Trash2, X, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
 import { triggerHapticSelection, triggerHapticSuccess, triggerHaptic } from "@/lib/haptics";
@@ -199,6 +199,45 @@ export function FloatingWizardChat() {
           animate={{ y: [0, -3, 0] }}
           transition={{ duration: 3.4, repeat: Infinity, ease: "easeInOut" }}
         />
+
+        {/* Whimsy sparkles — three Sparkles icons drifting around the
+            orb, each on its own twinkle loop. Sized small (h-2 to h-3)
+            and tinted with brand palette so they read as magical
+            without overpowering the orb itself. Only render when the
+            user has paid access (the locked state should feel quiet,
+            not magical). Pointer-events-none so they never intercept
+            the drag. */}
+        {hasAccess && (
+          <>
+            <motion.span
+              aria-hidden
+              className="absolute pointer-events-none"
+              style={{ top: -4, right: -2 }}
+              animate={{ opacity: [0.4, 1, 0.4], y: [0, -3, 0], rotate: [0, 18, 0] }}
+              transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <Sparkles className="h-3 w-3 text-brand-wizard-lilac" strokeWidth={1.6} fill="currentColor" />
+            </motion.span>
+            <motion.span
+              aria-hidden
+              className="absolute pointer-events-none"
+              style={{ bottom: 2, left: -4 }}
+              animate={{ opacity: [0.3, 0.85, 0.3], y: [0, 2, 0], rotate: [0, -15, 0] }}
+              transition={{ duration: 3.4, repeat: Infinity, ease: "easeInOut", delay: 0.9 }}
+            >
+              <Sparkles className="h-[10px] w-[10px] text-brand-dream-cyan" strokeWidth={1.6} fill="currentColor" />
+            </motion.span>
+            <motion.span
+              aria-hidden
+              className="absolute pointer-events-none"
+              style={{ top: 8, left: -6 }}
+              animate={{ opacity: [0.25, 0.7, 0.25], y: [0, -2, 0], scale: [0.8, 1.05, 0.8] }}
+              transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut", delay: 1.5 }}
+            >
+              <Sparkles className="h-2 w-2 text-white/90" strokeWidth={1.6} fill="currentColor" />
+            </motion.span>
+          </>
+        )}
       </button>
 
       {/* Backdrop */}
