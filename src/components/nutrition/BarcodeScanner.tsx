@@ -315,7 +315,7 @@ export const BarcodeScanner = ({ onFoodScanned, disabled, className, label }: Ba
           <div className="overflow-y-auto" style={{ paddingBottom: "max(20px, env(safe-area-inset-bottom))" }}>
             {/* Camera error / permission denied */}
             {cameraError && !scannedProduct && (
-              <div className="mx-5 mt-2 rounded-2xl border border-destructive/40 bg-destructive/10 p-4 flex items-start gap-3">
+              <div className="mx-5 mt-2 rounded-xs border border-destructive/40 bg-destructive/10 p-4 flex items-start gap-3">
                 <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
                 <p className="text-[13px] text-destructive/90 leading-snug">{cameraError}</p>
               </div>
@@ -325,7 +325,7 @@ export const BarcodeScanner = ({ onFoodScanned, disabled, className, label }: Ba
                 Hidden once we have a product or a definitive not-found so the
                 result sheet owns the space. */}
             {!scannedProduct && !notFound && !cameraError && (
-              <div className="relative mx-5 mt-2 aspect-[4/3] rounded-3xl overflow-hidden bg-black">
+              <div className="relative mx-5 mt-2 aspect-[4/3] rounded-xs overflow-hidden bg-black">
                 <video
                   ref={ref as React.RefObject<HTMLVideoElement>}
                   className="absolute inset-0 h-full w-full object-cover"
@@ -344,7 +344,7 @@ export const BarcodeScanner = ({ onFoodScanned, disabled, className, label }: Ba
                 {/* Pulsing scan-zone border — the Apple-native cue. */}
                 <motion.div
                   aria-hidden
-                  className="absolute left-[11%] right-[11%] top-[29%] bottom-[29%] rounded-2xl border-2 border-primary"
+                  className="absolute left-[11%] right-[11%] top-[29%] bottom-[29%] rounded-xs border-2 border-primary"
                   style={{ boxShadow: "0 0 24px 0 hsl(var(--primary) / 0.45)" }}
                   initial={false}
                   animate={
@@ -357,7 +357,7 @@ export const BarcodeScanner = ({ onFoodScanned, disabled, className, label }: Ba
 
                 {/* Sweeping scan line within the zone. */}
                 {!reduced && (
-                  <div className="absolute left-[11%] right-[11%] top-[29%] bottom-[29%] rounded-2xl overflow-hidden pointer-events-none">
+                  <div className="absolute left-[11%] right-[11%] top-[29%] bottom-[29%] rounded-xs overflow-hidden pointer-events-none">
                     <motion.div
                       aria-hidden
                       className="absolute left-3 right-3 h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent"
@@ -409,7 +409,7 @@ export const BarcodeScanner = ({ onFoodScanned, disabled, className, label }: Ba
                 Scan-again and Cancel-rescan paths without bouncing the
                 user out. */}
             {notFound && (
-              <div className="mx-5 mt-4 rounded-3xl border border-white/10 bg-card/40 backdrop-blur-xl p-6 text-center">
+              <div className="mx-5 mt-4 rounded-xs border border-white/10 bg-card/40 backdrop-blur-xl p-6 text-center">
                 <div className="mx-auto h-14 w-14 rounded-full bg-white/5 ring-1 ring-white/10 flex items-center justify-center">
                   <PackageX className="h-6 w-6 text-muted-foreground" />
                 </div>
@@ -419,7 +419,7 @@ export const BarcodeScanner = ({ onFoodScanned, disabled, className, label }: Ba
                 </p>
                 <div className="mt-4 flex flex-col gap-2">
                   <Button
-                    className="no-tap-select w-full h-11 rounded-2xl bg-primary text-primary-foreground font-semibold"
+                    className="no-tap-select w-full h-11 rounded-xs bg-primary text-primary-foreground font-semibold"
                     onClick={restartScan}
                   >
                     Scan again
@@ -441,7 +441,7 @@ export const BarcodeScanner = ({ onFoodScanned, disabled, className, label }: Ba
                 initial={reduced ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ type: "spring", stiffness: 380, damping: 32 }}
-                className="mx-5 mt-2 rounded-3xl border border-white/10 bg-card/40 backdrop-blur-xl p-5"
+                className="mx-5 mt-2 rounded-xs border border-white/10 bg-card/40 backdrop-blur-xl p-5"
               >
                 {/* Header row */}
                 <div className="flex items-start justify-between gap-3">
@@ -484,17 +484,17 @@ export const BarcodeScanner = ({ onFoodScanned, disabled, className, label }: Ba
 
                 {/* Macro chips */}
                 <div className="mt-4 grid grid-cols-3 gap-2">
-                  <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-center">
+                  <div className="rounded-xs border border-white/10 bg-white/5 px-3 py-2.5 text-center">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground/80 font-semibold">Protein</p>
                     <p className="text-[16px] font-bold tabular-nums text-blue-400 mt-0.5">{live.protein}<span className="text-[10px] text-muted-foreground/60 ml-0.5 font-medium">g</span></p>
                   </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-center">
+                  <div className="rounded-xs border border-white/10 bg-white/5 px-3 py-2.5 text-center">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground/80 font-semibold">Carbs</p>
-                    <p className="text-[16px] font-bold tabular-nums text-amber-400 mt-0.5">{live.carbs}<span className="text-[10px] text-muted-foreground/60 ml-0.5 font-medium">g</span></p>
+                    <p className="text-[16px] font-bold tabular-nums text-func-warning-yellow mt-0.5">{live.carbs}<span className="text-[10px] text-muted-foreground/60 ml-0.5 font-medium">g</span></p>
                   </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-center">
+                  <div className="rounded-xs border border-white/10 bg-white/5 px-3 py-2.5 text-center">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground/80 font-semibold">Fats</p>
-                    <p className="text-[16px] font-bold tabular-nums text-rose-400 mt-0.5">{live.fats}<span className="text-[10px] text-muted-foreground/60 ml-0.5 font-medium">g</span></p>
+                    <p className="text-[16px] font-bold tabular-nums text-func-danger-red mt-0.5">{live.fats}<span className="text-[10px] text-muted-foreground/60 ml-0.5 font-medium">g</span></p>
                   </div>
                 </div>
 
@@ -574,7 +574,7 @@ export const BarcodeScanner = ({ onFoodScanned, disabled, className, label }: Ba
                 {/* CTAs */}
                 <div className="mt-5 space-y-2">
                   <Button
-                    className="no-tap-select w-full h-12 rounded-2xl bg-primary text-primary-foreground font-semibold text-[15px] shadow-lg shadow-primary/20"
+                    className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground font-semibold text-[15px]"
                     onClick={() => {
                       onFoodScanned({
                         meal_name: scannedProduct.productName,

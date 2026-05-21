@@ -221,7 +221,7 @@ export function CommentsSheet({
               onChange={(e) => setDraft(e.target.value.slice(0, COMMENT_BODY_MAX))}
               placeholder="Add a comment…"
               rows={1}
-              className="flex-1 max-h-24 min-h-[40px] resize-none px-3 py-2 rounded-2xl bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/40 placeholder:text-muted-foreground/60"
+              className="flex-1 max-h-24 min-h-[40px] resize-none px-3 py-2 rounded-xs bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/40 placeholder:text-muted-foreground/60"
               maxLength={COMMENT_BODY_MAX}
             />
             <button
@@ -291,7 +291,7 @@ function CommentRow({ row, onDelete }: CommentRowProps) {
 
   return (
     <li
-      className="flex gap-3 active:bg-muted/30 -mx-2 px-2 py-1.5 rounded-lg transition-colors"
+      className="flex gap-3 active:bg-muted/30 -mx-2 px-2 py-1.5 rounded-xs transition-colors"
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
       onTouchCancel={onTouchEnd}

@@ -172,7 +172,7 @@ function ResultRow({
     <motion.button
       onClick={onSelect}
       whileTap={{ scale: 0.985 }}
-      className="w-full text-left rounded-2xl border border-border/40 bg-card/50 px-3 py-2.5 active:bg-muted/30 transition-colors"
+      className="w-full text-left rounded-xs border border-border/40 bg-card/50 px-3 py-2.5 active:bg-muted/30 transition-colors"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
@@ -200,11 +200,11 @@ function ResultRow({
             <span className="tabular-nums">{p}</span>
             <span className="opacity-70">P</span>
           </span>
-          <span className="inline-flex items-baseline gap-0.5 rounded-full bg-orange-500/12 ring-1 ring-orange-500/25 px-2 py-0.5 text-[10px] font-bold text-orange-300">
+          <span className="inline-flex items-baseline gap-0.5 rounded-full bg-func-carbs-orange/12 ring-1 ring-func-carbs-orange/25 px-2 py-0.5 text-[10px] font-bold text-func-carbs-orange">
             <span className="tabular-nums">{c}</span>
             <span className="opacity-70">C</span>
           </span>
-          <span className="inline-flex items-baseline gap-0.5 rounded-full bg-purple-500/12 ring-1 ring-purple-500/25 px-2 py-0.5 text-[10px] font-bold text-purple-300">
+          <span className="inline-flex items-baseline gap-0.5 rounded-full bg-func-fats-purple/12 ring-1 ring-func-fats-purple/25 px-2 py-0.5 text-[10px] font-bold text-func-fats-purple">
             <span className="tabular-nums">{f}</span>
             <span className="opacity-70">F</span>
           </span>
@@ -355,7 +355,7 @@ export function FoodSearchDialog({ open, onOpenChange, onFoodSelected, mealType 
   return (
     <>
       <Dialog open={dialogVisible} onOpenChange={(v) => { if (!v) onOpenChange(false); }}>
-        <DialogContent className="sm:max-w-[380px] w-[94vw] max-h-[88vh] flex flex-col p-0 gap-0 overflow-hidden rounded-3xl border-0 bg-card/95 backdrop-blur-xl shadow-2xl">
+        <DialogContent className="sm:max-w-[380px] w-[94vw] max-h-[88vh] flex flex-col p-0 gap-0 overflow-hidden rounded-xs border-0 bg-card/95 backdrop-blur-xl">
           <VisuallyHidden>
             <DialogTitle>Search Food</DialogTitle>
           </VisuallyHidden>
@@ -629,9 +629,10 @@ function FoodDetailSheet({
 
         {/* Macro rings — animated */}
         <div className="px-5 py-4 grid grid-cols-3 gap-2">
-          <MacroRing value={scaledProtein} goalApprox={approxP} label="Protein" color="rgb(59 130 246)" />
-          <MacroRing value={scaledCarbs} goalApprox={approxC} label="Carbs" color="rgb(249 115 22)" />
-          <MacroRing value={scaledFats} goalApprox={approxF} label="Fats" color="rgb(168 85 247)" />
+          {/* Design System v1 FUNCTIONAL palette */}
+          <MacroRing value={scaledProtein} goalApprox={approxP} label="Protein" color="rgb(42 91 221)" />
+          <MacroRing value={scaledCarbs} goalApprox={approxC} label="Carbs" color="rgb(240 132 57)" />
+          <MacroRing value={scaledFats} goalApprox={approxF} label="Fats" color="rgb(123 49 234)" />
         </div>
 
         {/* Serving slider + stepper */}
@@ -657,7 +658,7 @@ function FoodDetailSheet({
                     const v = parseInt(e.target.value);
                     if (!isNaN(v) && v > 0) setServingGrams(v);
                   }}
-                  className="w-[72px] text-center text-[15px] h-8 font-bold tabular-nums rounded-lg border-border/40 bg-muted/20 px-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  className="w-[72px] text-center text-[15px] h-8 font-bold tabular-nums rounded-xs border-border/40 bg-muted/20 px-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
                 <span className="text-[13px] font-semibold text-muted-foreground">g</span>
               </div>
@@ -693,7 +694,7 @@ function FoodDetailSheet({
                 onClick={() => { triggerHapticSelection(); setServingGrams(g); }}
                 className={`px-3 py-1.5 rounded-full text-[12px] font-semibold transition-all active:scale-[0.96] ${
                   servingGrams === g
-                    ? "bg-primary text-primary-foreground shadow-sm shadow-primary/30"
+                    ? "bg-primary text-primary-foreground"
                     : "bg-muted/40 text-foreground hover:bg-muted/60"
                 }`}
               >
@@ -705,7 +706,7 @@ function FoodDetailSheet({
                 onClick={() => { triggerHapticSelection(); setServingGrams(food.serving_grams!); }}
                 className={`px-3 py-1.5 rounded-full text-[12px] font-semibold transition-all active:scale-[0.96] ${
                   servingGrams === food.serving_grams
-                    ? "bg-primary text-primary-foreground shadow-sm shadow-primary/30"
+                    ? "bg-primary text-primary-foreground"
                     : "bg-muted/40 text-foreground hover:bg-muted/60"
                 }`}
               >
@@ -722,7 +723,7 @@ function FoodDetailSheet({
         >
           <button
             onClick={onLog}
-            className="w-full h-12 rounded-2xl bg-primary text-primary-foreground font-bold text-[15px] active:scale-[0.98] transition-transform shadow-lg shadow-primary/30 flex items-center justify-center gap-2"
+            className="w-full h-12 rounded-xs bg-primary text-primary-foreground font-bold text-[15px] active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
           >
             Log Food · {scaledCalories} kcal
           </button>

@@ -83,11 +83,11 @@ export const SessionHistoryCalendar = memo(function SessionHistoryCalendar({
 
   if (loading) {
     return (
-      <div className="card-surface rounded-2xl border border-border/50 p-4">
+      <div className="card-surface rounded-xs border border-border/50 p-4">
         <div className="h-5 w-32 rounded shimmer-skeleton mb-4" />
         <div className="grid grid-cols-7 gap-1">
           {Array.from({ length: 35 }).map((_, i) => (
-            <div key={i} className="aspect-square rounded-lg shimmer-skeleton" />
+            <div key={i} className="aspect-square rounded-xs shimmer-skeleton" />
           ))}
         </div>
       </div>
@@ -96,7 +96,7 @@ export const SessionHistoryCalendar = memo(function SessionHistoryCalendar({
 
   return (
     <div className="space-y-3">
-      <div className="card-surface rounded-2xl border border-border/50 p-3">
+      <div className="card-surface rounded-xs border border-border/50 p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <button
@@ -142,9 +142,9 @@ export const SessionHistoryCalendar = memo(function SessionHistoryCalendar({
                   setSelectedDate(cell.ymd);
                   triggerHaptic(ImpactStyle.Light);
                 }}
-                className={`aspect-square rounded-lg flex flex-col items-center justify-center text-xs font-medium relative transition-all active:scale-95 ${
+                className={`aspect-square rounded-xs flex flex-col items-center justify-center text-xs font-medium relative transition-all active:scale-95 ${
                   isSelected
-                    ? "bg-primary text-primary-foreground shadow-sm"
+                    ? "bg-primary text-primary-foreground"
                     : hasSession
                       ? "bg-primary/12 text-primary active:bg-primary/20"
                       : isToday
@@ -185,8 +185,8 @@ export const SessionHistoryCalendar = memo(function SessionHistoryCalendar({
             </div>
 
             {selectedSessions.length === 0 ? (
-              <div className="card-surface rounded-2xl border border-border/50 p-5 text-center">
-                <div className="h-10 w-10 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-2">
+              <div className="card-surface rounded-xs border border-border/50 p-5 text-center">
+                <div className="h-10 w-10 rounded-xs bg-muted/50 flex items-center justify-center mx-auto mb-2">
                   <Dumbbell className="h-5 w-5 text-muted-foreground/30" />
                 </div>
                 <p className="text-xs text-muted-foreground">No workout on this day</p>
@@ -196,7 +196,7 @@ export const SessionHistoryCalendar = memo(function SessionHistoryCalendar({
                 <button
                   key={session.id}
                   onClick={() => onSessionTap(session)}
-                  className="w-full card-surface rounded-2xl border border-border/50 p-3.5 text-left active:scale-[0.98] transition-transform"
+                  className="w-full card-surface rounded-xs border border-border/50 p-3.5 text-left active:scale-[0.98] transition-transform"
                 >
                   <div className="flex items-center justify-between mb-2">
                     <span className="px-2.5 py-1 rounded-full bg-primary/12 text-primary text-xs font-semibold">

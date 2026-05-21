@@ -333,7 +333,7 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-1.5rem)] max-w-[420px] max-h-[calc(100vh-4rem)] overflow-y-auto rounded-[28px] p-0 border-0 bg-card/95 backdrop-blur-xl shadow-2xl gap-0">
+      <DialogContent className="w-[calc(100vw-1.5rem)] max-w-[420px] max-h-[calc(100vh-4rem)] overflow-y-auto rounded-[28px] p-0 border-0 bg-card/95 backdrop-blur-xl gap-0">
         <div className="px-5 pt-5 pb-2">
           <DialogHeader>
             <DialogTitle className="text-[17px] font-semibold tracking-tight text-center">
@@ -369,7 +369,7 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
                     value={endWeight}
                     onChange={(e) => setEndWeight(e.target.value)}
                     placeholder="What you weighed on fight day"
-                    className="h-11 rounded-2xl"
+                    className="h-11 rounded-xs"
                   />
                 </div>
 
@@ -386,7 +386,7 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
                           type="button"
                           onClick={() => { triggerHapticSelection(); setPerformance(p.value); }}
                           aria-pressed={active}
-                          className={`h-9 rounded-xl text-[12px] font-semibold transition-colors ${
+                          className={`h-9 rounded-xs text-[12px] font-semibold transition-colors ${
                             active ? "bg-primary text-primary-foreground" : "bg-muted/40 text-muted-foreground/85 active:bg-muted/60"
                           }`}
                         >
@@ -405,7 +405,7 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="What worked? What to change next time?"
-                    className="h-11 rounded-2xl"
+                    className="h-11 rounded-xs"
                   />
                 </div>
               </div>
@@ -416,7 +416,7 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
                   variant="outline"
                   disabled={wrappingUp}
                   onClick={() => submitWrapUp(true)}
-                  className="flex-1 h-11 rounded-2xl"
+                  className="flex-1 h-11 rounded-xs"
                 >
                   Skip
                 </Button>
@@ -424,7 +424,7 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
                   type="button"
                   disabled={wrappingUp}
                   onClick={() => submitWrapUp(false)}
-                  className="flex-1 h-11 rounded-2xl"
+                  className="flex-1 h-11 rounded-xs"
                 >
                   {wrappingUp ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save & continue"}
                 </Button>
@@ -468,7 +468,7 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
                       min={todayIso}
                       value={wizardData.fightDate}
                       onChange={(e) => setWizardData((d) => ({ ...d, fightDate: e.target.value }))}
-                      className="h-12 rounded-2xl text-center"
+                      className="h-12 rounded-xs text-center"
                     />
                   ) : currentStep.key === "weighInTiming" ? (
                     <div className="grid grid-cols-2 gap-1.5">
@@ -483,7 +483,7 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
                               setWizardData((d) => ({ ...d, weighInTiming: w.value }));
                             }}
                             aria-pressed={active}
-                            className={`h-11 rounded-2xl text-[13px] font-semibold transition-colors ${
+                            className={`h-11 rounded-xs text-[13px] font-semibold transition-colors ${
                               active ? "bg-primary text-primary-foreground" : "bg-muted/40 text-muted-foreground/85 active:bg-muted/60"
                             }`}
                           >
@@ -498,7 +498,7 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
                       value={wizardData.name}
                       onChange={(e) => setWizardData((d) => ({ ...d, name: e.target.value }))}
                       placeholder={currentStep.placeholder}
-                      className="h-12 rounded-2xl text-center text-[16px]"
+                      className="h-12 rounded-xs text-center text-[16px]"
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && canAdvance()) advance();
                       }}
@@ -522,7 +522,7 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
                           setWizardData((d) => ({ ...d, walkAroundWeightKg: e.target.value }));
                         }}
                         placeholder="kg"
-                        className="h-12 rounded-2xl text-center text-[16px] tabular-nums"
+                        className="h-12 rounded-xs text-center text-[16px] tabular-nums"
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && canAdvance()) advance();
                         }}
@@ -563,7 +563,7 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
                         setWizardData((d) => ({ ...d, [currentStep.key]: e.target.value }))
                       }
                       placeholder={currentStep.placeholder}
-                      className="h-12 rounded-2xl text-center text-[16px] tabular-nums"
+                      className="h-12 rounded-xs text-center text-[16px] tabular-nums"
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && canAdvance()) advance();
                       }}
@@ -578,7 +578,7 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
                     type="button"
                     variant="outline"
                     onClick={() => { triggerHapticSelection(); setStep((s) => s - 1); }}
-                    className="h-11 rounded-2xl px-5"
+                    className="h-11 rounded-xs px-5"
                   >
                     Back
                   </Button>
@@ -587,7 +587,7 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
                   type="button"
                   disabled={!canAdvance() || creating}
                   onClick={advance}
-                  className="flex-1 h-11 rounded-2xl"
+                  className="flex-1 h-11 rounded-xs"
                 >
                   {creating ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -632,8 +632,8 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
               transition={{ type: "spring", damping: 22, stiffness: 320 }}
               className="px-5 pb-7 pt-2 flex flex-col items-center gap-2 text-center"
             >
-              <div className="h-12 w-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                <Check className="h-6 w-6 text-emerald-400" strokeWidth={2.6} />
+              <div className="h-12 w-12 rounded-full bg-func-recovery-green/20 flex items-center justify-center">
+                <Check className="h-6 w-6 text-func-recovery-green" strokeWidth={2.6} />
               </div>
               <p className="text-[15px] font-semibold text-foreground">Camp ready</p>
               <p className="text-[12px] text-muted-foreground">Targets and dashboard are updated.</p>

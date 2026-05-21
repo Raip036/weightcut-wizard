@@ -103,7 +103,7 @@ export function PostWorkoutMediaSheet({
               type="button"
               onClick={onClose}
               disabled={uploading}
-              className="flex-1 h-11 rounded-2xl bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-[14px] font-semibold text-foreground/85 active:scale-[0.98] transition-transform disabled:opacity-50"
+              className="flex-1 h-11 rounded-xs bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-[14px] font-semibold text-foreground/85 active:scale-[0.98] transition-transform disabled:opacity-50"
             >
               Skip
             </button>
@@ -111,7 +111,7 @@ export function PostWorkoutMediaSheet({
               type="button"
               onClick={handleUpload}
               disabled={!pendingMedia || uploading}
-              className="flex-1 h-11 rounded-2xl bg-primary text-primary-foreground text-[14px] font-semibold active:scale-[0.98] transition-transform disabled:opacity-40 flex items-center justify-center gap-2"
+              className="flex-1 h-11 rounded-xs bg-primary text-primary-foreground text-[14px] font-semibold active:scale-[0.98] transition-transform disabled:opacity-40 flex items-center justify-center gap-2"
             >
               {uploading ? (
                 <>

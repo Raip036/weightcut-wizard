@@ -32,46 +32,46 @@ const GLOSSARY: GlossaryItem[] = [
   {
     key: "readiness",
     icon: Heart,
-    color: "text-green-400",
-    bg: "bg-green-500/10",
+    color: "text-func-recovery-green",
+    bg: "bg-func-recovery-green/10",
     title: "Readiness",
     summary: "How prepared your body is to train today, scored 0 to 100. Higher is better.",
     details: "Combines your wellness check-in (sleep, fatigue, soreness, stress), your training load balance, recent recovery patterns, and your logging consistency. It's smoothed across the last few days so one bad night doesn't tank it.",
     states: [
-      { label: "Peaked",     meaning: "80+",      color: "text-green-400" },
+      { label: "Peaked",     meaning: "80+",      color: "text-func-recovery-green" },
       { label: "Ready",      meaning: "55 to 79", color: "text-blue-400" },
-      { label: "Recovering", meaning: "35 to 54", color: "text-amber-400" },
-      { label: "Strained",   meaning: "under 35", color: "text-red-400" },
+      { label: "Recovering", meaning: "35 to 54", color: "text-func-warning-yellow" },
+      { label: "Strained",   meaning: "under 35", color: "text-func-danger-red" },
     ],
   },
   {
     key: "strain",
     icon: Flame,
-    color: "text-orange-400",
-    bg: "bg-orange-500/10",
+    color: "text-func-carbs-orange",
+    bg: "bg-func-carbs-orange/10",
     title: "Strain",
     summary: "How hard your training was today, on a 0 to 21 scale. Higher means tougher.",
     details: "Calculated from how long you trained, how hard it felt (RPE), and the type of session. The scale has diminishing returns at the top, so getting from 18 to 20 is way harder than 8 to 10. Mirrors how real fatigue piles up.",
     states: [
-      { label: "Light",   meaning: "0 to 7",   color: "text-green-400" },
+      { label: "Light",   meaning: "0 to 7",   color: "text-func-recovery-green" },
       { label: "Moderate", meaning: "8 to 13", color: "text-blue-400" },
-      { label: "Hard",    meaning: "14 to 17", color: "text-amber-400" },
-      { label: "All Out", meaning: "18 to 21", color: "text-red-400" },
+      { label: "Hard",    meaning: "14 to 17", color: "text-func-warning-yellow" },
+      { label: "All Out", meaning: "18 to 21", color: "text-func-danger-red" },
     ],
   },
   {
     key: "ot",
     icon: Shield,
-    color: "text-red-400",
-    bg: "bg-red-500/10",
+    color: "text-func-danger-red",
+    bg: "bg-func-danger-red/10",
     title: "Overtraining risk",
     summary: "Tracks whether you're piling on too much, too fast.",
     details: "Flags include sudden training spikes, sustained high effort, climbing soreness, and dropping sleep. Multiple flags compound. A good wellness check-in (you actually feel fine) softens the score by one tier.",
     states: [
-      { label: "Low",      meaning: "0 to 30",  color: "text-green-400" },
-      { label: "Moderate", meaning: "31 to 60", color: "text-amber-400" },
-      { label: "High",     meaning: "61 to 80", color: "text-orange-400" },
-      { label: "Critical", meaning: "81+",      color: "text-red-400" },
+      { label: "Low",      meaning: "0 to 30",  color: "text-func-recovery-green" },
+      { label: "Moderate", meaning: "31 to 60", color: "text-func-warning-yellow" },
+      { label: "High",     meaning: "61 to 80", color: "text-func-carbs-orange" },
+      { label: "Critical", meaning: "81+",      color: "text-func-danger-red" },
     ],
   },
   {
@@ -85,9 +85,9 @@ const GLOSSARY: GlossaryItem[] = [
     states: [
       { label: "Building", meaning: "less than 14 training days logged", color: "text-muted-foreground" },
       { label: "Low",      meaning: "below your normal volume",            color: "text-blue-400" },
-      { label: "Optimal",  meaning: "matches your normal pattern",         color: "text-green-400" },
-      { label: "High",     meaning: "above normal, watch recovery",        color: "text-amber-400" },
-      { label: "Spike",    meaning: "much more than usual, real risk",     color: "text-red-400" },
+      { label: "Optimal",  meaning: "matches your normal pattern",         color: "text-func-recovery-green" },
+      { label: "High",     meaning: "above normal, watch recovery",        color: "text-func-warning-yellow" },
+      { label: "Spike",    meaning: "much more than usual, real risk",     color: "text-func-danger-red" },
     ],
   },
   {
@@ -102,8 +102,8 @@ const GLOSSARY: GlossaryItem[] = [
   {
     key: "hooper",
     icon: Gauge,
-    color: "text-cyan-400",
-    bg: "bg-cyan-500/10",
+    color: "text-func-hydration-cyan",
+    bg: "bg-func-hydration-cyan/10",
     title: "Daily check-in score",
     summary: "How you feel today, on a 4 to 28 scale. Higher is better.",
     details: "A validated sports-science survey (Hooper Index) combining sleep, stress, fatigue, and soreness. Rising values signal accumulating fatigue before it shows in your training. If this score is good, it softens load and overtraining warnings.",
@@ -111,8 +111,8 @@ const GLOSSARY: GlossaryItem[] = [
   {
     key: "forecast",
     icon: Zap,
-    color: "text-yellow-400",
-    bg: "bg-yellow-500/10",
+    color: "text-func-warning-yellow",
+    bg: "bg-func-warning-yellow/10",
     title: "Projected tomorrow",
     summary: "What your strain and risk are likely to look like tomorrow if you train as planned.",
     details: "Extrapolates from your current trajectory. Use it to decide whether tomorrow should be push, steady, or recover. Improves as you log more sessions.",
@@ -166,8 +166,8 @@ export function RecoveryHelpSheet({ open, onOpenChange }: RecoveryHelpSheetProps
 
         {/* "Building" callout — directly addresses the cold-start state most
             new users will see for their first two weeks. */}
-        <section className="mt-5 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3">
-          <p className="text-[11px] uppercase tracking-[0.12em] font-semibold text-amber-300 mb-1">
+        <section className="mt-5 rounded-xs border border-func-warning-yellow/30 bg-func-warning-yellow/10 p-3">
+          <p className="text-[11px] uppercase tracking-[0.12em] font-semibold text-func-warning-yellow mb-1">
             Why does it say "Building"?
           </p>
           <p className="text-[12px] text-foreground/85 leading-snug">
@@ -191,7 +191,7 @@ export function RecoveryHelpSheet({ open, onOpenChange }: RecoveryHelpSheetProps
                   key={item.key}
                   type="button"
                   onClick={() => setExpandedKey(isOpen ? null : item.key)}
-                  className="w-full text-left rounded-2xl border border-border/30 overflow-hidden active:bg-muted/20 transition-colors"
+                  className="w-full text-left rounded-xs border border-border/30 overflow-hidden active:bg-muted/20 transition-colors"
                 >
                   <div className="flex items-start gap-2.5 p-3">
                     <div className={`w-7 h-7 rounded-full ${item.bg} flex items-center justify-center shrink-0 mt-0.5`}>

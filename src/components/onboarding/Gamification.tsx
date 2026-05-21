@@ -61,7 +61,7 @@ export function XPProgressBar({
       </div>
       <div className="relative h-2 rounded-full overflow-hidden bg-muted/40">
         <motion.div
-          className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-primary via-primary to-amber-400"
+          className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-primary via-primary to-func-warning-yellow"
           initial={false}
           animate={{ width: `${pct * 100}%` }}
           transition={{
@@ -121,12 +121,12 @@ export function CuttingNowChip({
   }, []);
   return (
     <div className="mx-5 mt-2 flex items-center gap-1.5 flex-wrap">
-      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25">
+      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-func-recovery-green/10 border border-func-recovery-green/25">
         <span className="relative flex h-1.5 w-1.5">
-          <span className="absolute inset-0 rounded-full bg-emerald-400 animate-ping opacity-60" />
-          <span className="relative h-1.5 w-1.5 rounded-full bg-emerald-400" />
+          <span className="absolute inset-0 rounded-full bg-func-recovery-green animate-ping opacity-60" />
+          <span className="relative h-1.5 w-1.5 rounded-full bg-func-recovery-green" />
         </span>
-        <p className="text-[10px] font-semibold text-emerald-400/90 tabular-nums">
+        <p className="text-[10px] font-semibold text-func-recovery-green/90 tabular-nums">
           {count.toLocaleString()} fighters cutting weight right now
         </p>
       </div>
@@ -339,10 +339,10 @@ export function WeightLossSlam({
   // the rest of the app uses.
   const rateClass =
     perWeekKg <= 1.0
-      ? "text-emerald-400"
+      ? "text-func-recovery-green"
       : perWeekKg <= 1.5
-      ? "text-amber-400"
-      : "text-rose-400";
+      ? "text-func-warning-yellow"
+      : "text-func-danger-red";
 
   return (
     <AnimatePresence>
@@ -405,9 +405,9 @@ export function LossFrameCard({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.32, ease: "easeOut" }}
-      className="rounded-2xl border border-amber-500/25 bg-amber-500/[0.06] p-3"
+      className="rounded-xs border border-func-warning-yellow/25 bg-func-warning-yellow/[0.06] p-3"
     >
-      <p className="text-[10px] uppercase tracking-wider font-semibold text-amber-400/90 mb-1">
+      <p className="text-[10px] uppercase tracking-wider font-semibold text-func-warning-yellow/90 mb-1">
         Reality check
       </p>
       <p className="text-[13px] text-foreground/90 leading-snug">
@@ -453,7 +453,7 @@ export function SilentAchievement({
           className="fixed top-[calc(env(safe-area-inset-top,0px)+72px)] left-1/2 -translate-x-1/2 z-[10006] pointer-events-none"
           style={{ willChange: "transform, opacity" }}
         >
-          <div className="flex items-center gap-2 px-3.5 py-2 rounded-full bg-primary text-primary-foreground shadow-[0_10px_30px_-6px_rgba(0,0,0,0.45)]">
+          <div className="flex items-center gap-2 px-3.5 py-2 rounded-full bg-primary text-primary-foreground">
             <Trophy className="h-3.5 w-3.5" strokeWidth={2.4} />
             <p className="text-[12px] font-bold uppercase tracking-[0.12em]">
               {label}
@@ -584,25 +584,25 @@ export function DeclarationButton({
       onPointerUp={end}
       onPointerLeave={end}
       onPointerCancel={end}
-      className="no-tap-select relative w-full h-14 rounded-2xl bg-primary text-primary-foreground text-[15px] font-bold tracking-wide active:scale-[0.99] transition-transform overflow-hidden"
+      className="no-tap-select relative w-full h-14 rounded-xs bg-primary text-primary-foreground text-[15px] font-bold tracking-wide active:scale-[0.99] transition-transform overflow-hidden"
       style={{
         touchAction: "none",
         // `isolation: isolate` forces a fresh stacking context on this button
         // so the GPU-composited fill child below (transform + mixBlendMode)
-        // cannot escape the rounded-2xl clip on iOS WebView. Without it the
+        // cannot escape the rounded-xs clip on iOS WebView. Without it the
         // amber fill bleeds past the corners during the hold animation.
         isolation: "isolate",
       }}
     >
       {/* Fill arc — `transform: scaleX` driven by rAF so the animation
           lives on the compositor and never blocks the main thread.
-          `rounded-2xl` mirrors the parent radius as belt-and-braces: even
+          `rounded-xs` mirrors the parent radius as belt-and-braces: even
           if the parent's overflow clip glitches under iOS's GPU paint, the
           fill's own corners stay rounded so nothing visibly overflows. */}
       <div
         ref={fillRef}
         aria-hidden
-        className="absolute inset-y-0 left-0 right-0 bg-amber-300 rounded-2xl"
+        className="absolute inset-y-0 left-0 right-0 bg-func-warning-yellow rounded-xs"
         style={{
           transform: "scaleX(0)",
           transformOrigin: "left center",
@@ -664,7 +664,7 @@ export function TaleOfTheTapeCard({
       initial={{ opacity: 0, scale: reduced ? 1 : 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ type: "spring", stiffness: 240, damping: 22 }}
-      className="relative rounded-3xl border-2 border-primary/30 bg-gradient-to-b from-primary/[0.10] via-card to-card overflow-hidden p-5"
+      className="relative rounded-xs border-2 border-primary/30 bg-gradient-to-b from-primary/[0.10] via-card to-card overflow-hidden p-5"
       style={{ willChange: "transform, opacity" }}
     >
       {onShare && (
@@ -682,7 +682,7 @@ export function TaleOfTheTapeCard({
           Tale of the Tape
         </h3>
       </div>
-      <div className="rounded-2xl bg-muted/30 border border-border/40 divide-y divide-border/30">
+      <div className="rounded-xs bg-muted/30 border border-border/40 divide-y divide-border/30">
         {stats.map((s, i) => (
           <motion.div
             key={s.label}
@@ -703,7 +703,7 @@ export function TaleOfTheTapeCard({
           </motion.div>
         ))}
       </div>
-      <div className="flex items-center justify-center gap-1.5 mt-4 text-emerald-400/90">
+      <div className="flex items-center justify-center gap-1.5 mt-4 text-func-recovery-green/90">
         <ShieldCheck className="h-3.5 w-3.5" />
         <p className="text-[11px] uppercase tracking-wider font-bold">
           Camp Sealed
@@ -761,7 +761,7 @@ export function WittyValidation({ children }: { children: React.ReactNode }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.32 }}
-      className="text-[12px] text-emerald-400/90 mt-1.5 font-medium leading-snug"
+      className="text-[12px] text-func-recovery-green/90 mt-1.5 font-medium leading-snug"
     >
       {children}
     </motion.p>
@@ -819,7 +819,7 @@ export function WeeklyMilestonesScrubber({
   const showPlateauZone = weeks >= 5;
 
   return (
-    <div className="rounded-2xl border border-border/40 bg-card/60 px-4 py-3.5">
+    <div className="rounded-xs border border-border/40 bg-card/60 px-4 py-3.5">
       <div className="flex items-baseline justify-between mb-3">
         <p className="text-[10px] uppercase tracking-[0.15em] font-bold text-muted-foreground">
           Projected Path
@@ -836,7 +836,7 @@ export function WeeklyMilestonesScrubber({
         {/* Plateau zone band (weeks 3-4) — drawn under the dots so they remain crisp. */}
         {showPlateauZone && (
           <div
-            className="absolute top-1/2 -translate-y-1/2 h-3 rounded-full bg-amber-500/15 border border-amber-500/25"
+            className="absolute top-1/2 -translate-y-1/2 h-3 rounded-full bg-func-warning-yellow/15 border border-func-warning-yellow/25"
             style={{
               left: `calc(${(2 / weeks) * 100}% + 6px)`,
               right: `calc(${((weeks - 4) / weeks) * 100}% + 6px)`,
@@ -895,7 +895,7 @@ export function WeeklyMilestonesScrubber({
       </div>
 
       {showPlateauZone && (
-        <p className="text-[10px] text-amber-400/80 mt-2 text-center">
+        <p className="text-[10px] text-func-warning-yellow/80 mt-2 text-center">
           Plateau zone weeks 3–4. Normal. Trust the protocol.
         </p>
       )}
@@ -987,7 +987,7 @@ export function BlurredWeekOnePreview({
       initial={{ opacity: 0, y: reduced ? 0 : 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.2, duration: 0.35 }}
-      className="relative rounded-2xl overflow-hidden border border-border/40 bg-card"
+      className="relative rounded-xs overflow-hidden border border-border/40 bg-card"
     >
       {/* The blurred "card" content — readable enough to tease, blurred
           enough that the user knows it's locked until they generate. */}
@@ -1009,19 +1009,19 @@ export function BlurredWeekOnePreview({
           </p>
         </div>
         <div className="grid grid-cols-3 gap-2 mb-2">
-          <div className="rounded-xl bg-muted/30 p-2 text-center">
+          <div className="rounded-xs bg-muted/30 p-2 text-center">
             <p className="text-[16px] font-bold tabular-nums text-foreground">
               {cal.toLocaleString()}
             </p>
             <p className="text-[9px] uppercase text-muted-foreground">cal</p>
           </div>
-          <div className="rounded-xl bg-muted/30 p-2 text-center">
+          <div className="rounded-xs bg-muted/30 p-2 text-center">
             <p className="text-[16px] font-bold tabular-nums text-foreground">
               {proteinG}g
             </p>
             <p className="text-[9px] uppercase text-muted-foreground">protein</p>
           </div>
-          <div className="rounded-xl bg-muted/30 p-2 text-center">
+          <div className="rounded-xs bg-muted/30 p-2 text-center">
             <p className="text-[16px] font-bold tabular-nums text-foreground">
               {fatG}g
             </p>
@@ -1035,7 +1035,7 @@ export function BlurredWeekOnePreview({
 
       {/* Scrim + lock overlay — the actual visible UI. */}
       <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/30 backdrop-blur-[1px]">
-        <div className="h-9 w-9 rounded-full bg-background/90 border border-border flex items-center justify-center shadow-sm">
+        <div className="h-9 w-9 rounded-full bg-background/90 border border-border flex items-center justify-center">
           <Lock className="h-4 w-4 text-primary" />
         </div>
         <p className="text-[12px] font-semibold text-foreground mt-2">

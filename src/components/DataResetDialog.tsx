@@ -312,7 +312,7 @@ export function DataResetDialog({ open, onOpenChange }: DataResetDialogProps) {
           <AlertDialogDescription asChild>
             <div className="space-y-3 pt-1 text-center text-[13px] leading-relaxed text-muted-foreground">
               <p>This will permanently delete your tracking data:</p>
-              <div className="rounded-2xl bg-destructive/5 dark:bg-destructive/10 border border-destructive/10 dark:border-destructive/15 p-4 text-left text-xs space-y-1.5 text-muted-foreground/80">
+              <div className="rounded-xs bg-destructive/5 dark:bg-destructive/10 border border-destructive/10 dark:border-destructive/15 p-4 text-left text-xs space-y-1.5 text-muted-foreground/80">
                 <p>Profile information (age, height, targets)</p>
                 <p>
                   All weight ({weightCountsQ?.count ?? "…"}), nutrition (
@@ -336,7 +336,7 @@ export function DataResetDialog({ open, onOpenChange }: DataResetDialogProps) {
           variant="outline"
           onClick={exportAllData}
           disabled={exporting || resetting}
-          className="w-full rounded-2xl h-12 text-[15px] font-semibold"
+          className="w-full rounded-xs h-12 text-[15px] font-semibold"
         >
           {exporting ? (
             <>
@@ -352,13 +352,13 @@ export function DataResetDialog({ open, onOpenChange }: DataResetDialogProps) {
         </Button>
 
         <AlertDialogFooter className="flex-row gap-3">
-          <AlertDialogCancel className="flex-1 h-12 rounded-2xl text-[15px] font-semibold" disabled={resetting}>
+          <AlertDialogCancel className="flex-1 h-12 rounded-xs text-[15px] font-semibold" disabled={resetting}>
             Cancel
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={handleReset}
             disabled={exporting || resetting}
-            className="flex-1 h-12 rounded-2xl text-[15px] font-semibold bg-destructive hover:bg-destructive/90"
+            className="flex-1 h-12 rounded-xs text-[15px] font-semibold bg-destructive hover:bg-destructive/90"
           >
             {resetting ? (
               <>

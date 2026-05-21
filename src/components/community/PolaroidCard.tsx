@@ -237,7 +237,7 @@ function PolaroidCardBase({
             : { type: "spring", stiffness: 220, damping: 28, mass: 1 }
       }
     >
-      <div className="bg-white p-4 pb-10 rounded-sm shadow-2xl select-none">
+      <div className="bg-white p-4 pb-10 rounded-sm select-none">
         {/* Image well */}
         <div className="relative aspect-square overflow-hidden bg-neutral-200">
           {/* LQIP backdrop — visible until the full image loads. */}

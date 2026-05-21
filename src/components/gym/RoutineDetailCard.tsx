@@ -16,34 +16,34 @@ interface RoutineDetailCardProps {
 
 const GOAL_BADGE: Record<string, string> = {
   hypertrophy: "bg-blue-500/15 text-blue-400",
-  strength: "bg-red-500/15 text-red-400",
-  explosiveness: "bg-amber-500/15 text-amber-400",
-  conditioning: "bg-green-500/15 text-green-400",
+  strength: "bg-func-danger-red/15 text-func-danger-red",
+  explosiveness: "bg-func-warning-yellow/15 text-func-warning-yellow",
+  conditioning: "bg-func-recovery-green/15 text-func-recovery-green",
 };
 
 const MUSCLE_COLORS: Record<string, string> = {
   chest: "bg-blue-500/15 text-blue-400",
-  back: "bg-purple-500/15 text-purple-400",
-  shoulders: "bg-orange-500/15 text-orange-400",
-  biceps: "bg-cyan-500/15 text-cyan-400",
+  back: "bg-func-fats-purple/15 text-func-fats-purple",
+  shoulders: "bg-func-carbs-orange/15 text-func-carbs-orange",
+  biceps: "bg-func-hydration-cyan/15 text-func-hydration-cyan",
   triceps: "bg-pink-500/15 text-pink-400",
-  quads: "bg-green-500/15 text-green-400",
-  hamstrings: "bg-emerald-500/15 text-emerald-400",
-  glutes: "bg-rose-500/15 text-rose-400",
+  quads: "bg-func-recovery-green/15 text-func-recovery-green",
+  hamstrings: "bg-func-recovery-green/15 text-func-recovery-green",
+  glutes: "bg-func-danger-red/15 text-func-danger-red",
   calves: "bg-teal-500/15 text-teal-400",
-  abs: "bg-yellow-500/15 text-yellow-400",
-  core: "bg-yellow-500/15 text-yellow-400",
+  abs: "bg-func-warning-yellow/15 text-func-warning-yellow",
+  core: "bg-func-warning-yellow/15 text-func-warning-yellow",
   full_body: "bg-indigo-500/15 text-indigo-400",
-  cardio: "bg-red-500/15 text-red-400",
+  cardio: "bg-func-danger-red/15 text-func-danger-red",
 };
 
 const DAY_COLORS = [
   "border-l-blue-500",
-  "border-l-purple-500",
-  "border-l-emerald-500",
-  "border-l-amber-500",
-  "border-l-rose-500",
-  "border-l-cyan-500",
+  "border-l-func-fats-purple",
+  "border-l-func-recovery-green",
+  "border-l-func-warning-yellow",
+  "border-l-func-danger-red",
+  "border-l-func-hydration-cyan",
 ];
 
 interface GroupedExerciseListProps {
@@ -104,7 +104,7 @@ function GroupedExerciseList({ exercises, onStartDay }: GroupedExerciseListProps
   return (
     <div className="px-3 pb-2 space-y-2.5 pt-1">
       {groups.map((group, gi) => (
-        <div key={group.day || gi} className={`rounded-2xl border border-border/30 overflow-hidden border-l-[3px] ${DAY_COLORS[gi % DAY_COLORS.length]}`}>
+        <div key={group.day || gi} className={`rounded-xs border border-border/30 overflow-hidden border-l-[3px] ${DAY_COLORS[gi % DAY_COLORS.length]}`}>
           {/* Day header — tappable to start that day's workout */}
           <button
             type="button"
@@ -164,7 +164,7 @@ export function RoutineDetailCard({ routine, onDelete, onRename, onStartWorkout 
 
   return (
     <Collapsible open={expanded} onOpenChange={setExpanded}>
-      <div className="card-surface rounded-2xl border border-border/50 overflow-hidden relative">
+      <div className="card-surface rounded-xs border border-border/50 overflow-hidden relative">
         {/* Subtle gradient */}
         <div className="absolute inset-0 bg-gradient-to-r from-primary/[0.02] to-transparent pointer-events-none" />
 
@@ -182,10 +182,10 @@ export function RoutineDetailCard({ routine, onDelete, onRename, onStartWorkout 
                       if (e.key === "Enter") handleRename();
                       if (e.key === "Escape") handleCancelEdit();
                     }}
-                    className="h-7 text-sm font-semibold bg-muted/30 border-border/30 rounded-lg px-2"
+                    className="h-7 text-sm font-semibold bg-muted/30 border-border/30 rounded-xs px-2"
                   />
                   <button onClick={handleRename} className="p-1 rounded hover:bg-muted/40">
-                    <Check className="h-3.5 w-3.5 text-green-400" />
+                    <Check className="h-3.5 w-3.5 text-func-recovery-green" />
                   </button>
                   <button onClick={handleCancelEdit} className="p-1 rounded hover:bg-muted/40">
                     <X className="h-3.5 w-3.5 text-muted-foreground" />
@@ -209,7 +209,7 @@ export function RoutineDetailCard({ routine, onDelete, onRename, onStartWorkout 
                   {routine.goal}
                 </span>
                 {routine.is_ai_generated && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-300 font-bold uppercase tracking-wider">
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-func-fats-purple/15 text-func-fats-purple font-bold uppercase tracking-wider">
                     AI
                   </span>
                 )}
@@ -230,7 +230,7 @@ export function RoutineDetailCard({ routine, onDelete, onRename, onStartWorkout 
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onStartWorkout(routine); }}
                 aria-label="Start routine"
-                className="h-9 px-3 rounded-full bg-primary text-primary-foreground text-[12px] font-bold inline-flex items-center gap-1.5 active:scale-[0.96] transition-transform shadow-md shadow-primary/30"
+                className="h-9 px-3 rounded-full bg-primary text-primary-foreground text-[12px] font-bold inline-flex items-center gap-1.5 active:scale-[0.96] transition-transform"
               >
                 <Play className="h-3.5 w-3.5" strokeWidth={2.6} />
                 Start
@@ -264,7 +264,7 @@ export function RoutineDetailCard({ routine, onDelete, onRename, onStartWorkout 
                   <div className="flex items-center gap-2">
                     <Button
                       onClick={() => onStartWorkout(routine)}
-                      className="flex-1 h-10 rounded-2xl text-xs font-semibold bg-gradient-to-r from-primary to-primary/80"
+                      className="flex-1 h-10 rounded-xs text-xs font-semibold bg-gradient-to-r from-primary to-primary/80"
                       size="sm"
                     >
                       <Play className="h-3.5 w-3.5 mr-1.5" />
@@ -272,7 +272,7 @@ export function RoutineDetailCard({ routine, onDelete, onRename, onStartWorkout 
                     </Button>
                     <button
                       onClick={() => onDelete(routine.id)}
-                      className="h-10 w-10 rounded-2xl flex items-center justify-center border border-border/50 hover:bg-destructive/10 hover:border-destructive/30 transition-colors"
+                      className="h-10 w-10 rounded-xs flex items-center justify-center border border-border/50 hover:bg-destructive/10 hover:border-destructive/30 transition-colors"
                     >
                       <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive transition-colors" />
                     </button>

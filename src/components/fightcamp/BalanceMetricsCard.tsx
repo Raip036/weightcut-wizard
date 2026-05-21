@@ -16,10 +16,10 @@ function getDirectionIcon(direction: BalanceMetric['direction']) {
 
 function getDirectionColor(direction: BalanceMetric['direction'], severity: BalanceMetric['severity']) {
   if (severity === 'alert') {
-    return direction === 'improving' ? 'text-green-400' : 'text-red-400';
+    return direction === 'improving' ? 'text-func-recovery-green' : 'text-func-danger-red';
   }
   if (severity === 'warning') {
-    return direction === 'improving' ? 'text-green-400/70' : 'text-amber-400';
+    return direction === 'improving' ? 'text-func-recovery-green/70' : 'text-func-warning-yellow';
   }
   return 'text-muted-foreground';
 }
@@ -39,7 +39,7 @@ export const BalanceMetricsCard = memo(function BalanceMetricsCard({ balanceMetr
   if (balanceMetrics.length === 0) return null;
 
   return (
-    <div className="card-surface rounded-2xl p-4 border border-border">
+    <div className="card-surface rounded-xs p-4 border border-border">
       <div className="flex items-center gap-2 mb-3">
         <span className="text-sm font-bold text-foreground">Balance Metrics</span>
         <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-accent/40 text-muted-foreground font-medium">

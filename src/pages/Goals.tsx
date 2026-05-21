@@ -5,11 +5,11 @@ import { api } from "@/../convex/_generated/api";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
-import { AlertTriangle, Check, ChevronRight, TrendingDown } from "lucide-react";
+import { AlertTriangle, Check, ChevronRight, Settings as SettingsIcon, LogOut } from "lucide-react";
 import { ImpactStyle } from "@capacitor/haptics";
 import { motion, AnimatePresence } from "motion/react";
 import { profileSchema } from "@/lib/validation";
-import { useUser } from "@/contexts/UserContext";
+import { useUser, useAuth } from "@/contexts/UserContext";
 import { celebrateSuccess, triggerHaptic, triggerHapticSelection } from "@/lib/haptics";
 import { GoalsSkeleton } from "@/components/ui/skeleton-loader";
 import { ProfilePictureUpload } from "@/components/ProfilePictureUpload";
@@ -71,8 +71,10 @@ type ActiveField = { key: FieldKey; title: string } | null;
 
 export default function Goals() {
   const [loading, setLoading] = useState(true);
+  const [signingOut, setSigningOut] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { signOut } = useAuth();
   const {
     userId,
     currentWeight,
@@ -82,7 +84,6 @@ export default function Goals() {
     setUserName,
     avatarUrl,
     setAvatarUrl,
-    loadCutPlan,
   } = useUser();
   const updateGoals = useMutation(api.profiles.updateGoals);
   const setUserNameMut = useMutation(api.profiles.setUserName);
@@ -104,42 +105,6 @@ export default function Goals() {
       console.warn("Goals: setUserName failed", err);
     }
   }, [editedName, userId, userName, setUserNameMut, setUserName]);
-
-  // Cut plan summary surfaced as a tappable row in YOUR PLAN group.
-  const [cutPlanSummary, setCutPlanSummary] = useState<{
-    totalWeeks: number;
-    weeklyLossTarget: string;
-    goalWeight: number;
-    planType: "weight_loss" | "weight_cut";
-  } | null>(null);
-
-  useEffect(() => {
-    const readSummaryFromRaw = (raw: string | null) => {
-      if (!raw) return null;
-      try {
-        const parsed = JSON.parse(raw);
-        const last = parsed?.weeklyPlan?.[parsed.weeklyPlan.length - 1];
-        if (!parsed?.totalWeeks || !parsed?.weeklyLossTarget) return null;
-        return {
-          totalWeeks: parsed.totalWeeks,
-          weeklyLossTarget: parsed.weeklyLossTarget,
-          goalWeight: parsed.goalWeight ?? last?.targetWeight ?? 0,
-          planType: parsed.planType === "weight_loss" ? "weight_loss" : "weight_cut",
-        } as const;
-      } catch { return null; }
-    };
-    const local = readSummaryFromRaw(localStorage.getItem("wcw_cut_plan"));
-    if (local) { setCutPlanSummary(local); return; }
-    if (!userId) return;
-    let cancelled = false;
-    (async () => {
-      const dbPlan = await loadCutPlan();
-      if (cancelled || !dbPlan?.weeklyPlan) return;
-      localStorage.setItem("wcw_cut_plan", JSON.stringify(dbPlan));
-      setCutPlanSummary(readSummaryFromRaw(JSON.stringify(dbPlan)));
-    })();
-    return () => { cancelled = true; };
-  }, [userId, loadCutPlan]);
 
   const [formData, setFormData] = useState({
     age: "", sex: "", height_cm: "", current_weight_kg: "", goal_weight_kg: "",
@@ -319,8 +284,22 @@ export default function Goals() {
 
   return (
     <div className="animate-page-in px-5 py-3 sm:p-5 max-w-2xl mx-auto pb-20 md:pb-8">
-      {/* Hero header — large-title with centered avatar + name + subtitle */}
+      {/* Hero header — large-title with centered avatar + name + subtitle.
+          Settings gear sits top-right (this page IS the edit-profile
+          destination when the user taps the Dashboard avatar; the gear
+          is the access point for app settings now that the ProfileSheet
+          menu is no longer used). The Saved indicator shifts left when
+          present so the gear stays in its corner. */}
       <header className="relative pt-2 pb-6">
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new CustomEvent('wcw:open-settings'))}
+          aria-label="Settings"
+          className="absolute top-2 right-0 flex h-9 w-9 items-center justify-center rounded-full active:bg-neutral-800 transition-colors"
+        >
+          <SettingsIcon className="h-5 w-5 text-muted-foreground" strokeWidth={2} />
+        </button>
+
         <AnimatePresence>
           {savedAt && (
             <motion.div
@@ -328,7 +307,7 @@ export default function Goals() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -4, scale: 0.9 }}
               transition={{ duration: 0.18 }}
-              className="absolute top-2 right-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-500 text-[11px] font-semibold"
+              className="absolute top-2 right-12 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-func-recovery-green/15 text-func-recovery-green text-[11px] font-semibold"
             >
               <Check className="h-3 w-3" strokeWidth={3} />
               Saved
@@ -360,32 +339,6 @@ export default function Goals() {
       </header>
 
       <div className="space-y-6">
-        {/* YOUR PLAN — quick link to the canonical timeline */}
-        {cutPlanSummary && (
-          <SettingsGroup title={cutPlanSummary.planType === "weight_loss" ? "Your weight loss plan" : "Your cut plan"}>
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic(ImpactStyle.Light);
-                navigate(cutPlanSummary.planType === "weight_loss" ? "/weight-plan" : "/cut-plan");
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 min-h-[52px] active:bg-muted/30 transition-colors text-left"
-            >
-              <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                <TrendingDown className="h-4.5 w-4.5 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[15px] font-medium leading-tight">View full plan</p>
-                <p className="text-[12px] text-muted-foreground mt-0.5 leading-snug truncate">
-                  {cutPlanSummary.totalWeeks} weeks · {cutPlanSummary.weeklyLossTarget}
-                  {cutPlanSummary.goalWeight ? ` · target ${cutPlanSummary.goalWeight}kg` : ""}
-                </p>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground/60 shrink-0" />
-            </button>
-          </SettingsGroup>
-        )}
-
         {/* PERSONAL DETAILS */}
         <SettingsGroup title="Personal details">
           <SettingsRow label="Age" value={formData.age || "—"} onTap={() => setActiveField({ key: "age", title: "Age" })} />
@@ -443,6 +396,26 @@ export default function Goals() {
         </SettingsGroup>
       </div>
 
+      {/* Sign out */}
+      <div className="pt-4 pb-2">
+        <button
+          type="button"
+          disabled={signingOut}
+          onClick={async () => {
+            setSigningOut(true);
+            try { await signOut(); } finally { setSigningOut(false); }
+          }}
+          className="w-full flex items-center gap-3 rounded-xs px-4 py-3.5 active:bg-destructive/5 transition-colors text-left disabled:opacity-40"
+        >
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-destructive/10 text-destructive shrink-0">
+            <LogOut className="h-4 w-4" />
+          </span>
+          <span className="flex-1 text-[15px] font-medium text-destructive">
+            {signingOut ? "Signing out…" : "Sign Out"}
+          </span>
+        </button>
+      </div>
+
       {/* Field edit sheet — focused single-field editor */}
       <EditFieldSheet
         active={activeField}
@@ -476,7 +449,7 @@ function SettingsGroup({ title, children }: { title: string; children: React.Rea
       <h2 className="px-4 mb-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground/80">
         {title}
       </h2>
-      <div className="rounded-2xl bg-card/60 backdrop-blur-sm border border-border/40 overflow-hidden divide-y divide-border/30">
+      <div className="rounded-xs bg-card/60 backdrop-blur-sm border border-border/40 overflow-hidden divide-y divide-border/30">
         {children}
       </div>
     </section>
@@ -503,7 +476,7 @@ function SettingsRow({
         <p className="text-[15px] font-medium leading-tight truncate">{label}</p>
         {hint && (
           <p className={`mt-0.5 text-[12px] font-medium leading-snug flex items-center gap-1 ${
-            hintTone === "ok" ? "text-emerald-500" : hintTone === "warn" ? "text-amber-500" : "text-rose-500"
+            hintTone === "ok" ? "text-func-recovery-green" : hintTone === "warn" ? "text-func-warning-yellow" : "text-func-danger-red"
           }`}>
             <AlertTriangle className="h-3 w-3 shrink-0" />
             <span className="truncate">{hint}</span>
@@ -584,7 +557,7 @@ function EditFieldSheet({
                   <button
                     type="button"
                     onClick={() => onUseAutoTargetChange(!useAutoTarget)}
-                    className={`flex-1 h-10 rounded-xl text-[13px] font-semibold transition-colors ${
+                    className={`flex-1 h-10 rounded-xs text-[13px] font-semibold transition-colors ${
                       useAutoTarget ? "bg-primary text-primary-foreground" : "bg-muted/40 text-muted-foreground"
                     }`}
                   >
@@ -593,7 +566,7 @@ function EditFieldSheet({
                   <button
                     type="button"
                     onClick={() => onUseAutoTargetChange(false)}
-                    className={`flex-1 h-10 rounded-xl text-[13px] font-semibold transition-colors ${
+                    className={`flex-1 h-10 rounded-xs text-[13px] font-semibold transition-colors ${
                       !useAutoTarget ? "bg-primary text-primary-foreground" : "bg-muted/40 text-muted-foreground"
                     }`}
                   >
@@ -617,13 +590,13 @@ function EditFieldSheet({
                 type="date"
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
-                className="h-12 rounded-xl text-[16px] bg-muted/30 border-border/40"
+                className="h-12 rounded-xs text-[16px] bg-muted/30 border-border/40"
               />
             </label>
             <button
               type="button"
               onClick={commitNumber}
-              className="w-full h-12 rounded-xl bg-primary text-primary-foreground text-[15px] font-semibold active:scale-[0.98] transition-transform"
+              className="w-full h-12 rounded-xs bg-primary text-primary-foreground text-[15px] font-semibold active:scale-[0.98] transition-transform"
             >
               Save
             </button>
@@ -729,7 +702,7 @@ function NumericEditor({
       <button
         type="button"
         onClick={onCommit}
-        className="w-full h-12 rounded-xl bg-primary text-primary-foreground text-[15px] font-semibold active:scale-[0.98] transition-transform"
+        className="w-full h-12 rounded-xs bg-primary text-primary-foreground text-[15px] font-semibold active:scale-[0.98] transition-transform"
       >
         Save
       </button>
@@ -754,9 +727,9 @@ function ChipPicker({
             key={o.value}
             type="button"
             onClick={() => { triggerHapticSelection(); onPick(o.value); }}
-            className={`min-h-[48px] px-4 rounded-xl text-[15px] font-medium transition-all active:scale-[0.98] ${
+            className={`min-h-[48px] px-4 rounded-xs text-[15px] font-medium transition-all active:scale-[0.98] ${
               active
-                ? "bg-primary text-primary-foreground shadow-sm"
+                ? "bg-primary text-primary-foreground"
                 : "bg-muted/30 text-foreground border border-border/40"
             }`}
           >

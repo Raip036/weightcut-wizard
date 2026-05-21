@@ -207,7 +207,7 @@ export function SwipeDial({
       {/* Center "selection" frame. Pointer-events-none so taps fall through. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-primary/10 ring-1 ring-primary/40"
+        className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xs bg-primary/10 ring-1 ring-primary/40"
         style={{ width: cellWidth - 8, height: 40 }}
       />
 
@@ -216,7 +216,7 @@ export function SwipeDial({
         role="listbox"
         aria-label={ariaLabel}
         onScroll={handleScroll}
-        className="flex items-center overflow-x-auto overflow-y-hidden scrollbar-hide snap-x snap-mandatory h-12 rounded-2xl bg-muted/20"
+        className="flex items-center overflow-x-auto overflow-y-hidden scrollbar-hide snap-x snap-mandatory h-12 rounded-xs bg-muted/20"
         style={{
           scrollbarWidth: "none",
           msOverflowStyle: "none",

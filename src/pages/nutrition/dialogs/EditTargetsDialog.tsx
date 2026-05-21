@@ -41,7 +41,7 @@ export function EditTargetsDialog({
   const cPct = totalMacroG > 0 ? Math.round((c / totalMacroG) * 100) : 0;
   const fPct = totalMacroG > 0 ? 100 - pPct - cPct : 0;
   const color =
-    calGoal === 0 ? "text-muted-foreground" : diff <= 20 ? "text-green-600" : diff <= 50 ? "text-yellow-600" : "text-red-600";
+    calGoal === 0 ? "text-muted-foreground" : diff <= 20 ? "text-func-recovery-green" : diff <= 50 ? "text-func-warning-yellow" : "text-func-danger-red";
 
   const handleAdjust = (field: "protein" | "carbs" | "fats", value: number) => {
     if (calGoal > 0) {
@@ -59,7 +59,7 @@ export function EditTargetsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[300px] rounded-2xl p-0 border-0 bg-card/95 backdrop-blur-xl shadow-2xl gap-0">
+      <DialogContent className="sm:max-w-[300px] rounded-xs p-0 border-0 bg-card/95 backdrop-blur-xl gap-0">
         <div className="px-4 pt-4 pb-2">
           <DialogHeader>
             <DialogTitle className="text-[15px] font-semibold text-center">Edit Targets</DialogTitle>
@@ -88,7 +88,7 @@ export function EditTargetsDialog({
                   ...(macros ? { protein: macros.protein_g, carbs: macros.carbs_g, fats: macros.fats_g } : {}),
                 }));
               }}
-              className="h-8 text-[13px] rounded-lg border-border/30 bg-muted/20 mt-0.5"
+              className="h-8 text-[13px] rounded-xs border-border/30 bg-muted/20 mt-0.5"
             />
           </div>
           <div className="grid grid-cols-3 gap-1.5">
@@ -105,7 +105,7 @@ export function EditTargetsDialog({
                   const val = parseFloat(e.target.value) || 0;
                   if (!handleAdjust("protein", val)) setEditingTargets((prev) => ({ ...prev, protein: e.target.value }));
                 }}
-                className="h-8 text-[13px] rounded-lg border-border/30 bg-muted/20 mt-0.5"
+                className="h-8 text-[13px] rounded-xs border-border/30 bg-muted/20 mt-0.5"
               />
             </div>
             <div>
@@ -121,7 +121,7 @@ export function EditTargetsDialog({
                   const val = parseFloat(e.target.value) || 0;
                   if (!handleAdjust("carbs", val)) setEditingTargets((prev) => ({ ...prev, carbs: e.target.value }));
                 }}
-                className="h-8 text-[13px] rounded-lg border-border/30 bg-muted/20 mt-0.5"
+                className="h-8 text-[13px] rounded-xs border-border/30 bg-muted/20 mt-0.5"
               />
             </div>
             <div>
@@ -137,7 +137,7 @@ export function EditTargetsDialog({
                   const val = parseFloat(e.target.value) || 0;
                   if (!handleAdjust("fats", val)) setEditingTargets((prev) => ({ ...prev, fats: e.target.value }));
                 }}
-                className="h-8 text-[13px] rounded-lg border-border/30 bg-muted/20 mt-0.5"
+                className="h-8 text-[13px] rounded-xs border-border/30 bg-muted/20 mt-0.5"
               />
             </div>
           </div>

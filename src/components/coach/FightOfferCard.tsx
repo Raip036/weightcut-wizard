@@ -97,7 +97,7 @@ export const FightOfferCard = memo(function FightOfferCard({
   );
 
   return (
-    <div className="card-surface rounded-2xl border border-border p-3">
+    <div className="card-surface rounded-xs border border-border p-3">
       {/* Header */}
       <div className="flex items-center gap-2 mb-2">
         <div className="h-7 w-7 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
@@ -117,7 +117,7 @@ export const FightOfferCard = memo(function FightOfferCard({
           </span>
         )}
         {offer.status === "filled" && (
-          <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[9px] uppercase tracking-wider font-semibold">
+          <span className="px-2 py-0.5 rounded-full bg-func-recovery-green/15 text-func-recovery-green text-[9px] uppercase tracking-wider font-semibold">
             Filled
           </span>
         )}
@@ -167,7 +167,7 @@ export const FightOfferCard = memo(function FightOfferCard({
       {/* Attached media — appears between the pitch and the interest
           controls so it's the "look at this" beat right before the ask. */}
       {announcement.media_url && (
-        <div className="rounded-xl overflow-hidden bg-muted/30 border border-border/40 mb-2">
+        <div className="rounded-xs overflow-hidden bg-muted/30 border border-border/40 mb-2">
           {announcement.media_kind === "video" ? (
             <video
               src={announcement.media_url}
@@ -194,21 +194,21 @@ export const FightOfferCard = memo(function FightOfferCard({
               <button
                 type="button"
                 onClick={() => handleSignal("yes")}
-                className="h-10 rounded-xl bg-primary text-primary-foreground text-[13px] font-semibold active:scale-[0.97] transition-transform"
+                className="h-10 rounded-xs bg-primary text-primary-foreground text-[13px] font-semibold active:scale-[0.97] transition-transform"
               >
                 ✓ I'm in
               </button>
               <button
                 type="button"
                 onClick={() => handleSignal("maybe")}
-                className="h-10 rounded-xl bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-foreground/85 text-[13px] font-semibold active:scale-[0.97] transition-transform"
+                className="h-10 rounded-xs bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-foreground/85 text-[13px] font-semibold active:scale-[0.97] transition-transform"
               >
                 Maybe
               </button>
               <button
                 type="button"
                 onClick={() => handleSignal("pass")}
-                className="h-10 rounded-xl bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-muted-foreground/80 text-[13px] font-semibold active:scale-[0.97] transition-transform"
+                className="h-10 rounded-xs bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-muted-foreground/80 text-[13px] font-semibold active:scale-[0.97] transition-transform"
               >
                 Pass
               </button>
@@ -220,7 +220,7 @@ export const FightOfferCard = memo(function FightOfferCard({
                   offer.my_signal === "yes"
                     ? "bg-primary/15 text-primary"
                     : offer.my_signal === "maybe"
-                    ? "bg-amber-500/15 text-amber-400"
+                    ? "bg-func-warning-yellow/15 text-func-warning-yellow"
                     : "bg-muted/40 text-muted-foreground"
                 }`}
               >
@@ -236,7 +236,7 @@ export const FightOfferCard = memo(function FightOfferCard({
               <button
                 type="button"
                 onClick={() => handleSignal("maybe")}
-                className="text-[11px] text-amber-400 font-semibold active:opacity-70"
+                className="text-[11px] text-func-warning-yellow font-semibold active:opacity-70"
               >
                 Maybe
               </button>
@@ -256,7 +256,7 @@ export const FightOfferCard = memo(function FightOfferCard({
       ) : offer.status === "filled" ? (
         <p
           className={`text-[12px] font-medium mt-1 ${
-            isPicked ? "text-emerald-400" : "text-muted-foreground/80"
+            isPicked ? "text-func-recovery-green" : "text-muted-foreground/80"
           }`}
         >
           {isPicked

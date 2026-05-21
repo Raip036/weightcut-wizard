@@ -28,7 +28,7 @@ export function UpgradeDialog({ open, onOpenChange, featureName }: UpgradeDialog
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[320px] rounded-2xl p-0 border border-border/50 glass-card overflow-hidden gap-0 shadow-2xl [&>button:last-of-type]:hidden">
+      <DialogContent className="max-w-[320px] rounded-xs p-0 border border-border/50 glass-card overflow-hidden gap-0 [&>button:last-of-type]:hidden">
         <VisuallyHidden>
           <DialogTitle>Pro feature</DialogTitle>
           <DialogDescription>Upgrade to Pro to unlock this feature.</DialogDescription>
@@ -36,7 +36,7 @@ export function UpgradeDialog({ open, onOpenChange, featureName }: UpgradeDialog
 
         <div className="flex flex-col items-center text-center px-6 pt-7 pb-5">
           {/* Crown icon — mirrors the activation flow visual */}
-          <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary/20 to-secondary/20 border border-primary/30 flex items-center justify-center mb-4">
+          <div className="h-14 w-14 rounded-xs bg-gradient-to-br from-primary/20 to-secondary/20 border border-primary/30 flex items-center justify-center mb-4">
             <Crown className="h-7 w-7 text-primary" />
           </div>
 
@@ -53,7 +53,7 @@ export function UpgradeDialog({ open, onOpenChange, featureName }: UpgradeDialog
         <div className="px-4 pb-4 space-y-2">
           <Button
             onClick={handleUpgrade}
-            className="w-full h-11 rounded-2xl text-[14px] font-bold bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-lg shadow-primary/20 active:scale-[0.97] transition-transform"
+            className="w-full h-11 rounded-xs text-[14px] font-bold bg-gradient-to-r from-primary to-secondary text-primary-foreground active:scale-[0.97] transition-transform"
           >
             Upgrade to Pro
           </Button>

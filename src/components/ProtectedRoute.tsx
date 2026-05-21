@@ -32,7 +32,7 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-screen items-center justify-center bg-background p-4">
         <div className="flex flex-col items-center gap-6 text-center">
           <div className="relative flex items-center justify-center w-28 h-28 opacity-50">
-            <div className="rounded-2xl bg-primary/10 p-4">
+            <div className="rounded-xs bg-primary/10 p-4">
               <AlertTriangle className="h-10 w-10 text-primary" />
             </div>
           </div>

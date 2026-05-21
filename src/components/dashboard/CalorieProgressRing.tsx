@@ -26,7 +26,7 @@ export const CalorieProgressRing = memo(function CalorieProgressRing({ consumed,
   const statusColor = getStatusColor();
 
   return (
-    <Card className="card-surface rounded-2xl border border-border overflow-hidden h-full">
+    <Card className="card-surface rounded-xs border border-border overflow-hidden h-full">
       <CardContent className="p-6 pb-28 relative h-full flex flex-col justify-between">
         <div className="flex flex-col pr-28">
           <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-1">Calorie Progress</div>

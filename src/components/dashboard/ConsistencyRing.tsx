@@ -20,7 +20,7 @@ export const ConsistencyRing = memo(function ConsistencyRing({
   const progressDeg = (percentage / 100) * 360;
 
   return (
-    <div className="card-surface rounded-2xl border border-border p-3.5">
+    <div className="card-surface rounded-xs border border-border p-3.5">
       <div className="flex items-center gap-3">
         {/* Ring — CSS conic-gradient */}
         <div className="relative w-16 h-16 flex-shrink-0">
@@ -60,7 +60,7 @@ export const ConsistencyRing = memo(function ConsistencyRing({
             <div
               className={`w-3.5 h-3.5 rounded-full transition-colors ${
                 day.complete
-                  ? "bg-green-500"
+                  ? "bg-func-recovery-green"
                   : "bg-muted-foreground/20"
               }`}
             />

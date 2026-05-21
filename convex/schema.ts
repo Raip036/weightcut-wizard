@@ -576,8 +576,194 @@ export default defineSchema({
     sessionIds: v.array(v.string()), // free-text fingerprint over external IDs; not v.id() refs
     notesFingerprint: v.string(),
     summaryData: v.any(),
+    extractedTechniques: v.optional(v.array(v.string())),
     updatedAt: v.optional(v.number()),
   }).index("by_user_week", ["userId", "weekStart"]),
+
+  training_paths: defineTable({
+    userId: v.id("users"),
+    sport: v.string(),
+    goal: v.string(),
+    goalType: v.union(
+      v.literal("note"),
+      v.literal("goal"),
+      v.literal("coach"),
+    ),
+    status: v.union(
+      v.literal("active"),
+      v.literal("queued"),
+      v.literal("paused"),
+      v.literal("completed"),
+      v.literal("archived"),
+    ),
+    sourceTechniqueId: v.optional(v.id("techniques")),
+    sourceCoachId: v.optional(v.id("users")),
+    notesContext: v.optional(v.string()),
+    createdAt: v.number(),
+    lastAdvancedAt: v.number(),
+  })
+    .index("by_user_status", ["userId", "status"])
+    .index("by_user_sport", ["userId", "sport"]),
+
+  training_path_steps: defineTable({
+    pathId: v.id("training_paths"),
+    position: v.number(),
+    state: v.union(
+      v.literal("upcoming"),
+      v.literal("current"),
+      v.literal("completed"),
+      v.literal("remedial"),
+    ),
+    prescription: v.string(),
+    wizardLine: v.string(),
+    details: v.object({
+      why: v.string(),
+      how: v.array(v.string()),
+      pitfalls: v.array(v.string()),
+    }),
+    targetTechniqueId: v.optional(v.id("techniques")),
+    targetSport: v.string(),
+    expectedSessions: v.number(),
+    completedAt: v.optional(v.number()),
+    completedFeedback: v.optional(v.union(
+      v.literal("nailed"),
+      v.literal("off"),
+    )),
+  }).index("by_path_position", ["pathId", "position"]),
+
+  training_path_feedback: defineTable({
+    pathId: v.id("training_paths"),
+    stepId: v.id("training_path_steps"),
+    userId: v.id("users"),
+    feedback: v.union(v.literal("nailed"), v.literal("off")),
+    at: v.number(),
+  }).index("by_path_at", ["pathId", "at"]),
+
+  training_path_proposals: defineTable({
+    userId: v.id("users"),
+    technique: v.string(),
+    techniqueNormalized: v.string(),
+    sport: v.string(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("accepted"),
+      v.literal("snoozed"),
+      v.literal("declined"),
+    ),
+    snoozedUntil: v.optional(v.number()),
+    declineCount: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_user_status", ["userId", "status"])
+    .index("by_user_normalized", ["userId", "techniqueNormalized"]),
+
+  // ────────────────────────────────────────────────────────────────────
+  // TRAINING MISSIONS (replaces the old training_paths feature)
+  //
+  // One active mission per (userId, sport). When the user logs a session
+  // with notes, the Training Coach reads those notes and produces a
+  // linear 3-8 step checklist for their next sessions. When the last
+  // item is ticked off, a new mission auto-generates iff there are new
+  // notes since the prior mission was created.
+  //
+  // The old `training_paths` / `training_path_steps` / `training_path_
+  // proposals` / `training_path_feedback` tables remain in the schema for
+  // now — they will be removed by a separate cleanup step once the new
+  // feature has shipped and back-compat is no longer needed.
+  // ────────────────────────────────────────────────────────────────────
+
+  training_missions: defineTable({
+    userId: v.id("users"),
+    // Matches `fight_camp_calendar.sessionType` (free-form string in DB).
+    sport: v.string(),
+    status: v.union(
+      v.literal("active"),
+      v.literal("completed"),
+      v.literal("archived"),
+    ),
+    // <= 50 chars, e.g. "Sharpen guard retention".
+    title: v.string(),
+    // 1-2 sentences citing what in the notes drove this.
+    rationale: v.string(),
+    // The `fight_camp_calendar` rows whose notes seeded this mission.
+    sourceSessionIds: v.array(v.id("fight_camp_calendar")),
+    // unix ms; the next generation only considers notes >= this cursor.
+    notesWindowStart: v.number(),
+    createdAt: v.number(),
+    completedAt: v.optional(v.number()),
+    // Updated whenever an item is ticked. Drives the active-mission
+    // ordering in the widget.
+    lastActivityAt: v.number(),
+  })
+    .index("by_user_status", ["userId", "status"])
+    .index("by_user_sport_status", ["userId", "sport", "status"]),
+
+  training_mission_items: defineTable({
+    missionId: v.id("training_missions"),
+    // 0..N strict order. The widget sorts by this.
+    position: v.number(),
+    // <= 120 chars, second-person, actionable.
+    text: v.string(),
+    technique: v.optional(v.string()),
+    drillType: v.optional(v.union(
+      v.literal("solo"),
+      v.literal("partner"),
+      v.literal("live"),
+      v.literal("shadow"),
+    )),
+    durationMin: v.optional(v.number()),
+    completed: v.boolean(),
+    completedAt: v.optional(v.number()),
+  }).index("by_mission_position", ["missionId", "position"]),
+
+  // Per-user opt-in toggles for AI coach features driven from the
+  // Training Calendar. Currently just an auto-summary switch; future
+  // toggles (auto-RPE, auto-tag, etc.) can be added inline as optional
+  // fields without a schema bump.
+  user_coach_settings: defineTable({
+    userId: v.id("users"),
+    autoSummary: v.boolean(),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"]),
+
+  // Per-user, per-discipline XP totals. Level is derived (not stored) via
+  // the `levelFromXp` helper in `convex/lib/xp.ts` so the formula can be
+  // tuned later without a migration. XP is awarded by internal mutations
+  // when the user logs sessions, ticks mission items, or completes
+  // missions (see ADR-camp-xp-redesign).
+  user_discipline_xp: defineTable({
+    userId: v.id("users"),
+    sport: v.string(),
+    totalXp: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user_sport", ["userId", "sport"])
+    .index("by_user", ["userId"]),
+
+  // Weekly retention flashcards distilled from session notes.
+  // Spaced-repetition state lives inline (Leitner doubling) so the schema
+  // stays simple. `cardKey` dedups identical fronts across regenerations
+  // so re-running a week's summary doesn't reset learned cards. See
+  // `docs/superpowers/specs/2026-05-21-training-summary-flashcards.md`.
+  training_summary_cards: defineTable({
+    userId: v.id("users"),
+    sport: v.string(),
+    weekStart: v.string(),
+    cardKey: v.string(),
+    front: v.string(),
+    back: v.string(),
+    cue: v.optional(v.string()),
+    sourceSessionDate: v.optional(v.string()),
+    intervalDays: v.number(),
+    dueAt: v.number(),
+    reviews: v.number(),
+    lapses: v.number(),
+    lastReviewedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_user_due", ["userId", "dueAt"])
+    .index("by_user_card_key", ["userId", "cardKey"])
+    .index("by_user_week", ["userId", "weekStart"]),
 
   // ────────────────────────────────────────────────────────────────────
   // SKILL TREE

@@ -130,17 +130,17 @@ export const MealCard = memo(function MealCard({ meal, onEdit, onDelete, onFavor
   };
 
   return (
-    <div className="relative overflow-hidden rounded-3xl">
+    <div className="relative overflow-hidden rounded-xs">
       {/* Delete background — visible during swipe */}
       {canSwipe && isDragging && (
-        <div className="absolute inset-0 flex items-center justify-end bg-destructive/90 rounded-3xl px-6">
+        <div className="absolute inset-0 flex items-center justify-end bg-destructive/90 rounded-xs px-6">
           <Trash2 className="h-5 w-5 text-destructive-foreground" />
         </div>
       )}
 
       {/* Foreground card — drag, long-press, tap-to-expand */}
       <motion.div
-        className="relative rounded-3xl card-surface"
+        className="relative rounded-xs card-surface"
         style={{ x: canSwipe ? dragX : undefined }}
         drag={canSwipe ? "x" : false}
         dragConstraints={{ left: -120, right: 0 }}
@@ -180,7 +180,7 @@ export const MealCard = memo(function MealCard({ meal, onEdit, onDelete, onFavor
           aria-label={`${coerceMealName(meal.meal_name, meal.meal_type)} — tap to ${expanded ? "collapse" : "expand"}, long-press to favorite`}
         >
           {/* Photo / donut */}
-          <div className="flex-shrink-0 w-[78px] h-[78px] rounded-2xl bg-muted/40 flex items-center justify-center overflow-hidden">
+          <div className="flex-shrink-0 w-[78px] h-[78px] rounded-xs bg-muted/40 flex items-center justify-center overflow-hidden">
             {meal.photo_url ? (
               <img
                 src={meal.photo_url}
@@ -202,7 +202,7 @@ export const MealCard = memo(function MealCard({ meal, onEdit, onDelete, onFavor
                     {coerceMealName(meal.meal_name, meal.meal_type)}
                   </span>
                   {isFavorited && (
-                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400 shrink-0" />
+                    <Star className="h-3.5 w-3.5 fill-func-warning-yellow text-func-warning-yellow shrink-0" />
                   )}
                 </div>
                 {mealTypeLabel && (
@@ -220,11 +220,11 @@ export const MealCard = memo(function MealCard({ meal, onEdit, onDelete, onFavor
                     <span className="text-[11px] tabular-nums font-semibold text-foreground/85">{Math.round(p)}g</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Wheat className="h-3 w-3 text-orange-500" strokeWidth={2.2} />
+                    <Wheat className="h-3 w-3 text-func-carbs-orange" strokeWidth={2.2} />
                     <span className="text-[11px] tabular-nums font-semibold text-foreground/85">{Math.round(c)}g</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Droplet className="h-3 w-3 text-purple-500" strokeWidth={2.4} fill="currentColor" />
+                    <Droplet className="h-3 w-3 text-func-fats-purple" strokeWidth={2.4} fill="currentColor" />
                     <span className="text-[11px] tabular-nums font-semibold text-foreground/85">{Math.round(f)}g</span>
                   </div>
                 </div>
@@ -242,7 +242,7 @@ export const MealCard = memo(function MealCard({ meal, onEdit, onDelete, onFavor
               )}
               <div className="text-right leading-none mt-0.5">
                 <div className="flex items-baseline justify-end gap-1">
-                  <Flame className="h-3 w-3 text-orange-500" strokeWidth={2.4} />
+                  <Flame className="h-3 w-3 text-func-carbs-orange" strokeWidth={2.4} />
                   <span className="text-[18px] font-bold tabular-nums text-foreground leading-none">
                     {meal.calories}
                   </span>
@@ -272,26 +272,26 @@ export const MealCard = memo(function MealCard({ meal, onEdit, onDelete, onFavor
                   <div>
                     <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-muted/40">
                       <span className="bg-blue-500" style={{ width: `${pPct}%` }} aria-hidden />
-                      <span className="bg-orange-500" style={{ width: `${cPct}%` }} aria-hidden />
-                      <span className="bg-purple-500" style={{ width: `${fPct}%` }} aria-hidden />
+                      <span className="bg-func-carbs-orange" style={{ width: `${cPct}%` }} aria-hidden />
+                      <span className="bg-func-fats-purple" style={{ width: `${fPct}%` }} aria-hidden />
                     </div>
                     <div className="mt-1.5 flex justify-between text-[10px] tabular-nums">
                       <span className="text-blue-400 font-semibold">P {pPct}%</span>
-                      <span className="text-orange-400 font-semibold">C {cPct}%</span>
-                      <span className="text-purple-400 font-semibold">F {fPct}%</span>
+                      <span className="text-func-carbs-orange font-semibold">C {cPct}%</span>
+                      <span className="text-func-fats-purple font-semibold">F {fPct}%</span>
                     </div>
                   </div>
                 )}
 
                 {meal.portion_size && (
-                  <div className="rounded-xl bg-muted/20 px-3 py-2">
+                  <div className="rounded-xs bg-muted/20 px-3 py-2">
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">Serving</p>
                     <p className="text-[12px] text-foreground/90 leading-snug mt-0.5">{meal.portion_size}</p>
                   </div>
                 )}
 
                 {meal.ingredients && meal.ingredients.length > 0 && (
-                  <div className="rounded-xl bg-muted/20 px-3 py-2">
+                  <div className="rounded-xs bg-muted/20 px-3 py-2">
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80 mb-1">
                       Ingredients
                     </p>
@@ -313,7 +313,7 @@ export const MealCard = memo(function MealCard({ meal, onEdit, onDelete, onFavor
                 )}
 
                 {meal.recipe_notes && (
-                  <div className="rounded-xl bg-muted/20 px-3 py-2">
+                  <div className="rounded-xs bg-muted/20 px-3 py-2">
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">Notes</p>
                     <p className="text-[12px] text-foreground/90 leading-snug whitespace-pre-wrap mt-0.5">
                       {meal.recipe_notes}
@@ -327,10 +327,10 @@ export const MealCard = memo(function MealCard({ meal, onEdit, onDelete, onFavor
                     {onFavorite && (
                       <button
                         onClick={(e) => { e.stopPropagation(); triggerHapticSelection(); onFavorite(); }}
-                        className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-xl bg-muted/40 border border-border/40 text-[12px] font-semibold active:scale-[0.97] transition"
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-xs bg-muted/40 border border-border/40 text-[12px] font-semibold active:scale-[0.97] transition"
                       >
                         <Star
-                          className={`h-3.5 w-3.5 ${isFavorited ? "fill-amber-400 text-amber-400" : "text-muted-foreground"}`}
+                          className={`h-3.5 w-3.5 ${isFavorited ? "fill-func-warning-yellow text-func-warning-yellow" : "text-muted-foreground"}`}
                           strokeWidth={2.4}
                         />
                         {isFavorited ? "Saved" : "Favorite"}
@@ -339,7 +339,7 @@ export const MealCard = memo(function MealCard({ meal, onEdit, onDelete, onFavor
                     {onEdit && (
                       <button
                         onClick={(e) => { e.stopPropagation(); onEdit(); }}
-                        className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-xl bg-muted/40 border border-border/40 text-[12px] font-semibold active:scale-[0.97] transition"
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-xs bg-muted/40 border border-border/40 text-[12px] font-semibold active:scale-[0.97] transition"
                       >
                         <Edit2 className="h-3.5 w-3.5" /> Edit
                       </button>
@@ -347,7 +347,7 @@ export const MealCard = memo(function MealCard({ meal, onEdit, onDelete, onFavor
                     {onDelete && (
                       <button
                         onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                        className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-xl bg-destructive/10 border border-destructive/30 text-[12px] font-semibold text-destructive active:scale-[0.97] transition"
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-xs bg-destructive/10 border border-destructive/30 text-[12px] font-semibold text-destructive active:scale-[0.97] transition"
                       >
                         <Trash2 className="h-3.5 w-3.5" /> Delete
                       </button>

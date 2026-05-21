@@ -23,7 +23,7 @@ export const SessionAnalyticsCard = memo(function SessionAnalyticsCard({
   return (
     <motion.div
       variants={staggerItem}
-      className="card-surface rounded-2xl border border-border/50 p-4 space-y-4 relative overflow-hidden"
+      className="card-surface rounded-xs border border-border/50 p-4 space-y-4 relative overflow-hidden"
     >
       {/* Subtle gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.03] to-transparent pointer-events-none" />
@@ -70,19 +70,19 @@ export const SessionAnalyticsCard = memo(function SessionAnalyticsCard({
 
         {/* Stats grid */}
         <div className="grid grid-cols-2 gap-2 mt-3">
-          <div className="p-2.5 rounded-2xl bg-muted/30">
+          <div className="p-2.5 rounded-xs bg-muted/30">
             <div className="display-number text-base">{sessionsThisWeek}</div>
             <div className="text-[10px] text-muted-foreground">This week</div>
           </div>
-          <div className="p-2.5 rounded-2xl bg-muted/30">
+          <div className="p-2.5 rounded-xs bg-muted/30">
             <div className="display-number text-base">{avgDuration}<span className="text-xs text-muted-foreground font-normal">m</span></div>
             <div className="text-[10px] text-muted-foreground">Avg duration</div>
           </div>
-          <div className="p-2.5 rounded-2xl bg-muted/30">
+          <div className="p-2.5 rounded-xs bg-muted/30">
             <div className="display-number text-base">{totalSessions}</div>
             <div className="text-[10px] text-muted-foreground">Total sessions</div>
           </div>
-          <div className="p-2.5 rounded-2xl bg-muted/30">
+          <div className="p-2.5 rounded-xs bg-muted/30">
             <div className="display-number text-base capitalize">{mostTrainedMuscle.replace("_", " ")}</div>
             <div className="text-[10px] text-muted-foreground">Top muscle</div>
           </div>

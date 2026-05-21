@@ -62,7 +62,7 @@ export function SessionInfoCard({
   const typeLabel = formatSessionType(post.session?.sessionType);
 
   return (
-    <section className="glass-card rounded-2xl border border-border/50 p-4">
+    <section className="glass-card rounded-xs border border-border/50 p-4">
       {/* Header row: training-type chip */}
       <div className="flex items-center gap-2 mb-3">
         <span className="h-7 rounded-full px-3 text-xs font-medium bg-foreground/[0.06] dark:bg-white/[0.08] inline-flex items-center gap-1.5">
@@ -91,7 +91,7 @@ export function SessionInfoCard({
         <button
           type="button"
           onClick={() => onProfileTap(post.author.userId)}
-          className="flex items-center gap-2 min-w-0 -ml-1.5 px-1.5 py-1 rounded-lg active:bg-muted/40 transition-colors"
+          className="flex items-center gap-2 min-w-0 -ml-1.5 px-1.5 py-1 rounded-xs active:bg-muted/40 transition-colors"
         >
           {post.author.avatarUrl ? (
             <img
@@ -128,7 +128,7 @@ export function SessionInfoCard({
             burstKey={engagement.burstKey}
           >
             <Heart
-              className={`h-5 w-5 transition-colors ${engagement.liked ? "fill-red-500 text-red-500" : "text-foreground"}`}
+              className={`h-5 w-5 transition-colors ${engagement.liked ? "fill-func-danger-red text-func-danger-red" : "text-foreground"}`}
               strokeWidth={2.2}
             />
           </EngagementButton>
@@ -162,7 +162,7 @@ function EngagementButton({ ariaLabel, count, onTap, burstKey, children }: Engag
       type="button"
       aria-label={ariaLabel}
       onClick={onTap}
-      className="relative h-11 min-w-11 px-2 flex items-center gap-1 rounded-xl active:bg-muted/40 transition-colors"
+      className="relative h-11 min-w-11 px-2 flex items-center gap-1 rounded-xs active:bg-muted/40 transition-colors"
     >
       {children}
       <span className="text-[12px] font-medium tabular-nums">{count}</span>
@@ -177,7 +177,7 @@ function EngagementButton({ ariaLabel, count, onTap, burstKey, children }: Engag
             animate={{ scale: 1.6, opacity: 0 }}
             transition={{ duration: 0.45, ease: [0.32, 0.72, 0, 1] }}
           >
-            <Heart className="h-5 w-5 fill-red-500/30 text-red-500/40" strokeWidth={0} />
+            <Heart className="h-5 w-5 fill-func-danger-red/30 text-func-danger-red/40" strokeWidth={0} />
           </motion.span>
         </AnimatePresence>
       )}

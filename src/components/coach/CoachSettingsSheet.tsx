@@ -262,7 +262,7 @@ export function CoachSettingsSheet({ open, onOpenChange }: Props) {
                       onChange={(e) => setDraft(e.target.value)}
                       placeholder="Your name"
                       autoFocus
-                      className="h-10 rounded-xl bg-muted/40 border-border/30 text-[14px]"
+                      className="h-10 rounded-xs bg-muted/40 border-border/30 text-[14px]"
                     />
                     <SaveButton onClick={saveName} disabled={saving || !String(draft ?? "").trim() || draft === userName} loading={saving} />
                   </RowEditor>
@@ -301,7 +301,7 @@ export function CoachSettingsSheet({ open, onOpenChange }: Props) {
                         onChange={(e) => setDraft(e.target.value)}
                         placeholder="Gym name"
                         autoFocus
-                        className="h-10 rounded-xl bg-muted/40 border-border/30 text-[14px]"
+                        className="h-10 rounded-xs bg-muted/40 border-border/30 text-[14px]"
                       />
                       <SaveButton
                         onClick={() => saveGymField("name", String(draft ?? "").trim())}
@@ -327,7 +327,7 @@ export function CoachSettingsSheet({ open, onOpenChange }: Props) {
                         onChange={(e) => setDraft(e.target.value)}
                         placeholder="City, country"
                         autoFocus
-                        className="h-10 rounded-xl bg-muted/40 border-border/30 text-[14px]"
+                        className="h-10 rounded-xs bg-muted/40 border-border/30 text-[14px]"
                       />
                       <SaveButton
                         onClick={() => saveGymField("location", String(draft ?? "").trim() || null)}
@@ -350,7 +350,7 @@ export function CoachSettingsSheet({ open, onOpenChange }: Props) {
                       {primaryGym.invite_code}
                     </span>
                     {copied ? (
-                      <Check className="h-3.5 w-3.5 text-emerald-400" />
+                      <Check className="h-3.5 w-3.5 text-func-recovery-green" />
                     ) : (
                       <Copy className="h-3.5 w-3.5 text-muted-foreground" />
                     )}
@@ -379,7 +379,7 @@ export function CoachSettingsSheet({ open, onOpenChange }: Props) {
                                 triggerHaptic(ImpactStyle.Light);
                                 setDraft(active ? arr.filter((x) => x !== d) : [...arr, d]);
                               }}
-                              className={`min-h-[32px] px-3 rounded-xl border text-[12px] font-medium transition active:scale-[0.97] flex items-center gap-1 ${
+                              className={`min-h-[32px] px-3 rounded-xs border text-[12px] font-medium transition active:scale-[0.97] flex items-center gap-1 ${
                                 active
                                   ? "bg-primary text-primary-foreground border-primary"
                                   : "bg-muted/30 text-foreground border-border/40"
@@ -417,7 +417,7 @@ export function CoachSettingsSheet({ open, onOpenChange }: Props) {
                         inputMode="numeric"
                         pattern="[0-9]*"
                         autoFocus
-                        className="h-10 rounded-xl bg-muted/40 border-border/30 text-[14px]"
+                        className="h-10 rounded-xs bg-muted/40 border-border/30 text-[14px]"
                       />
                       <SaveButton
                         onClick={() => {
@@ -448,7 +448,7 @@ export function CoachSettingsSheet({ open, onOpenChange }: Props) {
                         rows={3}
                         maxLength={200}
                         autoFocus
-                        className="w-full resize-none rounded-xl bg-muted/40 border border-border/30 p-3 text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        className="w-full resize-none rounded-xs bg-muted/40 border border-border/30 p-3 text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/40"
                       />
                       <SaveButton
                         onClick={() => saveGymField("about", String(draft ?? "").trim() || null)}
@@ -542,7 +542,7 @@ function Group({ label, children }: { label: string; children: React.ReactNode }
       <p className="px-1 mb-1.5 text-[10px] uppercase tracking-[0.14em] font-bold text-muted-foreground/70">
         {label}
       </p>
-      <div className="rounded-2xl bg-card/60 border border-border/50 overflow-hidden">
+      <div className="rounded-xs bg-card/60 border border-border/50 overflow-hidden">
         {children}
       </div>
     </section>
@@ -619,7 +619,7 @@ function SaveButton({
     <button
       onClick={onClick}
       disabled={disabled}
-      className="self-end h-9 px-4 rounded-xl bg-primary text-primary-foreground text-[13px] font-semibold active:scale-[0.97] transition-transform disabled:opacity-40 shadow-md shadow-primary/20"
+      className="self-end h-9 px-4 rounded-xs bg-primary text-primary-foreground text-[13px] font-semibold active:scale-[0.97] transition-transform disabled:opacity-40"
     >
       {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
     </button>

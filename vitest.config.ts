@@ -12,13 +12,17 @@ export default defineConfig({
     },
   },
   test: {
-    environment: "node",
+    environment: "edge-runtime",
     globals: false,
     include: [
       "tests/**/*.{spec,test}.{ts,tsx}",
       "src/**/__tests__/**/*.{spec,test}.{ts,tsx}",
       "src/**/*.{spec,test}.{ts,tsx}",
+      "convex/**/__tests__/**/*.{spec,test}.{ts,tsx}",
     ],
+    // convex-test runs against a mocked Convex backend; needs the edge runtime
+    // for compatibility with how Convex bundles server code.
+    server: { deps: { inline: ["convex-test"] } },
     // Security RLS suite hits a live Supabase test project; skipped cleanly
     // when env vars are absent, so default testTimeout stays conservative.
     testTimeout: 15_000,

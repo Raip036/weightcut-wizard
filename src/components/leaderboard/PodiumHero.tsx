@@ -14,7 +14,7 @@ export function PodiumHero({ podium }: { podium: LeaderboardEntry[] }) {
   }
   const sortedRanks = [...byRank.keys()].sort((a, b) => a - b).slice(0, 3);
   return (
-    <div className="glass-card rounded-2xl border border-border/50 p-4">
+    <div className="glass-card rounded-xs border border-border/50 p-4">
       {sortedRanks.map((rank, tierIdx) => {
         const tier = TIER_ORDER[tierIdx] ?? "bronze";
         const entries = byRank.get(rank)!;

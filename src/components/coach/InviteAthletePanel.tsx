@@ -69,9 +69,9 @@ export function InviteAthletePanel({ gymId }: Props) {
   };
 
   return (
-    <div className="card-surface rounded-2xl border border-border p-3 space-y-3">
+    <div className="card-surface rounded-xs border border-border p-3 space-y-3">
       <div className="flex items-center gap-2">
-        <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+        <div className="h-8 w-8 rounded-xs bg-primary/10 flex items-center justify-center flex-shrink-0">
           <UserPlus className="h-4 w-4 text-primary" />
         </div>
         <div className="min-w-0">
@@ -92,19 +92,19 @@ export function InviteAthletePanel({ gymId }: Props) {
           value={userId}
           onChange={(e) => setUserId(e.target.value)}
           placeholder="User ID"
-          className="w-full h-11 px-3 rounded-xl bg-muted/40 border border-border text-[13px] tabular-nums placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/40"
+          className="w-full h-11 px-3 rounded-xs bg-muted/40 border border-border text-[13px] tabular-nums placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/40"
           aria-label="User ID"
         />
 
         <div className="flex items-center gap-2">
-          <div className="flex-1 flex gap-1 p-1 rounded-xl bg-muted/40 border border-border">
+          <div className="flex-1 flex gap-1 p-1 rounded-xs bg-muted/40 border border-border">
             <button
               type="button"
               onClick={() => {
                 triggerHaptic(ImpactStyle.Light);
                 setRole("athlete");
               }}
-              className={`flex-1 h-9 rounded-lg text-[12px] font-semibold transition-colors ${
+              className={`flex-1 h-9 rounded-xs text-[12px] font-semibold transition-colors ${
                 role === "athlete"
                   ? "bg-background text-foreground"
                   : "text-muted-foreground"
@@ -119,7 +119,7 @@ export function InviteAthletePanel({ gymId }: Props) {
                 triggerHaptic(ImpactStyle.Light);
                 setRole("coach");
               }}
-              className={`flex-1 h-9 rounded-lg text-[12px] font-semibold transition-colors ${
+              className={`flex-1 h-9 rounded-xs text-[12px] font-semibold transition-colors ${
                 role === "coach"
                   ? "bg-background text-foreground"
                   : "text-muted-foreground"
@@ -134,7 +134,7 @@ export function InviteAthletePanel({ gymId }: Props) {
         <button
           type="submit"
           disabled={!canSubmit}
-          className="w-full h-11 rounded-xl bg-primary text-primary-foreground text-[13px] font-semibold active:scale-[0.99] transition-transform inline-flex items-center justify-center gap-2 disabled:opacity-50 disabled:active:scale-100"
+          className="w-full h-11 rounded-xs bg-primary text-primary-foreground text-[13px] font-semibold active:scale-[0.99] transition-transform inline-flex items-center justify-center gap-2 disabled:opacity-50 disabled:active:scale-100"
         >
           {submitting ? (
             <Loader2 className="h-4 w-4 animate-spin" />

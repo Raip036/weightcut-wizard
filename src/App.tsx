@@ -37,6 +37,7 @@ import Onboarding from "./pages/Onboarding";
 const WizardIntroCutscene = lazy(() => import("@/components/welcome/WizardIntroCutscene"));
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Camp = lazy(() => import("./pages/Camp"));
 const Goals = lazy(() => import("./pages/Goals"));
 const Nutrition = lazy(() => import("./pages/nutrition/NutritionPage"));
 const WeightTracker = lazy(() => import("./pages/WeightTracker"));
@@ -67,6 +68,7 @@ const _idle = window.requestIdleCallback || ((cb: IdleRequestCallback) => setTim
 _idle(() => {
   // Primary routes — likely first navigation
   import("./pages/Dashboard").catch(() => {});
+  import("./pages/Camp").catch(() => {});
   import("./pages/nutrition/NutritionPage").catch(() => {});
   import("./pages/WeightTracker").catch(() => {});
   // Secondary routes — defer to avoid network contention
@@ -313,6 +315,7 @@ const App = () => (
                 {/* Shared layout route — AppLayout persists across all child navigations */}
                 <Route element={<ProtectedAppLayout />}>
                   <Route path="/dashboard" element={<ErrorBoundary><Suspense fallback={<DashboardSkeleton />}><Dashboard /></Suspense></ErrorBoundary>} />
+                  <Route path="/camp" element={<ErrorBoundary><Suspense fallback={<DashboardSkeleton />}><Camp /></Suspense></ErrorBoundary>} />
                   <Route path="/goals" element={<ErrorBoundary><Suspense fallback={<GoalsSkeleton />}><Goals /></Suspense></ErrorBoundary>} />
                   <Route path="/nutrition" element={<ErrorBoundary><Suspense fallback={<NutritionPageSkeleton />}><Nutrition /></Suspense></ErrorBoundary>} />
                   <Route path="/weight" element={<ErrorBoundary><Suspense fallback={<WeightTrackerSkeleton />}><WeightTracker /></Suspense></ErrorBoundary>} />

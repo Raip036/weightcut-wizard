@@ -24,8 +24,8 @@ export function AchievementSheet({ open, onOpenChange, categories }: Achievement
       <SheetContent side="bottom" className="h-[90vh] rounded-t-2xl flex flex-col">
         <SheetHeader className="mb-4 flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="rounded-full bg-green-500/20 p-2 flex-shrink-0">
-              <Trophy className="w-5 h-5 text-green-400" />
+            <div className="rounded-full bg-func-recovery-green/20 p-2 flex-shrink-0">
+              <Trophy className="w-5 h-5 text-func-recovery-green" />
             </div>
             <div>
               <SheetTitle className="text-base">Achievements</SheetTitle>

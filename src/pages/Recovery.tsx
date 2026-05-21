@@ -106,9 +106,9 @@ export default function Recovery() {
     if (isLoading) {
         return (
             <div className="space-y-3 px-5 py-3 sm:p-5 md:p-6 max-w-7xl mx-auto pb-16 md:pb-6">
-                <Card className="p-6 rounded-2xl card-surface">
+                <Card className="p-6 rounded-xs card-surface">
                     <Skeleton className="h-6 w-40 mb-4" />
-                    <Skeleton className="h-48 w-full rounded-2xl" />
+                    <Skeleton className="h-48 w-full rounded-xs" />
                 </Card>
             </div>
         );
@@ -126,7 +126,7 @@ export default function Recovery() {
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.35, ease: "easeOut" }}
-                    className="relative overflow-hidden rounded-3xl border border-border/50 bg-card/60 p-5"
+                    className="relative overflow-hidden rounded-xs border border-border/50 bg-card/60 p-5"
                 >
                     <div className="flex items-start gap-3 mb-4">
                         <div className="relative shrink-0" style={{ width: 72, height: 72 }}>
@@ -149,7 +149,7 @@ export default function Recovery() {
                     <div className="flex flex-wrap gap-2">
                         <button
                             onClick={() => { triggerHapticSelection(); navigate("/training-calendar"); }}
-                            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-2 text-[12px] font-bold text-primary-foreground shadow-md shadow-primary/30 active:scale-[0.97] transition"
+                            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-2 text-[12px] font-bold text-primary-foreground active:scale-[0.97] transition"
                         >
                             <Activity className="h-3.5 w-3.5" strokeWidth={2.5} />
                             Log a session
@@ -169,6 +169,10 @@ export default function Recovery() {
 
     return (
         <div className="animate-page-in space-y-3 px-5 py-3 sm:p-5 md:p-6 max-w-7xl mx-auto pb-16 md:pb-6">
+            <header className="pt-1">
+              <p className="text-micro uppercase tracking-[0.15em] text-muted-foreground/70 font-bold">Your</p>
+              <h1 className="text-title font-semibold leading-tight">Wellness</h1>
+            </header>
             {userId && (
                 showHealthTiles
                     ? <HealthTilesPanel />

@@ -74,7 +74,7 @@ export function ShareCardDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm w-[calc(100vw-32px)] rounded-3xl flex flex-col gap-3 p-4 max-h-[90vh]">
+      <DialogContent className="sm:max-w-sm w-[calc(100vw-32px)] rounded-xs flex flex-col gap-3 p-4 max-h-[90vh]">
         <DialogHeader className="shrink-0">
           <DialogTitle className="text-lg font-bold">{title}</DialogTitle>
         </DialogHeader>
@@ -83,7 +83,7 @@ export function ShareCardDialog({
             story 9:16 is now the only output format. */}
         <div ref={wrapperRef} className="w-full shrink-0 flex justify-center">
           <div
-            className="overflow-hidden rounded-2xl border border-border/50"
+            className="overflow-hidden rounded-xs border border-border/50"
             style={{
               width: dims.w,
               height: dims.h,
@@ -132,7 +132,7 @@ export function ShareCardDialog({
           <button
             onClick={() => captureAndShare(shareTitle, shareText, transparent)}
             disabled={isCapturing}
-            className="inline-flex items-center justify-center gap-2 h-9 px-6 rounded-full bg-primary text-primary-foreground text-[13px] font-semibold shadow-sm transition-opacity active:opacity-80 disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-2 h-9 px-6 rounded-full bg-primary text-primary-foreground text-[13px] font-semibold transition-opacity active:opacity-80 disabled:opacity-60"
           >
             {isCapturing ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />

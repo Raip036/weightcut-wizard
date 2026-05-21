@@ -25,7 +25,7 @@
  * the page renders a minimal Not found state with a back button.
  */
 import { useNavigate, useParams } from "react-router-dom";
-import { ChevronLeft, Pencil, ShieldCheck } from "lucide-react";
+import { ChevronLeft, Pencil, Settings, ShieldCheck } from "lucide-react";
 import { useQuery } from "convex/react";
 
 import { api } from "../../convex/_generated/api";
@@ -124,7 +124,7 @@ export default function Profile() {
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="mt-6 h-10 rounded-2xl bg-white px-5 text-sm font-semibold text-zinc-950 active:scale-[0.98]"
+            className="mt-6 h-10 rounded-xs bg-white px-5 text-sm font-semibold text-zinc-950 active:scale-[0.98]"
           >
             Back
           </button>
@@ -171,17 +171,27 @@ export default function Profile() {
         <p className="text-sm font-semibold text-white/90">
           {profile?.displayName ?? "Profile"}
         </p>
-        {/* Self-view: edit profile shortcut. Otherwise spacer for balance. */}
+        {/* Self-view: edit + settings buttons. Otherwise spacer for balance. */}
         {isViewingSelf ? (
-          <button
-            type="button"
-            onClick={() => navigate("/goals")}
-            className="flex h-9 items-center gap-1 rounded-full px-3 text-xs font-semibold text-white active:scale-[0.96]"
-            aria-label="Edit profile"
-          >
-            <Pencil className="h-3.5 w-3.5" strokeWidth={2.2} />
-            Edit profile
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => navigate("/goals")}
+              className="flex h-9 items-center gap-1 rounded-full px-3 text-xs font-semibold text-white active:scale-[0.96]"
+              aria-label="Edit profile"
+            >
+              <Pencil className="h-3.5 w-3.5" strokeWidth={2.2} />
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('wcw:open-settings'))}
+              className="flex h-9 w-9 items-center justify-center rounded-full text-white active:scale-[0.96]"
+              aria-label="Settings"
+            >
+              <Settings className="h-4.5 w-4.5" strokeWidth={2} />
+            </button>
+          </div>
         ) : (
           <div className="h-9 w-9" aria-hidden />
         )}
@@ -226,7 +236,7 @@ export default function Profile() {
       </div>
 
       {/* ─── Stats row ──────────────────────────────────────────────── */}
-      <div className="mx-5 grid grid-cols-3 rounded-2xl border border-white/[0.06] bg-white/[0.03]">
+      <div className="mx-5 grid grid-cols-3 rounded-xs bg-neutral-800">
         <StatCell label="Sessions" value={compactNumber(sessionsLogged)} />
         <StatCell
           label="kg cut"

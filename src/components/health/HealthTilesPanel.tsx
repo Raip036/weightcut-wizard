@@ -138,14 +138,14 @@ function HealthTilesErrorFallback({
   return (
     <Card
       className={cn(
-        "rounded-2xl border border-border/50 bg-card/60 p-4",
+        "rounded-xs border border-border/50 bg-card/60 p-4",
         className,
       )}
     >
       <div className="flex items-start gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/50 bg-background/60">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xs border border-border/50 bg-background/60">
           <HeartPulse
-            className="h-4 w-4 text-rose-400"
+            className="h-4 w-4 text-func-danger-red"
             strokeWidth={2.2}
             aria-hidden
           />
@@ -172,7 +172,7 @@ function Tile({ spec }: { spec: TileSpec }): JSX.Element {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.28, ease: "easeOut" }}
     >
-      <Card className="rounded-2xl border border-border/50 bg-card/60 p-3 space-y-2">
+      <Card className="rounded-xs border border-border/50 bg-card/60 p-3 space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-muted-foreground">
             {spec.icon}
@@ -213,8 +213,8 @@ function DeltaPill({
 }): JSX.Element {
   const isGood = positiveIsGood ? pct >= 0 : pct <= 0;
   const cls = isGood
-    ? "bg-emerald-500/15 text-emerald-300"
-    : "bg-amber-500/15 text-amber-300";
+    ? "bg-func-recovery-green/15 text-func-recovery-green"
+    : "bg-func-warning-yellow/15 text-func-warning-yellow";
   const sign = pct > 0 ? "+" : "";
   return (
     <span
@@ -288,7 +288,7 @@ function buildHrvTile(
   return {
     key: "hrv",
     label: "HRV",
-    icon: <HeartPulse className="h-3.5 w-3.5 text-rose-400" />,
+    icon: <HeartPulse className="h-3.5 w-3.5 text-func-danger-red" />,
     value: value != null ? `${Math.round(value)} ms` : null,
     delta: makeDelta(value, baselineMean, true),
     spark: spark.map((d) => d.hrvAvgMs ?? 0).filter(Boolean),
@@ -306,7 +306,7 @@ function buildRhrTile(
   return {
     key: "rhr",
     label: "Resting HR",
-    icon: <Activity className="h-3.5 w-3.5 text-red-400" />,
+    icon: <Activity className="h-3.5 w-3.5 text-func-danger-red" />,
     value: value != null ? `${Math.round(value)} bpm` : null,
     // Lower RHR is better, so positiveIsGood = false.
     delta: makeDelta(value, baselineMean, false),
@@ -355,7 +355,7 @@ function buildTempTile(
   return {
     key: "temp",
     label: "Wrist temp",
-    icon: <Thermometer className="h-3.5 w-3.5 text-orange-300" />,
+    icon: <Thermometer className="h-3.5 w-3.5 text-func-carbs-orange" />,
     value,
     // wristTempDelta is already a deviation — render its magnitude.
     delta:
@@ -398,7 +398,7 @@ function LoadingState({ className }: { className?: string }): JSX.Element {
       {Array.from({ length: 4 }).map((_, i) => (
         <Card
           key={i}
-          className="rounded-2xl border border-border/50 bg-card/60 p-3 space-y-2"
+          className="rounded-xs border border-border/50 bg-card/60 p-3 space-y-2"
         >
           <Skeleton className="h-3 w-16" />
           <Skeleton className="h-7 w-20" />
@@ -421,11 +421,11 @@ function EmptySyncingState({
       transition={{ duration: 0.32, ease: "easeOut" }}
       className={className}
     >
-      <Card className="rounded-2xl border border-border/50 bg-card/60 p-4">
+      <Card className="rounded-xs border border-border/50 bg-card/60 p-4">
         <div className="flex items-start gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/50 bg-background/60">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xs border border-border/50 bg-background/60">
             <HeartPulse
-              className="h-4 w-4 text-rose-400"
+              className="h-4 w-4 text-func-danger-red"
               strokeWidth={2.2}
               aria-hidden
             />

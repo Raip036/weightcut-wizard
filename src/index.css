@@ -118,16 +118,37 @@ All colors MUST be HSL.
        (defined below) to reserve space so the focused input stays visible
        while the WKWebView is in `resize: "none"` mode. */
     --keyboard-inset: env(keyboard-inset-height, 0px);
+
+    /* ---- Training Missions — per-discipline accent colors ----
+       Stored as HSL triplets so Tailwind opacity stops work via the
+       `bg-[hsl(var(--coach-bjj)/0.15)]` arbitrary-value syntax. Tuned
+       for the dark surface (#0F0F0F page / #1E1E1E card) so each
+       discipline reads distinct at small accent-stripe scale without
+       drifting into oversaturation. See src/lib/coachColors.ts for the
+       sport-key → token mapping. */
+    --coach-bjj:        220 65% 60%;
+    --coach-muay-thai:  350 70% 60%;
+    --coach-boxing:      30 90% 60%;
+    --coach-wrestling:   45 80% 55%;
+    --coach-sparring:   280 60% 65%;
+    --coach-strength:     0 0% 70%;
+    --coach-run:        155 50% 55%;
+    --coach-default:    var(--primary);
   }
 
   .dark {
     /* Dark mode - Clean blue dark */
 
-    --background: 0 0% 4%;
+    /* Design System v1 — page background is `--neutral-1000` (#0F0F0F),
+       a neutral very dark grey. Cards (#1E1E1E / neutral-800) sit on the
+       grey ground with a clear luminance step. HSL form: 0 0% 6% ≈ #0F0F0F.
+       The blue-tinted void background was retired — palette is now
+       neutral grey for surfaces, brand/func colors for buttons and status. */
+    --background: 0 0% 6%;
     --foreground: 0 0% 95%;
 
-    /* Solid card surface */
-    --card: 220 10% 9%;
+    /* Solid card surface — matches `--neutral-800` (#1E1E1E). */
+    --card: 0 0% 12%;
     --card-foreground: 0 0% 95%;
 
     --popover: 220 10% 7%;
@@ -192,43 +213,53 @@ All colors MUST be HSL.
      be retired component-by-component as we migrate.
      ========================================================================= */
   :root {
-    /* ---- BRAND palette (hex) ---- */
-    --brand-spirit-blue:   #4068EF;
-    --brand-wizard-lilac:  #8B7EEA;
-    --brand-dream-cyan:    #4AB4ED;
-    --brand-night-indigo:  #080D20;
-    --brand-void:          #020811;
+    /* ---- BRAND palette ----
+       Stored as space-separated RGB triplets so Tailwind can apply
+       opacity modifiers via `rgb(var(--x) / <alpha-value>)`. Use the
+       Tailwind classes (e.g. `bg-brand-spirit-blue/20`) rather than
+       `var(--brand-spirit-blue)` directly in style — direct uses must
+       wrap in `rgb(...)` to render as a color. */
+    --brand-spirit-blue:    64 104 239;   /* #4068EF */
+    --brand-wizard-lilac:  139 126 234;   /* #8B7EEA */
+    --brand-dream-cyan:     74 180 237;   /* #4AB4ED */
+    --brand-night-indigo:    8  13  32;   /* #080D20 */
+    --brand-void:            2   8  17;   /* #020811 */
 
     /* ---- FUNCTIONAL palette ---- */
-    --func-danger-red:     #F7403F;
-    --func-warning-yellow: #FAC146;
-    --func-recovery-green: #23C599;
-    --func-carbs-orange:   #F08439;
-    --func-fats-purple:    #7B31EA;
-    --func-protein-blue:   #2A5BDD;
-    --func-hydration-cyan: #12CAE6;
+    --func-danger-red:     247  64  63;   /* #F7403F */
+    --func-warning-yellow: 250 193  70;   /* #FAC146 */
+    --func-recovery-green:  35 197 153;   /* #23C599 */
+    --func-carbs-orange:   240 132  57;   /* #F08439 */
+    --func-fats-purple:    123  49 234;   /* #7B31EA */
+    --func-protein-blue:    42  91 221;   /* #2A5BDD */
+    --func-hydration-cyan:  18 202 230;   /* #12CAE6 */
 
-    /* ---- NEUTRALS ---- */
-    --neutral-100:         #E2E5F2;
-    --neutral-200:         #DEDEF7;
-    --neutral-400:         #8C96B4;
-    --neutral-500:         #4D5877;
-    --neutral-700:         #162137;
-    --neutral-800:         #081225;
-    --neutral-900:         #030B18;
-    --neutral-1000:        #000513;
+    /* ---- NEUTRALS ----
+       Light scale (100–500) keeps its slight cool tint — used at low
+       opacity for text/borders where the warmth doesn't read. The dark
+       scale (700–1000) was shifted from blue-tinted to neutral grey so
+       the main background and cards no longer read as "navy dark mode"
+       but as a clean grey dark mode. */
+    --neutral-100:         226 229 242;   /* #E2E5F2 */
+    --neutral-200:         222 222 247;   /* #DEDEF7 */
+    --neutral-400:         140 150 180;   /* #8C96B4 */
+    --neutral-500:          77  88 119;   /* #4D5877 */
+    --neutral-700:          42  42  42;   /* #2A2A2A */
+    --neutral-800:          30  30  30;   /* #1E1E1E — Card surface */
+    --neutral-900:          18  18  18;   /* #121212 */
+    --neutral-1000:         15  15  15;   /* #0F0F0F — Page background */
 
-    /* ---- GRADIENTS ---- */
+    /* ---- GRADIENTS ----
+       Kept for hero treatments (progress bars, large CTAs, splash). The
+       4-stop "Gradient CTA" the Figma defines was removed — it read as
+       cheap at button scale, so all CTAs use solid Spirit Blue
+       (Button variant="default") instead. */
     --gradient-aurora:  linear-gradient(90deg, #4068EF 0%, #2A5BDD 50%, #4AB4ED 100%);
     --gradient-cosmic:  linear-gradient(90deg, #7B31EA 0%, #F08439 100%);
     --gradient-mystic:  linear-gradient(90deg, #4068EF 0%, #020811 100%);
-    /* CTA-specific 4-stop gradient (Figma BUTTONS section). Spirit Blue
-       → Wizard Lilac → mid-pink → Carbs Orange. Used by Button variant
-       "cta" for primary calls-to-action that want the full brand sweep. */
-    --gradient-cta:     linear-gradient(90deg, #4068EF 0%, #8B7EEA 40%, #D96CB8 50%, #F08439 100%);
 
     /* ---- RADIUS scale ---- */
-    --radius-xs:   8px;
+    --radius-xs:  16px;
     --radius-s:   12px;
     --radius-m:   16px;
     --radius-l:   20px;
@@ -333,10 +364,13 @@ All colors MUST be HSL.
     -webkit-touch-callout: default;
   }
 
-  /* Dark mode: solid background for performance */
+  /* Dark mode: solid background. Uses `var(--background)` (#0F0F0F,
+     `--neutral-1000`) so the page picks up the Design System v1 page
+     color. Was previously hardcoded `hsl(0 0% 4%)`, which overrode the
+     variable. */
   .dark html,
   .dark body {
-    background-color: hsl(0 0% 4%);
+    background-color: hsl(var(--background));
     color: hsl(var(--foreground));
   }
 
@@ -497,64 +531,34 @@ All colors MUST be HSL.
     border-color: hsl(var(--primary-foreground) / 0.3);
   }
 
-  /* Card surfaces - lightweight, solid backgrounds */
+  /* Card surfaces — Design System v1. Solid neutral-800 (#1E1E1E),
+     no border, no shadow. Hierarchy comes from the surface contrast
+     against the darker page background. Dialogs and the sidebar
+     opt-in to the same recipe so the whole app reads consistently. */
   .glass-card,
   .card-surface,
   .bg-card,
-  [data-sidebar="sidebar"] {
-    background: hsl(var(--card));
-    border: 1px solid hsl(var(--border));
+  [data-sidebar="sidebar"],
+  [role="dialog"]:not([data-alert-dialog]),
+  .popover-content {
+    background: rgb(var(--neutral-800));
     border-radius: var(--radius);
-    transition: border-color 0.15s ease;
-  }
-
-  /* Light mode cards */
-  :root:not(.dark) .glass-card,
-  :root:not(.dark) .card-surface,
-  :root:not(.dark) .bg-card,
-  :root:not(.dark) .nutrition-dashboard,
-  :root:not(.dark) [role="dialog"],
-  :root:not(.dark) .popover-content,
-  :root:not(.dark) [data-sidebar="sidebar"] {
-    box-shadow: 0 1px 2px hsl(0 0% 0% / 0.05);
-  }
-
-  /* Dark mode cards - solid surfaces, no glass */
-  .dark .glass-card,
-  .dark .card-surface,
-  .dark .bg-card,
-  .dark [data-sidebar="sidebar"],
-  .dark [role="dialog"]:not([data-alert-dialog]),
-  .dark .popover-content {
-    background: hsl(var(--card));
-    border: 1px solid hsl(var(--border));
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-  }
-
-  /* Subtle hover on desktop only */
-  @media (hover: hover) {
-    .dark .glass-card:hover,
-    .dark .card-surface:hover {
-      border-color: hsl(0 0% 22%);
-    }
+    /* No border, no shadow per the design-system overhaul.
+       Add a hover state per call site if needed. */
   }
 
   .nutrition-dashboard {
-    background: hsl(var(--card));
-    border: 1px solid hsl(var(--border));
+    background: rgb(var(--neutral-800));
     border-radius: var(--radius);
     padding: 1.25rem;
+    /* No border per Design System v1. */
   }
 
-  .dark .nutrition-dashboard {
-    background: hsl(var(--card));
-    border-color: hsl(var(--border));
-  }
-
-  /* Section header utility */
+  /* Section header utility — uppercase eyebrow used above card content
+     and section titles. Design System v1: Inter regular, not bold. */
   .section-header {
     font-size: 0.6875rem;
-    font-weight: 600;
+    font-weight: 400;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: hsl(var(--muted-foreground));
@@ -866,6 +870,8 @@ All colors MUST be HSL.
     .ff-ring-core,
     .ff-ring-particle,
     .ff-ring-calib-sweep,
+    .ff-ring-calib-track,
+    .ff-ring-calib-dot,
     .ff-ring-phase-pulse,
     .ff-ring-sharp-bloom {
       animation: none !important;
@@ -1052,17 +1058,37 @@ All colors MUST be HSL.
   }
 
   .ff-ring-calib-sweep {
-    animation: ffCalibSweep 3s linear infinite;
+    animation: ffCalibSweep 2.8s linear infinite;
     will-change: transform;
   }
 
   @keyframes ffCalibSweep {
-    from {
-      transform: rotate(0deg);
-    }
-    to {
-      transform: rotate(360deg);
-    }
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+
+  /* Track breathes while scanning — slow opacity pulse so the ring reads
+     as alive even before the comet passes over it. */
+  .ff-ring-calib-track {
+    animation: ffCalibTrack 2.4s ease-in-out infinite;
+  }
+
+  @keyframes ffCalibTrack {
+    0%, 100% { stroke-opacity: 0.08; }
+    50%      { stroke-opacity: 0.28; }
+  }
+
+  /* Sequential dots: each fades in then out on a shared 1.05s cycle with
+     staggered delays (set inline) to produce a rolling ". .. ..." effect. */
+  .ff-ring-calib-dot {
+    display: inline-block;
+    animation: ffCalibDot 1.05s ease-in-out infinite;
+    opacity: 0;
+  }
+
+  @keyframes ffCalibDot {
+    0%, 60%, 100% { opacity: 0; }
+    25%           { opacity: 1; }
   }
 
   /* Outer-ring fight-week pulse: slow stroke-opacity breath so the fighter

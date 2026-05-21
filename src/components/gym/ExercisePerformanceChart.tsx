@@ -17,7 +17,7 @@ interface ExercisePerformanceChartProps {
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="card-surface rounded-2xl border border-border px-3 py-2 shadow-xl text-xs">
+    <div className="card-surface rounded-xs border border-border px-3 py-2 text-xs">
       <p className="text-muted-foreground mb-1">{label}</p>
       {payload.map((p: any) => (
         <p key={p.name} className="display-number text-sm">
@@ -33,12 +33,12 @@ export const ExercisePerformanceChart = memo(function ExercisePerformanceChart({
   const [chartType, setChartType] = useState<ChartType>("weight");
 
   if (loading) {
-    return <div className="h-52 rounded-2xl shimmer-skeleton" />;
+    return <div className="h-52 rounded-xs shimmer-skeleton" />;
   }
 
   if (sets.length === 0) {
     return (
-      <div className="h-32 flex items-center justify-center text-sm text-muted-foreground rounded-2xl bg-muted/20">
+      <div className="h-32 flex items-center justify-center text-sm text-muted-foreground rounded-xs bg-muted/20">
         No data yet
       </div>
     );
@@ -104,14 +104,14 @@ export const ExercisePerformanceChart = memo(function ExercisePerformanceChart({
       {data.length >= 2 && (
         <div className="flex items-center gap-1.5">
           {trendPct > 0 ? (
-            <TrendingUp className="h-3.5 w-3.5 text-green-400" />
+            <TrendingUp className="h-3.5 w-3.5 text-func-recovery-green" />
           ) : trendPct < 0 ? (
-            <TrendingDown className="h-3.5 w-3.5 text-red-400" />
+            <TrendingDown className="h-3.5 w-3.5 text-func-danger-red" />
           ) : (
             <Minus className="h-3.5 w-3.5 text-muted-foreground" />
           )}
           <span className={`text-xs font-semibold tabular-nums ${
-            trendPct > 0 ? "text-green-400" : trendPct < 0 ? "text-red-400" : "text-muted-foreground"
+            trendPct > 0 ? "text-func-recovery-green" : trendPct < 0 ? "text-func-danger-red" : "text-muted-foreground"
           }`}>
             {trendPct > 0 ? "+" : ""}{trendPct.toFixed(1)}%
           </span>
@@ -130,7 +130,7 @@ export const ExercisePerformanceChart = memo(function ExercisePerformanceChart({
               onClick={() => setTimeFilter(f)}
               className={`px-2.5 py-1.5 rounded-full text-[11px] font-semibold transition-all duration-200 ${
                 timeFilter === f
-                  ? "bg-primary text-primary-foreground shadow-sm"
+                  ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:bg-muted/50"
               }`}
             >
@@ -146,7 +146,7 @@ export const ExercisePerformanceChart = memo(function ExercisePerformanceChart({
               onClick={() => setChartType(ct.key)}
               className={`px-2.5 py-1 rounded-full text-[10px] font-semibold transition-all duration-200 ${
                 chartType === ct.key
-                  ? "bg-background text-foreground shadow-sm"
+                  ? "bg-background text-foreground"
                   : "text-muted-foreground"
               }`}
             >

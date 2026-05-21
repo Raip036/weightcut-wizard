@@ -23,7 +23,7 @@ export function FavoritesSheet({ favorites, collapsed, onToggle, onLogFavorite }
         className="w-full flex items-center justify-between px-3 py-2 hover:bg-muted/30 active:bg-muted/50 transition-colors"
       >
         <div className="flex items-center gap-1.5">
-          <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400" />
+          <Star className="h-3.5 w-3.5 text-func-warning-yellow fill-func-warning-yellow" />
           <h3 className="text-[13px] font-semibold">Favorites</h3>
           <ChevronDown
             className={`h-3 w-3 text-muted-foreground transition-transform duration-200 ${collapsed ? "-rotate-90" : ""}`}
@@ -37,10 +37,10 @@ export function FavoritesSheet({ favorites, collapsed, onToggle, onLogFavorite }
             <button
               key={`${fav.meal_name}-${i}`}
               onClick={() => onLogFavorite(fav)}
-              className="w-full flex items-center justify-between px-2.5 py-2 rounded-2xl hover:bg-muted/30 active:bg-muted/50 transition-colors group"
+              className="w-full flex items-center justify-between px-2.5 py-2 rounded-xs hover:bg-muted/30 active:bg-muted/50 transition-colors group"
             >
               <div className="flex items-center gap-2 min-w-0">
-                <Star className="h-3 w-3 fill-amber-400 text-amber-400 flex-shrink-0" />
+                <Star className="h-3 w-3 fill-func-warning-yellow text-func-warning-yellow flex-shrink-0" />
                 <span className="text-[13px] font-semibold truncate">{fav.meal_name}</span>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">

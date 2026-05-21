@@ -86,26 +86,30 @@ export function MacroRings({ protein, carbs, fats, proteinGoal, carbsGoal, fatsG
     <div className="card-surface p-4">
       <p className="text-xs uppercase tracking-widest text-muted-foreground text-center mb-3">Macros</p>
       <div className="grid grid-cols-3 gap-4 justify-items-center">
+        {/* Macro colors come from Design System v1 FUNCTIONAL palette:
+            Protein Blue / Carbs Orange / Fats Purple. Hardcoded hex (not
+            CSS var) because the SVG `stroke` attribute doesn't read
+            CSS vars in all WKWebView versions. */}
         <MacroRing
           label="Protein"
           value={protein}
           goal={proteinGoal}
-          color="#3b82f6"
-          glowColor="#3b82f6"
+          color="#2A5BDD"
+          glowColor="#2A5BDD"
         />
         <MacroRing
           label="Carbs"
           value={carbs}
           goal={carbsGoal}
-          color="#f97316"
-          glowColor="#f97316"
+          color="#F08439"
+          glowColor="#F08439"
         />
         <MacroRing
           label="Fats"
           value={fats}
           goal={fatsGoal}
-          color="#a855f7"
-          glowColor="#a855f7"
+          color="#7B31EA"
+          glowColor="#7B31EA"
         />
       </div>
     </div>

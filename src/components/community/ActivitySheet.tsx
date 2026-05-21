@@ -108,7 +108,7 @@ function SkeletonRow() {
         <div className="h-3 bg-muted animate-pulse rounded w-3/4" />
         <div className="h-2.5 bg-muted animate-pulse rounded w-1/3" />
       </div>
-      <div className="w-10 h-10 rounded-lg bg-muted animate-pulse flex-shrink-0" />
+      <div className="w-10 h-10 rounded-xs bg-muted animate-pulse flex-shrink-0" />
     </div>
   );
 }

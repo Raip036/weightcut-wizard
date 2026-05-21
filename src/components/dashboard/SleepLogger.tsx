@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Moon, ChevronRight, Check, Minus, Plus, X } from "lucide-react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
@@ -7,10 +8,12 @@ import { logger } from "@/lib/logger";
 import { triggerHaptic, triggerHapticSuccess } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { cn } from "@/lib/utils";
 
 interface SleepLoggerProps {
   userId: string;
   compact?: boolean;
+  className?: string;
 }
 
 const MIN_HOURS = 0;
@@ -21,7 +24,8 @@ const DEFAULT_HOURS = 7.5;
 const today = () => new Date().toISOString().split("T")[0];
 const cacheKey = (date: string) => `sleep_log_${date}`;
 
-export const SleepLogger = memo(function SleepLogger({ userId, compact }: SleepLoggerProps) {
+export const SleepLogger = memo(function SleepLogger({ userId, compact, className }: SleepLoggerProps) {
+  const navigate = useNavigate();
   const [hours, setHours] = useState(DEFAULT_HOURS);
   const [draftHours, setDraftHours] = useState(DEFAULT_HOURS);
   const [saved, setSaved] = useState(false);
@@ -92,27 +96,44 @@ export const SleepLogger = memo(function SleepLogger({ userId, compact }: SleepL
     setDraftHours((h) => Math.min(MAX_HOURS, Math.max(MIN_HOURS, Math.round((h + delta) * 10) / 10)));
   };
 
-  // Compact pill — stays the EXACT same size whether the sheet is open or not.
-  // The bottom sheet handles all input, so the dashboard tile never resizes.
+  // Compact widget — square card matching the Weight metric card layout.
   const trigger = compact ? (
     <button
       type="button"
-      className="card-surface rounded-2xl border border-border px-3 py-3 flex items-center justify-center active:scale-[0.98] transition-all text-center w-full min-h-[3.25rem]"
-      onClick={openSheet}
+      className={cn("card-surface rounded-xs p-3 aspect-square flex flex-col text-left active:scale-[0.98] transition-all w-full", className)}
+      onClick={() => { triggerHaptic(ImpactStyle.Light); navigate("/sleep"); }}
     >
-      {saved ? (
-        <p className="text-[13px] font-semibold leading-tight">
-          <span className="tabular-nums">{hours}</span>
-          <span className="text-muted-foreground">h</span> sleep
-        </p>
-      ) : (
-        <p className="text-[13px] font-semibold leading-tight">Sleep</p>
-      )}
+      {/* Header — eyebrow label only */}
+      <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
+        SLEEP
+      </span>
+
+      {/* Value */}
+      <div className="mt-2 flex items-baseline gap-1">
+        {saved ? (
+          <>
+            <span className="font-display font-bold text-[40px] leading-none text-foreground tabular-nums">
+              {hours}
+            </span>
+            <span className="text-note font-light text-muted-foreground">h</span>
+          </>
+        ) : (
+          <span className="text-note font-medium text-muted-foreground">Tap to log</span>
+        )}
+      </div>
+
+      <div className="flex-1" />
+
+      {/* Footer — label left, chevron right */}
+      <div className="flex items-center justify-between">
+        <p className="text-micro text-muted-foreground">Last night</p>
+        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40" strokeWidth={2.2} />
+      </div>
     </button>
   ) : (
     <button
       type="button"
-      className="card-surface rounded-2xl p-3 sm:p-4 w-full flex items-center gap-3 active:scale-[0.98] transition-all duration-200 text-left"
+      className="card-surface rounded-xs p-3 sm:p-4 w-full flex items-center gap-3 active:scale-[0.98] transition-all duration-200 text-left"
       onClick={openSheet}
     >
       <Moon className="w-5 h-5 text-primary flex-shrink-0" />
@@ -122,7 +143,7 @@ export const SleepLogger = memo(function SleepLogger({ userId, compact }: SleepL
             <span className="tabular-nums">{hours}</span>
             <span className="text-muted-foreground">h</span>
           </span>
-          <Check className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+          <Check className="w-4 h-4 text-func-recovery-green flex-shrink-0" />
         </>
       ) : (
         <>
@@ -151,7 +172,7 @@ export const SleepLogger = memo(function SleepLogger({ userId, compact }: SleepL
                 <Moon className="w-4 h-4 text-primary" />
                 <SheetTitle className="text-base font-semibold">Sleep</SheetTitle>
               </div>
-              <p className="text-[12px] text-muted-foreground truncate">
+              <p className="text-note text-muted-foreground truncate">
                 How long did you sleep last night?
               </p>
             </SheetHeader>
@@ -159,7 +180,7 @@ export const SleepLogger = memo(function SleepLogger({ userId, compact }: SleepL
               type="button"
               onClick={handleSave}
               disabled={saving}
-              className="h-9 px-4 rounded-full bg-primary text-primary-foreground text-[13px] font-semibold active:scale-[0.95] transition-transform disabled:opacity-40 flex-shrink-0"
+              className="h-9 px-4 rounded-full bg-primary text-primary-foreground text-note font-semibold active:scale-[0.95] transition-transform disabled:opacity-40 flex-shrink-0"
             >
               {saving ? "Saving…" : "Save"}
             </button>
@@ -191,7 +212,7 @@ export const SleepLogger = memo(function SleepLogger({ userId, compact }: SleepL
               <span className="text-[44px] font-bold tabular-nums leading-none tracking-tight">
                 {draftHours}
               </span>
-              <span className="text-[18px] text-muted-foreground font-medium">h</span>
+              <span className="text-value text-muted-foreground font-medium">h</span>
             </div>
             <button
               type="button"
@@ -216,7 +237,7 @@ export const SleepLogger = memo(function SleepLogger({ userId, compact }: SleepL
                     triggerHaptic(ImpactStyle.Light);
                     setDraftHours(preset);
                   }}
-                  className={`px-3 h-8 rounded-full text-[12px] font-medium tabular-nums transition-colors ${
+                  className={`px-3 h-8 rounded-full text-note font-medium tabular-nums transition-colors ${
                     active
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted/40 text-muted-foreground active:bg-muted/60"

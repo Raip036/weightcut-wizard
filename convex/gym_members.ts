@@ -58,6 +58,59 @@ export const listForGym = query({
   },
 });
 
+/**
+ * Member-only: list all active members of a gym the caller belongs to.
+ *
+ * Mirrors `listForGym` (coach-only) but flips the gate: any active member
+ * of the gym may see the roster. Returns the lightweight {userId,
+ * displayName, avatarUrl} shape consumed by the GymProfileSheet — we don't
+ * leak share_data / member_role / status here, since neither is rendered
+ * in the public-to-gym member list.
+ *
+ * Sorted by joinedAt ascending so longer-tenured members appear first
+ * (matches the coach-side list and feels stable as the gym grows).
+ */
+export const listMembersForActiveMember = query({
+  args: { gymId: v.id("gyms") },
+  handler: async (ctx, { gymId }) => {
+    const userId = await requireUserId(ctx);
+    // Caller must be an active member of this gym.
+    const membership = await ctx.db
+      .query("gym_members")
+      .withIndex("by_gym_user", (q) => q.eq("gymId", gymId).eq("userId", userId))
+      .first();
+    if (!membership || membership.status !== "active") {
+      throw new Error("Not authorized");
+    }
+
+    const rows = await ctx.db
+      .query("gym_members")
+      .withIndex("by_gym", (q) => q.eq("gymId", gymId))
+      .collect();
+    const active = rows
+      .filter((r) => r.status === "active")
+      .sort((a, b) => a.joinedAt - b.joinedAt);
+
+    return Promise.all(
+      active.map(async (r) => {
+        const profile = await ctx.db
+          .query("profiles")
+          .withIndex("by_user", (q) => q.eq("userId", r.userId))
+          .first();
+        let avatarUrl: string | null = null;
+        if (profile?.avatarStorageId) {
+          avatarUrl = await ctx.storage.getUrl(profile.avatarStorageId);
+        }
+        return {
+          userId: r.userId,
+          displayName: profile?.displayName ?? "Member",
+          avatarUrl,
+        };
+      }),
+    );
+  },
+});
+
 /** Current user's membership row for a specific gym (or null). */
 export const getMineForGym = query({
   args: { gymId: v.id("gyms") },

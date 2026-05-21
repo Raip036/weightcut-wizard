@@ -159,7 +159,7 @@ export function ModerationActions({
             type="button"
             aria-label="Post actions"
             // 44px tap target per Apple HIG; the icon stays 18px.
-            className="h-11 w-11 inline-flex items-center justify-center rounded-2xl bg-black/40 backdrop-blur-md text-white active:bg-black/60 transition-colors"
+            className="h-11 w-11 inline-flex items-center justify-center rounded-xs bg-black/40 backdrop-blur-md text-white active:bg-black/60 transition-colors"
             // Stop the parent polaroid stack from interpreting this tap
             // as a card flick / long-press.
             onClick={(e) => e.stopPropagation()}
@@ -171,14 +171,14 @@ export function ModerationActions({
         <DropdownMenuContent
           align="end"
           sideOffset={6}
-          className="w-48 rounded-2xl border-border/50 bg-background/95 backdrop-blur-md"
+          className="w-48 rounded-xs border-border/50 bg-background/95 backdrop-blur-md"
         >
           <DropdownMenuItem
             onSelect={(e) => {
               e.preventDefault();
               handleOpenReport();
             }}
-            className="rounded-xl py-2.5"
+            className="rounded-xs py-2.5"
           >
             <Flag className="h-4 w-4 mr-2" />
             Report
@@ -191,7 +191,7 @@ export function ModerationActions({
                 void triggerHaptic();
                 setConfirmRemoveOpen(true);
               }}
-              className="rounded-xl py-2.5 text-red-300 focus:text-red-200 focus:bg-red-500/10"
+              className="rounded-xs py-2.5 text-func-danger-red focus:text-red-200 focus:bg-func-danger-red/10"
             >
               <Trash2 className="h-4 w-4 mr-2" />
               Remove post
@@ -205,7 +205,7 @@ export function ModerationActions({
                 e.preventDefault();
                 void handleRestore();
               }}
-              className="rounded-xl py-2.5"
+              className="rounded-xs py-2.5"
             >
               <RotateCcw className="h-4 w-4 mr-2" />
               Restore post
@@ -222,7 +222,7 @@ export function ModerationActions({
           if (!busy) setConfirmRemoveOpen(open);
         }}
       >
-        <AlertDialogContent className="rounded-2xl border-border/50">
+        <AlertDialogContent className="rounded-xs border-border/50">
           <AlertDialogHeader>
             <AlertDialogTitle>Remove this post?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -240,7 +240,7 @@ export function ModerationActions({
                 e.preventDefault();
                 void handleRemove();
               }}
-              className="bg-red-500/90 hover:bg-red-500 focus:ring-red-500/40"
+              className="bg-func-danger-red/90 hover:bg-func-danger-red focus:ring-func-danger-red/40"
             >
               {busy ? "Removing…" : "Remove"}
             </AlertDialogAction>

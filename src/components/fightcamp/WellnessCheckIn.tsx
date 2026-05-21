@@ -74,11 +74,11 @@ function toneClasses(tone: Chip["tone"], active: boolean): string {
     return "bg-muted/40 text-foreground/75 active:bg-muted/60 border-transparent";
   }
   switch (tone) {
-    case "good":    return "bg-emerald-500/20 text-emerald-300 border-emerald-500/40";
+    case "good":    return "bg-func-recovery-green/20 text-func-recovery-green border-func-recovery-green/40";
     case "warn":    return "bg-lime-500/20 text-lime-300 border-lime-500/40";
-    case "okay":    return "bg-amber-500/20 text-amber-300 border-amber-500/40";
-    case "bad":     return "bg-orange-500/20 text-orange-300 border-orange-500/40";
-    case "verybad": return "bg-red-500/20 text-red-300 border-red-500/40";
+    case "okay":    return "bg-func-warning-yellow/20 text-func-warning-yellow border-func-warning-yellow/40";
+    case "bad":     return "bg-func-carbs-orange/20 text-func-carbs-orange border-func-carbs-orange/40";
+    case "verybad": return "bg-func-danger-red/20 text-func-danger-red border-func-danger-red/40";
   }
 }
 
@@ -110,7 +110,7 @@ export function WellnessCheckIn({ userId, onSubmit, isSubmitting }: WellnessChec
     [answers],
   );
   const hooperLabel = hooperIndex >= 22 ? "Great" : hooperIndex >= 16 ? "Good" : hooperIndex >= 10 ? "Fair" : "Poor";
-  const hooperColor = hooperIndex >= 22 ? "text-green-400" : hooperIndex >= 16 ? "text-blue-400" : hooperIndex >= 10 ? "text-yellow-400" : "text-red-400";
+  const hooperColor = hooperIndex >= 22 ? "text-func-recovery-green" : hooperIndex >= 16 ? "text-blue-400" : hooperIndex >= 10 ? "text-func-warning-yellow" : "text-func-danger-red";
 
   const pickChip = (key: string, value: number) => {
     triggerHapticSelection();
@@ -206,7 +206,7 @@ export function WellnessCheckIn({ userId, onSubmit, isSubmitting }: WellnessChec
                       key={c.value}
                       type="button"
                       onClick={() => pickChip(currentQ.key, c.value)}
-                      className={`flex-1 h-12 rounded-2xl text-[13px] font-semibold tracking-tight border transition-all active:scale-[0.97] ${toneClasses(c.tone, active)}`}
+                      className={`flex-1 h-12 rounded-xs text-[13px] font-semibold tracking-tight border transition-all active:scale-[0.97] ${toneClasses(c.tone, active)}`}
                       aria-label={c.label}
                       aria-pressed={active}
                     >
@@ -238,7 +238,7 @@ export function WellnessCheckIn({ userId, onSubmit, isSubmitting }: WellnessChec
             >
               <div className="flex items-center justify-between">
                 <p className="text-[12px] text-muted-foreground/80 inline-flex items-center gap-1.5">
-                  <Check className="h-3.5 w-3.5 text-emerald-400" /> Quick check-in complete
+                  <Check className="h-3.5 w-3.5 text-func-recovery-green" /> Quick check-in complete
                 </p>
                 <span className={`text-[12px] font-bold ${hooperColor}`}>
                   {hooperIndex}/28 · {hooperLabel}
@@ -254,7 +254,7 @@ export function WellnessCheckIn({ userId, onSubmit, isSubmitting }: WellnessChec
                       key={q.key}
                       type="button"
                       onClick={() => { triggerHapticSelection(); setStep(idx); }}
-                      className={`card-surface rounded-2xl py-2 flex flex-col items-center gap-0.5 active:scale-95 transition-transform border ${
+                      className={`card-surface rounded-xs py-2 flex flex-col items-center gap-0.5 active:scale-95 transition-transform border ${
                         c ? toneClasses(c.tone, true) : "border-transparent"
                       }`}
                       aria-label={`Edit ${q.prompt}`}
@@ -330,7 +330,7 @@ export function WellnessCheckIn({ userId, onSubmit, isSubmitting }: WellnessChec
               <Button
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className="w-full rounded-2xl h-12 font-semibold gap-2 mt-1"
+                className="w-full rounded-xs h-12 font-semibold gap-2 mt-1"
               >
                 <Brain className="h-4 w-4" />
                 {isSubmitting ? "Analyzing..." : "Get coach advice"}
@@ -372,7 +372,7 @@ function OptionalRow({
               key={opt}
               type="button"
               onClick={() => { triggerHapticSelection(); onPick(opt); }}
-              className={`flex-1 h-8 rounded-xl text-[12px] font-semibold tabular-nums transition-colors ${
+              className={`flex-1 h-8 rounded-xs text-[12px] font-semibold tabular-nums transition-colors ${
                 active ? "bg-primary text-primary-foreground" : "bg-muted/40 text-muted-foreground/80 active:bg-muted/60"
               }`}
             >
@@ -414,7 +414,7 @@ function OptionalScaleRow({
               key={v}
               type="button"
               onClick={() => { triggerHapticSelection(); onPick(v); }}
-              className={`flex-1 h-8 rounded-xl text-[12px] font-semibold tabular-nums transition-colors ${
+              className={`flex-1 h-8 rounded-xs text-[12px] font-semibold tabular-nums transition-colors ${
                 active ? "bg-primary text-primary-foreground" : "bg-muted/40 text-muted-foreground/80 active:bg-muted/60"
               }`}
             >

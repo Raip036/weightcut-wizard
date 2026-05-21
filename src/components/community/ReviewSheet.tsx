@@ -275,7 +275,7 @@ export function ReviewSheet({
               banner below. */}
           <div
             className={cn(
-              "mt-7 flex items-center justify-between rounded-2xl px-4 py-2.5",
+              "mt-7 flex items-center justify-between rounded-xs px-4 py-2.5",
               "bg-muted/40 dark:bg-white/[0.04] border border-border/40",
             )}
           >
@@ -366,7 +366,7 @@ export function ReviewSheet({
             maxLength={140}
             disabled={submitting}
             className={cn(
-              "mt-3 h-11 rounded-2xl text-[15px]",
+              "mt-3 h-11 rounded-xs text-[15px]",
               "bg-muted/40 dark:bg-white/[0.04] border-border/30",
             )}
           />
@@ -382,7 +382,7 @@ export function ReviewSheet({
             onClick={() => void submit("post")}
             disabled={submitting}
             style={{ height: 52 }}
-            className="w-full rounded-2xl bg-primary text-primary-foreground text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-50 disabled:active:scale-100"
+            className="w-full rounded-xs bg-primary text-primary-foreground text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-50 disabled:active:scale-100"
           >
             {submitting ? (
               <>
@@ -464,7 +464,7 @@ function ChipPopover({
           <ChevronDown className="h-3.5 w-3.5 opacity-70" aria-hidden />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" sideOffset={6} className="w-56 p-1.5 rounded-2xl">
+      <PopoverContent align="start" sideOffset={6} className="w-56 p-1.5 rounded-xs">
         {renderContent(() => setOpen(false))}
       </PopoverContent>
     </Popover>
@@ -499,7 +499,7 @@ function ChipList<T extends string | number>({
             }}
             aria-pressed={active}
             className={cn(
-              "h-10 px-3 rounded-xl text-left text-[14px] font-medium transition-colors",
+              "h-10 px-3 rounded-xs text-left text-[14px] font-medium transition-colors",
               active
                 ? "bg-primary/15 text-foreground"
                 : "text-foreground/80 hover:bg-muted/40 dark:hover:bg-white/[0.05]",

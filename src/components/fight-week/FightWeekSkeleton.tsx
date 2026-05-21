@@ -7,18 +7,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 export function FightWeekSkeleton() {
   return (
     <div className="space-y-2.5" aria-label="Generating fight week plan">
-      <Skeleton className="h-16 rounded-2xl" />
+      <Skeleton className="h-16 rounded-xs" />
       <div className="grid grid-cols-3 gap-2">
-        <Skeleton className="h-14 rounded-2xl" />
-        <Skeleton className="h-14 rounded-2xl" />
-        <Skeleton className="h-14 rounded-2xl" />
+        <Skeleton className="h-14 rounded-xs" />
+        <Skeleton className="h-14 rounded-xs" />
+        <Skeleton className="h-14 rounded-xs" />
       </div>
-      <Skeleton className="h-40 rounded-2xl" />
-      <Skeleton className="h-56 rounded-2xl" />
+      <Skeleton className="h-40 rounded-xs" />
+      <Skeleton className="h-56 rounded-xs" />
       <div className="space-y-1.5">
-        <Skeleton className="h-12 rounded-2xl" />
-        <Skeleton className="h-12 rounded-2xl" />
-        <Skeleton className="h-12 rounded-2xl" />
+        <Skeleton className="h-12 rounded-xs" />
+        <Skeleton className="h-12 rounded-xs" />
+        <Skeleton className="h-12 rounded-xs" />
       </div>
     </div>
   );

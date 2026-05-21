@@ -17,7 +17,8 @@ import { WeightProgressRing } from "@/components/dashboard/WeightProgressRing";
 import { StreakBadge } from "@/components/dashboard/StreakBadge";
 import { MilestoneBadges } from "@/components/dashboard/MilestoneBadges";
 import { useGamification } from "@/hooks/useGamification";
-import { useUser } from "@/contexts/UserContext";
+import { useUser, useProfile } from "@/contexts/UserContext";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { DashboardSkeleton } from "@/components/ui/skeleton-loader";
 import { useSafeAsync } from "@/hooks/useSafeAsync";
@@ -35,6 +36,7 @@ import { logger } from "@/lib/logger";
 import { trackInstallDate, maybeRequestReview } from "@/lib/appReview";
 import { SleepLogger } from "@/components/dashboard/SleepLogger";
 import { TrainingInsightsWidget } from "@/components/dashboard/TrainingInsightsWidget";
+import { ProfileSheet } from "@/components/dashboard/ProfileSheet";
 import NewAnnouncementWidget from "@/components/dashboard/NewAnnouncementWidget";
 import { GymInvitesBanner } from "@/components/dashboard/GymInvitesBanner";
 import { NextCampFlow } from "@/components/fightcamp/NextCampFlow";
@@ -70,6 +72,7 @@ interface DailyWisdom {
 
 export default function Dashboard() {
   const { userName, currentWeight, userId, profile, loadCutPlan } = useUser();
+  const { avatarUrl } = useProfile();
   const convex = useConvex();
   const dailyWisdomAction = useAction(api.actions.dailyWisdom.run);
   const [weightLogs, setWeightLogs] = useState<any[]>(() => {
@@ -95,6 +98,7 @@ export default function Dashboard() {
   const [frequentMeals, setFrequentMeals] = useState<Array<{ name: string; count: number; avgCalories: number }>>([]);
   const [scoreSheetOpen, setScoreSheetOpen] = useState(false);
   const [nextCampOpen, setNextCampOpen] = useState(false);
+  const [profileSheetOpen, setProfileSheetOpen] = useState(false);
   // Active camp drives the post-fight "wrap up + start next camp" banner.
   // Skip the query while userId is unresolved to avoid an extra round trip.
   const activeCamp = useQuery(api.fight_camp.getActiveCamp, userId ? {} : "skip");
@@ -761,35 +765,56 @@ export default function Dashboard() {
     return (
       <ErrorBoundary>
         <div className="dashboard-zoom animate-page-in space-y-3.5 px-5 py-3 sm:p-5 md:p-6 w-full max-w-7xl mx-auto">
-          {/* Greeting header — mirrors legacy layout for visual consistency */}
-          <header className="flex items-end justify-between gap-3 pt-1">
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground/70 font-bold">
-                {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
-              </p>
-              <h1 className="text-[clamp(15px,4.6vw,22px)] font-semibold leading-tight break-words">
-                {userName ? `${getGreeting()}, ${userName}` : "Today"}
-              </h1>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {daysUntilTarget > 0 && (
-                <div className="card-surface rounded-2xl border border-border/50 px-2.5 py-1.5 text-center">
-                  <p className="text-[15px] font-bold display-number tabular-nums leading-none">{daysUntilTarget}</p>
-                  <p className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5">Days left</p>
-                </div>
-              )}
-            </div>
+          {/* Top row — three columns at the same 40px height:
+              [Profile avatar] [Dashboard title] [Days-left tab].
+              The avatar is now a direct nav to the edit-profile page
+              (/goals); the old ProfileSheet bottom-sheet is no longer
+              opened from here. Days-left tab uses the v1 glass recipe
+              over a Void surface so it reads as on-brand chrome. */}
+          <header className="relative flex items-center justify-between gap-3 pt-1">
+            <button
+              onClick={() => navigate('/goals')}
+              className="active:opacity-70 transition-opacity"
+              aria-label="Edit profile"
+            >
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={avatarUrl ?? undefined} />
+                <AvatarFallback
+                  className="text-note font-semibold"
+                  style={{ backgroundColor: '#162137', color: '#8C96B4' }}
+                >
+                  {userName?.[0]?.toUpperCase() ?? 'U'}
+                </AvatarFallback>
+              </Avatar>
+            </button>
+
+            {daysUntilTarget > 0 && (
+              <div
+                className="flex items-center h-10 px-3 rounded-xs"
+                style={{
+                  background: 'rgba(0, 5, 19, 0.6)',
+                  backdropFilter: 'blur(20px) saturate(160%)',
+                  WebkitBackdropFilter: 'blur(20px) saturate(160%)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                }}
+              >
+                <p className="text-note font-semibold tabular-nums whitespace-nowrap text-foreground">
+                  {daysUntilTarget} days left until weigh-in
+                </p>
+              </div>
+            )}
           </header>
 
-          {/* Gym invites — pending invites must be accepted before the
-              athlete can interact with that gym's coach. Sits above the
-              announcement widget so action items are surfaced first. */}
-          {userId && <GymInvitesBanner />}
-
-          {/* Gym announcement — pinned above the ring so a fresh
-              message from the user's coach is the first thing they
-              see when they open the app, not buried at the bottom. */}
-          {userId && <NewAnnouncementWidget userId={userId} />}
+          {/* Greeting + date — small caps Inter Light date below the
+              greeting, with breathing room from the top row above. */}
+          <div className="pt-1">
+            <h1 className="text-title font-semibold leading-tight">
+              {userName ? `${getGreeting()}, ${userName}` : "Today"}
+            </h1>
+            <p className="text-micro uppercase tracking-[0.15em] font-light text-muted-foreground/70 mt-1">
+              {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
+            </p>
+          </div>
 
           {/* Post-fight banner — auto-prompts the user to wrap up the camp
               and start the next one once the fight date has passed. The
@@ -799,21 +824,21 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => setNextCampOpen(true)}
-              className="w-full text-left rounded-2xl card-surface border border-primary/30 p-3 active:scale-[0.99] transition-transform"
+              className="w-full text-left rounded-xs card-surface border border-primary/30 p-3 active:scale-[0.99] transition-transform"
             >
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-2xl bg-primary/15 flex items-center justify-center shrink-0">
+                <div className="h-10 w-10 rounded-xs bg-primary/15 flex items-center justify-center shrink-0">
                   <Trophy className="h-5 w-5 text-primary" strokeWidth={2.4} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[14px] font-bold tracking-tight text-foreground leading-tight">
+                  <p className="text-body-sm font-bold tracking-tight text-foreground leading-tight">
                     How did {activeCamp.name} go?
                   </p>
-                  <p className="text-[12px] text-muted-foreground mt-0.5 leading-snug">
+                  <p className="text-note text-muted-foreground mt-0.5 leading-snug">
                     Wrap it up and line up your next fight camp.
                   </p>
                 </div>
-                <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-primary shrink-0">
+                <span className="inline-flex items-center gap-1 text-note font-semibold text-primary shrink-0">
                   <Sparkles className="h-3.5 w-3.5" />
                   Start next
                 </span>
@@ -823,21 +848,23 @@ export default function Dashboard() {
 
           {/* Fight Form Score ring + educational insight strip */}
           <div className="flex flex-col items-center pt-1">
-            <FightFormRing
-              score={ffScore.displayedScore}
-              label={ffScore.label}
-              state={ffScore.state}
-              calibratingDays={ringCalibratingDays}
-              rawScore={ffScore.rawScore}
-              appliedCeiling={ffScore.appliedCeiling}
-              phase={ffScore.phase}
-              celebrateSharp={celebrateSharp}
-              onTap={() =>
-                ffScore.state === "no_camp"
-                  ? navigate("/goals")
-                  : setScoreSheetOpen(true)
-              }
-            />
+            <div data-tutorial="fight-form-ring-only">
+              <FightFormRing
+                score={ffScore.displayedScore}
+                label={ffScore.label}
+                state={ffScore.state}
+                calibratingDays={ringCalibratingDays}
+                rawScore={ffScore.rawScore}
+                appliedCeiling={ffScore.appliedCeiling}
+                phase={ffScore.phase}
+                celebrateSharp={celebrateSharp}
+                onTap={() =>
+                  ffScore.state === "no_camp"
+                    ? navigate("/goals")
+                    : setScoreSheetOpen(true)
+                }
+              />
+            </div>
             <FightFormInsightStrip
               state={ffScore.state}
               label={ffScore.label}
@@ -858,7 +885,7 @@ export default function Dashboard() {
               />
             )}
             {ffScore.campAge && (
-              <p className="text-[11px] text-muted-foreground/80 mt-2">
+              <p className="text-micro text-muted-foreground/80 mt-2">
                 {ffScore.campAge.weeksAhead === 0
                   ? "Camp pace: on schedule"
                   : `Camp pace: ${Math.abs(ffScore.campAge.weeksAhead).toFixed(0)} ${Math.abs(ffScore.campAge.weeksAhead) === 1 ? "week" : "weeks"} ${ffScore.campAge.weeksAhead > 0 ? "ahead of" : "behind"} schedule`}
@@ -866,115 +893,83 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Weight journey track — visual start → you → goal progression.
-              Replaces the dense single-line text (83.3 → 70.0 kg · 0%) with
-              a positional marker showing where the user is between start
-              and goal. Tap-target opens the full weight tracker. */}
-          {chartData.length > 0 && weightChip ? (() => {
-            const okPts = (ffTrend ?? []).filter((p) => p.state === "ok");
-            const trendArrow =
-              okPts.length < 2
-                ? null
-                : okPts[okPts.length - 1].score > okPts[0].score
-                  ? "↗"
-                  : okPts[okPts.length - 1].score < okPts[0].score
-                    ? "↘"
-                    : "→";
-            const pct = weightChip.pctComplete;
-            const pctLabel = Math.round(pct * 100);
-            const direction = weightChip.start > weightChip.goal ? "lose" : "gain";
-            // Clamp marker x so it never sits ON the start/goal end dots
-            // (would visually collide). Cap to [4%, 96%] of the track width.
-            const markerLeft = `${Math.min(96, Math.max(4, pct * 100))}%`;
-            return (
-              <button
-                type="button"
-                onClick={() => { triggerHapticSelection(); navigate("/weight"); }}
-                className="w-full text-left rounded-xl border border-border/50 bg-card/40 px-3 py-1.5 active:scale-[0.99] transition-transform"
-                aria-label="Open weight tracker"
-              >
-                {/* Single-row track: Start label · rail · Goal label.
-                    Current weight lives in the meta line below so it
-                    never collides with the end labels regardless of
-                    where the marker sits. */}
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-semibold tabular-nums text-muted-foreground shrink-0">
-                    {weightChip.start.toFixed(1)}
-                  </span>
-                  <div className="relative flex-1 h-[3px] rounded-full bg-muted/60">
-                    <div
-                      className="absolute inset-y-0 left-0 rounded-full bg-primary"
-                      style={{ width: markerLeft }}
-                    />
-                    <span aria-hidden className="absolute -left-0.5 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-primary" />
-                    <span
-                      aria-hidden
-                      className={`absolute -right-0.5 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full ${pct >= 1 ? "bg-emerald-400" : "bg-muted-foreground/40"}`}
-                    />
-                    <span
-                      aria-hidden
-                      className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary ring-2 ring-background"
-                      style={{ left: markerLeft }}
-                    />
-                  </div>
-                  <span className="text-[10px] font-semibold tabular-nums text-muted-foreground shrink-0">
-                    {weightChip.goal.toFixed(1)}
-                  </span>
-                </div>
-
-                {/* Meta line — current weight + progress + trend */}
-                <p className="mt-1 text-[10px] text-muted-foreground tabular-nums">
-                  <span className="font-bold text-primary">{weightChip.current.toFixed(1)} kg</span>
-                  {" · "}
-                  <span className="font-semibold text-foreground">{pctLabel}%</span> {direction === "lose" ? "cut" : "gained"}
-                  {trendArrow ? <> · 14d {trendArrow}</> : null}
-                </p>
-              </button>
-            );
-          })() : null}
+          {/* Gym invites + announcements — below the hero ring so they
+              don't push Fight Form Score below the fold. */}
+          {userId && <GymInvitesBanner />}
+          {userId && <NewAnnouncementWidget userId={userId} />}
 
           <TodayStrip adherence={adherence} mealsLoggedToday={todayCalories > 0} />
 
-          <div className="grid grid-cols-2 gap-2">
-            <div className="card-surface rounded-2xl border border-border p-2.5 aspect-square flex flex-col">
-              <div className="flex items-center justify-between mb-1">
-                <span className="section-header text-foreground font-bold">Weight</span>
-                <div className="flex gap-0.5 bg-muted rounded-full p-0.5">
-                  <Button
-                    variant={weightUnit === 'kg' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => { setWeightUnit('kg'); triggerHapticSelection(); }}
-                    className="h-3 min-h-0 text-[9px] px-1 rounded-full leading-none"
-                  >
-                    kg
-                  </Button>
-                  <Button
-                    variant={weightUnit === 'lb' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => { setWeightUnit('lb'); triggerHapticSelection(); }}
-                    className="h-3 min-h-0 text-[9px] px-1 rounded-full leading-none"
-                  >
-                    lb
-                  </Button>
-                </div>
+          <p className="font-display text-value font-bold text-white pt-4">Your Stats</p>
+
+          <div className="grid grid-cols-2 gap-2 items-stretch">
+            {/* Weight metric card — Design System v1 Metric Card layout
+                (Figma node 67:725). Eyebrow → big bold value → smaller
+                chart → date + trend at the bottom. The kg/lb toggle
+                lives in the expanded weight tracker now; this card
+                follows whatever unit was last selected there. The
+                whole card is a button so tapping anywhere opens the
+                expanded /weight view (the chevron in the top-right is
+                a visual affordance for that tap). */}
+            <button
+              type="button"
+              onClick={() => { triggerHapticSelection(); navigate('/weight'); }}
+              className="card-surface rounded-xs p-3 aspect-square flex flex-col text-left active:scale-[0.98] transition-transform"
+            >
+              <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
+                WEIGHT
+              </span>
+
+              <div className="mt-2 flex items-baseline gap-1.5">
+                <span className="font-display font-bold text-[40px] leading-none text-foreground tabular-nums">
+                  {currentWeightValue
+                    ? convertWeight(currentWeightValue).toFixed(1)
+                    : "—"}
+                </span>
+                <span className="text-note font-light text-muted-foreground">
+                  {weightUnit}
+                </span>
               </div>
-              <div className="flex-1 min-h-0">
+
+              <div className="flex-1 min-h-0 mt-2">
                 {chartData.length > 0 ? (
-                  <Suspense fallback={<div className="h-full w-full animate-pulse bg-muted/20 rounded-2xl" />}>
+                  <Suspense fallback={<div className="h-full w-full bg-neutral-700/40 rounded-xs" />}>
                     <DashboardWeightChart data={chartData} weightUnit={weightUnit} />
                   </Suspense>
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-center">
                     <TrendingDown className="h-5 w-5 text-muted-foreground/40 mb-1" />
-                    <p className="text-[13px] text-muted-foreground">No data yet</p>
-                    <Button variant="ghost" size="sm" className="h-6 text-[13px] px-2" onClick={() => navigate('/weight')}>
-                      Log Weight
-                    </Button>
+                    <p className="text-note text-muted-foreground">No data yet</p>
                   </div>
                 )}
               </div>
-            </div>
-            {userId && <TrainingWeekWidget userId={userId} compact />}
+
+              {/* Footer — date left, trend arrow + delta + chevron grouped at bottom-right */}
+              <div className="mt-1.5 flex items-center justify-between">
+                <span className="text-micro text-muted-foreground">
+                  {chartData.length >= 2 ? chartData[chartData.length - 1].date : ""}
+                </span>
+                <div className="flex items-center gap-1.5">
+                  {chartData.length >= 2 && (() => {
+                    const last = chartData[chartData.length - 1];
+                    const prev = chartData[chartData.length - 2];
+                    const delta = last.weight - prev.weight;
+                    const isDown = delta < 0;
+                    return (
+                      <div className={`flex items-center gap-0.5 text-micro font-medium tabular-nums ${isDown ? "text-func-recovery-green" : "text-func-danger-red"}`}>
+                        <TrendingDown
+                          className={`h-3 w-3 ${isDown ? "" : "rotate-180"}`}
+                          strokeWidth={2.4}
+                        />
+                        <span>{Math.abs(delta).toFixed(1)}</span>
+                      </div>
+                    );
+                  })()}
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40" strokeWidth={2.2} />
+                </div>
+              </div>
+            </button>
+            {userId && <SleepLogger userId={userId} compact />}
           </div>
 
           {userId && <TrainingInsightsWidget userId={userId} />}
@@ -983,6 +978,8 @@ export default function Dashboard() {
             <MilestoneBadges badges={badges} loading={badgesLoading} onTap={() => setAchievementSheetOpen(true)} />
           </div>
         </div>
+
+        <ProfileSheet open={profileSheetOpen} onOpenChange={setProfileSheetOpen} />
 
         <FightFormScoreSheet
           open={scoreSheetOpen}
@@ -1017,44 +1014,47 @@ export default function Dashboard() {
   return (
     <ErrorBoundary>
       <div className="dashboard-zoom animate-page-in space-y-3.5 px-5 py-3 sm:p-5 md:p-6 w-full max-w-7xl mx-auto">
-        {/* Greeting header — Apple Fitness style: weekday eyebrow + name, days/streak right */}
-        <header className="flex items-end justify-between gap-3 pt-1">
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground/70 font-bold">
-              {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
-            </p>
-            <h1 className="text-[22px] font-semibold leading-tight truncate">
-              {userName ? `Hi, ${userName}` : "Today"}
+        {/* Greeting header — avatar + name stacked left, days/streak right */}
+        <header className="flex items-center justify-between gap-3 pt-1">
+          <div className="flex flex-col items-start gap-1 min-w-0">
+            <button
+              onClick={() => setProfileSheetOpen(true)}
+              className="active:opacity-70 transition-opacity"
+              aria-label="View profile"
+            >
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={avatarUrl ?? undefined} />
+                <AvatarFallback
+                  className="text-note font-semibold"
+                  style={{ backgroundColor: '#7B31EA', color: '#8B7EEA' }}
+                >
+                  {userName?.[0]?.toUpperCase() ?? 'U'}
+                </AvatarFallback>
+              </Avatar>
+            </button>
+            <h1 className="text-value font-semibold leading-tight truncate max-w-[180px]">
+              {userName ? `${getGreeting()}, ${userName}` : "Today"}
             </h1>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             {daysUntilTarget > 0 && (
-              <div className="card-surface rounded-2xl border border-border/50 px-2.5 py-1.5 text-center">
-                <p className="text-[15px] font-bold display-number tabular-nums leading-none">{daysUntilTarget}</p>
-                <p className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5">Days left</p>
+              <div className="rounded-xs px-2.5 py-1.5 text-center backdrop-blur-md bg-white/10 border border-white/20">
+                <p className="text-body-sm font-bold tabular-nums leading-none">{daysUntilTarget}</p>
+                <p className="text-micro uppercase tracking-wider text-muted-foreground mt-0.5">Days left</p>
               </div>
             )}
             {streak > 0 && <StreakBadge streak={streak} isActive={streakIncludesToday} />}
           </div>
         </header>
 
-        {/* Gym invites — surfaced above the announcement widget so the
-            athlete acts on pending invites before reading messages. */}
-        {userId && <GymInvitesBanner />}
-
-        {/* Gym announcement — pinned above the rest of the dashboard so
-            a fresh message from the user's coach is the first thing
-            they see, not buried mid-page. */}
-        {userId && <NewAnnouncementWidget userId={userId} />}
-
         {weightLogs.length === 0 && (
-          <button onClick={() => navigate('/weight')} className="w-full card-surface rounded-2xl border border-border/50 p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all">
-            <div className="h-9 w-9 rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+          <button onClick={() => navigate('/weight')} className="w-full card-surface rounded-xs border border-border/50 p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all">
+            <div className="h-9 w-9 rounded-xs bg-primary/10 flex items-center justify-center flex-shrink-0">
               <Scale className="h-4 w-4 text-primary" />
             </div>
             <div className="flex-1 text-left min-w-0">
-              <p className="text-[13px] font-semibold">Welcome{userName ? `, ${userName}` : ''}</p>
-              <p className="text-[12px] text-muted-foreground leading-snug">Log your first weigh-in to get started</p>
+              <p className="text-note font-semibold">Welcome{userName ? `, ${userName}` : ''}</p>
+              <p className="text-note text-muted-foreground leading-snug">Log your first weigh-in to get started</p>
             </div>
             <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           </button>
@@ -1074,63 +1074,69 @@ export default function Dashboard() {
         {/* Wizard's Daily Wisdom card — conditional states */}
         <div data-tutorial="daily-wisdom-card">
         {!hasTodayLog ? (
-          <button onClick={() => navigate('/weight')} className="w-full card-surface rounded-2xl border border-border/50 p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all">
-            <div className="h-8 w-8 rounded-xl bg-muted/40 flex items-center justify-center flex-shrink-0">
+          <button onClick={() => navigate('/weight')} className="w-full card-surface rounded-xs border border-border/50 p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all">
+            <div className="h-8 w-8 rounded-xs bg-muted/40 flex items-center justify-center flex-shrink-0">
               <Lock className="h-3.5 w-3.5 text-muted-foreground" />
             </div>
             <div className="flex-1 text-left min-w-0">
-              <p className="text-[12px] font-semibold">Daily Insight</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+              <p className="text-note font-semibold">Daily Insight</p>
+              <p className="text-micro text-muted-foreground mt-0.5 leading-snug">
                 Log today's weight to unlock
               </p>
             </div>
             <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           </button>
         ) : wisdomLoading ? (
-          <div className="card-surface rounded-2xl border border-border/50 p-3 flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-xl bg-muted/40 flex-shrink-0" />
+          <div className="card-surface rounded-xs border border-border/50 p-3 flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-xs bg-muted/40 flex-shrink-0" />
             <div className="flex-1 min-w-0 space-y-1.5">
               <div className="h-2.5 rounded shimmer-skeleton w-1/3" />
               <div className="h-2.5 rounded shimmer-skeleton w-full" />
             </div>
           </div>
         ) : wisdom ? (
-          <button className="w-full text-left card-surface rounded-2xl border border-border/50 p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all" onClick={handleWisdomClick}>
-            <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+          <button className="w-full text-left card-surface rounded-xs border border-border/50 p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all" onClick={handleWisdomClick}>
+            <div className="h-8 w-8 rounded-xs bg-primary/10 flex items-center justify-center flex-shrink-0">
               <Zap className="h-3.5 w-3.5 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-1.5">
-                <p className="text-[12px] font-semibold">Daily Insight</p>
+                <p className="text-note font-semibold">Daily Insight</p>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${riskColors[wisdom.riskLevel]}`}>
+                  <span className={`text-micro px-1.5 py-0.5 rounded-full font-medium ${riskColors[wisdom.riskLevel]}`}>
                     {wisdom.riskLevel.charAt(0).toUpperCase() + wisdom.riskLevel.slice(1)}
                   </span>
                   <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                 </div>
               </div>
-              <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug line-clamp-2">
+              <p className="text-micro text-muted-foreground mt-0.5 leading-snug line-clamp-2">
                 {wisdom.summary.replace(/[—–]/g, ',').replace(/\s*,\s*/g, ', ').replace(/\s{2,}/g, ' ').split(/\s+/).slice(0, 12).join(' ').replace(/[.,;:]+$/, '')}
               </p>
             </div>
           </button>
         ) : (
-          <div className="card-surface rounded-2xl border border-border/50 p-3 flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-xl bg-muted/40 flex items-center justify-center flex-shrink-0">
+          <div className="card-surface rounded-xs border border-border/50 p-3 flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-xs bg-muted/40 flex items-center justify-center flex-shrink-0">
               <Zap className="h-3.5 w-3.5 text-muted-foreground" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[12px] font-semibold">Daily Insight</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug line-clamp-2">{getWizardWisdom()}</p>
+              <p className="text-note font-semibold">Daily Insight</p>
+              <p className="text-micro text-muted-foreground mt-0.5 leading-snug line-clamp-2">{getWizardWisdom()}</p>
             </div>
           </div>
         )}
         </div>
 
+        {/* Gym invites + announcements — below the hero metrics so they
+            don't push the primary content below the fold for the 95%
+            of sessions where there's nothing pending. */}
+        {userId && <GymInvitesBanner />}
+        {userId && <NewAnnouncementWidget userId={userId} />}
+
         {/* Weight History + Training — side by side */}
         <div className="grid grid-cols-2 gap-2">
           {/* Weight History Chart */}
-          <div className="card-surface rounded-2xl border border-border p-2.5 aspect-square flex flex-col">
+          <div className="card-surface rounded-xs border border-border p-2.5 aspect-square flex flex-col">
             <div className="flex items-center justify-between mb-1">
               <span className="section-header text-foreground font-bold">Weight</span>
               <div className="flex gap-0.5 bg-muted rounded-full p-0.5">
@@ -1138,7 +1144,7 @@ export default function Dashboard() {
                   variant={weightUnit === 'kg' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => { setWeightUnit('kg'); triggerHapticSelection(); }}
-                  className="h-3 min-h-0 text-[9px] px-1 rounded-full leading-none"
+                  className="h-3 min-h-0 text-micro px-1 rounded-full leading-none"
                 >
                   kg
                 </Button>
@@ -1146,7 +1152,7 @@ export default function Dashboard() {
                   variant={weightUnit === 'lb' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => { setWeightUnit('lb'); triggerHapticSelection(); }}
-                  className="h-3 min-h-0 text-[9px] px-1 rounded-full leading-none"
+                  className="h-3 min-h-0 text-micro px-1 rounded-full leading-none"
                 >
                   lb
                 </Button>
@@ -1154,14 +1160,14 @@ export default function Dashboard() {
             </div>
             <div className="flex-1 min-h-0">
               {chartData.length > 0 ? (
-                <Suspense fallback={<div className="h-full w-full animate-pulse bg-muted/20 rounded-2xl" />}>
+                <Suspense fallback={<div className="h-full w-full animate-pulse bg-muted/20 rounded-xs" />}>
                   <DashboardWeightChart data={chartData} weightUnit={weightUnit} />
                 </Suspense>
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-center">
                   <TrendingDown className="h-5 w-5 text-muted-foreground/40 mb-1" />
-                  <p className="text-[13px] text-muted-foreground">No data yet</p>
-                  <Button variant="ghost" size="sm" className="h-6 text-[13px] px-2" onClick={() => navigate('/weight')}>
+                  <p className="text-note text-muted-foreground">No data yet</p>
+                  <Button variant="ghost" size="sm" className="h-6 text-note px-2" onClick={() => navigate('/weight')}>
                     Log Weight
                   </Button>
                 </div>
@@ -1175,7 +1181,6 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Training Coach (premium) */}
         {userId && <TrainingInsightsWidget userId={userId} />}
 
         {/* Daily logging row — Cut Plan + Sleep, or Sleep full-width */}
@@ -1197,14 +1202,14 @@ export default function Dashboard() {
                 } catch { /* malformed — default route stands */ }
                 navigate(route);
               }}
-              className="card-surface rounded-2xl border border-border/50 p-3 flex items-center gap-2.5 active:scale-[0.98] transition-all text-left"
+              className="card-surface rounded-xs border border-border/50 p-3 flex items-center gap-2.5 active:scale-[0.98] transition-all text-left"
             >
-              <div className="h-9 w-9 rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <div className="h-9 w-9 rounded-xs bg-primary/10 flex items-center justify-center flex-shrink-0">
                 <Swords className="h-4 w-4 text-primary" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[12px] font-semibold leading-tight">Cut Plan</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">View your plan</p>
+                <p className="text-note font-semibold leading-tight">Cut Plan</p>
+                <p className="text-micro text-muted-foreground mt-0.5 leading-snug">View your plan</p>
               </div>
               <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
             </button>
@@ -1220,6 +1225,8 @@ export default function Dashboard() {
         </div>
       </div>
 
+      <ProfileSheet open={profileSheetOpen} onOpenChange={setProfileSheetOpen} />
+
       {/* Wisdom Detail Bottom Sheet */}
       {wisdom && (
         <Sheet open={wisdomSheetOpen} onOpenChange={setWisdomSheetOpen}>
@@ -1228,8 +1235,8 @@ export default function Dashboard() {
               <SheetHeader>
                 <div className="flex items-center gap-2">
                   <div>
-                    <SheetTitle className="text-[13px] font-semibold">Daily Insight</SheetTitle>
-                    <p className="text-[13px] text-muted-foreground">
+                    <SheetTitle className="text-note font-semibold">Daily Insight</SheetTitle>
+                    <p className="text-note text-muted-foreground">
                       {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
                     </p>
                   </div>
@@ -1240,56 +1247,56 @@ export default function Dashboard() {
             <div className="px-4 space-y-2.5">
               {/* 3-col status grid */}
               <div className="grid grid-cols-3 gap-1.5">
-                <button onClick={() => setExpandedInfo(expandedInfo === 'risk' ? null : 'risk')} className={`rounded-lg py-2 text-center transition-colors ${expandedInfo === 'risk' ? 'bg-muted/40' : 'bg-muted/20 active:bg-muted/30'}`}>
-                  <span className={`text-[13px] font-medium ${riskColors[wisdom.riskLevel]}`}>
+                <button onClick={() => setExpandedInfo(expandedInfo === 'risk' ? null : 'risk')} className={`rounded-xs py-2 text-center transition-colors ${expandedInfo === 'risk' ? 'bg-muted/40' : 'bg-muted/20 active:bg-muted/30'}`}>
+                  <span className={`text-note font-medium ${riskColors[wisdom.riskLevel]}`}>
                     {wisdom.riskLevel.charAt(0).toUpperCase() + wisdom.riskLevel.slice(1)}
                   </span>
-                  <p className="text-[13px] text-muted-foreground mt-0.5">Risk</p>
+                  <p className="text-note text-muted-foreground mt-0.5">Risk</p>
                 </button>
-                <div className="rounded-lg bg-muted/20 py-2 text-center">
-                  <p className="text-[17px] font-bold tabular-nums">{wisdom.daysToFight}</p>
-                  <p className="text-[13px] text-muted-foreground">Days Left</p>
+                <div className="rounded-xs bg-muted/20 py-2 text-center">
+                  <p className="text-value font-bold tabular-nums">{wisdom.daysToFight}</p>
+                  <p className="text-note text-muted-foreground">Days Left</p>
                 </div>
-                <button onClick={() => setExpandedInfo(expandedInfo === 'pace' ? null : 'pace')} className={`rounded-lg py-2 text-center transition-colors ${expandedInfo === 'pace' ? 'bg-muted/40' : 'bg-muted/20 active:bg-muted/30'}`}>
-                  <p className={`text-[13px] font-semibold ${paceColors[wisdom.paceStatus] ?? 'text-foreground'}`}>
+                <button onClick={() => setExpandedInfo(expandedInfo === 'pace' ? null : 'pace')} className={`rounded-xs py-2 text-center transition-colors ${expandedInfo === 'pace' ? 'bg-muted/40' : 'bg-muted/20 active:bg-muted/30'}`}>
+                  <p className={`text-note font-semibold ${paceColors[wisdom.paceStatus] ?? 'text-foreground'}`}>
                     {paceLabels[wisdom.paceStatus] ?? wisdom.paceStatus}
                   </p>
-                  <p className="text-[13px] text-muted-foreground mt-0.5">Pace</p>
+                  <p className="text-note text-muted-foreground mt-0.5">Pace</p>
                 </button>
               </div>
               {expandedInfo === 'risk' && (
                 <div className="rounded-md bg-muted/30 px-2.5 py-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <p className="text-[13px] font-semibold mb-1">Risk Level</p>
-                  <p className="text-[13px] text-muted-foreground leading-snug mb-1">How aggressive your current cut rate is.</p>
-                  <p className="text-[13px] text-muted-foreground"><span className="text-green-400 font-medium">Green</span> — Safe, sustainable pace</p>
-                  <p className="text-[13px] text-muted-foreground"><span className="text-orange-400 font-medium">Orange</span> — High pace, may affect performance</p>
+                  <p className="text-note font-semibold mb-1">Risk Level</p>
+                  <p className="text-note text-muted-foreground leading-snug mb-1">How aggressive your current cut rate is.</p>
+                  <p className="text-note text-muted-foreground"><span className="text-green-400 font-medium">Green</span> — Safe, sustainable pace</p>
+                  <p className="text-note text-muted-foreground"><span className="text-orange-400 font-medium">Orange</span> — High pace, may affect performance</p>
                 </div>
               )}
               {expandedInfo === 'pace' && (
                 <div className="rounded-md bg-muted/30 px-2.5 py-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <p className="text-[13px] font-semibold mb-1">Pace</p>
-                  <p className="text-[13px] text-muted-foreground leading-snug mb-1">Is your weekly loss on track to hit your target?</p>
-                  <p className="text-[13px] text-muted-foreground"><span className="text-green-400 font-medium">On Track</span> — On schedule</p>
-                  <p className="text-[13px] text-muted-foreground"><span className="text-green-400 font-medium">At Target</span> — Already at goal</p>
-                  <p className="text-[13px] text-muted-foreground"><span className="text-blue-400 font-medium">Ahead</span> — Faster than needed</p>
-                  <p className="text-[13px] text-muted-foreground"><span className="text-yellow-400 font-medium">Behind</span> — May need to adjust</p>
+                  <p className="text-note font-semibold mb-1">Pace</p>
+                  <p className="text-note text-muted-foreground leading-snug mb-1">Is your weekly loss on track to hit your target?</p>
+                  <p className="text-note text-muted-foreground"><span className="text-green-400 font-medium">On Track</span> — On schedule</p>
+                  <p className="text-note text-muted-foreground"><span className="text-green-400 font-medium">At Target</span> — Already at goal</p>
+                  <p className="text-note text-muted-foreground"><span className="text-blue-400 font-medium">Ahead</span> — Faster than needed</p>
+                  <p className="text-note text-muted-foreground"><span className="text-yellow-400 font-medium">Behind</span> — May need to adjust</p>
                 </div>
               )}
 
               {/* Weight Pace */}
-              <div className="rounded-2xl bg-muted/20 p-3">
-                <h4 className="text-[14px] font-semibold mb-2">Weight Pace</h4>
+              <div className="rounded-xs bg-muted/20 p-3">
+                <h4 className="text-body-sm font-semibold mb-2">Weight Pace</h4>
                 <div className="grid grid-cols-2 gap-3 mb-2">
                   <div>
-                    <p className="text-[13px] text-muted-foreground">Actual / week</p>
-                    <p className="text-[17px] font-bold tabular-nums">{wisdom.weeklyPaceKg.toFixed(2)} kg</p>
+                    <p className="text-note text-muted-foreground">Actual / week</p>
+                    <p className="text-value font-bold tabular-nums">{wisdom.weeklyPaceKg.toFixed(2)} kg</p>
                   </div>
                   <div>
-                    <p className="text-[13px] text-muted-foreground">Needed / week</p>
-                    <p className="text-[17px] font-bold tabular-nums">{wisdom.requiredWeeklyKg.toFixed(2)} kg</p>
+                    <p className="text-note text-muted-foreground">Needed / week</p>
+                    <p className="text-value font-bold tabular-nums">{wisdom.requiredWeeklyKg.toFixed(2)} kg</p>
                   </div>
                 </div>
-                <p className="text-[14px] text-muted-foreground leading-relaxed">{wisdom.riskReason}</p>
+                <p className="text-body-sm text-muted-foreground leading-relaxed">{wisdom.riskReason}</p>
               </div>
 
               {/* Guidance — current/goal weight + calories + macros */}
@@ -1311,38 +1318,38 @@ export default function Dashboard() {
                 const pcts = [...floors];
                 for (let k = 0; k < order.length && rem > 0; k++, rem--) pcts[order[k].i] += 1;
                 return (
-                  <div className="rounded-2xl bg-muted/20 p-3 space-y-3">
-                    <h4 className="text-[14px] font-semibold">Guidance</h4>
+                  <div className="rounded-xs bg-muted/20 p-3 space-y-3">
+                    <h4 className="text-body-sm font-semibold">Guidance</h4>
 
                     <div className="grid grid-cols-3 gap-2">
-                      <div className="rounded-lg bg-background/40 p-2 text-center">
-                        <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Current</p>
-                        <p className="text-[17px] font-bold tabular-nums">{cur.toFixed(1)}<span className="text-[11px] text-muted-foreground font-normal"> kg</span></p>
+                      <div className="rounded-xs bg-background/40 p-2 text-center">
+                        <p className="text-micro uppercase tracking-wider text-muted-foreground">Current</p>
+                        <p className="text-value font-bold tabular-nums">{cur.toFixed(1)}<span className="text-micro text-muted-foreground font-normal"> kg</span></p>
                       </div>
-                      <div className="rounded-lg bg-background/40 p-2 text-center">
-                        <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Goal</p>
-                        <p className="text-[17px] font-bold tabular-nums">{goal.toFixed(1)}<span className="text-[11px] text-muted-foreground font-normal"> kg</span></p>
+                      <div className="rounded-xs bg-background/40 p-2 text-center">
+                        <p className="text-micro uppercase tracking-wider text-muted-foreground">Goal</p>
+                        <p className="text-value font-bold tabular-nums">{goal.toFixed(1)}<span className="text-micro text-muted-foreground font-normal"> kg</span></p>
                       </div>
-                      <div className="rounded-lg bg-primary/10 p-2 text-center">
-                        <p className="text-[11px] uppercase tracking-wider text-primary/80">Daily</p>
-                        <p className="text-[17px] font-bold tabular-nums text-primary">{calorieTarget}<span className="text-[11px] font-normal"> kcal</span></p>
+                      <div className="rounded-xs bg-primary/10 p-2 text-center">
+                        <p className="text-micro uppercase tracking-wider text-primary/80">Daily</p>
+                        <p className="text-value font-bold tabular-nums text-primary">{calorieTarget}<span className="text-micro font-normal"> kcal</span></p>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-3 gap-2">
                       {[
-                        { label: 'Protein', g: proteinG, pct: pcts[0], color: 'text-blue-500' },
-                        { label: 'Carbs', g: carbsG, pct: pcts[1], color: 'text-orange-500' },
-                        { label: 'Fats', g: fatsG, pct: pcts[2], color: 'text-purple-500' },
+                        { label: 'Protein', g: proteinG, pct: pcts[0], color: 'text-func-protein-blue' },
+                        { label: 'Carbs', g: carbsG, pct: pcts[1], color: 'text-func-carbs-orange' },
+                        { label: 'Fats', g: fatsG, pct: pcts[2], color: 'text-func-fats-purple' },
                       ].map((m) => (
-                        <div key={m.label} className="rounded-lg bg-background/40 p-2 text-center">
-                          <p className={`text-[15px] font-bold tabular-nums ${m.color}`}>{m.g}g</p>
-                          <p className="text-[11px] text-muted-foreground">{m.label} · {m.pct}%</p>
+                        <div key={m.label} className="rounded-xs bg-background/40 p-2 text-center">
+                          <p className={`text-body-sm font-bold tabular-nums ${m.color}`}>{m.g}g</p>
+                          <p className="text-micro text-muted-foreground">{m.label} · {m.pct}%</p>
                         </div>
                       ))}
                     </div>
 
-                    <p className="text-[14px] text-muted-foreground leading-relaxed">{wisdom.adviceParagraph}</p>
+                    <p className="text-body-sm text-muted-foreground leading-relaxed">{wisdom.adviceParagraph}</p>
                   </div>
                 );
               })()}
@@ -1356,12 +1363,12 @@ export default function Dashboard() {
                 const numericAction = `Hit ${calorieTarget} kcal today · ${proteinG}P / ${carbsG}C / ${fatsG}F`;
                 const items = [numericAction, ...wisdom.actionItems];
                 return (
-                  <div className="rounded-2xl bg-muted/20 p-3">
-                    <h4 className="text-[14px] font-semibold mb-2">Action Items</h4>
+                  <div className="rounded-xs bg-muted/20 p-3">
+                    <h4 className="text-body-sm font-semibold mb-2">Action Items</h4>
                     <ol className="space-y-2">
                       {items.map((item, i) => (
-                        <li key={i} className="flex items-start gap-2.5 text-[14px]">
-                          <span className="shrink-0 w-5 h-5 rounded-full bg-primary/15 text-primary text-[12px] font-bold flex items-center justify-center mt-0.5">
+                        <li key={i} className="flex items-start gap-2.5 text-body-sm">
+                          <span className="shrink-0 w-5 h-5 rounded-full bg-primary/15 text-primary text-note font-bold flex items-center justify-center mt-0.5">
                             {i + 1}
                           </span>
                           <span className="leading-relaxed text-foreground/90">{item}</span>
@@ -1373,22 +1380,22 @@ export default function Dashboard() {
               })()}
 
               {/* Nutrition — foods you eat often + swap ideas */}
-              <div className="rounded-2xl bg-muted/20 p-3 space-y-2.5">
-                <h4 className="text-[14px] font-semibold">Nutrition</h4>
-                <p className="text-[14px] text-muted-foreground leading-relaxed">{wisdom.nutritionStatus}</p>
+              <div className="rounded-xs bg-muted/20 p-3 space-y-2.5">
+                <h4 className="text-body-sm font-semibold">Nutrition</h4>
+                <p className="text-body-sm text-muted-foreground leading-relaxed">{wisdom.nutritionStatus}</p>
                 {frequentMeals.length > 0 && (
                   <div className="space-y-1.5 pt-1">
-                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground/80">Foods you eat often</p>
-                    <ul className="divide-y divide-border/20 rounded-lg bg-background/40 overflow-hidden">
+                    <p className="text-micro uppercase tracking-wider text-muted-foreground/80">Foods you eat often</p>
+                    <ul className="divide-y divide-border/20 rounded-xs bg-background/40 overflow-hidden">
                       {frequentMeals.map((m) => (
                         <li key={m.name} className="flex items-start gap-3 px-3 py-2.5">
                           <div className="flex-1 min-w-0">
-                            <p className="text-[14px] font-medium truncate">{m.name}</p>
-                            <p className="text-[12px] text-muted-foreground/80 mt-0.5 leading-snug">{getFoodSwap(m.name)}</p>
+                            <p className="text-body-sm font-medium truncate">{m.name}</p>
+                            <p className="text-note text-muted-foreground/80 mt-0.5 leading-snug">{getFoodSwap(m.name)}</p>
                           </div>
                           <div className="text-right shrink-0">
-                            <p className="text-[13px] font-semibold tabular-nums text-foreground/80">{m.avgCalories}<span className="text-[10px] text-muted-foreground font-normal"> kcal</span></p>
-                            <p className="text-[10px] text-muted-foreground">×{m.count}</p>
+                            <p className="text-note font-semibold tabular-nums text-foreground/80">{m.avgCalories}<span className="text-micro text-muted-foreground font-normal"> kcal</span></p>
+                            <p className="text-micro text-muted-foreground">×{m.count}</p>
                           </div>
                         </li>
                       ))}

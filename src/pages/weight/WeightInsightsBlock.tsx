@@ -135,25 +135,25 @@ export function WeightInsightsBlock({
 
   const tintClass: Record<string, { text: string; bg: string; ring: string; from: string; to: string }> = {
     emerald: {
-      text: "text-emerald-400",
-      bg: "bg-emerald-500/15",
-      ring: "ring-emerald-500/30",
-      from: "from-emerald-500/15",
-      to: "to-emerald-500/[0.02]",
+      text: "text-func-recovery-green",
+      bg: "bg-func-recovery-green/15",
+      ring: "ring-func-recovery-green/30",
+      from: "from-func-recovery-green/15",
+      to: "to-func-recovery-green/[0.02]",
     },
     amber: {
-      text: "text-amber-400",
-      bg: "bg-amber-500/15",
-      ring: "ring-amber-500/30",
-      from: "from-amber-500/15",
-      to: "to-amber-500/[0.02]",
+      text: "text-func-warning-yellow",
+      bg: "bg-func-warning-yellow/15",
+      ring: "ring-func-warning-yellow/30",
+      from: "from-func-warning-yellow/15",
+      to: "to-func-warning-yellow/[0.02]",
     },
     rose: {
-      text: "text-rose-400",
-      bg: "bg-rose-500/15",
-      ring: "ring-rose-500/30",
-      from: "from-rose-500/15",
-      to: "to-rose-500/[0.02]",
+      text: "text-func-danger-red",
+      bg: "bg-func-danger-red/15",
+      ring: "ring-func-danger-red/30",
+      from: "from-func-danger-red/15",
+      to: "to-func-danger-red/[0.02]",
     },
     muted: {
       text: "text-muted-foreground",
@@ -177,7 +177,7 @@ export function WeightInsightsBlock({
           initial={reduced ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-          className={`rounded-3xl border border-border/50 bg-gradient-to-br ${tintClass[deltaTint].from} ${tintClass[deltaTint].to} backdrop-blur-xl p-5`}
+          className={`rounded-xs border border-border/50 bg-gradient-to-br ${tintClass[deltaTint].from} ${tintClass[deltaTint].to} backdrop-blur-xl p-5`}
         >
           <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-bold">
             7-day average
@@ -214,7 +214,7 @@ export function WeightInsightsBlock({
           initial={reduced ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1], delay: 0.08 }}
-          className="rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl p-5"
+          className="rounded-xs border border-border/50 bg-card/40 backdrop-blur-xl p-5"
         >
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-1.5">

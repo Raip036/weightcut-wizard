@@ -85,7 +85,7 @@ const MEAL_TYPES = [
 ] as const;
 
 const INPUT_CLASS =
-  "h-11 rounded-2xl bg-muted/40 dark:bg-white/[0.06] border-border/30 text-[15px] text-foreground placeholder:text-muted-foreground/50 px-4 focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all";
+  "h-11 rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/30 text-[15px] text-foreground placeholder:text-muted-foreground/50 px-4 focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all";
 
 export function QuickAddDialog({
   open,
@@ -285,7 +285,7 @@ export function QuickAddDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className={`w-[calc(100vw-1.5rem)] max-w-[420px] max-h-[calc(100vh-4rem)] overflow-y-auto rounded-[28px] p-0 border-0 bg-card/95 backdrop-blur-xl shadow-2xl gap-0 ${aiTask ? "[&>button]:hidden" : ""}`}
+        className={`w-[calc(100vw-1.5rem)] max-w-[420px] max-h-[calc(100vh-4rem)] overflow-y-auto rounded-[28px] p-0 border-0 bg-card/95 backdrop-blur-xl gap-0 ${aiTask ? "[&>button]:hidden" : ""}`}
       >
         {aiTask && (
           aiMeal.photoAnalyzing && aiMeal.photoBase64 ? (
@@ -322,7 +322,7 @@ export function QuickAddDialog({
         {/* ── Mode segmented pill (AI / Manual) ──────────────────── */}
         <div className="px-5">
           <LayoutGroup id="add-meal-tab">
-            <div role="tablist" className="relative flex bg-muted/40 dark:bg-white/[0.06] rounded-2xl p-1 border border-border/30">
+            <div role="tablist" className="relative flex bg-muted/40 dark:bg-white/[0.06] rounded-xs p-1 border border-border/30">
               {(["ai", "manual"] as const).map((tab) => {
                 const active = quickAddTab === tab;
                 return (
@@ -332,12 +332,12 @@ export function QuickAddDialog({
                     role="tab"
                     aria-selected={active}
                     onClick={() => { if (!active) { setQuickAddTab(tab); triggerHapticSelection(); } }}
-                    className="relative flex-1 h-10 rounded-xl text-[14px] font-semibold active:scale-[0.98] transition-transform"
+                    className="relative flex-1 h-10 rounded-xs text-[14px] font-semibold active:scale-[0.98] transition-transform"
                   >
                     {active && (
                       <motion.div
                         layoutId="add-meal-tab-pill"
-                        className="absolute inset-0 rounded-xl bg-background shadow-sm ring-1 ring-border/30"
+                        className="absolute inset-0 rounded-xs bg-background ring-1 ring-border/30"
                         transition={{ type: "spring", damping: 28, stiffness: 380 }}
                       />
                     )}
@@ -374,7 +374,7 @@ export function QuickAddDialog({
                     type="button"
                     onClick={() => setManualMeal((prev) => ({ ...prev, meal_type: t.value }))}
                     aria-pressed={active}
-                    className={`h-8 rounded-xl text-[12px] font-semibold transition-colors ${
+                    className={`h-8 rounded-xs text-[12px] font-semibold transition-colors ${
                       active
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted/40 text-muted-foreground/80 active:bg-muted/60"
@@ -398,7 +398,7 @@ export function QuickAddDialog({
                   type="button"
                   onClick={async () => { await aiMeal.capturePhoto(); }}
                   disabled={aiMeal.aiAnalyzing}
-                  className="card-surface rounded-2xl h-[88px] flex flex-col items-center justify-center gap-1.5 active:scale-[0.98] transition-transform disabled:opacity-40"
+                  className="card-surface rounded-xs h-[88px] flex flex-col items-center justify-center gap-1.5 active:scale-[0.98] transition-transform disabled:opacity-40"
                 >
                   <Camera className="h-5 w-5 text-primary" strokeWidth={2.4} />
                   <span className="text-[13px] font-semibold text-foreground">Snap photo</span>
@@ -406,7 +406,7 @@ export function QuickAddDialog({
                 <button
                   type="button"
                   onClick={() => { const ta = document.querySelector<HTMLTextAreaElement>("#ai-meal-description"); if (ta) ta.focus(); }}
-                  className="card-surface rounded-2xl h-[88px] flex flex-col items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
+                  className="card-surface rounded-xs h-[88px] flex flex-col items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
                 >
                   <Edit2 className="h-5 w-5 text-muted-foreground" strokeWidth={2.4} />
                   <span className="text-[13px] font-semibold text-foreground">Describe</span>
@@ -420,7 +420,7 @@ export function QuickAddDialog({
                 Returns automatically once `photoAnalyzing` flips back to
                 false so the user has a static thumbnail post-scan. */}
             {aiMeal.photoBase64 && !aiMeal.photoAnalyzing && !aiMeal.aiAnalysisComplete && (
-              <div className="relative rounded-2xl overflow-hidden">
+              <div className="relative rounded-xs overflow-hidden">
                 <img
                   src={`data:image/jpeg;base64,${aiMeal.photoBase64}`}
                   alt="Meal"
@@ -464,7 +464,7 @@ export function QuickAddDialog({
               value={aiMeal.aiMealDescription}
               onChange={(e) => aiMeal.setAiMealDescription(e.target.value)}
               disabled={aiMeal.aiAnalyzing}
-              className={`text-[15px] min-h-[88px] resize-none rounded-2xl bg-muted/40 dark:bg-white/[0.06] border-border/30 py-3 px-4 placeholder:text-muted-foreground/50 ${isListening ? "ring-2 ring-red-500/40" : ""}`}
+              className={`text-[15px] min-h-[88px] resize-none rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/30 py-3 px-4 placeholder:text-muted-foreground/50 ${isListening ? "ring-2 ring-func-danger-red/40" : ""}`}
               rows={3}
               onFocus={() => {
                 setTimeout(() => {
@@ -491,9 +491,9 @@ export function QuickAddDialog({
                   type="button"
                   onClick={() => { triggerHapticSelection(); if (isListening) stopListening(); else startListening(); }}
                   disabled={aiMeal.aiAnalyzing}
-                  className={`flex items-center justify-center gap-1.5 px-3.5 h-12 rounded-2xl text-[14px] font-semibold transition-all ${
+                  className={`flex items-center justify-center gap-1.5 px-3.5 h-12 rounded-xs text-[14px] font-semibold transition-all ${
                     isListening
-                      ? "bg-red-500/15 text-red-500 animate-pulse"
+                      ? "bg-func-danger-red/15 text-func-danger-red animate-pulse"
                       : "bg-muted/40 text-muted-foreground active:bg-muted/60"
                   }`}
                 >
@@ -509,7 +509,7 @@ export function QuickAddDialog({
                   else aiMeal.handleAiAnalyzeMeal();
                 }}
                 disabled={aiMeal.aiAnalyzing || (!aiMeal.photoBase64 && !aiMeal.aiMealDescription.trim())}
-                className="relative flex-1 h-12 rounded-2xl text-[15px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40"
+                className="relative flex-1 h-12 rounded-xs text-[15px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40"
               >
                 {aiMeal.aiAnalyzing ? (
                   <span className="inline-flex items-center gap-2">
@@ -539,7 +539,7 @@ export function QuickAddDialog({
               <div className="space-y-3 animate-fade-in pt-1">
                 {/* Photo hero with floating ingredient bubbles */}
                 {aiMeal.photoBase64 && (
-                  <div className="relative rounded-2xl overflow-hidden">
+                  <div className="relative rounded-xs overflow-hidden">
                     <img
                       src={`data:image/jpeg;base64,${aiMeal.photoBase64}`}
                       alt="Meal"
@@ -554,7 +554,7 @@ export function QuickAddDialog({
                     {placedLabels.map(({ x, y, item }, idx) => (
                       <div
                         key={idx}
-                        className="absolute bg-white/95 dark:bg-card/95 backdrop-blur-md text-foreground px-2.5 py-1 rounded-full shadow-lg flex flex-col items-center leading-tight"
+                        className="absolute bg-white/95 dark:bg-card/95 backdrop-blur-md text-foreground px-2.5 py-1 rounded-full flex flex-col items-center leading-tight"
                         style={{
                           left: `${x * 100}%`,
                           top: `${y * 100}%`,
@@ -597,7 +597,7 @@ export function QuickAddDialog({
                     value={manualMeal.meal_name}
                     onChange={(e) => setManualMeal((prev) => ({ ...prev, meal_name: e.target.value }))}
                     placeholder="Name this meal"
-                    className="h-12 rounded-2xl bg-transparent border-0 text-[18px] font-semibold tracking-tight text-foreground placeholder:text-muted-foreground/40 px-0 focus-visible:ring-0"
+                    className="h-12 rounded-xs bg-transparent border-0 text-[18px] font-semibold tracking-tight text-foreground placeholder:text-muted-foreground/40 px-0 focus-visible:ring-0"
                   />
                 </div>
 
@@ -617,7 +617,7 @@ export function QuickAddDialog({
                     return (
                       <div
                         key={m.label}
-                        className={`card-surface rounded-2xl px-3 py-3 flex items-center gap-2.5 text-left transition-transform ${
+                        className={`card-surface rounded-xs px-3 py-3 flex items-center gap-2.5 text-left transition-transform ${
                           isEditing ? "ring-2 ring-primary/40" : "active:scale-[0.98]"
                         }`}
                         onClick={() => { if (!isEditing) beginEditMacro(m.key, m.value); }}
@@ -683,7 +683,7 @@ export function QuickAddDialog({
                         Done editing
                       </button>
                     </div>
-                    <div className="rounded-2xl bg-muted/30 divide-y divide-border/15 overflow-hidden max-h-44 overflow-y-auto">
+                    <div className="rounded-xs bg-muted/30 divide-y divide-border/15 overflow-hidden max-h-44 overflow-y-auto">
                       {aiMeal.aiLineItems.map((item, idx) => (
                         <div key={idx} className="flex items-center gap-2 px-3 py-2">
                           <div className="flex-1 min-w-0">
@@ -693,8 +693,8 @@ export function QuickAddDialog({
                           <div className="flex items-center gap-2 text-[11px] tabular-nums text-muted-foreground/85 flex-shrink-0">
                             <span className="font-bold text-foreground">{item.calories}</span>
                             <span className="text-blue-500">{Math.round(item.protein_g)}P</span>
-                            <span className="text-orange-500">{Math.round(item.carbs_g)}C</span>
-                            <span className="text-purple-500">{Math.round(item.fats_g)}F</span>
+                            <span className="text-func-carbs-orange">{Math.round(item.carbs_g)}C</span>
+                            <span className="text-func-fats-purple">{Math.round(item.fats_g)}F</span>
                           </div>
                           <button
                             type="button"
@@ -715,7 +715,7 @@ export function QuickAddDialog({
                   <button
                     type="button"
                     onClick={() => setShowLineItemEditor((v) => !v)}
-                    className="flex-1 h-12 rounded-2xl border border-border/40 bg-background/40 text-[14px] font-semibold text-foreground active:scale-[0.98] transition-transform inline-flex items-center justify-center gap-1.5"
+                    className="flex-1 h-12 rounded-xs border border-border/40 bg-background/40 text-[14px] font-semibold text-foreground active:scale-[0.98] transition-transform inline-flex items-center justify-center gap-1.5"
                   >
                     <Sparkles className="h-3.5 w-3.5" strokeWidth={2.4} />
                     {showLineItemEditor ? "Hide details" : "Fix results"}
@@ -723,7 +723,7 @@ export function QuickAddDialog({
                   <button
                     onClick={aiMeal.handleSaveAiMeal}
                     disabled={aiMeal.aiLineItems.length === 0}
-                    className="flex-1 h-12 rounded-2xl text-[15px] font-semibold bg-foreground text-background active:scale-[0.98] transition-transform disabled:opacity-40"
+                    className="flex-1 h-12 rounded-xs text-[15px] font-semibold bg-foreground text-background active:scale-[0.98] transition-transform disabled:opacity-40"
                   >
                     Done
                   </button>
@@ -745,7 +745,7 @@ export function QuickAddDialog({
             />
 
             {aiMeal.barcodeBaseMacros && (
-              <div className="rounded-2xl bg-muted/30 p-3.5 space-y-2.5">
+              <div className="rounded-xs bg-muted/30 p-3.5 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/60">Serving</p>
                   <span className="text-[12px] text-muted-foreground/80 font-medium">{aiMeal.barcodeBaseMacros.serving_size}</span>
@@ -765,7 +765,7 @@ export function QuickAddDialog({
                           handleBarcodeServingSet(Math.round(m * 10) / 10, Math.round(grams));
                         }
                       }}
-                      className="w-16 text-[14px] text-right h-9 rounded-lg"
+                      className="w-16 text-[14px] text-right h-9 rounded-xs"
                     />
                     <span className="text-[14px] text-muted-foreground">g</span>
                   </div>
@@ -796,8 +796,8 @@ export function QuickAddDialog({
                 <div className="flex items-center gap-3 pt-2 border-t border-border/20 text-[13px]">
                   <span className="font-bold text-primary">{manualMeal.calories} kcal</span>
                   <span className="text-blue-500">{manualMeal.protein_g}P</span>
-                  <span className="text-orange-500">{manualMeal.carbs_g}C</span>
-                  <span className="text-purple-500">{manualMeal.fats_g}F</span>
+                  <span className="text-func-carbs-orange">{manualMeal.carbs_g}C</span>
+                  <span className="text-func-fats-purple">{manualMeal.fats_g}F</span>
                 </div>
               </div>
             )}
@@ -863,7 +863,7 @@ export function QuickAddDialog({
                 type="button"
                 onClick={handleAddIngredient}
                 disabled={aiMeal.lookingUpIngredient || !aiMeal.newIngredient.name.trim() || !aiMeal.newIngredient.grams}
-                className="shrink-0 h-11 w-11 rounded-2xl bg-primary/15 hover:bg-primary/25 text-primary p-0"
+                className="shrink-0 h-11 w-11 rounded-xs bg-primary/15 hover:bg-primary/25 text-primary p-0"
               >
                 {aiMeal.lookingUpIngredient ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" strokeWidth={2.6} />}
               </Button>
@@ -872,7 +872,7 @@ export function QuickAddDialog({
               <p className="text-[12px] text-destructive">{aiMeal.ingredientLookupError}</p>
             )}
             {manualMeal.ingredients.length > 0 && (
-              <div className="rounded-2xl bg-muted/30 divide-y divide-border/15 overflow-hidden">
+              <div className="rounded-xs bg-muted/30 divide-y divide-border/15 overflow-hidden">
                 {manualMeal.ingredients.map((ingredient, idx) => {
                   const cal = ingredient.calories_per_100g !== undefined
                     ? Math.round(ingredient.calories_per_100g * ingredient.grams / 100)
@@ -910,7 +910,7 @@ export function QuickAddDialog({
             <button
               onClick={onAddManualMeal}
               disabled={savingAllMeals}
-              className="w-full h-12 mt-1 rounded-2xl text-[15px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40"
+              className="w-full h-12 mt-1 rounded-xs text-[15px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40"
             >
               {savingAllMeals ? (
                 <span className="inline-flex items-center gap-2">

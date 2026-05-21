@@ -26,37 +26,37 @@ interface ExerciseBlockProps {
 }
 
 const MUSCLE_BORDER_COLORS: Record<string, string> = {
-  chest: "border-l-red-400",
+  chest: "border-l-func-danger-red",
   back: "border-l-blue-400",
-  shoulders: "border-l-purple-400",
+  shoulders: "border-l-func-fats-purple",
   biceps: "border-l-pink-400",
-  triceps: "border-l-orange-400",
-  quads: "border-l-green-400",
-  hamstrings: "border-l-emerald-400",
+  triceps: "border-l-func-carbs-orange",
+  quads: "border-l-func-recovery-green",
+  hamstrings: "border-l-func-recovery-green",
   glutes: "border-l-lime-400",
   calves: "border-l-teal-400",
-  abs: "border-l-yellow-400",
-  forearms: "border-l-cyan-400",
+  abs: "border-l-func-warning-yellow",
+  forearms: "border-l-func-hydration-cyan",
   traps: "border-l-indigo-400",
-  full_body: "border-l-violet-400",
-  cardio: "border-l-rose-400",
+  full_body: "border-l-func-fats-purple",
+  cardio: "border-l-func-danger-red",
 };
 
 const MUSCLE_COLORS: Record<string, string> = {
-  chest: "bg-red-500/10 text-red-400",
+  chest: "bg-func-danger-red/10 text-func-danger-red",
   back: "bg-blue-500/10 text-blue-400",
-  shoulders: "bg-purple-500/10 text-purple-400",
+  shoulders: "bg-func-fats-purple/10 text-func-fats-purple",
   biceps: "bg-pink-500/10 text-pink-400",
-  triceps: "bg-orange-500/10 text-orange-400",
-  quads: "bg-green-500/10 text-green-400",
-  hamstrings: "bg-emerald-500/10 text-emerald-400",
+  triceps: "bg-func-carbs-orange/10 text-func-carbs-orange",
+  quads: "bg-func-recovery-green/10 text-func-recovery-green",
+  hamstrings: "bg-func-recovery-green/10 text-func-recovery-green",
   glutes: "bg-lime-500/10 text-lime-400",
   calves: "bg-teal-500/10 text-teal-400",
-  abs: "bg-yellow-500/10 text-yellow-400",
-  forearms: "bg-cyan-500/10 text-cyan-400",
+  abs: "bg-func-warning-yellow/10 text-func-warning-yellow",
+  forearms: "bg-func-hydration-cyan/10 text-func-hydration-cyan",
   traps: "bg-indigo-500/10 text-indigo-400",
-  full_body: "bg-violet-500/10 text-violet-400",
-  cardio: "bg-rose-500/10 text-rose-400",
+  full_body: "bg-func-fats-purple/10 text-func-fats-purple",
+  cardio: "bg-func-danger-red/10 text-func-danger-red",
 };
 
 export function ExerciseBlock({
@@ -104,7 +104,7 @@ export function ExerciseBlock({
   return (
     <motion.div
       variants={staggerItem}
-      className={`card-surface rounded-2xl border border-border/50 border-l-[3px] ${borderColor} overflow-hidden`}
+      className={`card-surface rounded-xs border-l-[3px] ${borderColor} overflow-hidden`}
     >
       {/* Header — tappable to toggle collapse when onToggleCollapse is wired.
           The exercise name + chevron-right is the existing tap into stats
@@ -124,7 +124,7 @@ export function ExerciseBlock({
         {onToggleCollapse && (
           <button
             onClick={onToggleCollapse}
-            className="shrink-0 p-1.5 rounded-lg text-muted-foreground/60 hover:text-foreground hover:bg-muted/40 transition-colors"
+            className="shrink-0 p-1.5 rounded-xs text-muted-foreground/60 hover:text-foreground hover:bg-muted/40 transition-colors"
             aria-label={collapsed ? "Expand exercise" : "Collapse exercise"}
             aria-expanded={!collapsed}
           >
@@ -139,7 +139,7 @@ export function ExerciseBlock({
         )}
         <button
           onClick={() => onRemoveExercise(group.exerciseOrder)}
-          className="shrink-0 p-1.5 rounded-lg text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors"
+          className="shrink-0 p-1.5 rounded-xs text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors"
           aria-label="Remove exercise"
         >
           <X className="h-4 w-4" />
@@ -178,7 +178,7 @@ export function ExerciseBlock({
       {/* Last workout hint — beat this */}
       {previousSets && previousSets.length > 0 && (
         <div className="px-3 pb-2 flex items-center gap-1.5 flex-wrap">
-          <Trophy className="h-3 w-3 text-yellow-500/70 shrink-0" />
+          <Trophy className="h-3 w-3 text-func-warning-yellow/70 shrink-0" />
           <span className="text-[10px] uppercase tracking-widest text-muted-foreground/70 shrink-0">Last time</span>
           <div className="flex items-center gap-1 flex-wrap">
             {previousSets.map((s, i) => (

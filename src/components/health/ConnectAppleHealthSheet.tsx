@@ -57,12 +57,12 @@ interface MetricRow {
 
 const METRIC_ROWS: MetricRow[] = [
   {
-    icon: <HeartPulse className="h-4 w-4 text-rose-400" strokeWidth={2.2} />,
+    icon: <HeartPulse className="h-4 w-4 text-func-danger-red" strokeWidth={2.2} />,
     label: "Heart rate variability (HRV)",
     why: "Best single signal for nervous-system recovery.",
   },
   {
-    icon: <Heart className="h-4 w-4 text-red-400" strokeWidth={2.2} />,
+    icon: <Heart className="h-4 w-4 text-func-danger-red" strokeWidth={2.2} />,
     label: "Resting heart rate",
     why: "Detects elevated baseline from poor recovery or illness.",
   },
@@ -72,22 +72,22 @@ const METRIC_ROWS: MetricRow[] = [
     why: "Real sleep duration & quality, not bedtime estimates.",
   },
   {
-    icon: <Activity className="h-4 w-4 text-emerald-400" strokeWidth={2.2} />,
+    icon: <Activity className="h-4 w-4 text-func-recovery-green" strokeWidth={2.2} />,
     label: "Active workouts",
     why: "Confirms training load vs. what you logged.",
   },
   {
-    icon: <Footprints className="h-4 w-4 text-amber-300" strokeWidth={2.2} />,
+    icon: <Footprints className="h-4 w-4 text-func-warning-yellow" strokeWidth={2.2} />,
     label: "Steps & active energy",
     why: "Daily activity baseline.",
   },
   {
-    icon: <TrendingUp className="h-4 w-4 text-cyan-300" strokeWidth={2.2} />,
+    icon: <TrendingUp className="h-4 w-4 text-func-hydration-cyan" strokeWidth={2.2} />,
     label: "VO2 Max",
     why: "Aerobic fitness trajectory across the camp.",
   },
   {
-    icon: <Thermometer className="h-4 w-4 text-orange-300" strokeWidth={2.2} />,
+    icon: <Thermometer className="h-4 w-4 text-func-carbs-orange" strokeWidth={2.2} />,
     label: "Wrist temperature",
     why: "Early sickness / overtraining flag.",
   },
@@ -97,7 +97,7 @@ const METRIC_ROWS: MetricRow[] = [
     why: "Secondary recovery signal.",
   },
   {
-    icon: <Scale className="h-4 w-4 text-violet-300" strokeWidth={2.2} />,
+    icon: <Scale className="h-4 w-4 text-func-fats-purple" strokeWidth={2.2} />,
     label: "Body mass",
     why: "Reads weight from connected smart scales automatically.",
   },
@@ -195,9 +195,9 @@ export function ConnectAppleHealthSheet({
     >
       {/* ── Header ───────────────────────────────────────────────── */}
       <div className="flex items-start gap-3">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-border/50 bg-card/60">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xs border border-border/50 bg-card/60">
           <HeartPulse
-            className="h-6 w-6 text-rose-400"
+            className="h-6 w-6 text-func-danger-red"
             strokeWidth={2.2}
             aria-hidden
           />
@@ -222,9 +222,9 @@ export function ConnectAppleHealthSheet({
             {METRIC_ROWS.map((row) => (
               <li
                 key={row.label}
-                className="flex items-start gap-3 rounded-2xl border border-border/50 bg-card/40 px-3 py-2.5"
+                className="flex items-start gap-3 rounded-xs border border-border/50 bg-card/40 px-3 py-2.5"
               >
-                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-background/60">
+                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xs bg-background/60">
                   {row.icon}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -241,7 +241,7 @@ export function ConnectAppleHealthSheet({
         )}
 
         {error && (
-          <p className="mt-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11.5px] text-amber-200">
+          <p className="mt-3 rounded-xs border border-func-warning-yellow/40 bg-func-warning-yellow/10 px-3 py-2 text-[11.5px] text-amber-200">
             {error}
           </p>
         )}
@@ -256,7 +256,7 @@ export function ConnectAppleHealthSheet({
         <Button
           onClick={handleConnect}
           disabled={connecting || available === false}
-          className="no-tap-select h-12 w-full rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50"
+          className="no-tap-select h-12 w-full rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
         >
           {connecting
             ? "Opening Health…"
@@ -287,7 +287,7 @@ export function ConnectAppleHealthSheet({
  */
 function UnavailablePanel(): JSX.Element {
   return (
-    <div className="flex flex-col items-center gap-2 rounded-2xl border border-border/50 bg-card/40 px-4 py-8 text-center">
+    <div className="flex flex-col items-center gap-2 rounded-xs border border-border/50 bg-card/40 px-4 py-8 text-center">
       <HeartPulse
         className="h-7 w-7 text-muted-foreground/60"
         strokeWidth={1.8}
