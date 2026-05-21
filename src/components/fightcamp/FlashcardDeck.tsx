@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import { Check, RotateCw, Trophy, X } from "lucide-react";
 import { api } from "@/../convex/_generated/api";
 import type { Id } from "@/../convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
-import { disciplineToken } from "@/lib/coachColors";
 import { triggerHaptic, triggerHapticSuccess } from "@/lib/haptics";
 import { logger } from "@/lib/logger";
 import { Flashcard } from "./Flashcard";
@@ -35,6 +34,18 @@ export function FlashcardDeck({ cards, readOnly = false }: FlashcardDeckProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [pending, setPending] = useState(false);
+  // Burst animation state — fires a transient green check overlay every
+  // time the user taps "Got it". `burstKey` re-keys the overlay node so
+  // the CSS animation replays cleanly on repeat presses.
+  const [burstKey, setBurstKey] = useState(0);
+  const [showBurst, setShowBurst] = useState(false);
+  const burstTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (burstTimerRef.current) clearTimeout(burstTimerRef.current);
+    },
+    [],
+  );
 
   // The backend may not be deployed yet in dev; cast through `any` and fall
   // back to a benign mutation (deleteSummary) so `useMutation(undefined)`
@@ -80,17 +91,27 @@ export function FlashcardDeck({ cards, readOnly = false }: FlashcardDeckProps) {
   const handleGot = async () => {
     if (!current || pending) return;
     setPending(true);
+
+    // Fire the burst overlay + success haptic immediately so the user
+    // feels the reward the instant they tap. Mutation runs in parallel.
+    setBurstKey((k) => k + 1);
+    setShowBurst(true);
+    void triggerHapticSuccess();
+    if (burstTimerRef.current) clearTimeout(burstTimerRef.current);
+    burstTimerRef.current = setTimeout(() => setShowBurst(false), 550);
+
     try {
       if (recallCard) {
         await recallCard({ cardId: current._id as Id<"training_summary_cards"> });
       }
-      void triggerHapticSuccess();
     } catch (err) {
       logger.error("recallCard failed", err);
-    } finally {
-      setPending(false);
-      advance();
     }
+    // Let the burst breathe before swapping in the next card — the
+    // dopamine moment is the animation, so don't cut it short.
+    await new Promise((r) => setTimeout(r, 380));
+    setPending(false);
+    advance();
   };
 
   const handleForgot = async () => {
@@ -139,15 +160,8 @@ export function FlashcardDeck({ cards, readOnly = false }: FlashcardDeckProps) {
     );
   }
 
-  // Discipline tint for the "Got it" CTA so the card colour carries through.
-  const token = current ? disciplineToken(current.sport) : "--primary";
-  const gotStyle = {
-    backgroundColor: `hsl(var(${token}) / 0.9)`,
-    color: "hsl(var(--background))",
-  } as const;
-
   return (
-    <div className="space-y-3">
+    <div className="relative space-y-3">
       {current ? (
         <Flashcard
           front={current.front}
@@ -199,14 +213,33 @@ export function FlashcardDeck({ cards, readOnly = false }: FlashcardDeckProps) {
             type="button"
             onClick={handleGot}
             disabled={pending}
-            style={gotStyle}
             className={cn(
-              "min-h-[44px] inline-flex items-center justify-center gap-1.5 rounded-xs text-note font-bold transition-opacity active:opacity-80 disabled:opacity-50"
+              "min-h-[44px] inline-flex items-center justify-center gap-1.5 rounded-xs bg-func-recovery-green text-background text-note font-bold",
+              "transition-transform active:scale-95 disabled:opacity-50",
+              "shadow-[0_0_0_0_hsl(var(--func-recovery-green)/0.4)]",
             )}
           >
-            <Check className="h-4 w-4" />
+            <Check className="h-4 w-4" strokeWidth={3} />
             Got it
           </button>
+        </div>
+      ) : null}
+
+      {/* Burst overlay — fires on every Got it tap. Animates a green check
+          ring zooming up + a pulsing halo so the user gets a sharp dopamine
+          confirmation before the next card slides in. */}
+      {showBurst ? (
+        <div
+          key={burstKey}
+          className="pointer-events-none absolute inset-0 flex items-center justify-center z-20"
+          aria-hidden
+        >
+          <div className="relative animate-in zoom-in-50 fade-in duration-300 ease-out">
+            <span className="absolute inset-0 rounded-full bg-func-recovery-green/40 animate-ping" />
+            <div className="relative h-24 w-24 rounded-full bg-func-recovery-green flex items-center justify-center shadow-2xl">
+              <Check className="h-12 w-12 text-background" strokeWidth={3.5} />
+            </div>
+          </div>
         </div>
       ) : null}
     </div>

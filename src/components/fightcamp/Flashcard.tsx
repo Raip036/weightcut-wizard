@@ -21,11 +21,14 @@ interface FlashcardProps {
 export function Flashcard({ front, back, cue, sport, isFlipped, onFlip }: FlashcardProps) {
   const token = disciplineToken(sport);
   const label = disciplineLabel(sport);
-
+  // Flat pill: muted surface, no gradient. The discipline identity is
+  // carried only via the TEXT colour (matches the discipline's session
+  // colour) so the label still reads as e.g. red for Muay Thai without
+  // any neon glow.
   const pillStyle = {
-    backgroundColor: `hsl(var(${token}) / 0.18)`,
+    backgroundColor: "hsl(var(--muted) / 0.4)",
     color: `hsl(var(${token}))`,
-    borderColor: `hsl(var(${token}) / 0.35)`,
+    borderColor: "hsl(var(--border))",
   } as const;
 
   return (

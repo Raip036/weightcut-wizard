@@ -41,6 +41,7 @@ const sections: CampSection[] = [
     description: "Log gym sessions, track exercises and monitor volume",
     url: "/gym",
     icon: Dumbbell,
+    primary: true,
   },
   {
     title: "Weight Cut Protocol",
@@ -48,6 +49,7 @@ const sections: CampSection[] = [
     url: "/weight-cut",
     icon: TrendingDown,
     fighterOnly: true,
+    primary: true,
   },
   {
     title: "Training Library",
@@ -289,20 +291,20 @@ export default function Camp() {
                   key={section.url}
                   type="button"
                   onClick={() => navigate(section.url)}
-                  className="w-full rounded-xs bg-muted/10 p-4 flex items-center gap-3.5 active:scale-[0.99] transition-all text-left"
+                  className="w-full rounded-xs bg-primary/10 p-4 flex items-center gap-3.5 active:scale-[0.99] transition-all text-left"
                 >
-                  <div className="h-10 w-10 rounded-xs bg-muted/20 flex items-center justify-center flex-shrink-0">
-                    <Icon className="h-5 w-5 text-muted-foreground/70" />
+                  <div className="h-10 w-10 rounded-xs bg-primary/20 flex items-center justify-center flex-shrink-0">
+                    <Icon className="h-5 w-5 text-primary" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-body-sm font-semibold text-muted-foreground leading-tight">
+                    <p className="text-body-sm font-bold text-foreground leading-tight">
                       {section.title}
                     </p>
-                    <p className="text-note text-muted-foreground/60 leading-snug mt-0.5">
+                    <p className="text-note text-muted-foreground leading-snug mt-0.5">
                       {section.description}
                     </p>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground/30 flex-shrink-0" />
+                  <ChevronRight className="h-4 w-4 text-primary/60 flex-shrink-0" />
                 </button>
               );
             })}
