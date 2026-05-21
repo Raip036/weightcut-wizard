@@ -63,7 +63,7 @@ export default function TodayStrip({ adherence, mealsLoggedToday }: Props) {
         <div
           className={cn(
             "h-full rounded-full transition-all duration-500",
-            allSet ? "bg-func-recovery-green" : "bg-brand-dream-cyan",
+            allSet ? "bg-func-recovery-green" : "bg-primary",
           )}
           style={{ width: `${(doneCount / total) * 100}%` }}
         />
