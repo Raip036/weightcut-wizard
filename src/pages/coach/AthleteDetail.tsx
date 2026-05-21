@@ -10,6 +10,7 @@ import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { useToast } from "@/hooks/use-toast";
+import { PrescribePathSection } from "@/components/coach/PrescribePathSection";
 import { triggerHaptic } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
 import { globalLoading } from "@/lib/globalLoading";
@@ -272,6 +273,11 @@ export default function AthleteDetail() {
             <p className="text-[12px] text-muted-foreground text-center px-3 py-4">No sessions logged yet</p>
           )}
         </div>
+
+        {/* Coach push: prescribe a training path */}
+        {athleteId && (
+          <PrescribePathSection athleteId={athleteId as Id<"users">} />
+        )}
 
         {/* Action row */}
         <div className="flex items-center gap-2 pt-1">
