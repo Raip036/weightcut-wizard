@@ -85,7 +85,7 @@ const Index = () => {
   }
 
   return (
-    /* Page bg uses var(--background) (#000513 / brand-void) — the
+    /* Page bg uses var(--background) (#0F0F0F / neutral-1000) — the
        previous `dark:bg-[#020204]` override forced an off-brand black,
        removed so the welcome page matches the rest of the app. */
     <div

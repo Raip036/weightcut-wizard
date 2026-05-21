@@ -123,14 +123,16 @@ All colors MUST be HSL.
   .dark {
     /* Dark mode - Clean blue dark */
 
-    /* Design System v1 — page background is brand --neutral-1000 (#000513)
-       so cards (#0E1A30 / neutral-800) sit on a subtly bluer dark ground
-       rather than neutral black. HSL form: 224 100% 4% ≈ #000513. */
-    --background: 224 100% 4%;
+    /* Design System v1 — page background is `--neutral-1000` (#0F0F0F),
+       a neutral very dark grey. Cards (#1E1E1E / neutral-800) sit on the
+       grey ground with a clear luminance step. HSL form: 0 0% 6% ≈ #0F0F0F.
+       The blue-tinted void background was retired — palette is now
+       neutral grey for surfaces, brand/func colors for buttons and status. */
+    --background: 0 0% 6%;
     --foreground: 0 0% 95%;
 
-    /* Solid card surface */
-    --card: 220 10% 9%;
+    /* Solid card surface — matches `--neutral-800` (#1E1E1E). */
+    --card: 0 0% 12%;
     --card-foreground: 0 0% 95%;
 
     --popover: 220 10% 7%;
@@ -216,15 +218,20 @@ All colors MUST be HSL.
     --func-protein-blue:    42  91 221;   /* #2A5BDD */
     --func-hydration-cyan:  18 202 230;   /* #12CAE6 */
 
-    /* ---- NEUTRALS ---- */
+    /* ---- NEUTRALS ----
+       Light scale (100–500) keeps its slight cool tint — used at low
+       opacity for text/borders where the warmth doesn't read. The dark
+       scale (700–1000) was shifted from blue-tinted to neutral grey so
+       the main background and cards no longer read as "navy dark mode"
+       but as a clean grey dark mode. */
     --neutral-100:         226 229 242;   /* #E2E5F2 */
     --neutral-200:         222 222 247;   /* #DEDEF7 */
     --neutral-400:         140 150 180;   /* #8C96B4 */
     --neutral-500:          77  88 119;   /* #4D5877 */
-    --neutral-700:          22  33  55;   /* #162137 */
-    --neutral-800:          14  26  48;   /* #0E1A30 */
-    --neutral-900:           3  11  24;   /* #030B18 */
-    --neutral-1000:          0   5  19;   /* #000513 */
+    --neutral-700:          42  42  42;   /* #2A2A2A */
+    --neutral-800:          30  30  30;   /* #1E1E1E — Card surface */
+    --neutral-900:          18  18  18;   /* #121212 */
+    --neutral-1000:         15  15  15;   /* #0F0F0F — Page background */
 
     /* ---- GRADIENTS ----
        Kept for hero treatments (progress bars, large CTAs, splash). The
@@ -341,11 +348,10 @@ All colors MUST be HSL.
     -webkit-touch-callout: default;
   }
 
-  /* Dark mode: solid background. Uses `var(--background)` (#000513 /
-     brand void) instead of a hardcoded neutral black so the page picks
-     up the Design System v1 page color. Was previously hardcoded
-     `hsl(0 0% 4%)`, which overrode the variable and kept the page
-     reading as neutral black. */
+  /* Dark mode: solid background. Uses `var(--background)` (#0F0F0F,
+     `--neutral-1000`) so the page picks up the Design System v1 page
+     color. Was previously hardcoded `hsl(0 0% 4%)`, which overrode the
+     variable. */
   .dark html,
   .dark body {
     background-color: hsl(var(--background));
@@ -509,7 +515,7 @@ All colors MUST be HSL.
     border-color: hsl(var(--primary-foreground) / 0.3);
   }
 
-  /* Card surfaces — Design System v1. Solid neutral-800 (#0E1A30),
+  /* Card surfaces — Design System v1. Solid neutral-800 (#1E1E1E),
      no border, no shadow. Hierarchy comes from the surface contrast
      against the darker page background. Dialogs and the sidebar
      opt-in to the same recipe so the whole app reads consistently. */

@@ -12,12 +12,12 @@
 ## 1. Philosophy
 
 - **Dark only.** Light mode was removed entirely. `<html>` boots with the `.dark`
-  class forced on at parse time (see `index.html`) and `--background` is a brand
-  void (`#000513`), not neutral black.
+  class forced on at parse time (see `index.html`) and `--background` is a
+  neutral very dark grey (`#0F0F0F`).
 - **Flat surfaces, no shadows.** Cards, buttons, dialogs, sheets and toasts all
   render without `box-shadow` or Tailwind `shadow-*` utilities. Visual hierarchy
-  comes from the surface contrast of `neutral-800` (`#0E1A30`) against the
-  darker `--background` (`#000513`). The only `box-shadow` survivors are `inset`
+  comes from the surface contrast of `neutral-800` (`#1E1E1E`) against the
+  darker `--background` (`#0F0F0F`). The only `box-shadow` survivors are `inset`
   border highlights and a couple of functional camera-UI scan-line glows
   (`BarcodeScanner`, `MealPhotoScanOverlay`). Brand glow halos on illustrations
   (wizard FAB, OrbSpinner, welcome mascot) use the `drop-shadow()` *filter*,
@@ -71,21 +71,21 @@ All defined in `src/index.css` `:root`. Reference via Tailwind shortcuts in
 | `--neutral-200` | `#DEDEF7` | `neutral-200` | Default text on dark buttons |
 | `--neutral-400` | `#8C96B4` | `neutral-400` | Inactive nav icons (legacy), avatar text |
 | `--neutral-500` | `#4D5877` | `neutral-500` | Body / Caption color (low emphasis) |
-| `--neutral-700` | `#162137` | `neutral-700` | Avatar background, progress-bar track variant |
-| `--neutral-800` | `#0E1A30` | `neutral-800` | **Standard card surface** |
-| `--neutral-900` | `#030B18` | `neutral-900` | Crystal-glass progress track |
-| `--neutral-1000` | `#000513` | `neutral-1000` | Page background (`--background`) |
+| `--neutral-700` | `#2A2A2A` | `neutral-700` | Avatar background, progress-bar track variant |
+| `--neutral-800` | `#1E1E1E` | `neutral-800` | **Standard card surface** |
+| `--neutral-900` | `#121212` | `neutral-900` | Crystal-glass progress track |
+| `--neutral-1000` | `#0F0F0F` | `neutral-1000` | Page background (`--background`) |
 
 ### Page background
 
 ```css
 /* index.css */
---background: 224 100% 4%;     /* ≈ #000513 (HSL form for shadcn convention) */
+--background: 0 0% 6%;     /* ≈ #0F0F0F (HSL form for shadcn convention) */
 ```
 
 The previous `.dark body { background-color: hsl(0 0% 4%); }` hardcoded
 override is removed; body now uses `hsl(var(--background))` so the page picks
-up `#000513` consistently.
+up `#0F0F0F` (neutral dark grey) consistently.
 
 ---
 
@@ -376,7 +376,7 @@ Same for the bundle-ID change you may have made locally for device signing
 | **Card surface** | Base shadcn Card + global `.card-surface` rule flat; Dashboard, Gym, Profile, WeightTracker migrated | 8 files still using `bg-card/N`; some shadcn primitives untouched |
 | **Buttons** | All 6 variants updated to v1 palette | Many `<button>` elements with hand-rolled classes (not using `<Button>`) |
 | **Loading states** | `OrbSpinner` exists | `<Loader2>` still in ~10 files |
-| **Page background** | `--background` set to `#000513` everywhere | None — done |
+| **Page background** | `--background` set to `#0F0F0F` everywhere | None — done |
 | **Light mode** | Removed | None — done |
 
 ---

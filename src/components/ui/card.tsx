@@ -3,9 +3,9 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /* Design System v1 — Card surface (Figma CARDS section, node 67:721).
- *  Solid `#0E1A30` (neutral-800) on the dark page background creates
- *  visual hierarchy via contrast alone; no border, no shadow. 8px
- *  radius via the `rounded-xs` token. Existing call sites can still
+ *  Solid `#1E1E1E` (neutral-800) on the dark grey page background
+ *  creates visual hierarchy via contrast alone; no border, no shadow.
+ *  8px radius via the `rounded-xs` token. Existing call sites can still
  *  override anything via className. */
 const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => (
   <div
