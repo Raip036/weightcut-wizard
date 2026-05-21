@@ -836,10 +836,10 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => setNextCampOpen(true)}
-              className="w-full text-left rounded-2xl card-surface border border-primary/30 p-3 active:scale-[0.99] transition-transform"
+              className="w-full text-left rounded-xs card-surface border border-primary/30 p-3 active:scale-[0.99] transition-transform"
             >
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-2xl bg-primary/15 flex items-center justify-center shrink-0">
+                <div className="h-10 w-10 rounded-xs bg-primary/15 flex items-center justify-center shrink-0">
                   <Trophy className="h-5 w-5 text-primary" strokeWidth={2.4} />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -929,7 +929,7 @@ export default function Dashboard() {
               <button
                 type="button"
                 onClick={() => { triggerHapticSelection(); navigate("/weight"); }}
-                className="w-full text-left rounded-xl border border-border/50 bg-card/40 px-3 py-1.5 active:scale-[0.99] transition-transform"
+                className="w-full text-left rounded-xs border border-border/50 bg-card/40 px-3 py-1.5 active:scale-[0.99] transition-transform"
                 aria-label="Open weight tracker"
               >
                 {/* Single-row track: Start label · rail · Goal label.
@@ -1124,7 +1124,7 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             {daysUntilTarget > 0 && (
-              <div className="rounded-2xl px-2.5 py-1.5 text-center backdrop-blur-md bg-white/10 border border-white/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]">
+              <div className="rounded-xs px-2.5 py-1.5 text-center backdrop-blur-md bg-white/10 border border-white/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]">
                 <p className="text-body-sm font-bold tabular-nums leading-none">{daysUntilTarget}</p>
                 <p className="text-micro uppercase tracking-wider text-muted-foreground mt-0.5">Days left</p>
               </div>
@@ -1134,8 +1134,8 @@ export default function Dashboard() {
         </header>
 
         {weightLogs.length === 0 && (
-          <button onClick={() => navigate('/weight')} className="w-full card-surface rounded-2xl border border-border/50 p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all">
-            <div className="h-9 w-9 rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+          <button onClick={() => navigate('/weight')} className="w-full card-surface rounded-xs border border-border/50 p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all">
+            <div className="h-9 w-9 rounded-xs bg-primary/10 flex items-center justify-center flex-shrink-0">
               <Scale className="h-4 w-4 text-primary" />
             </div>
             <div className="flex-1 text-left min-w-0">
@@ -1160,8 +1160,8 @@ export default function Dashboard() {
         {/* Wizard's Daily Wisdom card — conditional states */}
         <div data-tutorial="daily-wisdom-card">
         {!hasTodayLog ? (
-          <button onClick={() => navigate('/weight')} className="w-full card-surface rounded-2xl border border-border/50 p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all">
-            <div className="h-8 w-8 rounded-xl bg-muted/40 flex items-center justify-center flex-shrink-0">
+          <button onClick={() => navigate('/weight')} className="w-full card-surface rounded-xs border border-border/50 p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all">
+            <div className="h-8 w-8 rounded-xs bg-muted/40 flex items-center justify-center flex-shrink-0">
               <Lock className="h-3.5 w-3.5 text-muted-foreground" />
             </div>
             <div className="flex-1 text-left min-w-0">
@@ -1173,16 +1173,16 @@ export default function Dashboard() {
             <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           </button>
         ) : wisdomLoading ? (
-          <div className="card-surface rounded-2xl border border-border/50 p-3 flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-xl bg-muted/40 flex-shrink-0" />
+          <div className="card-surface rounded-xs border border-border/50 p-3 flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-xs bg-muted/40 flex-shrink-0" />
             <div className="flex-1 min-w-0 space-y-1.5">
               <div className="h-2.5 rounded shimmer-skeleton w-1/3" />
               <div className="h-2.5 rounded shimmer-skeleton w-full" />
             </div>
           </div>
         ) : wisdom ? (
-          <button className="w-full text-left card-surface rounded-2xl border border-border/50 p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all" onClick={handleWisdomClick}>
-            <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+          <button className="w-full text-left card-surface rounded-xs border border-border/50 p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all" onClick={handleWisdomClick}>
+            <div className="h-8 w-8 rounded-xs bg-primary/10 flex items-center justify-center flex-shrink-0">
               <Zap className="h-3.5 w-3.5 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
@@ -1201,8 +1201,8 @@ export default function Dashboard() {
             </div>
           </button>
         ) : (
-          <div className="card-surface rounded-2xl border border-border/50 p-3 flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-xl bg-muted/40 flex items-center justify-center flex-shrink-0">
+          <div className="card-surface rounded-xs border border-border/50 p-3 flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-xs bg-muted/40 flex items-center justify-center flex-shrink-0">
               <Zap className="h-3.5 w-3.5 text-muted-foreground" />
             </div>
             <div className="flex-1 min-w-0">
@@ -1222,7 +1222,7 @@ export default function Dashboard() {
         {/* Weight History + Training — side by side */}
         <div className="grid grid-cols-2 gap-2">
           {/* Weight History Chart */}
-          <div className="card-surface rounded-2xl border border-border p-2.5 aspect-square flex flex-col">
+          <div className="card-surface rounded-xs border border-border p-2.5 aspect-square flex flex-col">
             <div className="flex items-center justify-between mb-1">
               <span className="section-header text-foreground font-bold">Weight</span>
               <div className="flex gap-0.5 bg-muted rounded-full p-0.5">
@@ -1246,7 +1246,7 @@ export default function Dashboard() {
             </div>
             <div className="flex-1 min-h-0">
               {chartData.length > 0 ? (
-                <Suspense fallback={<div className="h-full w-full animate-pulse bg-muted/20 rounded-2xl" />}>
+                <Suspense fallback={<div className="h-full w-full animate-pulse bg-muted/20 rounded-xs" />}>
                   <DashboardWeightChart data={chartData} weightUnit={weightUnit} />
                 </Suspense>
               ) : (
@@ -1289,9 +1289,9 @@ export default function Dashboard() {
                 } catch { /* malformed — default route stands */ }
                 navigate(route);
               }}
-              className="card-surface rounded-2xl border border-border/50 p-3 flex items-center gap-2.5 active:scale-[0.98] transition-all text-left"
+              className="card-surface rounded-xs border border-border/50 p-3 flex items-center gap-2.5 active:scale-[0.98] transition-all text-left"
             >
-              <div className="h-9 w-9 rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <div className="h-9 w-9 rounded-xs bg-primary/10 flex items-center justify-center flex-shrink-0">
                 <Swords className="h-4 w-4 text-primary" />
               </div>
               <div className="flex-1 min-w-0">
@@ -1334,17 +1334,17 @@ export default function Dashboard() {
             <div className="px-4 space-y-2.5">
               {/* 3-col status grid */}
               <div className="grid grid-cols-3 gap-1.5">
-                <button onClick={() => setExpandedInfo(expandedInfo === 'risk' ? null : 'risk')} className={`rounded-lg py-2 text-center transition-colors ${expandedInfo === 'risk' ? 'bg-muted/40' : 'bg-muted/20 active:bg-muted/30'}`}>
+                <button onClick={() => setExpandedInfo(expandedInfo === 'risk' ? null : 'risk')} className={`rounded-xs py-2 text-center transition-colors ${expandedInfo === 'risk' ? 'bg-muted/40' : 'bg-muted/20 active:bg-muted/30'}`}>
                   <span className={`text-note font-medium ${riskColors[wisdom.riskLevel]}`}>
                     {wisdom.riskLevel.charAt(0).toUpperCase() + wisdom.riskLevel.slice(1)}
                   </span>
                   <p className="text-note text-muted-foreground mt-0.5">Risk</p>
                 </button>
-                <div className="rounded-lg bg-muted/20 py-2 text-center">
+                <div className="rounded-xs bg-muted/20 py-2 text-center">
                   <p className="text-value font-bold tabular-nums">{wisdom.daysToFight}</p>
                   <p className="text-note text-muted-foreground">Days Left</p>
                 </div>
-                <button onClick={() => setExpandedInfo(expandedInfo === 'pace' ? null : 'pace')} className={`rounded-lg py-2 text-center transition-colors ${expandedInfo === 'pace' ? 'bg-muted/40' : 'bg-muted/20 active:bg-muted/30'}`}>
+                <button onClick={() => setExpandedInfo(expandedInfo === 'pace' ? null : 'pace')} className={`rounded-xs py-2 text-center transition-colors ${expandedInfo === 'pace' ? 'bg-muted/40' : 'bg-muted/20 active:bg-muted/30'}`}>
                   <p className={`text-note font-semibold ${paceColors[wisdom.paceStatus] ?? 'text-foreground'}`}>
                     {paceLabels[wisdom.paceStatus] ?? wisdom.paceStatus}
                   </p>
@@ -1371,7 +1371,7 @@ export default function Dashboard() {
               )}
 
               {/* Weight Pace */}
-              <div className="rounded-2xl bg-muted/20 p-3">
+              <div className="rounded-xs bg-muted/20 p-3">
                 <h4 className="text-body-sm font-semibold mb-2">Weight Pace</h4>
                 <div className="grid grid-cols-2 gap-3 mb-2">
                   <div>
@@ -1405,19 +1405,19 @@ export default function Dashboard() {
                 const pcts = [...floors];
                 for (let k = 0; k < order.length && rem > 0; k++, rem--) pcts[order[k].i] += 1;
                 return (
-                  <div className="rounded-2xl bg-muted/20 p-3 space-y-3">
+                  <div className="rounded-xs bg-muted/20 p-3 space-y-3">
                     <h4 className="text-body-sm font-semibold">Guidance</h4>
 
                     <div className="grid grid-cols-3 gap-2">
-                      <div className="rounded-lg bg-background/40 p-2 text-center">
+                      <div className="rounded-xs bg-background/40 p-2 text-center">
                         <p className="text-micro uppercase tracking-wider text-muted-foreground">Current</p>
                         <p className="text-value font-bold tabular-nums">{cur.toFixed(1)}<span className="text-micro text-muted-foreground font-normal"> kg</span></p>
                       </div>
-                      <div className="rounded-lg bg-background/40 p-2 text-center">
+                      <div className="rounded-xs bg-background/40 p-2 text-center">
                         <p className="text-micro uppercase tracking-wider text-muted-foreground">Goal</p>
                         <p className="text-value font-bold tabular-nums">{goal.toFixed(1)}<span className="text-micro text-muted-foreground font-normal"> kg</span></p>
                       </div>
-                      <div className="rounded-lg bg-primary/10 p-2 text-center">
+                      <div className="rounded-xs bg-primary/10 p-2 text-center">
                         <p className="text-micro uppercase tracking-wider text-primary/80">Daily</p>
                         <p className="text-value font-bold tabular-nums text-primary">{calorieTarget}<span className="text-micro font-normal"> kcal</span></p>
                       </div>
@@ -1429,7 +1429,7 @@ export default function Dashboard() {
                         { label: 'Carbs', g: carbsG, pct: pcts[1], color: 'text-func-carbs-orange' },
                         { label: 'Fats', g: fatsG, pct: pcts[2], color: 'text-func-fats-purple' },
                       ].map((m) => (
-                        <div key={m.label} className="rounded-lg bg-background/40 p-2 text-center">
+                        <div key={m.label} className="rounded-xs bg-background/40 p-2 text-center">
                           <p className={`text-body-sm font-bold tabular-nums ${m.color}`}>{m.g}g</p>
                           <p className="text-micro text-muted-foreground">{m.label} · {m.pct}%</p>
                         </div>
@@ -1450,7 +1450,7 @@ export default function Dashboard() {
                 const numericAction = `Hit ${calorieTarget} kcal today · ${proteinG}P / ${carbsG}C / ${fatsG}F`;
                 const items = [numericAction, ...wisdom.actionItems];
                 return (
-                  <div className="rounded-2xl bg-muted/20 p-3">
+                  <div className="rounded-xs bg-muted/20 p-3">
                     <h4 className="text-body-sm font-semibold mb-2">Action Items</h4>
                     <ol className="space-y-2">
                       {items.map((item, i) => (
@@ -1467,13 +1467,13 @@ export default function Dashboard() {
               })()}
 
               {/* Nutrition — foods you eat often + swap ideas */}
-              <div className="rounded-2xl bg-muted/20 p-3 space-y-2.5">
+              <div className="rounded-xs bg-muted/20 p-3 space-y-2.5">
                 <h4 className="text-body-sm font-semibold">Nutrition</h4>
                 <p className="text-body-sm text-muted-foreground leading-relaxed">{wisdom.nutritionStatus}</p>
                 {frequentMeals.length > 0 && (
                   <div className="space-y-1.5 pt-1">
                     <p className="text-micro uppercase tracking-wider text-muted-foreground/80">Foods you eat often</p>
-                    <ul className="divide-y divide-border/20 rounded-lg bg-background/40 overflow-hidden">
+                    <ul className="divide-y divide-border/20 rounded-xs bg-background/40 overflow-hidden">
                       {frequentMeals.map((m) => (
                         <li key={m.name} className="flex items-start gap-3 px-3 py-2.5">
                           <div className="flex-1 min-w-0">

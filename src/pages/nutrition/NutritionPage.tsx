@@ -430,7 +430,7 @@ export default function NutritionPage() {
             <button
               onClick={() => dietAnalysisHook.handleAnalyseDiet()}
               disabled={nutritionData.dietAnalysisLoading}
-              className="relative card-surface w-full p-3.5 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform rounded-2xl"
+              className="relative card-surface w-full p-3.5 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform rounded-xs"
             >
               <span className="text-sm font-medium text-foreground">Analyse Diet</span>
               {proBadge && (

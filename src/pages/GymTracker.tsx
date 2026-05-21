@@ -451,7 +451,7 @@ export default function GymTracker() {
                           setSessionType(t as SessionType);
                           triggerHaptic(ImpactStyle.Light);
                         }}
-                        className={`relative flex items-center gap-2 rounded-2xl border px-3 py-2.5 text-left active:scale-[0.97] transition-all ${
+                        className={`relative flex items-center gap-2 rounded-xs border px-3 py-2.5 text-left active:scale-[0.97] transition-all ${
                           active
                             ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/30"
                             : "bg-muted/30 border-border/30 hover:bg-muted/50"
@@ -468,7 +468,7 @@ export default function GymTracker() {
                 <button
                   onClick={handleStartWorkout}
                   disabled={startingWorkout}
-                  className="mt-3 w-full h-12 rounded-2xl text-[15px] font-bold text-primary-foreground bg-primary flex items-center justify-center active:scale-[0.98] transition-transform disabled:opacity-60 shadow-lg shadow-primary/30"
+                  className="mt-3 w-full h-12 rounded-xs text-[15px] font-bold text-primary-foreground bg-primary flex items-center justify-center active:scale-[0.98] transition-transform disabled:opacity-60 shadow-lg shadow-primary/30"
                 >
                   {startingWorkout ? "Starting…" : `Start ${sessionType.toLowerCase()} workout`}
                 </button>
@@ -785,7 +785,7 @@ function ProgressTabContent({
               <button
                 key={id}
                 onClick={() => onExerciseTap(ex)}
-                className="w-full flex items-center gap-3 rounded-2xl border border-border/40 bg-card/50 px-3 py-2.5 active:bg-muted/30 transition-colors text-left"
+                className="w-full flex items-center gap-3 rounded-xs border border-border/40 bg-card/50 px-3 py-2.5 active:bg-muted/30 transition-colors text-left"
               >
                 <div className="flex-1 min-w-0">
                   <p className="text-[14px] font-semibold truncate text-foreground">{ex.name}</p>

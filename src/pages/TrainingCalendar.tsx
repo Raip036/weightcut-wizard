@@ -849,7 +849,7 @@ export default function TrainingCalendar() {
                                 key={ds}
                                 whileTap={{ scale: 0.94 }}
                                 onClick={() => { triggerHapticSelection(); setSelectedDate(d); }}
-                                className={`relative flex flex-col items-center justify-center h-[68px] rounded-2xl border transition-colors ${
+                                className={`relative flex flex-col items-center justify-center h-[68px] rounded-xs border transition-colors ${
                                     active
                                         ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/30"
                                         : "bg-card/40 text-foreground/85 border-border/40 hover:bg-muted/40"
@@ -900,7 +900,7 @@ export default function TrainingCalendar() {
                     <DialogTrigger asChild>
                         <button
                             onClick={openLogModal}
-                            className="w-full h-12 rounded-2xl bg-primary text-primary-foreground font-bold text-[14px] flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-lg shadow-primary/30"
+                            className="w-full h-12 rounded-xs bg-primary text-primary-foreground font-bold text-[14px] flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-lg shadow-primary/30"
                         >
                             <Plus className="h-4 w-4" strokeWidth={2.6} />
                             Log a session
@@ -955,7 +955,7 @@ export default function TrainingCalendar() {
                         {isLoading ? (
                             <div className="flex flex-col gap-3">
                                 {[1, 2].map(i => (
-                                    <div key={i} className="card-surface rounded-2xl p-5 overflow-hidden relative border border-border">
+                                    <div key={i} className="card-surface rounded-xs p-5 overflow-hidden relative border border-border">
                                         <div className="absolute top-0 left-0 right-0 h-[2px]">
                                             <Skeleton className="w-1/3 h-full" />
                                         </div>
@@ -1233,7 +1233,7 @@ function WizardTrainingEmptyState({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: "easeOut" }}
-      className="relative overflow-hidden rounded-3xl border border-border/50 bg-card/60 p-4"
+      className="relative overflow-hidden rounded-xs border border-border/50 bg-card/60 p-4"
     >
       <div className="flex items-start gap-3 mb-3">
         <div className="relative shrink-0" style={{ width: 64, height: 64 }}>

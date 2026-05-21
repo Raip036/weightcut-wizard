@@ -106,9 +106,9 @@ export default function Recovery() {
     if (isLoading) {
         return (
             <div className="space-y-3 px-5 py-3 sm:p-5 md:p-6 max-w-7xl mx-auto pb-16 md:pb-6">
-                <Card className="p-6 rounded-2xl card-surface">
+                <Card className="p-6 rounded-xs card-surface">
                     <Skeleton className="h-6 w-40 mb-4" />
-                    <Skeleton className="h-48 w-full rounded-2xl" />
+                    <Skeleton className="h-48 w-full rounded-xs" />
                 </Card>
             </div>
         );
@@ -126,7 +126,7 @@ export default function Recovery() {
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.35, ease: "easeOut" }}
-                    className="relative overflow-hidden rounded-3xl border border-border/50 bg-card/60 p-5"
+                    className="relative overflow-hidden rounded-xs border border-border/50 bg-card/60 p-5"
                 >
                     <div className="flex items-start gap-3 mb-4">
                         <div className="relative shrink-0" style={{ width: 72, height: 72 }}>
