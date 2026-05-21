@@ -316,6 +316,10 @@ export default function WeightTracker() {
         </div>
       )}
       <div className="animate-page-in space-y-4 px-5 py-3 sm:p-5 md:p-6 max-w-2xl mx-auto">
+        <header className="pt-1">
+          <p className="text-micro uppercase tracking-[0.15em] text-muted-foreground/70 font-bold">Your</p>
+          <h1 className="text-title font-semibold leading-tight">Weight Tracker</h1>
+        </header>
         {/* ── Hero log form — primary action, prominent ───────── */}
         <div className="card-surface rounded-xs px-5 py-5">
           <div className="flex items-center justify-between mb-3">

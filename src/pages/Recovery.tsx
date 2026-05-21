@@ -169,6 +169,10 @@ export default function Recovery() {
 
     return (
         <div className="animate-page-in space-y-3 px-5 py-3 sm:p-5 md:p-6 max-w-7xl mx-auto pb-16 md:pb-6">
+            <header className="pt-1">
+              <p className="text-micro uppercase tracking-[0.15em] text-muted-foreground/70 font-bold">Your</p>
+              <h1 className="text-title font-semibold leading-tight">Wellness</h1>
+            </header>
             {userId && (
                 showHealthTiles
                     ? <HealthTilesPanel />

@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Moon, ChevronRight, Check, Minus, Plus, X } from "lucide-react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
@@ -22,6 +23,7 @@ const today = () => new Date().toISOString().split("T")[0];
 const cacheKey = (date: string) => `sleep_log_${date}`;
 
 export const SleepLogger = memo(function SleepLogger({ userId, compact }: SleepLoggerProps) {
+  const navigate = useNavigate();
   const [hours, setHours] = useState(DEFAULT_HOURS);
   const [draftHours, setDraftHours] = useState(DEFAULT_HOURS);
   const [saved, setSaved] = useState(false);
@@ -97,7 +99,7 @@ export const SleepLogger = memo(function SleepLogger({ userId, compact }: SleepL
     <button
       type="button"
       className="card-surface rounded-xs px-4 py-3.5 flex items-center gap-3 active:scale-[0.98] transition-all text-left w-full"
-      onClick={openSheet}
+      onClick={() => { triggerHaptic(ImpactStyle.Light); navigate("/sleep"); }}
     >
       <div className="h-9 w-9 rounded-xs bg-primary/10 flex items-center justify-center flex-shrink-0">
         <Moon className="h-4 w-4 text-primary" />

@@ -8,7 +8,7 @@ import {
   Tooltip,
   ReferenceArea,
 } from "recharts";
-import { Moon, Plus, Minus } from "lucide-react";
+import { Plus, Minus } from "lucide-react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import { useUser } from "@/contexts/UserContext";
@@ -150,11 +150,11 @@ export default function Sleep() {
   return (
     <div className="animate-page-in space-y-3 px-5 py-3 sm:p-5 md:p-6 max-w-7xl mx-auto pb-16 md:pb-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Moon className="h-5 w-5 text-primary" />
-          <h1 className="text-lg font-bold">Sleep</h1>
-        </div>
+      <div className="flex items-end justify-between pt-1">
+        <header>
+          <p className="text-micro uppercase tracking-[0.15em] text-muted-foreground/70 font-bold">Your</p>
+          <h1 className="text-title font-semibold leading-tight">Sleep</h1>
+        </header>
         <div className="flex gap-1 p-0.5 rounded-xs bg-muted/30">
           {(["1W", "1M", "3M"] as const).map((tf) => (
             <button

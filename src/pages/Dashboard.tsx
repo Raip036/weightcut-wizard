@@ -860,21 +860,23 @@ export default function Dashboard() {
 
           {/* Fight Form Score ring + educational insight strip */}
           <div className="flex flex-col items-center pt-1">
-            <FightFormRing
-              score={ffScore.displayedScore}
-              label={ffScore.label}
-              state={ffScore.state}
-              calibratingDays={ringCalibratingDays}
-              rawScore={ffScore.rawScore}
-              appliedCeiling={ffScore.appliedCeiling}
-              phase={ffScore.phase}
-              celebrateSharp={celebrateSharp}
-              onTap={() =>
-                ffScore.state === "no_camp"
-                  ? navigate("/goals")
-                  : setScoreSheetOpen(true)
-              }
-            />
+            <div data-tutorial="fight-form-ring-only">
+              <FightFormRing
+                score={ffScore.displayedScore}
+                label={ffScore.label}
+                state={ffScore.state}
+                calibratingDays={ringCalibratingDays}
+                rawScore={ffScore.rawScore}
+                appliedCeiling={ffScore.appliedCeiling}
+                phase={ffScore.phase}
+                celebrateSharp={celebrateSharp}
+                onTap={() =>
+                  ffScore.state === "no_camp"
+                    ? navigate("/goals")
+                    : setScoreSheetOpen(true)
+                }
+              />
+            </div>
             <FightFormInsightStrip
               state={ffScore.state}
               label={ffScore.label}

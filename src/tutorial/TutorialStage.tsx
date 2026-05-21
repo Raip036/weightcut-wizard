@@ -47,8 +47,6 @@ function sectionIdForStep(stepId: string): string | null {
 
 /** Padding (px) added around the spotlight element on each side. */
 const SPOTLIGHT_PADDING = 10;
-/** Border-radius (px) of the spotlight cutout. */
-const SPOTLIGHT_RADIUS = 24;
 
 function StageInner({
   isActive,
@@ -66,6 +64,7 @@ function StageInner({
   const [spotlightRect, setSpotlightRect] = useState<DOMRect | null>(null);
   const prevSectionRef = useRef<string | null>(null);
   const successFiredRef = useRef(false);
+  const lastSpotGeomRef = useRef<{ cx: number; cy: number; r: number } | null>(null);
 
   const isLastStep = currentStepIndex === totalSteps - 1;
 
@@ -164,53 +163,59 @@ function StageInner({
       {/* Backdrop — click-to-advance handler covering the full screen. */}
       <div className="absolute inset-0" onClick={handleBackdropTap} />
 
-      {/* Scrim / spotlight overlay.
-          - No spotlight: plain semi-transparent scrim.
-          - Spotlight active: SVG mask that renders the scrim everywhere
-            except a rounded-rect window over the target element.
-            maskUnits default (objectBoundingBox) is fine because we let
-            the mask content use userSpaceOnUse (the default for
-            maskContentUnits) so pixel coords from getBoundingClientRect
-            map directly to SVG user space. */}
-      <motion.div
-        className="absolute inset-0 pointer-events-none"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.25 }}
-      >
-        {spotlightRect ? (
-          <motion.svg
-            key={`spot-${currentStep?.id}`}
-            className="absolute inset-0"
-            style={{ width: "100%", height: "100%", overflow: "visible" }}
+      {/* Single persistent scrim + spotlight — never unmounts so there is
+          no flash when moving between spotlight-on and spotlight-off steps.
+          The circle in the mask scales from 0→1 (iris open) when active
+          and the scrim rect crossfades its opacity between 0.55 and 0.88. */}
+      {(() => {
+        const hasSpotlight = !!currentStep?.spotlight;
+        const circleOpen = hasSpotlight && !!spotlightRect;
+        const cx = spotlightRect
+          ? spotlightRect.left + spotlightRect.width / 2 + (currentStep?.spotlightOffset?.x ?? 0)
+          : (lastSpotGeomRef.current?.cx ?? 0);
+        const cy = spotlightRect
+          ? spotlightRect.top + spotlightRect.height / 2 + (currentStep?.spotlightOffset?.y ?? 0)
+          : (lastSpotGeomRef.current?.cy ?? 0);
+        const r = spotlightRect
+          ? Math.max(spotlightRect.width, spotlightRect.height) / 2 + SPOTLIGHT_PADDING
+          : (lastSpotGeomRef.current?.r ?? 100);
+        if (spotlightRect) lastSpotGeomRef.current = { cx, cy, r };
+        return (
+          <motion.div
+            className="absolute inset-0 pointer-events-none"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.4, ease: [0.32, 0.72, 0, 1] }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
           >
-            <defs>
-              <mask id="wcw-spotlight-mask">
-                {/* White = opaque overlay; black = transparent cutout */}
-                <rect x="-9999" y="-9999" width="19999" height="19999" fill="white" />
-                <circle
-                  cx={spotlightRect.left + spotlightRect.width / 2 + (currentStep?.spotlightOffset?.x ?? 0)}
-                  cy={spotlightRect.top + spotlightRect.height / 2 + (currentStep?.spotlightOffset?.y ?? 0)}
-                  r={Math.max(spotlightRect.width, spotlightRect.height) / 2 + SPOTLIGHT_PADDING}
-                  fill="black"
-                />
-              </mask>
-            </defs>
-            <rect
-              x="-9999" y="-9999"
-              width="19999" height="19999"
-              fill="rgba(5, 8, 20, 0.88)"
-              mask="url(#wcw-spotlight-mask)"
-            />
-          </motion.svg>
-        ) : (
-          <div className="absolute inset-0" style={{ background: "rgba(5, 8, 20, 0.55)" }} />
-        )}
-      </motion.div>
+            <svg
+              className="absolute inset-0"
+              style={{ width: "100%", height: "100%", overflow: "visible" }}
+            >
+              <defs>
+                <mask id="wcw-spotlight-mask">
+                  <rect x="-9999" y="-9999" width="19999" height="19999" fill="white" />
+                  <motion.g
+                    style={{ transformOrigin: `${cx}px ${cy}px` }}
+                    animate={{ scale: circleOpen ? 1 : 0 }}
+                    transition={circleOpen
+                      ? { delay: 0.2, duration: 0.5, ease: [0.34, 1.56, 0.64, 1] }
+                      : { duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
+                  >
+                    <circle cx={cx} cy={cy} r={Math.max(r, 1)} fill="black" />
+                  </motion.g>
+                </mask>
+              </defs>
+              <motion.g
+                animate={{ opacity: circleOpen ? 0.88 : 0.55 }}
+                transition={{ duration: 0.3 }}
+              >
+                <rect x="-9999" y="-9999" width="19999" height="19999" fill="rgb(5, 8, 20)" mask="url(#wcw-spotlight-mask)" />
+              </motion.g>
+            </svg>
+          </motion.div>
+        );
+      })()}
 
       {/* Skip pill, top-right, screen-relative. Brand-tinted Void surface
           + glass blur (Design System v1) so it sits visibly on any page

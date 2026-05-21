@@ -360,6 +360,10 @@ export default function NutritionPage() {
         suppressMealAnalysis={isQuickAddSheetOpen}
       />
       <div className="animate-page-in space-y-2.5 px-5 py-3 sm:p-5 md:p-6 max-w-7xl mx-auto overflow-x-hidden">
+        <header className="pt-1">
+          <p className="text-micro uppercase tracking-[0.15em] text-muted-foreground/70 font-bold">Your</p>
+          <h1 className="text-title font-semibold leading-tight">Nutrition</h1>
+        </header>
         <NutritionHero
           wisdom={wisdom}
           totalCalories={totalCalories}

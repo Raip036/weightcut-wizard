@@ -5,11 +5,11 @@ import { api } from "@/../convex/_generated/api";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
-import { AlertTriangle, Check, ChevronRight, TrendingDown, Settings as SettingsIcon } from "lucide-react";
+import { AlertTriangle, Check, ChevronRight, TrendingDown, Settings as SettingsIcon, LogOut } from "lucide-react";
 import { ImpactStyle } from "@capacitor/haptics";
 import { motion, AnimatePresence } from "motion/react";
 import { profileSchema } from "@/lib/validation";
-import { useUser } from "@/contexts/UserContext";
+import { useUser, useAuth } from "@/contexts/UserContext";
 import { celebrateSuccess, triggerHaptic, triggerHapticSelection } from "@/lib/haptics";
 import { GoalsSkeleton } from "@/components/ui/skeleton-loader";
 import { ProfilePictureUpload } from "@/components/ProfilePictureUpload";
@@ -71,8 +71,10 @@ type ActiveField = { key: FieldKey; title: string } | null;
 
 export default function Goals() {
   const [loading, setLoading] = useState(true);
+  const [signingOut, setSigningOut] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { signOut } = useAuth();
   const {
     userId,
     currentWeight,
@@ -455,6 +457,26 @@ export default function Goals() {
           <SettingsRow label="Experience" value={EXPERIENCE_LABELS[formData.experience_level] ?? "—"} onTap={() => setActiveField({ key: "experience_level", title: "Experience" })} />
           <SettingsRow label="Plan style" value={AGGRESSIVENESS_LABELS[formData.plan_aggressiveness] ?? "—"} onTap={() => setActiveField({ key: "plan_aggressiveness", title: "Plan style" })} />
         </SettingsGroup>
+      </div>
+
+      {/* Sign out */}
+      <div className="pt-4 pb-2">
+        <button
+          type="button"
+          disabled={signingOut}
+          onClick={async () => {
+            setSigningOut(true);
+            try { await signOut(); } finally { setSigningOut(false); }
+          }}
+          className="w-full flex items-center gap-3 rounded-xs px-4 py-3.5 active:bg-destructive/5 transition-colors text-left disabled:opacity-40"
+        >
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-destructive/10 text-destructive shrink-0">
+            <LogOut className="h-4 w-4" />
+          </span>
+          <span className="flex-1 text-[15px] font-medium text-destructive">
+            {signingOut ? "Signing out…" : "Sign Out"}
+          </span>
+        </button>
       </div>
 
       {/* Field edit sheet — focused single-field editor */}

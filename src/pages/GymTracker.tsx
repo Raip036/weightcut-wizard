@@ -329,6 +329,10 @@ export default function GymTracker() {
 
   return (
     <div className="space-y-2.5 px-5 py-3 sm:p-5 md:p-6 max-w-7xl mx-auto md:pb-6" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" }}>
+      <header className="pt-1">
+        <p className="text-micro uppercase tracking-[0.15em] text-muted-foreground/70 font-bold">Your</p>
+        <h1 className="text-title font-semibold leading-tight">Gym Tracker</h1>
+      </header>
       {gymAiTask && (
         <AICompactOverlay
           isOpen={true}

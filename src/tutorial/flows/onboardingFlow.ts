@@ -28,6 +28,8 @@ export const onboardingFlow: TutorialFlow = {
         "The number in the ring is your Fight Form Score, 0 to 100, blending your week against your camp. It's a three day rolling average, so one rough day won't sink it.",
       position: "center",
       route: "/dashboard",
+      spotlight: "fight-form-ring-only",
+      wizardPose: "point",
     },
     {
       id: "score-labels",
