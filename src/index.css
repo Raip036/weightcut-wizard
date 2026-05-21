@@ -124,7 +124,7 @@ All colors MUST be HSL.
     /* Dark mode - Clean blue dark */
 
     /* Design System v1 — page background is brand --neutral-1000 (#000513)
-       so cards (#081225 / neutral-800) sit on a subtly bluer dark ground
+       so cards (#0E1A30 / neutral-800) sit on a subtly bluer dark ground
        rather than neutral black. HSL form: 224 100% 4% ≈ #000513. */
     --background: 224 100% 4%;
     --foreground: 0 0% 95%;
@@ -222,7 +222,7 @@ All colors MUST be HSL.
     --neutral-400:         140 150 180;   /* #8C96B4 */
     --neutral-500:          77  88 119;   /* #4D5877 */
     --neutral-700:          22  33  55;   /* #162137 */
-    --neutral-800:           8  18  37;   /* #081225 */
+    --neutral-800:          14  26  48;   /* #0E1A30 */
     --neutral-900:           3  11  24;   /* #030B18 */
     --neutral-1000:          0   5  19;   /* #000513 */
 
@@ -509,7 +509,7 @@ All colors MUST be HSL.
     border-color: hsl(var(--primary-foreground) / 0.3);
   }
 
-  /* Card surfaces — Design System v1. Solid neutral-800 (#081225),
+  /* Card surfaces — Design System v1. Solid neutral-800 (#0E1A30),
      no border, no shadow. Hierarchy comes from the surface contrast
      against the darker page background. Dialogs and the sidebar
      opt-in to the same recipe so the whole app reads consistently. */

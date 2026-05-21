@@ -15,7 +15,7 @@
   class forced on at parse time (see `index.html`) and `--background` is a brand
   void (`#000513`), not neutral black.
 - **Flat surfaces, deep palette.** Cards have no border and no shadow by default.
-  Visual hierarchy comes from `neutral-800` (`#081225`) cards popping against the
+  Visual hierarchy comes from `neutral-800` (`#0E1A30`) cards popping against the
   darker `--background`. Hero treatments add glow or gradient where deliberate.
 - **One primary color.** All hero CTAs route through `Button variant="default"` =
   solid Spirit Blue. The 4-stop "Gradient CTA" was tried and removed — it read as
@@ -67,7 +67,7 @@ All defined in `src/index.css` `:root`. Reference via Tailwind shortcuts in
 | `--neutral-400` | `#8C96B4` | `neutral-400` | Inactive nav icons (legacy), avatar text |
 | `--neutral-500` | `#4D5877` | `neutral-500` | Body / Caption color (low emphasis) |
 | `--neutral-700` | `#162137` | `neutral-700` | Avatar background, progress-bar track variant |
-| `--neutral-800` | `#081225` | `neutral-800` | **Standard card surface** |
+| `--neutral-800` | `#0E1A30` | `neutral-800` | **Standard card surface** |
 | `--neutral-900` | `#030B18` | `neutral-900` | Crystal-glass progress track |
 | `--neutral-1000` | `#000513` | `neutral-1000` | Page background (`--background`) |
 
