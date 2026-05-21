@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { format, startOfWeek, endOfWeek } from "date-fns";
-import { Brain, Loader2, ChevronDown, Trash2, CheckCircle, X, Dumbbell, Activity, Crown } from "lucide-react";
+import { Loader2, ChevronDown, Trash2, CheckCircle, X, Dumbbell, Activity, Crown, RotateCw } from "lucide-react";
 import { useConvex, useMutation, useQuery } from "convex/react";
 import { useAIAction } from "@/hooks/useAIAction";
 import { api } from "@/../convex/_generated/api";
@@ -10,17 +10,40 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 import { logger } from "@/lib/logger";
 import { localCache } from "@/lib/localCache";
-import { getSessionColor } from "@/lib/sessionColors";
 import { useAITask } from "@/contexts/AITaskContext";
 import { AICompactOverlay } from "@/components/AICompactOverlay";
+import { Switch } from "@/components/ui/switch";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { FlashcardDeck, type FlashcardRow } from "./FlashcardDeck";
+import { WeeklyTimeline } from "./WeeklyTimeline";
 
+// ─── New shape (retention flashcards) ──────────────────────────────────────
+type FlashcardSummary = {
+    weekHeadline: string;
+    stats: {
+        sessionsLogged: number;
+        totalMinutes: number;
+        topDiscipline: string;
+        avgRpe?: number;
+        avgSleepHours?: number;
+    };
+    cards: Array<{
+        sport: string;
+        front: string;
+        back: string;
+        cue?: string;
+        sourceSessionDate?: string;
+    }>;
+};
+
+// ─── Legacy shape (kept only so older saved rows render the chip path) ────
 type TrainingSummary = {
-    sportSections: {
+    sportSections?: {
         sport: string;
         sessions_count: number;
         techniques: { name: string; steps: string[]; sparringTip: string; drillFlow?: string[] }[];
     }[];
-    weekOverview: string;
+    weekOverview?: string;
 };
 
 type SavedSummaryRow = {
@@ -58,8 +81,10 @@ function computeFingerprint(sessions: SessionRow[]): string {
         .join("|");
 }
 
+type LegacySportSection = NonNullable<TrainingSummary["sportSections"]>[number];
+
 function mergeSummaries(existing: TrainingSummary, incoming: TrainingSummary): TrainingSummary {
-    const merged = new Map<string, TrainingSummary["sportSections"][0]>();
+    const merged = new Map<string, LegacySportSection>();
     for (const section of existing.sportSections || []) {
         merged.set(section.sport, { ...section, techniques: [...section.techniques] });
     }
@@ -82,6 +107,10 @@ function mergeSummaries(existing: TrainingSummary, incoming: TrainingSummary): T
 
 
 export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrigger, customColors }: TrainingSummarySectionProps) {
+    // `customColors` was used by the old per-sport rendering. The new
+    // flashcard UI pulls discipline tints from `coachColors` instead. Keep
+    // the prop in the surface for now so callers don't have to change.
+    void customColors;
     const { toast } = useToast();
     const { openPaywall, handlePaywallError } = useSubscription();
     const { hasAccess: hasAiAccess } = useFeatureAccess("AI_TRAINING_SUMMARY");
@@ -89,6 +118,10 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
     const trainingSummaryAction = useAIAction(api.actions.trainingSummary.run, "AI_TRAINING_SUMMARY");
     const upsertSummaryMut = useMutation(api.fight_camp.upsertSummary);
     const deleteSummaryMut = useMutation(api.fight_camp.deleteSummary);
+    const coachSettings = useQuery(api.user_coach_settings.getMyCoachSettings);
+    const setAutoSummaryMut = useMutation(api.user_coach_settings.setAutoSummary);
+    const autoSummaryOn = coachSettings?.autoSummary === true;
+    const settingsLoading = coachSettings === undefined;
     const summariesRaw = useQuery(api.fight_camp.listAllSummaries, userId ? { limit: 20 } : "skip");
     // Live-reactive subscription to training_summaries. The Convex client caches identically.
     const savedSummaries = useMemo<SavedSummaryRow[]>(() => (
@@ -209,12 +242,35 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
         setIsLoading(false);
     };
 
+    const handleToggleAutoSummary = async (next: boolean) => {
+        if (settingsLoading) return;
+        // TEMP: Pro gate dropped for QA. Restore before shipping.
+        // if (next && coachSettings && !coachSettings.isPro) {
+        //     openPaywall();
+        //     return;
+        // }
+        try {
+            await setAutoSummaryMut({ enabled: next });
+        } catch (error: any) {
+            // Backend throws PRO_FEATURE_REQUIRED:AUTO_SUMMARY for non-Pro enables.
+            if (await handlePaywallError(error)) return;
+            logger.error("Error updating auto-summary setting", error);
+            toast({
+                title: "Couldn't update setting",
+                description: "Please try again.",
+                variant: "destructive",
+            });
+        }
+    };
+
     const handleGenerateOrUpdate = async () => {
         if (sessionsWithNotes.length === 0) return;
-        if (!hasAiAccess) {
-            openPaywall();
-            return;
-        }
+        // TEMP: Pro gate dropped for QA. Restore before shipping.
+        // if (!hasAiAccess) {
+        //     openPaywall();
+        //     return;
+        // }
+        void hasAiAccess;
         abortRef.current?.abort();
         const controller = new AbortController();
         abortRef.current = controller;
@@ -254,7 +310,13 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
             if (controller.signal.aborted) return;
             const summaryData = data;
             if (!summaryData) throw new Error("No summary returned");
-            if (!Array.isArray(summaryData.sportSections) || typeof summaryData.weekOverview !== "string") {
+            // Accept either the new flashcards shape OR the legacy shape — the
+            // action *should* now return the new shape, but if a sibling
+            // deploy hasn't rolled out the rest still works.
+            const dataRec = summaryData as Record<string, unknown>;
+            const isNewShape = Array.isArray(dataRec.cards) && typeof dataRec.weekHeadline === "string";
+            const isLegacyShape = Array.isArray(dataRec.sportSections) && typeof dataRec.weekOverview === "string";
+            if (!isNewShape && !isLegacyShape) {
                 throw new Error("AI returned malformed summary — please retry.");
             }
 
@@ -262,8 +324,11 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
             const allSessionIds = sessionsWithNotes.map(s => s.id);
 
             // Upsert via Convex — handler is idempotent on (userId, weekStart).
-            const mergedData = selectedSummary
-                ? mergeSummaries(selectedSummary.summary_data, summaryData)
+            // Only merge legacy-with-legacy. The new shape isn't list-additive
+            // (cards live in their own table) so we just persist the latest.
+            const existingRec = (selectedSummary?.summary_data ?? {}) as Record<string, unknown>;
+            const mergedData = (isLegacyShape && selectedSummary && Array.isArray(existingRec.sportSections))
+                ? mergeSummaries(selectedSummary.summary_data as TrainingSummary, summaryData as TrainingSummary)
                 : summaryData;
             await upsertSummaryMut({
                 weekStart: calendarWeekStart,
@@ -304,13 +369,68 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
         }
     };
 
+    const summaryToDisplay = selectedSummary?.summary_data ?? null;
+    // ── Shape detection ──────────────────────────────────────────────────
+    // NEW SHAPE  → has a `cards: []` field AND a `weekHeadline` string.
+    // LEGACY     → has `sportSections: []` + `weekOverview`. Show a tiny
+    //              "Legacy summary" chip with a regenerate tap.
+    const summaryAsRecord = (summaryToDisplay ?? {}) as Record<string, unknown>;
+    const isNewSummaryShape = !!(summaryToDisplay
+        && Array.isArray(summaryAsRecord.cards)
+        && typeof summaryAsRecord.weekHeadline === "string"
+        && summaryAsRecord.stats
+        && typeof summaryAsRecord.stats === "object");
+    const isLegacySummaryShape = !isNewSummaryShape && !!(summaryToDisplay
+        && Array.isArray(summaryAsRecord.sportSections)
+        && typeof summaryAsRecord.weekOverview === "string");
+
+    const newSummary: FlashcardSummary | null = isNewSummaryShape ? (summaryToDisplay as FlashcardSummary) : null;
+
+    // Hooks (Convex queries + sheet state) MUST be unconditionally called.
+    // The new card APIs are generated by Convex from a sibling-agent's
+    // `convex/training_summary_cards.ts`. The generated api.d.ts may not
+    // be regenerated yet — guard each `useQuery` with a "skip" arg until
+    // the api ref resolves so we don't blow up at runtime. The single
+    // `eslint-disable-next-line` keeps the codebase's existing lint rules
+    // satisfied while we straddle deploys.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const cardApis = (api as any).training_summary_cards as undefined | Record<string, unknown>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fallbackRef = (api as any).fight_camp.listAllSummaries;
+
+    const summarisedWeeksRaw = useQuery(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (cardApis?.listSummarisedWeeks as any) ?? fallbackRef,
+        cardApis ? {} : "skip"
+    ) as string[] | undefined;
+    const summarisedWeeks = useMemo(() => summarisedWeeksRaw ?? [], [summarisedWeeksRaw]);
+
+    const cardsForWeekRaw = useQuery(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (cardApis?.getCardsForWeek as any) ?? fallbackRef,
+        cardApis && userId && selectedWeekStart ? { weekStart: selectedWeekStart } : "skip"
+    ) as FlashcardRow[] | undefined;
+    const cardsForCurrentWeek = useMemo(() => cardsForWeekRaw ?? [], [cardsForWeekRaw]);
+
+    const dueCardsRaw = useQuery(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (cardApis?.getDueToday as any) ?? fallbackRef,
+        cardApis && userId ? {} : "skip"
+    ) as FlashcardRow[] | undefined;
+    const dueCards = useMemo(() => dueCardsRaw ?? [], [dueCardsRaw]);
+
+    const [isDueSheetOpen, setIsDueSheetOpen] = useState(false);
+
     // Nothing to show if there's no summary for this week and no notes to summarise
     if (sessionsWithNotes.length === 0 && !selectedSummary) {
         return null;
     }
 
-    const summaryToDisplay = selectedSummary?.summary_data ?? null;
-    const summaryIsValid = !!(summaryToDisplay && Array.isArray((summaryToDisplay as any).sportSections) && typeof (summaryToDisplay as any).weekOverview === "string");
+    // The browsing week defaults to whatever week the calendar is on. If the
+    // user picks a chip from the timeline, we move there. When the timeline
+    // is still loading or empty we just stick with `selectedWeekStart`
+    // (already keyed to the calendar week via the earlier useEffect).
+    const showPastWeek = selectedWeekStart !== calendarWeekStart;
 
     return (
         <div className="mt-6 space-y-4">
@@ -324,53 +444,74 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                 />
             )}
 
-            {/* Generate / Update button — only for current calendar week */}
+            {/* Auto-generate toggle — Pro-only; sits above the manual button */}
             {buttonState !== "hidden" && (
-                <button
-                    onClick={buttonState !== "up_to_date" ? handleGenerateOrUpdate : undefined}
-                    disabled={isGenerating || buttonState === "up_to_date"}
-                    className="relative w-full p-4 rounded-xs card-surface border border-border/50 flex items-center justify-center gap-2 hover:bg-accent/30 transition-all disabled:opacity-60"
-                >
+                <div className="w-full p-4 rounded-xs card-surface border border-border/50 flex items-center gap-3 min-h-[44px]">
+                    <div className="flex-1 min-w-0">
+                        <label
+                            htmlFor="auto-summary-toggle"
+                            className="text-body-sm font-semibold text-foreground cursor-pointer block"
+                        >
+                            Auto-generate summaries
+                        </label>
+                        <p className="text-note text-muted-foreground mt-0.5">
+                            Generated automatically after each session you log with notes.
+                        </p>
+                    </div>
+                    {coachSettings && !coachSettings.isPro && (
+                        <span className="inline-flex items-center gap-0.5 text-primary/70 pointer-events-none flex-shrink-0">
+                            <Crown className="h-3 w-3" />
+                            <span className="text-[10px] font-medium uppercase tracking-wider">Pro</span>
+                        </span>
+                    )}
+                    <Switch
+                        id="auto-summary-toggle"
+                        checked={autoSummaryOn}
+                        disabled={settingsLoading}
+                        onCheckedChange={handleToggleAutoSummary}
+                        aria-label="Auto-generate training summaries"
+                    />
+                </div>
+            )}
+
+            {/* The legacy Generate / Update button has been removed —
+                auto-summary toggle is the single entry point. The "Refresh
+                now" link below (when toggle ON + isGenerating/up-to-date)
+                provides the manual fallback for the current week. */}
+
+            {/* Auto-summary is ON: show a subtle "Refresh now" link as a manual fallback. */}
+            {buttonState !== "hidden" && autoSummaryOn && (
+                <div className="flex items-center justify-center min-h-[44px]">
                     {isGenerating ? (
-                        <div className="flex items-center gap-2 w-full justify-center">
-                            <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                            <span className="text-sm font-semibold text-muted-foreground">
-                                Analyzing your sessions...
-                            </span>
+                        <div className="flex items-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                            <span className="text-note text-muted-foreground">Analyzing your sessions...</span>
                             <button
-                                onClick={(e) => { e.stopPropagation(); handleCancel(); }}
-                                className="ml-auto flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-xs hover:bg-accent/30"
+                                onClick={handleCancel}
+                                className="ml-1 flex items-center gap-1 text-note font-medium text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-xs hover:bg-accent/30"
                             >
-                                <X className="h-3.5 w-3.5" />
+                                <X className="h-3 w-3" />
                                 Cancel
                             </button>
                         </div>
                     ) : buttonState === "up_to_date" ? (
-                        <>
-                            <CheckCircle className="h-5 w-5 text-func-recovery-green" />
-                            <span className="text-sm font-semibold text-muted-foreground">Up to date</span>
-                        </>
+                        <span className="inline-flex items-center gap-1.5 text-note text-muted-foreground">
+                            <CheckCircle className="h-3.5 w-3.5 text-func-recovery-green" />
+                            Up to date
+                        </span>
                     ) : (
-                        <>
-                            <span className="inline-flex items-center gap-2">
-                                <Brain className="h-5 w-5 text-primary" />
-                                <span className="text-sm font-semibold text-primary">
-                                    {buttonState === "update" ? "Update Training Summary" : "Generate Training Summary"}
-                                </span>
-                            </span>
-                            {!hasAiAccess && (
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex items-center gap-0.5 text-primary/70 pointer-events-none">
-                                    <Crown className="h-3 w-3" />
-                                    <span className="text-[10px] font-medium uppercase tracking-wider">Pro</span>
-                                </span>
-                            )}
-                        </>
+                        <button
+                            onClick={handleGenerateOrUpdate}
+                            className="text-note font-medium text-primary hover:text-primary/80 transition-colors px-2 py-2 rounded-xs"
+                        >
+                            Refresh now
+                        </button>
                     )}
-                </button>
+                </div>
             )}
 
-            {/* Summary display */}
-            {summaryIsValid && summaryToDisplay && (
+            {/* Summary display — header (collapse + delete) is shared */}
+            {(isNewSummaryShape || isLegacySummaryShape) && summaryToDisplay && (
                 <div className="space-y-3">
                     <div className="flex items-center justify-between w-full">
                         <button onClick={() => setIsSummaryOpen(!isSummaryOpen)} className="flex items-center gap-2">
@@ -379,86 +520,133 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                         </button>
                         {selectedSummary && (
                             <button onClick={() => handleDeleteSummary(selectedSummary.id)}
-                                className="h-8 w-8 flex items-center justify-center rounded-xs text-muted-foreground/30 active:text-destructive active:bg-destructive/10 transition-colors">
+                                className="h-8 w-8 flex items-center justify-center rounded-xs text-muted-foreground/30 active:text-destructive active:bg-destructive/10 transition-colors"
+                                aria-label="Delete summary">
                                 <Trash2 className="h-3.5 w-3.5" />
                             </button>
                         )}
                     </div>
 
-                    {isSummaryOpen && (
+                    {/* Legacy summaries — small chip + regenerate tap. We
+                        intentionally don't render the old technique cards
+                        anymore so the surface stays focused on retention. */}
+                    {isSummaryOpen && isLegacySummaryShape && (
+                        <div className="card-surface rounded-xs border border-border/60 px-4 py-3 flex items-center gap-3">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted/30 border border-border/50 text-[10px] uppercase tracking-wider font-bold text-muted-foreground flex-shrink-0">
+                                Legacy summary
+                            </span>
+                            <p className="text-note text-muted-foreground flex-1 min-w-0">
+                                Older format. Regenerate to switch to flashcards.
+                            </p>
+                            <button
+                                onClick={handleGenerateOrUpdate}
+                                disabled={isGenerating}
+                                className="inline-flex items-center gap-1.5 text-note font-medium text-primary hover:text-primary/80 transition-colors px-2 py-2 rounded-xs min-h-[44px] disabled:opacity-50 flex-shrink-0"
+                            >
+                                <RotateCw className={`h-3.5 w-3.5 ${isGenerating ? "animate-spin" : ""}`} />
+                                Regenerate
+                            </button>
+                        </div>
+                    )}
+
+                    {/* New shape — stats strip, headline, deck, due chip, timeline */}
+                    {isSummaryOpen && isNewSummaryShape && newSummary && (
                         <div className="space-y-4">
-                            {summaryToDisplay.weekOverview && (
-                                <p className="text-[14px] text-foreground/95 leading-relaxed font-medium">
-                                    {(summaryToDisplay.weekOverview || '').replace(/\u2014/g, ' - ').replace(/\u2013/g, '-')}
+                            {/* Stats strip */}
+                            <div className="grid grid-cols-4 gap-3">
+                                <StatCell label="Sessions" value={`${newSummary.stats.sessionsLogged}`} />
+                                <StatCell label="Minutes" value={`${newSummary.stats.totalMinutes}`} />
+                                <StatCell label="Top sport" value={newSummary.stats.topDiscipline || "—"} />
+                                <StatCell
+                                    label={newSummary.stats.avgRpe !== undefined ? "Avg RPE" : "Avg sleep"}
+                                    value={
+                                        newSummary.stats.avgRpe !== undefined
+                                            ? newSummary.stats.avgRpe.toFixed(1)
+                                            : newSummary.stats.avgSleepHours !== undefined
+                                                ? `${newSummary.stats.avgSleepHours.toFixed(1)}h`
+                                                : "—"
+                                    }
+                                />
+                            </div>
+
+                            {/* Week headline */}
+                            {newSummary.weekHeadline && (
+                                <p className="text-body-sm font-semibold leading-snug text-foreground">
+                                    {(newSummary.weekHeadline || '').replace(/—/g, ' - ').replace(/–/g, '-')}
                                 </p>
                             )}
 
-                            {summaryToDisplay.sportSections?.map(section => {
-                                const sportColor = getSessionColor(section.sport, customColors);
-                                return (
-                                <div
-                                    key={section.sport}
-                                    className="card-surface rounded-xs border border-border overflow-hidden"
-                                    style={{ borderTop: `3px solid ${sportColor}` }}
-                                >
-                                    {/* Sport header */}
-                                    <div className="flex items-center gap-2.5 px-3.5 py-3 bg-muted/20 border-b border-border/60">
-                                        <div className="h-3.5 w-3.5 rounded-full flex-shrink-0 ring-2 ring-background" style={{ backgroundColor: sportColor }} />
-                                        <span className="text-[15px] font-bold text-foreground tracking-tight">{section.sport}</span>
-                                        <span className="text-[11px] font-semibold text-muted-foreground ml-auto tabular-nums uppercase tracking-wider">{section.sessions_count} session{section.sessions_count !== 1 ? "s" : ""}</span>
-                                    </div>
-
-                                    {/* Techniques — each visually separated by a full horizontal rule */}
-                                    <div>
-                                        {section.techniques?.map((tech, i) => (
-                                            <div
-                                                key={i}
-                                                className={`px-3.5 py-3.5 ${i > 0 ? "border-t-2 border-border/50" : ""}`}
-                                            >
-                                                <p className="text-[14px] font-bold text-foreground mb-2.5">{tech.name}</p>
-
-                                                {tech.steps && tech.steps.length > 0 && (
-                                                    <div className="space-y-1.5 mb-3">
-                                                        {tech.steps.map((step, j) => (
-                                                            <div key={j} className="flex items-start gap-2.5">
-                                                                <div className="h-5 w-5 rounded-full bg-muted/60 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                                                    <span className="text-[10px] font-bold text-foreground tabular-nums">{j + 1}</span>
-                                                                </div>
-                                                                <p className="text-[13px] text-foreground/95 leading-relaxed">{(step || '').replace(/\u2014/g, ' - ').replace(/\u2013/g, '-')}</p>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-
-                                                {tech.sparringTip && (
-                                                    <div className="rounded-xs bg-primary/15 border border-primary/25 px-3 py-2.5">
-                                                        <p className="text-[13px] text-foreground leading-relaxed">
-                                                            <span className="font-bold text-primary uppercase text-[10px] tracking-wider block mb-0.5">Sparring tip</span>
-                                                            {(tech.sparringTip || '').replace(/\u2014/g, ' - ').replace(/\u2013/g, '-')}
-                                                        </p>
-                                                    </div>
-                                                )}
-
-                                                {tech.drillFlow && tech.drillFlow.length > 0 && (
-                                                    <div className="flex items-center gap-1 flex-wrap mt-3">
-                                                        {tech.drillFlow.map((step, k) => (
-                                                            <div key={k} className="flex items-center gap-1">
-                                                                {k > 0 && <span className="text-muted-foreground/60 text-[11px] font-bold">→</span>}
-                                                                <span className="text-[12px] font-medium text-foreground bg-muted/50 border border-border/40 rounded-xs px-2 py-0.5">{step}</span>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
+                            {/* Flashcard deck — cards born in the selected week */}
+                            {cardsForCurrentWeek.length > 0 ? (
+                                <FlashcardDeck cards={cardsForCurrentWeek} readOnly={showPastWeek} />
+                            ) : cardsForWeekRaw === undefined ? (
+                                <div className="flex items-center justify-center min-h-[100px] text-note text-muted-foreground">
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    Loading cards…
                                 </div>
-                                );
-                            })}
+                            ) : null}
+
+                            {/* Due today — opens a Sheet with a fresh deck */}
+                            {dueCards.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={() => setIsDueSheetOpen(true)}
+                                    className="w-full min-h-[44px] inline-flex items-center justify-center gap-1.5 rounded-full bg-primary/10 border border-primary/25 px-4 py-2 text-note font-bold text-primary hover:bg-primary/15 transition-colors"
+                                >
+                                    {dueCards.length} card{dueCards.length === 1 ? "" : "s"} due from earlier weeks
+                                </button>
+                            )}
+
+                            {/* Weekly timeline — past-week chips */}
+                            {summarisedWeeks.length > 0 && (
+                                <div className="space-y-2">
+                                    <p className="text-micro uppercase tracking-wider text-muted-foreground/70 font-bold">
+                                        Past weeks
+                                    </p>
+                                    <WeeklyTimeline
+                                        weeks={summarisedWeeks}
+                                        currentWeek={selectedWeekStart}
+                                        onSelectWeek={setSelectedWeekStart}
+                                    />
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
             )}
+
+            {/* Due-today review queue — full FlashcardDeck inside a Sheet */}
+            <Sheet open={isDueSheetOpen} onOpenChange={setIsDueSheetOpen}>
+                <SheetContent side="bottom" className="rounded-t-3xl max-h-[92vh] overflow-y-auto">
+                    <SheetHeader>
+                        <SheetTitle>Due today</SheetTitle>
+                    </SheetHeader>
+                    <div className="mt-4">
+                        {dueCards.length > 0 ? (
+                            <FlashcardDeck cards={dueCards} />
+                        ) : (
+                            <p className="text-note text-muted-foreground text-center py-8">
+                                Nothing left for today. Nice work.
+                            </p>
+                        )}
+                    </div>
+                </SheetContent>
+            </Sheet>
+
+        </div>
+    );
+}
+
+// ─── Small inline stats cell — used by the new shape's stats strip ────────
+function StatCell({ label, value }: { label: string; value: string | number }) {
+    return (
+        <div className="flex flex-col gap-0.5">
+            <span className="text-micro uppercase tracking-wider text-muted-foreground/70 font-bold">
+                {label}
+            </span>
+            <span className="text-value font-bold tabular-nums text-foreground truncate">
+                {value}
+            </span>
         </div>
     );
 }

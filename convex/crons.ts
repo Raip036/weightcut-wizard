@@ -44,4 +44,18 @@ crons.cron(
   internal.health.scheduleNightlyBaselines,
 );
 
+// ──────────────────────────────────────────────────────────────────────
+// Training Missions — hourly backstop sweep.
+//
+// Generation is primarily triggered by the calendar save mutation. This
+// sweep is a safety net so a mission still appears even if some other
+// surface writes session notes that bypass the standard trigger. The
+// action is idempotent (see actions/trainingMissions/sweep.ts).
+// ──────────────────────────────────────────────────────────────────────
+crons.hourly(
+  "training-missions-sweep",
+  { minuteUTC: 15 },
+  internal.actions.trainingMissions.sweep.run,
+);
+
 export default crons;

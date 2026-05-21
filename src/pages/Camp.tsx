@@ -7,7 +7,8 @@ import { useUser } from "@/contexts/UserContext";
 import { isFighter } from "@/lib/goalType";
 import { triggerHaptic } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
-import { TrainingCoachWidget } from "@/components/dashboard/training-coach/TrainingCoachWidget";
+import { MissionStack } from "@/components/coach/MissionStack";
+import { XpSummaryCard } from "@/components/coach/XpSummaryCard";
 
 interface CampSection {
   title: string;
@@ -129,12 +130,15 @@ export default function Camp() {
   })();
 
   return (
-    <div className="animate-page-in space-y-4 px-5 py-3 sm:p-5 md:p-6 w-full max-w-2xl mx-auto">
+    <div className="animate-page-in space-y-4 px-5 pt-3 pb-28 sm:px-5 sm:pt-5 md:px-6 md:pt-6 w-full max-w-2xl mx-auto">
       {/* Page header */}
       <header className="pt-1">
         <p className="text-micro uppercase tracking-[0.15em] text-muted-foreground/70 font-bold">Your</p>
         <h1 className="text-title font-semibold leading-tight">Camp</h1>
       </header>
+
+      {/* ── XP summary — top disciplines at a glance ──────────────────── */}
+      {userId && <XpSummaryCard />}
 
       {/* ── Active camp banner ─────────────────────────────────────────── */}
       {activeCamp && !activeCamp.isCompleted && campProgress && (
@@ -212,8 +216,8 @@ export default function Camp() {
         </button>
       )}
 
-      {/* ── Training Coach (live path + hero step) ─────────────────────── */}
-      {userId && <TrainingCoachWidget />}
+      {/* ── Training Missions (notes-driven, per-discipline checklists) ── */}
+      {userId && <MissionStack />}
 
       {/* ── Action sections ────────────────────────────────────────────── */}
       <div className="space-y-2">

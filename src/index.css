@@ -118,6 +118,22 @@ All colors MUST be HSL.
        (defined below) to reserve space so the focused input stays visible
        while the WKWebView is in `resize: "none"` mode. */
     --keyboard-inset: env(keyboard-inset-height, 0px);
+
+    /* ---- Training Missions — per-discipline accent colors ----
+       Stored as HSL triplets so Tailwind opacity stops work via the
+       `bg-[hsl(var(--coach-bjj)/0.15)]` arbitrary-value syntax. Tuned
+       for the dark surface (#0F0F0F page / #1E1E1E card) so each
+       discipline reads distinct at small accent-stripe scale without
+       drifting into oversaturation. See src/lib/coachColors.ts for the
+       sport-key → token mapping. */
+    --coach-bjj:        220 65% 60%;
+    --coach-muay-thai:  350 70% 60%;
+    --coach-boxing:      30 90% 60%;
+    --coach-wrestling:   45 80% 55%;
+    --coach-sparring:   280 60% 65%;
+    --coach-strength:     0 0% 70%;
+    --coach-run:        155 50% 55%;
+    --coach-default:    var(--primary);
   }
 
   .dark {

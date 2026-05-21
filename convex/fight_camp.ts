@@ -6,11 +6,11 @@
  *                 fight_week_plans, training_summaries.
  */
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalQuery } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Id } from "./_generated/dataModel";
 import { requireUserId } from "./lib/auth";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 
 // ───────────────────────────────────────────────────────────────────────
 // Smart-defaults constants
@@ -34,6 +34,25 @@ const FALLBACK_SESSION_TYPE = "Strength";
 const FALLBACK_DURATION_MINUTES = 60;
 const RECENT_HISTORY_TAKE = 200;
 const SAME_TYPE_SAMPLE_SIZE = 5;
+
+/**
+ * Given a YYYY-MM-DD date, return the YYYY-MM-DD of the Monday of that ISO
+ * week. Used by the auto-summary scheduler so a session-save against any
+ * day in the week pins the same `weekStart` key the training_summaries
+ * table is indexed on (see `getSummaryForWeek` / `upsertSummary`).
+ *
+ * Built in UTC so the result doesn't drift when the server runs in a
+ * non-UTC zone — the date string itself carries no TZ, so we treat it as
+ * a calendar date and never let `new Date()` re-interpret it locally.
+ */
+function computeWeekStart(dateIso: string): string {
+  const [y, m, d] = dateIso.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, (m ?? 1) - 1, d ?? 1));
+  // getUTCDay: Sun=0..Sat=6. Shift so Mon=0..Sun=6, then subtract.
+  const dow = (dt.getUTCDay() + 6) % 7;
+  dt.setUTCDate(dt.getUTCDate() - dow);
+  return dt.toISOString().slice(0, 10);
+}
 
 // ───────────────────────────────────────────────────────────────────────
 // Validation helpers
@@ -511,6 +530,59 @@ export const createCalendarEntry = mutation({
         api.actions.trainingCoachPlanner.run,
         { trigger: "sessionSave", sessionId },
       );
+      // Training Missions (Trigger A — see
+      // docs/superpowers/specs/2026-05-21-training-missions-design.md).
+      // Try-wrapped so a not-yet-deployed action (or codegen lag while the
+      // sibling agent's `convex/actions/trainingMissions/generate.ts` lands)
+      // can't break session logging.
+      try {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.actions.trainingMissions.generate.generateMissionIfReady,
+          { userId, sport: args.sessionType },
+        );
+      } catch (err) {
+        console.warn("missions schedule failed", err);
+      }
+      // Auto-summary (opt-in via user_coach_settings.autoSummary). Wrapped
+      // so a not-yet-seeded settings row or a missing/disabled
+      // trainingSummary action can't break the session save.
+      try {
+        const cs = await ctx.runQuery(
+          internal.user_coach_settings.getCoachSettings,
+          { userId },
+        );
+        if (cs?.autoSummary) {
+          const weekStart = computeWeekStart(args.date);
+          await ctx.scheduler.runAfter(
+            500,
+            api.actions.trainingSummary.run,
+            { weekStart },
+          );
+        }
+      } catch (err) {
+        console.warn("autoSummary schedule failed", err);
+      }
+      // Discipline XP — +10 for logging a session with notes. Initial
+      // creation only; `updateCalendarEntry` deliberately does NOT award
+      // so users can't farm XP by editing the same row. Fire-and-forget
+      // try/catch so a scheduler/codegen hiccup never blocks the save.
+      try {
+        if (args.sessionType) {
+          await ctx.scheduler.runAfter(
+            0,
+            internal.user_discipline_xp.awardXp,
+            {
+              userId,
+              sport: args.sessionType,
+              amount: 10,
+              reason: "log_session",
+            },
+          );
+        }
+      } catch (err) {
+        console.warn("disciplineXp schedule failed", err);
+      }
     }
     return sessionId;
   },
@@ -568,6 +640,56 @@ export const updateCalendarEntry = mutation({
         api.actions.trainingCoachPlanner.run,
         { trigger: "sessionSave", sessionId: id },
       );
+    }
+
+    // Training Missions (Trigger A — see
+    // docs/superpowers/specs/2026-05-21-training-missions-design.md).
+    // Check the *resulting* row's notes: prefer the just-patched value, fall
+    // back to the pre-existing notes when this patch didn't touch them.
+    // Try-wrapped so a not-yet-deployed missions action can't break the
+    // session edit.
+    const effectiveNotes =
+      typeof rest.notes === "string" ? rest.notes : row.notes;
+    const effectiveSport =
+      typeof rest.sessionType === "string" ? rest.sessionType : row.sessionType;
+    if (effectiveNotes && effectiveNotes.trim().length > 0) {
+      try {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.actions.trainingMissions.generate.generateMissionIfReady,
+          { userId, sport: effectiveSport },
+        );
+      } catch (err) {
+        console.warn("missions schedule failed", err);
+      }
+    }
+
+    // Auto-summary (opt-in via user_coach_settings.autoSummary). Only fire
+    // when the notes field *actually changed* on this patch — re-running
+    // the summarizer on every unrelated field edit (rpe, sleep, etc.)
+    // would burn LLM tokens for nothing. We also require non-empty
+    // trimmed notes so clearing-to-empty doesn't trigger a stale rerun.
+    const notesChanged =
+      typeof rest.notes === "string" &&
+      rest.notes !== row.notes &&
+      rest.notes.trim().length > 0;
+    if (notesChanged) {
+      try {
+        const cs = await ctx.runQuery(
+          internal.user_coach_settings.getCoachSettings,
+          { userId },
+        );
+        if (cs?.autoSummary) {
+          const weekStart = computeWeekStart(row.date);
+          await ctx.scheduler.runAfter(
+            500,
+            api.actions.trainingSummary.run,
+            { weekStart },
+          );
+        }
+      } catch (err) {
+        console.warn("autoSummary schedule failed", err);
+      }
     }
   },
 });
@@ -1020,5 +1142,75 @@ export const deleteSummary = mutation({
     if (!row) return;
     if (row.userId !== userId) throw new Error("Not authorized");
     await ctx.db.delete(id);
+  },
+});
+
+// ───────────────────────────────────────────────────────────────────────
+// Training Missions — internal queries
+// ───────────────────────────────────────────────────────────────────────
+
+/**
+ * List session rows for one user + sessionType (sport) whose `_creationTime`
+ * is >= `since` and whose `notes` field is non-empty. Sorted ascending by
+ * `_creationTime` so callers can join the notes in chronological order
+ * before sending them to the LLM.
+ *
+ * Used by `internal.actions.trainingMissions.generate.generateMissionIfReady`
+ * to gather the new notes that should seed the next mission. Bounded scan
+ * via `by_user_date` index — typical users log < 30 sessions/month so the
+ * collected set is small enough to filter in memory.
+ */
+export const listNotesSince = internalQuery({
+  args: {
+    userId: v.id("users"),
+    sport: v.string(),
+    since: v.number(),
+  },
+  handler: async (ctx, { userId, sport, since }) => {
+    const rows = await ctx.db
+      .query("fight_camp_calendar")
+      .withIndex("by_user_date", (q) => q.eq("userId", userId))
+      .collect();
+    return rows
+      .filter(
+        (r) =>
+          r.sessionType === sport &&
+          r._creationTime >= since &&
+          typeof r.notes === "string" &&
+          r.notes.trim().length > 0,
+      )
+      .sort((a, b) => a._creationTime - b._creationTime);
+  },
+});
+
+/**
+ * Distinct (userId, sport) pairs for sessions with non-empty notes since
+ * a given cursor. Used by the Training Missions hourly sweep cron to
+ * schedule generateMissionIfReady for every active note-author across
+ * every sport they've journaled in. See `actions/trainingMissions/sweep.ts`.
+ */
+export const listSessionPairsWithNotesSince = internalQuery({
+  args: { since: v.number() },
+  handler: async (ctx, { since }) => {
+    // Full table scan bounded by `_creationTime >= since`. The
+    // `by_user_date` index is keyed on (userId, date) — for the sweep we
+    // don't have a userId to anchor on, so a scan it is. The lookback
+    // window (30 days in the caller) keeps the row count manageable.
+    const rows = await ctx.db
+      .query("fight_camp_calendar")
+      .filter((q) => q.gte(q.field("_creationTime"), since))
+      .collect();
+
+    const seen = new Set<string>();
+    const pairs: { userId: Id<"users">; sport: string }[] = [];
+    for (const r of rows) {
+      if (typeof r.notes !== "string" || r.notes.trim().length === 0) continue;
+      if (!r.sessionType) continue;
+      const key = `${r.userId}::${r.sessionType}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      pairs.push({ userId: r.userId, sport: r.sessionType });
+    }
+    return pairs;
   },
 });

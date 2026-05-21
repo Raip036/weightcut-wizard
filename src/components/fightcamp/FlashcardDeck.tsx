@@ -1,0 +1,214 @@
+import { useEffect, useState } from "react";
+import { useMutation } from "convex/react";
+import { Check, RotateCw, Trophy, X } from "lucide-react";
+import { api } from "@/../convex/_generated/api";
+import type { Id } from "@/../convex/_generated/dataModel";
+import { cn } from "@/lib/utils";
+import { disciplineToken } from "@/lib/coachColors";
+import { triggerHaptic, triggerHapticSuccess } from "@/lib/haptics";
+import { logger } from "@/lib/logger";
+import { Flashcard } from "./Flashcard";
+
+// The `training_summary_cards` API surface is built by a sibling agent; the
+// generated types may not include it yet, so we narrow to the minimum we
+// need locally. Once Convex regenerates, this can be swapped for
+// `Doc<"training_summary_cards">` directly.
+export interface FlashcardRow {
+  _id: Id<"training_summary_cards"> | string;
+  sport: string;
+  front: string;
+  back: string;
+  cue?: string;
+  intervalDays?: number;
+  dueAt?: number;
+  reviews?: number;
+  lapses?: number;
+}
+
+interface FlashcardDeckProps {
+  cards: FlashcardRow[];
+  /** When true, hide Got/Forgot — the deck is purely for browsing a past week. */
+  readOnly?: boolean;
+}
+
+export function FlashcardDeck({ cards, readOnly = false }: FlashcardDeckProps) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isFlipped, setIsFlipped] = useState(false);
+  const [pending, setPending] = useState(false);
+
+  // The backend may not be deployed yet in dev; cast through `any` and fall
+  // back to a benign mutation (deleteSummary) so `useMutation(undefined)`
+  // doesn't blow up if `convex/training_summary_cards.ts` hasn't been
+  // regenerated into the api types yet. We only invoke the mutation when
+  // the real one is present (see `cardApis?.recallCard` guard below).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const cardApis = (api as any).training_summary_cards as undefined | Record<string, unknown>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const fallbackMut = (api as any).fight_camp.deleteSummary;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recallCardMut = useMutation((cardApis?.recallCard as any) ?? fallbackMut);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const forgetCardMut = useMutation((cardApis?.forgetCard as any) ?? fallbackMut);
+  const recallCard = cardApis?.recallCard ? recallCardMut : null;
+  const forgetCard = cardApis?.forgetCard ? forgetCardMut : null;
+
+  // Clamp the index in case the deck shrinks (e.g. a card was reviewed and
+  // moved out via getDueToday subscription).
+  useEffect(() => {
+    if (currentIndex > cards.length) {
+      setCurrentIndex(cards.length);
+      setIsFlipped(false);
+    }
+  }, [cards.length, currentIndex]);
+
+  // Reset flip state whenever the active card changes.
+  useEffect(() => {
+    setIsFlipped(false);
+  }, [currentIndex]);
+
+  if (cards.length === 0) {
+    return null;
+  }
+
+  const isComplete = currentIndex >= cards.length;
+  const current = !isComplete ? cards[currentIndex] : null;
+
+  const advance = () => {
+    setCurrentIndex(idx => idx + 1);
+  };
+
+  const handleGot = async () => {
+    if (!current || pending) return;
+    setPending(true);
+    try {
+      if (recallCard) {
+        await recallCard({ cardId: current._id as Id<"training_summary_cards"> });
+      }
+      void triggerHapticSuccess();
+    } catch (err) {
+      logger.error("recallCard failed", err);
+    } finally {
+      setPending(false);
+      advance();
+    }
+  };
+
+  const handleForgot = async () => {
+    if (!current || pending) return;
+    setPending(true);
+    try {
+      if (forgetCard) {
+        await forgetCard({ cardId: current._id as Id<"training_summary_cards"> });
+      }
+      void triggerHaptic();
+    } catch (err) {
+      logger.error("forgetCard failed", err);
+    } finally {
+      setPending(false);
+      advance();
+    }
+  };
+
+  if (isComplete) {
+    return (
+      <div className="space-y-3">
+        <div
+          className="card-surface rounded-xs border border-border/60 px-5 py-6 flex flex-col items-center justify-center gap-3"
+          style={{ minHeight: "200px" }}
+        >
+          <div className="h-10 w-10 rounded-full bg-primary/15 flex items-center justify-center">
+            <Trophy className="h-5 w-5 text-primary" />
+          </div>
+          <p className="text-body-sm font-semibold text-foreground">All cards reviewed!</p>
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-primary/15 border border-primary/30 text-[10px] uppercase tracking-wider font-bold text-primary">
+            Deck complete
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setCurrentIndex(0);
+              setIsFlipped(false);
+            }}
+            className="inline-flex items-center gap-1.5 text-note font-medium text-primary hover:text-primary/80 transition-colors px-2 py-2 rounded-xs min-h-[44px]"
+          >
+            <RotateCw className="h-3.5 w-3.5" />
+            Back to top
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Discipline tint for the "Got it" CTA so the card colour carries through.
+  const token = current ? disciplineToken(current.sport) : "--primary";
+  const gotStyle = {
+    backgroundColor: `hsl(var(${token}) / 0.9)`,
+    color: "hsl(var(--background))",
+  } as const;
+
+  return (
+    <div className="space-y-3">
+      {current ? (
+        <Flashcard
+          front={current.front}
+          back={current.back}
+          cue={current.cue}
+          sport={current.sport}
+          isFlipped={isFlipped}
+          onFlip={() => setIsFlipped(f => !f)}
+        />
+      ) : null}
+
+      {/* Progress dots — "{n} of {total}" + tap-targets-be-damned tiny dots */}
+      <div className="flex items-center justify-center gap-2">
+        <span className="text-micro uppercase tracking-wider text-muted-foreground/70 font-bold tabular-nums">
+          {currentIndex + 1} of {cards.length}
+        </span>
+        <div className="flex items-center gap-1">
+          {cards.map((_, i) => (
+            <span
+              key={i}
+              className={cn(
+                "h-1.5 w-1.5 rounded-full transition-colors",
+                i === currentIndex
+                  ? "bg-primary"
+                  : i < currentIndex
+                    ? "bg-muted-foreground/40"
+                    : "bg-muted-foreground/15"
+              )}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Action buttons appear only after the user has flipped to the answer. */}
+      {!readOnly && isFlipped && current ? (
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={handleForgot}
+            disabled={pending}
+            className={cn(
+              "min-h-[44px] inline-flex items-center justify-center gap-1.5 rounded-xs border border-border/60 bg-muted/30 text-foreground text-note font-bold transition-colors active:bg-muted/50 disabled:opacity-50"
+            )}
+          >
+            <X className="h-4 w-4" />
+            Forgot
+          </button>
+          <button
+            type="button"
+            onClick={handleGot}
+            disabled={pending}
+            style={gotStyle}
+            className={cn(
+              "min-h-[44px] inline-flex items-center justify-center gap-1.5 rounded-xs text-note font-bold transition-opacity active:opacity-80 disabled:opacity-50"
+            )}
+          >
+            <Check className="h-4 w-4" />
+            Got it
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
