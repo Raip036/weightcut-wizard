@@ -788,16 +788,7 @@ export default function Dashboard() {
               </Avatar>
             </button>
 
-            {/* Absolute-positioned so the title is centered relative to
-                the header's full width, independent of the avatar (40px)
-                and the days-left tab (variable width). flex
-                justify-between alone left the title visually off-center
-                because the two flanking elements have different widths. */}
-            <h2 className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-body-sm font-semibold tracking-tight">
-              Dashboard
-            </h2>
-
-            {daysUntilTarget > 0 ? (
+            {daysUntilTarget > 0 && (
               <div
                 className="flex items-center h-10 px-3 rounded-xs"
                 style={{
@@ -808,12 +799,9 @@ export default function Dashboard() {
                 }}
               >
                 <p className="text-note font-semibold tabular-nums whitespace-nowrap text-foreground">
-                  {daysUntilTarget} days left
+                  {daysUntilTarget} days left until weigh-in
                 </p>
               </div>
-            ) : (
-              /* Spacer to keep "Dashboard" centered when no days-left badge */
-              <div className="h-10 w-10" aria-hidden />
             )}
           </header>
 
@@ -905,73 +893,6 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Weight journey track — visual start → you → goal progression.
-              Replaces the dense single-line text (83.3 → 70.0 kg · 0%) with
-              a positional marker showing where the user is between start
-              and goal. Tap-target opens the full weight tracker. */}
-          {chartData.length > 0 && weightChip ? (() => {
-            const okPts = (ffTrend ?? []).filter((p) => p.state === "ok");
-            const trendArrow =
-              okPts.length < 2
-                ? null
-                : okPts[okPts.length - 1].score > okPts[0].score
-                  ? "↗"
-                  : okPts[okPts.length - 1].score < okPts[0].score
-                    ? "↘"
-                    : "→";
-            const pct = weightChip.pctComplete;
-            const pctLabel = Math.round(pct * 100);
-            const direction = weightChip.start > weightChip.goal ? "lose" : "gain";
-            // Clamp marker x so it never sits ON the start/goal end dots
-            // (would visually collide). Cap to [4%, 96%] of the track width.
-            const markerLeft = `${Math.min(96, Math.max(4, pct * 100))}%`;
-            return (
-              <button
-                type="button"
-                onClick={() => { triggerHapticSelection(); navigate("/weight"); }}
-                className="w-full text-left rounded-xs border border-border/50 bg-card/40 px-3 py-1.5 active:scale-[0.99] transition-transform"
-                aria-label="Open weight tracker"
-              >
-                {/* Single-row track: Start label · rail · Goal label.
-                    Current weight lives in the meta line below so it
-                    never collides with the end labels regardless of
-                    where the marker sits. */}
-                <div className="flex items-center gap-2">
-                  <span className="text-micro font-semibold tabular-nums text-muted-foreground shrink-0">
-                    {weightChip.start.toFixed(1)}
-                  </span>
-                  <div className="relative flex-1 h-[3px] rounded-full bg-muted/60">
-                    <div
-                      className="absolute inset-y-0 left-0 rounded-full bg-primary"
-                      style={{ width: markerLeft }}
-                    />
-                    <span aria-hidden className="absolute -left-0.5 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-primary" />
-                    <span
-                      aria-hidden
-                      className={`absolute -right-0.5 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full ${pct >= 1 ? "bg-emerald-400" : "bg-muted-foreground/40"}`}
-                    />
-                    <span
-                      aria-hidden
-                      className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary ring-2 ring-background"
-                      style={{ left: markerLeft }}
-                    />
-                  </div>
-                  <span className="text-micro font-semibold tabular-nums text-muted-foreground shrink-0">
-                    {weightChip.goal.toFixed(1)}
-                  </span>
-                </div>
-
-                {/* Meta line — current weight + progress + trend */}
-                <p className="mt-1 text-micro text-muted-foreground tabular-nums">
-                  <span className="font-bold text-primary">{weightChip.current.toFixed(1)} kg</span>
-                  {" · "}
-                  <span className="font-semibold text-foreground">{pctLabel}%</span> {direction === "lose" ? "cut" : "gained"}
-                  {trendArrow ? <> · 14d {trendArrow}</> : null}
-                </p>
-              </button>
-            );
-          })() : null}
-
           {/* Gym invites + announcements — below the hero ring so they
               don't push Fight Form Score below the fold. */}
           {userId && <GymInvitesBanner />}
@@ -979,7 +900,9 @@ export default function Dashboard() {
 
           <TodayStrip adherence={adherence} mealsLoggedToday={todayCalories > 0} />
 
-          <div className="grid grid-cols-2 gap-2">
+          <p className="font-display text-value font-bold text-white pt-4">Your Stats</p>
+
+          <div className="grid grid-cols-2 gap-2 items-stretch">
             {/* Weight metric card — Design System v1 Metric Card layout
                 (Figma node 67:725). Eyebrow → big bold value → smaller
                 chart → date + trend at the bottom. The kg/lb toggle
@@ -1001,7 +924,7 @@ export default function Dashboard() {
               </div>
 
               <div className="mt-2 flex items-baseline gap-1.5">
-                <span className="font-display font-bold text-[28px] leading-none text-foreground tabular-nums">
+                <span className="font-display font-bold text-[40px] leading-none text-foreground tabular-nums">
                   {currentWeightValue
                     ? convertWeight(currentWeightValue).toFixed(1)
                     : "—"}
@@ -1053,12 +976,12 @@ export default function Dashboard() {
                 );
               })()}
             </button>
-            {userId && <TrainingWeekWidget userId={userId} compact />}
+            {userId && <SleepLogger userId={userId} compact />}
           </div>
 
-          {userId && <TrainingInsightsWidget userId={userId} />}
+          {userId && <TrainingWeekWidget userId={userId} />}
 
-          {userId && <SleepLogger userId={userId} compact />}
+          {userId && <TrainingInsightsWidget userId={userId} />}
 
           <div>
             <MilestoneBadges badges={badges} loading={badgesLoading} onTap={() => setAchievementSheetOpen(true)} />
@@ -1124,7 +1047,7 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             {daysUntilTarget > 0 && (
-              <div className="rounded-xs px-2.5 py-1.5 text-center backdrop-blur-md bg-white/10 border border-white/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]">
+              <div className="rounded-xs px-2.5 py-1.5 text-center backdrop-blur-md bg-white/10 border border-white/20">
                 <p className="text-body-sm font-bold tabular-nums leading-none">{daysUntilTarget}</p>
                 <p className="text-micro uppercase tracking-wider text-muted-foreground mt-0.5">Days left</p>
               </div>

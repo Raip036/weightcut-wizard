@@ -90,7 +90,7 @@ function headlineFor(p: Props): string {
     const missing = nextMissingSource(p.adherence);
     const remaining = Math.max(1, daysNeeded - daysWithAnyLog);
     if (missing) {
-      return `${remaining} more ${remaining === 1 ? "day" : "days"} to unlock. Log ${SOURCE_LABEL[missing].toLowerCase()} today to advance.`;
+      return `${remaining} more ${remaining === 1 ? "day" : "days"} to unlock.\nLog ${SOURCE_LABEL[missing].toLowerCase()} today to advance.`;
     }
     return `${remaining} more ${remaining === 1 ? "day" : "days"} of logging to unlock your score.`;
   }
@@ -148,7 +148,7 @@ export function FightFormInsightStrip(p: Props) {
         <button
           type="button"
           onClick={p.onHeadlineTap}
-          className="block text-[13px] text-foreground/90 text-center px-6 max-w-sm leading-snug active:opacity-70 transition-opacity"
+          className="block text-[11px] text-foreground/90 text-center px-6 max-w-sm leading-snug whitespace-pre-line active:opacity-70 transition-opacity"
           aria-label="Show explanation"
         >
           <span>{headline}</span>{" "}
@@ -157,7 +157,7 @@ export function FightFormInsightStrip(p: Props) {
           </span>
         </button>
       ) : (
-        <p className="text-[13px] text-foreground/90 text-center px-6 max-w-sm leading-snug">
+        <p className="text-[11px] text-foreground/90 text-center px-6 max-w-sm leading-snug whitespace-pre-line">
           {headline}
         </p>
       )}

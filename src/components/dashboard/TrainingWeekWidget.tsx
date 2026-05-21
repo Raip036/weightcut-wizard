@@ -346,26 +346,33 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
   // Full-size (non-compact) layout
   return (
     <div
-      className="card-surface p-5 rounded-xs overflow-hidden cursor-pointer active:scale-[0.98] transition-all duration-200"
+      className="card-surface p-3 rounded-xs overflow-hidden cursor-pointer active:scale-[0.98] transition-all duration-200"
       onClick={() => { triggerHapticSelection(); navigate("/training-calendar?openLogSession=true"); }}
     >
-      {/* Top row: ring + stats + chevron */}
+      {/* Header row — eyebrow label + chevron, matches Weight/Sleep cards */}
+      <div className="flex items-start justify-between mb-3">
+        <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
+          TRAINING
+        </span>
+        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60 -mr-1 -mt-0.5" strokeWidth={2.2} />
+      </div>
+
+      {/* Ring + stats row */}
       <div className="flex items-center gap-4">
-        <div className="relative w-20 h-20 flex-shrink-0">
+        <div className="relative w-16 h-16 flex-shrink-0">
           <AnimatedRing
             progress={ringProgress}
-            size={80}
-            strokeWidth={6}
+            size={64}
+            strokeWidth={5}
             gradientColors={[ringColor, ringColor]}
             id="training-week-ring"
           />
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="display-number text-lg font-bold">{totalSessions}</span>
+            <span className="display-number text-sm font-bold">{totalSessions}</span>
           </div>
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Training This Week</div>
-          <div className="flex items-baseline gap-1.5 mt-0.5">
+          <div className="flex items-baseline gap-1.5">
             <span className="display-number text-2xl font-bold">
               {totalMinutes >= 60 ? Math.round(totalMinutes / 60) : totalMinutes}
             </span>
@@ -377,7 +384,6 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
             {totalSessions === 0 ? "No sessions yet" : `${activeDays} day${activeDays !== 1 ? "s" : ""} active`}
           </p>
         </div>
-        <ChevronRight className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" />
       </div>
 
       {/* Week day bar chart */}

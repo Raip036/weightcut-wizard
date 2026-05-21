@@ -236,7 +236,7 @@ All colors MUST be HSL.
     --gradient-mystic:  linear-gradient(90deg, #4068EF 0%, #020811 100%);
 
     /* ---- RADIUS scale ---- */
-    --radius-xs:   8px;
+    --radius-xs:  16px;
     --radius-s:   12px;
     --radius-m:   16px;
     --radius-l:   20px;

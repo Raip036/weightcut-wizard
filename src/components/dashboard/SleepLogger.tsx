@@ -8,10 +8,12 @@ import { logger } from "@/lib/logger";
 import { triggerHaptic, triggerHapticSuccess } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { cn } from "@/lib/utils";
 
 interface SleepLoggerProps {
   userId: string;
   compact?: boolean;
+  className?: string;
 }
 
 const MIN_HOURS = 0;
@@ -22,7 +24,7 @@ const DEFAULT_HOURS = 7.5;
 const today = () => new Date().toISOString().split("T")[0];
 const cacheKey = (date: string) => `sleep_log_${date}`;
 
-export const SleepLogger = memo(function SleepLogger({ userId, compact }: SleepLoggerProps) {
+export const SleepLogger = memo(function SleepLogger({ userId, compact, className }: SleepLoggerProps) {
   const navigate = useNavigate();
   const [hours, setHours] = useState(DEFAULT_HOURS);
   const [draftHours, setDraftHours] = useState(DEFAULT_HOURS);
@@ -94,27 +96,39 @@ export const SleepLogger = memo(function SleepLogger({ userId, compact }: SleepL
     setDraftHours((h) => Math.min(MAX_HOURS, Math.max(MIN_HOURS, Math.round((h + delta) * 10) / 10)));
   };
 
-  // Compact widget — shows last night's logged hours prominently.
+  // Compact widget — square card matching the Weight metric card layout.
   const trigger = compact ? (
     <button
       type="button"
-      className="card-surface rounded-xs px-4 py-3.5 flex items-center gap-3 active:scale-[0.98] transition-all text-left w-full"
+      className={cn("card-surface rounded-xs p-3 aspect-square flex flex-col text-left active:scale-[0.98] transition-all w-full", className)}
       onClick={() => { triggerHaptic(ImpactStyle.Light); navigate("/sleep"); }}
     >
-      <div className="h-9 w-9 rounded-xs bg-primary/10 flex items-center justify-center flex-shrink-0">
-        <Moon className="h-4 w-4 text-primary" />
+      {/* Header row — eyebrow label + chevron, matches Weight card */}
+      <div className="flex items-start justify-between">
+        <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
+          SLEEP
+        </span>
+        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60 -mr-1 -mt-0.5" strokeWidth={2.2} />
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-micro uppercase tracking-wider text-muted-foreground/70 font-semibold">Last night</p>
+
+      {/* Value */}
+      <div className="mt-2 flex items-baseline gap-1">
         {saved ? (
-          <p className="text-value font-bold leading-tight tabular-nums">
-            {hours}<span className="text-note text-muted-foreground font-medium ml-0.5">h</span>
-          </p>
+          <>
+            <span className="font-display font-bold text-[40px] leading-none text-foreground tabular-nums">
+              {hours}
+            </span>
+            <span className="text-note font-light text-muted-foreground">h</span>
+          </>
         ) : (
-          <p className="text-note font-medium text-muted-foreground">Tap to log</p>
+          <span className="text-note font-medium text-muted-foreground">Tap to log</span>
         )}
       </div>
-      <ChevronRight className="h-4 w-4 text-muted-foreground/40 flex-shrink-0" />
+
+      <div className="flex-1" />
+
+      {/* Footer */}
+      <p className="text-micro text-muted-foreground">Last night</p>
     </button>
   ) : (
     <button
