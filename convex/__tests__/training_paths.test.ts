@@ -149,3 +149,185 @@ describe("path proposals", () => {
     ).rejects.toThrow(/Not authorized/);
   });
 });
+
+describe("path lifecycle (pause / resume / archive)", () => {
+  async function seedPath(
+    t: ReturnType<typeof convexTest>,
+    userId: Id<"users">,
+    status: "active" | "queued" | "paused" = "active",
+  ) {
+    return await t.run(async (ctx) =>
+      ctx.db.insert("training_paths", {
+        userId, sport: "BJJ", goal: "Master kimura", goalType: "note",
+        status, createdAt: Date.now(), lastAdvancedAt: Date.now(),
+      }),
+    );
+  }
+
+  it("pausePath flips status to paused", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+    const pathId = await seedPath(t, userId);
+    await t
+      .withIdentity({ subject: userId })
+      .mutation(api.training_paths.pausePath, { pathId });
+    const row = await t.run((ctx) => ctx.db.get(pathId));
+    expect(row?.status).toBe("paused");
+  });
+
+  it("resumePath returns paused path to active when slot is free", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+    const pathId = await seedPath(t, userId, "paused");
+    await t
+      .withIdentity({ subject: userId })
+      .mutation(api.training_paths.resumePath, { pathId });
+    const row = await t.run((ctx) => ctx.db.get(pathId));
+    expect(row?.status).toBe("active");
+  });
+
+  it("resumePath queues the path if 3 actives already exist", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+    for (let i = 0; i < 3; i++) await seedPath(t, userId, "active");
+    const pausedId = await seedPath(t, userId, "paused");
+    await t
+      .withIdentity({ subject: userId })
+      .mutation(api.training_paths.resumePath, { pathId: pausedId });
+    const row = await t.run((ctx) => ctx.db.get(pausedId));
+    expect(row?.status).toBe("queued");
+  });
+
+  it("archivePath flips status to archived", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+    const pathId = await seedPath(t, userId);
+    await t
+      .withIdentity({ subject: userId })
+      .mutation(api.training_paths.archivePath, { pathId });
+    const row = await t.run((ctx) => ctx.db.get(pathId));
+    expect(row?.status).toBe("archived");
+  });
+
+  it("pausing an active path auto-promotes the oldest queued one", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+    const activeId = await seedPath(t, userId, "active");
+    const queuedId = await seedPath(t, userId, "queued");
+    await t
+      .withIdentity({ subject: userId })
+      .mutation(api.training_paths.pausePath, { pathId: activeId });
+    const promoted = await t.run((ctx) => ctx.db.get(queuedId));
+    expect(promoted?.status).toBe("active");
+  });
+});
+
+describe("path reads for widget", () => {
+  it("getActivePaths returns active paths ordered by lastAdvancedAt desc", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("training_paths", {
+        userId, sport: "BJJ", goal: "older", goalType: "note",
+        status: "active", createdAt: 1, lastAdvancedAt: 100,
+      });
+      await ctx.db.insert("training_paths", {
+        userId, sport: "BJJ", goal: "newer", goalType: "note",
+        status: "active", createdAt: 2, lastAdvancedAt: 200,
+      });
+    });
+    const out = await t
+      .withIdentity({ subject: userId })
+      .query(api.training_paths.getActivePaths, {});
+    expect(out.map((p) => p.goal)).toEqual(["newer", "older"]);
+  });
+
+  it("getPathWithSteps returns ordered steps", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+    const pathId = await t.run(async (ctx) => {
+      const pid = await ctx.db.insert("training_paths", {
+        userId, sport: "BJJ", goal: "g", goalType: "note",
+        status: "active", createdAt: 1, lastAdvancedAt: 1,
+      });
+      for (const pos of [3, 1, 2]) {
+        await ctx.db.insert("training_path_steps", {
+          pathId: pid, position: pos, state: pos === 1 ? "current" : "upcoming",
+          prescription: `s${pos}`, wizardLine: `w${pos}`,
+          details: { why: "", how: [], pitfalls: [] },
+          targetSport: "BJJ", expectedSessions: 1,
+        });
+      }
+      return pid;
+    });
+    const out = await t
+      .withIdentity({ subject: userId })
+      .query(api.training_paths.getPathWithSteps, { pathId });
+    expect(out.steps.map((s) => s.position)).toEqual([1, 2, 3]);
+  });
+
+  it("getHeroStep returns current step + next-2 from most-advanced active path", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+    await t.run(async (ctx) => {
+      const pid = await ctx.db.insert("training_paths", {
+        userId, sport: "BJJ", goal: "Hero path", goalType: "note",
+        status: "active", createdAt: 1, lastAdvancedAt: 200,
+      });
+      for (const [pos, state] of [
+        [1, "completed"], [2, "completed"], [3, "current"],
+        [4, "upcoming"], [5, "upcoming"], [6, "upcoming"],
+      ] as const) {
+        await ctx.db.insert("training_path_steps", {
+          pathId: pid, position: pos, state,
+          prescription: `step${pos}`, wizardLine: `w${pos}`,
+          details: { why: "", how: [], pitfalls: [] },
+          targetSport: "BJJ", expectedSessions: 1,
+        });
+      }
+    });
+    const hero = await t
+      .withIdentity({ subject: userId })
+      .query(api.training_paths.getHeroStep, {});
+    expect(hero?.currentStep.prescription).toBe("step3");
+    expect(hero?.nextSteps.map((s) => s.prescription)).toEqual(["step4", "step5"]);
+    expect(hero?.totalSteps).toBe(6);
+    expect(hero?.stepNumber).toBe(3);
+  });
+});
+
+describe("submitStepFeedback", () => {
+  it("writes a feedback row and patches the step's completedFeedback", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+    const { pathId, stepId } = await t.run(async (ctx) => {
+      const pid = await ctx.db.insert("training_paths", {
+        userId, sport: "BJJ", goal: "g", goalType: "note",
+        status: "active", createdAt: 1, lastAdvancedAt: 1,
+      });
+      const sid = await ctx.db.insert("training_path_steps", {
+        pathId: pid, position: 1, state: "completed",
+        prescription: "p", wizardLine: "w",
+        details: { why: "", how: [], pitfalls: [] },
+        targetSport: "BJJ", expectedSessions: 1, completedAt: Date.now(),
+      });
+      return { pathId: pid, stepId: sid };
+    });
+    await t
+      .withIdentity({ subject: userId })
+      .mutation(api.training_paths.submitStepFeedback, {
+        stepId,
+        feedback: "off",
+      });
+    const step = await t.run((ctx) => ctx.db.get(stepId));
+    expect(step?.completedFeedback).toBe("off");
+    const fbRows = await t.run((ctx) =>
+      ctx.db
+        .query("training_path_feedback")
+        .withIndex("by_path_at", (q) => q.eq("pathId", pathId))
+        .collect(),
+    );
+    expect(fbRows.length).toBe(1);
+    expect(fbRows[0].feedback).toBe("off");
+  });
+});
