@@ -103,13 +103,10 @@ export const SleepLogger = memo(function SleepLogger({ userId, compact, classNam
       className={cn("card-surface rounded-xs p-3 aspect-square flex flex-col text-left active:scale-[0.98] transition-all w-full", className)}
       onClick={() => { triggerHaptic(ImpactStyle.Light); navigate("/sleep"); }}
     >
-      {/* Header row — eyebrow label + chevron, matches Weight card */}
-      <div className="flex items-start justify-between">
-        <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
-          SLEEP
-        </span>
-        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60 -mr-1 -mt-0.5" strokeWidth={2.2} />
-      </div>
+      {/* Header — eyebrow label only */}
+      <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
+        SLEEP
+      </span>
 
       {/* Value */}
       <div className="mt-2 flex items-baseline gap-1">
@@ -127,8 +124,11 @@ export const SleepLogger = memo(function SleepLogger({ userId, compact, classNam
 
       <div className="flex-1" />
 
-      {/* Footer */}
-      <p className="text-micro text-muted-foreground">Last night</p>
+      {/* Footer — label left, chevron right */}
+      <div className="flex items-center justify-between">
+        <p className="text-micro text-muted-foreground">Last night</p>
+        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40" strokeWidth={2.2} />
+      </div>
     </button>
   ) : (
     <button

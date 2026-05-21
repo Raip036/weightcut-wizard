@@ -916,12 +916,9 @@ export default function Dashboard() {
               onClick={() => { triggerHapticSelection(); navigate('/weight'); }}
               className="card-surface rounded-xs p-3 aspect-square flex flex-col text-left active:scale-[0.98] transition-transform"
             >
-              <div className="flex items-start justify-between">
-                <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
-                  WEIGHT
-                </span>
-                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60 -mr-1 -mt-0.5" strokeWidth={2.2} />
-              </div>
+              <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
+                WEIGHT
+              </span>
 
               <div className="mt-2 flex items-baseline gap-1.5">
                 <span className="font-display font-bold text-[40px] leading-none text-foreground tabular-nums">
@@ -943,38 +940,34 @@ export default function Dashboard() {
                   <div className="flex flex-col items-center justify-center h-full text-center">
                     <TrendingDown className="h-5 w-5 text-muted-foreground/40 mb-1" />
                     <p className="text-note text-muted-foreground">No data yet</p>
-                    <Button variant="ghost" size="sm" className="h-6 text-note px-2" onClick={() => navigate('/weight')}>
-                      Log Weight
-                    </Button>
                   </div>
                 )}
               </div>
 
-              {/* Footer — most recent log date + delta vs previous log.
-                  Negative delta (weight loss) renders in func-recovery-green;
-                  positive (gain) renders in func-danger-red since the app's
-                  primary user is cutting weight. Hidden until we have >= 2
-                  data points to compare. */}
-              {chartData.length >= 2 && (() => {
-                const last = chartData[chartData.length - 1];
-                const prev = chartData[chartData.length - 2];
-                const delta = last.weight - prev.weight;
-                const isDown = delta < 0;
-                return (
-                  <div className="mt-1.5 flex items-center justify-between">
-                    <span className="text-micro text-muted-foreground">
-                      {last.date}
-                    </span>
-                    <div className={`flex items-center gap-1 text-micro font-medium tabular-nums ${isDown ? "text-func-recovery-green" : "text-func-danger-red"}`}>
-                      <TrendingDown
-                        className={`h-3 w-3 ${isDown ? "" : "rotate-180"}`}
-                        strokeWidth={2.4}
-                      />
-                      <span>{Math.abs(delta).toFixed(1)}</span>
-                    </div>
-                  </div>
-                );
-              })()}
+              {/* Footer — date left, trend arrow + delta + chevron grouped at bottom-right */}
+              <div className="mt-1.5 flex items-center justify-between">
+                <span className="text-micro text-muted-foreground">
+                  {chartData.length >= 2 ? chartData[chartData.length - 1].date : ""}
+                </span>
+                <div className="flex items-center gap-1.5">
+                  {chartData.length >= 2 && (() => {
+                    const last = chartData[chartData.length - 1];
+                    const prev = chartData[chartData.length - 2];
+                    const delta = last.weight - prev.weight;
+                    const isDown = delta < 0;
+                    return (
+                      <div className={`flex items-center gap-0.5 text-micro font-medium tabular-nums ${isDown ? "text-func-recovery-green" : "text-func-danger-red"}`}>
+                        <TrendingDown
+                          className={`h-3 w-3 ${isDown ? "" : "rotate-180"}`}
+                          strokeWidth={2.4}
+                        />
+                        <span>{Math.abs(delta).toFixed(1)}</span>
+                      </div>
+                    );
+                  })()}
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40" strokeWidth={2.2} />
+                </div>
+              </div>
             </button>
             {userId && <SleepLogger userId={userId} compact />}
           </div>
