@@ -148,6 +148,31 @@ export const cascadeWellness = internalMutation({
     // are written daily by the scoring cron, so a long-time user can
     // accumulate hundreds of rows that would otherwise dangle forever.
     await deleteByUserIndex(ctx, "fight_form_scores", userId, "by_user_date");
+
+    // ─── Apple HealthKit tables (spec §9) ─────────────────────────────
+    // `health_samples` can be the largest per-user table (~14 rows/day
+    // for an active user across multiple weeks), so it's first to clear.
+    // Indexed by `by_user_metric_started` — we don't need the metric
+    // partition for a full wipe; a scan via that index still scopes to
+    // this user only.
+    const samples = await ctx.db
+      .query("health_samples")
+      .withIndex("by_user_metric_started", (q) => q.eq("userId", userId))
+      .collect();
+    await Promise.all(samples.map((s) => ctx.db.delete(s._id)));
+
+    await deleteByUserIndex(
+      ctx,
+      "daily_health_summary",
+      userId,
+      "by_user_date",
+    );
+    await deleteByUserIndex(
+      ctx,
+      "health_baselines",
+      userId,
+      "by_user_metric",
+    );
   },
 });
 

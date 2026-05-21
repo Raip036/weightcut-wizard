@@ -47,7 +47,11 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  // Local date — must match what the dashboard's TodayStrip queries so a
+  // sleep log made just after midnight local lights up today's Sleep pill
+  // rather than getting buried under yesterday's UTC date.
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 export default function Sleep() {

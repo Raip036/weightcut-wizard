@@ -35,6 +35,7 @@ import { useProfilePosts } from "@/hooks/community/useProfilePosts";
 import { PostGrid } from "@/components/community/PostGrid";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { HealthSettingsCard } from "@/components/health/HealthSettingsCard";
 
 // ─── Helpers ───────────────────────────────────────────────────────────
 
@@ -243,6 +244,13 @@ export default function Profile() {
         />
         <StatCell label="Camps" value={compactNumber(campsCompleted)} />
       </div>
+
+      {/* ─── Apple Health settings (self-view only) ─────────────────── */}
+      {isViewingSelf && (
+        <div className="mx-5 mt-4">
+          <HealthSettingsCard />
+        </div>
+      )}
 
       {/* ─── Posts grid ─────────────────────────────────────────────── */}
       <div className="mt-6 px-px">

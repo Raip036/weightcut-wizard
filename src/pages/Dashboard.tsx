@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAction, useConvex, useMutation, useQuery } from "convex/react";
+import { format } from "date-fns";
 import { api } from "@/../convex/_generated/api";
 import { FEATURE_FLAGS } from "@/lib/featureFlags";
 import { FightFormRing } from "@/components/dashboard/FightFormRing";
@@ -102,9 +103,44 @@ export default function Dashboard() {
   // Skip the query while userId is unresolved to avoid an extra round trip.
   const activeCamp = useQuery(api.fight_camp.getActiveCamp, userId ? {} : "skip");
   const ffScoreData = useQuery(api.fightFormScore.getToday, FEATURE_FLAGS.enableFightFormScore ? {} : "skip");
+  // Local-time date string. Anchors every "today" subscription below so all
+  // TodayStrip pills (meals, weight, training, sleep, wellness) share one
+  // source of truth and reset together when the user crosses local midnight.
+  // Re-runs at midnight + on visibility resume to survive backgrounded apps.
+  const [liveTodayStr, setLiveTodayStr] = useState(() => format(new Date(), "yyyy-MM-dd"));
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const scheduleNextRoll = () => {
+      const now = new Date();
+      const nextMidnight = new Date(now);
+      nextMidnight.setHours(24, 0, 0, 100); // 100ms past midnight to clear edge cases
+      const msUntilMidnight = nextMidnight.getTime() - now.getTime();
+      timeoutId = setTimeout(() => {
+        setLiveTodayStr(format(new Date(), "yyyy-MM-dd"));
+        scheduleNextRoll();
+      }, msUntilMidnight);
+    };
+    // Also catch the case where the app was backgrounded across midnight —
+    // browsers throttle setTimeout in background tabs / iOS WebView freezes
+    // entirely, so on visibility-resume we re-sync the date string.
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        setLiveTodayStr((prev) => {
+          const fresh = format(new Date(), "yyyy-MM-dd");
+          return prev === fresh ? prev : fresh;
+        });
+      }
+    };
+    scheduleNextRoll();
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
   const ffAdherence = useQuery(
     api.fightFormScore.loggedTodayBundle,
-    FEATURE_FLAGS.enableFightFormScore ? {} : "skip",
+    FEATURE_FLAGS.enableFightFormScore ? { date: liveTodayStr } : "skip",
   );
   const ffCalibration = useQuery(
     api.fightFormScore.calibrationProgress,
@@ -142,7 +178,6 @@ export default function Dashboard() {
   // from WeightTracker / Nutrition / Hydration / TrainingCalendar invalidate
   // these reads → the useEffects below copy fresh data into the existing
   // state setters → widgets re-render without any cache-bust dance.
-  const liveTodayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
   const liveWeightLogs = useQuery(
     api.weight_logs.listForUser,
     userId ? { limit: 30 } : "skip",
@@ -387,7 +422,11 @@ export default function Dashboard() {
     }
 
     lastFetchRef.current = Date.now();
-    const today = new Date().toISOString().split('T')[0];
+    // Local date — must match `liveTodayStr` (and `useNutritionState.selectedDate`)
+    // so the cache keys this function reads/writes line up with what the meal-
+    // logging path persists. Mixing UTC here with LOCAL there caused the
+    // dashboard to overwrite a freshly-logged meal's `todayCalories` with 0.
+    const today = liveTodayStr;
 
     // --- Cache-first: serve cached data instantly, then refresh in background ---
     const cachedWeightLogs = localCache.get<any[]>(userId, 'dashboard_weight_logs');
@@ -579,14 +618,14 @@ export default function Dashboard() {
     }
   };
 
-  const hasTodayLog = weightLogs.some((l: any) => l.date === new Date().toISOString().split('T')[0]);
+  const hasTodayLog = weightLogs.some((l: any) => l.date === liveTodayStr);
 
   const riskColors: Record<string, string> = {
     green: "bg-green-500/20 text-green-400 border-green-500/30",
     orange: "bg-orange-500/20 text-orange-400 border-orange-500/30",
   };
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = liveTodayStr;
   const todayLog = weightLogs.find((l: any) => l.date === todayStr);
   const prevLogs = weightLogs.filter((l: any) => l.date < todayStr).sort((a: any, b: any) => b.date.localeCompare(a.date));
   const latestPrevLog = prevLogs.length > 0 ? prevLogs[0] : null;
