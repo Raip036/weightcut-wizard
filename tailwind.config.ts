@@ -148,6 +148,14 @@ export default {
         "body":       ["16px", { lineHeight: "24px" }],
         "caption":    ["12px", { lineHeight: "16px" }],
         "overline":   ["10px", { lineHeight: "14px", letterSpacing: "0.08em" }],
+        /* ── App UI scale (5-step) ─────────────────────────────────────
+           Fills the gaps in the design system for compact mobile UI:
+           micro → note → body-sm → value → title                      */
+        "micro":    ["11px", { lineHeight: "16px", letterSpacing: "0.03em" }],
+        "note":     ["13px", { lineHeight: "20px" }],
+        "body-sm":  ["15px", { lineHeight: "22px" }],
+        "value":    ["18px", { lineHeight: "24px", letterSpacing: "-0.01em" }],
+        "title":    ["22px", { lineHeight: "28px", letterSpacing: "-0.01em" }],
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -179,6 +187,13 @@ export default {
         "accordion-up": {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
+        },
+        /* Crystal-glass progress bar shimmer — sweeps a translucent
+           highlight across the filled portion. Used by
+           src/components/ui/progress.tsx. */
+        "progress-shimmer": {
+          "0%":   { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(200%)" },
         },
         marquee: {
           "0%": { transform: "translateX(0)" },

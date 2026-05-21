@@ -20,6 +20,7 @@ import { NavigationDirectionProvider } from "@/hooks/useNavigationDirection";
 import { TutorialProvider } from "@/tutorial/TutorialContext";
 import { BottomNav } from "@/components/BottomNav";
 import { FloatingWizardChat } from "@/components/FloatingWizardChat";
+import { StarField } from "@/components/StarField";
 const FloatingWorkoutIndicator = lazy(() => import("@/components/gym/FloatingWorkoutIndicator").then(m => ({ default: m.FloatingWorkoutIndicator })));
 const AIFloatingIndicator = lazy(() => import("@/components/AIFloatingIndicator").then(m => ({ default: m.AIFloatingIndicator })));
 import * as Sentry from "@sentry/react";
@@ -239,6 +240,13 @@ const App = () => (
           <SubscriptionProvider>
           <AITaskProvider>
           <WizardBackgroundProvider>
+            {/* Ambient star field — fixed background layer behind all
+                page content. Sits at z-0 with pointer-events-none so it
+                never intercepts taps. 28 sparkles at 5–13% opacity drift
+                in place on slow staggered loops for a subtle night-sky
+                feel app-wide. See StarField for the deterministic seed +
+                color cycling rationale. */}
+            <StarField />
             <Toaster />
             <Sonner />
             <PaywallOverlay />
