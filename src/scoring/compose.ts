@@ -4,6 +4,7 @@ import { computeSleep } from "./subScores/sleep";
 import { computeWeightCut } from "./subScores/weightCut";
 import { computeWellness } from "./subScores/wellness";
 import { computeNutritionAdherence } from "./subScores/nutritionAdherence";
+import { computeRecovery } from "./subScores/recovery";
 import { resolvePhase, weightsForPhase } from "./phaseWeights";
 import { applyCeilings } from "./ceilings";
 import { computeCampAge } from "./campAge";
@@ -130,7 +131,14 @@ function latestHooper(hooperByDate: ScoringInputs["hooperByDate"], asOfDate: str
 
 function emptySubScores(): FightFormScore["subScores"] {
   const empty = { value: 0, weight: 0, reason: "—" };
-  return { trainingLoad: empty, sleep: empty, weightCut: empty, wellness: empty, nutritionAdherence: empty };
+  return {
+    trainingLoad: empty,
+    sleep: empty,
+    weightCut: empty,
+    wellness: empty,
+    nutritionAdherence: empty,
+    recovery: empty,
+  };
 }
 
 export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig): FightFormScore {
@@ -139,6 +147,7 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
       score: 0, rawScore: 0, label: "off_pace", state: "paused", phase: null,
       campAge: null, subScores: emptySubScores(), topDriver: "weightCut",
       topLimiter: "weightCut", appliedCeiling: null, algorithmVersion: cfg.version,
+      recoveryConfidence: 0,
     };
   }
   if (!inputs.fightDate || !inputs.campStartDate) {
@@ -146,6 +155,7 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
       score: 0, rawScore: 0, label: "off_pace", state: "no_camp", phase: null,
       campAge: null, subScores: emptySubScores(), topDriver: "weightCut",
       topLimiter: "weightCut", appliedCeiling: null, algorithmVersion: cfg.version,
+      recoveryConfidence: 0,
     };
   }
 
@@ -155,6 +165,7 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
       score: 0, rawScore: 0, label: "off_pace", state: "calibrating", phase: null,
       campAge: null, subScores: emptySubScores(), topDriver: "weightCut",
       topLimiter: "weightCut", appliedCeiling: null, algorithmVersion: cfg.version,
+      recoveryConfidence: 0,
     };
   }
 
@@ -169,13 +180,33 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
   );
   const wellness = computeWellness(inputs.hooperByDate, inputs.date, cfg);
   const nutritionAdherence = computeNutritionAdherence(inputs.meals, inputs.targets, inputs.date, cfg);
+  const recovery = computeRecovery(
+    inputs.healthSignals ?? null,
+    inputs.selfReportRecovery ?? null,
+    cfg,
+  );
+
+  // When HealthKit signals are present and contribute (confidence > 0),
+  // hand the wellness slot's weight over to recovery. Recovery already
+  // folds the self-report soreness/energy back in, so we don't double-count.
+  // When healthSignals is null/missing OR every signal is absent, wellness
+  // keeps its weight and recovery stays at 0 — the composite is byte-for-byte
+  // identical to the pre-HealthKit engine.
+  const recoveryHasSignal = (inputs.healthSignals ?? null) !== null && recovery.confidence > 0;
+  const wellnessWeight = recoveryHasSignal ? 0 : weights.wellness;
+  const recoveryWeight = recoveryHasSignal ? weights.wellness : 0;
 
   const subScores: FightFormScore["subScores"] = {
     trainingLoad: { ...trainingLoad, weight: weights.trainingLoad },
     sleep: { ...sleep, weight: weights.sleep },
     weightCut: { ...weightCut, weight: weights.weightCut },
-    wellness: { ...wellness, weight: weights.wellness },
+    wellness: { ...wellness, weight: wellnessWeight },
     nutritionAdherence: { ...nutritionAdherence, weight: weights.nutritionAdherence },
+    recovery: {
+      value: recovery.value,
+      weight: recoveryWeight,
+      reason: recovery.reason,
+    },
   };
 
   const totalWeight = Object.values(subScores).reduce((a, s) => a + s.weight, 0);
@@ -219,5 +250,6 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
     topLimiter,
     appliedCeiling: ceil.applied,
     algorithmVersion: cfg.version,
+    recoveryConfidence: recovery.confidence,
   };
 }

@@ -112,6 +112,33 @@ export default defineSchema({
     // this are counted as unread in `feedActivity.unreadActivityCount`.
     lastActivitySeenAt: v.optional(v.number()),
 
+    // ─── Apple HealthKit integration (spec §5.2) ───────────────────────
+    // Epoch ms the user first granted HealthKit read permission (set by
+    // `setHealthKitConnected`). `null` / missing = never connected.
+    healthKitConnectedAt: v.optional(v.number()),
+    // Epoch ms we last *showed* the Connect-Health onboarding/settings
+    // sheet. Used to avoid re-prompting in the same onboarding flow when
+    // the user explicitly tapped "Skip for now".
+    healthKitPromptedAt: v.optional(v.number()),
+    // Epoch ms the user disconnected (from our side — iOS won't let us
+    // revoke the OS-level permission programmatically). Set by
+    // `markDisconnected`; cleared on the next successful reconnect.
+    healthKitDisabledAt: v.optional(v.number()),
+    // Quality tier of the user's HealthKit signal. "tier_0" = no usable
+    // data → fall back to self-report; "tier_1" = phone-only / partial;
+    // "tier_2" = watch-connected with ≥ 7 days HRV in the last 14d.
+    // Recomputed by `internal.health.computeBaselines`.
+    healthDataTier: v.optional(v.string()),
+    // Epoch ms of the most recent `insertSamples` call. Used by the
+    // client to compute the next `syncSinceLastSync` window. Independent
+    // of `healthKitConnectedAt` so a long pause doesn't downgrade the
+    // connection state.
+    healthLastSyncAt: v.optional(v.number()),
+    // The set of HealthKit metric keys the user actually granted (iOS
+    // supports per-metric grants). Drives the per-metric availability
+    // chips in `HealthSettingsCard`. Empty array = nothing granted.
+    healthGrantedMetrics: v.optional(v.array(v.string())),
+
     updatedAt: v.optional(v.number()),
   })
     .index("by_user", ["userId"])
@@ -951,6 +978,85 @@ export default defineSchema({
   })
     .index("by_user_feature_recent", ["userId", "feature"])
     .index("by_user_outcome_pending", ["userId", "outcomeLoggedAt"]),
+
+  // ────────────────────────────────────────────────────────────────────
+  // APPLE HEALTHKIT INTEGRATION (spec §5.1)
+  // ────────────────────────────────────────────────────────────────────
+
+  /**
+   * Raw HealthKit samples, immutable. One row per HealthKit sample we read.
+   * Idempotency: `externalId` is the HealthKit sample UUID — `insertSamples`
+   * skips inserts whose `externalId` already exists. Daily roll-up
+   * (`daily_health_summary`) is the read path for the score engine; this
+   * table is the source of truth for re-rollups and audit.
+   *
+   * Index notes:
+   *  - `by_user_metric_started` — primary range scan for roll-up: "all
+   *    samples for user U, metric M, in [start, end)".
+   *  - `by_external_id` — idempotency check on insert; must be unique by
+   *    construction (HealthKit UUIDs are globally unique).
+   */
+  health_samples: defineTable({
+    userId: v.id("users"),
+    metric: v.string(),
+    value: v.number(),
+    unit: v.string(),
+    startedAt: v.number(),
+    endedAt: v.number(),
+    source: v.string(),
+    device: v.optional(v.string()),
+    externalId: v.optional(v.string()),
+  })
+    .index("by_user_metric_started", ["userId", "metric", "startedAt"])
+    .index("by_external_id", ["externalId"]),
+
+  /**
+   * One row per (user, date). Derived from `health_samples` by
+   * `internal.health.rollupDaily`. All metric fields optional so the row
+   * still validates when a user has partial data (e.g. iPhone-only users
+   * have steps but no HRV).
+   *
+   * `sourcesPresent` records which devices contributed to that day's
+   * samples (e.g. ["Apple Watch", "Whoop"]). The roll-up applies the
+   * source-priority rule from spec §10.6 before averaging.
+   */
+  daily_health_summary: defineTable({
+    userId: v.id("users"),
+    date: v.string(),
+    hrvAvgMs: v.optional(v.number()),
+    restingHrBpm: v.optional(v.number()),
+    sleepMinutes: v.optional(v.number()),
+    sleepDeepMinutes: v.optional(v.number()),
+    sleepRemMinutes: v.optional(v.number()),
+    sleepEfficiencyPct: v.optional(v.number()),
+    workoutMinutes: v.optional(v.number()),
+    activeEnergyKcal: v.optional(v.number()),
+    stepCount: v.optional(v.number()),
+    vo2Max: v.optional(v.number()),
+    respiratoryRateAvg: v.optional(v.number()),
+    wristTempDeltaC: v.optional(v.number()),
+    bodyMassKg: v.optional(v.number()),
+    sourcesPresent: v.array(v.string()),
+    computedAt: v.number(),
+  }).index("by_user_date", ["userId", "date"]),
+
+  /**
+   * Per-(user, metric) rolling baselines used by the recovery sub-score to
+   * compute `deviationZ = (value - mean) / stddev`. Refreshed nightly by
+   * `internal.health.computeBaselines` and after every `rollupDaily` of
+   * the previous day. `sampleCount` is the number of distinct days that
+   * contributed to the 14-day window — drives the `confidence` value the
+   * score engine surfaces in the UI.
+   */
+  health_baselines: defineTable({
+    userId: v.id("users"),
+    metric: v.string(),
+    rolling14dMean: v.number(),
+    rolling14dStdDev: v.number(),
+    rolling7dMean: v.optional(v.number()),
+    sampleCount: v.number(),
+    updatedAt: v.number(),
+  }).index("by_user_metric", ["userId", "metric"]),
 });
 
 /*
