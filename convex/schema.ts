@@ -549,8 +549,86 @@ export default defineSchema({
     sessionIds: v.array(v.string()), // free-text fingerprint over external IDs; not v.id() refs
     notesFingerprint: v.string(),
     summaryData: v.any(),
+    extractedTechniques: v.optional(v.array(v.string())),
     updatedAt: v.optional(v.number()),
   }).index("by_user_week", ["userId", "weekStart"]),
+
+  training_paths: defineTable({
+    userId: v.id("users"),
+    sport: v.string(),
+    goal: v.string(),
+    goalType: v.union(
+      v.literal("note"),
+      v.literal("goal"),
+      v.literal("coach"),
+    ),
+    status: v.union(
+      v.literal("active"),
+      v.literal("queued"),
+      v.literal("paused"),
+      v.literal("completed"),
+      v.literal("archived"),
+    ),
+    sourceTechniqueId: v.optional(v.id("techniques")),
+    sourceCoachId: v.optional(v.id("users")),
+    notesContext: v.optional(v.string()),
+    createdAt: v.number(),
+    lastAdvancedAt: v.number(),
+  })
+    .index("by_user_status", ["userId", "status"])
+    .index("by_user_sport", ["userId", "sport"]),
+
+  training_path_steps: defineTable({
+    pathId: v.id("training_paths"),
+    position: v.number(),
+    state: v.union(
+      v.literal("upcoming"),
+      v.literal("current"),
+      v.literal("completed"),
+      v.literal("remedial"),
+    ),
+    prescription: v.string(),
+    wizardLine: v.string(),
+    details: v.object({
+      why: v.string(),
+      how: v.array(v.string()),
+      pitfalls: v.array(v.string()),
+    }),
+    targetTechniqueId: v.optional(v.id("techniques")),
+    targetSport: v.string(),
+    expectedSessions: v.number(),
+    completedAt: v.optional(v.number()),
+    completedFeedback: v.optional(v.union(
+      v.literal("nailed"),
+      v.literal("off"),
+    )),
+  }).index("by_path_position", ["pathId", "position"]),
+
+  training_path_feedback: defineTable({
+    pathId: v.id("training_paths"),
+    stepId: v.id("training_path_steps"),
+    userId: v.id("users"),
+    feedback: v.union(v.literal("nailed"), v.literal("off")),
+    at: v.number(),
+  }).index("by_path_at", ["pathId", "at"]),
+
+  training_path_proposals: defineTable({
+    userId: v.id("users"),
+    technique: v.string(),
+    techniqueNormalized: v.string(),
+    sport: v.string(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("accepted"),
+      v.literal("snoozed"),
+      v.literal("declined"),
+    ),
+    snoozedUntil: v.optional(v.number()),
+    declineCount: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_user_status", ["userId", "status"])
+    .index("by_user_normalized", ["userId", "techniqueNormalized"]),
 
   // ────────────────────────────────────────────────────────────────────
   // SKILL TREE
