@@ -1,3 +1,5 @@
+"use node";
+
 /**
  * Stage 6 of the planner: when a path finishes, propose TWO follow-up
  * paths — a related offensive next step and an inverse defense path.

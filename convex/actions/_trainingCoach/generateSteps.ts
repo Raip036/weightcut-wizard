@@ -1,3 +1,5 @@
+"use node";
+
 /**
  * Stage 3 of the planner: generate the full 5-8 step curriculum for a
  * given technique/goal. Uses the heavy `gpt-oss-120b` model and validates

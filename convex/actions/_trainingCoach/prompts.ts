@@ -1,3 +1,5 @@
+"use node";
+
 /**
  * System prompts for the Training Coach Paths planner stages.
  *

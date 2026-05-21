@@ -1,3 +1,5 @@
+"use node";
+
 /**
  * Stage 5 of the planner: detect plateaus and synthesize a single remedial
  * step that addresses the most likely root cause.

@@ -1,3 +1,5 @@
+"use node";
+
 /**
  * Stage 1 of the Training Coach Paths planner: read raw session notes,
  * extract candidate techniques the user mentioned learning/practicing.
