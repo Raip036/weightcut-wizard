@@ -186,7 +186,7 @@ function WizardEmptyState({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: "easeOut" }}
-      className="relative overflow-hidden rounded-3xl border border-border/50 bg-card/60 p-4"
+      className="relative overflow-hidden rounded-xs border border-border/50 bg-card/60 p-4"
     >
       {/* Wizard + headline */}
       <div className="flex items-start gap-3 mb-3">

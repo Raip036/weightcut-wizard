@@ -100,7 +100,7 @@ export const DailyVerdictCard = memo(function DailyVerdictCard({ metrics, checke
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: "spring", damping: 22, stiffness: 280 }}
-      className={`card-surface rounded-3xl p-4 border border-border ring-1 ${copy.ring}`}
+      className={`card-surface rounded-xs p-4 border border-border ring-1 ${copy.ring}`}
     >
       <div className="flex items-center gap-3">
         <div className={`h-12 w-12 rounded-xs flex items-center justify-center ${copy.bg}`}>

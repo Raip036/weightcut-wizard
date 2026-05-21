@@ -257,7 +257,7 @@ export default function FightCampDetail() {
       </div>
 
       {/* Hero — outcome chip, camp name, date, 3-up stat tiles */}
-      <header className="rounded-3xl bg-card/60 border border-border/40 overflow-hidden mb-6">
+      <header className="rounded-xs bg-card/60 border border-border/40 overflow-hidden mb-6">
         <div className="px-5 pt-5 pb-4 flex flex-col items-center gap-3">
           <label className="relative cursor-pointer group">
             {camp.profile_pic_url ? (

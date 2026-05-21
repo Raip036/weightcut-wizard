@@ -532,7 +532,7 @@ export default function FightWeek() {
           <button
             type="button"
             onClick={() => setHowItWorksOpen(true)}
-            className="group w-full text-left card-surface rounded-3xl p-4 border border-primary/20 hover:border-primary/35 active:scale-[0.99] transition-all"
+            className="group w-full text-left card-surface rounded-xs p-4 border border-primary/20 hover:border-primary/35 active:scale-[0.99] transition-all"
           >
             <div className="flex items-start gap-3">
               <div className="h-11 w-11 shrink-0 flex items-center justify-center bg-transparent">
@@ -555,7 +555,7 @@ export default function FightWeek() {
         )}
 
         {/* ── Stats card — inline pill steppers replace the 2x2 input grid ─── */}
-        <div className="card-surface rounded-3xl p-5 space-y-4">
+        <div className="card-surface rounded-xs p-5 space-y-4">
           <div>
             <p className="text-[10px] uppercase tracking-[0.15em] font-semibold text-muted-foreground/60">
               Your stats

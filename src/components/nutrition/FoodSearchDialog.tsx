@@ -355,7 +355,7 @@ export function FoodSearchDialog({ open, onOpenChange, onFoodSelected, mealType 
   return (
     <>
       <Dialog open={dialogVisible} onOpenChange={(v) => { if (!v) onOpenChange(false); }}>
-        <DialogContent className="sm:max-w-[380px] w-[94vw] max-h-[88vh] flex flex-col p-0 gap-0 overflow-hidden rounded-3xl border-0 bg-card/95 backdrop-blur-xl shadow-2xl">
+        <DialogContent className="sm:max-w-[380px] w-[94vw] max-h-[88vh] flex flex-col p-0 gap-0 overflow-hidden rounded-xs border-0 bg-card/95 backdrop-blur-xl shadow-2xl">
           <VisuallyHidden>
             <DialogTitle>Search Food</DialogTitle>
           </VisuallyHidden>

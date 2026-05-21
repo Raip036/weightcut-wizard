@@ -363,7 +363,7 @@ function SwipeCard({
         damping: SPEC.springDamping,
       }}
       exit={{ opacity: 0 }}
-      className="absolute inset-x-4 top-[calc(env(safe-area-inset-top,0px)+72px)] bottom-[calc(env(safe-area-inset-bottom,0px)+120px)] rounded-3xl overflow-hidden bg-zinc-900 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.6)] touch-none"
+      className="absolute inset-x-4 top-[calc(env(safe-area-inset-top,0px)+72px)] bottom-[calc(env(safe-area-inset-bottom,0px)+120px)] rounded-xs overflow-hidden bg-zinc-900 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.6)] touch-none"
     >
       {!item.url ? (
         <div className="h-full w-full flex items-center justify-center text-white/50 text-sm">

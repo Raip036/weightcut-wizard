@@ -61,7 +61,7 @@ const MacroCard = ({ label, value, goal, color }: MacroCardProps) => {
         // Carbs / Fat read as a clean trio of square chips. Padding and the
         // ring size are tuned so the content still fits comfortably inside
         // the square at typical phone widths (~110px) without crowding.
-        <div className="card-surface rounded-3xl p-2.5 aspect-square flex flex-col items-center justify-center gap-1.5">
+        <div className="card-surface rounded-xs p-2.5 aspect-square flex flex-col items-center justify-center gap-1.5">
             <Ring pct={pct} color={color} size={56} strokeWidth={7}>
                 <span className="text-[14px] font-bold tabular-nums" style={{ color }}>
                     {Math.round(value)}
@@ -96,7 +96,7 @@ export const MacroPieChart = memo(function MacroPieChart({
     return (
         <div className="space-y-5">
             {/* Calorie card — wide rectangle, big kcal number on left, ring on right */}
-            <div className="card-surface rounded-3xl px-6 py-5 flex items-center gap-5">
+            <div className="card-surface rounded-xs px-6 py-5 flex items-center gap-5">
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
                         <p className="text-[10px] uppercase tracking-[0.15em] font-semibold text-muted-foreground/60">

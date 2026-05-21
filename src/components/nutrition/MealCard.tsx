@@ -130,17 +130,17 @@ export const MealCard = memo(function MealCard({ meal, onEdit, onDelete, onFavor
   };
 
   return (
-    <div className="relative overflow-hidden rounded-3xl">
+    <div className="relative overflow-hidden rounded-xs">
       {/* Delete background — visible during swipe */}
       {canSwipe && isDragging && (
-        <div className="absolute inset-0 flex items-center justify-end bg-destructive/90 rounded-3xl px-6">
+        <div className="absolute inset-0 flex items-center justify-end bg-destructive/90 rounded-xs px-6">
           <Trash2 className="h-5 w-5 text-destructive-foreground" />
         </div>
       )}
 
       {/* Foreground card — drag, long-press, tap-to-expand */}
       <motion.div
-        className="relative rounded-3xl card-surface"
+        className="relative rounded-xs card-surface"
         style={{ x: canSwipe ? dragX : undefined }}
         drag={canSwipe ? "x" : false}
         dragConstraints={{ left: -120, right: 0 }}

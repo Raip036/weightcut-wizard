@@ -74,7 +74,7 @@ export function ShareCardDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm w-[calc(100vw-32px)] rounded-3xl flex flex-col gap-3 p-4 max-h-[90vh]">
+      <DialogContent className="sm:max-w-sm w-[calc(100vw-32px)] rounded-xs flex flex-col gap-3 p-4 max-h-[90vh]">
         <DialogHeader className="shrink-0">
           <DialogTitle className="text-lg font-bold">{title}</DialogTitle>
         </DialogHeader>

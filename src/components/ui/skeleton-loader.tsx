@@ -207,7 +207,7 @@ export function HydrationSkeleton() {
       <Skeleton className="h-10 w-full rounded-xs" />
 
       {/* Input form card */}
-      <div className="rounded-3xl border border-white/[0.06] p-6 space-y-6 bg-white/[0.02]">
+      <div className="rounded-xs border border-white/[0.06] p-6 space-y-6 bg-white/[0.02]">
         {/* Profile strip */}
         <div className="flex justify-center">
           <Skeleton className="h-4 w-40" />

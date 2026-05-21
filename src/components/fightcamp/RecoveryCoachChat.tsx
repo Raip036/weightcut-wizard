@@ -193,8 +193,8 @@ export function RecoveryCoachChat({ userId, userName }: RecoveryCoachChatProps) 
   }, [input, isListening, interimText]);
 
   return (
-    <div className="card-surface rounded-3xl border border-border overflow-hidden">
-      {/* Header — matches the rounded-3xl rhythm of the verdict and load cards
+    <div className="card-surface rounded-xs border border-border overflow-hidden">
+      {/* Header — matches the rounded-xs rhythm of the verdict and load cards
           and surfaces a small live status pill so the chat reads as a live
           coach, not a static text box. */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">

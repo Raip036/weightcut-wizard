@@ -337,7 +337,7 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: "spring", damping: 22, stiffness: 280 }}
-        className={`relative overflow-hidden card-surface rounded-3xl border border-border ring-1 ${verdictCopy.ring} p-4`}
+        className={`relative overflow-hidden card-surface rounded-xs border border-border ring-1 ${verdictCopy.ring} p-4`}
       >
         <button
           type="button"
@@ -463,7 +463,7 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
           full 4-step form in a bottom sheet (was inline — took a screen).
           Once submitted, the coach chat replaces it. */}
       {!hasEnoughData ? (
-        <div className="card-surface rounded-3xl p-4 border border-border">
+        <div className="card-surface rounded-xs p-4 border border-border">
           <div className="flex items-center gap-2 mb-3">
             <Brain className="h-5 w-5 text-primary" />
             <h2 className="text-lg font-bold">Recovery Coach</h2>
@@ -476,7 +476,7 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
         <button
           type="button"
           onClick={() => setWellnessSheetOpen(true)}
-          className="group w-full text-left card-surface rounded-3xl p-4 border border-primary/25 hover:border-primary/40 active:scale-[0.99] transition-all"
+          className="group w-full text-left card-surface rounded-xs p-4 border border-primary/25 hover:border-primary/40 active:scale-[0.99] transition-all"
           aria-label="Open daily check-in"
         >
           <div className="flex items-center gap-3">
@@ -595,7 +595,7 @@ function TrendsCard({
   const activeTab = visibleTabs.some((t) => t.id === tab) ? tab : visibleTabs[0]?.id;
 
   return (
-    <div className="card-surface rounded-3xl border border-border overflow-hidden">
+    <div className="card-surface rounded-xs border border-border overflow-hidden">
       {/* Tab pills */}
       <div className="flex items-center gap-1 p-1.5 bg-muted/20">
         {visibleTabs.map((t) => {

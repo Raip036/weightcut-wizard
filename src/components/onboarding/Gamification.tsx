@@ -664,7 +664,7 @@ export function TaleOfTheTapeCard({
       initial={{ opacity: 0, scale: reduced ? 1 : 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ type: "spring", stiffness: 240, damping: 22 }}
-      className="relative rounded-3xl border-2 border-primary/30 bg-gradient-to-b from-primary/[0.10] via-card to-card overflow-hidden p-5"
+      className="relative rounded-xs border-2 border-primary/30 bg-gradient-to-b from-primary/[0.10] via-card to-card overflow-hidden p-5"
       style={{ willChange: "transform, opacity" }}
     >
       {onShare && (

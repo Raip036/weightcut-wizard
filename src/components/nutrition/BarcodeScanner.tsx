@@ -325,7 +325,7 @@ export const BarcodeScanner = ({ onFoodScanned, disabled, className, label }: Ba
                 Hidden once we have a product or a definitive not-found so the
                 result sheet owns the space. */}
             {!scannedProduct && !notFound && !cameraError && (
-              <div className="relative mx-5 mt-2 aspect-[4/3] rounded-3xl overflow-hidden bg-black">
+              <div className="relative mx-5 mt-2 aspect-[4/3] rounded-xs overflow-hidden bg-black">
                 <video
                   ref={ref as React.RefObject<HTMLVideoElement>}
                   className="absolute inset-0 h-full w-full object-cover"
@@ -409,7 +409,7 @@ export const BarcodeScanner = ({ onFoodScanned, disabled, className, label }: Ba
                 Scan-again and Cancel-rescan paths without bouncing the
                 user out. */}
             {notFound && (
-              <div className="mx-5 mt-4 rounded-3xl border border-white/10 bg-card/40 backdrop-blur-xl p-6 text-center">
+              <div className="mx-5 mt-4 rounded-xs border border-white/10 bg-card/40 backdrop-blur-xl p-6 text-center">
                 <div className="mx-auto h-14 w-14 rounded-full bg-white/5 ring-1 ring-white/10 flex items-center justify-center">
                   <PackageX className="h-6 w-6 text-muted-foreground" />
                 </div>
@@ -441,7 +441,7 @@ export const BarcodeScanner = ({ onFoodScanned, disabled, className, label }: Ba
                 initial={reduced ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ type: "spring", stiffness: 380, damping: 32 }}
-                className="mx-5 mt-2 rounded-3xl border border-white/10 bg-card/40 backdrop-blur-xl p-5"
+                className="mx-5 mt-2 rounded-xs border border-white/10 bg-card/40 backdrop-blur-xl p-5"
               >
                 {/* Header row */}
                 <div className="flex items-start justify-between gap-3">
