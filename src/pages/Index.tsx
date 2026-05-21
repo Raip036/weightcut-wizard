@@ -1,9 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Sparkles } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
-import { ThemeToggle } from "@/components/ThemeToggle";
-import wizardNutrition from "@/assets/wizard-nutrition.webp";
 import wizard3D from "@/assets/wizard_3D.png";
 import { useAuth } from "@/contexts/UserContext";
 import { WizardLoader } from "@/components/ui/WizardLoader";
@@ -87,25 +85,21 @@ const Index = () => {
   }
 
   return (
+    /* Page bg uses var(--background) (#000513 / brand-void) — the
+       previous `dark:bg-[#020204]` override forced an off-brand black,
+       removed so the welcome page matches the rest of the app. */
     <div
-      className="min-h-[100dvh] bg-background dark:bg-[#020204] text-foreground flex flex-col transition-opacity duration-200"
+      className="min-h-[100dvh] bg-background text-foreground flex flex-col transition-opacity duration-200"
       style={{ opacity: exiting ? 0 : 1 }}
     >
-      {/* Top bar — logo left, theme toggle right */}
+      {/* Top spacer — honors safe-area inset so the wizard hero sits
+          below the iOS status bar / dynamic island. The previous
+          logo + ThemeToggle bar was removed; the wizard mascot below
+          is the brand mark now. */}
       <div
-        className="flex items-center justify-between px-5"
-        style={{
-          paddingTop: "calc(env(safe-area-inset-top, 0px) + 10px)",
-          paddingBottom: "8px",
-        }}
-      >
-        <img
-          src={wizardNutrition}
-          alt="FightCamp Wizard"
-          className="h-9 w-9 rounded-xl object-contain ring-1 ring-primary/20 bg-background/50 p-0.5"
-        />
-        <ThemeToggle />
-      </div>
+        aria-hidden
+        style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)" }}
+      />
 
       {/* Body — vertical stack: hero (centered in remaining space) →
           CTA stack pinned to the bottom. The hero wrapper uses flex-1
@@ -113,50 +107,109 @@ const Index = () => {
           regardless of viewport size. */}
       <div className="flex-1 flex flex-col px-6 py-4">
         {/* Hero — 3D wizard + headline + subhead. flex-1 inside the
-            body so it occupies the middle ground; items-center keeps
-            everything horizontally aligned. */}
-        <div className="flex-1 flex flex-col items-center justify-center">
-        <motion.img
-          src={wizard3D}
-          alt="FightCamp Wizard mascot"
-          className="w-[180px] h-[180px] object-contain select-none pointer-events-none"
-          draggable={false}
-          initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
-          animate={
-            prefersReducedMotion
-              ? { opacity: 1 }
-              : { opacity: 1, y: [0, -6, 0] }
-          }
-          transition={
-            prefersReducedMotion
-              ? { duration: 0 }
-              : {
-                  opacity: { duration: 0.4, ease: "easeOut" },
-                  y: { duration: 4, repeat: Infinity, ease: "easeInOut" },
-                }
-          }
-          style={{
-            filter:
-              "drop-shadow(0 12px 24px rgba(64, 104, 239, 0.25)) drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4))",
-          }}
-        />
+            body so it occupies the middle ground. `justify-start pt-4`
+            anchors the wizard near the top of the available area so the
+            text below has room to breathe and sit lower visually. */}
+        <div className="flex-1 flex flex-col items-center justify-start pt-2">
+          {/* Wizard mascot with floating bob — wrapped in a relative
+              container so the sparkles can position absolutely around it. */}
+          <div className="relative">
+            <motion.img
+              src={wizard3D}
+              alt="FightCamp Wizard mascot"
+              className="w-[280px] h-[280px] object-contain select-none pointer-events-none"
+              draggable={false}
+              initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 }}
+              animate={
+                prefersReducedMotion
+                  ? { opacity: 1 }
+                  : { opacity: 1, y: [0, -8, 0] }
+              }
+              transition={
+                prefersReducedMotion
+                  ? { duration: 0 }
+                  : {
+                      opacity: { duration: 0.5, ease: "easeOut" },
+                      y: { duration: 4, repeat: Infinity, ease: "easeInOut" },
+                    }
+              }
+              style={{
+                filter:
+                  "drop-shadow(0 16px 32px rgba(64, 104, 239, 0.35)) drop-shadow(0 6px 16px rgba(0, 0, 0, 0.5))",
+              }}
+            />
 
-        {/* Headline + subhead. Sora display via the `font-display` family;
-            Inter (default sans) for the body copy. Centered text matches
-            the centered wizard above and the centered CTAs below. */}
-        <motion.div
-          initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: "easeOut", delay: 0.15 }}
-          className="text-center mt-6"
-        >
-          <h1 className="font-display text-[26px] font-bold tracking-tight leading-[1.15] text-white">
-            Make weight. Stay safe. Win the cut.
-          </h1>
-          <p className="mt-3 text-[13px] text-muted-foreground leading-snug max-w-[34ch] mx-auto">
-            Built by fighters for fighters. Stop guessing your cut. AI plans every meal, every weigh-in, every camp.
-          </p>
-        </motion.div>
+            {/* Sparkles — 5 around the wizard, each with its own
+                position, color, size, and twinkle loop so the magic
+                feels alive rather than mechanically synced. */}
+            {!prefersReducedMotion && (
+              <>
+                <motion.span
+                  aria-hidden
+                  className="absolute"
+                  style={{ top: 18, right: -10 }}
+                  animate={{ opacity: [0.3, 1, 0.3], y: [0, -6, 0], rotate: [0, 20, 0] }}
+                  transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
+                >
+                  <Sparkles className="h-5 w-5 text-brand-wizard-lilac" strokeWidth={1.4} fill="currentColor" />
+                </motion.span>
+                <motion.span
+                  aria-hidden
+                  className="absolute"
+                  style={{ top: 36, left: -8 }}
+                  animate={{ opacity: [0.25, 0.85, 0.25], y: [0, 4, 0], scale: [0.85, 1.05, 0.85] }}
+                  transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut", delay: 0.8 }}
+                >
+                  <Sparkles className="h-4 w-4 text-brand-dream-cyan" strokeWidth={1.4} fill="currentColor" />
+                </motion.span>
+                <motion.span
+                  aria-hidden
+                  className="absolute"
+                  style={{ top: 90, right: 24 }}
+                  animate={{ opacity: [0.2, 0.75, 0.2], y: [0, -4, 0] }}
+                  transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut", delay: 1.4 }}
+                >
+                  <Sparkles className="h-3 w-3 text-white/90" strokeWidth={1.5} fill="currentColor" />
+                </motion.span>
+                <motion.span
+                  aria-hidden
+                  className="absolute"
+                  style={{ bottom: 60, left: 12 }}
+                  animate={{ opacity: [0.3, 0.9, 0.3], y: [0, 3, 0], rotate: [0, -18, 0] }}
+                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: 0.4 }}
+                >
+                  <Sparkles className="h-[14px] w-[14px] text-brand-wizard-lilac" strokeWidth={1.4} fill="currentColor" />
+                </motion.span>
+                <motion.span
+                  aria-hidden
+                  className="absolute"
+                  style={{ top: 8, left: 80 }}
+                  animate={{ opacity: [0.15, 0.7, 0.15], scale: [0.7, 1, 0.7] }}
+                  transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut", delay: 1.1 }}
+                >
+                  <Sparkles className="h-[10px] w-[10px] text-brand-dream-cyan" strokeWidth={1.5} fill="currentColor" />
+                </motion.span>
+              </>
+            )}
+          </div>
+
+          {/* Headline + subhead. mt-16 pushes the text noticeably below
+              the wizard so the hero has clear vertical rhythm. Title
+              uses Sora display at 34px to amplify the size contrast
+              against the 13px Inter body underneath. */}
+          <motion.div
+            initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: "easeOut", delay: 0.2 }}
+            className="text-center mt-16"
+          >
+            <h1 className="font-display text-[34px] font-bold tracking-tight leading-[1.1] text-white">
+              Make weight. Stay safe. Win the cut.
+            </h1>
+            <p className="mt-4 text-[13px] text-muted-foreground leading-snug max-w-[32ch] mx-auto">
+              Built by fighters for fighters. AI plans every meal, every weigh-in, every camp.
+            </p>
+          </motion.div>
         </div>
 
         {/* CTA stack — pinned to the bottom of the body, below the
