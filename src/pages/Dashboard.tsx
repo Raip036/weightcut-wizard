@@ -34,6 +34,7 @@ import { logger } from "@/lib/logger";
 import { trackInstallDate, maybeRequestReview } from "@/lib/appReview";
 import { SleepLogger } from "@/components/dashboard/SleepLogger";
 import { TrainingInsightsWidget } from "@/components/dashboard/TrainingInsightsWidget";
+import { TrainingCoachWidget } from "@/components/dashboard/training-coach/TrainingCoachWidget";
 import NewAnnouncementWidget from "@/components/dashboard/NewAnnouncementWidget";
 import { GymInvitesBanner } from "@/components/dashboard/GymInvitesBanner";
 import { NextCampFlow } from "@/components/fightcamp/NextCampFlow";
@@ -938,6 +939,7 @@ export default function Dashboard() {
             {userId && <TrainingWeekWidget userId={userId} compact />}
           </div>
 
+          {userId && <TrainingCoachWidget />}
           {userId && <TrainingInsightsWidget userId={userId} />}
 
           <div>
@@ -1137,6 +1139,7 @@ export default function Dashboard() {
         </div>
 
         {/* Training Coach (premium) */}
+        {userId && <TrainingCoachWidget />}
         {userId && <TrainingInsightsWidget userId={userId} />}
 
         {/* Daily logging row — Cut Plan + Sleep, or Sleep full-width */}
