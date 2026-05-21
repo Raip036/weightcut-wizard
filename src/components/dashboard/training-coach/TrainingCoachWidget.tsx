@@ -35,18 +35,23 @@ export function TrainingCoachWidget() {
   const [roadmapPathId, setRoadmapPathId] = useState<Id<"training_paths"> | null>(null);
   const [feedbackDismissed, setFeedbackDismissed] = useState<Set<string>>(new Set());
 
-  const usage = useQuery(api.training_paths.pathSlotUsage, {});
-  const hero = useQuery(api.training_paths.getHeroStep, {});
-  const activePaths = useQuery(api.training_paths.getActivePaths, {});
-  const queuedPaths = useQuery(api.training_paths.getQueuedPaths, {});
-  const proposals = useQuery(api.training_paths.getActivePathProposals, {});
-  const pendingFeedback = useQuery(api.training_paths.getPendingFeedbackStep, {});
+  // Gate every Convex subscription on the feature flag with `"skip"` so the
+  // widget is fully inert when the flag is off — no server calls, no errors
+  // if the deployment hasn't deployed the training_paths functions yet.
+  // (React hooks still run in the same order; `useQuery` accepts `"skip"`.)
+  const enabled = FEATURE_FLAGS.enableTrainingCoachPaths;
+  const usage = useQuery(api.training_paths.pathSlotUsage, enabled ? {} : "skip");
+  const hero = useQuery(api.training_paths.getHeroStep, enabled ? {} : "skip");
+  const activePaths = useQuery(api.training_paths.getActivePaths, enabled ? {} : "skip");
+  const queuedPaths = useQuery(api.training_paths.getQueuedPaths, enabled ? {} : "skip");
+  const proposals = useQuery(api.training_paths.getActivePathProposals, enabled ? {} : "skip");
+  const pendingFeedback = useQuery(api.training_paths.getPendingFeedbackStep, enabled ? {} : "skip");
 
   const acceptMut = useMutation(api.training_paths.acceptPathProposal);
   const snoozeMut = useMutation(api.training_paths.snoozePathProposal);
   const refreshAction = useAction(api.actions.trainingCoachPlanner.run);
 
-  if (!FEATURE_FLAGS.enableTrainingCoachPaths) return null;
+  if (!enabled) return null;
 
   // Loading shimmer while any of the queries hasn't resolved yet.
   if (
