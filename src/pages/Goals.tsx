@@ -792,7 +792,7 @@ function ChipPicker({
             onClick={() => { triggerHapticSelection(); onPick(o.value); }}
             className={`min-h-[48px] px-4 rounded-xs text-[15px] font-medium transition-all active:scale-[0.98] ${
               active
-                ? "bg-primary text-primary-foreground shadow-sm"
+                ? "bg-primary text-primary-foreground"
                 : "bg-muted/30 text-foreground border border-border/40"
             }`}
           >

@@ -20,8 +20,6 @@ interface TutorialNavProps {
  * flex-col (TutorialStage uses items-start so the speech bubble and
  * wizard character hug the left; the nav row breaks out of that and
  * centers itself). */
-const NEXT_GLOW =
-  "0 6px 20px -4px rgba(64, 104, 239, 0.45), 0 2px 8px rgba(0, 0, 0, 0.30)";
 
 export function TutorialNav({ isFirstStep, isLastStep, onBack, onNext }: TutorialNavProps) {
   return (
@@ -47,7 +45,6 @@ export function TutorialNav({ isFirstStep, isLastStep, onBack, onNext }: Tutoria
         onClick={onNext}
         className="h-12 flex-1 rounded-xs bg-brand-spirit-blue text-[15px] font-semibold text-white hover:bg-[#5078F5] active:bg-[#2A4ACC] active:scale-[0.98] transition-all"
         style={{
-          boxShadow: NEXT_GLOW,
           WebkitTapHighlightColor: "transparent",
         }}
       >

@@ -230,7 +230,7 @@ export function RoutineDetailCard({ routine, onDelete, onRename, onStartWorkout 
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onStartWorkout(routine); }}
                 aria-label="Start routine"
-                className="h-9 px-3 rounded-full bg-primary text-primary-foreground text-[12px] font-bold inline-flex items-center gap-1.5 active:scale-[0.96] transition-transform shadow-md shadow-primary/30"
+                className="h-9 px-3 rounded-full bg-primary text-primary-foreground text-[12px] font-bold inline-flex items-center gap-1.5 active:scale-[0.96] transition-transform"
               >
                 <Play className="h-3.5 w-3.5" strokeWidth={2.6} />
                 Start

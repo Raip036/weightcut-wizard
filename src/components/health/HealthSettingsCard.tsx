@@ -276,7 +276,7 @@ function DisconnectedBody({
       </p>
       <Button
         onClick={onConnect}
-        className="h-10 w-full rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90"
+        className="h-10 w-full rounded-xs bg-primary text-primary-foreground hover:opacity-90"
       >
         Connect Apple Health
       </Button>

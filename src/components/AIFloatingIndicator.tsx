@@ -37,17 +37,17 @@ function IndicatorPill({
 }) {
   const statusConfig = {
     running: {
-      bg: "bg-primary shadow-primary/30",
+      bg: "bg-primary",
       icon: <Loader2 className="h-3.5 w-3.5 animate-spin" />,
       right: <ElapsedTimer startedAt={task.startedAt} />,
     },
     done: {
-      bg: "bg-func-recovery-green shadow-func-recovery-green/30",
+      bg: "bg-func-recovery-green",
       icon: <CheckCircle2 className="h-3.5 w-3.5" />,
       right: "Ready",
     },
     error: {
-      bg: "bg-func-danger-red shadow-func-danger-red/30",
+      bg: "bg-func-danger-red",
       icon: <AlertCircle className="h-3.5 w-3.5" />,
       right: "Failed",
     },
@@ -58,7 +58,7 @@ function IndicatorPill({
   return (
     <button
       onClick={() => onTap(task)}
-      className={`fixed z-[9997] flex items-center gap-2 px-3 py-2 rounded-full text-white shadow-lg active:scale-95 transition-all md:hidden ${statusConfig.bg}`}
+      className={`fixed z-[9997] flex items-center gap-2 px-3 py-2 rounded-full text-white active:scale-95 transition-all md:hidden ${statusConfig.bg}`}
       style={{
         bottom: `calc(env(safe-area-inset-bottom, 0px) + ${bottomOffset}px)`,
         left: gymActive ? undefined : "1rem",

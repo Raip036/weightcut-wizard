@@ -256,7 +256,7 @@ export function ConnectAppleHealthSheet({
         <Button
           onClick={handleConnect}
           disabled={connecting || available === false}
-          className="no-tap-select h-12 w-full rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50"
+          className="no-tap-select h-12 w-full rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
         >
           {connecting
             ? "Opening Health…"

@@ -132,7 +132,7 @@ export function ShareCardDialog({
           <button
             onClick={() => captureAndShare(shareTitle, shareText, transparent)}
             disabled={isCapturing}
-            className="inline-flex items-center justify-center gap-2 h-9 px-6 rounded-full bg-primary text-primary-foreground text-[13px] font-semibold shadow-sm transition-opacity active:opacity-80 disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-2 h-9 px-6 rounded-full bg-primary text-primary-foreground text-[13px] font-semibold transition-opacity active:opacity-80 disabled:opacity-60"
           >
             {isCapturing ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />

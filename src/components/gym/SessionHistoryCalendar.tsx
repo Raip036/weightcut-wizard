@@ -144,7 +144,7 @@ export const SessionHistoryCalendar = memo(function SessionHistoryCalendar({
                 }}
                 className={`aspect-square rounded-xs flex flex-col items-center justify-center text-xs font-medium relative transition-all active:scale-95 ${
                   isSelected
-                    ? "bg-primary text-primary-foreground shadow-sm"
+                    ? "bg-primary text-primary-foreground"
                     : hasSession
                       ? "bg-primary/12 text-primary active:bg-primary/20"
                       : isToday

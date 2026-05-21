@@ -408,7 +408,7 @@ export default function WeightTracker() {
                   key={filter}
                   onClick={() => setTimeFilter(filter)}
                   className={`px-3.5 h-7 rounded-full text-[12px] font-semibold transition-all ${timeFilter === filter
-                    ? "bg-primary text-primary-foreground shadow-sm"
+                    ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground/80 active:text-foreground"
                     }`}
                 >

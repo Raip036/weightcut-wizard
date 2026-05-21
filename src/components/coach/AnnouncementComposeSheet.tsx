@@ -283,7 +283,7 @@ export function AnnouncementComposeSheet({ open, onOpenChange, gymId, gymName, a
               type="button"
               onClick={() => setKind("text")}
               className={`flex-1 h-9 rounded-xs text-[12px] font-semibold transition-all inline-flex items-center justify-center gap-1.5 ${
-                kind === "text" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+                kind === "text" ? "bg-background text-foreground" : "text-muted-foreground"
               }`}
             >
               <MessageSquare className="h-3.5 w-3.5" /> Announcement
@@ -292,7 +292,7 @@ export function AnnouncementComposeSheet({ open, onOpenChange, gymId, gymName, a
               type="button"
               onClick={() => setKind("fight_offer")}
               className={`flex-1 h-9 rounded-xs text-[12px] font-semibold transition-all inline-flex items-center justify-center gap-1.5 ${
-                kind === "fight_offer" ? "bg-background text-primary shadow-sm" : "text-muted-foreground"
+                kind === "fight_offer" ? "bg-background text-primary" : "text-muted-foreground"
               }`}
             >
               <Trophy className="h-3.5 w-3.5" /> Fight offer
@@ -304,14 +304,14 @@ export function AnnouncementComposeSheet({ open, onOpenChange, gymId, gymName, a
             <button
               type="button"
               onClick={() => setMode("all")}
-              className={`flex-1 h-9 rounded-xs text-[12px] font-medium transition-all ${mode === "all" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
+              className={`flex-1 h-9 rounded-xs text-[12px] font-medium transition-all ${mode === "all" ? "bg-background text-foreground" : "text-muted-foreground"}`}
             >
               All athletes
             </button>
             <button
               type="button"
               onClick={() => setMode("specific")}
-              className={`flex-1 h-9 rounded-xs text-[12px] font-medium transition-all ${mode === "specific" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
+              className={`flex-1 h-9 rounded-xs text-[12px] font-medium transition-all ${mode === "specific" ? "bg-background text-foreground" : "text-muted-foreground"}`}
             >
               Specific
             </button>

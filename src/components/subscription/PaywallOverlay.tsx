@@ -51,7 +51,7 @@ function ActivatingProScreen() {
       <div className="flex flex-col items-center gap-6 px-8">
         {/* Animated icon */}
         <div className="relative">
-          <div className="h-20 w-20 rounded-[22px] bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-xl shadow-primary/30 animate-in zoom-in-75 duration-500">
+          <div className="h-20 w-20 rounded-[22px] bg-gradient-to-br from-primary to-secondary flex items-center justify-center animate-in zoom-in-75 duration-500">
             <Crown className="h-10 w-10 text-primary-foreground" />
           </div>
           <div className="absolute inset-0 rounded-[22px] bg-primary/20 animate-ping" style={{ animationDuration: "2s" }} />
@@ -298,7 +298,7 @@ function WebFallbackPaywall({ activatePro }: { activatePro: (info: any) => Promi
             onClick={() => setSelectedPlan("monthly")}
             className={`relative rounded-xs border p-4 text-left transition-all active:scale-[0.97] ${
               selectedPlan === "monthly"
-                ? "border-primary bg-primary/5 dark:bg-primary/10 shadow-lg shadow-primary/10"
+                ? "border-primary bg-primary/5 dark:bg-primary/10"
                 : "border-border/50 bg-muted/20 dark:bg-white/5"
             }`}
           >
@@ -311,7 +311,7 @@ function WebFallbackPaywall({ activatePro }: { activatePro: (info: any) => Promi
             onClick={() => setSelectedPlan("yearly")}
             className={`relative rounded-xs border p-4 text-left transition-all active:scale-[0.97] ${
               selectedPlan === "yearly"
-                ? "border-primary bg-primary/5 dark:bg-primary/10 shadow-lg shadow-primary/10"
+                ? "border-primary bg-primary/5 dark:bg-primary/10"
                 : "border-border/50 bg-muted/20 dark:bg-white/5"
             }`}
           >
@@ -328,7 +328,7 @@ function WebFallbackPaywall({ activatePro }: { activatePro: (info: any) => Promi
         <Button
           onClick={handlePurchase}
           disabled={purchasing || restoring}
-          className="w-full max-w-sm h-12 rounded-xs text-base font-bold bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-lg shadow-primary/25 mt-6 active:scale-[0.97] transition-transform"
+          className="w-full max-w-sm h-12 rounded-xs text-base font-bold bg-gradient-to-r from-primary to-secondary text-primary-foreground mt-6 active:scale-[0.97] transition-transform"
         >
           {purchasing ? <Loader2 className="h-5 w-5 animate-spin" /> : "Subscribe Now"}
         </Button>

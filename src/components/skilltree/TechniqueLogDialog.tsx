@@ -80,7 +80,7 @@ export function TechniqueLogDialog({
               autoComplete="off"
             />
             {suggestions.length > 0 && (
-              <div className="absolute left-0 right-0 top-full mt-1 z-20 rounded-xs border border-border/50 bg-background shadow-lg overflow-hidden">
+              <div className="absolute left-0 right-0 top-full mt-1 z-20 rounded-xs border border-border/50 bg-background overflow-hidden">
                 {suggestions.map((s) => (
                   <button
                     key={s}

@@ -209,7 +209,7 @@ export function ActiveSessionView({
         >
           <button
             onClick={() => setFinishSheetOpen(true)}
-            className="w-full py-3.5 rounded-xs text-sm font-semibold text-white flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-lg shadow-primary/25"
+            className="w-full py-3.5 rounded-xs text-sm font-semibold text-white flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
             style={{ background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)))" }}
           >
             <Check className="h-4.5 w-4.5" />
@@ -223,7 +223,7 @@ export function ActiveSessionView({
 
       {/* Finish workout dialog */}
       <Dialog open={finishSheetOpen} onOpenChange={setFinishSheetOpen}>
-        <DialogContent className="sm:max-w-[320px] rounded-xs p-0 border-0 bg-card/95 backdrop-blur-xl shadow-2xl gap-0 max-h-[calc(100vh-6rem)] overflow-y-auto">
+        <DialogContent className="sm:max-w-[320px] rounded-xs p-0 border-0 bg-card/95 backdrop-blur-xl gap-0 max-h-[calc(100vh-6rem)] overflow-y-auto">
           <div className="px-4 pt-4 pb-3">
             <DialogHeader>
               <DialogTitle className="text-[15px] font-semibold text-center">Finish Workout</DialogTitle>

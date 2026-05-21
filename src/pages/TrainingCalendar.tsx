@@ -851,7 +851,7 @@ export default function TrainingCalendar() {
                                 onClick={() => { triggerHapticSelection(); setSelectedDate(d); }}
                                 className={`relative flex flex-col items-center justify-center h-[68px] rounded-xs border transition-colors ${
                                     active
-                                        ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/30"
+                                        ? "bg-primary text-primary-foreground border-primary"
                                         : "bg-card/40 text-foreground/85 border-border/40 hover:bg-muted/40"
                                 }`}
                                 aria-label={format(d, "EEEE, MMMM d")}
@@ -900,14 +900,14 @@ export default function TrainingCalendar() {
                     <DialogTrigger asChild>
                         <button
                             onClick={openLogModal}
-                            className="w-full h-12 rounded-xs bg-primary text-primary-foreground font-bold text-[14px] flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-lg shadow-primary/30"
+                            className="w-full h-12 rounded-xs bg-primary text-primary-foreground font-bold text-[14px] flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
                         >
                             <Plus className="h-4 w-4" strokeWidth={2.6} />
                             Log a session
                         </button>
                     </DialogTrigger>
                     <DialogContent
-                                className="w-[calc(100vw-1.5rem)] max-w-[420px] max-h-[calc(100dvh-3rem)] flex flex-col rounded-[28px] p-0 border-0 bg-card/95 backdrop-blur-xl shadow-2xl gap-0 overflow-hidden"
+                                className="w-[calc(100vw-1.5rem)] max-w-[420px] max-h-[calc(100dvh-3rem)] flex flex-col rounded-[28px] p-0 border-0 bg-card/95 backdrop-blur-xl gap-0 overflow-hidden"
                             >
                                 <div className="px-5 pt-5 pb-3 shrink-0">
                                     <DialogHeader>

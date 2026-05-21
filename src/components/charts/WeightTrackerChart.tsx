@@ -46,7 +46,7 @@ export default function WeightTrackerChart({
               const projectedWeight = entry.projected;
               const isProjectedOnly = !actualWeight && projectedWeight;
               return (
-                <div className="bg-card border border-border/50 rounded-xs px-3 py-2 shadow-lg">
+                <div className="bg-card border border-border/50 rounded-xs px-3 py-2">
                   <p className="text-[10px] text-muted-foreground">{entry.fullDate}</p>
                   {actualWeight && <p className="text-base font-bold text-primary">{actualWeight}kg</p>}
                   {isProjectedOnly && <p className="text-base font-bold text-muted-foreground">{projectedWeight.toFixed(1)}kg <span className="text-[10px] font-normal">projected</span></p>}

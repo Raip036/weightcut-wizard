@@ -90,7 +90,7 @@ export const MealPhotoScanOverlay = memo(function MealPhotoScanOverlay({
           transition={springs.gentle}
           className="w-full"
         >
-          <div className="bg-background/95 border border-border rounded-xs shadow-2xl p-3 space-y-3">
+          <div className="bg-background/95 border border-border rounded-xs p-3 space-y-3">
             {/* Viewfinder frame */}
             <div className="relative w-full aspect-[4/3] rounded-xs overflow-hidden bg-black">
               <img
@@ -116,9 +116,9 @@ export const MealPhotoScanOverlay = memo(function MealPhotoScanOverlay({
 
               {/* Title overlaid */}
               <div className="absolute inset-x-0 bottom-0 px-3 py-2">
-                <p className="text-[13px] font-semibold text-white drop-shadow">{title}</p>
+                <p className="text-[13px] font-semibold text-white">{title}</p>
                 {subtitle && (
-                  <p className="text-[11px] text-white/80 drop-shadow">{subtitle}</p>
+                  <p className="text-[11px] text-white/80">{subtitle}</p>
                 )}
               </div>
             </div>

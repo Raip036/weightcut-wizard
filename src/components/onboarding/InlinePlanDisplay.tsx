@@ -793,7 +793,7 @@ export function InlinePlanDisplay({
       <div className="fixed bottom-0 inset-x-0 z-30 px-4 pt-2 pb-[max(env(safe-area-inset-bottom),12px)] bg-background/85 backdrop-blur-md border-t border-border/30">
         <Button
           onClick={onContinue}
-          className="w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-transform"
+          className="w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 active:scale-[0.98] transition-transform"
         >
           Continue to Dashboard
         </Button>

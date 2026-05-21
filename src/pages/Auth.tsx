@@ -368,9 +368,9 @@ export default function Auth() {
               <img
                 src={wizardLogo}
                 alt="FightCamp Wizard"
-                className="relative h-16 w-16 object-contain rounded-xs ring-2 ring-primary/60 shadow-xl shadow-primary/20"
+                className="relative h-16 w-16 object-contain rounded-xs ring-2 ring-primary/60"
               />
-              <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-primary ring-2 ring-background shadow-lg shadow-primary/30">
+              <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-primary ring-2 ring-background">
                 <Swords className="h-3.5 w-3.5 text-primary-foreground" strokeWidth={2.5} />
               </span>
             </div>
@@ -436,7 +436,7 @@ export default function Auth() {
                   type="button"
                   onClick={handleAppleSignIn}
                   disabled={loading}
-                  className="no-tap-select w-full h-[54px] rounded-xs bg-foreground text-background font-semibold text-[16px] flex items-center justify-center gap-2 active:scale-[0.98] transition-transform touch-manipulation disabled:opacity-50 shadow-lg shadow-foreground/10"
+                  className="no-tap-select w-full h-[54px] rounded-xs bg-foreground text-background font-semibold text-[16px] flex items-center justify-center gap-2 active:scale-[0.98] transition-transform touch-manipulation disabled:opacity-50 shadow-foreground/10"
                 >
                   <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.52-3.23 0-1.44.62-2.2.44-3.06-.4C3.79 16.17 4.36 9.51 8.82 9.28c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.3 4.11zM12.03 9.2C11.88 7.16 13.5 5.5 15.42 5.35c.28 2.35-2.14 4.1-3.39 3.85z" />
@@ -529,7 +529,7 @@ export default function Auth() {
                       />
                     )}
                     {passwordError && <p className="text-[12px] text-destructive/90 pl-1">{passwordError}</p>}
-                    <Button type="submit" disabled={loading} className="no-tap-select w-full h-[54px] rounded-xs text-[16px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform shadow-lg shadow-primary/20">
+                    <Button type="submit" disabled={loading} className="no-tap-select w-full h-[54px] rounded-xs text-[16px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform">
                       {loading ? "Please wait..." : isLogin ? "Sign In" : "Create Account"}
                     </Button>
                   </motion.form>

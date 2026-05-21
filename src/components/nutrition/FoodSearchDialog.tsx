@@ -355,7 +355,7 @@ export function FoodSearchDialog({ open, onOpenChange, onFoodSelected, mealType 
   return (
     <>
       <Dialog open={dialogVisible} onOpenChange={(v) => { if (!v) onOpenChange(false); }}>
-        <DialogContent className="sm:max-w-[380px] w-[94vw] max-h-[88vh] flex flex-col p-0 gap-0 overflow-hidden rounded-xs border-0 bg-card/95 backdrop-blur-xl shadow-2xl">
+        <DialogContent className="sm:max-w-[380px] w-[94vw] max-h-[88vh] flex flex-col p-0 gap-0 overflow-hidden rounded-xs border-0 bg-card/95 backdrop-blur-xl">
           <VisuallyHidden>
             <DialogTitle>Search Food</DialogTitle>
           </VisuallyHidden>
@@ -694,7 +694,7 @@ function FoodDetailSheet({
                 onClick={() => { triggerHapticSelection(); setServingGrams(g); }}
                 className={`px-3 py-1.5 rounded-full text-[12px] font-semibold transition-all active:scale-[0.96] ${
                   servingGrams === g
-                    ? "bg-primary text-primary-foreground shadow-sm shadow-primary/30"
+                    ? "bg-primary text-primary-foreground"
                     : "bg-muted/40 text-foreground hover:bg-muted/60"
                 }`}
               >
@@ -706,7 +706,7 @@ function FoodDetailSheet({
                 onClick={() => { triggerHapticSelection(); setServingGrams(food.serving_grams!); }}
                 className={`px-3 py-1.5 rounded-full text-[12px] font-semibold transition-all active:scale-[0.96] ${
                   servingGrams === food.serving_grams
-                    ? "bg-primary text-primary-foreground shadow-sm shadow-primary/30"
+                    ? "bg-primary text-primary-foreground"
                     : "bg-muted/40 text-foreground hover:bg-muted/60"
                 }`}
               >
@@ -723,7 +723,7 @@ function FoodDetailSheet({
         >
           <button
             onClick={onLog}
-            className="w-full h-12 rounded-xs bg-primary text-primary-foreground font-bold text-[15px] active:scale-[0.98] transition-transform shadow-lg shadow-primary/30 flex items-center justify-center gap-2"
+            className="w-full h-12 rounded-xs bg-primary text-primary-foreground font-bold text-[15px] active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
           >
             Log Food · {scaledCalories} kcal
           </button>

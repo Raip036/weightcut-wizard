@@ -30,7 +30,7 @@ export function FloatingWorkoutIndicator() {
   return (
     <button
       onClick={() => { triggerHapticSelection(); navigate("/gym"); }}
-      className="fixed z-[9998] left-4 flex items-center gap-2 px-3.5 py-2 rounded-full bg-func-recovery-green text-white shadow-lg shadow-func-recovery-green/30 active:scale-95 transition-transform md:hidden animate-in slide-in-from-left duration-300"
+      className="fixed z-[9998] left-4 flex items-center gap-2 px-3.5 py-2 rounded-full bg-func-recovery-green text-white active:scale-95 transition-transform md:hidden animate-in slide-in-from-left duration-300"
       // BottomNav baseline = `safe-area-inset-bottom + 0.5rem`; raised FAB
       // pokes ~2rem above that. 7.5rem here keeps the workout pill clear of
       // the FAB on devices with large safe-area insets (notch iPhones).

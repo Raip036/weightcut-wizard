@@ -350,7 +350,7 @@ export function FightFormRing({
             transform: "translate(-50%, -50%)",
           }}
         >
-          <div className="rounded-full bg-background border border-func-warning-yellow/70 p-0.5 shadow-sm">
+          <div className="rounded-full bg-background border border-func-warning-yellow/70 p-0.5">
             <Lock className="size-2.5 text-func-warning-yellow" />
           </div>
         </div>

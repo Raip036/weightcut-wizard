@@ -39,7 +39,7 @@ function formatDay(dateStr: string) {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-xs bg-[hsl(0_0%_8%)] border border-border/50 px-3 py-2 text-xs shadow-lg">
+    <div className="rounded-xs bg-[hsl(0_0%_8%)] border border-border/50 px-3 py-2 text-xs">
       <p className="text-muted-foreground mb-0.5">{label}</p>
       <p className="font-semibold text-foreground">{payload[0].value.toFixed(1)}h</p>
     </div>
@@ -162,7 +162,7 @@ export default function Sleep() {
               onClick={() => setTimeframe(tf)}
               className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
                 timeframe === tf
-                  ? "bg-background text-foreground shadow-sm"
+                  ? "bg-background text-foreground"
                   : "text-muted-foreground"
               }`}
             >

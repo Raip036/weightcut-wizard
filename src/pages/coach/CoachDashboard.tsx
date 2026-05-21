@@ -356,7 +356,7 @@ export default function CoachDashboard() {
       {hasAnyAthletes && fabGym && (
         <button
           onClick={() => { triggerHaptic(ImpactStyle.Medium); setComposingForGym(fabGym); }}
-          className="fixed z-40 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-xl shadow-primary/40 flex items-center justify-center active:scale-95 transition-transform"
+          className="fixed z-40 h-14 w-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center active:scale-95 transition-transform"
           style={{
             right: "calc(env(safe-area-inset-right, 0px) + 18px)",
             bottom: "calc(env(safe-area-inset-bottom, 0px) + 84px)",
@@ -404,9 +404,9 @@ function StatsGrid({
   prefersReduced: boolean | null;
 }) {
   const tiles = [
-    { value: okCount,  label: "On plan", edge: "bg-func-recovery-green", tone: "text-func-recovery-green", glow: "shadow-func-recovery-green/10" },
-    { value: warns,    label: "Watch",   edge: "bg-func-warning-yellow",   tone: "text-func-warning-yellow",   glow: "shadow-func-warning-yellow/10"   },
-    { value: alerts,   label: "Alert",   edge: "bg-func-danger-red",    tone: "text-func-danger-red",    glow: "shadow-func-danger-red/10"    },
+    { value: okCount,  label: "On plan", edge: "bg-func-recovery-green", tone: "text-func-recovery-green", glow: "" },
+    { value: warns,    label: "Watch",   edge: "bg-func-warning-yellow",   tone: "text-func-warning-yellow",   glow: ""   },
+    { value: alerts,   label: "Alert",   edge: "bg-func-danger-red",    tone: "text-func-danger-red",    glow: ""    },
   ];
   return (
     <div className="grid grid-cols-3 gap-2">
@@ -416,7 +416,7 @@ function StatsGrid({
           initial={prefersReduced ? false : { opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.32, ease: "easeOut", delay: i * 0.05 }}
-          className={`relative overflow-hidden rounded-xs border border-border/50 bg-card/70 px-3 pt-3 pb-3 shadow-lg ${t.glow}`}
+          className={`relative overflow-hidden rounded-xs border border-border/50 bg-card/70 px-3 pt-3 pb-3 ${t.glow}`}
         >
           {/* Status edge — Apple Health-style top color bar */}
           <span aria-hidden className={`absolute inset-x-0 top-0 h-1 ${t.edge}`} />
@@ -567,7 +567,7 @@ function GettingStartedHero({
       initial={prefersReduced ? false : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
-      className="relative overflow-hidden rounded-xs border border-primary/25 bg-card/70 p-4 shadow-xl shadow-primary/10"
+      className="relative overflow-hidden rounded-xs border border-primary/25 bg-card/70 p-4"
     >
       {/* Top mascot + greeting */}
       <div className="flex items-start gap-3 mb-4">
@@ -658,7 +658,7 @@ function ChecklistRow({ item }: { item: ChecklistItem }) {
           onClick={item.action}
           className={`shrink-0 h-9 w-[104px] rounded-xs text-[11px] font-semibold whitespace-nowrap leading-none flex items-center justify-center text-center active:scale-[0.96] transition-transform ${
             item.kind === "primary"
-              ? "bg-primary text-primary-foreground shadow-md shadow-primary/30"
+              ? "bg-primary text-primary-foreground"
               : "bg-muted/40 text-foreground hover:bg-muted/60"
           }`}
         >
@@ -759,7 +759,7 @@ function AthletePreviewSheet({
 
         <button
           onClick={() => onOpenChange(false)}
-          className="mt-6 w-full h-11 rounded-xs bg-primary text-primary-foreground font-semibold text-[14px] shadow-md shadow-primary/30 active:scale-[0.98] transition-transform"
+          className="mt-6 w-full h-11 rounded-xs bg-primary text-primary-foreground font-semibold text-[14px] active:scale-[0.98] transition-transform"
         >
           Got it
         </button>

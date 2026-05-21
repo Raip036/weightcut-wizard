@@ -40,7 +40,7 @@ export default function WeightCut() {
                 {active && (
                   <motion.div
                     layoutId="weight-cut-tab-pill"
-                    className="absolute inset-0 rounded-xs bg-background shadow-sm ring-1 ring-border/30"
+                    className="absolute inset-0 rounded-xs bg-background ring-1 ring-border/30"
                     transition={{ type: "spring", damping: 28, stiffness: 380 }}
                   />
                 )}

@@ -453,7 +453,7 @@ export function SilentAchievement({
           className="fixed top-[calc(env(safe-area-inset-top,0px)+72px)] left-1/2 -translate-x-1/2 z-[10006] pointer-events-none"
           style={{ willChange: "transform, opacity" }}
         >
-          <div className="flex items-center gap-2 px-3.5 py-2 rounded-full bg-primary text-primary-foreground shadow-[0_10px_30px_-6px_rgba(0,0,0,0.45)]">
+          <div className="flex items-center gap-2 px-3.5 py-2 rounded-full bg-primary text-primary-foreground">
             <Trophy className="h-3.5 w-3.5" strokeWidth={2.4} />
             <p className="text-[12px] font-bold uppercase tracking-[0.12em]">
               {label}
@@ -1035,7 +1035,7 @@ export function BlurredWeekOnePreview({
 
       {/* Scrim + lock overlay — the actual visible UI. */}
       <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/30 backdrop-blur-[1px]">
-        <div className="h-9 w-9 rounded-full bg-background/90 border border-border flex items-center justify-center shadow-sm">
+        <div className="h-9 w-9 rounded-full bg-background/90 border border-border flex items-center justify-center">
           <Lock className="h-4 w-4 text-primary" />
         </div>
         <p className="text-[12px] font-semibold text-foreground mt-2">

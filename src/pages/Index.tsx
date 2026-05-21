@@ -225,7 +225,7 @@ const Index = () => {
             // cutscene and goes straight to /auth below.
             onClick={() => navigateWithTransition("/welcome")}
             disabled={exiting}
-            className="no-tap-select w-full h-[54px] rounded-xs bg-primary text-primary-foreground font-bold text-[16px] flex items-center justify-center gap-2 active:scale-[0.97] transition-transform disabled:opacity-70 shadow-lg shadow-primary/20"
+            className="no-tap-select w-full h-[54px] rounded-xs bg-primary text-primary-foreground font-bold text-[16px] flex items-center justify-center gap-2 active:scale-[0.97] transition-transform disabled:opacity-70"
           >
             Get Started
             <ChevronRight className="h-4 w-4" />

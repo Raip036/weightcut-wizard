@@ -124,7 +124,7 @@ export function ProfileSheet({ open, onOpenChange }: ProfileSheetProps) {
 
       {/* Confirmation dialog */}
       <AlertDialog open={confirmOpen} onOpenChange={(o) => { if (!signingOut) setConfirmOpen(o); }}>
-        <AlertDialogContent className="max-w-[240px] rounded-xs p-0 border-0 bg-card/90 backdrop-blur-xl overflow-hidden gap-0 shadow-2xl">
+        <AlertDialogContent className="max-w-[240px] rounded-xs p-0 border-0 bg-card/90 backdrop-blur-xl overflow-hidden gap-0">
           <VisuallyHidden><AlertDialogTitle>Sign Out</AlertDialogTitle></VisuallyHidden>
           <AlertDialogDescription asChild>
             <div className="pt-4 pb-3 px-4 text-center">

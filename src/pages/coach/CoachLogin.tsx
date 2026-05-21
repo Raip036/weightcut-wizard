@@ -196,7 +196,7 @@ export default function CoachLogin() {
               don't accidentally complete signup here. */}
           <div className="flex flex-col items-center text-center mb-8">
             <div className="relative mb-4">
-              <div className="relative flex h-16 w-16 items-center justify-center rounded-xs bg-card ring-2 ring-primary/60 shadow-xl shadow-primary/20">
+              <div className="relative flex h-16 w-16 items-center justify-center rounded-xs bg-card ring-2 ring-primary/60">
                 <ClipboardList className="h-7 w-7 text-primary" strokeWidth={2.25} />
               </div>
             </div>
@@ -217,14 +217,14 @@ export default function CoachLogin() {
               <button
                 type="button"
                 onClick={() => switchTab(true)}
-                className={`flex-1 h-[42px] rounded-xs text-[14px] font-medium transition-all duration-200 ${isLogin ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
+                className={`flex-1 h-[42px] rounded-xs text-[14px] font-medium transition-all duration-200 ${isLogin ? "bg-background text-foreground" : "text-muted-foreground"}`}
               >
                 Sign In
               </button>
               <button
                 type="button"
                 onClick={() => switchTab(false)}
-                className={`flex-1 h-[42px] rounded-xs text-[14px] font-medium transition-all duration-200 ${!isLogin ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
+                className={`flex-1 h-[42px] rounded-xs text-[14px] font-medium transition-all duration-200 ${!isLogin ? "bg-background text-foreground" : "text-muted-foreground"}`}
               >
                 Sign Up
               </button>
@@ -250,7 +250,7 @@ export default function CoachLogin() {
                     <Input type="password" placeholder="Confirm password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={8} className={inputClass} />
                   )}
                   {errorMsg && <p className="text-xs text-func-danger-red text-center">{errorMsg}</p>}
-                  <Button type="submit" disabled={loading} className="w-full h-[50px] rounded-xs bg-primary text-primary-foreground font-semibold text-[16px] active:scale-[0.98] transition-transform disabled:opacity-50 shadow-lg shadow-primary/20">
+                  <Button type="submit" disabled={loading} className="w-full h-[50px] rounded-xs bg-primary text-primary-foreground font-semibold text-[16px] active:scale-[0.98] transition-transform disabled:opacity-50">
                     {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : isLogin ? "Sign In" : "Create Account"}
                   </Button>
                 </form>

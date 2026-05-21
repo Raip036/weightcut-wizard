@@ -108,7 +108,7 @@ function DefaultFallback({ error, errorInfo, onRetry }: DefaultFallbackProps) {
           <button
             type="button"
             onClick={handleRetry}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-[14px] font-bold text-primary-foreground shadow-md shadow-primary/30 active:scale-[0.98] transition"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-[14px] font-bold text-primary-foreground active:scale-[0.98] transition"
           >
             <RefreshCw className="h-4 w-4" strokeWidth={2.5} />
             Try again

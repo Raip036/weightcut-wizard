@@ -98,7 +98,7 @@ export const AICompactOverlay = memo(function AICompactOverlay({
           transition={springs.gentle}
           className="w-full"
         >
-          <div className="bg-background/95 border border-border rounded-xs shadow-2xl p-4">
+          <div className="bg-background/95 border border-border rounded-xs p-4">
             {/* Header row: icon + title + buttons */}
             <div className="flex items-center gap-3">
               {/* Animated icon */}

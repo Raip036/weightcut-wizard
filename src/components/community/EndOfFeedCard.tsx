@@ -6,7 +6,7 @@
  *   - PolaroidStack owns ALL motion. This component must be cheap to
  *     render — no `motion.*` wrappers, no effects, no state.
  *   - It mirrors the exact outer frame of `PolaroidCard` (white card,
- *     `p-4 pb-10 rounded-sm shadow-2xl`, square image well) so the deck
+ *     `p-4 pb-10 rounded-sm`, square image well) so the deck
  *     can slot it in without layout jolt when the last real post exits.
  *   - The relative-time helper (`@/lib/relativeTime`) is the same util
  *     used elsewhere (ActivityRow, etc.) — keep it consistent rather
@@ -23,7 +23,7 @@ interface EndOfFeedCardProps {
 export function EndOfFeedCard({ lastUpdated }: EndOfFeedCardProps): JSX.Element {
   return (
     <div className="absolute inset-0 pointer-events-none">
-      <div className="bg-white p-4 pb-10 rounded-sm shadow-2xl select-none">
+      <div className="bg-white p-4 pb-10 rounded-sm select-none">
         {/* Illustration well — mirrors PolaroidCard's `aspect-square`
             image area so the outer dimensions match exactly. */}
         <div className="relative aspect-square overflow-hidden bg-neutral-100 flex items-center justify-center">

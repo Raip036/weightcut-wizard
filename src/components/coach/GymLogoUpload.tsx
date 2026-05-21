@@ -206,7 +206,7 @@ export function GymLogoUpload({
         {hasLogo ? (
           <>
             <GymLogoAvatar logoUrl={currentLogoUrl} name={gymName} size={size} />
-            <span className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-background border border-border flex items-center justify-center shadow-sm">
+            <span className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-background border border-border flex items-center justify-center">
               {uploading ? (
                 <Loader2 className="h-2.5 w-2.5 text-foreground animate-spin" />
               ) : status === "success" ? (

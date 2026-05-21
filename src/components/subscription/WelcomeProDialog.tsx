@@ -27,7 +27,7 @@ export function WelcomeProDialog({ open, onClose }: WelcomeProDialogProps) {
       <div className="absolute inset-0 bg-black/70 animate-in fade-in duration-500" onClick={onClose} />
 
       {/* Dialog */}
-      <div className="relative w-full max-w-[320px] rounded-[28px] border border-primary/20 bg-background shadow-[0_32px_80px_rgba(0,0,0,0.5)] animate-in zoom-in-90 fade-in slide-in-from-bottom-4 duration-500 overflow-hidden">
+      <div className="relative w-full max-w-[320px] rounded-[28px] border border-primary/20 bg-background animate-in zoom-in-90 fade-in slide-in-from-bottom-4 duration-500 overflow-hidden">
         {/* Close */}
         <button
           onClick={onClose}
@@ -47,8 +47,8 @@ export function WelcomeProDialog({ open, onClose }: WelcomeProDialogProps) {
             }`}
           >
             <div className="relative">
-              <div className="h-20 w-20 rounded-[22px] bg-gradient-to-br from-primary via-primary to-secondary flex items-center justify-center shadow-xl shadow-primary/40">
-                <Crown className="h-10 w-10 text-primary-foreground drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)]" />
+              <div className="h-20 w-20 rounded-[22px] bg-gradient-to-br from-primary via-primary to-secondary flex items-center justify-center">
+                <Crown className="h-10 w-10 text-primary-foreground" />
               </div>
               {/* Pulse ring */}
               <div className="absolute inset-0 rounded-[22px] bg-primary/20 animate-ping" style={{ animationDuration: "2s" }} />
@@ -92,7 +92,7 @@ export function WelcomeProDialog({ open, onClose }: WelcomeProDialogProps) {
           >
             <Button
               onClick={onClose}
-              className="w-full h-12 rounded-xs text-[15px] font-bold bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-lg shadow-primary/25 active:scale-[0.97] transition-transform"
+              className="w-full h-12 rounded-xs text-[15px] font-bold bg-gradient-to-r from-primary to-secondary text-primary-foreground active:scale-[0.97] transition-transform"
             >
               Let's Go
             </Button>

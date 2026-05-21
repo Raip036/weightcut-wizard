@@ -14,9 +14,14 @@
 - **Dark only.** Light mode was removed entirely. `<html>` boots with the `.dark`
   class forced on at parse time (see `index.html`) and `--background` is a brand
   void (`#000513`), not neutral black.
-- **Flat surfaces, deep palette.** Cards have no border and no shadow by default.
-  Visual hierarchy comes from `neutral-800` (`#0E1A30`) cards popping against the
-  darker `--background`. Hero treatments add glow or gradient where deliberate.
+- **Flat surfaces, no shadows.** Cards, buttons, dialogs, sheets and toasts all
+  render without `box-shadow` or Tailwind `shadow-*` utilities. Visual hierarchy
+  comes from the surface contrast of `neutral-800` (`#0E1A30`) against the
+  darker `--background` (`#000513`). The only `box-shadow` survivors are `inset`
+  border highlights and a couple of functional camera-UI scan-line glows
+  (`BarcodeScanner`, `MealPhotoScanOverlay`). Brand glow halos on illustrations
+  (wizard FAB, OrbSpinner, welcome mascot) use the `drop-shadow()` *filter*,
+  which is a distinct effect from a drop shadow and is preserved deliberately.
 - **One primary color.** All hero CTAs route through `Button variant="default"` =
   solid Spirit Blue. The 4-stop "Gradient CTA" was tried and removed — it read as
   cheap at button scale. Aurora / Cosmic / Mystic gradients are reserved for

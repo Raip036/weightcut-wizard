@@ -466,7 +466,7 @@ export const TrainingInsightsWidget = memo(function TrainingInsightsWidget({
                   return (
                     <div
                       key={`${section.sport}-${idx}`}
-                      className="card-surface rounded-xs border border-border overflow-hidden shadow-sm"
+                      className="card-surface rounded-xs border border-border overflow-hidden"
                       style={{ borderTop: `3px solid ${sportColor}` }}
                     >
                       <div className="flex items-center gap-2.5 px-3.5 py-3 bg-muted/20 border-b border-border/60">

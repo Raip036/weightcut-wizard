@@ -32,7 +32,6 @@ export const SkillTreeNode = memo(function SkillTreeNode({ achievement, globalIn
         className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center relative ${
           unlocked ? "bg-func-recovery-green/20" : "bg-muted/20"
         }`}
-        style={unlocked ? { boxShadow: "0 0 12px rgba(34, 197, 94, 0.3)" } : undefined}
       >
         <Icon className={`h-5 w-5 ${unlocked ? "text-func-recovery-green" : "text-muted-foreground"}`} />
         {unlocked && (

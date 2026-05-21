@@ -494,7 +494,7 @@ export default function FightCamps() {
               onClick={() => setBulkDeleteOpen(true)}
               disabled={bulkDeleting}
               variant="destructive"
-              className="w-full h-11 rounded-xs shadow-lg flex items-center justify-center gap-2"
+              className="w-full h-11 rounded-xs flex items-center justify-center gap-2"
             >
               <Trash2 className="h-4 w-4" />
               <span>Delete {selectedForDelete.length} camp{selectedForDelete.length === 1 ? "" : "s"}</span>
@@ -505,7 +505,7 @@ export default function FightCamps() {
 
       {/* New Camp Dialog */}
       <Dialog open={dialogOpen} onOpenChange={(open) => { if (!creating) setDialogOpen(open); }}>
-        <DialogContent className="w-[calc(100vw-2.5rem)] max-w-[320px] rounded-[28px] p-0 border-0 bg-card/95 backdrop-blur-xl shadow-2xl gap-0">
+        <DialogContent className="w-[calc(100vw-2.5rem)] max-w-[320px] rounded-[28px] p-0 border-0 bg-card/95 backdrop-blur-xl gap-0">
           <div className="px-4 pt-4 pb-3">
             <DialogHeader>
               <DialogTitle className="text-[15px] font-semibold text-center">New Fight Camp</DialogTitle>

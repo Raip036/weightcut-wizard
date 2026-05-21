@@ -226,7 +226,7 @@ export default function Hydration() {
               </div>
               <button
                 onClick={() => setHowItWorksOpen(false)}
-                className="w-full h-11 rounded-xs bg-primary text-primary-foreground font-semibold text-[14px] active:scale-[0.98] transition-transform shadow-md shadow-primary/30"
+                className="w-full h-11 rounded-xs bg-primary text-primary-foreground font-semibold text-[14px] active:scale-[0.98] transition-transform"
               >
                 Got it
               </button>
@@ -408,7 +408,7 @@ export default function Hydration() {
                   })()}
                   <button
                     onClick={() => setGlycogenSheetOpen(false)}
-                    className="w-full h-11 rounded-xs bg-primary text-primary-foreground font-semibold text-[14px] active:scale-[0.98] transition-transform shadow-md shadow-primary/30"
+                    className="w-full h-11 rounded-xs bg-primary text-primary-foreground font-semibold text-[14px] active:scale-[0.98] transition-transform"
                   >
                     Done
                   </button>
@@ -438,7 +438,7 @@ export default function Hydration() {
 
             <Button
               type="submit"
-              className={`relative w-full h-12 min-h-[52px] mt-1 font-bold text-[15px] rounded-xs bg-primary text-primary-foreground transition-all active:scale-[0.98] shadow-lg shadow-primary/30 ${lastError && !loading ? "ring-2 ring-func-danger-red/40" : ""}`}
+              className={`relative w-full h-12 min-h-[52px] mt-1 font-bold text-[15px] rounded-xs bg-primary text-primary-foreground transition-all active:scale-[0.98] ${lastError && !loading ? "ring-2 ring-func-danger-red/40" : ""}`}
               disabled={loading || !currentWeight || !weightLost || parseFloat(weightLost) <= 0}
             >
               {loading ? (
@@ -600,10 +600,10 @@ export default function Hydration() {
             <div className="rounded-xs bg-muted/50 border border-border overflow-hidden">
               <div className="p-2">
                 <div className="flex bg-muted rounded-full p-0.5">
-                  <button onClick={() => setActiveTab("fluid")} className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-full text-xs font-medium transition-all ${activeTab === "fluid" ? "bg-blue-500 text-white shadow-sm" : "text-muted-foreground"}`}>
+                  <button onClick={() => setActiveTab("fluid")} className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-full text-xs font-medium transition-all ${activeTab === "fluid" ? "bg-blue-500 text-white" : "text-muted-foreground"}`}>
                     <Droplets className="h-3 w-3" /> Fluid
                   </button>
-                  <button onClick={() => setActiveTab("carbs")} className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-full text-xs font-medium transition-all ${activeTab === "carbs" ? "bg-blue-500 text-white shadow-sm" : "text-muted-foreground"}`}>
+                  <button onClick={() => setActiveTab("carbs")} className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-full text-xs font-medium transition-all ${activeTab === "carbs" ? "bg-blue-500 text-white" : "text-muted-foreground"}`}>
                     <Zap className="h-3 w-3" /> Carbs
                   </button>
                 </div>
@@ -632,7 +632,7 @@ export default function Hydration() {
                       <div key={idx} className="flex gap-3 px-4 py-3">
                         {/* Timeline dot + line */}
                         <div className="flex flex-col items-center shrink-0">
-                          <div className="w-2.5 h-2.5 rounded-full bg-blue-500 border-2 border-background shadow-sm" />
+                          <div className="w-2.5 h-2.5 rounded-full bg-blue-500 border-2 border-background" />
                           {idx < protocol.hourlyProtocol.length - 1 && <div className="w-0.5 flex-1 bg-border/40 mt-1" />}
                         </div>
                         {/* Content */}
@@ -692,7 +692,7 @@ export default function Hydration() {
                   {protocol.carbRefuelPlan.meals.map((meal, idx) => (
                     <div key={idx} className="flex gap-3 px-4 py-3">
                       <div className="flex flex-col items-center shrink-0">
-                        <div className="w-2.5 h-2.5 rounded-full bg-func-recovery-green border-2 border-background shadow-sm" />
+                        <div className="w-2.5 h-2.5 rounded-full bg-func-recovery-green border-2 border-background" />
                         {idx < protocol.carbRefuelPlan.meals.length - 1 && <div className="w-0.5 flex-1 bg-border/40 mt-1" />}
                       </div>
                       <div className="flex-1 min-w-0 pb-3">

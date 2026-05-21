@@ -574,7 +574,7 @@ export const BarcodeScanner = ({ onFoodScanned, disabled, className, label }: Ba
                 {/* CTAs */}
                 <div className="mt-5 space-y-2">
                   <Button
-                    className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground font-semibold text-[15px] shadow-lg shadow-primary/20"
+                    className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground font-semibold text-[15px]"
                     onClick={() => {
                       onFoodScanned({
                         meal_name: scannedProduct.productName,

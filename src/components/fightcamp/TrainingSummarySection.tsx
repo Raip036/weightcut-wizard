@@ -398,7 +398,7 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                                 return (
                                 <div
                                     key={section.sport}
-                                    className="card-surface rounded-xs border border-border overflow-hidden shadow-sm"
+                                    className="card-surface rounded-xs border border-border overflow-hidden"
                                     style={{ borderTop: `3px solid ${sportColor}` }}
                                 >
                                     {/* Sport header */}

@@ -30,7 +30,7 @@ export default function Legal() {
             <button
               onClick={() => setTab("privacy")}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-xs transition-all ${
-                tab === "privacy" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+                tab === "privacy" ? "bg-background text-foreground" : "text-muted-foreground"
               }`}
             >
               <Shield className="h-3.5 w-3.5" />
@@ -39,7 +39,7 @@ export default function Legal() {
             <button
               onClick={() => setTab("terms")}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-xs transition-all ${
-                tab === "terms" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+                tab === "terms" ? "bg-background text-foreground" : "text-muted-foreground"
               }`}
             >
               <FileText className="h-3.5 w-3.5" />

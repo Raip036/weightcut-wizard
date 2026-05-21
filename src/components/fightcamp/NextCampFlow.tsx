@@ -333,7 +333,7 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-1.5rem)] max-w-[420px] max-h-[calc(100vh-4rem)] overflow-y-auto rounded-[28px] p-0 border-0 bg-card/95 backdrop-blur-xl shadow-2xl gap-0">
+      <DialogContent className="w-[calc(100vw-1.5rem)] max-w-[420px] max-h-[calc(100vh-4rem)] overflow-y-auto rounded-[28px] p-0 border-0 bg-card/95 backdrop-blur-xl gap-0">
         <div className="px-5 pt-5 pb-2">
           <DialogHeader>
             <DialogTitle className="text-[17px] font-semibold tracking-tight text-center">

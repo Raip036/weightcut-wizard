@@ -391,7 +391,7 @@ export function RoutineGeneratorSheet({ open, onOpenChange, onGenerate, onSave, 
                           onClick={() => setSport(s.value)}
                           className={`px-5 py-3 rounded-xs text-sm font-semibold transition-all active:scale-[0.97] ${
                             selected
-                              ? "bg-primary text-primary-foreground shadow-sm"
+                              ? "bg-primary text-primary-foreground"
                               : "card-surface border border-border/50 text-muted-foreground hover:text-foreground"
                           }`}
                         >

@@ -136,7 +136,7 @@ export const SessionCard = memo(function SessionCard({
                 style={{ backgroundColor: sessionColor }}
                 aria-label={`${session.session_type} color tile, tap to change`}
               >
-                <span className="text-[12px] font-black uppercase tracking-tight text-white/95 drop-shadow-sm">
+                <span className="text-[12px] font-black uppercase tracking-tight text-white/95">
                   {session.session_type.charAt(0)}
                 </span>
               </span>
@@ -151,7 +151,7 @@ export const SessionCard = memo(function SessionCard({
                   style={{ backgroundColor: color }}
                   onClick={() => { if (userId) onColorChange(session.session_type, color); }}
                 >
-                  {sessionColor === color && <Check className="w-4 h-4 text-white drop-shadow-md" />}
+                  {sessionColor === color && <Check className="w-4 h-4 text-white" />}
                 </button>
               ))}
             </div>

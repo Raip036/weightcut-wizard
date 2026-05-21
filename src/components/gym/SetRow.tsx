@@ -51,7 +51,7 @@ export function SetRow({ set, index, prTypes, onUpdate, onDelete }: SetRowProps)
         set.is_warmup
           ? "bg-muted text-muted-foreground"
           : hasPR
-            ? "bg-gradient-to-br from-func-warning-yellow to-func-warning-yellow text-black shadow-md shadow-func-warning-yellow/30"
+            ? "bg-gradient-to-br from-func-warning-yellow to-func-warning-yellow text-black"
             : "bg-gradient-to-br from-primary/20 to-primary/10 text-primary"
       }`}>
         {set.is_warmup ? "W" : index + 1}
@@ -101,7 +101,7 @@ export function SetRow({ set, index, prTypes, onUpdate, onDelete }: SetRowProps)
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={springs.bouncy}
-          className="shrink-0 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-func-warning-yellow/95 to-func-warning-yellow/95 text-black px-2 py-0.5 shadow-md shadow-func-warning-yellow/30"
+          className="shrink-0 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-func-warning-yellow/95 to-func-warning-yellow/95 text-black px-2 py-0.5"
           title={prTypes.includes("weight") ? "New heaviest set" : "New rep max"}
         >
           <Trophy className="h-3 w-3" strokeWidth={2.6} fill="currentColor" />

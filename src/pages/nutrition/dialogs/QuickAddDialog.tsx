@@ -285,7 +285,7 @@ export function QuickAddDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className={`w-[calc(100vw-1.5rem)] max-w-[420px] max-h-[calc(100vh-4rem)] overflow-y-auto rounded-[28px] p-0 border-0 bg-card/95 backdrop-blur-xl shadow-2xl gap-0 ${aiTask ? "[&>button]:hidden" : ""}`}
+        className={`w-[calc(100vw-1.5rem)] max-w-[420px] max-h-[calc(100vh-4rem)] overflow-y-auto rounded-[28px] p-0 border-0 bg-card/95 backdrop-blur-xl gap-0 ${aiTask ? "[&>button]:hidden" : ""}`}
       >
         {aiTask && (
           aiMeal.photoAnalyzing && aiMeal.photoBase64 ? (
@@ -337,7 +337,7 @@ export function QuickAddDialog({
                     {active && (
                       <motion.div
                         layoutId="add-meal-tab-pill"
-                        className="absolute inset-0 rounded-xs bg-background shadow-sm ring-1 ring-border/30"
+                        className="absolute inset-0 rounded-xs bg-background ring-1 ring-border/30"
                         transition={{ type: "spring", damping: 28, stiffness: 380 }}
                       />
                     )}
@@ -554,7 +554,7 @@ export function QuickAddDialog({
                     {placedLabels.map(({ x, y, item }, idx) => (
                       <div
                         key={idx}
-                        className="absolute bg-white/95 dark:bg-card/95 backdrop-blur-md text-foreground px-2.5 py-1 rounded-full shadow-lg flex flex-col items-center leading-tight"
+                        className="absolute bg-white/95 dark:bg-card/95 backdrop-blur-md text-foreground px-2.5 py-1 rounded-full flex flex-col items-center leading-tight"
                         style={{
                           left: `${x * 100}%`,
                           top: `${y * 100}%`,

@@ -251,7 +251,7 @@ export function FloatingWizardChat() {
       {/* Chat Panel */}
       {open && (
         <div
-          className="fixed inset-x-0 bottom-0 z-[10002] flex flex-col bg-background border-t border-border/40 rounded-t-[28px] shadow-[0_-20px_60px_-15px_rgba(0,0,0,0.5)] animate-in slide-in-from-bottom duration-300"
+          className="fixed inset-x-0 bottom-0 z-[10002] flex flex-col bg-background border-t border-border/40 rounded-t-[28px] animate-in slide-in-from-bottom duration-300"
           style={{ height: "85dvh" }}
         >
           {/* Drag handle */}
@@ -325,7 +325,7 @@ export function FloatingWizardChat() {
                     ) : null}
 
                     {msg.role === "user" ? (
-                      <div className="px-4 py-2.5 rounded-[20px] rounded-br-md text-[15px] leading-snug bg-primary text-primary-foreground shadow-sm">
+                      <div className="px-4 py-2.5 rounded-[20px] rounded-br-md text-[15px] leading-snug bg-primary text-primary-foreground">
                         <div className="wizard-prose wizard-prose-user max-w-none">
                           <ReactMarkdown>{msg.content}</ReactMarkdown>
                         </div>
@@ -385,7 +385,7 @@ export function FloatingWizardChat() {
                 type="submit"
                 disabled={!input.trim() || isLoading}
                 aria-label="Send message"
-                className="h-11 w-11 shrink-0 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-sm disabled:opacity-40 disabled:scale-90 active:scale-90 transition-all duration-150"
+                className="h-11 w-11 shrink-0 rounded-full bg-primary text-primary-foreground flex items-center justify-center disabled:opacity-40 disabled:scale-90 active:scale-90 transition-all duration-150"
               >
                 <Send className="h-[18px] w-[18px] -ml-0.5" />
               </button>

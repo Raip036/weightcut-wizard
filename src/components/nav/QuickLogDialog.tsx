@@ -373,7 +373,7 @@ export function QuickLogDialog({ open, onOpenChange, onLogFood, onLogWeight, onL
                     aria-pressed={active}
                     className={`h-12 rounded-xs text-[14px] font-semibold active:scale-[0.97] transition-all ${
                       active
-                        ? "bg-primary text-primary-foreground shadow-sm"
+                        ? "bg-primary text-primary-foreground"
                         : "bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-foreground/85"
                     }`}
                   >
@@ -426,7 +426,7 @@ export function QuickLogDialog({ open, onOpenChange, onLogFood, onLogWeight, onL
                       aria-pressed={active}
                       className={`flex-1 h-10 rounded-xs text-[11.5px] font-semibold active:scale-[0.97] transition-all ${
                         active
-                          ? "bg-primary text-primary-foreground shadow-sm"
+                          ? "bg-primary text-primary-foreground"
                           : "bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-muted-foreground/85"
                       }`}
                     >

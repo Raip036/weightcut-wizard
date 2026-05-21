@@ -614,7 +614,7 @@ export default function FightWeek() {
             <Button
               onClick={generateProtocol}
               disabled={isGenerating || !normalDailyCarbs}
-              className={`relative w-full h-13 min-h-[52px] rounded-xs text-[15px] font-bold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40 shadow-lg shadow-primary/30 ${lastError && !isGenerating ? "ring-2 ring-func-danger-red/40" : ""}`}
+              className={`relative w-full h-13 min-h-[52px] rounded-xs text-[15px] font-bold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40 ${lastError && !isGenerating ? "ring-2 ring-func-danger-red/40" : ""}`}
             >
               {isGenerating ? (
                 <CastingMessage />
@@ -689,7 +689,7 @@ export default function FightWeek() {
               </div>
               <button
                 onClick={() => setHowItWorksOpen(false)}
-                className="w-full h-11 rounded-xs bg-primary text-primary-foreground font-semibold text-[14px] active:scale-[0.98] transition-transform shadow-md shadow-primary/30"
+                className="w-full h-11 rounded-xs bg-primary text-primary-foreground font-semibold text-[14px] active:scale-[0.98] transition-transform"
               >
                 Got it
               </button>

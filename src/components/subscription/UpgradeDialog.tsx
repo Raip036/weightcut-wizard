@@ -28,7 +28,7 @@ export function UpgradeDialog({ open, onOpenChange, featureName }: UpgradeDialog
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[320px] rounded-xs p-0 border border-border/50 glass-card overflow-hidden gap-0 shadow-2xl [&>button:last-of-type]:hidden">
+      <DialogContent className="max-w-[320px] rounded-xs p-0 border border-border/50 glass-card overflow-hidden gap-0 [&>button:last-of-type]:hidden">
         <VisuallyHidden>
           <DialogTitle>Pro feature</DialogTitle>
           <DialogDescription>Upgrade to Pro to unlock this feature.</DialogDescription>
@@ -53,7 +53,7 @@ export function UpgradeDialog({ open, onOpenChange, featureName }: UpgradeDialog
         <div className="px-4 pb-4 space-y-2">
           <Button
             onClick={handleUpgrade}
-            className="w-full h-11 rounded-xs text-[14px] font-bold bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-lg shadow-primary/20 active:scale-[0.97] transition-transform"
+            className="w-full h-11 rounded-xs text-[14px] font-bold bg-gradient-to-r from-primary to-secondary text-primary-foreground active:scale-[0.97] transition-transform"
           >
             Upgrade to Pro
           </Button>

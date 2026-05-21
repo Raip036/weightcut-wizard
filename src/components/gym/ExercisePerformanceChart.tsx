@@ -17,7 +17,7 @@ interface ExercisePerformanceChartProps {
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="card-surface rounded-xs border border-border px-3 py-2 shadow-xl text-xs">
+    <div className="card-surface rounded-xs border border-border px-3 py-2 text-xs">
       <p className="text-muted-foreground mb-1">{label}</p>
       {payload.map((p: any) => (
         <p key={p.name} className="display-number text-sm">
@@ -130,7 +130,7 @@ export const ExercisePerformanceChart = memo(function ExercisePerformanceChart({
               onClick={() => setTimeFilter(f)}
               className={`px-2.5 py-1.5 rounded-full text-[11px] font-semibold transition-all duration-200 ${
                 timeFilter === f
-                  ? "bg-primary text-primary-foreground shadow-sm"
+                  ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:bg-muted/50"
               }`}
             >
@@ -146,7 +146,7 @@ export const ExercisePerformanceChart = memo(function ExercisePerformanceChart({
               onClick={() => setChartType(ct.key)}
               className={`px-2.5 py-1 rounded-full text-[10px] font-semibold transition-all duration-200 ${
                 chartType === ct.key
-                  ? "bg-background text-foreground shadow-sm"
+                  ? "bg-background text-foreground"
                   : "text-muted-foreground"
               }`}
             >

@@ -453,7 +453,7 @@ export default function GymTracker() {
                         }}
                         className={`relative flex items-center gap-2 rounded-xs border px-3 py-2.5 text-left active:scale-[0.97] transition-all ${
                           active
-                            ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/30"
+                            ? "bg-primary text-primary-foreground border-primary"
                             : "bg-muted/30 border-border/30 hover:bg-muted/50"
                         }`}
                       >
@@ -468,7 +468,7 @@ export default function GymTracker() {
                 <button
                   onClick={handleStartWorkout}
                   disabled={startingWorkout}
-                  className="mt-3 w-full h-12 rounded-xs text-[15px] font-bold text-primary-foreground bg-primary flex items-center justify-center active:scale-[0.98] transition-transform disabled:opacity-60 shadow-lg shadow-primary/30"
+                  className="mt-3 w-full h-12 rounded-xs text-[15px] font-bold text-primary-foreground bg-primary flex items-center justify-center active:scale-[0.98] transition-transform disabled:opacity-60"
                 >
                   {startingWorkout ? "Starting…" : `Start ${sessionType.toLowerCase()} workout`}
                 </button>
@@ -492,7 +492,7 @@ export default function GymTracker() {
                       onClick={() => { setHistoryView("list"); triggerHaptic(ImpactStyle.Light); }}
                       className={`px-2.5 py-1 rounded-full text-[11px] font-semibold flex items-center gap-1 transition-all ${
                         historyView === "list"
-                          ? "bg-background text-foreground shadow-sm"
+                          ? "bg-background text-foreground"
                           : "text-muted-foreground"
                       }`}
                       aria-label="List view"
@@ -504,7 +504,7 @@ export default function GymTracker() {
                       onClick={() => { setHistoryView("calendar"); triggerHaptic(ImpactStyle.Light); }}
                       className={`px-2.5 py-1 rounded-full text-[11px] font-semibold flex items-center gap-1 transition-all ${
                         historyView === "calendar"
-                          ? "bg-background text-foreground shadow-sm"
+                          ? "bg-background text-foreground"
                           : "text-muted-foreground"
                       }`}
                       aria-label="Calendar view"

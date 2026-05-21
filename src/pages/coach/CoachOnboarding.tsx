@@ -336,7 +336,7 @@ export default function CoachOnboarding() {
                   <button
                     type="submit"
                     disabled={creating || !gymName.trim()}
-                    className="mt-4 w-full h-[52px] rounded-xs text-[16px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40 flex items-center justify-center gap-2 shadow-lg shadow-primary/30"
+                    className="mt-4 w-full h-[52px] rounded-xs text-[16px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40 flex items-center justify-center gap-2"
                   >
                     {creating ? (
                       <>
@@ -418,7 +418,7 @@ export default function CoachOnboarding() {
                             transition={{ type: "spring", stiffness: 380, damping: 22 }}
                             className={`min-h-[40px] px-3.5 rounded-xs border text-[13px] font-medium active:scale-[0.97] flex items-center gap-1.5 ${
                               active
-                                ? "bg-primary text-primary-foreground border-primary shadow-sm shadow-primary/30"
+                                ? "bg-primary text-primary-foreground border-primary"
                                 : "bg-muted/30 text-foreground border-border/40"
                             }`}
                           >
@@ -466,7 +466,7 @@ export default function CoachOnboarding() {
                       type="button"
                       onClick={handleFinish}
                       disabled={finishing}
-                      className="w-full h-[52px] rounded-xs text-[16px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40 flex items-center justify-center gap-2 shadow-lg shadow-primary/30"
+                      className="w-full h-[52px] rounded-xs text-[16px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40 flex items-center justify-center gap-2"
                     >
                       {finishing ? (
                         <>
@@ -534,7 +534,7 @@ function WizardCompanion({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.22, ease: "easeOut" }}
-            className="relative rounded-xs border border-primary/20 bg-card/80 px-3.5 py-2.5 shadow-lg shadow-primary/10 backdrop-blur-sm"
+            className="relative rounded-xs border border-primary/20 bg-card/80 px-3.5 py-2.5 backdrop-blur-sm"
           >
             {/* Tail pointing left at wizard */}
             <span

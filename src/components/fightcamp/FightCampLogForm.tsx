@@ -272,7 +272,7 @@ export function FightCampLogForm({
                   onClick={() => { setSessionType(type); triggerHapticSelection(); }}
                   className={`h-10 px-4 rounded-full text-[13.5px] font-semibold transition-all active:scale-[0.96] ${
                     active
-                      ? "bg-primary text-primary-foreground shadow-sm"
+                      ? "bg-primary text-primary-foreground"
                       : "bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-foreground/80 hover:bg-muted/60"
                   } ${isCustom ? "pr-7" : ""}`}
                 >

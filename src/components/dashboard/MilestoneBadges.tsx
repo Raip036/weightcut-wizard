@@ -84,11 +84,6 @@ function BadgeCard({
         className={`relative w-10 h-10 rounded-full mx-auto flex items-center justify-center ${
           badge.unlocked ? "bg-primary/20" : "bg-muted/20"
         }`}
-        style={
-          badge.unlocked
-            ? { boxShadow: "0 0 12px hsl(var(--primary) / 0.3)" }
-            : undefined
-        }
       >
         {badge.unlocked ? (
           <Icon className="h-5 w-5 text-primary" />

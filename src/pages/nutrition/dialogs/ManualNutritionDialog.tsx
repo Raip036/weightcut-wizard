@@ -44,7 +44,7 @@ export function ManualNutritionDialog({
 
   return (
     <Dialog open={state.open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[300px] rounded-xs p-0 border-0 bg-card/95 backdrop-blur-xl shadow-2xl gap-0">
+      <DialogContent className="sm:max-w-[300px] rounded-xs p-0 border-0 bg-card/95 backdrop-blur-xl gap-0">
         <div className="px-4 pt-4 pb-2">
           <DialogHeader>
             <DialogTitle className="text-[15px] font-semibold text-center">Enter Nutrition</DialogTitle>

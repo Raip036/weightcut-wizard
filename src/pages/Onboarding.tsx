@@ -1087,7 +1087,7 @@ export default function Onboarding() {
         {step === 1 && (
           <StepLayout step={1} title="What brings you here?" subtitle="We'll build your plan around this."
             footer={<Button onClick={goNext} disabled={!formData.goal_type}
-              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
             <div className="space-y-2.5">
               {[
@@ -1105,7 +1105,7 @@ export default function Onboarding() {
         {step === 2 && formData.goal_type === "cutting" && (
           <StepLayout step={2} title="What's your discipline?" subtitle={`Pick your sport${userName ? `, ${userName}` : ""} — we'll tailor everything to it.`}
             footer={<Button onClick={goNext} disabled={formData.athlete_types.length === 0}
-              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
             <div className="space-y-2.5">
               {[
@@ -1129,7 +1129,7 @@ export default function Onboarding() {
         {step === 2 && formData.goal_type === "losing" && (
           <StepLayout step={2} title="What's your current weight?" subtitle="Step on the scale — this is your starting line."
             footer={<Button onClick={goNext} disabled={!formData.current_weight_kg}
-              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
             <div className="flex flex-col items-center pt-8 gap-6">
               <div className="text-center">
@@ -1157,7 +1157,7 @@ export default function Onboarding() {
         {step === 3 && formData.goal_type === "losing" && (
           <StepLayout step={3} title="What's your goal weight?" subtitle="The weight you want to reach."
             footer={<Button onClick={goNext} disabled={!formData.goal_weight_kg}
-              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
             <div className="flex flex-col items-center pt-8 gap-6">
               <div className="text-center">
@@ -1190,7 +1190,7 @@ export default function Onboarding() {
         {step === 4 && formData.goal_type === "losing" && (
           <StepLayout step={4} title="How long do you want to take?" subtitle="We'll calculate your weekly target."
             footer={<Button onClick={goNext} disabled={!formData.target_weeks || parseInt(formData.target_weeks) < 1}
-              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
             <div className="flex flex-col items-center pt-6 gap-5">
               <div className="text-center">
@@ -1274,7 +1274,7 @@ export default function Onboarding() {
               mascotBump={step * 10 + fightSubStep}
               footer={
                 <Button onClick={goNext} disabled={continueDisabled}
-                  className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>
+                  className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>
               }
             >
               <AnimatePresence mode="wait" initial={false}>
@@ -1511,7 +1511,7 @@ export default function Onboarding() {
         {((step === 4 && formData.goal_type !== "losing") || (step === 5 && formData.goal_type === "losing")) && (
           <StepLayout step={step} title="How old are you?" subtitle="We'll use this to dial in your metabolic rate."
             footer={<Button onClick={goNext} disabled={!formData.age}
-              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
             <div className="flex flex-col items-center pt-8 gap-8">
               <div className="text-center">
@@ -1554,7 +1554,7 @@ export default function Onboarding() {
         {((step === 5 && formData.goal_type !== "losing") || (step === 6 && formData.goal_type === "losing")) && (
           <StepLayout step={step} title="What's your height?" subtitle="Used to calculate your metabolic rate."
             footer={<Button onClick={goNext} disabled={!formData.height_cm}
-              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
             <div className="flex flex-col items-center pt-8 gap-6">
               <div className="text-center">
@@ -1586,7 +1586,7 @@ export default function Onboarding() {
         {step === 6 && formData.goal_type !== "losing" && (
           <StepLayout step={6} title="What's your current weight?" subtitle="Step on the scale. Be honest — this is your starting line."
             footer={<Button onClick={goNext} disabled={!formData.current_weight_kg}
-              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
             <div className="flex flex-col items-center pt-8 gap-6">
               <div className="text-center">
@@ -1710,7 +1710,7 @@ export default function Onboarding() {
           <StepLayout step={7} title="Estimate your body fat" subtitle="Drag the slider. Skip if you're not sure."
             footer={
               <div className="space-y-2">
-                <Button onClick={goNext} className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90">Continue</Button>
+                <Button onClick={goNext} className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90">Continue</Button>
                 <button onClick={() => { setFormData(prev => ({ ...prev, body_fat_pct: "" })); goNext(); }} className="w-full text-center text-xs text-muted-foreground/60 py-2 hover:text-muted-foreground transition-colors">
                   Skip this step
                 </button>
@@ -1778,7 +1778,7 @@ export default function Onboarding() {
         {step === 8 && (
           <StepLayout step={8} title="What's your experience level?" subtitle="No judgment. We just need to know where you're at."
             footer={<Button onClick={goNext} disabled={!formData.experience_level}
-              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
             <div className="space-y-2.5">
               {[
@@ -1797,7 +1797,7 @@ export default function Onboarding() {
         {step === 9 && (
           <StepLayout step={9} title="How often do you train?" subtitle="All sessions — pads, sparring, gym, running."
             footer={<Button onClick={goNext} disabled={!formData.training_frequency}
-              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
             <div className="space-y-2.5">
               {[
@@ -1834,7 +1834,7 @@ export default function Onboarding() {
         {step === 11 && (
           <StepLayout step={11} title="What does your training include?" subtitle="Select all that apply."
             footer={<Button onClick={goNext} disabled={formData.training_types.length === 0}
-              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
             <div className="space-y-2.5">
               {["Pads", "Sparring", "Strength & Conditioning", "Running"].map(t => (
@@ -1849,7 +1849,7 @@ export default function Onboarding() {
         {step === 12 && (
           <StepLayout step={12} title="How many hours do you sleep?" subtitle="Recovery is half the game."
             footer={<Button onClick={goNext} disabled={!formData.sleep_hours}
-              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
             <div className="space-y-2.5">
               {[
@@ -1876,7 +1876,7 @@ export default function Onboarding() {
         {step === 13 && formData.goal_type !== "losing" && (
           <StepLayout step={13} title="What do you struggle with most?" subtitle="Be real. We'll build around your weak spots."
             footer={<Button onClick={goNext} disabled={!formData.primary_struggle}
-              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
             <div className="space-y-2.5">
               {[
@@ -1900,7 +1900,7 @@ export default function Onboarding() {
         {step === 13 && formData.goal_type === "losing" && (
           <StepLayout step={13} title="How aggressive do you want to go?" subtitle="Picks the pace of your cut. You can change it later in Settings."
             footer={<Button onClick={goNext} disabled={!formData.plan_aggressiveness}
-              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
             <div className="space-y-2.5">
               {[
@@ -1930,7 +1930,7 @@ export default function Onboarding() {
               <Button
                 onClick={handleNameContinue}
                 disabled={!isNameValid(formData.display_name)}
-                className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50"
+                className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
               >
                 Continue
               </Button>
@@ -1989,7 +1989,7 @@ export default function Onboarding() {
                 </div>
               ) : (
                 <Button onClick={goNext} disabled={loading}
-                  className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Generate plan</Button>
+                  className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Generate plan</Button>
               )
             }
           >
@@ -2195,7 +2195,7 @@ export default function Onboarding() {
                   </div>
                 ) : (
                   <Button onClick={goNext} disabled={loading || !validInputs}
-                    className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">
+                    className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">
                     Generate plan
                   </Button>
                 )

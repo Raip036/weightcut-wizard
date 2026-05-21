@@ -285,7 +285,6 @@ function SparklesLayer({ count = 12 }: { count?: number }) {
             top: s.top,
             width: s.size,
             height: s.size,
-            boxShadow: "0 0 12px rgba(255, 220, 130, 0.85)",
             mixBlendMode: "screen",
           }}
           animate={{ opacity: [0, 1, 0], y: [0, -22, -44], scale: [0.6, 1.1, 0.4] }}
@@ -422,7 +421,7 @@ function WeightScaleLayer({ dims }: { dims: StageDims }) {
         initial={{ opacity: 0, y: 10, scale: 0.94 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.45, ease: "easeOut" }}
-        className="relative w-[260px] rounded-xs bg-zinc-950/85 px-4 pt-3 pb-3 ring-1 ring-func-warning-yellow/20 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.9)] backdrop-blur-sm"
+        className="relative w-[260px] rounded-xs bg-zinc-950/85 px-4 pt-3 pb-3 ring-1 ring-func-warning-yellow/20 backdrop-blur-sm"
       >
         {/* Header row: live readout + units */}
         <div className="flex items-baseline justify-between">
@@ -487,7 +486,7 @@ function WeightScaleLayer({ dims }: { dims: StageDims }) {
                   ? { duration: 0.15 }
                   : { type: "spring", stiffness: 420, damping: 18 }
               }
-              className="absolute -right-2 -top-2 rounded-full bg-func-danger-red px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white ring-2 ring-zinc-950 shadow-lg shadow-func-danger-red/30"
+              className="absolute -right-2 -top-2 rounded-full bg-func-danger-red px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white ring-2 ring-zinc-950"
             >
               +{over.toFixed(1)} OVER
             </motion.div>
@@ -537,7 +536,7 @@ function ProtocolTimelineLayer({ dims }: { dims: StageDims }) {
         initial={{ opacity: 0, y: 10, scale: 0.94 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.45, ease: "easeOut" }}
-        className="relative w-[300px] rounded-xs bg-zinc-950/85 px-4 pb-3 pt-3 ring-1 ring-func-warning-yellow/20 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.9)] backdrop-blur-sm"
+        className="relative w-[300px] rounded-xs bg-zinc-950/85 px-4 pb-3 pt-3 ring-1 ring-func-warning-yellow/20 backdrop-blur-sm"
       >
         <div className="mb-2.5 text-center text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
           Cut protocol
@@ -670,7 +669,7 @@ function RosterStatusLayer({ dims }: { dims: StageDims }) {
         initial={{ opacity: 0, y: 10, scale: 0.94 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.45, ease: "easeOut" }}
-        className="relative w-[260px] rounded-xs bg-zinc-950/85 px-4 py-3 ring-1 ring-sky-400/20 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.9)] backdrop-blur-sm"
+        className="relative w-[260px] rounded-xs bg-zinc-950/85 px-4 py-3 ring-1 ring-sky-400/20 backdrop-blur-sm"
       >
         <div className="mb-2.5 flex items-center justify-between">
           <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
@@ -732,7 +731,7 @@ function ReadinessMeterLayer({ dims }: { dims: StageDims }) {
         initial={{ opacity: 0, y: 10, scale: 0.94 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.45, ease: "easeOut" }}
-        className="relative w-[280px] rounded-xs bg-zinc-950/85 px-4 py-3 ring-1 ring-sky-400/20 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.9)] backdrop-blur-sm"
+        className="relative w-[280px] rounded-xs bg-zinc-950/85 px-4 py-3 ring-1 ring-sky-400/20 backdrop-blur-sm"
       >
         <div className="mb-2 flex items-center justify-between">
           <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
@@ -751,7 +750,7 @@ function ReadinessMeterLayer({ dims }: { dims: StageDims }) {
           </div>
           {/* Needle/marker */}
           <motion.div
-            className="absolute top-0 bottom-0 w-1.5 -translate-x-1/2 rounded-sm bg-white shadow-[0_0_0_2px_rgba(8,8,14,0.8)]"
+            className="absolute top-0 bottom-0 w-1.5 -translate-x-1/2 rounded-sm bg-white"
             initial={prefersReduced ? { left: `${needlePct}%` } : { left: "5%" }}
             animate={{ left: `${needlePct}%` }}
             transition={
@@ -1271,7 +1270,7 @@ export function WizardIntroCutscene({
                 onClick={() => { void handleContinueWithApple(); }}
                 disabled={appleLoading}
                 aria-label={config.appleLabel}
-                className={`no-tap-select w-full h-[54px] rounded-xs bg-white text-black font-bold text-[16px] flex items-center justify-center gap-2 active:scale-[0.97] transition-transform shadow-lg shadow-black/30 ${appleLoading ? "opacity-50" : ""}`}
+                className={`no-tap-select w-full h-[54px] rounded-xs bg-white text-black font-bold text-[16px] flex items-center justify-center gap-2 active:scale-[0.97] transition-transform ${appleLoading ? "opacity-50" : ""}`}
                 style={{ WebkitTapHighlightColor: "transparent" }}
               >
                 <AppleLogo className="h-[18px] w-[18px]" />

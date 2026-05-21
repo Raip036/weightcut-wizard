@@ -360,7 +360,7 @@ export function ExercisePickerSheet({
                       onClick={() => setCategoryFilter(active ? null : (c.value as ExerciseCategory))}
                       className={`inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition active:scale-[0.97] ${
                         active
-                          ? "bg-primary text-primary-foreground shadow-md shadow-primary/30"
+                          ? "bg-primary text-primary-foreground"
                           : "bg-muted/40 text-foreground border border-border/40"
                       }`}
                     >
@@ -383,7 +383,7 @@ export function ExercisePickerSheet({
                       onClick={() => setEquipmentFilter(active ? null : (e.value as Equipment))}
                       className={`inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition active:scale-[0.97] ${
                         active
-                          ? "bg-primary text-primary-foreground shadow-md shadow-primary/30"
+                          ? "bg-primary text-primary-foreground"
                           : "bg-muted/40 text-foreground border border-border/40"
                       }`}
                     >
@@ -407,7 +407,7 @@ export function ExercisePickerSheet({
               <button
                 type="button"
                 onClick={() => setFiltersOpen(false)}
-                className="flex-1 h-11 rounded-xs bg-primary text-primary-foreground font-bold text-[13px] active:scale-[0.98] transition-transform shadow-md shadow-primary/30"
+                className="flex-1 h-11 rounded-xs bg-primary text-primary-foreground font-bold text-[13px] active:scale-[0.98] transition-transform"
               >
                 Apply
               </button>

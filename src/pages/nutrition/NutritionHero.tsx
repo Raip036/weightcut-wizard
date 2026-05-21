@@ -142,7 +142,7 @@ function DateStrip({
               whileTap={{ scale: 0.94 }}
               className={`relative flex-shrink-0 flex flex-col items-center justify-center w-[52px] h-[64px] rounded-xs border transition-colors ${
                 active
-                  ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/30"
+                  ? "bg-primary text-primary-foreground border-primary"
                   : "bg-card/40 text-foreground/85 border-border/40 hover:bg-muted/40"
               }`}
               aria-label={format(d, "EEEE, MMMM d")}

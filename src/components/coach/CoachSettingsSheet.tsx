@@ -619,7 +619,7 @@ function SaveButton({
     <button
       onClick={onClick}
       disabled={disabled}
-      className="self-end h-9 px-4 rounded-xs bg-primary text-primary-foreground text-[13px] font-semibold active:scale-[0.97] transition-transform disabled:opacity-40 shadow-md shadow-primary/20"
+      className="self-end h-9 px-4 rounded-xs bg-primary text-primary-foreground text-[13px] font-semibold active:scale-[0.97] transition-transform disabled:opacity-40"
     >
       {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
     </button>

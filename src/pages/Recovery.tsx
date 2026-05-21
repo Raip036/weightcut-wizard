@@ -149,7 +149,7 @@ export default function Recovery() {
                     <div className="flex flex-wrap gap-2">
                         <button
                             onClick={() => { triggerHapticSelection(); navigate("/training-calendar"); }}
-                            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-2 text-[12px] font-bold text-primary-foreground shadow-md shadow-primary/30 active:scale-[0.97] transition"
+                            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-2 text-[12px] font-bold text-primary-foreground active:scale-[0.97] transition"
                         >
                             <Activity className="h-3.5 w-3.5" strokeWidth={2.5} />
                             Log a session

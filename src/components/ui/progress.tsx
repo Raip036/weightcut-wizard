@@ -29,7 +29,7 @@ const Progress = React.forwardRef<
       /* Glass-tube track — slim by default (h-2), can be overridden via
          className. Inset highlight emulates the "glass lip" the nav uses. */
       "relative h-2 w-full overflow-hidden rounded-full bg-neutral-900",
-      "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]",
+      "",
       className,
     )}
     {...props}
