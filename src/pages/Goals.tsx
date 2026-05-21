@@ -5,7 +5,7 @@ import { api } from "@/../convex/_generated/api";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
-import { AlertTriangle, Check, ChevronRight, TrendingDown } from "lucide-react";
+import { AlertTriangle, Check, ChevronRight, TrendingDown, Settings as SettingsIcon } from "lucide-react";
 import { ImpactStyle } from "@capacitor/haptics";
 import { motion, AnimatePresence } from "motion/react";
 import { profileSchema } from "@/lib/validation";
@@ -319,8 +319,22 @@ export default function Goals() {
 
   return (
     <div className="animate-page-in px-5 py-3 sm:p-5 max-w-2xl mx-auto pb-20 md:pb-8">
-      {/* Hero header — large-title with centered avatar + name + subtitle */}
+      {/* Hero header — large-title with centered avatar + name + subtitle.
+          Settings gear sits top-right (this page IS the edit-profile
+          destination when the user taps the Dashboard avatar; the gear
+          is the access point for app settings now that the ProfileSheet
+          menu is no longer used). The Saved indicator shifts left when
+          present so the gear stays in its corner. */}
       <header className="relative pt-2 pb-6">
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new CustomEvent('wcw:open-settings'))}
+          aria-label="Settings"
+          className="absolute top-2 right-0 flex h-9 w-9 items-center justify-center rounded-full active:bg-neutral-800 transition-colors"
+        >
+          <SettingsIcon className="h-5 w-5 text-muted-foreground" strokeWidth={2} />
+        </button>
+
         <AnimatePresence>
           {savedAt && (
             <motion.div
@@ -328,7 +342,7 @@ export default function Goals() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -4, scale: 0.9 }}
               transition={{ duration: 0.18 }}
-              className="absolute top-2 right-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-500 text-[11px] font-semibold"
+              className="absolute top-2 right-12 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-500 text-[11px] font-semibold"
             >
               <Check className="h-3 w-3" strokeWidth={3} />
               Saved

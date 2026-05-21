@@ -35,6 +35,7 @@ import { logger } from "@/lib/logger";
 import { trackInstallDate, maybeRequestReview } from "@/lib/appReview";
 import { SleepLogger } from "@/components/dashboard/SleepLogger";
 import { TrainingInsightsWidget } from "@/components/dashboard/TrainingInsightsWidget";
+import { ProfileSheet } from "@/components/dashboard/ProfileSheet";
 import NewAnnouncementWidget from "@/components/dashboard/NewAnnouncementWidget";
 import { GymInvitesBanner } from "@/components/dashboard/GymInvitesBanner";
 import { NextCampFlow } from "@/components/fightcamp/NextCampFlow";
@@ -96,6 +97,7 @@ export default function Dashboard() {
   const [frequentMeals, setFrequentMeals] = useState<Array<{ name: string; count: number; avgCalories: number }>>([]);
   const [scoreSheetOpen, setScoreSheetOpen] = useState(false);
   const [nextCampOpen, setNextCampOpen] = useState(false);
+  const [profileSheetOpen, setProfileSheetOpen] = useState(false);
   // Active camp drives the post-fight "wrap up + start next camp" banner.
   // Skip the query while userId is unresolved to avoid an extra round trip.
   const activeCamp = useQuery(api.fight_camp.getActiveCamp, userId ? {} : "skip");
@@ -724,29 +726,63 @@ export default function Dashboard() {
     return (
       <ErrorBoundary>
         <div className="dashboard-zoom animate-page-in space-y-3.5 px-5 py-3 sm:p-5 md:p-6 w-full max-w-7xl mx-auto">
-          {/* Greeting header — mirrors legacy layout for visual consistency */}
-          <header className="flex items-end justify-between gap-3 pt-1">
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground/70 font-bold">
-                {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
-              </p>
-              <h1 className="text-[clamp(15px,4.6vw,22px)] font-semibold leading-tight break-words">
-                {userName ? `${getGreeting()}, ${userName}` : "Today"}
-              </h1>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {daysUntilTarget > 0 && (
-                /* Days-left badge — solid Spirit Blue (#4068EF) fill with
-                   Dream Cyan (#4AB4ED) text so the badge reads as the
-                   highest-priority signal in the header at a glance.
-                   No border per Design System v1. */
-                <div className="rounded-xs px-2.5 py-1.5 text-center bg-brand-spirit-blue">
-                  <p className="text-[15px] font-bold display-number tabular-nums leading-none text-brand-dream-cyan">{daysUntilTarget}</p>
-                  <p className="text-[9px] uppercase tracking-wider text-brand-dream-cyan/80 mt-0.5">Days left</p>
-                </div>
-              )}
-            </div>
+          {/* Top row — three columns at the same 40px height:
+              [Profile avatar] [Dashboard title] [Days-left tab].
+              The avatar is now a direct nav to the edit-profile page
+              (/goals); the old ProfileSheet bottom-sheet is no longer
+              opened from here. Days-left tab uses the v1 glass recipe
+              over a Void surface so it reads as on-brand chrome. */}
+          <header className="flex items-center justify-between gap-3 pt-1">
+            <button
+              onClick={() => navigate('/goals')}
+              className="active:opacity-70 transition-opacity"
+              aria-label="Edit profile"
+            >
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={avatarUrl ?? undefined} />
+                <AvatarFallback
+                  className="text-[13px] font-semibold"
+                  style={{ backgroundColor: '#162137', color: '#8C96B4' }}
+                >
+                  {userName?.[0]?.toUpperCase() ?? 'U'}
+                </AvatarFallback>
+              </Avatar>
+            </button>
+
+            <h2 className="text-[15px] font-semibold tracking-tight">
+              Dashboard
+            </h2>
+
+            {daysUntilTarget > 0 ? (
+              <div
+                className="flex items-center h-10 px-3 rounded-xs"
+                style={{
+                  background: 'rgba(0, 5, 19, 0.6)',
+                  backdropFilter: 'blur(20px) saturate(160%)',
+                  WebkitBackdropFilter: 'blur(20px) saturate(160%)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                }}
+              >
+                <p className="text-[13px] font-semibold tabular-nums whitespace-nowrap text-foreground">
+                  {daysUntilTarget} days left
+                </p>
+              </div>
+            ) : (
+              /* Spacer to keep "Dashboard" centered when no days-left badge */
+              <div className="h-10 w-10" aria-hidden />
+            )}
           </header>
+
+          {/* Greeting + date — small caps Inter Light date below the
+              greeting, with breathing room from the top row above. */}
+          <div className="pt-1">
+            <h1 className="text-[22px] font-semibold leading-tight">
+              {userName ? `${getGreeting()}, ${userName}` : "Today"}
+            </h1>
+            <p className="text-[10px] uppercase tracking-[0.15em] font-light text-muted-foreground/70 mt-1">
+              {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
+            </p>
+          </div>
 
           {/* Gym invites — pending invites must be accepted before the
               athlete can interact with that gym's coach. Sits above the
@@ -981,10 +1017,14 @@ export default function Dashboard() {
 
           {userId && <TrainingInsightsWidget userId={userId} />}
 
+          {userId && <SleepLogger userId={userId} compact />}
+
           <div>
             <MilestoneBadges badges={badges} loading={badgesLoading} onTap={() => setAchievementSheetOpen(true)} />
           </div>
         </div>
+
+        <ProfileSheet open={profileSheetOpen} onOpenChange={setProfileSheetOpen} />
 
         <FightFormScoreSheet
           open={scoreSheetOpen}
@@ -1019,32 +1059,32 @@ export default function Dashboard() {
   return (
     <ErrorBoundary>
       <div className="dashboard-zoom animate-page-in space-y-3.5 px-5 py-3 sm:p-5 md:p-6 w-full max-w-7xl mx-auto">
-        {/* Greeting header — avatar left, greeting centre, days/streak right */}
+        {/* Greeting header — avatar + name stacked left, days/streak right */}
         <header className="flex items-center justify-between gap-3 pt-1">
-          <button
-            onClick={() => navigate(`/profile/${userId}`)}
-            className="flex-shrink-0 active:opacity-70 transition-opacity"
-            aria-label="View profile"
-          >
-            <Avatar className="h-9 w-9">
-              <AvatarImage src={avatarUrl ?? undefined} />
-              <AvatarFallback className="text-[13px] font-semibold bg-primary/10 text-primary">
-                {userName?.[0]?.toUpperCase() ?? 'U'}
-              </AvatarFallback>
-            </Avatar>
-          </button>
-          <div className="min-w-0 flex-1 pl-1">
-            <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground/70 font-bold">
-              {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
-            </p>
-            <h1 className="text-[22px] font-semibold leading-tight truncate">
-              {userName ? `Hi, ${userName}` : "Today"}
+          <div className="flex flex-col items-start gap-1 min-w-0">
+            <button
+              onClick={() => setProfileSheetOpen(true)}
+              className="active:opacity-70 transition-opacity"
+              aria-label="View profile"
+            >
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={avatarUrl ?? undefined} />
+                <AvatarFallback
+                  className="text-[13px] font-semibold"
+                  style={{ backgroundColor: '#7B31EA', color: '#8B7EEA' }}
+                >
+                  {userName?.[0]?.toUpperCase() ?? 'U'}
+                </AvatarFallback>
+              </Avatar>
+            </button>
+            <h1 className="text-[17px] font-semibold leading-tight truncate max-w-[180px]">
+              {userName ? `${getGreeting()}, ${userName}` : "Today"}
             </h1>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             {daysUntilTarget > 0 && (
-              <div className="card-surface rounded-2xl border border-border/50 px-2.5 py-1.5 text-center">
-                <p className="text-[15px] font-bold display-number tabular-nums leading-none">{daysUntilTarget}</p>
+              <div className="rounded-2xl px-2.5 py-1.5 text-center backdrop-blur-md bg-white/10 border border-white/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]">
+                <p className="text-[15px] font-bold tabular-nums leading-none">{daysUntilTarget}</p>
                 <p className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5">Days left</p>
               </div>
             )}
@@ -1233,6 +1273,8 @@ export default function Dashboard() {
           <MilestoneBadges badges={badges} loading={badgesLoading} onTap={() => setAchievementSheetOpen(true)} />
         </div>
       </div>
+
+      <ProfileSheet open={profileSheetOpen} onOpenChange={setProfileSheetOpen} />
 
       {/* Wisdom Detail Bottom Sheet */}
       {wisdom && (
