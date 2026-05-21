@@ -247,7 +247,10 @@ function StageInner({
       <LayoutGroup id="tutorial-bottom">
         <div
           className="absolute left-4 flex flex-col items-start gap-3"
-          style={{ bottom: "calc(env(safe-area-inset-bottom) + 76px)", pointerEvents: "auto" }}
+          /* Bottom offset = safe-area + nav row (~64px) + breathing room (36px)
+             so the speech bubble's bottom edge sits well above the Back/Next
+             buttons rather than crowding them. */
+          style={{ bottom: "calc(env(safe-area-inset-bottom) + 100px)", pointerEvents: "auto" }}
         >
           {currentStep.spotlight ? (
             /* Spotlight: wizard on top so bubble sits lower, clear of ring. */
