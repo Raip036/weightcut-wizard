@@ -13,7 +13,11 @@ import wizardAvatar from "@/assets/wizard-logo.webp";
 import orbImage from "@/assets/orb.png";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 
-const FAB_SIZE = 48;
+/* FAB rendered at 64px so the orb illustration reads at a glance
+   instead of looking like a tiny grey blob. Keep in sync with the
+   `w-16 h-16` Tailwind utility on the button below — this constant
+   drives the snap/drag math, the className drives the visual. */
+const FAB_SIZE = 64;
 const EDGE_MARGIN = 16;
 const SNAP_SPRING = "transform 0.35s cubic-bezier(0.25, 1, 0.5, 1)";
 const FAB_POS_KEY = "wcw_fab_position";
@@ -169,14 +173,17 @@ export function FloatingWizardChat() {
            drop-shadow filter so it doesn't get clipped by the round
            bounding box. Dimmed (grayscale + opacity) when the user
            lacks paid access. */
-        className={`fixed top-0 left-0 z-[10000] w-12 h-12 flex items-center justify-center md:hidden touch-none ${
+        className={`fixed top-0 left-0 z-[10000] w-16 h-16 flex items-center justify-center md:hidden touch-none ${
           open ? "pointer-events-none opacity-0" : "opacity-100"
         }`}
         style={{
           willChange: "transform",
           transition: open ? "opacity 0.15s" : undefined,
+          /* Saturation + brightness boost compensates for the orb PNG
+             reading washed-out against the dark page; drop-shadows
+             provide the lilac/cyan glow halo. */
           filter: hasAccess
-            ? "drop-shadow(0 0 12px rgba(139, 126, 234, 0.55)) drop-shadow(0 0 24px rgba(74, 180, 237, 0.30))"
+            ? "saturate(1.55) brightness(1.08) drop-shadow(0 0 14px rgba(139, 126, 234, 0.65)) drop-shadow(0 0 28px rgba(74, 180, 237, 0.35))"
             : "grayscale(0.7) brightness(0.7) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.4))",
         }}
         aria-label="Open AI Wizard"
