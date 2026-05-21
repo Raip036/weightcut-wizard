@@ -80,7 +80,7 @@ export function TechniqueLogDialog({
               autoComplete="off"
             />
             {suggestions.length > 0 && (
-              <div className="absolute left-0 right-0 top-full mt-1 z-20 rounded-2xl border border-border/50 bg-background shadow-lg overflow-hidden">
+              <div className="absolute left-0 right-0 top-full mt-1 z-20 rounded-xs border border-border/50 bg-background overflow-hidden">
                 {suggestions.map((s) => (
                   <button
                     key={s}
@@ -107,7 +107,7 @@ export function TechniqueLogDialog({
                   setSport(s);
                   triggerHapticSelection();
                 }}
-                className={`px-4 py-2 rounded-2xl text-sm font-medium min-h-[44px] transition-colors ${
+                className={`px-4 py-2 rounded-xs text-sm font-medium min-h-[44px] transition-colors ${
                   sport === s
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted/50 text-muted-foreground hover:bg-muted"
@@ -132,7 +132,7 @@ export function TechniqueLogDialog({
           <Button
             onClick={handleSubmit}
             disabled={!name.trim() || isSubmitting}
-            className="w-full min-h-[44px] rounded-2xl"
+            className="w-full min-h-[44px] rounded-xs"
           >
             {isSubmitting ? (
               <>

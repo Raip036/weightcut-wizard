@@ -13,10 +13,10 @@ export interface DehydrationTactic {
 }
 
 const METHOD_META: Record<DehydrationMethod, { label: string; color: string; bg: string; icon: typeof Flame }> = {
-  dry_sauna: { label: "Dry Sauna", color: "text-orange-400", bg: "bg-orange-500/15", icon: Flame },
-  hot_bath: { label: "Hot Bath", color: "text-rose-400", bg: "bg-rose-500/15", icon: Droplet },
-  active_sweat: { label: "Active Sweat", color: "text-yellow-400", bg: "bg-yellow-500/15", icon: Activity },
-  sauna_suit: { label: "Sauna Suit", color: "text-purple-400", bg: "bg-purple-500/15", icon: Shirt },
+  dry_sauna: { label: "Dry Sauna", color: "text-func-carbs-orange", bg: "bg-func-carbs-orange/15", icon: Flame },
+  hot_bath: { label: "Hot Bath", color: "text-func-danger-red", bg: "bg-func-danger-red/15", icon: Droplet },
+  active_sweat: { label: "Active Sweat", color: "text-func-warning-yellow", bg: "bg-func-warning-yellow/15", icon: Activity },
+  sauna_suit: { label: "Sauna Suit", color: "text-func-fats-purple", bg: "bg-func-fats-purple/15", icon: Shirt },
 };
 
 interface DehydrationTacticsCardProps {
@@ -27,7 +27,7 @@ export const DehydrationTacticsCard = memo(function DehydrationTacticsCard({ tac
   if (!tactics?.length) return null;
 
   return (
-    <div className="card-surface rounded-2xl border border-border/50 p-4 space-y-3">
+    <div className="card-surface rounded-xs border border-border/50 p-4 space-y-3">
       <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Dehydration Tactics</h3>
 
       <div className="space-y-2">
@@ -35,9 +35,9 @@ export const DehydrationTacticsCard = memo(function DehydrationTacticsCard({ tac
           const meta = METHOD_META[t.method] ?? METHOD_META.dry_sauna;
           const Icon = meta.icon;
           return (
-            <div key={i} className="rounded-2xl bg-muted/30 border border-border/30 p-3">
+            <div key={i} className="rounded-xs bg-muted/30 border border-border/30 p-3">
               <div className="flex items-start gap-2.5">
-                <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${meta.bg}`}>
+                <div className={`h-8 w-8 rounded-xs flex items-center justify-center shrink-0 ${meta.bg}`}>
                   <Icon className={`h-4 w-4 ${meta.color}`} />
                 </div>
                 <div className="flex-1 min-w-0">

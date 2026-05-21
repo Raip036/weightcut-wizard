@@ -10,7 +10,7 @@ interface Props {
 /**
  * Square rounded gym logo with single-letter fallback. Handles broken URLs
  * gracefully and matches the app's minimal Apple-Fitness aesthetic
- * (rounded-lg, muted bg, no flashy iconography).
+ * (rounded-xs, muted bg, no flashy iconography).
  */
 export function GymLogoAvatar({ logoUrl, name, size = 32, className = "" }: Props) {
   const [errored, setErrored] = useState(false);
@@ -25,7 +25,7 @@ export function GymLogoAvatar({ logoUrl, name, size = 32, className = "" }: Prop
         src={logoUrl as string}
         alt={`${name} logo`}
         style={dimension}
-        className={`rounded-lg object-cover bg-muted/40 flex-shrink-0 ${className}`}
+        className={`rounded-xs object-cover bg-muted/40 flex-shrink-0 ${className}`}
         onError={() => setErrored(true)}
         loading="lazy"
       />
@@ -35,7 +35,7 @@ export function GymLogoAvatar({ logoUrl, name, size = 32, className = "" }: Prop
   return (
     <div
       style={dimension}
-      className={`rounded-lg bg-muted/60 flex items-center justify-center flex-shrink-0 ${className}`}
+      className={`rounded-xs bg-muted/60 flex items-center justify-center flex-shrink-0 ${className}`}
       aria-label={`${name} logo`}
     >
       <span className="text-[12px] font-semibold text-muted-foreground">{initial}</span>

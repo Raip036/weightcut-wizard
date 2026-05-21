@@ -14,7 +14,7 @@ export function DayTimelineCard({ timeline }: DayTimelineCardProps) {
         {timeline.map((day) => (
           <div
             key={day.day}
-            className="card-surface rounded-2xl border border-border/50 p-4 space-y-3"
+            className="card-surface rounded-xs border border-border/50 p-4 space-y-3"
           >
             {/* Day header */}
             <div className="flex items-center justify-between">
@@ -55,7 +55,7 @@ export function DayTimelineCard({ timeline }: DayTimelineCardProps) {
 
 function MetricPill({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-muted/40 rounded-lg p-2 text-center space-y-0.5">
+    <div className="bg-muted/40 rounded-xs p-2 text-center space-y-0.5">
       <span className="text-[9px] text-muted-foreground uppercase block">{label}</span>
       <span className="text-xs font-bold block">{value}</span>
     </div>

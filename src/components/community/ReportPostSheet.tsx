@@ -159,7 +159,7 @@ export function ReportPostSheet({
                 onClick={() => handlePick(opt.value)}
                 disabled={submitting}
                 aria-pressed={selected}
-                className={`glass-card rounded-2xl p-4 w-full text-left transition-all active:scale-[0.99] disabled:opacity-60 disabled:active:scale-100 ${
+                className={`glass-card rounded-xs p-4 w-full text-left transition-all active:scale-[0.99] disabled:opacity-60 disabled:active:scale-100 ${
                   selected
                     ? "border-primary/70 ring-2 ring-primary/40"
                     : "border-border/50"
@@ -186,12 +186,12 @@ export function ReportPostSheet({
               placeholder="What's wrong with this post?"
               rows={3}
               disabled={submitting}
-              className="w-full rounded-2xl border border-border/50 bg-background/60 p-3 text-[14px] resize-none focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-60"
+              className="w-full rounded-xs border border-border/50 bg-background/60 p-3 text-[14px] resize-none focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-60"
             />
             <div className="mt-1 flex justify-end">
               <span
                 className={`text-[11px] tabular-nums ${
-                  noteRemaining <= 10 ? "text-orange-300" : "text-muted-foreground"
+                  noteRemaining <= 10 ? "text-func-carbs-orange" : "text-muted-foreground"
                 }`}
               >
                 {noteRemaining}
@@ -204,7 +204,7 @@ export function ReportPostSheet({
           <Button
             type="button"
             variant="ghost"
-            className="h-11 rounded-2xl flex-1"
+            className="h-11 rounded-xs flex-1"
             disabled={submitting}
             onClick={() => onOpenChange(false)}
           >
@@ -213,7 +213,7 @@ export function ReportPostSheet({
           <Button
             type="button"
             variant="destructive"
-            className="h-11 rounded-2xl flex-1"
+            className="h-11 rounded-xs flex-1"
             disabled={!canSubmit}
             onClick={handleSubmit}
           >

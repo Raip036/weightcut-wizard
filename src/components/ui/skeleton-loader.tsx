@@ -15,7 +15,7 @@ function Skeleton({ className, ...props }: SkeletonProps) {
 
 export function MealCardSkeleton() {
   return (
-    <div className="mb-1 rounded-lg px-3 py-2 flex items-center justify-between">
+    <div className="mb-1 rounded-xs px-3 py-2 flex items-center justify-between">
       <Skeleton className="h-3 w-1/2" />
       <Skeleton className="h-3 w-10" />
     </div>
@@ -24,7 +24,7 @@ export function MealCardSkeleton() {
 
 export function ProfileCardSkeleton() {
   return (
-    <div className="p-6 border rounded-lg space-y-4">
+    <div className="p-6 border rounded-xs space-y-4">
       <div className="flex items-center space-x-4">
         <Skeleton className="h-12 w-12 rounded-full" />
         <div className="space-y-2">
@@ -78,7 +78,7 @@ export function DashboardSkeleton() {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="p-4 border rounded-lg space-y-3">
+          <div key={i} className="p-4 border rounded-xs space-y-3">
             <div className="flex items-center justify-between">
               <Skeleton className="h-4 w-20" />
               <Skeleton className="h-4 w-4" />
@@ -112,7 +112,7 @@ export function NutritionPageSkeleton() {
   return (
     <div className="space-y-4 p-4 sm:p-5 md:p-6 max-w-7xl mx-auto">
       {/* Wisdom card */}
-      <Skeleton className="h-16 w-full rounded-2xl" />
+      <Skeleton className="h-16 w-full rounded-xs" />
 
       {/* Pie chart area */}
       <div className="flex flex-col items-center space-y-3 py-2">
@@ -146,7 +146,7 @@ export function NutritionPageSkeleton() {
             {/* Meal card placeholders */}
             <div className="px-2 space-y-1">
               {[1, 2].map((j) => (
-                <Skeleton key={j} className="h-14 w-full rounded-lg" />
+                <Skeleton key={j} className="h-14 w-full rounded-xs" />
               ))}
             </div>
             {/* Add button */}
@@ -169,7 +169,7 @@ export function WeightTrackerSkeleton() {
         <Skeleton className="h-4 w-56" />
       </div>
       {/* Log input card */}
-      <div className="p-4 border rounded-lg space-y-3">
+      <div className="p-4 border rounded-xs space-y-3">
         <Skeleton className="h-5 w-32" />
         <div className="flex gap-2">
           <Skeleton className="h-10 flex-1" />
@@ -178,7 +178,7 @@ export function WeightTrackerSkeleton() {
         </div>
       </div>
       {/* Chart card */}
-      <div className="p-4 border rounded-lg space-y-4">
+      <div className="p-4 border rounded-xs space-y-4">
         <Skeleton className="h-5 w-36" />
         <Skeleton className="h-48 w-full" />
       </div>
@@ -201,13 +201,13 @@ export function HydrationSkeleton() {
       </div>
 
       {/* Disclaimer banner */}
-      <Skeleton className="h-14 w-full rounded-2xl" />
+      <Skeleton className="h-14 w-full rounded-xs" />
 
       {/* Safety banner */}
-      <Skeleton className="h-10 w-full rounded-2xl" />
+      <Skeleton className="h-10 w-full rounded-xs" />
 
       {/* Input form card */}
-      <div className="rounded-3xl border border-white/[0.06] p-6 space-y-6 bg-white/[0.02]">
+      <div className="rounded-xs border border-white/[0.06] p-6 space-y-6 bg-white/[0.02]">
         {/* Profile strip */}
         <div className="flex justify-center">
           <Skeleton className="h-4 w-40" />
@@ -221,12 +221,12 @@ export function HydrationSkeleton() {
 
         {/* 2-col grid (weigh-in / fight) */}
         <div className="grid grid-cols-2 gap-4">
-          <div className="card-surface rounded-2xl p-4 flex flex-col items-center space-y-2">
+          <div className="card-surface rounded-xs p-4 flex flex-col items-center space-y-2">
             <Skeleton className="h-3 w-16" />
             <Skeleton className="h-4 w-24" />
             <Skeleton className="h-8 w-20" />
           </div>
-          <div className="card-surface rounded-2xl p-4 flex flex-col items-center space-y-2">
+          <div className="card-surface rounded-xs p-4 flex flex-col items-center space-y-2">
             <Skeleton className="h-3 w-16" />
             <Skeleton className="h-4 w-24" />
             <Skeleton className="h-8 w-20" />
@@ -234,7 +234,7 @@ export function HydrationSkeleton() {
         </div>
 
         {/* Generate button */}
-        <Skeleton className="h-11 w-full rounded-2xl" />
+        <Skeleton className="h-11 w-full rounded-xs" />
       </div>
     </div>
   );
@@ -253,7 +253,7 @@ export function GoalsSkeleton() {
         {/* Personal Details */}
         <div className="space-y-2">
           <Skeleton className="h-3 w-28 ml-1" />
-          <div className="card-surface rounded-2xl border border-border/50 overflow-hidden divide-y divide-border/50">
+          <div className="card-surface rounded-xs border border-border/50 overflow-hidden divide-y divide-border/50">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="flex items-center justify-between p-3 sm:p-4">
                 <Skeleton className="h-4 w-24" />
@@ -266,7 +266,7 @@ export function GoalsSkeleton() {
         {/* Targets */}
         <div className="space-y-2">
           <Skeleton className="h-3 w-20 ml-1" />
-          <div className="card-surface rounded-2xl border border-border/50 overflow-hidden divide-y divide-border/50">
+          <div className="card-surface rounded-xs border border-border/50 overflow-hidden divide-y divide-border/50">
             {[1, 2, 3].map((i) => (
               <div key={i} className="flex items-center justify-between p-3 sm:p-4">
                 <Skeleton className="h-4 w-28" />
@@ -279,7 +279,7 @@ export function GoalsSkeleton() {
         {/* Activity */}
         <div className="space-y-2">
           <Skeleton className="h-3 w-20 ml-1" />
-          <div className="card-surface rounded-2xl border border-border/50 overflow-hidden divide-y divide-border/50">
+          <div className="card-surface rounded-xs border border-border/50 overflow-hidden divide-y divide-border/50">
             {[1, 2].map((i) => (
               <div key={i} className="flex items-center justify-between p-3 sm:p-4">
                 <Skeleton className="h-4 w-32" />
@@ -291,7 +291,7 @@ export function GoalsSkeleton() {
 
         {/* Save button */}
         <div className="pt-4 pb-8">
-          <Skeleton className="h-12 w-full rounded-2xl" />
+          <Skeleton className="h-12 w-full rounded-xs" />
         </div>
       </div>
     </div>

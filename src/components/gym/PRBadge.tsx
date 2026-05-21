@@ -23,8 +23,8 @@ export function PRBadge({ type, isNew }: PRBadgeProps) {
       transition={springs.bouncy}
       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
         isNew
-          ? "bg-yellow-500/20 text-yellow-400 ring-1 ring-yellow-500/30 shadow-[0_0_8px_rgba(234,179,8,0.2)]"
-          : "bg-yellow-500/10 text-yellow-500/80"
+          ? "bg-func-warning-yellow/20 text-func-warning-yellow ring-1 ring-func-warning-yellow/30"
+          : "bg-func-warning-yellow/10 text-func-warning-yellow/80"
       }`}
     >
       <Trophy className="h-3 w-3" />

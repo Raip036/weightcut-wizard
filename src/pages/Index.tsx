@@ -1,10 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { CalendarDays, Salad, Flame, ChevronRight } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { ChevronRight, Sparkles } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
-import { ThemeToggle } from "@/components/ThemeToggle";
-import wizardNutrition from "@/assets/wizard-nutrition.webp";
+import wizard3D from "@/assets/wizard_3D.png";
 import { useAuth } from "@/contexts/UserContext";
 import { WizardLoader } from "@/components/ui/WizardLoader";
 
@@ -14,70 +12,6 @@ import { WizardLoader } from "@/components/ui/WizardLoader";
 // landing CTA would flash for a frame in that window between the splash
 // fade and the dashboard. We hold the splash for this long on first paint.
 const BOOT_GRACE_MS = 1200;
-
-// ── Price model ──────────────────────────────────────────────────────
-// Headline UK monthly costs for the three professional services
-// FightCamp Wizard collapses into one app. Sources: Boxing Science /
-// John Gaule Nutrition (nutritionist), More Than Muscle / Strength
-// Ambassadors (S&C), TreatCompare / HMDG Barometer (physio).
-// Erring slightly conservative so the number reads credible, not hyped.
-const PRO_COSTS = {
-  nutritionist: 160,
-  sandc: 300,
-  recovery: 300,
-} as const;
-const PRO_TOTAL = PRO_COSTS.nutritionist + PRO_COSTS.sandc + PRO_COSTS.recovery; // £760
-const APP_PRICE = 12.99;
-const MONTHLY_SAVINGS = Math.round(PRO_TOTAL - APP_PRICE); // £747
-
-// Bar chart geometry — heights are percentages of the plot area so the
-// stack reads at a glance: nutritionist is the small one, S&C and
-// recovery tie for the chunky ones, app price is a hairline next door.
-// We pick a compact plot height (96px) so the legend underneath stays
-// visible on iPhone SE without overflow.
-const PLOT_HEIGHT_PX = 96;
-const PRO_SEG_PCT = {
-  nutritionist: (PRO_COSTS.nutritionist / PRO_TOTAL) * 100, // ~21%
-  sandc: (PRO_COSTS.sandc / PRO_TOTAL) * 100, // ~39.5%
-  recovery: (PRO_COSTS.recovery / PRO_TOTAL) * 100, // ~39.5%
-};
-// App bar would mathematically be ~1.6px tall at 96px plot height —
-// floor it so it's still readable + tappable without misrepresenting
-// the comparison (the size disparity is the message anyway).
-const APP_BAR_PX = Math.max(10, Math.round((APP_PRICE / PRO_TOTAL) * PLOT_HEIGHT_PX));
-
-// Feature pillar shown in the row above the price chart. Honest product
-// pitch — what the app actually does — instead of fabricated user
-// metrics. Three of these run horizontally across the page.
-function FeaturePillar({ Icon, label }: { Icon: LucideIcon; label: string }) {
-  return (
-    <div className="flex flex-col items-center text-center px-1">
-      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/12 ring-1 ring-primary/25">
-        <Icon className="h-[18px] w-[18px] text-primary" strokeWidth={2.25} />
-      </div>
-      <span className="mt-2 text-[11px] font-semibold leading-tight text-foreground/85">
-        {label}
-      </span>
-    </div>
-  );
-}
-
-// Legend row used under the bar chart. Colour dot matches the
-// corresponding segment in the stacked bar so the user can map
-// the geometry to a real service at a glance.
-function LegendRow({ color, label, price }: { color: string; label: string; price: number }) {
-  return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-2.5 min-w-0">
-        <span className={`h-2 w-2 rounded-full flex-shrink-0 ${color}`} aria-hidden />
-        <span className="text-[13px] text-foreground/90 truncate">{label}</span>
-      </div>
-      <span className="text-[13px] font-semibold tabular-nums text-muted-foreground flex-shrink-0">
-        £{price}<span className="text-[10px] font-medium ml-0.5">/mo</span>
-      </span>
-    </div>
-  );
-}
 
 const Index = () => {
   const navigate = useNavigate();
@@ -150,167 +84,138 @@ const Index = () => {
     return <WizardLoader />;
   }
 
-  // Staggered bar reveal: nutritionist → S&C → recovery → app bar.
-  // Each segment grows from the bottom with `originY: 1`.
-  const segmentTransition = { duration: 0.9, ease: [0.22, 1, 0.36, 1] as const };
-  const segmentAnim = (delay: number) =>
-    prefersReducedMotion
-      ? { initial: { scaleY: 1 }, animate: { scaleY: 1 }, transition: { duration: 0 } }
-      : {
-          initial: { scaleY: 0 },
-          animate: { scaleY: 1 },
-          transition: { ...segmentTransition, delay },
-        };
-
   return (
+    /* Page bg uses var(--background) (#0F0F0F / neutral-1000) — the
+       previous `dark:bg-[#020204]` override forced an off-brand black,
+       removed so the welcome page matches the rest of the app. */
     <div
-      className="min-h-[100dvh] bg-background dark:bg-[#020204] text-foreground flex flex-col transition-opacity duration-200"
+      className="min-h-[100dvh] bg-background text-foreground flex flex-col transition-opacity duration-200"
       style={{ opacity: exiting ? 0 : 1 }}
     >
-      {/* Top bar — logo left, theme toggle right */}
+      {/* Top spacer — honors safe-area inset so the wizard hero sits
+          below the iOS status bar / dynamic island. The previous
+          logo + ThemeToggle bar was removed; the wizard mascot below
+          is the brand mark now. */}
       <div
-        className="flex items-center justify-between px-5"
-        style={{
-          paddingTop: "calc(env(safe-area-inset-top, 0px) + 10px)",
-          paddingBottom: "8px",
-        }}
-      >
-        <img
-          src={wizardNutrition}
-          alt="FightCamp Wizard"
-          className="h-9 w-9 rounded-xl object-contain ring-1 ring-primary/20 bg-background/50 p-0.5"
-        />
-        <ThemeToggle />
-      </div>
+        aria-hidden
+        style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)" }}
+      />
 
-      {/* Body */}
-      <div className="flex-1 flex flex-col px-6 pt-2">
-        {/* Outcome hero — promise comes first, price second.
-            Sells what the app DOES before what it costs. */}
-        <motion.div
-          initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, ease: "easeOut" }}
-          className="text-center"
-        >
-          <h1 className="text-[28px] font-black tracking-tight leading-[1.05] text-foreground">
-            Make weight.
-            <br />
-            <span className="text-primary">Stay safe. Win the cut.</span>
-          </h1>
-          <p className="mt-2 text-[13px] text-muted-foreground leading-snug">
-            One app. Your cut, your meals, your weigh-ins.
-          </p>
-        </motion.div>
+      {/* Body — vertical stack: hero (centered in remaining space) →
+          CTA stack pinned to the bottom. The hero wrapper uses flex-1
+          so it absorbs the available height while the CTAs stay anchored
+          regardless of viewport size. */}
+      <div className="flex-1 flex flex-col px-6 py-4">
+        {/* Hero — 3D wizard + headline + subhead. flex-1 inside the
+            body so it occupies the middle ground. `justify-center`
+            centers the wizard+text block vertically; the small mt-6
+            below (down from mt-16) brings the headline up close to
+            the wizard's feet rather than separating them with empty
+            space. */}
+        <div className="flex-1 flex flex-col items-center justify-center">
+          {/* Wizard mascot with floating bob — wrapped in a relative
+              container so the sparkles can position absolutely around it. */}
+          <div className="relative">
+            <motion.img
+              src={wizard3D}
+              alt="FightCamp Wizard mascot"
+              className="w-[300px] h-[300px] object-contain select-none pointer-events-none"
+              draggable={false}
+              initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 }}
+              animate={
+                prefersReducedMotion
+                  ? { opacity: 1 }
+                  : { opacity: 1, y: [0, -8, 0] }
+              }
+              transition={
+                prefersReducedMotion
+                  ? { duration: 0 }
+                  : {
+                      opacity: { duration: 0.5, ease: "easeOut" },
+                      y: { duration: 4, repeat: Infinity, ease: "easeInOut" },
+                    }
+              }
+              style={{
+                filter:
+                  "drop-shadow(0 16px 32px rgba(64, 104, 239, 0.35)) drop-shadow(0 6px 16px rgba(0, 0, 0, 0.5))",
+              }}
+            />
 
-        {/* Feature pillars — three icon-led benefit chips showing what
-            the app actually does. Honest product pitch above the price
-            chart so a cold visitor sees the value, not just the price. */}
-        <motion.div
-          initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
-          className="mt-5 grid grid-cols-3 gap-2 rounded-2xl border border-border/40 bg-card/40 py-3 px-2"
-        >
-          <FeaturePillar Icon={CalendarDays} label="Cut plan" />
-          <div className="border-x border-border/30">
-            <FeaturePillar Icon={Salad} label="AI macro tracker" />
-          </div>
-          <FeaturePillar Icon={Flame} label="AI fight-week" />
-        </motion.div>
-
-        {/* Slim price anchor — savings number stays prominent but plays
-            second fiddle to the outcome story above. */}
-        <p className="text-center text-[12px] text-muted-foreground/80 mt-3">
-          Save{" "}
-          <span className="font-bold tabular-nums text-primary">
-            £{MONTHLY_SAVINGS}
-            <span className="font-medium">/mo</span>
-          </span>{" "}
-          vs hiring the team
-        </p>
-
-        {/* Chart card — each column owns its own label + price + bar,
-            all centered on the bar's horizontal axis. Price labels live
-            in normal flex flow (never absolute) so nothing can clip on
-            small viewports. */}
-        <div className="glass-card rounded-2xl border border-border/50 p-4 mt-3">
-          <div className="flex items-end justify-between gap-6">
-            {/* Pro stack column */}
-            <div className="flex-1 flex flex-col items-center">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">
-                The team
-              </p>
-              <p className="text-[24px] font-black tabular-nums leading-none text-foreground mt-1">
-                £{PRO_TOTAL}
-                <span className="text-[11px] text-muted-foreground/80 font-semibold ml-0.5">/mo</span>
-              </p>
-              <div
-                className="w-full max-w-[120px] mt-3 rounded-xl overflow-hidden flex flex-col-reverse ring-1 ring-border/30"
-                style={{ height: `${PLOT_HEIGHT_PX}px` }}
-              >
-                {/* Nutrition (bottom, smallest) → S&C → Recovery (top).
-                    Each segment grows from the bottom with a staggered
-                    scaleY for a satisfying "stack rising" reveal. */}
-                <motion.div
-                  {...segmentAnim(0.15)}
-                  style={{ originY: 1, height: `${PRO_SEG_PCT.nutritionist}%` }}
-                  className="w-full bg-amber-500/85 border-b border-background/30"
-                />
-                <motion.div
-                  {...segmentAnim(0.27)}
-                  style={{ originY: 1, height: `${PRO_SEG_PCT.sandc}%` }}
-                  className="w-full bg-destructive/75 border-b border-background/30"
-                />
-                <motion.div
-                  {...segmentAnim(0.39)}
-                  style={{ originY: 1, height: `${PRO_SEG_PCT.recovery}%` }}
-                  className="w-full bg-violet-400/75"
-                />
-              </div>
-            </div>
-
-            {/* App column */}
-            <div className="flex-1 flex flex-col items-center">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-primary font-semibold">
-                FightCamp Wizard
-              </p>
-              <p className="text-[24px] font-black tabular-nums leading-none text-primary mt-1">
-                £{APP_PRICE}
-                <span className="text-[11px] text-muted-foreground/80 font-semibold ml-0.5">/mo</span>
-              </p>
-              <div
-                className="w-full max-w-[120px] mt-3 flex flex-col-reverse"
-                style={{ height: `${PLOT_HEIGHT_PX}px` }}
-              >
-                <motion.div
-                  initial={prefersReducedMotion ? { scaleY: 1 } : { scaleY: 0 }}
-                  animate={{ scaleY: 1 }}
-                  transition={
-                    prefersReducedMotion
-                      ? { duration: 0 }
-                      : { delay: 1.1, type: "spring", stiffness: 260, damping: 18 }
-                  }
-                  style={{ originY: 1, height: `${APP_BAR_PX}px` }}
-                  className="w-full bg-primary rounded-lg shadow-lg shadow-primary/30"
-                />
-              </div>
-            </div>
+            {/* Sparkles — 5 around the wizard, each with its own
+                position, color, size, and twinkle loop so the magic
+                feels alive rather than mechanically synced. */}
+            {!prefersReducedMotion && (
+              <>
+                <motion.span
+                  aria-hidden
+                  className="absolute"
+                  style={{ top: 18, right: -10 }}
+                  animate={{ opacity: [0.3, 1, 0.3], y: [0, -6, 0], rotate: [0, 20, 0] }}
+                  transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
+                >
+                  <Sparkles className="h-5 w-5 text-brand-wizard-lilac" strokeWidth={1.4} fill="currentColor" />
+                </motion.span>
+                <motion.span
+                  aria-hidden
+                  className="absolute"
+                  style={{ top: 36, left: -8 }}
+                  animate={{ opacity: [0.25, 0.85, 0.25], y: [0, 4, 0], scale: [0.85, 1.05, 0.85] }}
+                  transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut", delay: 0.8 }}
+                >
+                  <Sparkles className="h-4 w-4 text-brand-dream-cyan" strokeWidth={1.4} fill="currentColor" />
+                </motion.span>
+                <motion.span
+                  aria-hidden
+                  className="absolute"
+                  style={{ top: 90, right: 24 }}
+                  animate={{ opacity: [0.2, 0.75, 0.2], y: [0, -4, 0] }}
+                  transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut", delay: 1.4 }}
+                >
+                  <Sparkles className="h-3 w-3 text-white/90" strokeWidth={1.5} fill="currentColor" />
+                </motion.span>
+                <motion.span
+                  aria-hidden
+                  className="absolute"
+                  style={{ bottom: 60, left: 12 }}
+                  animate={{ opacity: [0.3, 0.9, 0.3], y: [0, 3, 0], rotate: [0, -18, 0] }}
+                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: 0.4 }}
+                >
+                  <Sparkles className="h-[14px] w-[14px] text-brand-wizard-lilac" strokeWidth={1.4} fill="currentColor" />
+                </motion.span>
+                <motion.span
+                  aria-hidden
+                  className="absolute"
+                  style={{ top: 8, left: 80 }}
+                  animate={{ opacity: [0.15, 0.7, 0.15], scale: [0.7, 1, 0.7] }}
+                  transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut", delay: 1.1 }}
+                >
+                  <Sparkles className="h-[10px] w-[10px] text-brand-dream-cyan" strokeWidth={1.5} fill="currentColor" />
+                </motion.span>
+              </>
+            )}
           </div>
 
-          {/* Legend — full-word service names with colour dots that
-              match the bar segments. Ordered to match the stack from
-              bottom-to-top so the cheapest service (Nutrition) leads. */}
-          <div className="mt-3 pt-3 border-t border-border/40 space-y-1.5">
-            <LegendRow color="bg-amber-500/85" label="Nutrition" price={PRO_COSTS.nutritionist} />
-            <LegendRow color="bg-destructive/75" label="Strength & Conditioning" price={PRO_COSTS.sandc} />
-            <LegendRow color="bg-violet-400/75" label="Recovery" price={PRO_COSTS.recovery} />
-          </div>
+          {/* Headline + subhead. mt-6 keeps the text close to the
+              wizard's feet — the previous mt-16 left an awkward void
+              between them. Title uses Sora display at 34px to amplify
+              the size contrast against the 13px Inter body. */}
+          <motion.div
+            initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: "easeOut", delay: 0.2 }}
+            className="text-center mt-6"
+          >
+            <h1 className="font-display text-[34px] font-bold tracking-tight leading-[1.1] text-white">
+              Make weight. Stay safe. Win the cut.
+            </h1>
+            <p className="mt-4 text-[13px] text-muted-foreground leading-snug max-w-[32ch] mx-auto">
+              Built by fighters for fighters. AI plans every meal, every weigh-in, every camp.
+            </p>
+          </motion.div>
         </div>
 
-        <div className="flex-1" />
-
-        {/* CTA stack */}
+        {/* CTA stack — pinned to the bottom of the body, below the
+            flex-1 hero area. */}
         <div className="w-full space-y-2.5 pb-2">
           <button
             // First-time "Get Started" routes through the animated wizard
@@ -320,7 +225,7 @@ const Index = () => {
             // cutscene and goes straight to /auth below.
             onClick={() => navigateWithTransition("/welcome")}
             disabled={exiting}
-            className="no-tap-select w-full h-[54px] rounded-2xl bg-primary text-primary-foreground font-bold text-[16px] flex items-center justify-center gap-2 active:scale-[0.97] transition-transform disabled:opacity-70 shadow-lg shadow-primary/20"
+            className="no-tap-select w-full h-[54px] rounded-xs bg-primary text-primary-foreground font-bold text-[16px] flex items-center justify-center gap-2 active:scale-[0.97] transition-transform disabled:opacity-70"
           >
             Get Started
             <ChevronRight className="h-4 w-4" />
@@ -328,7 +233,7 @@ const Index = () => {
           <button
             onClick={() => navigateWithTransition("/auth")}
             disabled={exiting}
-            className="no-tap-select w-full h-[46px] rounded-2xl border border-border/70 text-foreground font-semibold text-[14px] flex items-center justify-center active:scale-[0.98] transition-transform hover:bg-muted/30 disabled:opacity-70"
+            className="no-tap-select w-full h-[46px] rounded-xs border border-border/70 text-foreground font-semibold text-[14px] flex items-center justify-center active:scale-[0.98] transition-transform hover:bg-muted/30 disabled:opacity-70"
           >
             I already have an account
           </button>

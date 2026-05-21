@@ -41,7 +41,7 @@ export function CalendarMonthGrid({ daysInMonth, selectedDate, sessions, onSelec
                 {format(day, 'd')}
               </div>
               {hasSession && (
-                <div className="absolute bottom-1 w-1 h-1 rounded-full bg-primary drop-shadow-sm" />
+                <div className="absolute bottom-1 w-1 h-1 rounded-full bg-primary" />
               )}
             </div>
           );

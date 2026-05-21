@@ -26,10 +26,10 @@ type Props = {
 };
 
 const LABEL_ACCENT: Record<string, { stroke: string; fill: string }> = {
-  sharp: { stroke: "stroke-emerald-400", fill: "fill-emerald-400" },
-  sharpening: { stroke: "stroke-amber-400", fill: "fill-amber-400" },
-  off_pace: { stroke: "stroke-orange-400", fill: "fill-orange-400" },
-  at_risk: { stroke: "stroke-rose-400", fill: "fill-rose-400" },
+  sharp: { stroke: "stroke-func-recovery-green", fill: "fill-func-recovery-green" },
+  sharpening: { stroke: "stroke-func-warning-yellow", fill: "fill-func-warning-yellow" },
+  off_pace: { stroke: "stroke-func-carbs-orange", fill: "fill-func-carbs-orange" },
+  at_risk: { stroke: "stroke-func-danger-red", fill: "fill-func-danger-red" },
 };
 
 const SUBSCORE_LABEL: Record<string, string> = {
@@ -151,12 +151,12 @@ export function FightFormScoreSheet(p: Props) {
                       <span className="inline-flex items-center gap-1.5">
                         <span>{SUBSCORE_LABEL[key] ?? key}</span>
                         {isDriver && (
-                          <span className="text-[10px] uppercase tracking-wide font-semibold text-emerald-400">
+                          <span className="text-[10px] uppercase tracking-wide font-semibold text-func-recovery-green">
                             Driver
                           </span>
                         )}
                         {isLimiter && (
-                          <span className="text-[10px] uppercase tracking-wide font-semibold text-amber-400">
+                          <span className="text-[10px] uppercase tracking-wide font-semibold text-func-warning-yellow">
                             Limiter
                           </span>
                         )}

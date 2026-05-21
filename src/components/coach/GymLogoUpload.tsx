@@ -206,11 +206,11 @@ export function GymLogoUpload({
         {hasLogo ? (
           <>
             <GymLogoAvatar logoUrl={currentLogoUrl} name={gymName} size={size} />
-            <span className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-background border border-border flex items-center justify-center shadow-sm">
+            <span className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-background border border-border flex items-center justify-center">
               {uploading ? (
                 <Loader2 className="h-2.5 w-2.5 text-foreground animate-spin" />
               ) : status === "success" ? (
-                <Check className="h-2.5 w-2.5 text-emerald-500" />
+                <Check className="h-2.5 w-2.5 text-func-recovery-green" />
               ) : (
                 <Upload className="h-2.5 w-2.5 text-foreground" />
               )}
@@ -219,7 +219,7 @@ export function GymLogoUpload({
         ) : (
           <div
             style={{ width: size, height: size }}
-            className={`rounded-lg border-2 border-dashed border-primary/40 bg-primary/5 flex flex-col items-center justify-center text-primary active:bg-primary/10 transition-colors ${
+            className={`rounded-xs border-2 border-dashed border-primary/40 bg-primary/5 flex flex-col items-center justify-center text-primary active:bg-primary/10 transition-colors ${
               pulseHint ? "animate-pulse" : ""
             }`}
           >

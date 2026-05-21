@@ -195,16 +195,28 @@ export default function Community() {
   }
 
   return (
-    <div
+    /* The previous outer wrapper added its OWN
+       `paddingTop: env(safe-area-inset-top)` on top of the
+       ProtectedAppLayout that already applies the safe-area inset —
+       that stacking pushed the "Your / Community" title ~50px lower
+       than the matching titles on Camp + Nutrition. Removed the
+       safe-area wrapper and the `pt-2` on the motion.div; the page
+       now starts at the same vertical position as its sibling tabs.
+       Fragment wraps motion.div + the sheets so we keep them as
+       siblings without re-adding an outer div. */
+    <>
+    <motion.div
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
       className="min-h-screen w-full bg-background text-foreground"
-      style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
     >
-      <motion.div
-        initial={{ opacity: 0, y: 4 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
-        className="pt-2"
-      >
+      {/* Page header */}
+      <header className="px-5 py-3 sm:p-5 md:p-6 pb-2">
+        <p className="text-micro uppercase tracking-[0.15em] text-muted-foreground/70 font-bold">Your</p>
+        <h1 className="text-title font-semibold leading-tight">Community</h1>
+      </header>
+
         {primaryGym && (
           <GymHeader
             gymId={primaryGym.gym_id as Id<"gyms">}
@@ -321,7 +333,7 @@ export default function Community() {
         }}
         onCommentRemoved={() => {}}
       />
-    </div>
+    </>
   );
 }
 
@@ -383,13 +395,13 @@ function EmptyActionChip({
     <button
       type="button"
       onClick={onClick}
-      className={`w-full min-h-[60px] flex items-center gap-3 px-4 py-3 rounded-2xl text-left active:scale-[0.98] transition-all ${
+      className={`w-full min-h-[60px] flex items-center gap-3 px-4 py-3 rounded-xs text-left active:scale-[0.98] transition-all ${
         primary
           ? "bg-primary text-primary-foreground"
           : "bg-card/60 border border-border/40 active:bg-muted/40"
       }`}
     >
-      <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${
+      <div className={`h-9 w-9 rounded-xs flex items-center justify-center shrink-0 ${
         primary ? "bg-white/15 text-primary-foreground" : "bg-primary/15 text-primary"
       }`}>
         {icon}

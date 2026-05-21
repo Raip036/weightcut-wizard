@@ -103,7 +103,7 @@ export function ActiveSessionView({
         initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={springs.responsive}
-        className="card-surface rounded-2xl border border-border/50 p-5 relative overflow-hidden"
+        className="card-surface rounded-xs p-5 relative overflow-hidden"
       >
         {/* Subtle gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
@@ -113,8 +113,8 @@ export function ActiveSessionView({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-func-recovery-green opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-func-recovery-green" />
               </span>
               <span className="px-3 py-1 rounded-full bg-primary/15 text-primary text-xs font-semibold">
                 {workout.sessionType}
@@ -122,7 +122,7 @@ export function ActiveSessionView({
             </div>
             <button
               onClick={() => setDiscardDialogOpen(true)}
-              className="p-2 rounded-2xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+              className="p-2 rounded-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
               aria-label="Discard workout"
             >
               <Trash2 className="h-4 w-4" />
@@ -137,15 +137,15 @@ export function ActiveSessionView({
 
           {/* Stats row */}
           <div className="grid grid-cols-3 gap-2">
-            <div className="rounded-2xl bg-muted/30 p-2.5 text-center">
+            <div className="rounded-xs bg-muted/30 p-2.5 text-center">
               <div className="display-number text-sm">{workout.exerciseGroups.length}</div>
               <div className="text-[13px] text-muted-foreground">Exercises</div>
             </div>
-            <div className="rounded-2xl bg-muted/30 p-2.5 text-center">
+            <div className="rounded-xs bg-muted/30 p-2.5 text-center">
               <div className="display-number text-sm">{totalSets}</div>
               <div className="text-[13px] text-muted-foreground">Working Sets</div>
             </div>
-            <div className="rounded-2xl bg-muted/30 p-2.5 text-center">
+            <div className="rounded-xs bg-muted/30 p-2.5 text-center">
               <div className="display-number text-sm">{formatVolume(totalVolume)}<span className="text-[13px] text-muted-foreground font-normal"> kg</span></div>
               <div className="text-[13px] text-muted-foreground">Volume</div>
             </div>
@@ -191,7 +191,7 @@ export function ActiveSessionView({
       >
         <button
           onClick={onOpenExercisePicker}
-          className="w-full h-14 rounded-2xl border-2 border-dashed border-border/60 flex items-center justify-center gap-2.5 text-sm font-medium text-muted-foreground hover:text-primary hover:border-primary/30 hover:bg-primary/5 active:scale-[0.98] transition-all"
+          className="w-full h-14 rounded-xs border-2 border-dashed border-border/60 flex items-center justify-center gap-2.5 text-sm font-medium text-muted-foreground hover:text-primary hover:border-primary/30 hover:bg-primary/5 active:scale-[0.98] transition-all"
         >
           <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
             <Plus className="h-4 w-4 text-primary" />
@@ -209,7 +209,7 @@ export function ActiveSessionView({
         >
           <button
             onClick={() => setFinishSheetOpen(true)}
-            className="w-full py-3.5 rounded-2xl text-sm font-semibold text-white flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-lg shadow-primary/25"
+            className="w-full py-3.5 rounded-xs text-sm font-semibold text-white flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
             style={{ background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)))" }}
           >
             <Check className="h-4.5 w-4.5" />
@@ -223,14 +223,14 @@ export function ActiveSessionView({
 
       {/* Finish workout dialog */}
       <Dialog open={finishSheetOpen} onOpenChange={setFinishSheetOpen}>
-        <DialogContent className="sm:max-w-[320px] rounded-2xl p-0 border-0 bg-card/95 backdrop-blur-xl shadow-2xl gap-0 max-h-[calc(100vh-6rem)] overflow-y-auto">
+        <DialogContent className="sm:max-w-[320px] rounded-xs p-0 border-0 bg-card/95 backdrop-blur-xl gap-0 max-h-[calc(100vh-6rem)] overflow-y-auto">
           <div className="px-4 pt-4 pb-3">
             <DialogHeader>
               <DialogTitle className="text-[15px] font-semibold text-center">Finish Workout</DialogTitle>
             </DialogHeader>
           </div>
           <div className="px-4 space-y-2.5">
-            <div className="rounded-lg bg-muted/20 p-3 space-y-1.5">
+            <div className="rounded-xs bg-muted/20 p-3 space-y-1.5">
               <label className="text-[13px] font-medium block">
                 Fatigue: <span className="text-primary">{fatigue[0]}/10</span>
               </label>
@@ -248,13 +248,13 @@ export function ActiveSessionView({
               </div>
             </div>
 
-            <div className="rounded-lg bg-muted/20 p-3 space-y-1.5">
+            <div className="rounded-xs bg-muted/20 p-3 space-y-1.5">
               <label className="text-[13px] font-medium block">Notes</label>
               <Textarea
                 placeholder="How did the workout feel?"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="min-h-[60px] resize-none text-[13px] rounded-lg border-border/30 bg-muted/20"
+                className="min-h-[60px] resize-none text-[13px] rounded-xs border-border/30 bg-muted/20"
               />
             </div>
           </div>

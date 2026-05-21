@@ -27,7 +27,9 @@ interface SpeechBubbleProps {
    *   - "left":                    tail on left side → mascot to the left
    * Matches the tutorial's bottom-left convention by default.
    */
-  tailSide?: "bottom-left" | "bottom-right" | "left";
+  tailSide?: "bottom-left" | "bottom-right" | "left" | "top-left";
+  /** Reduces max-width for steps that share screen space with a spotlight. */
+  compact?: boolean;
 }
 
 const bubbleSpring = { type: "spring" as const, stiffness: 520, damping: 28, mass: 0.8 };
@@ -42,6 +44,7 @@ export function SpeechBubble({
   onTypingComplete,
   onClose,
   tailSide = "bottom-left",
+  compact = false,
 }: SpeechBubbleProps) {
   const prefersReduced = useReducedMotion();
   const pulseControls = useAnimation();
@@ -68,6 +71,13 @@ export function SpeechBubble({
           transformOrigin: "14px 8px",
           bubbleOrigin: "0% 30%",
         };
+      case "top-left":
+        return {
+          className: "-top-3 left-6",
+          path: "M0 14 L20 14 L8 0 Z",
+          transformOrigin: "10px 14px",
+          bubbleOrigin: "10% 0%",
+        };
       case "bottom-left":
       default:
         return {
@@ -82,13 +92,11 @@ export function SpeechBubble({
   return (
     <motion.div
       key={revealKey}
-      // Width: a proper speech-bubble shape — wider than tall.
-      // `min-w-[240px]` stops short single-sentence headlines from
-      // rendering as a thin column when the bubble is constrained by a
-      // narrow parent wrapper (which was the source of the "long skinny"
-      // look). `max-w-[min(86vw,360px)]` keeps it readable on phones
-      // without spanning the whole screen.
-      className="relative w-fit max-w-[min(86vw,360px)] rounded-[22px] px-5 py-4 text-foreground shadow-[0_20px_60px_rgba(0,0,0,0.45)]"
+      /* Smaller padding (px-4 py-3 vs px-5 py-4) + tighter max-width keeps
+         the bubble compact so it doesn't crowd the Back/Next row below. */
+      className={`relative w-fit rounded-[20px] px-4 py-3 text-foreground shadow-[0_20px_60px_rgba(0,0,0,0.45)] ${
+        compact ? "max-w-[min(82vw,320px)]" : "max-w-[min(80vw,320px)]"
+      }`}
       style={{
         background: "rgba(28, 28, 30, 0.72)",
         backdropFilter: "blur(20px) saturate(180%)",
@@ -128,8 +136,8 @@ export function SpeechBubble({
         // Reserve room for the X so the headline never collides with it.
         style={onClose ? { paddingRight: 18 } : undefined}
       >
-        <h3 className="text-base font-semibold leading-tight text-white">{headline}</h3>
-        <p className="mt-2 text-[13.5px] leading-relaxed text-white/85">
+        <h3 className="text-[14px] font-semibold leading-tight text-white">{headline}</h3>
+        <p className="mt-1.5 text-[12.5px] leading-snug text-white/85">
           <TypewriterText
             text={body}
             pace={pace}

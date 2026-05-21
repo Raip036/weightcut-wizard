@@ -73,7 +73,7 @@ function DefaultFallback({ error, errorInfo, onRetry }: DefaultFallbackProps) {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, ease: "easeOut" }}
-        className="relative w-full max-w-md overflow-hidden rounded-3xl border border-border/50 bg-card/60 backdrop-blur-sm p-6 sm:p-7"
+        className="relative w-full max-w-md overflow-hidden rounded-xs border border-border/50 bg-card/60 backdrop-blur-sm p-6 sm:p-7"
       >
         <div className="flex flex-col items-center text-center">
           <div
@@ -108,7 +108,7 @@ function DefaultFallback({ error, errorInfo, onRetry }: DefaultFallbackProps) {
           <button
             type="button"
             onClick={handleRetry}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-[14px] font-bold text-primary-foreground shadow-md shadow-primary/30 active:scale-[0.98] transition"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-[14px] font-bold text-primary-foreground active:scale-[0.98] transition"
           >
             <RefreshCw className="h-4 w-4" strokeWidth={2.5} />
             Try again
@@ -178,7 +178,7 @@ function DefaultFallback({ error, errorInfo, onRetry }: DefaultFallbackProps) {
                 initial={{ opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.2, ease: "easeOut" }}
-                className="user-selectable mt-3 font-mono text-[11px] leading-relaxed text-muted-foreground bg-muted/40 rounded-xl p-3 max-h-[40vh] overflow-auto whitespace-pre-wrap break-all"
+                className="user-selectable mt-3 font-mono text-[11px] leading-relaxed text-muted-foreground bg-muted/40 rounded-xs p-3 max-h-[40vh] overflow-auto whitespace-pre-wrap break-all"
               >
                 {report}
               </motion.pre>

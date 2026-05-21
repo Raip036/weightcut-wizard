@@ -7,17 +7,19 @@ interface TutorialNavProps {
   onNext: () => void;
 }
 
-// Opaque, high-contrast backgrounds plus a ringed shadow so both buttons
-// sit clearly on top of whatever page content the tutorial overlays. The
-// Back button gets a near-solid dark fill and a brighter border so its
-// box reads at a glance; the primary button gets an extra primary-tinted
-// glow so it pops without competing with the back box's outline.
-const BACK_BG = "rgba(0,0,0,0.88)";
-const BACK_BORDER = "1.5px solid rgba(255,255,255,0.32)";
-const BACK_SHADOW =
-  "0 14px 36px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,0,0,0.55), 0 2px 6px rgba(0,0,0,0.35)";
-const NEXT_SHADOW =
-  "0 14px 36px rgba(0,0,0,0.55), 0 0 0 1px hsl(var(--primary) / 0.55), 0 0 28px hsl(var(--primary) / 0.45)";
+/* Design System v1 — Tutorial nav buttons.
+ *
+ * Back  = Outline/Tertiary look (Void surface, 0.5px translucent border).
+ *         Sits quietly so it doesn't compete with Next for attention.
+ * Next  = Solid Spirit Blue (#4068EF) — the v1 primary color. Matches
+ *         the standard <Button variant="default"> look so tutorial CTAs
+ *         feel consistent with non-tutorial CTAs in the rest of the app
+ *         rather than promoting tutorial steps with the rare gradient CTA.
+ *
+ * Layout: `self-center` puts the button row in the center of the parent
+ * flex-col (TutorialStage uses items-start so the speech bubble and
+ * wizard character hug the left; the nav row breaks out of that and
+ * centers itself). */
 
 export function TutorialNav({ isFirstStep, isLastStep, onBack, onNext }: TutorialNavProps) {
   return (
@@ -32,15 +34,8 @@ export function TutorialNav({ isFirstStep, isLastStep, onBack, onNext }: Tutoria
         <button
           type="button"
           onClick={onBack}
-          className="h-12 flex-1 rounded-xl text-[15px] font-semibold text-white active:scale-[0.98] transition-transform"
-          style={{
-            background: BACK_BG,
-            backdropFilter: "blur(20px) saturate(160%)",
-            WebkitBackdropFilter: "blur(20px) saturate(160%)",
-            border: BACK_BORDER,
-            boxShadow: BACK_SHADOW,
-            WebkitTapHighlightColor: "transparent",
-          }}
+          className="h-12 flex-1 rounded-xs text-[15px] font-light text-neutral-200 bg-brand-void border-[0.5px] border-[rgba(226,229,242,0.5)] hover:border-neutral-100 active:scale-[0.98] transition-transform"
+          style={{ WebkitTapHighlightColor: "transparent" }}
         >
           Back
         </button>
@@ -48,10 +43,8 @@ export function TutorialNav({ isFirstStep, isLastStep, onBack, onNext }: Tutoria
       <button
         type="button"
         onClick={onNext}
-        className="h-12 flex-1 rounded-xl bg-primary text-[15px] font-bold text-primary-foreground active:scale-[0.98] transition-transform"
+        className="h-12 flex-1 rounded-xs bg-brand-spirit-blue text-[15px] font-semibold text-white hover:bg-[#5078F5] active:bg-[#2A4ACC] active:scale-[0.98] transition-all"
         style={{
-          border: "1.5px solid rgba(255,255,255,0.28)",
-          boxShadow: NEXT_SHADOW,
           WebkitTapHighlightColor: "transparent",
         }}
       >

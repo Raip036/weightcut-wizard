@@ -108,13 +108,13 @@ export function SessionDetailSheet({ session, open, onOpenChange, onDelete, onUp
   const edgeColor = (() => {
     switch ((session.session_type ?? "").toLowerCase()) {
       case "strength":      return "bg-blue-400";
-      case "hypertrophy":   return "bg-violet-400";
-      case "powerlifting":  return "bg-amber-400";
-      case "explosiveness": return "bg-yellow-400";
-      case "conditioning":  return "bg-orange-400";
-      case "circuit":       return "bg-rose-400";
-      case "endurance":     return "bg-emerald-400";
-      case "mobility":      return "bg-cyan-400";
+      case "hypertrophy":   return "bg-func-fats-purple";
+      case "powerlifting":  return "bg-func-warning-yellow";
+      case "explosiveness": return "bg-func-warning-yellow";
+      case "conditioning":  return "bg-func-carbs-orange";
+      case "circuit":       return "bg-func-danger-red";
+      case "endurance":     return "bg-func-recovery-green";
+      case "mobility":      return "bg-func-hydration-cyan";
       default:              return "bg-primary";
     }
   })();
@@ -159,7 +159,7 @@ export function SessionDetailSheet({ session, open, onOpenChange, onDelete, onUp
             {/* Premium hero card — discipline edge + 3-stat row */}
             <motion.div
               variants={staggerItem}
-              className="relative mt-3 rounded-2xl card-surface border border-border/50 pl-4 pr-3 py-3 overflow-hidden"
+              className="relative mt-3 rounded-xs card-surface pl-4 pr-3 py-3 overflow-hidden"
             >
               <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${edgeColor}`} />
               <div className="flex items-center justify-between gap-2">
@@ -202,7 +202,7 @@ export function SessionDetailSheet({ session, open, onOpenChange, onDelete, onUp
 
             {/* Notes */}
             {session.notes && (
-              <motion.div variants={staggerItem} className="mt-3 card-surface rounded-2xl border border-border/50 p-3.5 text-[13px] text-muted-foreground leading-snug">
+              <motion.div variants={staggerItem} className="mt-3 card-surface rounded-xs p-3.5 text-[13px] text-muted-foreground leading-snug">
                 {session.notes}
               </motion.div>
             )}
@@ -222,7 +222,7 @@ export function SessionDetailSheet({ session, open, onOpenChange, onDelete, onUp
                   <motion.div
                     key={key}
                     variants={staggerItem}
-                    className="rounded-2xl card-surface border border-border/50 overflow-hidden"
+                    className="rounded-xs card-surface overflow-hidden"
                   >
                     <button
                       type="button"

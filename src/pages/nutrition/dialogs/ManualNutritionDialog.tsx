@@ -44,7 +44,7 @@ export function ManualNutritionDialog({
 
   return (
     <Dialog open={state.open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[300px] rounded-2xl p-0 border-0 bg-card/95 backdrop-blur-xl shadow-2xl gap-0">
+      <DialogContent className="sm:max-w-[300px] rounded-xs p-0 border-0 bg-card/95 backdrop-blur-xl gap-0">
         <div className="px-4 pt-4 pb-2">
           <DialogHeader>
             <DialogTitle className="text-[15px] font-semibold text-center">Enter Nutrition</DialogTitle>
@@ -54,7 +54,7 @@ export function ManualNutritionDialog({
           </p>
         </div>
         <div className="px-4 space-y-2.5 pb-1">
-          <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-muted/20 text-[13px]">
+          <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xs bg-muted/20 text-[13px]">
             <span className="font-medium flex-1">{state.ingredientName}</span>
             <span className="text-muted-foreground">{state.grams}g</span>
           </div>
@@ -79,7 +79,7 @@ export function ManualNutritionDialog({
                   }));
                 });
               }}
-              className="h-8 text-[13px] rounded-lg border-border/30 bg-muted/20 mt-0.5"
+              className="h-8 text-[13px] rounded-xs border-border/30 bg-muted/20 mt-0.5"
             />
           </div>
           <div className="grid grid-cols-3 gap-1.5">
@@ -94,7 +94,7 @@ export function ManualNutritionDialog({
                 placeholder="31.0"
                 value={state.protein_per_100g}
                 onChange={(e) => setState({ ...state, protein_per_100g: e.target.value })}
-                className="h-8 text-[13px] rounded-lg border-border/30 bg-muted/20 mt-0.5"
+                className="h-8 text-[13px] rounded-xs border-border/30 bg-muted/20 mt-0.5"
               />
             </div>
             <div>
@@ -108,7 +108,7 @@ export function ManualNutritionDialog({
                 placeholder="0.0"
                 value={state.carbs_per_100g}
                 onChange={(e) => setState({ ...state, carbs_per_100g: e.target.value })}
-                className="h-8 text-[13px] rounded-lg border-border/30 bg-muted/20 mt-0.5"
+                className="h-8 text-[13px] rounded-xs border-border/30 bg-muted/20 mt-0.5"
               />
             </div>
             <div>
@@ -122,7 +122,7 @@ export function ManualNutritionDialog({
                 placeholder="3.6"
                 value={state.fats_per_100g}
                 onChange={(e) => setState({ ...state, fats_per_100g: e.target.value })}
-                className="h-8 text-[13px] rounded-lg border-border/30 bg-muted/20 mt-0.5"
+                className="h-8 text-[13px] rounded-xs border-border/30 bg-muted/20 mt-0.5"
               />
             </div>
           </div>

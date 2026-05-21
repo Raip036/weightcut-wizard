@@ -90,15 +90,15 @@ function MorningCheckInPromptInner({
             }
           }}
           className={cn(
-            "cursor-pointer rounded-2xl border border-border/50 bg-card/60 p-4",
+            "cursor-pointer rounded-xs border border-border/50 bg-card/60 p-4",
             "active:scale-[0.99] transition-transform",
           )}
           aria-label="Open morning check-in"
         >
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-border/50 bg-background/60">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xs border border-border/50 bg-background/60">
               <Sunrise
-                className="h-5 w-5 text-amber-300"
+                className="h-5 w-5 text-func-warning-yellow"
                 strokeWidth={2.2}
                 aria-hidden
               />
@@ -158,15 +158,15 @@ function MorningCheckInErrorFallback({
   return (
     <Card
       className={cn(
-        "rounded-2xl border border-border/50 bg-card/60 p-4",
+        "rounded-xs border border-border/50 bg-card/60 p-4",
         className,
       )}
       aria-live="polite"
     >
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-border/50 bg-background/60">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xs border border-border/50 bg-background/60">
           <Sunrise
-            className="h-5 w-5 text-amber-300"
+            className="h-5 w-5 text-func-warning-yellow"
             strokeWidth={2.2}
             aria-hidden
           />

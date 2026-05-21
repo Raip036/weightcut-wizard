@@ -34,20 +34,20 @@ function saveIdList(key: string, ids: string[]): void {
 
 // Tile color per muscle group for the row icon — same palette as ExerciseBlock.
 const MUSCLE_BG: Record<string, string> = {
-  chest: "bg-red-500/15 text-red-300",
+  chest: "bg-func-danger-red/15 text-func-danger-red",
   back: "bg-blue-500/15 text-blue-300",
-  shoulders: "bg-purple-500/15 text-purple-300",
+  shoulders: "bg-func-fats-purple/15 text-func-fats-purple",
   biceps: "bg-pink-500/15 text-pink-300",
-  triceps: "bg-orange-500/15 text-orange-300",
-  quads: "bg-green-500/15 text-green-300",
-  hamstrings: "bg-emerald-500/15 text-emerald-300",
+  triceps: "bg-func-carbs-orange/15 text-func-carbs-orange",
+  quads: "bg-func-recovery-green/15 text-func-recovery-green",
+  hamstrings: "bg-func-recovery-green/15 text-func-recovery-green",
   glutes: "bg-lime-500/15 text-lime-300",
   calves: "bg-teal-500/15 text-teal-300",
-  abs: "bg-yellow-500/15 text-yellow-300",
-  forearms: "bg-cyan-500/15 text-cyan-300",
+  abs: "bg-func-warning-yellow/15 text-func-warning-yellow",
+  forearms: "bg-func-hydration-cyan/15 text-func-hydration-cyan",
   traps: "bg-indigo-500/15 text-indigo-300",
-  full_body: "bg-violet-500/15 text-violet-300",
-  cardio: "bg-rose-500/15 text-rose-300",
+  full_body: "bg-func-fats-purple/15 text-func-fats-purple",
+  cardio: "bg-func-danger-red/15 text-func-danger-red",
 };
 
 export function ExercisePickerSheet({
@@ -242,7 +242,7 @@ export function ExercisePickerSheet({
                     {muscle.replace(/_/g, " ")}
                   </h4>
                 )}
-                <div className="rounded-2xl border border-border/40 bg-card/50 overflow-hidden divide-y divide-border/20">
+                <div className="rounded-xs border border-border/40 bg-card/50 overflow-hidden divide-y divide-border/20">
                   {exs.map((ex) => {
                     const isFav = favIds.includes(ex.id);
                     const tile = MUSCLE_BG[ex.muscle_group] || "bg-muted/40 text-muted-foreground";
@@ -252,7 +252,7 @@ export function ExercisePickerSheet({
                           onClick={() => handleSelect(ex)}
                           className="flex-1 flex items-center gap-3 px-3 py-2.5 active:bg-muted/30 transition-colors text-left min-w-0"
                         >
-                          <div className={`h-9 w-9 shrink-0 rounded-xl flex items-center justify-center text-[11px] font-black uppercase ${tile}`}>
+                          <div className={`h-9 w-9 shrink-0 rounded-xs flex items-center justify-center text-[11px] font-black uppercase ${tile}`}>
                             {ex.name.slice(0, 2)}
                           </div>
                           <div className="min-w-0 flex-1">
@@ -271,7 +271,7 @@ export function ExercisePickerSheet({
                           className="shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground/50 active:bg-muted/40 transition"
                         >
                           <Star
-                            className={`h-3.5 w-3.5 ${isFav ? "fill-amber-400 text-amber-400" : ""}`}
+                            className={`h-3.5 w-3.5 ${isFav ? "fill-func-warning-yellow text-func-warning-yellow" : ""}`}
                             strokeWidth={2}
                           />
                         </button>
@@ -360,7 +360,7 @@ export function ExercisePickerSheet({
                       onClick={() => setCategoryFilter(active ? null : (c.value as ExerciseCategory))}
                       className={`inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition active:scale-[0.97] ${
                         active
-                          ? "bg-primary text-primary-foreground shadow-md shadow-primary/30"
+                          ? "bg-primary text-primary-foreground"
                           : "bg-muted/40 text-foreground border border-border/40"
                       }`}
                     >
@@ -383,7 +383,7 @@ export function ExercisePickerSheet({
                       onClick={() => setEquipmentFilter(active ? null : (e.value as Equipment))}
                       className={`inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition active:scale-[0.97] ${
                         active
-                          ? "bg-primary text-primary-foreground shadow-md shadow-primary/30"
+                          ? "bg-primary text-primary-foreground"
                           : "bg-muted/40 text-foreground border border-border/40"
                       }`}
                     >
@@ -400,14 +400,14 @@ export function ExercisePickerSheet({
                 type="button"
                 onClick={() => { setCategoryFilter(null); setEquipmentFilter(null); }}
                 disabled={activeFilters === 0}
-                className="flex-1 h-11 rounded-2xl bg-muted/40 border border-border/40 text-[13px] font-semibold disabled:opacity-40 active:scale-[0.98] transition-transform"
+                className="flex-1 h-11 rounded-xs bg-muted/40 border border-border/40 text-[13px] font-semibold disabled:opacity-40 active:scale-[0.98] transition-transform"
               >
                 Clear
               </button>
               <button
                 type="button"
                 onClick={() => setFiltersOpen(false)}
-                className="flex-1 h-11 rounded-2xl bg-primary text-primary-foreground font-bold text-[13px] active:scale-[0.98] transition-transform shadow-md shadow-primary/30"
+                className="flex-1 h-11 rounded-xs bg-primary text-primary-foreground font-bold text-[13px] active:scale-[0.98] transition-transform"
               >
                 Apply
               </button>

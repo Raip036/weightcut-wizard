@@ -3,8 +3,8 @@ import { Camera, Search, RotateCcw, ScanLine, Sparkles } from "lucide-react";
 import { motion } from "motion/react";
 import { MealCard } from "@/components/nutrition/MealCard";
 import { MealCardSkeleton } from "@/components/ui/skeleton-loader";
-import { WizardCharacter } from "@/tutorial/WizardCharacter";
 import { triggerHapticSelection } from "@/lib/haptics";
+import wizardFoodImage from "@/assets/wizard_food.png";
 import type { Meal } from "@/pages/nutrition/types";
 
 const BarcodeScanner = lazy(() =>
@@ -67,14 +67,14 @@ export function MealSections({
       <div className="flex items-stretch gap-2">
         <button
           onClick={() => { triggerHapticSelection(); onOpenQuickAdd(); }}
-          className="flex-1 h-12 rounded-2xl bg-primary text-primary-foreground font-bold text-[14px] flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-lg shadow-primary/30"
+          className="flex-1 h-12 rounded-xs bg-primary text-primary-foreground font-bold text-[14px] flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
         >
           <Camera className="h-4 w-4" strokeWidth={2.4} />
           Snap a meal
         </button>
         <button
           onClick={() => { triggerHapticSelection(); onOpenFoodSearch(); }}
-          className="h-12 w-12 rounded-2xl bg-muted/40 border border-border/40 flex items-center justify-center active:scale-[0.96] transition-transform"
+          className="h-12 w-12 rounded-xs bg-muted/40 border border-border/40 flex items-center justify-center active:scale-[0.96] transition-transform"
           aria-label="Search foods"
           title="Search"
         >
@@ -82,7 +82,7 @@ export function MealSections({
         </button>
         <Suspense
           fallback={
-            <div className="h-12 w-12 rounded-2xl bg-muted/40 border border-border/40 flex items-center justify-center">
+            <div className="h-12 w-12 rounded-xs bg-muted/40 border border-border/40 flex items-center justify-center">
               <ScanLine className="h-4 w-4 text-muted-foreground" />
             </div>
           }
@@ -90,17 +90,17 @@ export function MealSections({
           <BarcodeScanner
             onFoodScanned={aiMealHandlers.handleBarcodeScanned}
             disabled={generatingPlan || savingAllMeals}
-            className="h-12 w-12 rounded-2xl bg-muted/40 !border border-border/40 active:scale-[0.96] transition-transform flex items-center justify-center"
+            className="h-12 w-12 rounded-xs bg-muted/40 !border border-border/40 active:scale-[0.96] transition-transform flex items-center justify-center"
           />
         </Suspense>
         {quickActions.lastMeal && (
           <button
             onClick={() => { triggerHapticSelection(); quickActions.repeatLastMeal(); }}
-            className="h-12 w-12 rounded-2xl bg-muted/40 border border-border/40 flex items-center justify-center active:scale-[0.96] transition-transform"
+            className="h-12 w-12 rounded-xs bg-muted/40 border border-border/40 flex items-center justify-center active:scale-[0.96] transition-transform"
             aria-label="Repeat last meal"
             title="Repeat last"
           >
-            <RotateCcw className="h-4 w-4 text-amber-400" strokeWidth={2.2} />
+            <RotateCcw className="h-4 w-4 text-func-warning-yellow" strokeWidth={2.2} />
           </button>
         )}
       </div>
@@ -186,14 +186,21 @@ function WizardEmptyState({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: "easeOut" }}
-      className="relative overflow-hidden rounded-3xl border border-border/50 bg-card/60 p-4"
+      className="relative overflow-hidden rounded-xs border border-border/50 bg-card/60 p-4"
     >
       {/* Wizard + headline */}
       <div className="flex items-start gap-3 mb-3">
-        <div className="relative shrink-0" style={{ width: 64, height: 64 }}>
-          <div style={{ width: 140, height: 140, transform: "scale(0.46)", transformOrigin: "top left" }}>
-            <WizardCharacter pose="wave" />
-          </div>
+        <div className="relative shrink-0 h-16 w-16">
+          <motion.img
+            src={wizardFoodImage}
+            alt=""
+            className="h-full w-full object-contain pointer-events-none select-none"
+            draggable={false}
+            /* Gentle bob — matches the FAB motion vocabulary
+               (3.2s y: 0 → -6 → 0). */
+            animate={{ y: [0, -6, 0] }}
+            transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
+          />
         </div>
         <div className="min-w-0 flex-1 pt-1.5">
           <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary/80">
@@ -215,7 +222,7 @@ function WizardEmptyState({
             onClick={onRepeatYesterday}
             className="inline-flex items-center gap-1.5 rounded-full bg-muted/40 border border-border/40 px-3 py-1.5 text-[12px] font-semibold text-foreground hover:bg-muted/60 active:scale-[0.97] transition"
           >
-            <RotateCcw className="h-3.5 w-3.5 text-amber-400" strokeWidth={2.4} />
+            <RotateCcw className="h-3.5 w-3.5 text-func-warning-yellow" strokeWidth={2.4} />
             Repeat yesterday
           </button>
         )}
@@ -230,7 +237,7 @@ function WizardEmptyState({
         )}
         <button
           onClick={onSnap}
-          className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-[12px] font-bold text-primary-foreground active:scale-[0.97] transition shadow-md shadow-primary/30"
+          className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-[12px] font-bold text-primary-foreground active:scale-[0.97] transition"
         >
           <Camera className="h-3.5 w-3.5" strokeWidth={2.4} />
           Snap a photo

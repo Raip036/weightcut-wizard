@@ -8,10 +8,15 @@ import { cn } from "@/lib/utils";
  *  - default   = Primary    | Spirit Blue solid, distinct hover/pressed shades
  *  - secondary = Secondary  | Void surface with solid 1px neutral-100 border
  *  - outline   = Tertiary   | Void surface with 0.5px translucent border
- *  - cta       = Gradient CTA | 4-stop brand gradient (blue → lilac → pink → orange)
  *  - destructive            | Danger Red
  *  - ghost                  | transparent with neutral hover
  *  - link                   | inline Spirit Blue
+ *
+ * The Figma also defines a 4-stop "Gradient CTA" variant, but we
+ * removed it from the live system — at runtime it read as low-quality
+ * /chromatic against the dark surface. All hero CTAs now use the
+ * standard `default` (Spirit Blue) so the entire app speaks one
+ * primary-color language.
  *
  *  All variants render text at neutral-200 (#DEDEF7) per the Figma spec.
  *  Mobile touch-target sizes (h-11 = 44px) are preserved over Figma's
@@ -34,8 +39,6 @@ const buttonVariants = cva(
           "text-neutral-200 font-medium hover:bg-neutral-800 active:bg-neutral-900",
         link:
           "text-brand-spirit-blue font-medium underline-offset-4 hover:underline active:text-brand-spirit-blue/80",
-        cta:
-          "bg-gradient-cta text-neutral-200 font-semibold shadow-[0_4px_16px_-2px_rgba(139,126,234,0.35)] hover:brightness-110 active:brightness-95",
       },
       size: {
         default: "h-11 min-h-[44px] px-4 py-2.5 sm:h-10 sm:min-h-[40px] sm:py-2",

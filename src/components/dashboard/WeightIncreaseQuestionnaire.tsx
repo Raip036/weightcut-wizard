@@ -66,10 +66,10 @@ export function WeightIncreaseQuestionnaire({ open, onOpenChange, onComplete }: 
                     </div>
                 ) : (
                     <div className="animate-in fade-in duration-200">
-                        <div className="rounded-md bg-green-500/10 p-2.5">
+                        <div className="rounded-md bg-func-recovery-green/10 p-2.5">
                             <div className="flex items-center gap-1.5 mb-1.5">
-                                <CheckCircle2 className="h-3 w-3 text-green-500" />
-                                <h3 className="text-[13px] font-semibold text-green-500">Water Retention</h3>
+                                <CheckCircle2 className="h-3 w-3 text-func-recovery-green" />
+                                <h3 className="text-[13px] font-semibold text-func-recovery-green">Water Retention</h3>
                             </div>
                             <p className="text-[13px] text-muted-foreground leading-snug">
                                 Normal — carbs and sodium hold extra water (~3g per 1g carb). Temporary, not fat. Flushes in 1-2 days.

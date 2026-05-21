@@ -5,8 +5,8 @@ import type { GraphNode } from "@/types/technique";
 const LEVEL_COLORS: Record<string, string> = {
   seen: "border-l-muted-foreground/40",
   drilled: "border-l-blue-500",
-  landed: "border-l-green-500",
-  mastered: "border-l-amber-400",
+  landed: "border-l-func-recovery-green",
+  mastered: "border-l-func-warning-yellow",
 };
 
 interface TechniqueNodeCardProps {
@@ -25,7 +25,7 @@ export function TechniqueNodeCard({ node, onTap }: TechniqueNodeCardProps) {
       onClick={handleTap}
       className={`
         w-[120px] min-h-[52px] px-3 py-2
-        card-surface rounded-2xl border border-border/50
+        card-surface rounded-xs border border-border/50
         border-l-[3px] ${LEVEL_COLORS[node.level] || LEVEL_COLORS.seen}
         text-left select-none cursor-pointer
         active:scale-[0.97] transition-transform duration-100

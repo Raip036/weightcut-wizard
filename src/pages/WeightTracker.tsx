@@ -316,8 +316,12 @@ export default function WeightTracker() {
         </div>
       )}
       <div className="animate-page-in space-y-4 px-5 py-3 sm:p-5 md:p-6 max-w-2xl mx-auto">
+        <header className="pt-1">
+          <p className="text-micro uppercase tracking-[0.15em] text-muted-foreground/70 font-bold">Your</p>
+          <h1 className="text-title font-semibold leading-tight">Weight Tracker</h1>
+        </header>
         {/* ── Hero log form — primary action, prominent ───────── */}
-        <div className="card-surface rounded-none px-5 py-5">
+        <div className="card-surface rounded-xs px-5 py-5">
           <div className="flex items-center justify-between mb-3">
             <div>
               <p className="text-[10px] uppercase tracking-[0.15em] font-semibold text-muted-foreground/60">
@@ -381,13 +385,13 @@ export default function WeightTracker() {
                   value={newDate}
                   onChange={(e) => setNewDate(e.target.value)}
                   required
-                  className="h-12 pl-9 pr-3 text-[14px] rounded-2xl bg-muted/40 dark:bg-white/[0.06] border-border/30 text-foreground"
+                  className="h-12 pl-9 pr-3 text-[14px] rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/30 text-foreground"
                 />
               </div>
               <Button
                 type="submit"
                 disabled={loading || !newWeight}
-                className="h-12 px-6 rounded-2xl text-[15px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40"
+                className="h-12 px-6 rounded-xs text-[15px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40"
               >
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : editingLogId ? "Update" : "Log weight"}
               </Button>
@@ -396,7 +400,7 @@ export default function WeightTracker() {
         </div>
 
         {/* Chart + History */}
-        <div className="card-surface rounded-3xl p-4 space-y-3">
+        <div className="card-surface rounded-xs p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex rounded-full bg-muted/40 dark:bg-white/[0.06] border border-border/30 p-1">
               {(["1W", "1M", "ALL"] as const).map((filter) => (
@@ -404,7 +408,7 @@ export default function WeightTracker() {
                   key={filter}
                   onClick={() => setTimeFilter(filter)}
                   className={`px-3.5 h-7 rounded-full text-[12px] font-semibold transition-all ${timeFilter === filter
-                    ? "bg-primary text-primary-foreground shadow-sm"
+                    ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground/80 active:text-foreground"
                     }`}
                 >
@@ -416,7 +420,7 @@ export default function WeightTracker() {
           </div>
           {(() => { const chartData = getChartData(); const xTicks = chartData.length > 1 ? [chartData[0].date, chartData[chartData.length - 1].date] : chartData.map(d => d.date); return chartData.length > 0 ? (
             <>
-              <Suspense fallback={<div className="h-[160px] w-full animate-pulse bg-muted/20 rounded-2xl" />}>
+              <Suspense fallback={<div className="h-[160px] w-full animate-pulse bg-muted/20 rounded-xs" />}>
                 <WeightTrackerChart
                   data={chartData}
                   xTicks={xTicks}
@@ -473,7 +477,7 @@ export default function WeightTracker() {
                       {weightLogs.slice().reverse().map((log) => (
                         <div
                           key={log.id}
-                          className="relative snap-start shrink-0 aspect-square w-[104px] flex flex-col items-center justify-center rounded-3xl bg-muted/40 dark:bg-white/[0.06] border border-border/30"
+                          className="relative snap-start shrink-0 aspect-square w-[104px] flex flex-col items-center justify-center rounded-xs bg-muted/40 dark:bg-white/[0.06] border border-border/30"
                         >
                           <span className="text-[20px] font-bold tabular-nums text-foreground leading-none">
                             {parseFloat(log.weight_kg).toFixed(1)}
@@ -573,7 +577,7 @@ export default function WeightTracker() {
 
         {/* Progress + Insight */}
         {profile && (
-          <div className="card-surface rounded-3xl p-4 space-y-2">
+          <div className="card-surface rounded-xs p-4 space-y-2">
             <div className="flex justify-between items-center text-[12px]">
               <div className="flex items-center gap-1.5">
                 <insight.icon className={`h-3.5 w-3.5 ${insight.color}`} strokeWidth={2.4} />
@@ -606,7 +610,7 @@ export default function WeightTracker() {
             typeof analysisPlan.totalWeeks === "number" ? analysisPlan.totalWeeks : weeklyPlan.length;
 
           return (
-            <div className="card-surface rounded-3xl p-4 space-y-3 animate-fade-in">
+            <div className="card-surface rounded-xs p-4 space-y-3 animate-fade-in">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-primary/70">
@@ -618,7 +622,7 @@ export default function WeightTracker() {
                 </div>
                 <button
                   onClick={clearAnalysis}
-                  className="h-8 w-8 flex items-center justify-center rounded-2xl text-muted-foreground/40 active:text-destructive active:bg-destructive/10 transition-colors"
+                  className="h-8 w-8 flex items-center justify-center rounded-xs text-muted-foreground/40 active:text-destructive active:bg-destructive/10 transition-colors"
                   title="Clear plan"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -629,11 +633,11 @@ export default function WeightTracker() {
               <div className="grid grid-cols-4 gap-2">
                 {[
                   { label: "Calories", value: targetCal, unit: "kcal", color: "text-foreground" },
-                  { label: "Protein", value: proteinG, unit: "g", color: "text-blue-400" },
-                  { label: "Carbs", value: carbsG, unit: "g", color: "text-orange-400" },
-                  { label: "Fats", value: fatsG, unit: "g", color: "text-purple-400" },
+                  { label: "Protein", value: proteinG, unit: "g", color: "text-func-protein-blue" },
+                  { label: "Carbs", value: carbsG, unit: "g", color: "text-func-carbs-orange" },
+                  { label: "Fats", value: fatsG, unit: "g", color: "text-func-fats-purple" },
                 ].map((m) => (
-                  <div key={m.label} className="rounded-2xl bg-muted/20 px-2 py-2.5 text-center">
+                  <div key={m.label} className="rounded-xs bg-muted/20 px-2 py-2.5 text-center">
                     <p className={`text-[16px] font-bold tabular-nums ${m.color}`}>
                       {typeof m.value === "number" ? Math.round(m.value).toLocaleString() : "—"}
                     </p>
@@ -646,14 +650,14 @@ export default function WeightTracker() {
               <div className="flex gap-2">
                 <Button
                   onClick={() => setAnalysisOpen(true)}
-                  className="flex-1 rounded-2xl text-xs h-9 bg-primary text-primary-foreground"
+                  className="flex-1 rounded-xs text-xs h-9 bg-primary text-primary-foreground"
                 >
                   View full plan
                 </Button>
                 <Button
                   variant={targetsApplied ? "ghost" : "outline"}
                   size="sm"
-                  className="flex-1 rounded-2xl text-xs h-9"
+                  className="flex-1 rounded-xs text-xs h-9"
                   disabled={applyingTargets || targetsApplied}
                   onClick={applyNutritionTargets}
                 >
@@ -666,7 +670,7 @@ export default function WeightTracker() {
                 disabled={analyzingWeight}
                 variant="ghost"
                 size="sm"
-                className="w-full rounded-2xl text-[11px] h-7 text-muted-foreground hover:text-foreground"
+                className="w-full rounded-xs text-[11px] h-7 text-muted-foreground hover:text-foreground"
               >
                 Refresh plan
               </Button>
@@ -677,7 +681,7 @@ export default function WeightTracker() {
         {/* AI Analysis Loading skeleton (shown when a refresh is in flight
             and the sheet is closed; the sheet itself shows its own state). */}
         {analyzingWeight && !analysisOpen && (
-          <div className="card-surface rounded-3xl p-6 flex flex-col items-center gap-3">
+          <div className="card-surface rounded-xs p-6 flex flex-col items-center gap-3">
             <Loader2 className="h-6 w-6 text-primary animate-spin" />
             <div className="space-y-2 w-full max-w-xs">
               <Skeleton className="h-3 w-full rounded-full" />
@@ -692,7 +696,7 @@ export default function WeightTracker() {
           <Button
             onClick={getAIAnalysis}
             disabled={analyzingWeight}
-            className="relative w-full rounded-3xl h-12 text-[14px] font-semibold bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-foreground hover:bg-muted/60 active:scale-[0.98] transition-all"
+            className="relative w-full rounded-xs h-12 text-[14px] font-semibold bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-foreground hover:bg-muted/60 active:scale-[0.98] transition-all"
           >
             {analyzingWeight ? (
               <span className="inline-flex items-center gap-2">

@@ -25,7 +25,7 @@ export function AiMealPlanDialog({
 }: AiMealPlanDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-2.5rem)] max-w-[320px] max-h-[85vh] overflow-y-auto rounded-[28px] p-0 border-0 bg-card/95 backdrop-blur-xl shadow-2xl gap-0">
+      <DialogContent className="w-[calc(100vw-2.5rem)] max-w-[320px] max-h-[85vh] overflow-y-auto rounded-[28px] p-0 border-0 bg-card/95 backdrop-blur-xl gap-0">
         <div className="px-4 pt-4 pb-3">
           <DialogHeader>
             <DialogTitle className="text-[15px] font-semibold text-center">
@@ -50,7 +50,7 @@ export function AiMealPlanDialog({
             value={aiPrompt}
             onChange={(e) => setAiPrompt(e.target.value)}
             rows={2}
-            className="resize-none text-[13px] rounded-lg border-border/30 bg-muted/20"
+            className="resize-none text-[13px] rounded-xs border-border/30 bg-muted/20"
           />
           <button
             onClick={onGenerate}

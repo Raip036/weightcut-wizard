@@ -48,7 +48,7 @@ export function OfflineBanner() {
 
   const palette =
     mode === "back-online"
-      ? "bg-emerald-600/90 text-white"
+      ? "bg-func-recovery-green/90 text-white"
       : "bg-zinc-900/95 text-zinc-300 border-b border-zinc-700/50";
 
   return (

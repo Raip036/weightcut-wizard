@@ -11,13 +11,13 @@ import type { SessionWithSets } from "@/pages/gym/types";
 function sessionEdgeColor(type: string | null | undefined): string {
   switch ((type ?? "").toLowerCase()) {
     case "strength":      return "bg-blue-400";
-    case "hypertrophy":   return "bg-violet-400";
-    case "powerlifting":  return "bg-amber-400";
-    case "explosiveness": return "bg-yellow-400";
-    case "conditioning":  return "bg-orange-400";
-    case "circuit":       return "bg-rose-400";
-    case "endurance":     return "bg-emerald-400";
-    case "mobility":      return "bg-cyan-400";
+    case "hypertrophy":   return "bg-func-fats-purple";
+    case "powerlifting":  return "bg-func-warning-yellow";
+    case "explosiveness": return "bg-func-warning-yellow";
+    case "conditioning":  return "bg-func-carbs-orange";
+    case "circuit":       return "bg-func-danger-red";
+    case "endurance":     return "bg-func-recovery-green";
+    case "mobility":      return "bg-func-hydration-cyan";
     default:              return "bg-primary";
   }
 }
@@ -33,7 +33,7 @@ export const SessionHistoryList = memo(function SessionHistoryList({ sessions, l
     return (
       <div className="space-y-3">
         {[1, 2, 3].map(i => (
-          <div key={i} className="card-surface rounded-2xl border border-border/50 p-4">
+          <div key={i} className="card-surface rounded-xs border border-border/50 p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="h-5 w-20 rounded-full shimmer-skeleton" />
               <div className="h-4 w-16 rounded shimmer-skeleton" />
@@ -51,8 +51,8 @@ export const SessionHistoryList = memo(function SessionHistoryList({ sessions, l
 
   if (sessions.length === 0) {
     return (
-      <div className="card-surface rounded-2xl border border-border/50 p-8 text-center">
-        <div className="h-12 w-12 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-3">
+      <div className="card-surface rounded-xs border border-border/50 p-8 text-center">
+        <div className="h-12 w-12 rounded-xs bg-muted/50 flex items-center justify-center mx-auto mb-3">
           <Dumbbell className="h-6 w-6 text-muted-foreground/30" />
         </div>
         <p className="text-sm font-medium text-muted-foreground">No workouts yet</p>
@@ -75,7 +75,7 @@ export const SessionHistoryList = memo(function SessionHistoryList({ sessions, l
             key={session.id}
             variants={staggerItem}
             onClick={() => onSessionTap(session)}
-            className="group relative w-full text-left card-surface rounded-2xl border border-border/50 pl-4 pr-3 py-3 active:scale-[0.98] transition-transform overflow-hidden"
+            className="group relative w-full text-left card-surface rounded-xs border border-border/50 pl-4 pr-3 py-3 active:scale-[0.98] transition-transform overflow-hidden"
           >
             {/* Apple Health-style colored edge bar */}
             <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${edge}`} />

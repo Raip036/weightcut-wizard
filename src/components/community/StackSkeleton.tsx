@@ -34,7 +34,7 @@ export function StackSkeleton() {
           }}
         >
           {/* Polaroid frame approximation: white card with image + caption strip. */}
-          <div className="bg-white rounded-sm shadow-2xl p-4 pb-10">
+          <div className="bg-white rounded-sm p-4 pb-10">
             <Skeleton className="aspect-square w-full rounded-none bg-neutral-200" />
             <div className="mt-3 h-4 w-2/3 mx-auto">
               <Skeleton className="h-full w-full bg-neutral-200" />

@@ -20,15 +20,15 @@ interface ManipulationCardProps {
 
 export const ManipulationCard = memo(function ManipulationCard({ sodium, fibre }: ManipulationCardProps) {
   return (
-    <div className="card-surface rounded-2xl border border-border/50 p-4">
+    <div className="card-surface rounded-xs border border-border/50 p-4">
       <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Sodium and Fibre</h3>
 
       <div className="grid grid-cols-2 gap-3">
         {/* Sodium */}
         <div className="space-y-2">
           <div className="flex items-center gap-1.5">
-            <div className="h-6 w-6 rounded-md bg-cyan-500/15 flex items-center justify-center">
-              <Waves className="h-3 w-3 text-cyan-400" />
+            <div className="h-6 w-6 rounded-md bg-func-hydration-cyan/15 flex items-center justify-center">
+              <Waves className="h-3 w-3 text-func-hydration-cyan" />
             </div>
             <span className="text-[13px] font-semibold">Sodium</span>
           </div>
@@ -42,8 +42,8 @@ export const ManipulationCard = memo(function ManipulationCard({ sodium, fibre }
         {/* Fibre */}
         <div className="space-y-2">
           <div className="flex items-center gap-1.5">
-            <div className="h-6 w-6 rounded-md bg-green-500/15 flex items-center justify-center">
-              <Leaf className="h-3 w-3 text-green-400" />
+            <div className="h-6 w-6 rounded-md bg-func-recovery-green/15 flex items-center justify-center">
+              <Leaf className="h-3 w-3 text-func-recovery-green" />
             </div>
             <span className="text-[13px] font-semibold">Fibre</span>
           </div>

@@ -12,7 +12,7 @@ export function RankedList({
   return (
     <div
       role="list"
-      className="glass-card rounded-2xl border border-border/50 divide-y divide-border/20"
+      className="glass-card rounded-xs border border-border/50 divide-y divide-border/20"
     >
       {ranks.map((entry) => (
         <RankedRow

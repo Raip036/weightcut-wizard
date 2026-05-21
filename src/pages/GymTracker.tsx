@@ -329,6 +329,10 @@ export default function GymTracker() {
 
   return (
     <div className="space-y-2.5 px-5 py-3 sm:p-5 md:p-6 max-w-7xl mx-auto md:pb-6" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" }}>
+      <header className="pt-1">
+        <p className="text-micro uppercase tracking-[0.15em] text-muted-foreground/70 font-bold">Your</p>
+        <h1 className="text-title font-semibold leading-tight">Gym Tracker</h1>
+      </header>
       {gymAiTask && (
         <AICompactOverlay
           isOpen={true}
@@ -399,15 +403,15 @@ export default function GymTracker() {
               {/* Quick stats row */}
               {analytics.totalSessions > 0 && (
                 <div className="grid grid-cols-3 gap-2.5">
-                  <div className="card-surface rounded-2xl border border-border p-3 text-center">
+                  <div className="card-surface rounded-xs p-3 text-center">
                     <div className="display-number text-lg">{analytics.sessionsThisWeek}</div>
                     <div className="text-[13px] text-muted-foreground mt-0.5">This Week</div>
                   </div>
-                  <div className="card-surface rounded-2xl border border-border p-3 text-center">
+                  <div className="card-surface rounded-xs p-3 text-center">
                     <div className="display-number text-lg">{analytics.avgDuration}<span className="text-xs text-muted-foreground font-normal">m</span></div>
                     <div className="text-[13px] text-muted-foreground mt-0.5">Avg Duration</div>
                   </div>
-                  <div className="card-surface rounded-2xl border border-border p-3 text-center">
+                  <div className="card-surface rounded-xs p-3 text-center">
                     <div className="display-number text-lg">{formatVol(weeklyVolume)}<span className="text-xs text-muted-foreground font-normal">kg</span></div>
                     <div className="text-[13px] text-muted-foreground mt-0.5">Week Volume</div>
                   </div>
@@ -417,7 +421,7 @@ export default function GymTracker() {
               {/* Wizard-led start hero — restricted to Strength /
                   Hypertrophy / Explosiveness. Wizard avatar uses the
                   transparent tutorial PNG so it sits chrome-free. */}
-              <div className="card-surface rounded-3xl border border-primary/20 p-4">
+              <div className="card-surface rounded-xs p-4">
                 <div className="flex items-start gap-3 mb-3">
                   <div className="h-12 w-12 shrink-0 flex items-center justify-center">
                     <img
@@ -447,9 +451,9 @@ export default function GymTracker() {
                           setSessionType(t as SessionType);
                           triggerHaptic(ImpactStyle.Light);
                         }}
-                        className={`relative flex items-center gap-2 rounded-2xl border px-3 py-2.5 text-left active:scale-[0.97] transition-all ${
+                        className={`relative flex items-center gap-2 rounded-xs border px-3 py-2.5 text-left active:scale-[0.97] transition-all ${
                           active
-                            ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/30"
+                            ? "bg-primary text-primary-foreground border-primary"
                             : "bg-muted/30 border-border/30 hover:bg-muted/50"
                         }`}
                       >
@@ -464,7 +468,7 @@ export default function GymTracker() {
                 <button
                   onClick={handleStartWorkout}
                   disabled={startingWorkout}
-                  className="mt-3 w-full h-12 rounded-2xl text-[15px] font-bold text-primary-foreground bg-primary flex items-center justify-center active:scale-[0.98] transition-transform disabled:opacity-60 shadow-lg shadow-primary/30"
+                  className="mt-3 w-full h-12 rounded-xs text-[15px] font-bold text-primary-foreground bg-primary flex items-center justify-center active:scale-[0.98] transition-transform disabled:opacity-60"
                 >
                   {startingWorkout ? "Starting…" : `Start ${sessionType.toLowerCase()} workout`}
                 </button>
@@ -488,7 +492,7 @@ export default function GymTracker() {
                       onClick={() => { setHistoryView("list"); triggerHaptic(ImpactStyle.Light); }}
                       className={`px-2.5 py-1 rounded-full text-[11px] font-semibold flex items-center gap-1 transition-all ${
                         historyView === "list"
-                          ? "bg-background text-foreground shadow-sm"
+                          ? "bg-background text-foreground"
                           : "text-muted-foreground"
                       }`}
                       aria-label="List view"
@@ -500,7 +504,7 @@ export default function GymTracker() {
                       onClick={() => { setHistoryView("calendar"); triggerHaptic(ImpactStyle.Light); }}
                       className={`px-2.5 py-1 rounded-full text-[11px] font-semibold flex items-center gap-1 transition-all ${
                         historyView === "calendar"
-                          ? "bg-background text-foreground shadow-sm"
+                          ? "bg-background text-foreground"
                           : "text-muted-foreground"
                       }`}
                       aria-label="Calendar view"
@@ -771,7 +775,7 @@ function ProgressTabContent({
       {/* Tab content */}
       {sub === "prs" && (
         loggedExercises.length === 0 ? (
-          <div className="card-surface rounded-2xl border border-border/40 p-6 text-center">
+          <div className="card-surface rounded-xs p-6 text-center">
             <p className="text-[13px] text-muted-foreground">No exercises logged yet</p>
             <p className="text-[12px] text-muted-foreground/60 mt-0.5">Complete a workout to track PRs</p>
           </div>
@@ -781,7 +785,7 @@ function ProgressTabContent({
               <button
                 key={id}
                 onClick={() => onExerciseTap(ex)}
-                className="w-full flex items-center gap-3 rounded-2xl border border-border/40 bg-card/50 px-3 py-2.5 active:bg-muted/30 transition-colors text-left"
+                className="w-full flex items-center gap-3 rounded-xs border border-border/40 bg-card/50 px-3 py-2.5 active:bg-muted/30 transition-colors text-left"
               >
                 <div className="flex-1 min-w-0">
                   <p className="text-[14px] font-semibold truncate text-foreground">{ex.name}</p>
@@ -808,7 +812,7 @@ function ProgressTabContent({
       )}
 
       {sub === "volume" && (
-        <div className="card-surface rounded-2xl border border-border/40 p-4">
+        <div className="card-surface rounded-xs p-4">
           <div className="flex items-baseline justify-between">
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Last 7 days</p>
             <p className="text-[18px] font-bold tabular-nums text-foreground">
@@ -841,12 +845,12 @@ function ProgressTabContent({
 
       {sub === "frequency" && (
         muscleRows.length === 0 ? (
-          <div className="card-surface rounded-2xl border border-border/40 p-6 text-center">
+          <div className="card-surface rounded-xs p-6 text-center">
             <p className="text-[13px] text-muted-foreground">No data yet</p>
             <p className="text-[12px] text-muted-foreground/60 mt-0.5">Log workouts to see muscle frequency</p>
           </div>
         ) : (
-          <div className="card-surface rounded-2xl border border-border/40 p-4 space-y-2.5">
+          <div className="card-surface rounded-xs p-4 space-y-2.5">
             <div className="flex items-baseline justify-between">
               <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Sessions per muscle</p>
               <p className="text-[10px] text-muted-foreground/70">All-time</p>

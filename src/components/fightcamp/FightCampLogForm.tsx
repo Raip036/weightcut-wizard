@@ -75,7 +75,7 @@ interface FightCampLogFormProps {
 const MAX_PENDING_MEDIA = 10;
 
 const INPUT_CLASS =
-  "h-11 rounded-2xl bg-muted/40 dark:bg-white/[0.06] border-border/30 text-[15px] text-foreground placeholder:text-muted-foreground/50 px-4 focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all";
+  "h-11 rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/30 text-[15px] text-foreground placeholder:text-muted-foreground/50 px-4 focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all";
 
 export function FightCampLogForm({
   isEditing,
@@ -272,7 +272,7 @@ export function FightCampLogForm({
                   onClick={() => { setSessionType(type); triggerHapticSelection(); }}
                   className={`h-10 px-4 rounded-full text-[13.5px] font-semibold transition-all active:scale-[0.96] ${
                     active
-                      ? "bg-primary text-primary-foreground shadow-sm"
+                      ? "bg-primary text-primary-foreground"
                       : "bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-foreground/80 hover:bg-muted/60"
                   } ${isCustom ? "pr-7" : ""}`}
                 >
@@ -316,7 +316,7 @@ export function FightCampLogForm({
               onClick={handleAddCustomType}
               disabled={!newTypeName.trim()}
               aria-label="Confirm new type"
-              className="h-11 w-11 rounded-2xl bg-primary/15 hover:bg-primary/25 text-primary flex items-center justify-center shrink-0 active:scale-[0.96] transition-transform disabled:opacity-40"
+              className="h-11 w-11 rounded-xs bg-primary/15 hover:bg-primary/25 text-primary flex items-center justify-center shrink-0 active:scale-[0.96] transition-transform disabled:opacity-40"
             >
               <Check className="h-4 w-4" strokeWidth={2.6} />
             </button>
@@ -325,7 +325,7 @@ export function FightCampLogForm({
       </div>
 
       {/* ── Training metrics — single grouped card ────────────── */}
-      <div className="card-surface rounded-2xl divide-y divide-border/15 overflow-hidden">
+      <div className="card-surface rounded-xs divide-y divide-border/15 overflow-hidden">
         {/* Duration */}
         <div className="flex items-center justify-between px-4 py-3.5">
           <span className="text-[14px] font-medium text-foreground/85">Duration</span>
@@ -387,7 +387,7 @@ export function FightCampLogForm({
 
       {/* ── Run details (conditional) ─────────────────────────── */}
       {sessionType === "Run" && (
-        <div className="card-surface rounded-2xl divide-y divide-border/15 overflow-hidden">
+        <div className="card-surface rounded-xs divide-y divide-border/15 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3.5">
             <span className="text-[14px] font-medium text-foreground/85">Distance</span>
             <div className="flex items-center gap-2">
@@ -399,7 +399,7 @@ export function FightCampLogForm({
                 value={runDistance}
                 onChange={(e) => setRunDistance(e.target.value)}
                 placeholder="0"
-                className="w-20 h-9 rounded-xl text-right text-[14px] font-bold tabular-nums bg-muted/40 dark:bg-white/[0.06] border-border/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                className="w-20 h-9 rounded-xs text-right text-[14px] font-bold tabular-nums bg-muted/40 dark:bg-white/[0.06] border-border/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
               <button
                 type="button"
@@ -418,7 +418,7 @@ export function FightCampLogForm({
               value={runTime}
               onChange={(e) => setRunTime(e.target.value)}
               placeholder="mm:ss"
-              className="w-24 h-9 rounded-xl text-right text-[14px] font-bold tabular-nums bg-muted/40 dark:bg-white/[0.06] border-border/30"
+              className="w-24 h-9 rounded-xs text-right text-[14px] font-bold tabular-nums bg-muted/40 dark:bg-white/[0.06] border-border/30"
             />
           </div>
           <div className="flex items-center justify-between px-4 py-3.5">
@@ -431,7 +431,7 @@ export function FightCampLogForm({
       )}
 
       {/* ── Recovery (soreness) ───────────────────────────────── */}
-      <div className="card-surface rounded-2xl overflow-hidden">
+      <div className="card-surface rounded-xs overflow-hidden">
         <div className="px-4 py-3.5">
           <div className="flex items-center justify-between">
             <span className="text-[14px] font-medium text-foreground/85">Soreness</span>
@@ -463,7 +463,7 @@ export function FightCampLogForm({
               onClick={() => { triggerHapticSelection(); isListening ? stopListening() : startListening(); }}
               className={`flex items-center gap-1 h-7 px-2.5 rounded-full text-[11px] font-semibold transition-all ${
                 isListening
-                  ? "bg-red-500/15 text-red-500 animate-pulse"
+                  ? "bg-func-danger-red/15 text-func-danger-red animate-pulse"
                   : "bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-muted-foreground active:bg-muted/60"
               }`}
             >
@@ -476,7 +476,7 @@ export function FightCampLogForm({
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder={isListening ? "Listening…" : "Techniques, drills, anything worth remembering…"}
-          className={`min-h-[88px] resize-none rounded-2xl bg-muted/40 dark:bg-white/[0.06] border-border/30 text-[14px] px-4 py-3 placeholder:text-muted-foreground/50 ${isListening ? "ring-2 ring-red-500/40" : ""}`}
+          className={`min-h-[88px] resize-none rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/30 text-[14px] px-4 py-3 placeholder:text-muted-foreground/50 ${isListening ? "ring-2 ring-func-danger-red/40" : ""}`}
         />
         {isListening && interimText && (
           <p className="text-[12px] text-muted-foreground/70 italic px-1">{interimText}</p>
@@ -510,7 +510,7 @@ export function FightCampLogForm({
             .map((item, i) => (
               <div
                 key={item.id}
-                className="relative shrink-0 h-20 w-20 rounded-2xl overflow-hidden border border-border/30 bg-muted/30"
+                className="relative shrink-0 h-20 w-20 rounded-xs overflow-hidden border border-border/30 bg-muted/30"
               >
                 <button
                   type="button"
@@ -579,7 +579,7 @@ export function FightCampLogForm({
             return (
             <div
               key={m.id}
-              className="relative shrink-0 h-20 w-20 rounded-2xl overflow-hidden border border-border/30 bg-muted/30 animate-in fade-in zoom-in-95 duration-200"
+              className="relative shrink-0 h-20 w-20 rounded-xs overflow-hidden border border-border/30 bg-muted/30 animate-in fade-in zoom-in-95 duration-200"
             >
               <button
                 type="button"
@@ -637,7 +637,7 @@ export function FightCampLogForm({
                   galleryInputRef.current?.click();
                 }}
                 aria-label="Add from gallery"
-                className="shrink-0 h-20 w-20 rounded-2xl border-2 border-dashed border-border/40 bg-muted/20 flex flex-col items-center justify-center text-muted-foreground active:bg-muted/40 transition-colors"
+                className="shrink-0 h-20 w-20 rounded-xs border-2 border-dashed border-border/40 bg-muted/20 flex flex-col items-center justify-center text-muted-foreground active:bg-muted/40 transition-colors"
               >
                 <ImagePlus className="h-5 w-5" />
                 <span className="text-[9px] font-semibold uppercase tracking-wider mt-0.5">
@@ -651,7 +651,7 @@ export function FightCampLogForm({
                   cameraInputRef.current?.click();
                 }}
                 aria-label="Take photo or video"
-                className="shrink-0 h-20 w-20 rounded-2xl border-2 border-dashed border-border/40 bg-muted/20 flex flex-col items-center justify-center text-muted-foreground active:bg-muted/40 transition-colors"
+                className="shrink-0 h-20 w-20 rounded-xs border-2 border-dashed border-border/40 bg-muted/20 flex flex-col items-center justify-center text-muted-foreground active:bg-muted/40 transition-colors"
               >
                 <Camera className="h-5 w-5" />
                 <span className="text-[9px] font-semibold uppercase tracking-wider mt-0.5">
@@ -705,7 +705,7 @@ export function FightCampLogForm({
         type="button"
         onClick={onSave}
         disabled={saving || !canSave}
-        className="w-full h-12 rounded-2xl bg-primary text-primary-foreground text-[15px] font-semibold active:scale-[0.98] transition-transform flex items-center justify-center gap-2 disabled:opacity-40 disabled:active:scale-100"
+        className="w-full h-12 rounded-xs bg-primary text-primary-foreground text-[15px] font-semibold active:scale-[0.98] transition-transform flex items-center justify-center gap-2 disabled:opacity-40 disabled:active:scale-100"
       >
         {saving && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
         {saving

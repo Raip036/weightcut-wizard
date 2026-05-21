@@ -83,7 +83,7 @@ export function GymInvitesBanner() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ type: "spring", damping: 26, stiffness: 320 }}
-            className="w-full rounded-2xl border-2 border-primary bg-primary/[0.08] p-3 flex items-center gap-3 active:scale-[0.99] transition-all"
+            className="w-full rounded-xs border-2 border-primary bg-primary/[0.08] p-3 flex items-center gap-3 active:scale-[0.99] transition-all"
           >
             <span className="relative flex h-9 w-9 rounded-full items-center justify-center flex-shrink-0 bg-primary text-primary-foreground">
               <span
@@ -128,10 +128,10 @@ export function GymInvitesBanner() {
                 return (
                   <div
                     key={invite.id}
-                    className="card-surface rounded-2xl border border-border p-3 space-y-3"
+                    className="card-surface rounded-xs border border-border p-3 space-y-3"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <div className="h-9 w-9 rounded-xs bg-primary/10 flex items-center justify-center flex-shrink-0">
                         <Building2 className="h-4 w-4 text-primary" />
                       </div>
                       <div className="min-w-0 flex-1">
@@ -148,7 +148,7 @@ export function GymInvitesBanner() {
                         type="button"
                         onClick={() => handleDecline(invite.id)}
                         disabled={isBusy}
-                        className="flex-1 h-11 rounded-xl border border-border bg-muted/30 text-[13px] font-semibold active:scale-[0.99] transition-transform disabled:opacity-50"
+                        className="flex-1 h-11 rounded-xs border border-border bg-muted/30 text-[13px] font-semibold active:scale-[0.99] transition-transform disabled:opacity-50"
                       >
                         Decline
                       </button>
@@ -156,7 +156,7 @@ export function GymInvitesBanner() {
                         type="button"
                         onClick={() => handleAccept(invite.id, invite.gym_name)}
                         disabled={isBusy}
-                        className="flex-1 h-11 rounded-xl bg-primary text-primary-foreground text-[13px] font-semibold active:scale-[0.99] transition-transform inline-flex items-center justify-center gap-2 disabled:opacity-50"
+                        className="flex-1 h-11 rounded-xs bg-primary text-primary-foreground text-[13px] font-semibold active:scale-[0.99] transition-transform inline-flex items-center justify-center gap-2 disabled:opacity-50"
                       >
                         {isBusy && <Loader2 className="h-4 w-4 animate-spin" />}
                         Accept

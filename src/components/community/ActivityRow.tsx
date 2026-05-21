@@ -91,14 +91,14 @@ function PostThumb({ thumbUrl, thumbDataUrl }: { thumbUrl: string | null; thumbD
   const src = thumbUrl ?? thumbDataUrl;
   if (!src) {
     return (
-      <div className="w-10 h-10 rounded-lg bg-muted flex-shrink-0 border border-border/20" />
+      <div className="w-10 h-10 rounded-xs bg-muted flex-shrink-0 border border-border/20" />
     );
   }
   return (
     <img
       src={src}
       alt="Post thumbnail"
-      className="w-10 h-10 rounded-lg object-cover flex-shrink-0 border border-border/20"
+      className="w-10 h-10 rounded-xs object-cover flex-shrink-0 border border-border/20"
     />
   );
 }

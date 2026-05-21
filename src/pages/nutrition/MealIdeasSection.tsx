@@ -39,7 +39,7 @@ export function MealIdeasSection({
     <div className="space-y-2" data-tutorial="generate-meal-plan">
       <div className="flex items-center justify-between">
         <h2 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Meal Plan Ideas</h2>
-        <Button onClick={() => setIsAiDialogOpen(true)} size="sm" variant="ghost" className="h-8 text-xs gap-1.5 rounded-lg text-primary font-medium">
+        <Button onClick={() => setIsAiDialogOpen(true)} size="sm" variant="ghost" className="h-8 text-xs gap-1.5 rounded-xs text-primary font-medium">
           Generate
         </Button>
       </div>
@@ -68,10 +68,10 @@ export function MealIdeasSection({
           <div className="space-y-2">
             <div className="flex gap-2">
               <Button onClick={() => onSaveAll(mealPlanIdeas)} disabled={savingAllMeals || loggingMealId !== null}
-                size="sm" className="flex-1 h-8 text-xs rounded-2xl">
+                size="sm" className="flex-1 h-8 text-xs rounded-xs">
                 <Plus className="mr-1 h-3 w-3" />Save All ({mealPlanIdeas.length})
               </Button>
-              <Button onClick={onClear} variant="outline" size="sm" className="h-8 text-xs rounded-2xl">
+              <Button onClick={onClear} variant="outline" size="sm" className="h-8 text-xs rounded-xs">
                 <X className="mr-1 h-3 w-3" />Clear
               </Button>
             </div>
@@ -118,8 +118,8 @@ export function MealIdeasSection({
                           {meal.portion_size && <p className="text-[13px] text-foreground/80 mt-0.5">{meal.portion_size}</p>}
                           <div className="flex items-center gap-3 mt-2">
                             <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-blue-500" /><span className="text-[13px] tabular-nums font-medium">{Math.round(p)}g P</span></div>
-                            <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-orange-500" /><span className="text-[13px] tabular-nums font-medium">{Math.round(c)}g C</span></div>
-                            <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-purple-500" /><span className="text-[13px] tabular-nums font-medium">{Math.round(f)}g F</span></div>
+                            <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-func-carbs-orange" /><span className="text-[13px] tabular-nums font-medium">{Math.round(c)}g C</span></div>
+                            <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-func-fats-purple" /><span className="text-[13px] tabular-nums font-medium">{Math.round(f)}g F</span></div>
                           </div>
                         </div>
                         {hasDetails && <ChevronDown className={`h-4 w-4 text-muted-foreground/50 flex-shrink-0 mt-1 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />}

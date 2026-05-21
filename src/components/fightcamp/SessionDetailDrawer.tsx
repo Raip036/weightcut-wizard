@@ -49,7 +49,7 @@ function isVideo(url: string): boolean {
 
 function MetricChip({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
-    <div className="flex flex-col items-center gap-0.5 rounded-2xl bg-muted/30 dark:bg-white/[0.03] border border-border/20 px-3 py-2 min-w-0">
+    <div className="flex flex-col items-center gap-0.5 rounded-xs bg-muted/30 dark:bg-white/[0.03] border border-border/20 px-3 py-2 min-w-0">
       <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
       <span className="text-base font-bold tabular-nums" style={color ? { color } : undefined}>{value}</span>
     </div>
@@ -216,7 +216,7 @@ export function SessionDetailDrawer({
                     triggerHapticSelection();
                     setLightboxIndex(i);
                   }}
-                  className="relative aspect-square rounded-xl overflow-hidden bg-muted/40 border border-border/30 active:scale-[0.98] transition-transform"
+                  className="relative aspect-square rounded-xs overflow-hidden bg-muted/40 border border-border/30 active:scale-[0.98] transition-transform"
                 >
                   {item.url ? (
                     item.kind === "video" ? (
@@ -257,7 +257,7 @@ export function SessionDetailDrawer({
                   fileInputRef.current?.click();
                 }}
                 disabled={uploading}
-                className="aspect-square rounded-xl border-2 border-dashed border-border/50 bg-muted/20 flex flex-col items-center justify-center text-muted-foreground active:bg-muted/40 transition-colors disabled:opacity-50"
+                className="aspect-square rounded-xs border-2 border-dashed border-border/50 bg-muted/20 flex flex-col items-center justify-center text-muted-foreground active:bg-muted/40 transition-colors disabled:opacity-50"
                 aria-label="Add photo or video from gallery"
               >
                 {uploading ? (
@@ -278,7 +278,7 @@ export function SessionDetailDrawer({
                   cameraInputRef.current?.click();
                 }}
                 disabled={uploading}
-                className="aspect-square rounded-xl border-2 border-dashed border-border/50 bg-muted/20 flex flex-col items-center justify-center text-muted-foreground active:bg-muted/40 transition-colors disabled:opacity-50"
+                className="aspect-square rounded-xs border-2 border-dashed border-border/50 bg-muted/20 flex flex-col items-center justify-center text-muted-foreground active:bg-muted/40 transition-colors disabled:opacity-50"
                 aria-label="Take a new photo or video"
               >
                 {uploading ? (
@@ -323,7 +323,7 @@ export function SessionDetailDrawer({
 
           {/* Notes — prominent, first thing the user sees */}
           {(isRun ? cleanNotes : session.notes) && (
-            <div className="rounded-2xl border border-border/20 bg-muted/10 dark:bg-white/[0.02] p-4">
+            <div className="rounded-xs border border-border/20 bg-muted/10 dark:bg-white/[0.02] p-4">
               <p className="text-[13px] text-foreground leading-relaxed whitespace-pre-wrap">{isRun ? cleanNotes : session.notes}</p>
             </div>
           )}
@@ -361,7 +361,7 @@ export function SessionDetailDrawer({
           <div className="flex gap-3 pt-1">
             <Button
               variant="outline"
-              className="flex-1 h-12 rounded-2xl font-semibold text-base gap-2"
+              className="flex-1 h-12 rounded-xs font-semibold text-base gap-2"
               onClick={() => {
                 triggerHapticSelection();
                 onEdit(session);
@@ -372,7 +372,7 @@ export function SessionDetailDrawer({
             </Button>
             <Button
               variant="outline"
-              className="h-12 w-12 rounded-2xl text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30"
+              className="h-12 w-12 rounded-xs text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30"
               onClick={() => {
                 triggerHapticSelection();
                 setDeleteOpen(true);

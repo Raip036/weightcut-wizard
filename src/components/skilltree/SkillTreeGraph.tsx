@@ -174,11 +174,11 @@ export function SkillTreeGraph({ nodes, edges, bounds, onNodeTap }: SkillTreeGra
   }
 
   return (
-    <div className="relative flex-1 overflow-hidden rounded-2xl border border-border/50 bg-background/50">
+    <div className="relative flex-1 overflow-hidden rounded-xs border border-border/50 bg-background/50">
       {/* Fit to view button */}
       <button
         onClick={fitToView}
-        className="absolute top-3 right-3 z-10 h-8 w-8 flex items-center justify-center rounded-2xl bg-background/90 border border-border/50 text-muted-foreground text-xs active:scale-90 transition-transform"
+        className="absolute top-3 right-3 z-10 h-8 w-8 flex items-center justify-center rounded-xs bg-background/90 border border-border/50 text-muted-foreground text-xs active:scale-90 transition-transform"
         style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
         aria-label="Fit to view"
       >

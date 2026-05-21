@@ -96,41 +96,46 @@ export default {
         hydration: "hsl(var(--hydration))",
         recovery: "hsl(var(--recovery))",
 
-        /* Design System v1 — Brand palette (Figma "Branding" file). */
+        /* Design System v1 — Brand palette (Figma "Branding" file).
+           CSS vars store space-separated RGB triplets; wrapping in
+           `rgb(var(--x) / <alpha-value>)` lets Tailwind's `/N` opacity
+           modifier work (e.g. `bg-brand-spirit-blue/20`). */
         brand: {
-          "spirit-blue":  "var(--brand-spirit-blue)",
-          "wizard-lilac": "var(--brand-wizard-lilac)",
-          "dream-cyan":   "var(--brand-dream-cyan)",
-          "night-indigo": "var(--brand-night-indigo)",
-          void:           "var(--brand-void)",
+          "spirit-blue":  "rgb(var(--brand-spirit-blue) / <alpha-value>)",
+          "wizard-lilac": "rgb(var(--brand-wizard-lilac) / <alpha-value>)",
+          "dream-cyan":   "rgb(var(--brand-dream-cyan) / <alpha-value>)",
+          "night-indigo": "rgb(var(--brand-night-indigo) / <alpha-value>)",
+          void:           "rgb(var(--brand-void) / <alpha-value>)",
         },
         /* Design System v1 — Functional palette (status, macros). */
         func: {
-          "danger-red":     "var(--func-danger-red)",
-          "warning-yellow": "var(--func-warning-yellow)",
-          "recovery-green": "var(--func-recovery-green)",
-          "carbs-orange":   "var(--func-carbs-orange)",
-          "fats-purple":    "var(--func-fats-purple)",
-          "protein-blue":   "var(--func-protein-blue)",
-          "hydration-cyan": "var(--func-hydration-cyan)",
+          "danger-red":     "rgb(var(--func-danger-red) / <alpha-value>)",
+          "warning-yellow": "rgb(var(--func-warning-yellow) / <alpha-value>)",
+          "recovery-green": "rgb(var(--func-recovery-green) / <alpha-value>)",
+          "carbs-orange":   "rgb(var(--func-carbs-orange) / <alpha-value>)",
+          "fats-purple":    "rgb(var(--func-fats-purple) / <alpha-value>)",
+          "protein-blue":   "rgb(var(--func-protein-blue) / <alpha-value>)",
+          "hydration-cyan": "rgb(var(--func-hydration-cyan) / <alpha-value>)",
         },
         /* Design System v1 — Neutral scale. */
         neutral: {
-          100: "var(--neutral-100)",
-          200: "var(--neutral-200)",
-          400: "var(--neutral-400)",
-          500: "var(--neutral-500)",
-          700: "var(--neutral-700)",
-          800: "var(--neutral-800)",
-          900: "var(--neutral-900)",
-          1000: "var(--neutral-1000)",
+          100:  "rgb(var(--neutral-100) / <alpha-value>)",
+          200:  "rgb(var(--neutral-200) / <alpha-value>)",
+          400:  "rgb(var(--neutral-400) / <alpha-value>)",
+          500:  "rgb(var(--neutral-500) / <alpha-value>)",
+          700:  "rgb(var(--neutral-700) / <alpha-value>)",
+          800:  "rgb(var(--neutral-800) / <alpha-value>)",
+          900:  "rgb(var(--neutral-900) / <alpha-value>)",
+          1000: "rgb(var(--neutral-1000) / <alpha-value>)",
         },
       },
       fontFamily: {
-        /* Body / UI default — Inter (Design System v1). Satoshi remains as a
-           fallback so share-card components that hardcode it keep rendering
-           until they migrate. */
-        sans: ["Inter", "Satoshi", "SF Pro Text", "-apple-system", "BlinkMacSystemFont", "system-ui", "sans-serif"],
+        /* Body / UI default — Inter (Design System v1). Satoshi is no longer
+           in the fallback chain so all body text renders as Inter. The
+           three share-card components that still hardcode
+           fontFamily="Satoshi..." inline keep working because their
+           @font-face is loaded in index.css. */
+        sans: ["Inter", "SF Pro Text", "-apple-system", "BlinkMacSystemFont", "system-ui", "sans-serif"],
         /* Display — Sora. Use via `font-display` for Display 1/2 + Heading 1/2. */
         display: ["Sora", "SF Pro Display", "-apple-system", "BlinkMacSystemFont", "system-ui", "sans-serif"],
       },
@@ -146,6 +151,14 @@ export default {
         "body":       ["16px", { lineHeight: "24px" }],
         "caption":    ["12px", { lineHeight: "16px" }],
         "overline":   ["10px", { lineHeight: "14px", letterSpacing: "0.08em" }],
+        /* ── App UI scale (5-step) ─────────────────────────────────────
+           Fills the gaps in the design system for compact mobile UI:
+           micro → note → body-sm → value → title                      */
+        "micro":    ["11px", { lineHeight: "16px", letterSpacing: "0.03em" }],
+        "note":     ["13px", { lineHeight: "20px" }],
+        "body-sm":  ["15px", { lineHeight: "22px" }],
+        "value":    ["18px", { lineHeight: "24px", letterSpacing: "-0.01em" }],
+        "title":    ["22px", { lineHeight: "28px", letterSpacing: "-0.01em" }],
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -167,7 +180,6 @@ export default {
         "gradient-aurora": "var(--gradient-aurora)",
         "gradient-cosmic": "var(--gradient-cosmic)",
         "gradient-mystic": "var(--gradient-mystic)",
-        "gradient-cta": "var(--gradient-cta)",
       },
       keyframes: {
         "accordion-down": {
@@ -177,6 +189,13 @@ export default {
         "accordion-up": {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
+        },
+        /* Crystal-glass progress bar shimmer — sweeps a translucent
+           highlight across the filled portion. Used by
+           src/components/ui/progress.tsx. */
+        "progress-shimmer": {
+          "0%":   { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(200%)" },
         },
         marquee: {
           "0%": { transform: "translateX(0)" },

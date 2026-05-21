@@ -5,11 +5,11 @@ import { MedalIcon } from "./MedalIcon";
 import type { LeaderboardEntry, MedalTier } from "./types";
 
 const TIER_RING: Record<MedalTier, string> = {
-  gold: "shadow-[0_0_24px_-4px] shadow-[hsl(var(--medal-gold)/0.6)] ring-2 ring-[hsl(var(--medal-gold))]",
+  gold: "ring-2 ring-[hsl(var(--medal-gold))]",
   silver:
-    "shadow-[0_0_18px_-6px] shadow-[hsl(var(--medal-silver)/0.5)] ring-2 ring-[hsl(var(--medal-silver))]",
+    "ring-2 ring-[hsl(var(--medal-silver))]",
   bronze:
-    "shadow-[0_0_18px_-6px] shadow-[hsl(var(--medal-bronze)/0.5)] ring-2 ring-[hsl(var(--medal-bronze))]",
+    "ring-2 ring-[hsl(var(--medal-bronze))]",
 };
 
 const TIER_SIZE: Record<MedalTier, string> = {

@@ -69,7 +69,7 @@ export const ReadinessBreakdownCard = memo(function ReadinessBreakdownCard({ bre
   }
 
   return (
-    <div className="card-surface rounded-2xl border border-border overflow-hidden">
+    <div className="card-surface rounded-xs border border-border overflow-hidden">
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
@@ -103,7 +103,7 @@ export const ReadinessBreakdownCard = memo(function ReadinessBreakdownCard({ bre
 
           {/* Progress banner for users without full baseline */}
           {tier < 3 && totalCheckInDays != null && (
-            <div className="mt-3 text-center py-2 px-3 rounded-2xl bg-primary/10 border border-primary/20">
+            <div className="mt-3 text-center py-2 px-3 rounded-xs bg-primary/10 border border-primary/20">
               <p className="text-[10px] text-primary">
                 Check in daily to unlock personal baselines — {totalCheckInDays}/14 days
               </p>

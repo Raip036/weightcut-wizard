@@ -104,7 +104,7 @@ function ConnectHealthStepErrorFallback({
       <button
         type="button"
         onClick={onAdvance}
-        className="h-10 w-full rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 active:scale-[0.98] transition"
+        className="h-10 w-full rounded-xs bg-primary text-primary-foreground active:scale-[0.98] transition"
       >
         Continue
       </button>

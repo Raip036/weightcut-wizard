@@ -58,7 +58,7 @@ export function CreateExerciseDialog({ open, onOpenChange, onSubmit }: CreateExe
               placeholder="e.g. Zercher Squat"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="h-8 text-[13px] rounded-lg border-border/30 bg-muted/20"
+              className="h-8 text-[13px] rounded-xs border-border/30 bg-muted/20"
               autoFocus
             />
           </div>
@@ -67,7 +67,7 @@ export function CreateExerciseDialog({ open, onOpenChange, onSubmit }: CreateExe
             <div>
               <label className="text-[13px] font-medium text-muted-foreground mb-0.5 block">Category</label>
               <Select value={category} onValueChange={(v) => setCategory(v as ExerciseCategory)}>
-                <SelectTrigger className="h-8 text-[13px] rounded-lg border-border/30 bg-muted/20">
+                <SelectTrigger className="h-8 text-[13px] rounded-xs border-border/30 bg-muted/20">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -81,7 +81,7 @@ export function CreateExerciseDialog({ open, onOpenChange, onSubmit }: CreateExe
             <div>
               <label className="text-[13px] font-medium text-muted-foreground mb-0.5 block">Muscle Group</label>
               <Select value={muscleGroup} onValueChange={(v) => setMuscleGroup(v as MuscleGroup)}>
-                <SelectTrigger className="h-8 text-[13px] rounded-lg border-border/30 bg-muted/20">
+                <SelectTrigger className="h-8 text-[13px] rounded-xs border-border/30 bg-muted/20">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -96,7 +96,7 @@ export function CreateExerciseDialog({ open, onOpenChange, onSubmit }: CreateExe
           <div>
             <label className="text-[13px] font-medium text-muted-foreground mb-0.5 block">Equipment</label>
             <Select value={equipment} onValueChange={(v) => setEquipment(v as Equipment)}>
-              <SelectTrigger className="h-8 text-[13px] rounded-lg border-border/30 bg-muted/20">
+              <SelectTrigger className="h-8 text-[13px] rounded-xs border-border/30 bg-muted/20">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

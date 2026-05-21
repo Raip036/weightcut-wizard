@@ -329,7 +329,7 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                 <button
                     onClick={buttonState !== "up_to_date" ? handleGenerateOrUpdate : undefined}
                     disabled={isGenerating || buttonState === "up_to_date"}
-                    className="relative w-full p-4 rounded-2xl card-surface border border-border/50 flex items-center justify-center gap-2 hover:bg-accent/30 transition-all disabled:opacity-60"
+                    className="relative w-full p-4 rounded-xs card-surface border border-border/50 flex items-center justify-center gap-2 hover:bg-accent/30 transition-all disabled:opacity-60"
                 >
                     {isGenerating ? (
                         <div className="flex items-center gap-2 w-full justify-center">
@@ -339,7 +339,7 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                             </span>
                             <button
                                 onClick={(e) => { e.stopPropagation(); handleCancel(); }}
-                                className="ml-auto flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-lg hover:bg-accent/30"
+                                className="ml-auto flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-xs hover:bg-accent/30"
                             >
                                 <X className="h-3.5 w-3.5" />
                                 Cancel
@@ -347,7 +347,7 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                         </div>
                     ) : buttonState === "up_to_date" ? (
                         <>
-                            <CheckCircle className="h-5 w-5 text-green-500" />
+                            <CheckCircle className="h-5 w-5 text-func-recovery-green" />
                             <span className="text-sm font-semibold text-muted-foreground">Up to date</span>
                         </>
                     ) : (
@@ -379,7 +379,7 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                         </button>
                         {selectedSummary && (
                             <button onClick={() => handleDeleteSummary(selectedSummary.id)}
-                                className="h-8 w-8 flex items-center justify-center rounded-2xl text-muted-foreground/30 active:text-destructive active:bg-destructive/10 transition-colors">
+                                className="h-8 w-8 flex items-center justify-center rounded-xs text-muted-foreground/30 active:text-destructive active:bg-destructive/10 transition-colors">
                                 <Trash2 className="h-3.5 w-3.5" />
                             </button>
                         )}
@@ -398,7 +398,7 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                                 return (
                                 <div
                                     key={section.sport}
-                                    className="card-surface rounded-2xl border border-border overflow-hidden shadow-sm"
+                                    className="card-surface rounded-xs border border-border overflow-hidden"
                                     style={{ borderTop: `3px solid ${sportColor}` }}
                                 >
                                     {/* Sport header */}
@@ -431,7 +431,7 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                                                 )}
 
                                                 {tech.sparringTip && (
-                                                    <div className="rounded-xl bg-primary/15 border border-primary/25 px-3 py-2.5">
+                                                    <div className="rounded-xs bg-primary/15 border border-primary/25 px-3 py-2.5">
                                                         <p className="text-[13px] text-foreground leading-relaxed">
                                                             <span className="font-bold text-primary uppercase text-[10px] tracking-wider block mb-0.5">Sparring tip</span>
                                                             {(tech.sparringTip || '').replace(/\u2014/g, ' - ').replace(/\u2013/g, '-')}
@@ -444,7 +444,7 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                                                         {tech.drillFlow.map((step, k) => (
                                                             <div key={k} className="flex items-center gap-1">
                                                                 {k > 0 && <span className="text-muted-foreground/60 text-[11px] font-bold">→</span>}
-                                                                <span className="text-[12px] font-medium text-foreground bg-muted/50 border border-border/40 rounded-lg px-2 py-0.5">{step}</span>
+                                                                <span className="text-[12px] font-medium text-foreground bg-muted/50 border border-border/40 rounded-xs px-2 py-0.5">{step}</span>
                                                             </div>
                                                         ))}
                                                     </div>

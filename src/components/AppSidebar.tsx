@@ -1,4 +1,4 @@
-import { Home, Utensils, Weight, Calendar, Trophy, RotateCcw, Target, HeartPulse, Dumbbell, TrendingDown } from "lucide-react";
+import { Home, Utensils, Flag, Users, RotateCcw } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState } from "react";
 import {
@@ -19,29 +19,19 @@ import wizardLogo from "@/assets/wizard-logo.webp";
 import { ProfileDropdown } from "@/components/ProfileDropdown";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { DataResetDialog } from "@/components/DataResetDialog";
-import { useUser } from "@/contexts/UserContext";
-import { FIGHT_ONLY_PATHS, isFighter } from "@/lib/goalType";
+
 
 const menuItems = [
-  { title: "Dashboard", url: "/dashboard", icon: Home },
-  { title: "Profile", url: "/goals", icon: Target },
-  { title: "Fight Camps", url: "/fight-camps", icon: Trophy },
-  { title: "Training Calendar", url: "/training-calendar", icon: Calendar },
-  { title: "Recovery", url: "/recovery", icon: HeartPulse },
+  { title: "Home", url: "/dashboard", icon: Home },
+  { title: "Camp", url: "/camp", icon: Flag },
+  { title: "Community", url: "/community", icon: Users },
   { title: "Nutrition", url: "/nutrition", icon: Utensils },
-  { title: "Weight Tracker", url: "/weight", icon: Weight },
-  { title: "Weight Cut", url: "/weight-cut", icon: TrendingDown },
-  { title: "Gym Tracker", url: "/gym", icon: Dumbbell },
 ];
 
 export function AppSidebar() {
   const { setOpenMobile } = useSidebar();
   const isMobile = useIsMobile();
-  const { profile } = useUser();
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
-  const filteredMenuItems = isFighter(profile?.goal_type)
-    ? menuItems
-    : menuItems.filter(item => !FIGHT_ONLY_PATHS.includes(item.url));
 
   const handleNavClick = () => {
     if (isMobile) {
@@ -60,7 +50,7 @@ export function AppSidebar() {
             className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0"
           />
           <h1 className="text-base sm:text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent truncate">
-            FightCamp Wizard
+            Weightcut Wizard
           </h1>
         </div>
       </SidebarHeader>
@@ -71,7 +61,7 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
-              {filteredMenuItems.map((item) => (
+              {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild className="touch-target min-h-[44px]">
                     <NavLink
