@@ -1,9 +1,13 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Calendar, Trophy, Dumbbell, BookOpen, TrendingDown, ChevronRight, Flag } from "lucide-react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useUser } from "@/contexts/UserContext";
 import { isFighter } from "@/lib/goalType";
+import { triggerHaptic } from "@/lib/haptics";
+import { ImpactStyle } from "@capacitor/haptics";
+import { TrainingCoachWidget } from "@/components/dashboard/training-coach/TrainingCoachWidget";
 
 interface CampSection {
   title: string;
@@ -55,7 +59,7 @@ const sections: CampSection[] = [
 
 export default function Camp() {
   const navigate = useNavigate();
-  const { profile, userId } = useUser();
+  const { profile, userId, loadCutPlan } = useUser();
   const goalType = (profile?.goal_type as "cutting" | "losing") ?? "cutting";
   const fighter = isFighter(goalType);
 
@@ -63,6 +67,44 @@ export default function Camp() {
     api.fight_camp.getActiveCamp,
     userId ? {} : "skip",
   );
+
+  // Cut/weight-loss plan summary — surfaces a tappable card linking to the
+  // canonical plan timeline. Moved here from the Goals (profile) page so the
+  // plan lives alongside the rest of the camp dashboard.
+  const [cutPlanSummary, setCutPlanSummary] = useState<{
+    totalWeeks: number;
+    weeklyLossTarget: string;
+    goalWeight: number;
+    planType: "weight_loss" | "weight_cut";
+  } | null>(null);
+
+  useEffect(() => {
+    const readSummaryFromRaw = (raw: string | null) => {
+      if (!raw) return null;
+      try {
+        const parsed = JSON.parse(raw);
+        const last = parsed?.weeklyPlan?.[parsed.weeklyPlan.length - 1];
+        if (!parsed?.totalWeeks || !parsed?.weeklyLossTarget) return null;
+        return {
+          totalWeeks: parsed.totalWeeks,
+          weeklyLossTarget: parsed.weeklyLossTarget,
+          goalWeight: parsed.goalWeight ?? last?.targetWeight ?? 0,
+          planType: parsed.planType === "weight_loss" ? "weight_loss" : "weight_cut",
+        } as const;
+      } catch { return null; }
+    };
+    const local = readSummaryFromRaw(localStorage.getItem("wcw_cut_plan"));
+    if (local) { setCutPlanSummary(local); return; }
+    if (!userId) return;
+    let cancelled = false;
+    (async () => {
+      const dbPlan = await loadCutPlan();
+      if (cancelled || !dbPlan?.weeklyPlan) return;
+      localStorage.setItem("wcw_cut_plan", JSON.stringify(dbPlan));
+      setCutPlanSummary(readSummaryFromRaw(JSON.stringify(dbPlan)));
+    })();
+    return () => { cancelled = true; };
+  }, [userId, loadCutPlan]);
 
   const visible = sections.filter((s) => !s.fighterOnly || fighter);
   const actionSections = visible.filter((s) => !s.utility);
@@ -115,10 +157,10 @@ export default function Camp() {
               </p>
             </div>
             <div className="text-center shrink-0 bg-primary/10 rounded-xs px-3 py-2">
-              <p className="text-title font-bold tabular-nums text-primary leading-none">
+              <p className="text-title font-bold tabular-nums text-foreground leading-none">
                 {campProgress.daysLeft}
               </p>
-              <p className="text-micro uppercase tracking-wider text-primary/70 mt-0.5">
+              <p className="text-micro uppercase tracking-wider text-foreground font-bold mt-0.5">
                 days left
               </p>
             </div>
@@ -133,16 +175,45 @@ export default function Camp() {
               />
             </div>
             <div className="flex justify-between">
-              <p className="text-micro text-muted-foreground">
+              <p className="text-micro text-foreground font-bold">
                 Day {campProgress.elapsed} of {campProgress.totalDays}
               </p>
-              <p className="text-micro text-muted-foreground">
+              <p className="text-micro text-foreground font-bold">
                 Fight: {campProgress.fightLabel}
               </p>
             </div>
           </div>
         </button>
       )}
+
+      {/* ── Your plan — quick link to the canonical timeline ───────────── */}
+      {cutPlanSummary && (
+        <button
+          type="button"
+          onClick={() => {
+            triggerHaptic(ImpactStyle.Light);
+            navigate(cutPlanSummary.planType === "weight_loss" ? "/weight-plan" : "/cut-plan");
+          }}
+          className="w-full rounded-xs card-surface p-4 flex items-center gap-3.5 active:scale-[0.99] transition-all text-left"
+        >
+          <div className="h-10 w-10 rounded-xs bg-primary/15 flex items-center justify-center flex-shrink-0">
+            <TrendingDown className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-body-sm font-semibold text-foreground leading-tight">
+              View full plan
+            </p>
+            <p className="text-note text-muted-foreground leading-snug mt-0.5 truncate">
+              {cutPlanSummary.totalWeeks} weeks · {cutPlanSummary.weeklyLossTarget}
+              {cutPlanSummary.goalWeight ? ` · target ${cutPlanSummary.goalWeight}kg` : ""}
+            </p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-muted-foreground/40 flex-shrink-0" />
+        </button>
+      )}
+
+      {/* ── Training Coach (live path + hero step) ─────────────────────── */}
+      {userId && <TrainingCoachWidget />}
 
       {/* ── Action sections ────────────────────────────────────────────── */}
       <div className="space-y-2">
