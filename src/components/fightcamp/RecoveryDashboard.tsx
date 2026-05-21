@@ -350,7 +350,7 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
 
         {/* Row 1 — verdict header + animated Readiness number */}
         <div className="flex items-start gap-3 pr-9">
-          <div className={`h-12 w-12 shrink-0 rounded-2xl flex items-center justify-center ${verdictCopy.bg}`}>
+          <div className={`h-12 w-12 shrink-0 rounded-xs flex items-center justify-center ${verdictCopy.bg}`}>
             <VerdictIcon className={`h-6 w-6 ${verdictCopy.color}`} strokeWidth={2.2} />
           </div>
           <div className="flex-1 min-w-0">
@@ -480,7 +480,7 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
           aria-label="Open daily check-in"
         >
           <div className="flex items-center gap-3">
-            <div className="h-11 w-11 shrink-0 rounded-2xl bg-primary/15 ring-1 ring-primary/25 flex items-center justify-center">
+            <div className="h-11 w-11 shrink-0 rounded-xs bg-primary/15 ring-1 ring-primary/25 flex items-center justify-center">
               <Brain className="h-5 w-5 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
@@ -542,7 +542,7 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
       {/* Caloric Deficit Banner — promoted ABOVE the Trends card because
           it's a state alert, not historical data. */}
       {metrics.deficitImpactScore != null && metrics.deficitImpactScore < 60 && baseline?.avg_deficit_7d != null && (
-        <div className="card-surface rounded-2xl p-3 border border-amber-500/30 bg-amber-500/5">
+        <div className="card-surface rounded-xs p-3 border border-amber-500/30 bg-amber-500/5">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
             <div>
@@ -631,7 +631,7 @@ function TrendsCard({
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3 font-semibold">
               7-day strain trend
             </div>
-            <Suspense fallback={<div className="h-[180px] w-full animate-pulse bg-muted/20 rounded-2xl" />}>
+            <Suspense fallback={<div className="h-[180px] w-full animate-pulse bg-muted/20 rounded-xs" />}>
               <StrainChart strainHistory={metrics.strainHistory} forecast={metrics.forecast} />
             </Suspense>
           </>

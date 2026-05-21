@@ -30,7 +30,7 @@ export function TrainingWisdomSheet({ open, onOpenChange, loading, wisdom, prefe
                 <button
                   onClick={() => onGenerate(true)}
                   disabled={loading}
-                  className="flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 disabled:opacity-40 transition-colors px-2 py-1 rounded-lg hover:bg-primary/5"
+                  className="flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 disabled:opacity-40 transition-colors px-2 py-1 rounded-xs hover:bg-primary/5"
                 >
                   {loading ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -77,7 +77,7 @@ export function TrainingWisdomSheet({ open, onOpenChange, loading, wisdom, prefe
                 { icon: "💪", label: "Crafting post-training recovery meals", delay: "4s" },
                 { icon: "✨", label: "Finalizing recommendations", delay: "6s" },
               ].map((step, i) => (
-                <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all duration-500" style={{ animation: `trainingStepFadeIn 0.5s ease-out ${step.delay} both` }}>
+                <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-xs transition-all duration-500" style={{ animation: `trainingStepFadeIn 0.5s ease-out ${step.delay} both` }}>
                   <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm flex-shrink-0">{step.icon}</div>
                   <span className="text-sm text-muted-foreground">{step.label}</span>
                   <Loader2 className="h-3.5 w-3.5 text-primary/40 animate-spin ml-auto flex-shrink-0" style={{ animationDelay: step.delay }} />
@@ -128,7 +128,7 @@ export function TrainingWisdomSheet({ open, onOpenChange, loading, wisdom, prefe
               </div>
             </div>
             {wisdom.tip && (
-              <div className="rounded-2xl bg-primary/5 border border-primary/10 p-3.5">
+              <div className="rounded-xs bg-primary/5 border border-primary/10 p-3.5">
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="text-xs font-semibold text-primary">Wizard's Tip</span>
                 </div>

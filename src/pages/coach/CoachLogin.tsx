@@ -18,7 +18,7 @@ import { mapAuthError } from "@/lib/authErrors";
 import { logger } from "@/lib/logger";
 
 const inputClass =
-  "h-[50px] rounded-2xl bg-muted/40 dark:bg-white/[0.06] border-border/40 text-foreground placeholder:text-muted-foreground/50 px-4 text-[16px] focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all";
+  "h-[50px] rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/40 text-foreground placeholder:text-muted-foreground/50 px-4 text-[16px] focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all";
 
 export default function CoachLogin() {
   const [isLogin, setIsLogin] = useState(true);
@@ -196,7 +196,7 @@ export default function CoachLogin() {
               don't accidentally complete signup here. */}
           <div className="flex flex-col items-center text-center mb-8">
             <div className="relative mb-4">
-              <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-card ring-2 ring-primary/60 shadow-xl shadow-primary/20">
+              <div className="relative flex h-16 w-16 items-center justify-center rounded-xs bg-card ring-2 ring-primary/60 shadow-xl shadow-primary/20">
                 <ClipboardList className="h-7 w-7 text-primary" strokeWidth={2.25} />
               </div>
             </div>
@@ -213,18 +213,18 @@ export default function CoachLogin() {
 
           {/* Tabs */}
           {!showForgot && (
-            <div className="flex bg-muted/40 dark:bg-white/[0.06] rounded-2xl p-1 border border-border/40 mb-4">
+            <div className="flex bg-muted/40 dark:bg-white/[0.06] rounded-xs p-1 border border-border/40 mb-4">
               <button
                 type="button"
                 onClick={() => switchTab(true)}
-                className={`flex-1 h-[42px] rounded-xl text-[14px] font-medium transition-all duration-200 ${isLogin ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
+                className={`flex-1 h-[42px] rounded-xs text-[14px] font-medium transition-all duration-200 ${isLogin ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
               >
                 Sign In
               </button>
               <button
                 type="button"
                 onClick={() => switchTab(false)}
-                className={`flex-1 h-[42px] rounded-xl text-[14px] font-medium transition-all duration-200 ${!isLogin ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
+                className={`flex-1 h-[42px] rounded-xs text-[14px] font-medium transition-all duration-200 ${!isLogin ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
               >
                 Sign Up
               </button>
@@ -236,7 +236,7 @@ export default function CoachLogin() {
             {showForgot ? (
               <form onSubmit={handleForgot} className="space-y-3">
                 <Input type="email" placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} required className={inputClass} autoFocus />
-                <Button type="submit" disabled={loading} className="w-full h-[50px] rounded-2xl bg-primary text-primary-foreground font-semibold text-[16px] active:scale-[0.98] transition-transform disabled:opacity-50">
+                <Button type="submit" disabled={loading} className="w-full h-[50px] rounded-xs bg-primary text-primary-foreground font-semibold text-[16px] active:scale-[0.98] transition-transform disabled:opacity-50">
                   {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Send Reset Link"}
                 </Button>
                 <button type="button" onClick={() => setShowForgot(false)} className="w-full text-center text-sm text-muted-foreground py-2">Back to Sign In</button>
@@ -250,7 +250,7 @@ export default function CoachLogin() {
                     <Input type="password" placeholder="Confirm password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={8} className={inputClass} />
                   )}
                   {errorMsg && <p className="text-xs text-red-500 text-center">{errorMsg}</p>}
-                  <Button type="submit" disabled={loading} className="w-full h-[50px] rounded-2xl bg-primary text-primary-foreground font-semibold text-[16px] active:scale-[0.98] transition-transform disabled:opacity-50 shadow-lg shadow-primary/20">
+                  <Button type="submit" disabled={loading} className="w-full h-[50px] rounded-xs bg-primary text-primary-foreground font-semibold text-[16px] active:scale-[0.98] transition-transform disabled:opacity-50 shadow-lg shadow-primary/20">
                     {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : isLogin ? "Sign In" : "Create Account"}
                   </Button>
                 </form>
@@ -265,7 +265,7 @@ export default function CoachLogin() {
                   type="button"
                   onClick={handleApple}
                   disabled={loading}
-                  className="w-full h-[50px] rounded-2xl bg-foreground text-background font-semibold text-[16px] flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-50"
+                  className="w-full h-[50px] rounded-xs bg-foreground text-background font-semibold text-[16px] flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-50"
                 >
                   <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.52-3.23 0-1.44.62-2.2.44-3.06-.4C3.79 16.17 4.36 9.51 8.82 9.28c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.3 4.11zM12.03 9.2C11.88 7.16 13.5 5.5 15.42 5.35c.28 2.35-2.14 4.1-3.39 3.85z" />

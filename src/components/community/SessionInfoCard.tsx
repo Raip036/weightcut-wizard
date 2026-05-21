@@ -62,7 +62,7 @@ export function SessionInfoCard({
   const typeLabel = formatSessionType(post.session?.sessionType);
 
   return (
-    <section className="glass-card rounded-2xl border border-border/50 p-4">
+    <section className="glass-card rounded-xs border border-border/50 p-4">
       {/* Header row: training-type chip */}
       <div className="flex items-center gap-2 mb-3">
         <span className="h-7 rounded-full px-3 text-xs font-medium bg-foreground/[0.06] dark:bg-white/[0.08] inline-flex items-center gap-1.5">
@@ -91,7 +91,7 @@ export function SessionInfoCard({
         <button
           type="button"
           onClick={() => onProfileTap(post.author.userId)}
-          className="flex items-center gap-2 min-w-0 -ml-1.5 px-1.5 py-1 rounded-lg active:bg-muted/40 transition-colors"
+          className="flex items-center gap-2 min-w-0 -ml-1.5 px-1.5 py-1 rounded-xs active:bg-muted/40 transition-colors"
         >
           {post.author.avatarUrl ? (
             <img
@@ -162,7 +162,7 @@ function EngagementButton({ ariaLabel, count, onTap, burstKey, children }: Engag
       type="button"
       aria-label={ariaLabel}
       onClick={onTap}
-      className="relative h-11 min-w-11 px-2 flex items-center gap-1 rounded-xl active:bg-muted/40 transition-colors"
+      className="relative h-11 min-w-11 px-2 flex items-center gap-1 rounded-xs active:bg-muted/40 transition-colors"
     >
       {children}
       <span className="text-[12px] font-medium tabular-nums">{count}</span>

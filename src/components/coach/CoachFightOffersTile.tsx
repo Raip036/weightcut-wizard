@@ -48,7 +48,7 @@ export function CoachFightOffersTile({ gymId }: Props) {
 
   return (
     <>
-      <section className="card-surface rounded-2xl border border-border overflow-hidden">
+      <section className="card-surface rounded-xs border border-border overflow-hidden">
         <header className="flex items-center gap-2 px-3 pt-3 pb-2">
           <div className="h-6 w-6 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
             <Trophy className="h-3 w-3 text-primary" />

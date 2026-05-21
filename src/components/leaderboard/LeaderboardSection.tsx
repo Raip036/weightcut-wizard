@@ -21,7 +21,7 @@ const FILTER_TO_DISCIPLINE: Record<DisciplineFilter, string | undefined> = {
 };
 
 function SkeletonRow() {
-  return <div className="h-12 animate-pulse rounded-xl bg-card/40" />;
+  return <div className="h-12 animate-pulse rounded-xs bg-card/40" />;
 }
 
 export function LeaderboardSection({
@@ -56,7 +56,7 @@ export function LeaderboardSection({
   // Caller opted out
   if (data === null) {
     return (
-      <section className="glass-card rounded-2xl border border-border/50 p-4 text-sm text-muted-foreground">
+      <section className="glass-card rounded-xs border border-border/50 p-4 text-sm text-muted-foreground">
         Enable data sharing in this gym's settings to see the leaderboard.
       </section>
     );
@@ -80,7 +80,7 @@ export function LeaderboardSection({
     return (
       <section className="space-y-3">
         <DisciplineFilterTabs value={filter} onChange={setFilter} />
-        <div className="glass-card rounded-2xl border border-border/50 p-4 text-center text-sm text-muted-foreground">
+        <div className="glass-card rounded-xs border border-border/50 p-4 text-center text-sm text-muted-foreground">
           {emptyCopy}
         </div>
       </section>
@@ -116,7 +116,7 @@ function PlaceholderPodium({ viewer }: { viewer: "coach" | "athlete" }) {
         }
       : () => {};
   return (
-    <div className="glass-card rounded-2xl border border-border/50 p-4 text-center">
+    <div className="glass-card rounded-xs border border-border/50 p-4 text-center">
       <p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/80">
         This week's podium
       </p>
@@ -135,7 +135,7 @@ function PlaceholderPodium({ viewer }: { viewer: "coach" | "athlete" }) {
         <button
           type="button"
           onClick={() => navigate("/my-gym")}
-          className="mt-3 inline-flex items-center gap-1 h-10 px-4 rounded-xl bg-primary text-primary-foreground text-[13px] font-semibold active:scale-[0.98] transition-transform"
+          className="mt-3 inline-flex items-center gap-1 h-10 px-4 rounded-xs bg-primary text-primary-foreground text-[13px] font-semibold active:scale-[0.98] transition-transform"
         >
           Invite a teammate →
         </button>

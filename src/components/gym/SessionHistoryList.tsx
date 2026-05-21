@@ -33,7 +33,7 @@ export const SessionHistoryList = memo(function SessionHistoryList({ sessions, l
     return (
       <div className="space-y-3">
         {[1, 2, 3].map(i => (
-          <div key={i} className="card-surface rounded-2xl border border-border/50 p-4">
+          <div key={i} className="card-surface rounded-xs border border-border/50 p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="h-5 w-20 rounded-full shimmer-skeleton" />
               <div className="h-4 w-16 rounded shimmer-skeleton" />
@@ -51,8 +51,8 @@ export const SessionHistoryList = memo(function SessionHistoryList({ sessions, l
 
   if (sessions.length === 0) {
     return (
-      <div className="card-surface rounded-2xl border border-border/50 p-8 text-center">
-        <div className="h-12 w-12 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-3">
+      <div className="card-surface rounded-xs border border-border/50 p-8 text-center">
+        <div className="h-12 w-12 rounded-xs bg-muted/50 flex items-center justify-center mx-auto mb-3">
           <Dumbbell className="h-6 w-6 text-muted-foreground/30" />
         </div>
         <p className="text-sm font-medium text-muted-foreground">No workouts yet</p>
@@ -75,7 +75,7 @@ export const SessionHistoryList = memo(function SessionHistoryList({ sessions, l
             key={session.id}
             variants={staggerItem}
             onClick={() => onSessionTap(session)}
-            className="group relative w-full text-left card-surface rounded-2xl border border-border/50 pl-4 pr-3 py-3 active:scale-[0.98] transition-transform overflow-hidden"
+            className="group relative w-full text-left card-surface rounded-xs border border-border/50 pl-4 pr-3 py-3 active:scale-[0.98] transition-transform overflow-hidden"
           >
             {/* Apple Health-style colored edge bar */}
             <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${edge}`} />

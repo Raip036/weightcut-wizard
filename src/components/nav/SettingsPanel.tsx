@@ -43,7 +43,7 @@ function SubscriptionSection() {
     const planLabel = rawTier === "premium_lifetime" ? "Lifetime" : rawTier === "premium_annual" ? "Annual" : "Monthly";
 
     return (
-      <div className="rounded-lg bg-muted/20 overflow-hidden divide-y divide-border/20">
+      <div className="rounded-xs bg-muted/20 overflow-hidden divide-y divide-border/20">
         <div className="flex items-center justify-between px-3 py-2">
           <div className="flex items-center gap-2">
             <Crown className="h-4 w-4 text-primary shrink-0" />
@@ -62,7 +62,7 @@ function SubscriptionSection() {
   }
 
   return (
-    <div className="rounded-lg bg-muted/20 overflow-hidden divide-y divide-border/20">
+    <div className="rounded-xs bg-muted/20 overflow-hidden divide-y divide-border/20">
       <button type="button" onClick={openPaywall}
         className="w-full flex items-center justify-between px-3 py-2 active:bg-muted/40 transition-colors text-left">
         <div className="flex items-center gap-2">
@@ -115,7 +115,7 @@ function PlanLinkSection({ onClose }: { onClose: () => void }) {
   const label = planType === "weight_loss" ? "View Weight Loss Plan" : "View Cut Plan";
 
   return (
-    <div className="rounded-lg bg-muted/20 overflow-hidden divide-y divide-border/20">
+    <div className="rounded-xs bg-muted/20 overflow-hidden divide-y divide-border/20">
       <button
         type="button"
         onClick={() => {
@@ -220,7 +220,7 @@ export function SettingsPanel({
 
         <div className="px-3 space-y-2 overflow-y-auto overscroll-contain" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)" }}>
           {/* Profile */}
-          <div className="rounded-lg bg-muted/20 p-3">
+          <div className="rounded-xs bg-muted/20 p-3">
             <div className="flex items-center gap-3">
               <ProfilePictureUpload
                 size="sm"
@@ -230,7 +230,7 @@ export function SettingsPanel({
               />
               <div className="flex-1 min-w-0">
                 <Input id="name" value={editedName} onChange={(e) => setEditedName(e.target.value)} placeholder="Your name"
-                  className="h-8 text-[13px] rounded-lg border-border/30 bg-muted/20" />
+                  className="h-8 text-[13px] rounded-xs border-border/30 bg-muted/20" />
               </div>
             </div>
             {userEmail && <p className="text-[13px] text-muted-foreground mt-1.5 pl-[52px] truncate">{userEmail}</p>}
@@ -243,7 +243,7 @@ export function SettingsPanel({
           <PlanLinkSection onClose={onClose} />
 
           {/* Preferences */}
-          <div className="rounded-lg bg-muted/20 overflow-hidden divide-y divide-border/20">
+          <div className="rounded-xs bg-muted/20 overflow-hidden divide-y divide-border/20">
             <button type="button" onClick={onToggleTheme}
               className="w-full flex items-center justify-between px-3 py-2 active:bg-muted/40 transition-colors text-left">
               <div className="flex items-center gap-2">
@@ -308,7 +308,7 @@ export function SettingsPanel({
           </div>
 
           {/* Help */}
-          <div className="rounded-lg bg-muted/20 overflow-hidden divide-y divide-border/20">
+          <div className="rounded-xs bg-muted/20 overflow-hidden divide-y divide-border/20">
             <button type="button" onClick={onReplayTutorial}
               className="w-full flex items-center justify-between px-3 py-2 active:bg-muted/40 transition-colors text-left">
               <div className="flex items-center gap-2">
@@ -342,7 +342,7 @@ export function SettingsPanel({
           </div>
 
           {/* Medical + Danger zone */}
-          <div className="rounded-lg bg-muted/20 overflow-hidden divide-y divide-border/20">
+          <div className="rounded-xs bg-muted/20 overflow-hidden divide-y divide-border/20">
             <details className="group">
               <summary className="flex items-center justify-between px-3 py-2 cursor-pointer list-none active:bg-muted/40 transition-colors">
                 <div className="flex items-center gap-2">

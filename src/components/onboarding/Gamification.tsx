@@ -405,7 +405,7 @@ export function LossFrameCard({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.32, ease: "easeOut" }}
-      className="rounded-2xl border border-amber-500/25 bg-amber-500/[0.06] p-3"
+      className="rounded-xs border border-amber-500/25 bg-amber-500/[0.06] p-3"
     >
       <p className="text-[10px] uppercase tracking-wider font-semibold text-amber-400/90 mb-1">
         Reality check
@@ -584,25 +584,25 @@ export function DeclarationButton({
       onPointerUp={end}
       onPointerLeave={end}
       onPointerCancel={end}
-      className="no-tap-select relative w-full h-14 rounded-2xl bg-primary text-primary-foreground text-[15px] font-bold tracking-wide active:scale-[0.99] transition-transform overflow-hidden"
+      className="no-tap-select relative w-full h-14 rounded-xs bg-primary text-primary-foreground text-[15px] font-bold tracking-wide active:scale-[0.99] transition-transform overflow-hidden"
       style={{
         touchAction: "none",
         // `isolation: isolate` forces a fresh stacking context on this button
         // so the GPU-composited fill child below (transform + mixBlendMode)
-        // cannot escape the rounded-2xl clip on iOS WebView. Without it the
+        // cannot escape the rounded-xs clip on iOS WebView. Without it the
         // amber fill bleeds past the corners during the hold animation.
         isolation: "isolate",
       }}
     >
       {/* Fill arc — `transform: scaleX` driven by rAF so the animation
           lives on the compositor and never blocks the main thread.
-          `rounded-2xl` mirrors the parent radius as belt-and-braces: even
+          `rounded-xs` mirrors the parent radius as belt-and-braces: even
           if the parent's overflow clip glitches under iOS's GPU paint, the
           fill's own corners stay rounded so nothing visibly overflows. */}
       <div
         ref={fillRef}
         aria-hidden
-        className="absolute inset-y-0 left-0 right-0 bg-amber-300 rounded-2xl"
+        className="absolute inset-y-0 left-0 right-0 bg-amber-300 rounded-xs"
         style={{
           transform: "scaleX(0)",
           transformOrigin: "left center",
@@ -682,7 +682,7 @@ export function TaleOfTheTapeCard({
           Tale of the Tape
         </h3>
       </div>
-      <div className="rounded-2xl bg-muted/30 border border-border/40 divide-y divide-border/30">
+      <div className="rounded-xs bg-muted/30 border border-border/40 divide-y divide-border/30">
         {stats.map((s, i) => (
           <motion.div
             key={s.label}
@@ -819,7 +819,7 @@ export function WeeklyMilestonesScrubber({
   const showPlateauZone = weeks >= 5;
 
   return (
-    <div className="rounded-2xl border border-border/40 bg-card/60 px-4 py-3.5">
+    <div className="rounded-xs border border-border/40 bg-card/60 px-4 py-3.5">
       <div className="flex items-baseline justify-between mb-3">
         <p className="text-[10px] uppercase tracking-[0.15em] font-bold text-muted-foreground">
           Projected Path
@@ -987,7 +987,7 @@ export function BlurredWeekOnePreview({
       initial={{ opacity: 0, y: reduced ? 0 : 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.2, duration: 0.35 }}
-      className="relative rounded-2xl overflow-hidden border border-border/40 bg-card"
+      className="relative rounded-xs overflow-hidden border border-border/40 bg-card"
     >
       {/* The blurred "card" content — readable enough to tease, blurred
           enough that the user knows it's locked until they generate. */}
@@ -1009,19 +1009,19 @@ export function BlurredWeekOnePreview({
           </p>
         </div>
         <div className="grid grid-cols-3 gap-2 mb-2">
-          <div className="rounded-xl bg-muted/30 p-2 text-center">
+          <div className="rounded-xs bg-muted/30 p-2 text-center">
             <p className="text-[16px] font-bold tabular-nums text-foreground">
               {cal.toLocaleString()}
             </p>
             <p className="text-[9px] uppercase text-muted-foreground">cal</p>
           </div>
-          <div className="rounded-xl bg-muted/30 p-2 text-center">
+          <div className="rounded-xs bg-muted/30 p-2 text-center">
             <p className="text-[16px] font-bold tabular-nums text-foreground">
               {proteinG}g
             </p>
             <p className="text-[9px] uppercase text-muted-foreground">protein</p>
           </div>
-          <div className="rounded-xl bg-muted/30 p-2 text-center">
+          <div className="rounded-xs bg-muted/30 p-2 text-center">
             <p className="text-[16px] font-bold tabular-nums text-foreground">
               {fatG}g
             </p>

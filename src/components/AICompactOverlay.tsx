@@ -98,7 +98,7 @@ export const AICompactOverlay = memo(function AICompactOverlay({
           transition={springs.gentle}
           className="w-full"
         >
-          <div className="bg-background/95 border border-border rounded-2xl shadow-2xl p-4">
+          <div className="bg-background/95 border border-border rounded-xs shadow-2xl p-4">
             {/* Header row: icon + title + buttons */}
             <div className="flex items-center gap-3">
               {/* Animated icon */}
@@ -131,7 +131,7 @@ export const AICompactOverlay = memo(function AICompactOverlay({
                 {onMinimize && (
                   <button
                     onClick={onMinimize}
-                    className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-lg"
+                    className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-xs"
                   >
                     <ChevronDown className="w-3.5 h-3.5" />
                     <span className="hidden sm:inline">Minimize</span>
@@ -145,7 +145,7 @@ export const AICompactOverlay = memo(function AICompactOverlay({
                       exit={{ scale: 0, opacity: 0 }}
                       transition={springs.snappy}
                       onClick={onCancel}
-                      className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground bg-muted/60 hover:bg-red-500/20 hover:text-red-400 border border-border/50 rounded-2xl transition-colors touch-manipulation"
+                      className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground bg-muted/60 hover:bg-red-500/20 hover:text-red-400 border border-border/50 rounded-xs transition-colors touch-manipulation"
                     >
                       <X className="w-4 h-4" />
                       Cancel

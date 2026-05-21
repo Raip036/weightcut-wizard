@@ -166,7 +166,7 @@ export function RecoveryHelpSheet({ open, onOpenChange }: RecoveryHelpSheetProps
 
         {/* "Building" callout — directly addresses the cold-start state most
             new users will see for their first two weeks. */}
-        <section className="mt-5 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3">
+        <section className="mt-5 rounded-xs border border-amber-500/30 bg-amber-500/10 p-3">
           <p className="text-[11px] uppercase tracking-[0.12em] font-semibold text-amber-300 mb-1">
             Why does it say "Building"?
           </p>
@@ -191,7 +191,7 @@ export function RecoveryHelpSheet({ open, onOpenChange }: RecoveryHelpSheetProps
                   key={item.key}
                   type="button"
                   onClick={() => setExpandedKey(isOpen ? null : item.key)}
-                  className="w-full text-left rounded-2xl border border-border/30 overflow-hidden active:bg-muted/20 transition-colors"
+                  className="w-full text-left rounded-xs border border-border/30 overflow-hidden active:bg-muted/20 transition-colors"
                 >
                   <div className="flex items-start gap-2.5 p-3">
                     <div className={`w-7 h-7 rounded-full ${item.bg} flex items-center justify-center shrink-0 mt-0.5`}>

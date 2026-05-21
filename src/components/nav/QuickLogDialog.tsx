@@ -277,28 +277,28 @@ export function QuickLogDialog({ open, onOpenChange, onLogFood, onLogWeight, onL
           <div className="grid grid-cols-4 gap-3 px-1">
             <button
               onClick={() => { triggerHaptic(ImpactStyle.Light); onLogFood(); }}
-              className="flex flex-col items-center gap-2 py-4 rounded-2xl bg-muted/50 active:scale-95 transition-transform duration-100"
+              className="flex flex-col items-center gap-2 py-4 rounded-xs bg-muted/50 active:scale-95 transition-transform duration-100"
             >
               <Utensils className="h-[1.6rem] w-[1.6rem] text-health" />
               <span className="text-sm font-medium">Food</span>
             </button>
             <button
               onClick={() => { triggerHaptic(ImpactStyle.Light); setMode("weight"); }}
-              className="flex flex-col items-center gap-2 py-4 rounded-2xl bg-muted/50 active:scale-95 transition-transform duration-100"
+              className="flex flex-col items-center gap-2 py-4 rounded-xs bg-muted/50 active:scale-95 transition-transform duration-100"
             >
               <Weight className="h-[1.6rem] w-[1.6rem] text-hydration" />
               <span className="text-sm font-medium">Weight</span>
             </button>
             <button
               onClick={() => { triggerHaptic(ImpactStyle.Light); setMode("training"); }}
-              className="flex flex-col items-center gap-2 py-4 rounded-2xl bg-muted/50 active:scale-95 transition-transform duration-100"
+              className="flex flex-col items-center gap-2 py-4 rounded-xs bg-muted/50 active:scale-95 transition-transform duration-100"
             >
               <Activity className="h-[1.6rem] w-[1.6rem] text-energy" />
               <span className="text-sm font-medium">Training</span>
             </button>
             <button
               onClick={() => { triggerHaptic(ImpactStyle.Light); onLogGym(); }}
-              className="flex flex-col items-center gap-2 py-4 rounded-2xl bg-muted/50 active:scale-95 transition-transform duration-100"
+              className="flex flex-col items-center gap-2 py-4 rounded-xs bg-muted/50 active:scale-95 transition-transform duration-100"
             >
               <Dumbbell className="h-[1.6rem] w-[1.6rem] text-primary" />
               <span className="text-sm font-medium">Gym</span>
@@ -321,7 +321,7 @@ export function QuickLogDialog({ open, onOpenChange, onLogFood, onLogWeight, onL
                 value={quickWeight}
                 onChange={(e) => setQuickWeight(e.target.value)}
                 autoFocus
-                className="flex-1 h-12 rounded-2xl text-[16px] font-semibold tabular-nums text-center bg-muted/40 dark:bg-white/[0.06] border-border/30"
+                className="flex-1 h-12 rounded-xs text-[16px] font-semibold tabular-nums text-center bg-muted/40 dark:bg-white/[0.06] border-border/30"
               />
               <div className="flex gap-0.5 bg-muted/40 dark:bg-white/[0.06] border border-border/30 rounded-full p-0.5 h-12 items-center">
                 <button
@@ -339,7 +339,7 @@ export function QuickLogDialog({ open, onOpenChange, onLogFood, onLogWeight, onL
             <button
               type="submit"
               disabled={savingWeight || !quickWeight}
-              className="w-full h-12 rounded-2xl bg-primary text-primary-foreground text-[15px] font-semibold active:scale-[0.98] transition-transform disabled:opacity-40 flex items-center justify-center gap-2"
+              className="w-full h-12 rounded-xs bg-primary text-primary-foreground text-[15px] font-semibold active:scale-[0.98] transition-transform disabled:opacity-40 flex items-center justify-center gap-2"
             >
               {savingWeight && <Loader2 className="h-4 w-4 animate-spin" />}
               {savingWeight ? "Saving…" : "Log weight"}
@@ -371,7 +371,7 @@ export function QuickLogDialog({ open, onOpenChange, onLogFood, onLogWeight, onL
                     type="button"
                     onClick={() => { setSelectedSessionType(t); triggerHapticSelection(); }}
                     aria-pressed={active}
-                    className={`h-12 rounded-2xl text-[14px] font-semibold active:scale-[0.97] transition-all ${
+                    className={`h-12 rounded-xs text-[14px] font-semibold active:scale-[0.97] transition-all ${
                       active
                         ? "bg-primary text-primary-foreground shadow-sm"
                         : "bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-foreground/85"
@@ -397,7 +397,7 @@ export function QuickLogDialog({ open, onOpenChange, onLogFood, onLogWeight, onL
                       type="button"
                       onClick={() => { setSelectedDuration(d); triggerHapticSelection(); }}
                       aria-pressed={active}
-                      className={`flex-1 h-11 rounded-2xl text-[14px] font-semibold tabular-nums active:scale-[0.97] transition-all ${
+                      className={`flex-1 h-11 rounded-xs text-[14px] font-semibold tabular-nums active:scale-[0.97] transition-all ${
                         active
                           ? "bg-foreground text-background"
                           : "bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-foreground/80"
@@ -424,7 +424,7 @@ export function QuickLogDialog({ open, onOpenChange, onLogFood, onLogWeight, onL
                       type="button"
                       onClick={() => { setSelectedIntensityIdx(i); triggerHapticSelection(); }}
                       aria-pressed={active}
-                      className={`flex-1 h-10 rounded-xl text-[11.5px] font-semibold active:scale-[0.97] transition-all ${
+                      className={`flex-1 h-10 rounded-xs text-[11.5px] font-semibold active:scale-[0.97] transition-all ${
                         active
                           ? "bg-primary text-primary-foreground shadow-sm"
                           : "bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-muted-foreground/85"
@@ -450,7 +450,7 @@ export function QuickLogDialog({ open, onOpenChange, onLogFood, onLogWeight, onL
                   <img
                     src={trainingPhoto.previewUrl}
                     alt="Training photo"
-                    className="h-20 w-20 rounded-2xl object-cover border border-border/40"
+                    className="h-20 w-20 rounded-xs object-cover border border-border/40"
                   />
                   <button
                     type="button"
@@ -465,7 +465,7 @@ export function QuickLogDialog({ open, onOpenChange, onLogFood, onLogWeight, onL
                 <button
                   type="button"
                   onClick={handleTakeTrainingPhoto}
-                  className="h-20 w-20 rounded-2xl border border-dashed border-border/60 bg-muted/30 dark:bg-white/[0.04] flex flex-col items-center justify-center gap-1 text-muted-foreground/85 active:scale-[0.97] transition-transform"
+                  className="h-20 w-20 rounded-xs border border-dashed border-border/60 bg-muted/30 dark:bg-white/[0.04] flex flex-col items-center justify-center gap-1 text-muted-foreground/85 active:scale-[0.97] transition-transform"
                 >
                   <CameraIcon className="h-5 w-5" strokeWidth={1.9} />
                   <span className="text-[10px] font-semibold">Photo</span>
@@ -485,7 +485,7 @@ export function QuickLogDialog({ open, onOpenChange, onLogFood, onLogWeight, onL
               type="button"
               onClick={handleQuickTraining}
               disabled={savingTraining}
-              className="w-full h-12 rounded-2xl bg-primary text-primary-foreground text-[15px] font-semibold active:scale-[0.98] transition-transform disabled:opacity-40 flex items-center justify-center gap-2 mt-1"
+              className="w-full h-12 rounded-xs bg-primary text-primary-foreground text-[15px] font-semibold active:scale-[0.98] transition-transform disabled:opacity-40 flex items-center justify-center gap-2 mt-1"
             >
               {savingTraining ? (
                 <>

@@ -219,7 +219,7 @@ export function GymLogoUpload({
         ) : (
           <div
             style={{ width: size, height: size }}
-            className={`rounded-lg border-2 border-dashed border-primary/40 bg-primary/5 flex flex-col items-center justify-center text-primary active:bg-primary/10 transition-colors ${
+            className={`rounded-xs border-2 border-dashed border-primary/40 bg-primary/5 flex flex-col items-center justify-center text-primary active:bg-primary/10 transition-colors ${
               pulseHint ? "animate-pulse" : ""
             }`}
           >

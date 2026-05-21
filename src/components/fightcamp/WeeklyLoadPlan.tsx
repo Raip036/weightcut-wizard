@@ -191,7 +191,7 @@ export const WeeklyLoadPlan = memo(function WeeklyLoadPlan({ metrics }: WeeklyLo
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
-      className="card-surface rounded-2xl p-4 border border-border"
+      className="card-surface rounded-xs p-4 border border-border"
     >
       {/* Title row — plain-English status word, info button, no jargon. */}
       <div className="flex items-center justify-between mb-3 gap-2">

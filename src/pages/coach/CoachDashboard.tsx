@@ -254,7 +254,7 @@ export default function CoachDashboard() {
           return (
             <section key={gym.id} className="space-y-4">
               {/* Gym header — compact identity card */}
-              <div className="rounded-2xl border border-border/60 bg-card/60 p-3">
+              <div className="rounded-xs border border-border/60 bg-card/60 p-3">
                 <div className="flex items-center justify-between gap-3">
                   <GymLogoUpload
                     gymId={gym.id}
@@ -273,7 +273,7 @@ export default function CoachDashboard() {
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     <button
                       onClick={() => copyCode(gym.invite_code)}
-                      className="flex items-center gap-1.5 px-2.5 min-h-[36px] rounded-lg bg-muted/40 active:bg-muted/60 transition-colors"
+                      className="flex items-center gap-1.5 px-2.5 min-h-[36px] rounded-xs bg-muted/40 active:bg-muted/60 transition-colors"
                       aria-label="Copy invite code"
                     >
                       <span className="font-mono text-[12px] font-semibold tracking-widest tabular-nums">
@@ -287,7 +287,7 @@ export default function CoachDashboard() {
                     </button>
                     <button
                       onClick={() => shareInvite(gym)}
-                      className="flex items-center justify-center min-h-[36px] min-w-[36px] rounded-lg bg-muted/40 active:bg-muted/60 transition-colors text-muted-foreground"
+                      className="flex items-center justify-center min-h-[36px] min-w-[36px] rounded-xs bg-muted/40 active:bg-muted/60 transition-colors text-muted-foreground"
                       aria-label="Share invite link"
                     >
                       <Share2 className="h-3.5 w-3.5" />
@@ -416,7 +416,7 @@ function StatsGrid({
           initial={prefersReduced ? false : { opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.32, ease: "easeOut", delay: i * 0.05 }}
-          className={`relative overflow-hidden rounded-2xl border border-border/50 bg-card/70 px-3 pt-3 pb-3 shadow-lg ${t.glow}`}
+          className={`relative overflow-hidden rounded-xs border border-border/50 bg-card/70 px-3 pt-3 pb-3 shadow-lg ${t.glow}`}
         >
           {/* Status edge — Apple Health-style top color bar */}
           <span aria-hidden className={`absolute inset-x-0 top-0 h-1 ${t.edge}`} />
@@ -483,7 +483,7 @@ function AthleteRow({
   return (
     <button
       onClick={onOpen}
-      className="group relative flex w-full items-center gap-3 overflow-hidden rounded-2xl border border-border/50 bg-card/60 pl-4 pr-3 py-3 min-h-[64px] text-left active:bg-muted/30 transition-colors"
+      className="group relative flex w-full items-center gap-3 overflow-hidden rounded-xs border border-border/50 bg-card/60 pl-4 pr-3 py-3 min-h-[64px] text-left active:bg-muted/30 transition-colors"
     >
       {/* Apple Health-style status edge bar */}
       <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${SEV_EDGE[sev]}`} />
@@ -567,7 +567,7 @@ function GettingStartedHero({
       initial={prefersReduced ? false : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
-      className="relative overflow-hidden rounded-2xl border border-primary/25 bg-card/70 p-4 shadow-xl shadow-primary/10"
+      className="relative overflow-hidden rounded-xs border border-primary/25 bg-card/70 p-4 shadow-xl shadow-primary/10"
     >
       {/* Top mascot + greeting */}
       <div className="flex items-start gap-3 mb-4">
@@ -614,7 +614,7 @@ function ChecklistRow({ item }: { item: ChecklistItem }) {
   const Icon = item.icon;
   return (
     <li
-      className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${
+      className={`flex items-center gap-3 rounded-xs border px-3 py-2.5 ${
         item.done
           ? "border-emerald-500/20 bg-emerald-500/[0.04]"
           : item.kind === "primary"
@@ -656,7 +656,7 @@ function ChecklistRow({ item }: { item: ChecklistItem }) {
       {item.action && (
         <button
           onClick={item.action}
-          className={`shrink-0 h-9 w-[104px] rounded-lg text-[11px] font-semibold whitespace-nowrap leading-none flex items-center justify-center text-center active:scale-[0.96] transition-transform ${
+          className={`shrink-0 h-9 w-[104px] rounded-xs text-[11px] font-semibold whitespace-nowrap leading-none flex items-center justify-center text-center active:scale-[0.96] transition-transform ${
             item.kind === "primary"
               ? "bg-primary text-primary-foreground shadow-md shadow-primary/30"
               : "bg-muted/40 text-foreground hover:bg-muted/60"
@@ -759,7 +759,7 @@ function AthletePreviewSheet({
 
         <button
           onClick={() => onOpenChange(false)}
-          className="mt-6 w-full h-11 rounded-2xl bg-primary text-primary-foreground font-semibold text-[14px] shadow-md shadow-primary/30 active:scale-[0.98] transition-transform"
+          className="mt-6 w-full h-11 rounded-xs bg-primary text-primary-foreground font-semibold text-[14px] shadow-md shadow-primary/30 active:scale-[0.98] transition-transform"
         >
           Got it
         </button>
@@ -784,7 +784,7 @@ function SampleRow({
   spark: number[];
 }) {
   return (
-    <div className="relative flex items-center gap-3 overflow-hidden rounded-2xl border border-border/50 bg-card/60 pl-4 pr-3 py-3 min-h-[60px]">
+    <div className="relative flex items-center gap-3 overflow-hidden rounded-xs border border-border/50 bg-card/60 pl-4 pr-3 py-3 min-h-[60px]">
       <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${SEV_EDGE[sev]}`} />
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted/60 text-[12px] font-bold text-muted-foreground">
         {avatarInitial}

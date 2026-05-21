@@ -172,7 +172,7 @@ function ResultRow({
     <motion.button
       onClick={onSelect}
       whileTap={{ scale: 0.985 }}
-      className="w-full text-left rounded-2xl border border-border/40 bg-card/50 px-3 py-2.5 active:bg-muted/30 transition-colors"
+      className="w-full text-left rounded-xs border border-border/40 bg-card/50 px-3 py-2.5 active:bg-muted/30 transition-colors"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
@@ -658,7 +658,7 @@ function FoodDetailSheet({
                     const v = parseInt(e.target.value);
                     if (!isNaN(v) && v > 0) setServingGrams(v);
                   }}
-                  className="w-[72px] text-center text-[15px] h-8 font-bold tabular-nums rounded-lg border-border/40 bg-muted/20 px-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  className="w-[72px] text-center text-[15px] h-8 font-bold tabular-nums rounded-xs border-border/40 bg-muted/20 px-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
                 <span className="text-[13px] font-semibold text-muted-foreground">g</span>
               </div>
@@ -723,7 +723,7 @@ function FoodDetailSheet({
         >
           <button
             onClick={onLog}
-            className="w-full h-12 rounded-2xl bg-primary text-primary-foreground font-bold text-[15px] active:scale-[0.98] transition-transform shadow-lg shadow-primary/30 flex items-center justify-center gap-2"
+            className="w-full h-12 rounded-xs bg-primary text-primary-foreground font-bold text-[15px] active:scale-[0.98] transition-transform shadow-lg shadow-primary/30 flex items-center justify-center gap-2"
           >
             Log Food · {scaledCalories} kcal
           </button>

@@ -278,11 +278,11 @@ export function AnnouncementComposeSheet({ open, onOpenChange, gymId, gymName, a
           {/* Kind segmented control — pick what we're posting. Polls and
               images compose elsewhere; this sheet handles plain text
               announcements and structured fight offers. */}
-          <div className="flex bg-muted/40 dark:bg-white/[0.06] rounded-2xl p-1 border border-border/40">
+          <div className="flex bg-muted/40 dark:bg-white/[0.06] rounded-xs p-1 border border-border/40">
             <button
               type="button"
               onClick={() => setKind("text")}
-              className={`flex-1 h-9 rounded-xl text-[12px] font-semibold transition-all inline-flex items-center justify-center gap-1.5 ${
+              className={`flex-1 h-9 rounded-xs text-[12px] font-semibold transition-all inline-flex items-center justify-center gap-1.5 ${
                 kind === "text" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
               }`}
             >
@@ -291,7 +291,7 @@ export function AnnouncementComposeSheet({ open, onOpenChange, gymId, gymName, a
             <button
               type="button"
               onClick={() => setKind("fight_offer")}
-              className={`flex-1 h-9 rounded-xl text-[12px] font-semibold transition-all inline-flex items-center justify-center gap-1.5 ${
+              className={`flex-1 h-9 rounded-xs text-[12px] font-semibold transition-all inline-flex items-center justify-center gap-1.5 ${
                 kind === "fight_offer" ? "bg-background text-primary shadow-sm" : "text-muted-foreground"
               }`}
             >
@@ -300,18 +300,18 @@ export function AnnouncementComposeSheet({ open, onOpenChange, gymId, gymName, a
           </div>
 
           {/* Audience segmented control */}
-          <div className="flex bg-muted/40 dark:bg-white/[0.06] rounded-2xl p-1 border border-border/40">
+          <div className="flex bg-muted/40 dark:bg-white/[0.06] rounded-xs p-1 border border-border/40">
             <button
               type="button"
               onClick={() => setMode("all")}
-              className={`flex-1 h-9 rounded-xl text-[12px] font-medium transition-all ${mode === "all" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
+              className={`flex-1 h-9 rounded-xs text-[12px] font-medium transition-all ${mode === "all" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
             >
               All athletes
             </button>
             <button
               type="button"
               onClick={() => setMode("specific")}
-              className={`flex-1 h-9 rounded-xl text-[12px] font-medium transition-all ${mode === "specific" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
+              className={`flex-1 h-9 rounded-xs text-[12px] font-medium transition-all ${mode === "specific" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
             >
               Specific
             </button>
@@ -319,7 +319,7 @@ export function AnnouncementComposeSheet({ open, onOpenChange, gymId, gymName, a
 
           {/* Athlete picker — only when specific */}
           {mode === "specific" && (
-            <div className="card-surface rounded-2xl border border-border overflow-hidden">
+            <div className="card-surface rounded-xs border border-border overflow-hidden">
               {athletes.length === 0 ? (
                 <p className="text-[12px] text-muted-foreground text-center px-3 py-4">No athletes in this gym yet.</p>
               ) : (
@@ -357,7 +357,7 @@ export function AnnouncementComposeSheet({ open, onOpenChange, gymId, gymName, a
           {/* Media attach — shared by text and fight_offer kinds. Hidden file
               input fires the picker; once uploaded the preview lives in the
               same card so the coach can see what's been attached. */}
-          <div className="card-surface rounded-2xl border border-border p-3">
+          <div className="card-surface rounded-xs border border-border p-3">
             <div className="flex items-center justify-between gap-2 mb-2">
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold">
                 Attach media
@@ -379,7 +379,7 @@ export function AnnouncementComposeSheet({ open, onOpenChange, gymId, gymName, a
             </div>
 
             {mediaPreviewUrl ? (
-              <div className="relative w-full rounded-xl overflow-hidden bg-muted/30 border border-border/40">
+              <div className="relative w-full rounded-xs overflow-hidden bg-muted/30 border border-border/40">
                 {mediaKind === "video" ? (
                   <video
                     src={mediaPreviewUrl}
@@ -401,7 +401,7 @@ export function AnnouncementComposeSheet({ open, onOpenChange, gymId, gymName, a
                 type="button"
                 onClick={handleMediaPick}
                 disabled={mediaUploading}
-                className="w-full h-12 rounded-xl border border-dashed border-border/60 bg-muted/20 text-foreground/80 text-[13px] font-medium inline-flex items-center justify-center gap-2 active:bg-muted/40 transition-colors disabled:opacity-60"
+                className="w-full h-12 rounded-xs border border-dashed border-border/60 bg-muted/20 text-foreground/80 text-[13px] font-medium inline-flex items-center justify-center gap-2 active:bg-muted/40 transition-colors disabled:opacity-60"
               >
                 {mediaUploading ? (
                   <>
@@ -430,7 +430,7 @@ export function AnnouncementComposeSheet({ open, onOpenChange, gymId, gymName, a
 
           {/* Fight-offer fields */}
           {kind === "fight_offer" && (
-            <div className="card-surface rounded-2xl border border-border p-3 space-y-2.5">
+            <div className="card-surface rounded-xs border border-border p-3 space-y-2.5">
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold mb-1">
@@ -440,7 +440,7 @@ export function AnnouncementComposeSheet({ open, onOpenChange, gymId, gymName, a
                     type="date"
                     value={fightDate}
                     onChange={(e) => setFightDate(e.target.value)}
-                    className="h-10 rounded-xl bg-muted/40 dark:bg-white/[0.06] border-border/40 text-[14px]"
+                    className="h-10 rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/40 text-[14px]"
                   />
                 </div>
                 <div>
@@ -454,7 +454,7 @@ export function AnnouncementComposeSheet({ open, onOpenChange, gymId, gymName, a
                     value={weightClassKg}
                     onChange={(e) => setWeightClassKg(e.target.value)}
                     placeholder="70.0"
-                    className="h-10 rounded-xl bg-muted/40 dark:bg-white/[0.06] border-border/40 text-[14px] tabular-nums"
+                    className="h-10 rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/40 text-[14px] tabular-nums"
                   />
                 </div>
               </div>
@@ -466,7 +466,7 @@ export function AnnouncementComposeSheet({ open, onOpenChange, gymId, gymName, a
                   value={eventName}
                   onChange={(e) => setEventName(e.target.value)}
                   placeholder="Cage Warriors 162"
-                  className="h-10 rounded-xl bg-muted/40 dark:bg-white/[0.06] border-border/40 text-[14px]"
+                  className="h-10 rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/40 text-[14px]"
                 />
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -478,7 +478,7 @@ export function AnnouncementComposeSheet({ open, onOpenChange, gymId, gymName, a
                     value={opponentName}
                     onChange={(e) => setOpponentName(e.target.value)}
                     placeholder="TBA"
-                    className="h-10 rounded-xl bg-muted/40 dark:bg-white/[0.06] border-border/40 text-[14px]"
+                    className="h-10 rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/40 text-[14px]"
                   />
                 </div>
                 <div>
@@ -489,7 +489,7 @@ export function AnnouncementComposeSheet({ open, onOpenChange, gymId, gymName, a
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
                     placeholder="London, UK"
-                    className="h-10 rounded-xl bg-muted/40 dark:bg-white/[0.06] border-border/40 text-[14px]"
+                    className="h-10 rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/40 text-[14px]"
                   />
                 </div>
               </div>
@@ -501,14 +501,14 @@ export function AnnouncementComposeSheet({ open, onOpenChange, gymId, gymName, a
                   value={purseText}
                   onChange={(e) => setPurseText(e.target.value)}
                   placeholder="$1,500 / TBD"
-                  className="h-10 rounded-xl bg-muted/40 dark:bg-white/[0.06] border-border/40 text-[14px]"
+                  className="h-10 rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/40 text-[14px]"
                 />
               </div>
             </div>
           )}
 
           {/* Body */}
-          <div className="card-surface rounded-2xl border border-border p-3">
+          <div className="card-surface rounded-xs border border-border p-3">
             <textarea
               value={body}
               onChange={(e) => setBody(e.target.value.slice(0, MAX_BODY))}
@@ -535,7 +535,7 @@ export function AnnouncementComposeSheet({ open, onOpenChange, gymId, gymName, a
           type="button"
           onClick={handleSend}
           disabled={!canSend}
-          className="mt-3 w-full h-11 rounded-2xl bg-primary text-primary-foreground text-[14px] font-semibold active:scale-[0.98] transition-transform disabled:opacity-40 flex items-center justify-center gap-1.5 shrink-0"
+          className="mt-3 w-full h-11 rounded-xs bg-primary text-primary-foreground text-[14px] font-semibold active:scale-[0.98] transition-transform disabled:opacity-40 flex items-center justify-center gap-1.5 shrink-0"
         >
           {sending ? (
             <><Loader2 className="h-4 w-4 animate-spin" /> Sending…</>

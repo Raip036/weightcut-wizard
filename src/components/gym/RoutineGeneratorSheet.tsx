@@ -125,7 +125,7 @@ export function ExerciseListGrouped({ exercises }: { exercises: RoutineExercise[
   return (
     <div className="space-y-4">
       {groups.map((group, gi) => (
-        <div key={group.day} className={`rounded-2xl border border-border/30 overflow-hidden border-l-[3px] ${DAY_COLORS[gi % DAY_COLORS.length]}`}>
+        <div key={group.day} className={`rounded-xs border border-border/30 overflow-hidden border-l-[3px] ${DAY_COLORS[gi % DAY_COLORS.length]}`}>
           <div className="px-3.5 py-2.5 bg-muted/20">
             <h4 className="text-xs font-bold uppercase tracking-wide text-foreground/80">{group.day}</h4>
             <span className="text-[10px] text-muted-foreground">{group.exercises.length} exercises</span>
@@ -144,7 +144,7 @@ export function ExerciseListGrouped({ exercises }: { exercises: RoutineExercise[
 function ExerciseRow({ ex, index }: { ex: RoutineExercise; index: number }) {
   return (
     <div className="flex items-center gap-3 px-3.5 py-2.5">
-      <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 text-[11px] font-bold text-primary/70">
+      <div className="h-7 w-7 rounded-xs bg-primary/10 flex items-center justify-center shrink-0 text-[11px] font-bold text-primary/70">
         {index + 1}
       </div>
       <div className="flex-1 min-w-0">
@@ -354,13 +354,13 @@ export function RoutineGeneratorSheet({ open, onOpenChange, onGenerate, onSave, 
                       <button
                         key={g.value}
                         onClick={() => toggleGoal(g.value)}
-                        className={`card-surface rounded-2xl border p-4 text-center transition-all active:scale-[0.97] ${
+                        className={`card-surface rounded-xs border p-4 text-center transition-all active:scale-[0.97] ${
                           selected
                             ? "border-primary/50 ring-1 ring-primary/30 bg-primary/5"
                             : "border-border/50 hover:border-border"
                         }`}
                       >
-                        <div className={`h-10 w-10 rounded-2xl flex items-center justify-center mb-3 mx-auto ${
+                        <div className={`h-10 w-10 rounded-xs flex items-center justify-center mb-3 mx-auto ${
                           selected ? "bg-primary/20" : "bg-muted/40"
                         }`}>
                           <Icon className={`h-5 w-5 ${selected ? "text-primary" : "text-muted-foreground"}`} />
@@ -371,7 +371,7 @@ export function RoutineGeneratorSheet({ open, onOpenChange, onGenerate, onSave, 
                     );
                   })}
                 </div>
-                <Button onClick={goNext} disabled={selectedGoals.length === 0} className="w-full h-12 rounded-2xl text-[15px] font-semibold">
+                <Button onClick={goNext} disabled={selectedGoals.length === 0} className="w-full h-12 rounded-xs text-[15px] font-semibold">
                   Continue <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
               </motion.div>
@@ -389,7 +389,7 @@ export function RoutineGeneratorSheet({ open, onOpenChange, onGenerate, onSave, 
                         <button
                           key={s.value}
                           onClick={() => setSport(s.value)}
-                          className={`px-5 py-3 rounded-2xl text-sm font-semibold transition-all active:scale-[0.97] ${
+                          className={`px-5 py-3 rounded-xs text-sm font-semibold transition-all active:scale-[0.97] ${
                             selected
                               ? "bg-primary text-primary-foreground shadow-sm"
                               : "card-surface border border-border/50 text-muted-foreground hover:text-foreground"
@@ -423,7 +423,7 @@ export function RoutineGeneratorSheet({ open, onOpenChange, onGenerate, onSave, 
                   </p>
                 </div>
 
-                <Button onClick={goNext} disabled={!sport} className="w-full h-12 rounded-2xl text-[15px] font-semibold">
+                <Button onClick={goNext} disabled={!sport} className="w-full h-12 rounded-xs text-[15px] font-semibold">
                   Continue <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
               </motion.div>
@@ -443,7 +443,7 @@ export function RoutineGeneratorSheet({ open, onOpenChange, onGenerate, onSave, 
                         <button
                           key={s.value}
                           onClick={() => setPreferredSplit(s.value)}
-                          className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-left transition-all active:scale-[0.98] ${
+                          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xs text-left transition-all active:scale-[0.98] ${
                             selected
                               ? "bg-primary/10 border border-primary/30"
                               : "card-surface border border-border/30 hover:border-border/50"
@@ -502,7 +502,7 @@ export function RoutineGeneratorSheet({ open, onOpenChange, onGenerate, onSave, 
                   </div>
                 </div>
 
-                <Button onClick={goNext} className="w-full h-12 rounded-2xl text-[15px] font-semibold">
+                <Button onClick={goNext} className="w-full h-12 rounded-xs text-[15px] font-semibold">
                   Continue <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
               </motion.div>
@@ -511,7 +511,7 @@ export function RoutineGeneratorSheet({ open, onOpenChange, onGenerate, onSave, 
             {/* STEP 4: GENERATE (summary + button) */}
             {step === "generate" && (
               <motion.div key="generate" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }} className="flex flex-col items-center justify-center py-4">
-                <div className="card-surface rounded-2xl border border-border/50 p-5 w-full mb-8">
+                <div className="card-surface rounded-xs border border-border/50 p-5 w-full mb-8">
                   <h4 className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-widest mb-3">Summary</h4>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
@@ -555,7 +555,7 @@ export function RoutineGeneratorSheet({ open, onOpenChange, onGenerate, onSave, 
                   <Button
                     onClick={handleGenerate}
                     disabled={generating}
-                    className="w-full h-14 rounded-2xl text-[15px] font-semibold"
+                    className="w-full h-14 rounded-xs text-[15px] font-semibold"
                     size="lg"
                   >
                     Generate Routine
@@ -571,7 +571,7 @@ export function RoutineGeneratorSheet({ open, onOpenChange, onGenerate, onSave, 
                   placeholder="Routine name..."
                   value={routineName}
                   onChange={(e) => setRoutineName(e.target.value)}
-                  className="h-12 text-base font-semibold bg-muted/30 border-border/30 rounded-2xl focus-visible:ring-2 focus-visible:ring-primary/30"
+                  className="h-12 text-base font-semibold bg-muted/30 border-border/30 rounded-xs focus-visible:ring-2 focus-visible:ring-primary/30"
                 />
 
                 {/* AI Recommendations */}
@@ -595,7 +595,7 @@ export function RoutineGeneratorSheet({ open, onOpenChange, onGenerate, onSave, 
                 <ExerciseListGrouped exercises={generatedExercises} />
 
                 {routineNotes && (
-                  <div className="card-surface rounded-2xl border border-border/30 p-3">
+                  <div className="card-surface rounded-xs border border-border/30 p-3">
                     <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wide mb-1">Coach Notes</p>
                     <p className="text-xs text-muted-foreground leading-relaxed">{routineNotes}</p>
                   </div>
@@ -611,7 +611,7 @@ export function RoutineGeneratorSheet({ open, onOpenChange, onGenerate, onSave, 
                   <Button
                     onClick={handleSave}
                     disabled={saving || !routineName.trim() || generatedExercises.length === 0}
-                    className="w-full h-12 rounded-2xl text-[15px] font-semibold"
+                    className="w-full h-12 rounded-xs text-[15px] font-semibold"
                   >
                     {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                     Save to Library

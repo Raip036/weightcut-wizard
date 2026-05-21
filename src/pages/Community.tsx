@@ -395,13 +395,13 @@ function EmptyActionChip({
     <button
       type="button"
       onClick={onClick}
-      className={`w-full min-h-[60px] flex items-center gap-3 px-4 py-3 rounded-2xl text-left active:scale-[0.98] transition-all ${
+      className={`w-full min-h-[60px] flex items-center gap-3 px-4 py-3 rounded-xs text-left active:scale-[0.98] transition-all ${
         primary
           ? "bg-primary text-primary-foreground"
           : "bg-card/60 border border-border/40 active:bg-muted/40"
       }`}
     >
-      <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${
+      <div className={`h-9 w-9 rounded-xs flex items-center justify-center shrink-0 ${
         primary ? "bg-white/15 text-primary-foreground" : "bg-primary/15 text-primary"
       }`}>
         {icon}

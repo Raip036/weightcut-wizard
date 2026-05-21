@@ -179,9 +179,9 @@ export default function FightCampDetail() {
     return (
       <div className="space-y-3 px-5 py-3 sm:p-5 md:p-6 max-w-2xl mx-auto">
         <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-40 w-full rounded-2xl" />
-        <Skeleton className="h-64 w-full rounded-2xl" />
-        <Skeleton className="h-48 w-full rounded-2xl" />
+        <Skeleton className="h-40 w-full rounded-xs" />
+        <Skeleton className="h-64 w-full rounded-xs" />
+        <Skeleton className="h-48 w-full rounded-xs" />
       </div>
     );
   }
@@ -189,7 +189,7 @@ export default function FightCampDetail() {
   if (!camp) {
     return (
       <div className="animate-page-in space-y-3 px-5 py-3 sm:p-5 md:p-6 max-w-2xl mx-auto">
-        <div className="card-surface rounded-2xl p-6 text-center space-y-3">
+        <div className="card-surface rounded-xs p-6 text-center space-y-3">
           <div className="h-12 w-12 bg-muted rounded-full flex items-center justify-center mx-auto">
             <Trophy className="w-5 h-5 text-muted-foreground" />
           </div>
@@ -202,7 +202,7 @@ export default function FightCampDetail() {
           <Button
             onClick={() => navigate("/fight-camps")}
             variant="outline"
-            className="rounded-2xl mt-2"
+            className="rounded-xs mt-2"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to camps
@@ -264,14 +264,14 @@ export default function FightCampDetail() {
               <img
                 src={camp.profile_pic_url}
                 alt={camp.name}
-                className="w-20 h-20 rounded-2xl object-cover border border-border/40"
+                className="w-20 h-20 rounded-xs object-cover border border-border/40"
               />
             ) : (
-              <div className="w-20 h-20 rounded-2xl bg-muted/40 border border-border/40 flex items-center justify-center">
+              <div className="w-20 h-20 rounded-xs bg-muted/40 border border-border/40 flex items-center justify-center">
                 <Trophy className="w-7 h-7 text-muted-foreground/50" />
               </div>
             )}
-            <div className="absolute inset-0 bg-black/40 rounded-2xl opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/40 rounded-xs opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity flex items-center justify-center">
               <Camera className="w-5 h-5 text-white" />
             </div>
             <input type="file" accept="image/*" onChange={handleImageUpload} disabled={uploading} className="hidden" />
@@ -417,7 +417,7 @@ function SettingsGroup({ title, children }: { title: string; children: React.Rea
       <h2 className="px-4 mb-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground/80">
         {title}
       </h2>
-      <div className="rounded-2xl bg-card/60 backdrop-blur-sm border border-border/40 overflow-hidden divide-y divide-border/30">
+      <div className="rounded-xs bg-card/60 backdrop-blur-sm border border-border/40 overflow-hidden divide-y divide-border/30">
         {children}
       </div>
     </section>
@@ -524,7 +524,7 @@ function EditFieldSheet({
                   key={o.value}
                   type="button"
                   onClick={() => { triggerHapticSelection(); onCommit({ weigh_in_timing: o.value }); onClose(); }}
-                  className={`min-h-[48px] px-4 rounded-xl text-[15px] font-medium transition-all active:scale-[0.98] ${
+                  className={`min-h-[48px] px-4 rounded-xs text-[15px] font-medium transition-all active:scale-[0.98] ${
                     active
                       ? "bg-primary text-primary-foreground shadow-sm"
                       : "bg-muted/30 text-foreground border border-border/40"
@@ -551,12 +551,12 @@ function EditFieldSheet({
                   : "How did rehydration go? What worked well? What would you change?"
               }
               rows={6}
-              className="rounded-xl bg-muted/30 border-border/40 text-[15px] resize-none focus:border-primary/40 focus:ring-2 focus:ring-primary/20"
+              className="rounded-xs bg-muted/30 border-border/40 text-[15px] resize-none focus:border-primary/40 focus:ring-2 focus:ring-primary/20"
             />
             <button
               type="button"
               onClick={commitText}
-              className="w-full h-12 rounded-xl bg-primary text-primary-foreground text-[15px] font-semibold active:scale-[0.98] transition-transform"
+              className="w-full h-12 rounded-xs bg-primary text-primary-foreground text-[15px] font-semibold active:scale-[0.98] transition-transform"
             >
               Save
             </button>
@@ -630,7 +630,7 @@ function NumericEditor({
       <button
         type="button"
         onClick={onCommit}
-        className="w-full h-12 rounded-xl bg-primary text-primary-foreground text-[15px] font-semibold active:scale-[0.98] transition-transform"
+        className="w-full h-12 rounded-xs bg-primary text-primary-foreground text-[15px] font-semibold active:scale-[0.98] transition-transform"
       >
         Save
       </button>
@@ -676,7 +676,7 @@ function BreakdownEditor({
         <button
           type="button"
           onClick={onClose}
-          className="w-full h-12 rounded-xl bg-muted/40 text-foreground text-[15px] font-semibold"
+          className="w-full h-12 rounded-xs bg-muted/40 text-foreground text-[15px] font-semibold"
         >
           Got it
         </button>
@@ -721,7 +721,7 @@ function BreakdownEditor({
 
       {/* Big split readout */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-2xl bg-blue-500/10 border border-blue-500/20 p-3 text-center">
+        <div className="rounded-xs bg-blue-500/10 border border-blue-500/20 p-3 text-center">
           <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-blue-400/90">
             <Droplet className="h-3 w-3" /> Dehydration
           </p>
@@ -731,7 +731,7 @@ function BreakdownEditor({
           </p>
           <p className="text-[11px] text-muted-foreground tabular-nums">{pct}%</p>
         </div>
-        <div className="rounded-2xl bg-primary/10 border border-primary/20 p-3 text-center">
+        <div className="rounded-xs bg-primary/10 border border-primary/20 p-3 text-center">
           <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-primary/90">
             <Wheat className="h-3 w-3" /> Carbs
           </p>
@@ -746,7 +746,7 @@ function BreakdownEditor({
       <button
         type="button"
         onClick={commit}
-        className="w-full h-12 rounded-xl bg-primary text-primary-foreground text-[15px] font-semibold active:scale-[0.98] transition-transform"
+        className="w-full h-12 rounded-xs bg-primary text-primary-foreground text-[15px] font-semibold active:scale-[0.98] transition-transform"
       >
         Save split
       </button>

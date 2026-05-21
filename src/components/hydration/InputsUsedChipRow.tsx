@@ -25,7 +25,7 @@ export function InputsUsedChipRow({
   ].filter(Boolean) as string[];
 
   return (
-    <div className="rounded-2xl border border-border bg-muted/30 px-3 py-2 flex items-center gap-2 flex-wrap">
+    <div className="rounded-xs border border-border bg-muted/30 px-3 py-2 flex items-center gap-2 flex-wrap">
       <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold mr-1">
         Inputs used
       </span>

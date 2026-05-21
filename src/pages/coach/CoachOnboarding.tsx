@@ -33,7 +33,7 @@ import { WizardCharacter } from "@/tutorial/WizardCharacter";
 import type { WizardPose } from "@/tutorial/types";
 
 const inputClass =
-  "h-[50px] rounded-2xl bg-muted/40 dark:bg-white/[0.06] border-border/40 px-4 text-[16px]";
+  "h-[50px] rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/40 px-4 text-[16px]";
 
 const DISCIPLINES = [
   "MMA",
@@ -336,7 +336,7 @@ export default function CoachOnboarding() {
                   <button
                     type="submit"
                     disabled={creating || !gymName.trim()}
-                    className="mt-4 w-full h-[52px] rounded-2xl text-[16px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40 flex items-center justify-center gap-2 shadow-lg shadow-primary/30"
+                    className="mt-4 w-full h-[52px] rounded-xs text-[16px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40 flex items-center justify-center gap-2 shadow-lg shadow-primary/30"
                   >
                     {creating ? (
                       <>
@@ -375,7 +375,7 @@ export default function CoachOnboarding() {
                 >
                   {/* Logo */}
                   <div
-                    className="rounded-2xl border border-border bg-card/60 p-4"
+                    className="rounded-xs border border-border bg-card/60 p-4"
                     onFocus={() => setFocusKey("logo")}
                     onClick={() => setFocusKey("logo")}
                   >
@@ -416,7 +416,7 @@ export default function CoachOnboarding() {
                               scale: active ? 1.04 : 1,
                             }}
                             transition={{ type: "spring", stiffness: 380, damping: 22 }}
-                            className={`min-h-[40px] px-3.5 rounded-2xl border text-[13px] font-medium active:scale-[0.97] flex items-center gap-1.5 ${
+                            className={`min-h-[40px] px-3.5 rounded-xs border text-[13px] font-medium active:scale-[0.97] flex items-center gap-1.5 ${
                               active
                                 ? "bg-primary text-primary-foreground border-primary shadow-sm shadow-primary/30"
                                 : "bg-muted/30 text-foreground border-border/40"
@@ -457,7 +457,7 @@ export default function CoachOnboarding() {
                       placeholder="One line on what makes your gym yours."
                       rows={3}
                       maxLength={200}
-                      className="w-full resize-none rounded-2xl bg-muted/40 dark:bg-white/[0.06] border border-border/40 p-3 text-[15px] focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      className="w-full resize-none rounded-xs bg-muted/40 dark:bg-white/[0.06] border border-border/40 p-3 text-[15px] focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
                   </div>
 
@@ -466,7 +466,7 @@ export default function CoachOnboarding() {
                       type="button"
                       onClick={handleFinish}
                       disabled={finishing}
-                      className="w-full h-[52px] rounded-2xl text-[16px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40 flex items-center justify-center gap-2 shadow-lg shadow-primary/30"
+                      className="w-full h-[52px] rounded-xs text-[16px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40 flex items-center justify-center gap-2 shadow-lg shadow-primary/30"
                     >
                       {finishing ? (
                         <>
@@ -534,7 +534,7 @@ function WizardCompanion({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.22, ease: "easeOut" }}
-            className="relative rounded-2xl border border-primary/20 bg-card/80 px-3.5 py-2.5 shadow-lg shadow-primary/10 backdrop-blur-sm"
+            className="relative rounded-xs border border-primary/20 bg-card/80 px-3.5 py-2.5 shadow-lg shadow-primary/10 backdrop-blur-sm"
           >
             {/* Tail pointing left at wizard */}
             <span
@@ -579,7 +579,7 @@ function GymPreviewCard({
     <motion.div
       layout
       transition={{ type: "spring", stiffness: 260, damping: 28 }}
-      className={`mt-4 rounded-2xl border bg-card/60 p-3 transition-colors ${
+      className={`mt-4 rounded-xs border bg-card/60 p-3 transition-colors ${
         filled ? "border-primary/30" : "border-border/40"
       }`}
     >
@@ -588,7 +588,7 @@ function GymPreviewCard({
       </p>
       <div className="flex items-center gap-3">
         {/* Logo / placeholder */}
-        <div className="relative h-14 w-14 shrink-0 rounded-2xl bg-muted/40 ring-1 ring-primary/15 flex items-center justify-center overflow-hidden">
+        <div className="relative h-14 w-14 shrink-0 rounded-xs bg-muted/40 ring-1 ring-primary/15 flex items-center justify-center overflow-hidden">
           {logoUrl ? (
             <img src={logoUrl} alt="Gym logo" className="h-full w-full object-cover" />
           ) : (

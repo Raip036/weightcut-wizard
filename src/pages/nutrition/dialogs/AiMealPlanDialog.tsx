@@ -50,7 +50,7 @@ export function AiMealPlanDialog({
             value={aiPrompt}
             onChange={(e) => setAiPrompt(e.target.value)}
             rows={2}
-            className="resize-none text-[13px] rounded-lg border-border/30 bg-muted/20"
+            className="resize-none text-[13px] rounded-xs border-border/30 bg-muted/20"
           />
           <button
             onClick={onGenerate}

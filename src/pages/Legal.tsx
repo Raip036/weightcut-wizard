@@ -26,10 +26,10 @@ export default function Legal() {
 
         {/* Tab switcher */}
         <div className="max-w-2xl mx-auto px-4 pb-3">
-          <div className="flex gap-1 p-1 rounded-2xl bg-muted/50">
+          <div className="flex gap-1 p-1 rounded-xs bg-muted/50">
             <button
               onClick={() => setTab("privacy")}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg transition-all ${
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-xs transition-all ${
                 tab === "privacy" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
               }`}
             >
@@ -38,7 +38,7 @@ export default function Legal() {
             </button>
             <button
               onClick={() => setTab("terms")}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg transition-all ${
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-xs transition-all ${
                 tab === "terms" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
               }`}
             >

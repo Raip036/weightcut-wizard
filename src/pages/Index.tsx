@@ -225,7 +225,7 @@ const Index = () => {
             // cutscene and goes straight to /auth below.
             onClick={() => navigateWithTransition("/welcome")}
             disabled={exiting}
-            className="no-tap-select w-full h-[54px] rounded-2xl bg-primary text-primary-foreground font-bold text-[16px] flex items-center justify-center gap-2 active:scale-[0.97] transition-transform disabled:opacity-70 shadow-lg shadow-primary/20"
+            className="no-tap-select w-full h-[54px] rounded-xs bg-primary text-primary-foreground font-bold text-[16px] flex items-center justify-center gap-2 active:scale-[0.97] transition-transform disabled:opacity-70 shadow-lg shadow-primary/20"
           >
             Get Started
             <ChevronRight className="h-4 w-4" />
@@ -233,7 +233,7 @@ const Index = () => {
           <button
             onClick={() => navigateWithTransition("/auth")}
             disabled={exiting}
-            className="no-tap-select w-full h-[46px] rounded-2xl border border-border/70 text-foreground font-semibold text-[14px] flex items-center justify-center active:scale-[0.98] transition-transform hover:bg-muted/30 disabled:opacity-70"
+            className="no-tap-select w-full h-[46px] rounded-xs border border-border/70 text-foreground font-semibold text-[14px] flex items-center justify-center active:scale-[0.98] transition-transform hover:bg-muted/30 disabled:opacity-70"
           >
             I already have an account
           </button>

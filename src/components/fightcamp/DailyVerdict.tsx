@@ -103,7 +103,7 @@ export const DailyVerdictCard = memo(function DailyVerdictCard({ metrics, checke
       className={`card-surface rounded-3xl p-4 border border-border ring-1 ${copy.ring}`}
     >
       <div className="flex items-center gap-3">
-        <div className={`h-12 w-12 rounded-2xl flex items-center justify-center ${copy.bg}`}>
+        <div className={`h-12 w-12 rounded-xs flex items-center justify-center ${copy.bg}`}>
           <Icon className={`h-6 w-6 ${copy.color}`} strokeWidth={2.2} />
         </div>
         <div className="flex-1 min-w-0">
@@ -169,7 +169,7 @@ export const BaselineConfidencePill = memo(function BaselineConfidencePill({
   }
 
   return (
-    <div className={`inline-flex flex-col items-start gap-0.5 w-full rounded-2xl border px-3 py-2 ${tone}`}>
+    <div className={`inline-flex flex-col items-start gap-0.5 w-full rounded-xs border px-3 py-2 ${tone}`}>
       <div className="flex items-center gap-1.5">
         <Sparkles className="h-3.5 w-3.5" />
         <span className="text-[12px] font-semibold tracking-tight">{label}</span>

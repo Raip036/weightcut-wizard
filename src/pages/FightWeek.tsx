@@ -448,16 +448,16 @@ export default function FightWeek() {
           <Skeleton className="h-7 w-36" />
           <Skeleton className="h-3.5 w-28" />
         </div>
-        <div className="card-surface rounded-2xl p-3 border border-border space-y-3">
+        <div className="card-surface rounded-xs p-3 border border-border space-y-3">
           <div className="grid grid-cols-2 gap-2">
-            <Skeleton className="h-9 w-full rounded-2xl" />
-            <Skeleton className="h-9 w-full rounded-2xl" />
-            <Skeleton className="h-9 w-full rounded-2xl" />
-            <Skeleton className="h-9 w-full rounded-2xl" />
+            <Skeleton className="h-9 w-full rounded-xs" />
+            <Skeleton className="h-9 w-full rounded-xs" />
+            <Skeleton className="h-9 w-full rounded-xs" />
+            <Skeleton className="h-9 w-full rounded-xs" />
           </div>
         </div>
-        <Skeleton className="h-48 rounded-2xl" />
-        <Skeleton className="h-56 rounded-2xl" />
+        <Skeleton className="h-48 rounded-xs" />
+        <Skeleton className="h-56 rounded-xs" />
       </div>
     );
   }
@@ -614,7 +614,7 @@ export default function FightWeek() {
             <Button
               onClick={generateProtocol}
               disabled={isGenerating || !normalDailyCarbs}
-              className={`relative w-full h-13 min-h-[52px] rounded-2xl text-[15px] font-bold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40 shadow-lg shadow-primary/30 ${lastError && !isGenerating ? "ring-2 ring-red-500/40" : ""}`}
+              className={`relative w-full h-13 min-h-[52px] rounded-xs text-[15px] font-bold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40 shadow-lg shadow-primary/30 ${lastError && !isGenerating ? "ring-2 ring-red-500/40" : ""}`}
             >
               {isGenerating ? (
                 <CastingMessage />
@@ -674,13 +674,13 @@ export default function FightWeek() {
                 ))}
               </div>
               <div className="space-y-2">
-                <div className="flex items-start gap-2 rounded-xl bg-amber-500/10 ring-1 ring-amber-500/20 px-3 py-2">
+                <div className="flex items-start gap-2 rounded-xs bg-amber-500/10 ring-1 ring-amber-500/20 px-3 py-2">
                   <AlertTriangle className="h-3.5 w-3.5 text-amber-400 mt-0.5 flex-shrink-0" strokeWidth={2.4} />
                   <p className="text-[11px] text-foreground/80 leading-snug">
                     Cuts over 8% of bodyweight in &lt;7 days carry serious health risk. The plan flags this and suggests safer pacing.
                   </p>
                 </div>
-                <div className="flex items-start gap-2 rounded-xl bg-muted/30 ring-1 ring-border/30 px-3 py-2">
+                <div className="flex items-start gap-2 rounded-xs bg-muted/30 ring-1 ring-border/30 px-3 py-2">
                   <Info className="h-3.5 w-3.5 text-muted-foreground/80 mt-0.5 flex-shrink-0" strokeWidth={2.2} />
                   <p className="text-[11px] text-muted-foreground leading-snug">
                     Science-backed but not perfectly accurate. For a high-stakes cut, working with a sports nutritionist is still the gold standard.
@@ -689,7 +689,7 @@ export default function FightWeek() {
               </div>
               <button
                 onClick={() => setHowItWorksOpen(false)}
-                className="w-full h-11 rounded-2xl bg-primary text-primary-foreground font-semibold text-[14px] active:scale-[0.98] transition-transform shadow-md shadow-primary/30"
+                className="w-full h-11 rounded-xs bg-primary text-primary-foreground font-semibold text-[14px] active:scale-[0.98] transition-transform shadow-md shadow-primary/30"
               >
                 Got it
               </button>
@@ -705,23 +705,23 @@ export default function FightWeek() {
           <>
             {/* Summary narrative — falls back to a muted banner when AI text is empty */}
             {summaryIsFallback ? (
-              <div className="rounded-2xl border border-border/40 bg-muted/30 p-3 flex items-start gap-2">
+              <div className="rounded-xs border border-border/40 bg-muted/30 p-3 flex items-start gap-2">
                 <Info className="h-3.5 w-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
                 <p className="text-[12px] text-muted-foreground leading-relaxed">AI commentary unavailable — showing computed plan.</p>
               </div>
             ) : (
-              <div className="card-surface rounded-2xl border border-border/50 p-4">
+              <div className="card-surface rounded-xs border border-border/50 p-4">
                 <p className="text-sm text-foreground/90 leading-relaxed">{sanitizeAIText(summaryRaw)}</p>
               </div>
             )}
 
             {/* Summary tiles */}
             <div className="grid grid-cols-3 gap-2">
-              <div className="card-surface rounded-2xl p-2.5 border border-border text-center">
+              <div className="card-surface rounded-xs p-2.5 border border-border text-center">
                 <span className="text-lg font-bold block">{aiPlan.breakdown.totalToCut.toFixed(1)}</span>
                 <span className="text-[9px] text-muted-foreground uppercase">kg to cut</span>
               </div>
-              <div className="card-surface rounded-2xl p-2.5 border border-border text-center">
+              <div className="card-surface rounded-xs p-2.5 border border-border text-center">
                 <span className={`text-lg font-bold block ${
                   aiPlan.breakdown.percentBW <= 5 ? "text-green-400" :
                   aiPlan.breakdown.percentBW <= 8 ? "text-yellow-400" : "text-red-400"
@@ -730,7 +730,7 @@ export default function FightWeek() {
                 </span>
                 <span className="text-[9px] text-muted-foreground uppercase">% bodyweight</span>
               </div>
-              <div className="card-surface rounded-2xl p-2.5 border border-border text-center">
+              <div className="card-surface rounded-xs p-2.5 border border-border text-center">
                 <span className="text-lg font-bold block">{daysUntilWeighIn}</span>
                 <span className="text-[9px] text-muted-foreground uppercase">days</span>
               </div>
@@ -738,7 +738,7 @@ export default function FightWeek() {
 
             {/* Safety warning */}
             {aiPlan.safetyWarning && (
-              <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-3 flex items-start gap-2">
+              <div className="bg-red-500/10 border border-red-500/20 rounded-xs p-3 flex items-start gap-2">
                 <AlertTriangle className="h-4 w-4 text-red-400 mt-0.5 flex-shrink-0" />
                 <p className="text-sm text-red-300 leading-relaxed">{sanitizeAIText(aiPlan.safetyWarning)}</p>
               </div>
@@ -756,7 +756,7 @@ export default function FightWeek() {
 
             {/* Sanity warning surfaced gently near the breakdown it relates to. */}
             {sanityWarning && (
-              <div className="rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-3 flex items-start gap-2" role="alert">
+              <div className="rounded-xs border border-yellow-500/30 bg-yellow-500/10 p-3 flex items-start gap-2" role="alert">
                 <AlertTriangle className="h-4 w-4 text-yellow-400 mt-0.5 flex-shrink-0" />
                 <p className="text-xs text-yellow-200 leading-relaxed">{sanityWarning}</p>
               </div>
@@ -790,7 +790,7 @@ export default function FightWeek() {
             <PostWeighInCard data={aiPlan.postWeighIn} />
 
             {aiPlan.medicalRedFlags?.length > 0 && (
-              <div className="card-surface rounded-2xl border border-red-500/20 p-4 space-y-2">
+              <div className="card-surface rounded-xs border border-red-500/20 p-4 space-y-2">
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
                   <h3 className="text-xs font-bold text-red-300 uppercase tracking-wider">Stop if you see any of these</h3>
@@ -869,7 +869,7 @@ function StepperPill({
   const clamp = (n: number) => Math.min(max, Math.max(min, n));
   const fmt = (n: number) => (decimals === 0 ? String(Math.round(n)) : n.toFixed(decimals));
   return (
-    <div className="flex items-center gap-3 rounded-2xl bg-muted/30 dark:bg-white/[0.04] border border-border/30 px-3 py-2">
+    <div className="flex items-center gap-3 rounded-xs bg-muted/30 dark:bg-white/[0.04] border border-border/30 px-3 py-2">
       <div className="min-w-0 flex-1">
         <p className="text-[11px] font-semibold text-foreground/80 leading-tight">{label}</p>
         {hint && <p className="text-[10px] text-muted-foreground/70 leading-tight mt-0.5 truncate">{hint}</p>}
@@ -897,7 +897,7 @@ function StepperPill({
               if (!isNaN(n)) onChange(clamp(n));
               else if (e.target.value === "") onChange(0);
             }}
-            className="w-full bg-transparent text-center text-[15px] font-bold tabular-nums text-foreground outline-none focus:ring-2 focus:ring-primary/40 rounded-lg px-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            className="w-full bg-transparent text-center text-[15px] font-bold tabular-nums text-foreground outline-none focus:ring-2 focus:ring-primary/40 rounded-xs px-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
           <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
             {unit}

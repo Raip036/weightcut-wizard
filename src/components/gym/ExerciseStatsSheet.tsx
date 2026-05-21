@@ -118,7 +118,7 @@ export function ExerciseStatsSheet({ exercise, pr, open, onOpenChange }: Exercis
                 </motion.div>
 
                 {/* Strength Progression Chart */}
-                <motion.div variants={staggerItem} className="rounded-2xl card-surface border border-border/50 p-3">
+                <motion.div variants={staggerItem} className="rounded-xs card-surface border border-border/50 p-3">
                   <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/70 mb-2 px-1">
                     Trend over time
                   </p>
@@ -127,19 +127,19 @@ export function ExerciseStatsSheet({ exercise, pr, open, onOpenChange }: Exercis
 
                 {/* Mini stat tiles */}
                 <motion.div variants={staggerItem} className="grid grid-cols-3 gap-2">
-                  <div className="rounded-2xl card-surface border border-border/50 px-2 py-3 text-center">
+                  <div className="rounded-xs card-surface border border-border/50 px-2 py-3 text-center">
                     <p className="display-number text-[18px] font-black tabular-nums leading-none text-foreground">
                       {maxReps}
                     </p>
                     <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">max reps</p>
                   </div>
-                  <div className="rounded-2xl card-surface border border-border/50 px-2 py-3 text-center">
+                  <div className="rounded-xs card-surface border border-border/50 px-2 py-3 text-center">
                     <p className="display-number text-[18px] font-black tabular-nums leading-none text-foreground">
                       {maxVolume > 0 ? formatVolume(maxVolume) : "—"}
                     </p>
                     <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">best vol kg</p>
                   </div>
-                  <div className="rounded-2xl card-surface border border-border/50 px-2 py-3 text-center">
+                  <div className="rounded-xs card-surface border border-border/50 px-2 py-3 text-center">
                     <p className="display-number text-[18px] font-black tabular-nums leading-none text-foreground">
                       {workingSets.length}
                     </p>
@@ -156,7 +156,7 @@ export function ExerciseStatsSheet({ exercise, pr, open, onOpenChange }: Exercis
               <p className="px-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/70">
                 Recent sets · {Math.min(10, sets.length)} of {sets.length}
               </p>
-              <div className="card-surface rounded-2xl border border-border/50 overflow-hidden divide-y divide-border/20">
+              <div className="card-surface rounded-xs border border-border/50 overflow-hidden divide-y divide-border/20">
                 {sets.slice(0, 10).map((set) => (
                   <div key={set.id} className="flex items-center gap-3 text-xs px-3 py-2.5">
                     <span className="text-muted-foreground w-16 shrink-0">

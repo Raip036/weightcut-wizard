@@ -59,7 +59,7 @@ function OptionCard({ selected, icon, label, description, onClick }: {
     <button
       type="button"
       onClick={onClick}
-      className={`w-full flex items-center gap-3.5 p-4 rounded-2xl border transition-all active:scale-[0.98] text-left ${
+      className={`w-full flex items-center gap-3.5 p-4 rounded-xs border transition-all active:scale-[0.98] text-left ${
         selected
           ? "border-primary bg-primary/10 ring-1 ring-primary/30"
           : "border-border/50 bg-card hover:bg-muted/30"
@@ -83,7 +83,7 @@ function MultiCard({ selected, label, onClick }: {
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center gap-2.5 px-4 py-3 rounded-2xl border transition-all active:scale-[0.98] ${
+      className={`flex items-center gap-2.5 px-4 py-3 rounded-xs border transition-all active:scale-[0.98] ${
         selected
           ? "border-primary bg-primary/10 ring-1 ring-primary/30"
           : "border-border/50 bg-card hover:bg-muted/30"
@@ -114,7 +114,7 @@ function PlanRetryCard({
   onSkip: () => void;
 }) {
   return (
-    <div className="rounded-2xl border border-amber-500/30 bg-amber-500/[0.06] p-4 space-y-3">
+    <div className="rounded-xs border border-amber-500/30 bg-amber-500/[0.06] p-4 space-y-3">
       <div>
         <p className="text-[12px] uppercase tracking-wider font-bold text-amber-400/90">
           Plan didn't generate
@@ -128,14 +128,14 @@ function PlanRetryCard({
         <button
           type="button"
           onClick={onRetry}
-          className="no-tap-select flex-1 h-11 rounded-2xl bg-primary text-primary-foreground text-[14px] font-semibold active:scale-[0.98] transition-transform"
+          className="no-tap-select flex-1 h-11 rounded-xs bg-primary text-primary-foreground text-[14px] font-semibold active:scale-[0.98] transition-transform"
         >
           Retry
         </button>
         <button
           type="button"
           onClick={onSkip}
-          className="no-tap-select flex-1 h-11 rounded-2xl bg-muted/40 text-foreground text-[14px] font-medium active:scale-[0.98] transition-transform"
+          className="no-tap-select flex-1 h-11 rounded-xs bg-muted/40 text-foreground text-[14px] font-medium active:scale-[0.98] transition-transform"
         >
           Skip
         </button>
@@ -193,7 +193,7 @@ function LosingProjectionChart({
     perWeek <= 1.0 ? "Safe" : perWeek <= 1.5 ? "Moderate" : "Aggressive";
 
   return (
-    <div className="card-surface rounded-2xl border border-border/40 p-3">
+    <div className="card-surface rounded-xs border border-border/40 p-3">
       <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-bold mb-1">
         Projected weight loss
       </p>
@@ -1087,7 +1087,7 @@ export default function Onboarding() {
         {step === 1 && (
           <StepLayout step={1} title="What brings you here?" subtitle="We'll build your plan around this."
             footer={<Button onClick={goNext} disabled={!formData.goal_type}
-              className="no-tap-select w-full h-12 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
             <div className="space-y-2.5">
               {[
@@ -1105,7 +1105,7 @@ export default function Onboarding() {
         {step === 2 && formData.goal_type === "cutting" && (
           <StepLayout step={2} title="What's your discipline?" subtitle={`Pick your sport${userName ? `, ${userName}` : ""} — we'll tailor everything to it.`}
             footer={<Button onClick={goNext} disabled={formData.athlete_types.length === 0}
-              className="no-tap-select w-full h-12 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
             <div className="space-y-2.5">
               {[
@@ -1129,7 +1129,7 @@ export default function Onboarding() {
         {step === 2 && formData.goal_type === "losing" && (
           <StepLayout step={2} title="What's your current weight?" subtitle="Step on the scale — this is your starting line."
             footer={<Button onClick={goNext} disabled={!formData.current_weight_kg}
-              className="no-tap-select w-full h-12 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
             <div className="flex flex-col items-center pt-8 gap-6">
               <div className="text-center">
@@ -1147,7 +1147,7 @@ export default function Onboarding() {
               <Input type="number" inputMode="decimal" step="0.1" placeholder="e.g. 85"
                 value={formData.current_weight_kg}
                 onChange={e => setFormData(prev => ({ ...prev, current_weight_kg: e.target.value }))}
-                className="h-14 rounded-2xl bg-card border-border/50 text-center text-xl font-semibold max-w-[200px]"
+                className="h-14 rounded-xs bg-card border-border/50 text-center text-xl font-semibold max-w-[200px]"
                 autoFocus />
             </div>
           </StepLayout>
@@ -1157,7 +1157,7 @@ export default function Onboarding() {
         {step === 3 && formData.goal_type === "losing" && (
           <StepLayout step={3} title="What's your goal weight?" subtitle="The weight you want to reach."
             footer={<Button onClick={goNext} disabled={!formData.goal_weight_kg}
-              className="no-tap-select w-full h-12 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
             <div className="flex flex-col items-center pt-8 gap-6">
               <div className="text-center">
@@ -1175,7 +1175,7 @@ export default function Onboarding() {
               <Input type="number" inputMode="decimal" step="0.1" placeholder="e.g. 75"
                 value={formData.goal_weight_kg}
                 onChange={e => setFormData(prev => ({ ...prev, goal_weight_kg: e.target.value }))}
-                className="h-14 rounded-2xl bg-card border-border/50 text-center text-xl font-semibold max-w-[200px]"
+                className="h-14 rounded-xs bg-card border-border/50 text-center text-xl font-semibold max-w-[200px]"
                 autoFocus />
               {formData.current_weight_kg && formData.goal_weight_kg && (
                 <p className="text-sm text-muted-foreground">
@@ -1190,7 +1190,7 @@ export default function Onboarding() {
         {step === 4 && formData.goal_type === "losing" && (
           <StepLayout step={4} title="How long do you want to take?" subtitle="We'll calculate your weekly target."
             footer={<Button onClick={goNext} disabled={!formData.target_weeks || parseInt(formData.target_weeks) < 1}
-              className="no-tap-select w-full h-12 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
             <div className="flex flex-col items-center pt-6 gap-5">
               <div className="text-center">
@@ -1208,7 +1208,7 @@ export default function Onboarding() {
               <Input type="number" inputMode="numeric" placeholder="e.g. 12"
                 value={formData.target_weeks}
                 onChange={e => setFormData(prev => ({ ...prev, target_weeks: e.target.value }))}
-                className="h-14 rounded-2xl bg-card border-border/50 text-center text-xl font-semibold max-w-[200px]"
+                className="h-14 rounded-xs bg-card border-border/50 text-center text-xl font-semibold max-w-[200px]"
                 autoFocus />
 
               {/* Live kg/week calculation + safety advice */}
@@ -1223,7 +1223,7 @@ export default function Onboarding() {
 
                 return (
                   <div className="w-full max-w-[280px] space-y-3">
-                    <div className={`rounded-2xl p-4 text-center border ${
+                    <div className={`rounded-xs p-4 text-center border ${
                       isSafe ? "bg-emerald-500/5 border-emerald-500/20" :
                       isModerate ? "bg-primary/5 border-primary/20" :
                       isAggressive ? "bg-yellow-500/5 border-yellow-500/20" :
@@ -1274,7 +1274,7 @@ export default function Onboarding() {
               mascotBump={step * 10 + fightSubStep}
               footer={
                 <Button onClick={goNext} disabled={continueDisabled}
-                  className="no-tap-select w-full h-12 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>
+                  className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>
               }
             >
               <AnimatePresence mode="wait" initial={false}>
@@ -1325,7 +1325,7 @@ export default function Onboarding() {
                         </motion.span>
                       </div>
                       <div className="relative w-full max-w-[260px]">
-                        <div className="pointer-events-none h-14 rounded-2xl bg-card border border-border/50 flex items-center justify-center text-base font-semibold text-foreground">
+                        <div className="pointer-events-none h-14 rounded-xs bg-card border border-border/50 flex items-center justify-center text-base font-semibold text-foreground">
                           {formData.target_date
                             ? new Date(formData.target_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
                             : <span className="text-muted-foreground">Tap to pick fight date</span>}
@@ -1366,7 +1366,7 @@ export default function Onboarding() {
                       <Input type="number" inputMode="decimal" step="0.1" placeholder="e.g. 70"
                         value={formData.goal_weight_kg}
                         onChange={e => setFormData(prev => ({ ...prev, goal_weight_kg: e.target.value }))}
-                        className="h-14 rounded-2xl bg-card border-border/50 text-center text-xl font-semibold max-w-[200px]"
+                        className="h-14 rounded-xs bg-card border-border/50 text-center text-xl font-semibold max-w-[200px]"
                         autoFocus />
                       {/* Live arithmetic + loss-frame — only show when current
                           weight is also on file (user revisited via back nav). */}
@@ -1413,7 +1413,7 @@ export default function Onboarding() {
                         <Input type="number" inputMode="decimal" step="0.1"
                           value={formData.fight_week_target_kg}
                           onChange={e => { setUseAutoTarget(false); setFormData(prev => ({ ...prev, fight_week_target_kg: e.target.value })); }}
-                          className="h-14 rounded-2xl bg-card border-border/50 text-center text-xl font-semibold max-w-[200px]" />
+                          className="h-14 rounded-xs bg-card border-border/50 text-center text-xl font-semibold max-w-[200px]" />
                         <p className="text-[11px] text-muted-foreground text-center max-w-[280px]">
                           {useAutoTarget ? "AI recommended based on your competition level" : `Manually set — AI recommendation was ${recommendedTarget}kg`}
                           {!useAutoTarget && (
@@ -1424,7 +1424,7 @@ export default function Onboarding() {
 
                         {/* Water cut risk indicator */}
                         {targetKg > 0 && goalKg > 0 && (
-                          <div className={`w-full max-w-[300px] rounded-2xl p-3 border ${isSafe ? "border-emerald-500/20 bg-emerald-500/5" : isModerate ? "border-amber-500/20 bg-amber-500/5" : "border-red-500/20 bg-red-500/5"}`}>
+                          <div className={`w-full max-w-[300px] rounded-xs p-3 border ${isSafe ? "border-emerald-500/20 bg-emerald-500/5" : isModerate ? "border-amber-500/20 bg-amber-500/5" : "border-red-500/20 bg-red-500/5"}`}>
                             <div className="flex items-center justify-between mb-2">
                               <span className={`text-sm font-bold ${isSafe ? "text-emerald-400" : isModerate ? "text-amber-400" : "text-red-400"}`}>
                                 {waterCutKg.toFixed(1)}kg water cut ({waterCutPct.toFixed(1)}%)
@@ -1483,7 +1483,7 @@ export default function Onboarding() {
                         value={formData.camp_name}
                         onChange={(e) => setFormData(prev => ({ ...prev, camp_name: e.target.value }))}
                         placeholder="e.g. Smith fight, World Title Camp"
-                        className="h-14 rounded-2xl bg-card border-border/50 text-center text-base font-semibold max-w-[300px]"
+                        className="h-14 rounded-xs bg-card border-border/50 text-center text-base font-semibold max-w-[300px]"
                         autoFocus
                         onKeyDown={(e) => { if (e.key === "Enter") goNext(); }}
                       />
@@ -1511,7 +1511,7 @@ export default function Onboarding() {
         {((step === 4 && formData.goal_type !== "losing") || (step === 5 && formData.goal_type === "losing")) && (
           <StepLayout step={step} title="How old are you?" subtitle="We'll use this to dial in your metabolic rate."
             footer={<Button onClick={goNext} disabled={!formData.age}
-              className="no-tap-select w-full h-12 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
             <div className="flex flex-col items-center pt-8 gap-8">
               <div className="text-center">
@@ -1529,7 +1529,7 @@ export default function Onboarding() {
               <Input type="number" inputMode="numeric" placeholder="e.g. 25"
                 value={formData.age}
                 onChange={e => setFormData(prev => ({ ...prev, age: e.target.value }))}
-                className="h-14 rounded-2xl bg-card border-border/50 text-center text-xl font-semibold max-w-[200px]"
+                className="h-14 rounded-xs bg-card border-border/50 text-center text-xl font-semibold max-w-[200px]"
                 autoFocus />
               <div className="w-full max-w-[240px] space-y-1.5">
                 <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-center block">Sex</label>
@@ -1537,7 +1537,7 @@ export default function Onboarding() {
                   {["male", "female"].map(s => (
                     <button key={s} type="button"
                       onClick={() => { triggerHapticSelection(); setFormData(prev => ({ ...prev, sex: s })); }}
-                      className={`flex-1 h-11 rounded-2xl text-sm font-semibold border transition-all capitalize ${
+                      className={`flex-1 h-11 rounded-xs text-sm font-semibold border transition-all capitalize ${
                         formData.sex === s ? "border-primary bg-primary/10 text-foreground" : "border-border/50 bg-card text-muted-foreground"
                       }`}
                     >
@@ -1554,7 +1554,7 @@ export default function Onboarding() {
         {((step === 5 && formData.goal_type !== "losing") || (step === 6 && formData.goal_type === "losing")) && (
           <StepLayout step={step} title="What's your height?" subtitle="Used to calculate your metabolic rate."
             footer={<Button onClick={goNext} disabled={!formData.height_cm}
-              className="no-tap-select w-full h-12 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
             <div className="flex flex-col items-center pt-8 gap-6">
               <div className="text-center">
@@ -1572,7 +1572,7 @@ export default function Onboarding() {
               <Input type="number" inputMode="decimal" step="0.1" placeholder="e.g. 175"
                 value={formData.height_cm}
                 onChange={e => setFormData(prev => ({ ...prev, height_cm: e.target.value }))}
-                className="h-14 rounded-2xl bg-card border-border/50 text-center text-xl font-semibold max-w-[200px]"
+                className="h-14 rounded-xs bg-card border-border/50 text-center text-xl font-semibold max-w-[200px]"
                 autoFocus />
               {/* Tall fighters get a single coaching nod — silence is feedback for everyone else. */}
               {formData.height_cm && parseFloat(formData.height_cm) >= 188 && (
@@ -1586,7 +1586,7 @@ export default function Onboarding() {
         {step === 6 && formData.goal_type !== "losing" && (
           <StepLayout step={6} title="What's your current weight?" subtitle="Step on the scale. Be honest — this is your starting line."
             footer={<Button onClick={goNext} disabled={!formData.current_weight_kg}
-              className="no-tap-select w-full h-12 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
             <div className="flex flex-col items-center pt-8 gap-6">
               <div className="text-center">
@@ -1604,7 +1604,7 @@ export default function Onboarding() {
               <Input type="number" inputMode="decimal" step="0.1" placeholder="e.g. 78"
                 value={formData.current_weight_kg}
                 onChange={e => setFormData(prev => ({ ...prev, current_weight_kg: e.target.value }))}
-                className="h-14 rounded-2xl bg-card border-border/50 text-center text-xl font-semibold max-w-[200px]"
+                className="h-14 rounded-xs bg-card border-border/50 text-center text-xl font-semibold max-w-[200px]"
                 autoFocus />
               {weightDiff && formData.goal_weight_kg && (() => {
                 const current = parseFloat(formData.current_weight_kg);
@@ -1629,7 +1629,7 @@ export default function Onboarding() {
                         <span className="text-xs text-muted-foreground/60"> ({weeklyLoss.toFixed(1)} kg/wk)</span>
                       </p>
                       {isDangerous && (
-                        <Alert className="border-red-500/30 bg-red-500/5 rounded-2xl">
+                        <Alert className="border-red-500/30 bg-red-500/5 rounded-xs">
                           <AlertTriangle className="h-4 w-4 text-red-500" />
                           <AlertDescription className="text-xs text-red-400">
                             <strong className="text-red-300">High risk cut.</strong> Losing {weeklyLoss.toFixed(1)} kg/week ({bodyPct.toFixed(0)}% bodyweight) can sap your strength, reaction time, and endurance, and may cost you muscle. Consider working with a sports nutritionist alongside the app to dial in your fuelling — we'll still build your plan and keep you on track.
@@ -1637,7 +1637,7 @@ export default function Onboarding() {
                         </Alert>
                       )}
                       {isAggressivePace && !isDangerous && (
-                        <Alert className="border-yellow-500/30 bg-yellow-500/5 rounded-2xl">
+                        <Alert className="border-yellow-500/30 bg-yellow-500/5 rounded-xs">
                           <AlertTriangle className="h-4 w-4 text-yellow-500" />
                           <AlertDescription className="text-xs text-yellow-400">
                             <strong className="text-yellow-300">Aggressive pace.</strong> Losing {weeklyLoss.toFixed(1)} kg/week requires strict adherence. We'll plan for this.
@@ -1661,7 +1661,7 @@ export default function Onboarding() {
                           {" "}&mdash; that's <strong className="text-foreground">{kgPerWeek.toFixed(1)} kg/week</strong>
                         </p>
                         {kgPerWeek > 1.0 && (
-                          <Alert className="border-yellow-500/30 bg-yellow-500/5 rounded-2xl">
+                          <Alert className="border-yellow-500/30 bg-yellow-500/5 rounded-xs">
                             <AlertTriangle className="h-4 w-4 text-yellow-500" />
                             <AlertDescription className="text-xs text-yellow-400">
                               Losing more than 1 kg/week increases muscle loss risk. Consider extending your timeframe for safer results.
@@ -1710,7 +1710,7 @@ export default function Onboarding() {
           <StepLayout step={7} title="Estimate your body fat" subtitle="Drag the slider. Skip if you're not sure."
             footer={
               <div className="space-y-2">
-                <Button onClick={goNext} className="no-tap-select w-full h-12 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90">Continue</Button>
+                <Button onClick={goNext} className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90">Continue</Button>
                 <button onClick={() => { setFormData(prev => ({ ...prev, body_fat_pct: "" })); goNext(); }} className="w-full text-center text-xs text-muted-foreground/60 py-2 hover:text-muted-foreground transition-colors">
                   Skip this step
                 </button>
@@ -1778,7 +1778,7 @@ export default function Onboarding() {
         {step === 8 && (
           <StepLayout step={8} title="What's your experience level?" subtitle="No judgment. We just need to know where you're at."
             footer={<Button onClick={goNext} disabled={!formData.experience_level}
-              className="no-tap-select w-full h-12 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
             <div className="space-y-2.5">
               {[
@@ -1797,7 +1797,7 @@ export default function Onboarding() {
         {step === 9 && (
           <StepLayout step={9} title="How often do you train?" subtitle="All sessions — pads, sparring, gym, running."
             footer={<Button onClick={goNext} disabled={!formData.training_frequency}
-              className="no-tap-select w-full h-12 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
             <div className="space-y-2.5">
               {[
@@ -1834,7 +1834,7 @@ export default function Onboarding() {
         {step === 11 && (
           <StepLayout step={11} title="What does your training include?" subtitle="Select all that apply."
             footer={<Button onClick={goNext} disabled={formData.training_types.length === 0}
-              className="no-tap-select w-full h-12 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
             <div className="space-y-2.5">
               {["Pads", "Sparring", "Strength & Conditioning", "Running"].map(t => (
@@ -1849,7 +1849,7 @@ export default function Onboarding() {
         {step === 12 && (
           <StepLayout step={12} title="How many hours do you sleep?" subtitle="Recovery is half the game."
             footer={<Button onClick={goNext} disabled={!formData.sleep_hours}
-              className="no-tap-select w-full h-12 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
             <div className="space-y-2.5">
               {[
@@ -1876,7 +1876,7 @@ export default function Onboarding() {
         {step === 13 && formData.goal_type !== "losing" && (
           <StepLayout step={13} title="What do you struggle with most?" subtitle="Be real. We'll build around your weak spots."
             footer={<Button onClick={goNext} disabled={!formData.primary_struggle}
-              className="no-tap-select w-full h-12 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
             <div className="space-y-2.5">
               {[
@@ -1900,7 +1900,7 @@ export default function Onboarding() {
         {step === 13 && formData.goal_type === "losing" && (
           <StepLayout step={13} title="How aggressive do you want to go?" subtitle="Picks the pace of your cut. You can change it later in Settings."
             footer={<Button onClick={goNext} disabled={!formData.plan_aggressiveness}
-              className="no-tap-select w-full h-12 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
             <div className="space-y-2.5">
               {[
@@ -1930,7 +1930,7 @@ export default function Onboarding() {
               <Button
                 onClick={handleNameContinue}
                 disabled={!isNameValid(formData.display_name)}
-                className="no-tap-select w-full h-12 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50"
+                className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50"
               >
                 Continue
               </Button>
@@ -1955,7 +1955,7 @@ export default function Onboarding() {
                     handleNameContinue();
                   }
                 }}
-                className="w-full h-14 rounded-2xl border border-border/50 bg-card px-4 text-[17px] font-medium focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className="w-full h-14 rounded-xs border border-border/50 bg-card px-4 text-[17px] font-medium focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
               <p className="text-[11px] text-muted-foreground text-right tabular-nums">
                 {formData.display_name.trim().length}/30
@@ -1989,7 +1989,7 @@ export default function Onboarding() {
                 </div>
               ) : (
                 <Button onClick={goNext} disabled={loading}
-                  className="no-tap-select w-full h-12 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Generate plan</Button>
+                  className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">Generate plan</Button>
               )
             }
           >
@@ -2126,7 +2126,7 @@ export default function Onboarding() {
             const dehydAreaPath = `M ${x2} ${H - padB} L ${x2} ${y2} L ${x3} ${y3} L ${x3} ${H - padB} Z`;
 
             chartContent = (
-              <div className="card-surface rounded-2xl border border-border/40 p-3">
+              <div className="card-surface rounded-xs border border-border/40 p-3">
                 <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ overflow: "visible" }} aria-label="Projected weight chart">
                   {/* Baseline */}
                   <line x1={padL} y1={H - padB} x2={W - padR} y2={H - padB} stroke="hsl(var(--border))" strokeWidth="1" strokeDasharray="2 3" opacity="0.5" />
@@ -2195,7 +2195,7 @@ export default function Onboarding() {
                   </div>
                 ) : (
                   <Button onClick={goNext} disabled={loading || !validInputs}
-                    className="no-tap-select w-full h-12 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">
+                    className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50">
                     Generate plan
                   </Button>
                 )
@@ -2234,15 +2234,15 @@ export default function Onboarding() {
                     {chartContent}
                     {/* Key stats row */}
                     <div className="grid grid-cols-3 gap-2">
-                      <div className="card-surface rounded-2xl border border-border/40 p-2.5 text-center">
+                      <div className="card-surface rounded-xs border border-border/40 p-2.5 text-center">
                         <p className="text-[18px] font-bold tabular-nums leading-none text-foreground">{stats.totalCut.toFixed(1)}</p>
                         <p className="text-[9px] uppercase tracking-wider text-muted-foreground mt-1">Total kg</p>
                       </div>
-                      <div className="card-surface rounded-2xl border border-border/40 p-2.5 text-center">
+                      <div className="card-surface rounded-xs border border-border/40 p-2.5 text-center">
                         <p className="text-[18px] font-bold tabular-nums leading-none text-primary">{stats.sustainedCut.toFixed(1)}</p>
                         <p className="text-[9px] uppercase tracking-wider text-muted-foreground mt-1">Steady · {stats.cutWeeks}w</p>
                       </div>
-                      <div className="card-surface rounded-2xl border border-border/40 p-2.5 text-center">
+                      <div className="card-surface rounded-xs border border-border/40 p-2.5 text-center">
                         <p className="text-[18px] font-bold tabular-nums leading-none text-red-400">{stats.dehydrationDrop.toFixed(1)}</p>
                         <p className="text-[9px] uppercase tracking-wider text-muted-foreground mt-1">Dehyd · {stats.dehydrationDays}d</p>
                       </div>
@@ -2252,7 +2252,7 @@ export default function Onboarding() {
                     </p>
                   </>
                 ) : (
-                  <div className="card-surface rounded-2xl border border-border/40 p-5 text-center">
+                  <div className="card-surface rounded-xs border border-border/40 p-5 text-center">
                     <p className="text-[13px] text-muted-foreground leading-snug">
                       Need a fight date in the future plus your weight class and pre-dehydration target to project your cut.
                     </p>

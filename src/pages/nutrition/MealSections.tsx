@@ -67,14 +67,14 @@ export function MealSections({
       <div className="flex items-stretch gap-2">
         <button
           onClick={() => { triggerHapticSelection(); onOpenQuickAdd(); }}
-          className="flex-1 h-12 rounded-2xl bg-primary text-primary-foreground font-bold text-[14px] flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-lg shadow-primary/30"
+          className="flex-1 h-12 rounded-xs bg-primary text-primary-foreground font-bold text-[14px] flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-lg shadow-primary/30"
         >
           <Camera className="h-4 w-4" strokeWidth={2.4} />
           Snap a meal
         </button>
         <button
           onClick={() => { triggerHapticSelection(); onOpenFoodSearch(); }}
-          className="h-12 w-12 rounded-2xl bg-muted/40 border border-border/40 flex items-center justify-center active:scale-[0.96] transition-transform"
+          className="h-12 w-12 rounded-xs bg-muted/40 border border-border/40 flex items-center justify-center active:scale-[0.96] transition-transform"
           aria-label="Search foods"
           title="Search"
         >
@@ -82,7 +82,7 @@ export function MealSections({
         </button>
         <Suspense
           fallback={
-            <div className="h-12 w-12 rounded-2xl bg-muted/40 border border-border/40 flex items-center justify-center">
+            <div className="h-12 w-12 rounded-xs bg-muted/40 border border-border/40 flex items-center justify-center">
               <ScanLine className="h-4 w-4 text-muted-foreground" />
             </div>
           }
@@ -90,13 +90,13 @@ export function MealSections({
           <BarcodeScanner
             onFoodScanned={aiMealHandlers.handleBarcodeScanned}
             disabled={generatingPlan || savingAllMeals}
-            className="h-12 w-12 rounded-2xl bg-muted/40 !border border-border/40 active:scale-[0.96] transition-transform flex items-center justify-center"
+            className="h-12 w-12 rounded-xs bg-muted/40 !border border-border/40 active:scale-[0.96] transition-transform flex items-center justify-center"
           />
         </Suspense>
         {quickActions.lastMeal && (
           <button
             onClick={() => { triggerHapticSelection(); quickActions.repeatLastMeal(); }}
-            className="h-12 w-12 rounded-2xl bg-muted/40 border border-border/40 flex items-center justify-center active:scale-[0.96] transition-transform"
+            className="h-12 w-12 rounded-xs bg-muted/40 border border-border/40 flex items-center justify-center active:scale-[0.96] transition-transform"
             aria-label="Repeat last meal"
             title="Repeat last"
           >

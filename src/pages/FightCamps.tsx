@@ -191,7 +191,7 @@ export default function FightCamps() {
                   <Skeleton className="h-3 w-24" />
                 </div>
               </div>
-              <Skeleton className="h-12 w-full rounded-2xl" />
+              <Skeleton className="h-12 w-full rounded-xs" />
             </div>
           ))}
         </div>
@@ -316,7 +316,7 @@ export default function FightCamps() {
               if (camps.length === 0 && !hasProfile) navigate("/onboarding?startCamp=1");
               else setNextCampOpen(true);
             }}
-            className="w-full h-12 rounded-2xl gap-2"
+            className="w-full h-12 rounded-xs gap-2"
           >
             <Plus className="h-4 w-4" strokeWidth={2.6} />
             {camps.length === 0 ? "Start your first camp" : "Start a new fight camp"}
@@ -360,7 +360,7 @@ export default function FightCamps() {
                 else navigate("/onboarding?startCamp=1");
               }}
               variant="outline"
-              className="rounded-2xl mt-2 border-border hover:bg-muted"
+              className="rounded-xs mt-2 border-border hover:bg-muted"
             >
               {hasProfile ? "Start a new fight camp" : "Start camp onboarding"}
             </Button>
@@ -427,7 +427,7 @@ export default function FightCamps() {
 
                   {/* Metrics Strip */}
                   {(camp.starting_weight_kg || camp.total_weight_cut) ? (
-                    <div className="mt-3 bg-muted/50 rounded-2xl p-2.5 flex items-center justify-around border border-border">
+                    <div className="mt-3 bg-muted/50 rounded-xs p-2.5 flex items-center justify-around border border-border">
                       <div className="text-center">
                         <p className="text-[13px] uppercase tracking-widest text-muted-foreground mb-0.5">Start</p>
                         <p className="text-sm font-bold">{camp.starting_weight_kg ? `${camp.starting_weight_kg}kg` : '-'}</p>
@@ -494,7 +494,7 @@ export default function FightCamps() {
               onClick={() => setBulkDeleteOpen(true)}
               disabled={bulkDeleting}
               variant="destructive"
-              className="w-full h-11 rounded-2xl shadow-lg flex items-center justify-center gap-2"
+              className="w-full h-11 rounded-xs shadow-lg flex items-center justify-center gap-2"
             >
               <Trash2 className="h-4 w-4" />
               <span>Delete {selectedForDelete.length} camp{selectedForDelete.length === 1 ? "" : "s"}</span>
@@ -519,7 +519,7 @@ export default function FightCamps() {
                 placeholder="e.g. Summer 2025"
                 value={newCamp.name}
                 onChange={(e) => setNewCamp({ ...newCamp, name: e.target.value })}
-                className="h-8 text-[13px] rounded-lg border-border/30 bg-muted/20"
+                className="h-8 text-[13px] rounded-xs border-border/30 bg-muted/20"
               />
             </div>
             <div className="space-y-1">
@@ -529,7 +529,7 @@ export default function FightCamps() {
                 placeholder="e.g. UFC 300"
                 value={newCamp.event_name}
                 onChange={(e) => setNewCamp({ ...newCamp, event_name: e.target.value })}
-                className="h-8 text-[13px] rounded-lg border-border/30 bg-muted/20"
+                className="h-8 text-[13px] rounded-xs border-border/30 bg-muted/20"
               />
             </div>
             <div className="space-y-1">
@@ -539,7 +539,7 @@ export default function FightCamps() {
                 type="date"
                 value={newCamp.fight_date}
                 onChange={(e) => setNewCamp({ ...newCamp, fight_date: e.target.value })}
-                className="h-8 text-[13px] rounded-lg border-border/30 bg-muted/20 block w-full"
+                className="h-8 text-[13px] rounded-xs border-border/30 bg-muted/20 block w-full"
               />
             </div>
           </div>

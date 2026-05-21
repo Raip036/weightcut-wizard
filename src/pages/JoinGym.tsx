@@ -95,7 +95,7 @@ export default function JoinGym() {
             autoCorrect="off"
             spellCheck={false}
             maxLength={6}
-            className="h-[60px] text-center font-mono text-[22px] tracking-[0.4em] tabular-nums rounded-2xl bg-muted/40 dark:bg-white/[0.06] border-border/40"
+            className="h-[60px] text-center font-mono text-[22px] tracking-[0.4em] tabular-nums rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/40"
             autoFocus
           />
 
@@ -106,7 +106,7 @@ export default function JoinGym() {
               </div>
             )}
             {!lookingUp && gymPreview && (
-              <div className="card-surface rounded-2xl border border-border p-3 text-center">
+              <div className="card-surface rounded-xs border border-border p-3 text-center">
                 <p className="text-[13px] font-semibold">{gymPreview.name}</p>
                 {gymPreview.location && (
                   <p className="text-[11px] text-muted-foreground mt-0.5">{gymPreview.location}</p>
@@ -129,7 +129,7 @@ export default function JoinGym() {
               type="button"
               onClick={() => navigate(`/auth?mode=signup&join=${encodeURIComponent(code.trim())}`)}
               disabled={!gymPreview}
-              className="w-full h-[50px] mt-2 rounded-2xl text-[16px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40 flex items-center justify-center gap-2"
+              className="w-full h-[50px] mt-2 rounded-xs text-[16px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40 flex items-center justify-center gap-2"
             >
               Sign up to join {gymPreview ? gymPreview.name : "gym"}
             </button>
@@ -138,7 +138,7 @@ export default function JoinGym() {
               type="button"
               onClick={() => { triggerHaptic(ImpactStyle.Light); handleJoin(); }}
               disabled={!canJoin}
-              className="w-full h-[50px] mt-2 rounded-2xl text-[16px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40 flex items-center justify-center gap-2"
+              className="w-full h-[50px] mt-2 rounded-xs text-[16px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40 flex items-center justify-center gap-2"
             >
               {joining ? <><Loader2 className="h-4 w-4 animate-spin" /> Joining…</> : "Join gym"}
             </button>

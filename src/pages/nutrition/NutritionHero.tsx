@@ -140,7 +140,7 @@ function DateStrip({
               data-date={ds}
               onClick={() => { triggerHapticSelection(); setSelectedDate(ds); }}
               whileTap={{ scale: 0.94 }}
-              className={`relative flex-shrink-0 flex flex-col items-center justify-center w-[52px] h-[64px] rounded-2xl border transition-colors ${
+              className={`relative flex-shrink-0 flex flex-col items-center justify-center w-[52px] h-[64px] rounded-xs border transition-colors ${
                 active
                   ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/30"
                   : "bg-card/40 text-foreground/85 border-border/40 hover:bg-muted/40"
@@ -195,7 +195,7 @@ function WisdomChip({ wisdom }: { wisdom: WisdomState }) {
   return (
     <button
       onClick={() => wisdom.generateTrainingFoodIdeas()}
-      className="group w-full flex items-center gap-2.5 rounded-2xl border border-border/40 bg-card/40 px-3 py-2 active:scale-[0.99] transition hover:border-primary/30"
+      className="group w-full flex items-center gap-2.5 rounded-xs border border-border/40 bg-card/40 px-3 py-2 active:scale-[0.99] transition hover:border-primary/30"
     >
       <div className="relative shrink-0 h-7 w-7 rounded-full bg-primary/15 ring-1 ring-primary/25 flex items-center justify-center overflow-hidden">
         <img src={wizardLogo} alt="Wizard" className="h-full w-full object-contain p-0.5" />

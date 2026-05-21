@@ -26,7 +26,7 @@ export default function WeightCut() {
     <div className="animate-page-in px-5 py-3 sm:p-5 md:p-6 max-w-7xl mx-auto space-y-3 pb-20 md:pb-6">
       {/* iOS-native segmented control with sliding pill */}
       <LayoutGroup id="weight-cut-tab">
-        <div role="tablist" className="relative flex bg-muted/40 dark:bg-white/[0.06] rounded-2xl p-1 border border-border/30">
+        <div role="tablist" className="relative flex bg-muted/40 dark:bg-white/[0.06] rounded-xs p-1 border border-border/30">
           {tabs.map((t) => {
             const active = tab === t.key;
             return (
@@ -35,12 +35,12 @@ export default function WeightCut() {
                 role="tab"
                 aria-selected={active}
                 onClick={() => switchTab(t.key)}
-                className="relative flex-1 h-10 rounded-xl text-[14px] font-semibold active:scale-[0.98] transition-transform"
+                className="relative flex-1 h-10 rounded-xs text-[14px] font-semibold active:scale-[0.98] transition-transform"
               >
                 {active && (
                   <motion.div
                     layoutId="weight-cut-tab-pill"
-                    className="absolute inset-0 rounded-xl bg-background shadow-sm ring-1 ring-border/30"
+                    className="absolute inset-0 rounded-xs bg-background shadow-sm ring-1 ring-border/30"
                     transition={{ type: "spring", damping: 28, stiffness: 380 }}
                   />
                 )}

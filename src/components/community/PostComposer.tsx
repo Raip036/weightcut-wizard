@@ -69,7 +69,7 @@ const CaptionInput = memo(function CaptionInput({
       onChange={(e) => onChange(e.target.value.slice(0, max))}
       placeholder="Add a caption…"
       maxLength={max}
-      className="mt-4 min-h-[88px] resize-none rounded-2xl border border-white/10 bg-white/[0.04] text-sm text-white placeholder:text-white/40 focus-visible:ring-1 focus-visible:ring-white/20"
+      className="mt-4 min-h-[88px] resize-none rounded-xs border border-white/10 bg-white/[0.04] text-sm text-white placeholder:text-white/40 focus-visible:ring-1 focus-visible:ring-white/20"
     />
   );
 });
@@ -415,7 +415,7 @@ export function PostComposer({
                 onOpenChange(false);
                 navigate("/training-calendar?openLogSession=true");
               }}
-              className="mt-3 h-10 rounded-2xl bg-white px-5 text-sm font-semibold text-zinc-950 active:scale-[0.98]"
+              className="mt-3 h-10 rounded-xs bg-white px-5 text-sm font-semibold text-zinc-950 active:scale-[0.98]"
             >
               Go to Training
             </button>
@@ -431,7 +431,7 @@ export function PostComposer({
             <button
               type="button"
               onClick={handlePickPhoto}
-              className="mt-4 flex h-14 items-center justify-center gap-2 rounded-2xl bg-white text-base font-semibold text-zinc-950 active:scale-[0.98] transition-transform"
+              className="mt-4 flex h-14 items-center justify-center gap-2 rounded-xs bg-white text-base font-semibold text-zinc-950 active:scale-[0.98] transition-transform"
             >
               <CameraIcon className="h-5 w-5" />
               Take Photo or Choose
@@ -439,7 +439,7 @@ export function PostComposer({
             <button
               type="button"
               onClick={handleWebPick}
-              className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-white/5 text-sm font-medium text-white/80 active:scale-[0.98] transition-transform"
+              className="flex h-12 items-center justify-center gap-2 rounded-xs bg-white/5 text-sm font-medium text-white/80 active:scale-[0.98] transition-transform"
             >
               <ImageIcon className="h-4 w-4" />
               From files
@@ -452,7 +452,7 @@ export function PostComposer({
             {/* Square preview — `object-cover` enforces the 1:1 framing the
                 feed grid expects. The native picker handles the actual
                 crop on iOS via `allowEditing: true`. */}
-            <div className="relative mx-auto aspect-square w-full max-w-[480px] overflow-hidden rounded-2xl bg-zinc-900">
+            <div className="relative mx-auto aspect-square w-full max-w-[480px] overflow-hidden rounded-xs bg-zinc-900">
               <img
                 src={previewUrl}
                 alt="Preview"
@@ -506,7 +506,7 @@ export function PostComposer({
                 // today's-session query is still in flight.
                 disabled={!sourceBlob || !effectiveSessionId}
                 className={cn(
-                  "h-12 w-full rounded-2xl bg-white text-sm font-semibold text-zinc-950 active:scale-[0.98] transition-transform",
+                  "h-12 w-full rounded-xs bg-white text-sm font-semibold text-zinc-950 active:scale-[0.98] transition-transform",
                   (!sourceBlob || !effectiveSessionId) && "opacity-60",
                 )}
               >
@@ -538,14 +538,14 @@ export function PostComposer({
               <button
                 type="button"
                 onClick={() => setStep("preview")}
-                className="h-10 rounded-2xl bg-white/[0.06] px-4 text-sm font-medium text-white active:scale-[0.98]"
+                className="h-10 rounded-xs bg-white/[0.06] px-4 text-sm font-medium text-white active:scale-[0.98]"
               >
                 Back
               </button>
               <button
                 type="button"
                 onClick={() => void handleSubmit()}
-                className="h-10 rounded-2xl bg-white px-4 text-sm font-semibold text-zinc-950 active:scale-[0.98]"
+                className="h-10 rounded-xs bg-white px-4 text-sm font-semibold text-zinc-950 active:scale-[0.98]"
               >
                 Retry
               </button>
@@ -571,7 +571,7 @@ function PrivacyToggle({
   onChange: (next: boolean) => void;
 }) {
   return (
-    <div className="mt-4 flex rounded-2xl bg-white/[0.05] p-1">
+    <div className="mt-4 flex rounded-xs bg-white/[0.05] p-1">
       <button
         type="button"
         onClick={() => {
@@ -581,7 +581,7 @@ function PrivacyToggle({
           }
         }}
         className={cn(
-          "flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl text-xs font-semibold transition-colors",
+          "flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xs text-xs font-semibold transition-colors",
           !isPrivate
             ? "bg-white text-zinc-950"
             : "text-white/70 hover:text-white",
@@ -599,7 +599,7 @@ function PrivacyToggle({
           }
         }}
         className={cn(
-          "flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl text-xs font-semibold transition-colors",
+          "flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xs text-xs font-semibold transition-colors",
           isPrivate
             ? "bg-white text-zinc-950"
             : "text-white/70 hover:text-white",

@@ -17,7 +17,7 @@ interface ExercisePerformanceChartProps {
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="card-surface rounded-2xl border border-border px-3 py-2 shadow-xl text-xs">
+    <div className="card-surface rounded-xs border border-border px-3 py-2 shadow-xl text-xs">
       <p className="text-muted-foreground mb-1">{label}</p>
       {payload.map((p: any) => (
         <p key={p.name} className="display-number text-sm">
@@ -33,12 +33,12 @@ export const ExercisePerformanceChart = memo(function ExercisePerformanceChart({
   const [chartType, setChartType] = useState<ChartType>("weight");
 
   if (loading) {
-    return <div className="h-52 rounded-2xl shimmer-skeleton" />;
+    return <div className="h-52 rounded-xs shimmer-skeleton" />;
   }
 
   if (sets.length === 0) {
     return (
-      <div className="h-32 flex items-center justify-center text-sm text-muted-foreground rounded-2xl bg-muted/20">
+      <div className="h-32 flex items-center justify-center text-sm text-muted-foreground rounded-xs bg-muted/20">
         No data yet
       </div>
     );

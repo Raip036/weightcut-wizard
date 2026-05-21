@@ -25,7 +25,7 @@ export function EmptyMealsBanner({
   const hasSecondary = previousDayMealCount > 0 || !!lastMeal;
 
   return (
-    <div className="card-surface rounded-2xl border border-border/50 px-3.5 py-2.5">
+    <div className="card-surface rounded-xs border border-border/50 px-3.5 py-2.5">
       <div className="flex items-center gap-3">
         <Utensils className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         <div className="flex-1 min-w-0">

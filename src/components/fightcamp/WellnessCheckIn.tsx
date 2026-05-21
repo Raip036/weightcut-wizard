@@ -206,7 +206,7 @@ export function WellnessCheckIn({ userId, onSubmit, isSubmitting }: WellnessChec
                       key={c.value}
                       type="button"
                       onClick={() => pickChip(currentQ.key, c.value)}
-                      className={`flex-1 h-12 rounded-2xl text-[13px] font-semibold tracking-tight border transition-all active:scale-[0.97] ${toneClasses(c.tone, active)}`}
+                      className={`flex-1 h-12 rounded-xs text-[13px] font-semibold tracking-tight border transition-all active:scale-[0.97] ${toneClasses(c.tone, active)}`}
                       aria-label={c.label}
                       aria-pressed={active}
                     >
@@ -254,7 +254,7 @@ export function WellnessCheckIn({ userId, onSubmit, isSubmitting }: WellnessChec
                       key={q.key}
                       type="button"
                       onClick={() => { triggerHapticSelection(); setStep(idx); }}
-                      className={`card-surface rounded-2xl py-2 flex flex-col items-center gap-0.5 active:scale-95 transition-transform border ${
+                      className={`card-surface rounded-xs py-2 flex flex-col items-center gap-0.5 active:scale-95 transition-transform border ${
                         c ? toneClasses(c.tone, true) : "border-transparent"
                       }`}
                       aria-label={`Edit ${q.prompt}`}
@@ -330,7 +330,7 @@ export function WellnessCheckIn({ userId, onSubmit, isSubmitting }: WellnessChec
               <Button
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className="w-full rounded-2xl h-12 font-semibold gap-2 mt-1"
+                className="w-full rounded-xs h-12 font-semibold gap-2 mt-1"
               >
                 <Brain className="h-4 w-4" />
                 {isSubmitting ? "Analyzing..." : "Get coach advice"}
@@ -372,7 +372,7 @@ function OptionalRow({
               key={opt}
               type="button"
               onClick={() => { triggerHapticSelection(); onPick(opt); }}
-              className={`flex-1 h-8 rounded-xl text-[12px] font-semibold tabular-nums transition-colors ${
+              className={`flex-1 h-8 rounded-xs text-[12px] font-semibold tabular-nums transition-colors ${
                 active ? "bg-primary text-primary-foreground" : "bg-muted/40 text-muted-foreground/80 active:bg-muted/60"
               }`}
             >
@@ -414,7 +414,7 @@ function OptionalScaleRow({
               key={v}
               type="button"
               onClick={() => { triggerHapticSelection(); onPick(v); }}
-              className={`flex-1 h-8 rounded-xl text-[12px] font-semibold tabular-nums transition-colors ${
+              className={`flex-1 h-8 rounded-xs text-[12px] font-semibold tabular-nums transition-colors ${
                 active ? "bg-primary text-primary-foreground" : "bg-muted/40 text-muted-foreground/80 active:bg-muted/60"
               }`}
             >

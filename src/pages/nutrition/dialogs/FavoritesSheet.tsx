@@ -37,7 +37,7 @@ export function FavoritesSheet({ favorites, collapsed, onToggle, onLogFavorite }
             <button
               key={`${fav.meal_name}-${i}`}
               onClick={() => onLogFavorite(fav)}
-              className="w-full flex items-center justify-between px-2.5 py-2 rounded-2xl hover:bg-muted/30 active:bg-muted/50 transition-colors group"
+              className="w-full flex items-center justify-between px-2.5 py-2 rounded-xs hover:bg-muted/30 active:bg-muted/50 transition-colors group"
             >
               <div className="flex items-center gap-2 min-w-0">
                 <Star className="h-3 w-3 fill-amber-400 text-amber-400 flex-shrink-0" />

@@ -38,10 +38,10 @@ const AnnouncementCard = memo(function AnnouncementCard({
   const canSwipe = !prefersReducedMotion;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl">
+    <div className="relative overflow-hidden rounded-xs">
       {/* Red trash background revealed during drag */}
       {canSwipe && isDragging && (
-        <div className="absolute inset-0 flex items-center justify-end bg-destructive/90 rounded-2xl px-5">
+        <div className="absolute inset-0 flex items-center justify-end bg-destructive/90 rounded-xs px-5">
           <Trash2 className="h-4 w-4 text-destructive-foreground" />
         </div>
       )}
@@ -68,7 +68,7 @@ const AnnouncementCard = memo(function AnnouncementCard({
         {a.kind === "fight_offer" && a.fight_offer ? (
           <FightOfferCard announcement={a} offer={a.fight_offer} />
         ) : (
-          <div className="card-surface rounded-2xl border border-border p-3">
+          <div className="card-surface rounded-xs border border-border p-3">
             <div className="flex items-baseline justify-between gap-2 mb-1">
               <p className="text-[12px] font-semibold truncate">{a.sender_name}</p>
               <span className="text-[10px] text-muted-foreground tabular-nums flex-shrink-0">
@@ -89,7 +89,7 @@ const AnnouncementCard = memo(function AnnouncementCard({
               </p>
             )}
             {a.media_url && (
-              <div className="mt-2 rounded-xl overflow-hidden bg-muted/30 border border-border/40">
+              <div className="mt-2 rounded-xs overflow-hidden bg-muted/30 border border-border/40">
                 {a.media_kind === "video" ? (
                   <video
                     src={a.media_url}

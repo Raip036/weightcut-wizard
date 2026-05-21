@@ -157,7 +157,7 @@ export default function GymFeed() {
         <button
           type="button"
           onClick={() => navigate("/my-gym")}
-          className="mt-6 h-11 px-5 rounded-2xl bg-primary text-primary-foreground text-[14px] font-semibold active:scale-[0.98] transition-transform"
+          className="mt-6 h-11 px-5 rounded-xs bg-primary text-primary-foreground text-[14px] font-semibold active:scale-[0.98] transition-transform"
         >
           Find a gym
         </button>
@@ -186,7 +186,7 @@ export default function GymFeed() {
         <button
           type="button"
           onClick={() => navigate("/gym")}
-          className="mt-6 h-11 px-5 rounded-2xl bg-primary text-primary-foreground text-[14px] font-semibold active:scale-[0.98] transition-transform"
+          className="mt-6 h-11 px-5 rounded-xs bg-primary text-primary-foreground text-[14px] font-semibold active:scale-[0.98] transition-transform"
         >
           Open Gym Tracker
         </button>

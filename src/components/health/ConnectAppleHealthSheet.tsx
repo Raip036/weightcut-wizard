@@ -195,7 +195,7 @@ export function ConnectAppleHealthSheet({
     >
       {/* ── Header ───────────────────────────────────────────────── */}
       <div className="flex items-start gap-3">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-border/50 bg-card/60">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xs border border-border/50 bg-card/60">
           <HeartPulse
             className="h-6 w-6 text-rose-400"
             strokeWidth={2.2}
@@ -222,9 +222,9 @@ export function ConnectAppleHealthSheet({
             {METRIC_ROWS.map((row) => (
               <li
                 key={row.label}
-                className="flex items-start gap-3 rounded-2xl border border-border/50 bg-card/40 px-3 py-2.5"
+                className="flex items-start gap-3 rounded-xs border border-border/50 bg-card/40 px-3 py-2.5"
               >
-                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-background/60">
+                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xs bg-background/60">
                   {row.icon}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -241,7 +241,7 @@ export function ConnectAppleHealthSheet({
         )}
 
         {error && (
-          <p className="mt-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11.5px] text-amber-200">
+          <p className="mt-3 rounded-xs border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11.5px] text-amber-200">
             {error}
           </p>
         )}
@@ -256,7 +256,7 @@ export function ConnectAppleHealthSheet({
         <Button
           onClick={handleConnect}
           disabled={connecting || available === false}
-          className="no-tap-select h-12 w-full rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50"
+          className="no-tap-select h-12 w-full rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50"
         >
           {connecting
             ? "Opening Health…"
@@ -287,7 +287,7 @@ export function ConnectAppleHealthSheet({
  */
 function UnavailablePanel(): JSX.Element {
   return (
-    <div className="flex flex-col items-center gap-2 rounded-2xl border border-border/50 bg-card/40 px-4 py-8 text-center">
+    <div className="flex flex-col items-center gap-2 rounded-xs border border-border/50 bg-card/40 px-4 py-8 text-center">
       <HeartPulse
         className="h-7 w-7 text-muted-foreground/60"
         strokeWidth={1.8}

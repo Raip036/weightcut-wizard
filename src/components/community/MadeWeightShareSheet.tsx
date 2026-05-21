@@ -182,7 +182,7 @@ export function MadeWeightShareSheet({
         </SheetHeader>
 
         <div className="px-5 pb-6 pt-2 space-y-4">
-          <div className="aspect-square w-full rounded-2xl bg-[#EDECE6] dark:bg-[#1a1a1a] overflow-hidden flex items-center justify-center border border-border/40">
+          <div className="aspect-square w-full rounded-xs bg-[#EDECE6] dark:bg-[#1a1a1a] overflow-hidden flex items-center justify-center border border-border/40">
             {previewUrl ? (
               <img
                 src={previewUrl}
@@ -207,7 +207,7 @@ export function MadeWeightShareSheet({
               type="button"
               onClick={handleShare}
               disabled={!previewBlob || sharing}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-primary text-primary-foreground text-[14px] font-semibold disabled:opacity-50 active:scale-[0.99] transition-transform"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-xs bg-primary text-primary-foreground text-[14px] font-semibold disabled:opacity-50 active:scale-[0.99] transition-transform"
             >
               {sharing ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -220,7 +220,7 @@ export function MadeWeightShareSheet({
               type="button"
               onClick={handleSave}
               disabled={!previewBlob || saving}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-foreground text-[13px] font-semibold disabled:opacity-50 active:scale-[0.99] transition-transform"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xs bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-foreground text-[13px] font-semibold disabled:opacity-50 active:scale-[0.99] transition-transform"
             >
               {saving ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -232,7 +232,7 @@ export function MadeWeightShareSheet({
             <button
               type="button"
               onClick={() => onOpenChange(false)}
-              className="inline-flex h-10 items-center justify-center rounded-2xl text-muted-foreground/80 text-[12px] font-medium hover:text-foreground"
+              className="inline-flex h-10 items-center justify-center rounded-xs text-muted-foreground/80 text-[12px] font-medium hover:text-foreground"
             >
               Cancel
             </button>

@@ -39,7 +39,7 @@ function formatDay(dateStr: string) {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg bg-[hsl(0_0%_8%)] border border-border/50 px-3 py-2 text-xs shadow-lg">
+    <div className="rounded-xs bg-[hsl(0_0%_8%)] border border-border/50 px-3 py-2 text-xs shadow-lg">
       <p className="text-muted-foreground mb-0.5">{label}</p>
       <p className="font-semibold text-foreground">{payload[0].value.toFixed(1)}h</p>
     </div>
@@ -137,10 +137,10 @@ export default function Sleep() {
     return (
       <div className="animate-page-in space-y-3 px-5 py-3 sm:p-5 md:p-6 max-w-7xl mx-auto pb-16 md:pb-6">
         <div className="h-6 w-24 rounded bg-muted/30 animate-pulse" />
-        <div className="card-surface rounded-2xl h-[220px] animate-pulse" />
+        <div className="card-surface rounded-xs h-[220px] animate-pulse" />
         <div className="grid grid-cols-3 gap-3">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="card-surface rounded-2xl h-16 animate-pulse" />
+            <div key={i} className="card-surface rounded-xs h-16 animate-pulse" />
           ))}
         </div>
       </div>
@@ -155,7 +155,7 @@ export default function Sleep() {
           <Moon className="h-5 w-5 text-primary" />
           <h1 className="text-lg font-bold">Sleep</h1>
         </div>
-        <div className="flex gap-1 p-0.5 rounded-lg bg-muted/30">
+        <div className="flex gap-1 p-0.5 rounded-xs bg-muted/30">
           {(["1W", "1M", "3M"] as const).map((tf) => (
             <button
               key={tf}
@@ -173,7 +173,7 @@ export default function Sleep() {
       </div>
 
       {/* Chart */}
-      <div className="card-surface rounded-2xl p-3">
+      <div className="card-surface rounded-xs p-3">
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
             <ReferenceArea
@@ -209,7 +209,7 @@ export default function Sleep() {
       </div>
 
       {/* Log sleep — upsert by (userId, date) so re-saving for the same day overwrites */}
-      <div className="card-surface rounded-2xl border border-border/50 p-4 space-y-3">
+      <div className="card-surface rounded-xs border border-border/50 p-4 space-y-3">
         <div className="flex items-center justify-between">
           <p className="text-sm font-semibold">Log Sleep</p>
           <input
@@ -217,7 +217,7 @@ export default function Sleep() {
             value={logDate}
             max={todayISO()}
             onChange={(e) => setLogDate(e.target.value)}
-            className="text-xs bg-muted/30 border border-border/40 rounded-lg px-2 py-1 text-foreground"
+            className="text-xs bg-muted/30 border border-border/40 rounded-xs px-2 py-1 text-foreground"
           />
         </div>
         <div className="flex items-center justify-center gap-4">
@@ -248,7 +248,7 @@ export default function Sleep() {
           type="button"
           onClick={handleSave}
           disabled={saving || !userId}
-          className="w-full h-10 rounded-2xl text-sm font-semibold text-white bg-gradient-to-r from-primary to-primary/80 active:scale-[0.98] transition-transform disabled:opacity-60"
+          className="w-full h-10 rounded-xs text-sm font-semibold text-white bg-gradient-to-r from-primary to-primary/80 active:scale-[0.98] transition-transform disabled:opacity-60"
         >
           {saving ? "Saving..." : "Save"}
         </button>
@@ -261,7 +261,7 @@ export default function Sleep() {
           { label: "Best", value: stats.best },
           { label: "Worst", value: stats.worst },
         ] as const).map((s) => (
-          <div key={s.label} className="card-surface rounded-2xl p-3 text-center">
+          <div key={s.label} className="card-surface rounded-xs p-3 text-center">
             <p className="text-lg font-bold display-number">{s.value.toFixed(1)}h</p>
             <p className="text-xs text-muted-foreground">{s.label}</p>
           </div>

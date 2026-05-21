@@ -89,7 +89,7 @@ export const SessionCard = memo(function SessionCard({
   };
 
   return (
-    <div className="rounded-2xl card-surface border border-border/40 overflow-hidden">
+    <div className="rounded-xs card-surface border border-border/40 overflow-hidden">
       {/* Main row — color tile + body + chevron */}
       <button
         onClick={handleToggle}
@@ -108,7 +108,7 @@ export const SessionCard = memo(function SessionCard({
                 role="button"
                 tabIndex={0}
                 onClick={(e) => e.stopPropagation()}
-                className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl overflow-hidden ring-2"
+                className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xs overflow-hidden ring-2"
                 style={{ borderColor: sessionColor, boxShadow: `inset 0 0 0 2px ${sessionColor}` }}
                 aria-label={`${session.session_type} photo, tap to change color`}
               >
@@ -132,7 +132,7 @@ export const SessionCard = memo(function SessionCard({
                 role="button"
                 tabIndex={0}
                 onClick={(e) => e.stopPropagation()}
-                className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ring-1 ring-white/[0.06]"
+                className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xs ring-1 ring-white/[0.06]"
                 style={{ backgroundColor: sessionColor }}
                 aria-label={`${session.session_type} color tile, tap to change`}
               >
@@ -223,7 +223,7 @@ export const SessionCard = memo(function SessionCard({
                 {primaryStats.map((s, idx) => (
                   <div
                     key={idx}
-                    className="rounded-xl bg-muted/20 px-2 py-2.5 text-center"
+                    className="rounded-xs bg-muted/20 px-2 py-2.5 text-center"
                   >
                     <p
                       className="display-number text-[20px] font-black tabular-nums leading-none"
@@ -262,7 +262,7 @@ export const SessionCard = memo(function SessionCard({
                   className="block w-full text-left"
                   aria-label="View media gallery"
                 >
-                  <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-muted/30">
+                  <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xs bg-muted/30">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={session.media_url!}
@@ -279,7 +279,7 @@ export const SessionCard = memo(function SessionCard({
 
               {/* Notes */}
               {hasNotes && (
-                <div className="rounded-xl bg-muted/20 px-3 py-2">
+                <div className="rounded-xs bg-muted/20 px-3 py-2">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">Notes</p>
                   <p className="mt-1 text-[12px] text-foreground/90 leading-snug whitespace-pre-wrap">
                     {isRun ? cleanNotes : session.notes}
@@ -292,14 +292,14 @@ export const SessionCard = memo(function SessionCard({
                 {onEdit ? (
                   <button
                     onClick={(e) => { e.stopPropagation(); onEdit(session); }}
-                    className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-xl bg-muted/40 border border-border/40 text-[12px] font-semibold active:scale-[0.97] transition"
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-xs bg-muted/40 border border-border/40 text-[12px] font-semibold active:scale-[0.97] transition"
                   >
                     <Edit2 className="h-3.5 w-3.5" /> Edit
                   </button>
                 ) : (
                   <button
                     onClick={(e) => { e.stopPropagation(); onView(session); }}
-                    className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-xl bg-muted/40 border border-border/40 text-[12px] font-semibold active:scale-[0.97] transition"
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-xs bg-muted/40 border border-border/40 text-[12px] font-semibold active:scale-[0.97] transition"
                   >
                     <Eye className="h-3.5 w-3.5" /> Details
                   </button>
@@ -307,7 +307,7 @@ export const SessionCard = memo(function SessionCard({
                 {onDelete && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onDelete(session); }}
-                    className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-xl bg-destructive/10 border border-destructive/30 text-[12px] font-semibold text-destructive active:scale-[0.97] transition"
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-xs bg-destructive/10 border border-destructive/30 text-[12px] font-semibold text-destructive active:scale-[0.97] transition"
                   >
                     <Trash2 className="h-3.5 w-3.5" /> Delete
                   </button>

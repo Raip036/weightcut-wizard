@@ -100,11 +100,11 @@ export function SessionMediaPicker({
       />
 
       {displayUrl ? (
-        <div className="relative rounded-2xl overflow-hidden border border-border">
+        <div className="relative rounded-xs overflow-hidden border border-border">
           {isVideo(displayUrl) ? (
             <video
               src={displayUrl}
-              className="w-full max-h-48 object-cover rounded-2xl"
+              className="w-full max-h-48 object-cover rounded-xs"
               controls={false}
               muted
               playsInline
@@ -113,7 +113,7 @@ export function SessionMediaPicker({
             <img
               src={displayUrl}
               alt="Session media"
-              className="w-full max-h-48 object-cover rounded-2xl"
+              className="w-full max-h-48 object-cover rounded-xs"
             />
           )}
           <button
@@ -132,7 +132,7 @@ export function SessionMediaPicker({
         <button
           type="button"
           onClick={() => { setActionSheetOpen(true); triggerHapticSelection(); }}
-          className="w-full py-6 rounded-2xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-2 text-muted-foreground hover:border-primary/40 hover:text-primary/70 transition-colors active:scale-[0.98]"
+          className="w-full py-6 rounded-xs border-2 border-dashed border-border flex flex-col items-center justify-center gap-2 text-muted-foreground hover:border-primary/40 hover:text-primary/70 transition-colors active:scale-[0.98]"
         >
           <Camera className="h-6 w-6" />
           <span className="text-sm font-medium">Add Photo or Video</span>
@@ -148,21 +148,21 @@ export function SessionMediaPicker({
           <div className="px-4 pb-6 pt-2 space-y-2">
             <button
               onClick={handleTakePhoto}
-              className="w-full py-3.5 rounded-2xl bg-accent/30 text-foreground font-semibold text-base hover:bg-accent/50 transition-colors flex items-center justify-center gap-2.5 active:scale-[0.98]"
+              className="w-full py-3.5 rounded-xs bg-accent/30 text-foreground font-semibold text-base hover:bg-accent/50 transition-colors flex items-center justify-center gap-2.5 active:scale-[0.98]"
             >
               <Camera className="h-5 w-5" />
               Take Photo
             </button>
             <button
               onClick={handleChooseFromLibrary}
-              className="w-full py-3.5 rounded-2xl bg-accent/30 text-foreground font-semibold text-base hover:bg-accent/50 transition-colors flex items-center justify-center gap-2.5 active:scale-[0.98]"
+              className="w-full py-3.5 rounded-xs bg-accent/30 text-foreground font-semibold text-base hover:bg-accent/50 transition-colors flex items-center justify-center gap-2.5 active:scale-[0.98]"
             >
               <Image className="h-5 w-5" />
               Choose from Library
             </button>
             <button
               onClick={() => { setActionSheetOpen(false); triggerHapticSelection(); }}
-              className="w-full py-3.5 rounded-2xl text-muted-foreground font-semibold text-base hover:bg-accent/20 transition-colors active:scale-[0.98]"
+              className="w-full py-3.5 rounded-xs text-muted-foreground font-semibold text-base hover:bg-accent/20 transition-colors active:scale-[0.98]"
             >
               Cancel
             </button>

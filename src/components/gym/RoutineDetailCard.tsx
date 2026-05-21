@@ -104,7 +104,7 @@ function GroupedExerciseList({ exercises, onStartDay }: GroupedExerciseListProps
   return (
     <div className="px-3 pb-2 space-y-2.5 pt-1">
       {groups.map((group, gi) => (
-        <div key={group.day || gi} className={`rounded-2xl border border-border/30 overflow-hidden border-l-[3px] ${DAY_COLORS[gi % DAY_COLORS.length]}`}>
+        <div key={group.day || gi} className={`rounded-xs border border-border/30 overflow-hidden border-l-[3px] ${DAY_COLORS[gi % DAY_COLORS.length]}`}>
           {/* Day header — tappable to start that day's workout */}
           <button
             type="button"
@@ -164,7 +164,7 @@ export function RoutineDetailCard({ routine, onDelete, onRename, onStartWorkout 
 
   return (
     <Collapsible open={expanded} onOpenChange={setExpanded}>
-      <div className="card-surface rounded-2xl border border-border/50 overflow-hidden relative">
+      <div className="card-surface rounded-xs border border-border/50 overflow-hidden relative">
         {/* Subtle gradient */}
         <div className="absolute inset-0 bg-gradient-to-r from-primary/[0.02] to-transparent pointer-events-none" />
 
@@ -182,7 +182,7 @@ export function RoutineDetailCard({ routine, onDelete, onRename, onStartWorkout 
                       if (e.key === "Enter") handleRename();
                       if (e.key === "Escape") handleCancelEdit();
                     }}
-                    className="h-7 text-sm font-semibold bg-muted/30 border-border/30 rounded-lg px-2"
+                    className="h-7 text-sm font-semibold bg-muted/30 border-border/30 rounded-xs px-2"
                   />
                   <button onClick={handleRename} className="p-1 rounded hover:bg-muted/40">
                     <Check className="h-3.5 w-3.5 text-green-400" />
@@ -264,7 +264,7 @@ export function RoutineDetailCard({ routine, onDelete, onRename, onStartWorkout 
                   <div className="flex items-center gap-2">
                     <Button
                       onClick={() => onStartWorkout(routine)}
-                      className="flex-1 h-10 rounded-2xl text-xs font-semibold bg-gradient-to-r from-primary to-primary/80"
+                      className="flex-1 h-10 rounded-xs text-xs font-semibold bg-gradient-to-r from-primary to-primary/80"
                       size="sm"
                     >
                       <Play className="h-3.5 w-3.5 mr-1.5" />
@@ -272,7 +272,7 @@ export function RoutineDetailCard({ routine, onDelete, onRename, onStartWorkout 
                     </Button>
                     <button
                       onClick={() => onDelete(routine.id)}
-                      className="h-10 w-10 rounded-2xl flex items-center justify-center border border-border/50 hover:bg-destructive/10 hover:border-destructive/30 transition-colors"
+                      className="h-10 w-10 rounded-xs flex items-center justify-center border border-border/50 hover:bg-destructive/10 hover:border-destructive/30 transition-colors"
                     >
                       <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive transition-colors" />
                     </button>

@@ -199,7 +199,7 @@ export function FightFormPanel({ fightForm, trend }: Props) {
   return (
     <div className="space-y-3">
       {/* Hero card — score + label + trend */}
-      <div className="card-surface rounded-2xl border border-border p-4">
+      <div className="card-surface rounded-xs border border-border p-4">
         <div className="flex items-center gap-4">
           <MiniRing score={score} label={label} state={state} size={96} />
           <div className="flex-1 min-w-0">
@@ -225,7 +225,7 @@ export function FightFormPanel({ fightForm, trend }: Props) {
 
       {/* What's working */}
       {state === "ok" && strengths.length > 0 && (
-        <div className="card-surface rounded-2xl border border-border p-3">
+        <div className="card-surface rounded-xs border border-border p-3">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold mb-2">
             Doing well
           </p>
@@ -253,7 +253,7 @@ export function FightFormPanel({ fightForm, trend }: Props) {
 
       {/* What needs work */}
       {state === "ok" && weaknesses.length > 0 && (
-        <div className="card-surface rounded-2xl border border-border p-3">
+        <div className="card-surface rounded-xs border border-border p-3">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold mb-2">
             Needs work
           </p>
@@ -288,7 +288,7 @@ export function FightFormPanel({ fightForm, trend }: Props) {
       )}
 
       {state === "calibrating" && (
-        <div className="card-surface rounded-2xl border border-border p-4 text-center">
+        <div className="card-surface rounded-xs border border-border p-4 text-center">
           <p className="text-[13px] font-semibold mb-1">Score is calibrating</p>
           <p className="text-[12px] text-muted-foreground leading-snug">
             Needs a few more days of logs before the form score unlocks.

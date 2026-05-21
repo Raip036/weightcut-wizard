@@ -39,7 +39,7 @@ export const BalanceMetricsCard = memo(function BalanceMetricsCard({ balanceMetr
   if (balanceMetrics.length === 0) return null;
 
   return (
-    <div className="card-surface rounded-2xl p-4 border border-border">
+    <div className="card-surface rounded-xs p-4 border border-border">
       <div className="flex items-center gap-2 mb-3">
         <span className="text-sm font-bold text-foreground">Balance Metrics</span>
         <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-accent/40 text-muted-foreground font-medium">

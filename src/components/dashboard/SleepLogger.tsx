@@ -99,7 +99,7 @@ export const SleepLogger = memo(function SleepLogger({ userId, compact }: SleepL
       className="card-surface rounded-xs px-4 py-3.5 flex items-center gap-3 active:scale-[0.98] transition-all text-left w-full"
       onClick={openSheet}
     >
-      <div className="h-9 w-9 rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+      <div className="h-9 w-9 rounded-xs bg-primary/10 flex items-center justify-center flex-shrink-0">
         <Moon className="h-4 w-4 text-primary" />
       </div>
       <div className="flex-1 min-w-0">
@@ -117,7 +117,7 @@ export const SleepLogger = memo(function SleepLogger({ userId, compact }: SleepL
   ) : (
     <button
       type="button"
-      className="card-surface rounded-2xl p-3 sm:p-4 w-full flex items-center gap-3 active:scale-[0.98] transition-all duration-200 text-left"
+      className="card-surface rounded-xs p-3 sm:p-4 w-full flex items-center gap-3 active:scale-[0.98] transition-all duration-200 text-left"
       onClick={openSheet}
     >
       <Moon className="w-5 h-5 text-primary flex-shrink-0" />

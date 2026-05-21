@@ -92,7 +92,7 @@ export function WelcomeProDialog({ open, onClose }: WelcomeProDialogProps) {
           >
             <Button
               onClick={onClose}
-              className="w-full h-12 rounded-2xl text-[15px] font-bold bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-lg shadow-primary/25 active:scale-[0.97] transition-transform"
+              className="w-full h-12 rounded-xs text-[15px] font-bold bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-lg shadow-primary/25 active:scale-[0.97] transition-transform"
             >
               Let's Go
             </Button>

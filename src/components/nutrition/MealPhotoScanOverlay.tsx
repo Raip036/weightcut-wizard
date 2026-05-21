@@ -90,9 +90,9 @@ export const MealPhotoScanOverlay = memo(function MealPhotoScanOverlay({
           transition={springs.gentle}
           className="w-full"
         >
-          <div className="bg-background/95 border border-border rounded-2xl shadow-2xl p-3 space-y-3">
+          <div className="bg-background/95 border border-border rounded-xs shadow-2xl p-3 space-y-3">
             {/* Viewfinder frame */}
-            <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden bg-black">
+            <div className="relative w-full aspect-[4/3] rounded-xs overflow-hidden bg-black">
               <img
                 src={`data:image/jpeg;base64,${photoBase64}`}
                 alt="Meal"
@@ -175,7 +175,7 @@ export const MealPhotoScanOverlay = memo(function MealPhotoScanOverlay({
                     exit={{ scale: 0, opacity: 0 }}
                     transition={springs.snappy}
                     onClick={onCancel}
-                    className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 text-[12px] font-medium text-muted-foreground bg-muted/60 hover:bg-red-500/20 hover:text-red-400 border border-border/50 rounded-lg transition-colors touch-manipulation"
+                    className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 text-[12px] font-medium text-muted-foreground bg-muted/60 hover:bg-red-500/20 hover:text-red-400 border border-border/50 rounded-xs transition-colors touch-manipulation"
                   >
                     <X className="w-3.5 h-3.5" />
                     Cancel

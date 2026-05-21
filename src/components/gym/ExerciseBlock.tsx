@@ -124,7 +124,7 @@ export function ExerciseBlock({
         {onToggleCollapse && (
           <button
             onClick={onToggleCollapse}
-            className="shrink-0 p-1.5 rounded-lg text-muted-foreground/60 hover:text-foreground hover:bg-muted/40 transition-colors"
+            className="shrink-0 p-1.5 rounded-xs text-muted-foreground/60 hover:text-foreground hover:bg-muted/40 transition-colors"
             aria-label={collapsed ? "Expand exercise" : "Collapse exercise"}
             aria-expanded={!collapsed}
           >
@@ -139,7 +139,7 @@ export function ExerciseBlock({
         )}
         <button
           onClick={() => onRemoveExercise(group.exerciseOrder)}
-          className="shrink-0 p-1.5 rounded-lg text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors"
+          className="shrink-0 p-1.5 rounded-xs text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors"
           aria-label="Remove exercise"
         >
           <X className="h-4 w-4" />

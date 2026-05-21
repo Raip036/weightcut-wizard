@@ -34,7 +34,7 @@ export function DeleteConfirmDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="max-w-[240px] rounded-2xl p-0 border-0 bg-card/90 backdrop-blur-xl overflow-hidden gap-0 shadow-2xl">
+      <AlertDialogContent className="max-w-[240px] rounded-xs p-0 border-0 bg-card/90 backdrop-blur-xl overflow-hidden gap-0 shadow-2xl">
         <VisuallyHidden><AlertDialogPrimitive.Title>Delete</AlertDialogPrimitive.Title></VisuallyHidden>
         <AlertDialogPrimitive.Description asChild>
           <div className="pt-4 pb-3 px-4 text-center">

@@ -124,7 +124,7 @@ export default function Profile() {
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="mt-6 h-10 rounded-2xl bg-white px-5 text-sm font-semibold text-zinc-950 active:scale-[0.98]"
+            className="mt-6 h-10 rounded-xs bg-white px-5 text-sm font-semibold text-zinc-950 active:scale-[0.98]"
           >
             Back
           </button>

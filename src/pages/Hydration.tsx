@@ -211,13 +211,13 @@ export default function Hydration() {
                 ))}
               </div>
               <div className="space-y-2">
-                <div className="flex items-start gap-2 rounded-xl bg-amber-500/10 ring-1 ring-amber-500/20 px-3 py-2">
+                <div className="flex items-start gap-2 rounded-xs bg-amber-500/10 ring-1 ring-amber-500/20 px-3 py-2">
                   <AlertTriangle className="h-3.5 w-3.5 text-amber-400 mt-0.5 flex-shrink-0" strokeWidth={2.4} />
                   <p className="text-[11px] text-foreground/80 leading-snug">
                     Rehydrating too fast can dilute sodium and trigger cramps or nausea. The protocol paces fluid and electrolyte intake to avoid this.
                   </p>
                 </div>
-                <div className="flex items-start gap-2 rounded-xl bg-muted/30 ring-1 ring-border/30 px-3 py-2">
+                <div className="flex items-start gap-2 rounded-xs bg-muted/30 ring-1 ring-border/30 px-3 py-2">
                   <Info className="h-3.5 w-3.5 text-muted-foreground/80 mt-0.5 flex-shrink-0" strokeWidth={2.2} />
                   <p className="text-[11px] text-muted-foreground leading-snug">
                     Science-backed but not perfectly accurate. For a high-stakes cut, working with a sports nutritionist is still the gold standard.
@@ -226,7 +226,7 @@ export default function Hydration() {
               </div>
               <button
                 onClick={() => setHowItWorksOpen(false)}
-                className="w-full h-11 rounded-2xl bg-primary text-primary-foreground font-semibold text-[14px] active:scale-[0.98] transition-transform shadow-md shadow-primary/30"
+                className="w-full h-11 rounded-xs bg-primary text-primary-foreground font-semibold text-[14px] active:scale-[0.98] transition-transform shadow-md shadow-primary/30"
               >
                 Got it
               </button>
@@ -247,7 +247,7 @@ export default function Hydration() {
 
         {/* Input Form */}
         {showForm && (
-        <div className="rounded-2xl border border-border p-4 mb-4 relative overflow-hidden bg-card">
+        <div className="rounded-xs border border-border p-4 mb-4 relative overflow-hidden bg-card">
           <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
           </div>
 
@@ -258,7 +258,7 @@ export default function Hydration() {
             </div>
 
             {!currentWeight && (
-              <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-red-500/10 border border-red-500/20">
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xs bg-red-500/10 border border-red-500/20">
                 <AlertTriangle className="h-3.5 w-3.5 text-red-400 shrink-0" />
                 <p className="text-[11px] text-red-400">Set your current weight in your profile to generate a protocol.</p>
               </div>
@@ -292,9 +292,9 @@ export default function Hydration() {
             </div>
 
             {/* Rehydration window summary — clearly read-only */}
-            <div className="flex items-center justify-between rounded-2xl border border-primary/20 bg-primary/[0.06] px-3.5 py-2.5">
+            <div className="flex items-center justify-between rounded-xs border border-primary/20 bg-primary/[0.06] px-3.5 py-2.5">
               <div className="flex items-center gap-2.5">
-                <div className="h-9 w-9 rounded-xl bg-primary/15 ring-1 ring-primary/25 flex items-center justify-center">
+                <div className="h-9 w-9 rounded-xs bg-primary/15 ring-1 ring-primary/25 flex items-center justify-center">
                   <Clock className="h-4 w-4 text-primary" strokeWidth={2.4} />
                 </div>
                 <div>
@@ -320,9 +320,9 @@ export default function Hydration() {
             <button
               type="button"
               onClick={() => setGlycogenSheetOpen(true)}
-              className="group w-full flex items-center gap-2.5 rounded-2xl border border-border/40 bg-muted/30 px-3 py-2.5 active:scale-[0.99] transition"
+              className="group w-full flex items-center gap-2.5 rounded-xs border border-border/40 bg-muted/30 px-3 py-2.5 active:scale-[0.99] transition"
             >
-              <div className="h-8 w-8 rounded-lg bg-muted/40 ring-1 ring-border/30 flex items-center justify-center shrink-0">
+              <div className="h-8 w-8 rounded-xs bg-muted/40 ring-1 ring-border/30 flex items-center justify-center shrink-0">
                 <Beaker className="h-3.5 w-3.5 text-muted-foreground" />
               </div>
               <div className="flex-1 min-w-0 text-left">
@@ -358,7 +358,7 @@ export default function Hydration() {
                     </p>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-2xl bg-muted/30 border border-border/30 p-3 text-center">
+                    <div className="rounded-xs bg-muted/30 border border-border/30 p-3 text-center">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70 mb-1">Normal</p>
                       <input
                         type="number"
@@ -370,7 +370,7 @@ export default function Hydration() {
                       />
                       <p className="text-[10px] text-muted-foreground/70 mt-1">g/day</p>
                     </div>
-                    <div className="rounded-2xl bg-muted/30 border border-border/30 p-3 text-center">
+                    <div className="rounded-xs bg-muted/30 border border-border/30 p-3 text-center">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70 mb-1">Fight week</p>
                       <input
                         type="number"
@@ -395,7 +395,7 @@ export default function Hydration() {
                       none: { color: "text-emerald-300", bg: "bg-emerald-500/12", ring: "ring-emerald-500/25", label: "None", target: "4-5 g/kg" },
                     }[level] ?? { color: "text-amber-300", bg: "bg-amber-500/12", ring: "ring-amber-500/25", label: "Moderate", target: "6-8 g/kg" };
                     return (
-                      <div className={`rounded-2xl ${config.bg} ring-1 ${config.ring} px-3.5 py-3 text-center`}>
+                      <div className={`rounded-xs ${config.bg} ring-1 ${config.ring} px-3.5 py-3 text-center`}>
                         <p className={`text-[14px] font-bold ${config.color}`}>{config.label}</p>
                         <p className={`text-[11px] mt-0.5 ${config.color} opacity-80`}>Replenish target: {config.target}</p>
                         {hasInputs && (
@@ -408,7 +408,7 @@ export default function Hydration() {
                   })()}
                   <button
                     onClick={() => setGlycogenSheetOpen(false)}
-                    className="w-full h-11 rounded-2xl bg-primary text-primary-foreground font-semibold text-[14px] active:scale-[0.98] transition-transform shadow-md shadow-primary/30"
+                    className="w-full h-11 rounded-xs bg-primary text-primary-foreground font-semibold text-[14px] active:scale-[0.98] transition-transform shadow-md shadow-primary/30"
                   >
                     Done
                   </button>
@@ -417,7 +417,7 @@ export default function Hydration() {
             </Sheet>
 
             {/* Safety & Disclaimer */}
-            <div className="rounded-2xl border border-border/30 overflow-hidden">
+            <div className="rounded-xs border border-border/30 overflow-hidden">
               <button type="button" className="w-full px-3 py-2.5 flex items-center gap-2 text-left" onClick={() => setDisclaimerOpen(o => !o)}>
                 <Shield className="h-3.5 w-3.5 text-muted-foreground" />
                 <span className="text-[11px] font-medium text-muted-foreground">Safety & Disclaimer</span>
@@ -438,7 +438,7 @@ export default function Hydration() {
 
             <Button
               type="submit"
-              className={`relative w-full h-12 min-h-[52px] mt-1 font-bold text-[15px] rounded-2xl bg-primary text-primary-foreground transition-all active:scale-[0.98] shadow-lg shadow-primary/30 ${lastError && !loading ? "ring-2 ring-red-500/40" : ""}`}
+              className={`relative w-full h-12 min-h-[52px] mt-1 font-bold text-[15px] rounded-xs bg-primary text-primary-foreground transition-all active:scale-[0.98] shadow-lg shadow-primary/30 ${lastError && !loading ? "ring-2 ring-red-500/40" : ""}`}
               disabled={loading || !currentWeight || !weightLost || parseFloat(weightLost) <= 0}
             >
               {loading ? (
@@ -473,17 +473,17 @@ export default function Hydration() {
           <div className="space-y-2.5">
             {/* Summary — falls back to a muted banner when AI text is empty. */}
             {summaryIsFallback ? (
-              <div className="rounded-2xl border border-border/40 bg-muted/30 p-3 flex items-start gap-2">
+              <div className="rounded-xs border border-border/40 bg-muted/30 p-3 flex items-start gap-2">
                 <Info className="h-3.5 w-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
                 <p className="text-[12px] text-muted-foreground leading-relaxed flex-1">AI commentary unavailable — showing computed plan.</p>
-                <button onClick={() => { setFormExpanded(false); handleGenerateProtocol(new Event("submit") as unknown as React.FormEvent); }} disabled={loading} className="shrink-0 p-1 rounded-lg hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors" aria-label="Regenerate">
+                <button onClick={() => { setFormExpanded(false); handleGenerateProtocol(new Event("submit") as unknown as React.FormEvent); }} disabled={loading} className="shrink-0 p-1 rounded-xs hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors" aria-label="Regenerate">
                   <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
                 </button>
               </div>
             ) : (
-              <div className="rounded-2xl bg-muted/50 border border-border p-3 flex items-start justify-between gap-3">
+              <div className="rounded-xs bg-muted/50 border border-border p-3 flex items-start justify-between gap-3">
                 <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-line">{summaryRaw}</p>
-                <button onClick={() => { setFormExpanded(false); handleGenerateProtocol(new Event("submit") as unknown as React.FormEvent); }} disabled={loading} className="shrink-0 p-1.5 rounded-lg hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors" aria-label="Regenerate">
+                <button onClick={() => { setFormExpanded(false); handleGenerateProtocol(new Event("submit") as unknown as React.FormEvent); }} disabled={loading} className="shrink-0 p-1.5 rounded-xs hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors" aria-label="Regenerate">
                   <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
                 </button>
               </div>
@@ -491,30 +491,30 @@ export default function Hydration() {
 
             {/* Totals Dashboard */}
             {totals && (
-              <div className="rounded-2xl bg-card border border-border p-3">
+              <div className="rounded-xs bg-card border border-border p-3">
                 <p className="text-[9px] text-muted-foreground uppercase tracking-wider mb-2 text-center font-bold">Rehydration Totals</p>
                 <div className="grid grid-cols-3 gap-1.5">
-                  <div className="rounded-2xl bg-blue-500/5 border border-blue-500/20 p-2 text-center">
+                  <div className="rounded-xs bg-blue-500/5 border border-blue-500/20 p-2 text-center">
                     <p className="text-base font-bold tabular-nums text-blue-400">{totals.totalFluidLitres}L</p>
                     <p className="text-[9px] text-muted-foreground uppercase tracking-wider mt-0.5">Total Fluid</p>
                   </div>
-                  <div className="rounded-2xl bg-amber-500/5 border border-amber-500/20 p-2 text-center">
+                  <div className="rounded-xs bg-amber-500/5 border border-amber-500/20 p-2 text-center">
                     <p className="text-base font-bold tabular-nums text-amber-400">{(totals.totalSodiumMg / 1000).toFixed(1)}g</p>
                     <p className="text-[9px] text-muted-foreground uppercase tracking-wider mt-0.5">Sodium</p>
                   </div>
-                  <div className="rounded-2xl bg-emerald-500/5 border border-emerald-500/20 p-2 text-center">
+                  <div className="rounded-xs bg-emerald-500/5 border border-emerald-500/20 p-2 text-center">
                     <p className="text-base font-bold tabular-nums text-emerald-400">{totals.totalCarbsG}g</p>
                     <p className="text-[9px] text-muted-foreground uppercase tracking-wider mt-0.5">Carbs</p>
                   </div>
-                  <div className="rounded-2xl bg-muted border border-border p-2.5 text-center">
+                  <div className="rounded-xs bg-muted border border-border p-2.5 text-center">
                     <p className="text-sm font-bold tabular-nums text-foreground/80">{totals.rehydrationWindowHours}h</p>
                     <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Window</p>
                   </div>
-                  <div className="rounded-2xl bg-muted border border-border p-2.5 text-center">
+                  <div className="rounded-xs bg-muted border border-border p-2.5 text-center">
                     <p className="text-sm font-bold tabular-nums text-foreground/80">{totals.totalPotassiumMg}mg</p>
                     <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Potassium</p>
                   </div>
-                  <div className="rounded-2xl bg-muted border border-border p-2.5 text-center">
+                  <div className="rounded-xs bg-muted border border-border p-2.5 text-center">
                     <p className="text-sm font-bold tabular-nums text-foreground/80">{totals.totalMagnesiumMg}mg</p>
                     <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Magnesium</p>
                   </div>
@@ -523,7 +523,7 @@ export default function Hydration() {
             )}
 
             {/* Warnings Section */}
-            <div className="rounded-2xl bg-amber-500/5 border border-amber-500/20 overflow-hidden">
+            <div className="rounded-xs bg-amber-500/5 border border-amber-500/20 overflow-hidden">
               <button className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-amber-500/10 transition-colors" onClick={() => setWarningsOpen((o) => !o)}>
                 <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
                 <span className="text-sm font-medium text-amber-400">Safety Warnings ({allWarnings.length})</span>
@@ -542,7 +542,7 @@ export default function Hydration() {
             </div>
 
             {/* Learn More */}
-            <div className="rounded-2xl bg-muted/50 border border-border overflow-hidden">
+            <div className="rounded-xs bg-muted/50 border border-border overflow-hidden">
               <button className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-muted/30 transition-colors" onClick={() => setScienceOpen((o) => !o)}>
                 <BookOpen className="h-3.5 w-3.5 text-blue-400 shrink-0" />
                 <span className="text-sm font-medium">Learn More</span>
@@ -597,7 +597,7 @@ export default function Hydration() {
             </div>
 
             {/* Segmented Tab Control (Fluid / Carbs) */}
-            <div className="rounded-2xl bg-muted/50 border border-border overflow-hidden">
+            <div className="rounded-xs bg-muted/50 border border-border overflow-hidden">
               <div className="p-2">
                 <div className="flex bg-muted rounded-full p-0.5">
                   <button onClick={() => setActiveTab("fluid")} className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-full text-xs font-medium transition-all ${activeTab === "fluid" ? "bg-blue-500 text-white shadow-sm" : "text-muted-foreground"}`}>
@@ -620,7 +620,7 @@ export default function Hydration() {
                       </div>
                     </div>
                   )}
-                  <div className="mx-4 mb-2 flex items-start gap-2 px-3 py-2 rounded-2xl bg-blue-500/5 border border-blue-500/20">
+                  <div className="mx-4 mb-2 flex items-start gap-2 px-3 py-2 rounded-xs bg-blue-500/5 border border-blue-500/20">
                     <Droplets className="h-3.5 w-3.5 text-blue-400 shrink-0 mt-0.5" />
                     <p className="text-[11px] text-blue-300 leading-snug">
                       <span className="font-semibold">Sip, don't chug.</span> Spread each hour's fluids into small sips over the full 60 minutes for better absorption and less GI distress.
@@ -649,7 +649,7 @@ export default function Hydration() {
                             {phaseBadge && <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-md border ${phaseBadge.bg} ${phaseBadge.text}`}>{step.phase}</span>}
                           </div>
                           {step.drinkRecipe && (
-                            <div className="flex items-start gap-1.5 bg-blue-500/5 border border-blue-500/20 rounded-lg px-2.5 py-1.5 mb-1.5">
+                            <div className="flex items-start gap-1.5 bg-blue-500/5 border border-blue-500/20 rounded-xs px-2.5 py-1.5 mb-1.5">
                               <Beaker className="h-3 w-3 text-blue-400 shrink-0 mt-0.5" />
                               <p className="text-[11px] text-blue-400 font-medium leading-snug">{step.drinkRecipe}</p>
                             </div>
@@ -717,7 +717,7 @@ export default function Hydration() {
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2 font-bold">Suggested Foods (Research-Backed)</p>
                     <div className="grid grid-cols-2 gap-1.5">
                       {SUGGESTED_FOODS.map((food, idx) => (
-                        <div key={idx} className="rounded-lg bg-card border border-border p-2 space-y-1">
+                        <div key={idx} className="rounded-xs bg-card border border-border p-2 space-y-1">
                           <div className="flex items-start justify-between gap-1.5">
                             <p className="text-[11px] font-medium text-foreground/90 leading-tight min-w-0">{food.name}</p>
                             <span className="text-[10px] text-emerald-400 font-bold tabular-nums shrink-0">{food.carbsG}g</span>
@@ -733,7 +733,7 @@ export default function Hydration() {
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2 font-bold">Suggested Drinks</p>
                     <div className="space-y-1.5">
                       {SUGGESTED_DRINKS.map((drink, idx) => (
-                        <div key={idx} className="flex items-center gap-2 rounded-lg bg-card border border-border px-3 py-2">
+                        <div key={idx} className="flex items-center gap-2 rounded-xs bg-card border border-border px-3 py-2">
                           <Droplets className="h-3 w-3 text-blue-400 shrink-0" />
                           <div className="min-w-0">
                             <p className="text-[11px] font-medium text-foreground/90">{drink.name}</p>
@@ -778,7 +778,7 @@ function WeightLostPill({
           ? "bg-amber-500/12 text-amber-300 ring-amber-500/25"
           : "bg-red-500/12 text-red-300 ring-red-500/25";
   return (
-    <div className="flex items-center gap-3 rounded-2xl bg-muted/30 border border-border/30 px-3 py-2.5">
+    <div className="flex items-center gap-3 rounded-xs bg-muted/30 border border-border/30 px-3 py-2.5">
       <div className="min-w-0 flex-1">
         <p className="text-[11px] font-semibold text-foreground/80 leading-tight">Weight lost</p>
         <p className="text-[10px] text-muted-foreground/70 leading-tight mt-0.5">vs your normal weight</p>
@@ -806,7 +806,7 @@ function WeightLostPill({
             value={weightLost}
             onChange={(e) => setWeightLost(e.target.value)}
             placeholder="0.0"
-            className="w-[60px] bg-transparent text-center text-[15px] font-bold tabular-nums text-foreground outline-none focus:ring-2 focus:ring-primary/40 rounded-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            className="w-[60px] bg-transparent text-center text-[15px] font-bold tabular-nums text-foreground outline-none focus:ring-2 focus:ring-primary/40 rounded-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
           <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70 ml-0.5">kg</span>
         </div>
@@ -873,7 +873,7 @@ function DateTimeRow({
     : "Pick date";
   const timeDisplay = time || "Pick time";
   return (
-    <div className="rounded-2xl bg-muted/30 border border-border/30 px-3 py-2.5">
+    <div className="rounded-xs bg-muted/30 border border-border/30 px-3 py-2.5">
       <div className="flex items-center gap-2 mb-2">
         <span className={`h-2 w-2 rounded-full ${dotColor} shrink-0`} aria-hidden />
         <p className="text-[11px] font-semibold text-foreground/80 leading-none">{label}</p>
@@ -884,7 +884,7 @@ function DateTimeRow({
             the visible content focuses the input and fires the native
             date picker. The label element guarantees the input
             receives the click on iOS/Android WebViews. */}
-        <label className="relative flex items-center justify-between gap-1.5 h-10 rounded-xl bg-card/70 border border-border/40 px-2.5 active:bg-muted/50 transition cursor-pointer">
+        <label className="relative flex items-center justify-between gap-1.5 h-10 rounded-xs bg-card/70 border border-border/40 px-2.5 active:bg-muted/50 transition cursor-pointer">
           <span className="inline-flex items-center gap-1.5 min-w-0">
             <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
             <span className={`text-[13px] font-bold tabular-nums truncate ${date ? "text-foreground" : "text-muted-foreground/60"}`}>
@@ -902,7 +902,7 @@ function DateTimeRow({
           />
         </label>
         {/* Time button — same pattern but `<input type="time">`. */}
-        <label className="relative flex items-center justify-between gap-1.5 h-10 rounded-xl bg-card/70 border border-border/40 px-2.5 active:bg-muted/50 transition cursor-pointer">
+        <label className="relative flex items-center justify-between gap-1.5 h-10 rounded-xs bg-card/70 border border-border/40 px-2.5 active:bg-muted/50 transition cursor-pointer">
           <span className="inline-flex items-center gap-1.5 min-w-0">
             <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
             <span className={`text-[13px] font-bold tabular-nums truncate ${time ? "text-foreground" : "text-muted-foreground/60"}`}>

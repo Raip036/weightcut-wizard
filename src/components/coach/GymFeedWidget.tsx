@@ -36,7 +36,7 @@ export function GymFeedWidget({ gymId, gymName }: GymFeedWidgetProps) {
         </div>
         <div className="flex gap-2 overflow-x-auto scrollbar-hide">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-24 w-24 rounded-xl bg-muted/30 animate-pulse shrink-0" />
+            <div key={i} className="h-24 w-24 rounded-xs bg-muted/30 animate-pulse shrink-0" />
           ))}
         </div>
       </section>
@@ -53,7 +53,7 @@ export function GymFeedWidget({ gymId, gymName }: GymFeedWidgetProps) {
             Gym feed · {gymName}
           </h3>
         </div>
-        <div className="card-surface rounded-2xl border border-border/40 px-4 py-5 text-center">
+        <div className="card-surface rounded-xs border border-border/40 px-4 py-5 text-center">
           <Users className="h-5 w-5 text-muted-foreground/40 mx-auto mb-1.5" />
           <p className="text-[13px] text-foreground">No posts yet</p>
           <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -84,7 +84,7 @@ export function GymFeedWidget({ gymId, gymName }: GymFeedWidgetProps) {
             key={post.id}
             type="button"
             onClick={() => navigate(`/gym-feed?gym=${gymId}`)}
-            className="relative h-24 w-24 rounded-xl overflow-hidden shrink-0 active:scale-[0.97] transition-transform bg-muted/40"
+            className="relative h-24 w-24 rounded-xs overflow-hidden shrink-0 active:scale-[0.97] transition-transform bg-muted/40"
             aria-label="Open gym feed"
           >
             {post.url ? (

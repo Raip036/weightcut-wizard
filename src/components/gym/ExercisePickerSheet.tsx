@@ -242,7 +242,7 @@ export function ExercisePickerSheet({
                     {muscle.replace(/_/g, " ")}
                   </h4>
                 )}
-                <div className="rounded-2xl border border-border/40 bg-card/50 overflow-hidden divide-y divide-border/20">
+                <div className="rounded-xs border border-border/40 bg-card/50 overflow-hidden divide-y divide-border/20">
                   {exs.map((ex) => {
                     const isFav = favIds.includes(ex.id);
                     const tile = MUSCLE_BG[ex.muscle_group] || "bg-muted/40 text-muted-foreground";
@@ -252,7 +252,7 @@ export function ExercisePickerSheet({
                           onClick={() => handleSelect(ex)}
                           className="flex-1 flex items-center gap-3 px-3 py-2.5 active:bg-muted/30 transition-colors text-left min-w-0"
                         >
-                          <div className={`h-9 w-9 shrink-0 rounded-xl flex items-center justify-center text-[11px] font-black uppercase ${tile}`}>
+                          <div className={`h-9 w-9 shrink-0 rounded-xs flex items-center justify-center text-[11px] font-black uppercase ${tile}`}>
                             {ex.name.slice(0, 2)}
                           </div>
                           <div className="min-w-0 flex-1">
@@ -400,14 +400,14 @@ export function ExercisePickerSheet({
                 type="button"
                 onClick={() => { setCategoryFilter(null); setEquipmentFilter(null); }}
                 disabled={activeFilters === 0}
-                className="flex-1 h-11 rounded-2xl bg-muted/40 border border-border/40 text-[13px] font-semibold disabled:opacity-40 active:scale-[0.98] transition-transform"
+                className="flex-1 h-11 rounded-xs bg-muted/40 border border-border/40 text-[13px] font-semibold disabled:opacity-40 active:scale-[0.98] transition-transform"
               >
                 Clear
               </button>
               <button
                 type="button"
                 onClick={() => setFiltersOpen(false)}
-                className="flex-1 h-11 rounded-2xl bg-primary text-primary-foreground font-bold text-[13px] active:scale-[0.98] transition-transform shadow-md shadow-primary/30"
+                className="flex-1 h-11 rounded-xs bg-primary text-primary-foreground font-bold text-[13px] active:scale-[0.98] transition-transform shadow-md shadow-primary/30"
               >
                 Apply
               </button>

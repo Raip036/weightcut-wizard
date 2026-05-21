@@ -27,7 +27,7 @@ export const ProjectionChart = memo(function ProjectionChart({ timeline, targetW
   const yMax = Math.ceil(Math.max(...weights) + 0.5);
 
   return (
-    <div className="card-surface rounded-2xl border border-border/50 p-5 space-y-3">
+    <div className="card-surface rounded-xs border border-border/50 p-5 space-y-3">
       <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
         Projected Weight Curve
       </h3>

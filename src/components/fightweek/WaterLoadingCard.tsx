@@ -37,9 +37,9 @@ export const WaterLoadingCard = memo(function WaterLoadingCard({ data }: WaterLo
   const loadLabels = safeDaily.map((_, i) => `Day ${-(data.loadDays - i)}`);
 
   return (
-    <div className="card-surface rounded-2xl border border-border/50 p-4 space-y-3">
+    <div className="card-surface rounded-xs border border-border/50 p-4 space-y-3">
       <div className="flex items-center gap-2">
-        <div className="h-7 w-7 rounded-lg bg-sky-500/15 flex items-center justify-center">
+        <div className="h-7 w-7 rounded-xs bg-sky-500/15 flex items-center justify-center">
           <Droplets className="h-3.5 w-3.5 text-sky-400" />
         </div>
         <h3 className="text-sm font-semibold">Water Loading</h3>

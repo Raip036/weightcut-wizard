@@ -385,7 +385,7 @@ export default function Goals() {
               }}
               className="w-full flex items-center gap-3 px-4 py-3 min-h-[52px] active:bg-muted/30 transition-colors text-left"
             >
-              <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+              <div className="h-9 w-9 rounded-xs bg-primary/10 flex items-center justify-center shrink-0">
                 <TrendingDown className="h-4.5 w-4.5 text-primary" />
               </div>
               <div className="flex-1 min-w-0">
@@ -490,7 +490,7 @@ function SettingsGroup({ title, children }: { title: string; children: React.Rea
       <h2 className="px-4 mb-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground/80">
         {title}
       </h2>
-      <div className="rounded-2xl bg-card/60 backdrop-blur-sm border border-border/40 overflow-hidden divide-y divide-border/30">
+      <div className="rounded-xs bg-card/60 backdrop-blur-sm border border-border/40 overflow-hidden divide-y divide-border/30">
         {children}
       </div>
     </section>
@@ -598,7 +598,7 @@ function EditFieldSheet({
                   <button
                     type="button"
                     onClick={() => onUseAutoTargetChange(!useAutoTarget)}
-                    className={`flex-1 h-10 rounded-xl text-[13px] font-semibold transition-colors ${
+                    className={`flex-1 h-10 rounded-xs text-[13px] font-semibold transition-colors ${
                       useAutoTarget ? "bg-primary text-primary-foreground" : "bg-muted/40 text-muted-foreground"
                     }`}
                   >
@@ -607,7 +607,7 @@ function EditFieldSheet({
                   <button
                     type="button"
                     onClick={() => onUseAutoTargetChange(false)}
-                    className={`flex-1 h-10 rounded-xl text-[13px] font-semibold transition-colors ${
+                    className={`flex-1 h-10 rounded-xs text-[13px] font-semibold transition-colors ${
                       !useAutoTarget ? "bg-primary text-primary-foreground" : "bg-muted/40 text-muted-foreground"
                     }`}
                   >
@@ -631,13 +631,13 @@ function EditFieldSheet({
                 type="date"
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
-                className="h-12 rounded-xl text-[16px] bg-muted/30 border-border/40"
+                className="h-12 rounded-xs text-[16px] bg-muted/30 border-border/40"
               />
             </label>
             <button
               type="button"
               onClick={commitNumber}
-              className="w-full h-12 rounded-xl bg-primary text-primary-foreground text-[15px] font-semibold active:scale-[0.98] transition-transform"
+              className="w-full h-12 rounded-xs bg-primary text-primary-foreground text-[15px] font-semibold active:scale-[0.98] transition-transform"
             >
               Save
             </button>
@@ -743,7 +743,7 @@ function NumericEditor({
       <button
         type="button"
         onClick={onCommit}
-        className="w-full h-12 rounded-xl bg-primary text-primary-foreground text-[15px] font-semibold active:scale-[0.98] transition-transform"
+        className="w-full h-12 rounded-xs bg-primary text-primary-foreground text-[15px] font-semibold active:scale-[0.98] transition-transform"
       >
         Save
       </button>
@@ -768,7 +768,7 @@ function ChipPicker({
             key={o.value}
             type="button"
             onClick={() => { triggerHapticSelection(); onPick(o.value); }}
-            className={`min-h-[48px] px-4 rounded-xl text-[15px] font-medium transition-all active:scale-[0.98] ${
+            className={`min-h-[48px] px-4 rounded-xs text-[15px] font-medium transition-all active:scale-[0.98] ${
               active
                 ? "bg-primary text-primary-foreground shadow-sm"
                 : "bg-muted/30 text-foreground border border-border/40"

@@ -63,11 +63,11 @@ export function DietAnalysisCard({ analysis, onDismiss, onRefresh, refreshing }:
         <p className="text-[13px] font-semibold text-foreground">Diet Analysis</p>
         <div className="flex items-center gap-0.5">
           <button onClick={onRefresh} disabled={refreshing}
-            className="h-8 w-8 flex items-center justify-center rounded-2xl text-muted-foreground/40 active:text-foreground active:bg-muted/40 transition-colors disabled:opacity-50">
+            className="h-8 w-8 flex items-center justify-center rounded-xs text-muted-foreground/40 active:text-foreground active:bg-muted/40 transition-colors disabled:opacity-50">
             <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
           </button>
           <button onClick={onDismiss}
-            className="h-8 w-8 flex items-center justify-center rounded-2xl text-muted-foreground/40 active:text-foreground active:bg-muted/40 transition-colors">
+            className="h-8 w-8 flex items-center justify-center rounded-xs text-muted-foreground/40 active:text-foreground active:bg-muted/40 transition-colors">
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -93,7 +93,7 @@ export function DietAnalysisCard({ analysis, onDismiss, onRefresh, refreshing }:
       {analysis.mealBreakdown?.length > 0 && (
         <div>
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-2">Per Meal</p>
-          <div className="space-y-0 rounded-2xl overflow-hidden border-2 border-border">
+          <div className="space-y-0 rounded-xs overflow-hidden border-2 border-border">
             {analysis.mealBreakdown.map((meal, i) => (
               <div key={i} className={`px-3.5 py-2.5 ${i > 0 ? 'border-t-2 border-border' : ''}`}>
                 <div className="flex items-center gap-2 mb-1">
@@ -117,7 +117,7 @@ export function DietAnalysisCard({ analysis, onDismiss, onRefresh, refreshing }:
       {analysis.gaps?.length > 0 && (
         <div>
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-2">Gaps</p>
-          <div className="space-y-0 rounded-2xl overflow-hidden border-2 border-border">
+          <div className="space-y-0 rounded-xs overflow-hidden border-2 border-border">
             {analysis.gaps.map((gap, i) => {
               const dotColor = { critical: 'bg-red-400', moderate: 'bg-amber-400', low: 'bg-yellow-400' }[gap.severity] ?? 'bg-yellow-400';
               return (
@@ -141,7 +141,7 @@ export function DietAnalysisCard({ analysis, onDismiss, onRefresh, refreshing }:
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-2">Add to Your Diet</p>
           <div className="space-y-1.5">
             {analysis.suggestions.map((s, i) => (
-              <div key={i} className="rounded-2xl bg-muted/20 px-3.5 py-2.5 border-2 border-border">
+              <div key={i} className="rounded-xs bg-muted/20 px-3.5 py-2.5 border-2 border-border">
                 <p className="text-[13px] font-semibold text-foreground">{s.food}</p>
                 <p className="text-[12px] text-foreground/80 leading-relaxed mt-0.5">{clean(s.reason)}</p>
                 <div className="flex flex-wrap gap-1 mt-1.5">
@@ -162,7 +162,7 @@ export function DietAnalysisCard({ analysis, onDismiss, onRefresh, refreshing }:
           <div className="space-y-1.5">
             {analysis.mealAdditions.map((meal, i) => (
               (meal.additions ?? []).length > 0 && (
-                <div key={i} className="rounded-2xl bg-muted/20 px-3.5 py-2.5 border-2 border-border">
+                <div key={i} className="rounded-xs bg-muted/20 px-3.5 py-2.5 border-2 border-border">
                   <div className="flex items-center gap-2 mb-1.5">
                     <span className="text-[10px] uppercase tracking-wider font-semibold text-primary">{meal.mealType}</span>
                     <span className="text-[13px] font-medium text-foreground truncate">{meal.mealName}</span>
@@ -202,7 +202,7 @@ export function DietAnalysisCard({ analysis, onDismiss, onRefresh, refreshing }:
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-2">Vitamin All-Rounders</p>
           <div className="space-y-1.5">
             {analysis.vitaminRounders.map((v, i) => (
-              <div key={i} className="rounded-2xl bg-primary/5 px-3.5 py-2.5 border-2 border-primary/20">
+              <div key={i} className="rounded-xs bg-primary/5 px-3.5 py-2.5 border-2 border-primary/20">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-3.5 w-3.5 text-primary flex-shrink-0" />
                   <p className="text-[13px] font-semibold text-foreground">{v.food}</p>

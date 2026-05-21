@@ -53,7 +53,7 @@ export function MoreMenuSheet({ open, onOpenChange, menuItems, onItemClick, onSe
         </SheetHeader>
         <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 scrollbar-hide scroll-touch overscroll-contain" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 6rem)" }}>
           {/* Nav links group */}
-          <div className="rounded-2xl bg-muted/40 dark:bg-muted overflow-hidden border border-border">
+          <div className="rounded-xs bg-muted/40 dark:bg-muted overflow-hidden border border-border">
             {menuItems.map((item) => (
               <button
                 key={item.url}
@@ -68,7 +68,7 @@ export function MoreMenuSheet({ open, onOpenChange, menuItems, onItemClick, onSe
           </div>
 
           {/* Account group: My gym (prominent) → Settings → Logout */}
-          <div className="mt-3 rounded-2xl bg-muted/40 dark:bg-muted overflow-hidden border border-border">
+          <div className="mt-3 rounded-xs bg-muted/40 dark:bg-muted overflow-hidden border border-border">
             {onMyGym && (
               <button
                 type="button"
@@ -78,7 +78,7 @@ export function MoreMenuSheet({ open, onOpenChange, menuItems, onItemClick, onSe
                 {gymLogoUrl || gymName ? (
                   <GymLogoAvatar logoUrl={gymLogoUrl ?? null} name={gymName ?? "Gym"} size={32} />
                 ) : (
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/15">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xs bg-primary/15">
                     <Users className="h-[18px] w-[18px] text-primary" />
                   </span>
                 )}
@@ -93,7 +93,7 @@ export function MoreMenuSheet({ open, onOpenChange, menuItems, onItemClick, onSe
               onClick={onSettings}
               className="w-full flex items-center gap-3 px-4 py-3 touch-manipulation text-left border-b border-border active:bg-muted/60 transition-colors duration-100 focus:outline-none focus-visible:outline-none"
             >
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted-foreground/10">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xs bg-muted-foreground/10">
                 <Settings className="h-[18px] w-[18px] text-muted-foreground" />
               </span>
               <span className="flex-1 text-[15px] font-medium text-foreground">Settings</span>
@@ -104,7 +104,7 @@ export function MoreMenuSheet({ open, onOpenChange, menuItems, onItemClick, onSe
               onClick={() => { onLogout(); triggerHapticWarning(); }}
               className="w-full flex items-center gap-3 px-4 py-3 touch-manipulation text-left active:bg-muted/60 transition-colors duration-100 focus:outline-none focus-visible:outline-none"
             >
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-destructive/10">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xs bg-destructive/10">
                 <LogOut className="h-[18px] w-[18px] text-destructive" />
               </span>
               <span className="flex-1 text-[15px] font-medium text-destructive">Log out</span>

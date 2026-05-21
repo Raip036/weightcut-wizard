@@ -422,7 +422,7 @@ function WeightScaleLayer({ dims }: { dims: StageDims }) {
         initial={{ opacity: 0, y: 10, scale: 0.94 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.45, ease: "easeOut" }}
-        className="relative w-[260px] rounded-2xl bg-zinc-950/85 px-4 pt-3 pb-3 ring-1 ring-amber-400/20 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.9)] backdrop-blur-sm"
+        className="relative w-[260px] rounded-xs bg-zinc-950/85 px-4 pt-3 pb-3 ring-1 ring-amber-400/20 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.9)] backdrop-blur-sm"
       >
         {/* Header row: live readout + units */}
         <div className="flex items-baseline justify-between">
@@ -537,7 +537,7 @@ function ProtocolTimelineLayer({ dims }: { dims: StageDims }) {
         initial={{ opacity: 0, y: 10, scale: 0.94 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.45, ease: "easeOut" }}
-        className="relative w-[300px] rounded-2xl bg-zinc-950/85 px-4 pb-3 pt-3 ring-1 ring-amber-400/20 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.9)] backdrop-blur-sm"
+        className="relative w-[300px] rounded-xs bg-zinc-950/85 px-4 pb-3 pt-3 ring-1 ring-amber-400/20 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.9)] backdrop-blur-sm"
       >
         <div className="mb-2.5 text-center text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
           Cut protocol
@@ -670,7 +670,7 @@ function RosterStatusLayer({ dims }: { dims: StageDims }) {
         initial={{ opacity: 0, y: 10, scale: 0.94 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.45, ease: "easeOut" }}
-        className="relative w-[260px] rounded-2xl bg-zinc-950/85 px-4 py-3 ring-1 ring-sky-400/20 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.9)] backdrop-blur-sm"
+        className="relative w-[260px] rounded-xs bg-zinc-950/85 px-4 py-3 ring-1 ring-sky-400/20 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.9)] backdrop-blur-sm"
       >
         <div className="mb-2.5 flex items-center justify-between">
           <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
@@ -685,7 +685,7 @@ function RosterStatusLayer({ dims }: { dims: StageDims }) {
               initial={prefersReduced ? false : { opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
               transition={prefersReduced ? { duration: 0.1 } : { delay: 0.2 + i * 0.1, duration: 0.3 }}
-              className="flex items-center gap-2.5 rounded-xl bg-white/[0.03] px-2.5 py-2 ring-1 ring-white/[0.04]"
+              className="flex items-center gap-2.5 rounded-xs bg-white/[0.03] px-2.5 py-2 ring-1 ring-white/[0.04]"
             >
               <span className={`h-2 w-2 rounded-full ${dotColor(athlete.status)} flex-shrink-0`} />
               <span className="flex-1 text-[12px] font-medium text-zinc-200 truncate">{athlete.name}</span>
@@ -732,7 +732,7 @@ function ReadinessMeterLayer({ dims }: { dims: StageDims }) {
         initial={{ opacity: 0, y: 10, scale: 0.94 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.45, ease: "easeOut" }}
-        className="relative w-[280px] rounded-2xl bg-zinc-950/85 px-4 py-3 ring-1 ring-sky-400/20 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.9)] backdrop-blur-sm"
+        className="relative w-[280px] rounded-xs bg-zinc-950/85 px-4 py-3 ring-1 ring-sky-400/20 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.9)] backdrop-blur-sm"
       >
         <div className="mb-2 flex items-center justify-between">
           <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
@@ -1271,7 +1271,7 @@ export function WizardIntroCutscene({
                 onClick={() => { void handleContinueWithApple(); }}
                 disabled={appleLoading}
                 aria-label={config.appleLabel}
-                className={`no-tap-select w-full h-[54px] rounded-2xl bg-white text-black font-bold text-[16px] flex items-center justify-center gap-2 active:scale-[0.97] transition-transform shadow-lg shadow-black/30 ${appleLoading ? "opacity-50" : ""}`}
+                className={`no-tap-select w-full h-[54px] rounded-xs bg-white text-black font-bold text-[16px] flex items-center justify-center gap-2 active:scale-[0.97] transition-transform shadow-lg shadow-black/30 ${appleLoading ? "opacity-50" : ""}`}
                 style={{ WebkitTapHighlightColor: "transparent" }}
               >
                 <AppleLogo className="h-[18px] w-[18px]" />
@@ -1280,7 +1280,7 @@ export function WizardIntroCutscene({
               <button
                 type="button"
                 onClick={handleHaveAccount}
-                className="no-tap-select w-full h-[46px] rounded-2xl border border-white/15 text-white/90 font-semibold text-[14px] flex items-center justify-center active:scale-[0.98] transition-transform hover:bg-white/5"
+                className="no-tap-select w-full h-[46px] rounded-xs border border-white/15 text-white/90 font-semibold text-[14px] flex items-center justify-center active:scale-[0.98] transition-transform hover:bg-white/5"
                 style={{ WebkitTapHighlightColor: "transparent", background: "rgba(255,255,255,0.04)" }}
               >
                 {config.existingAccountLabel}

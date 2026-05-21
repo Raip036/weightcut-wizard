@@ -83,7 +83,7 @@ export function ShareCardDialog({
             story 9:16 is now the only output format. */}
         <div ref={wrapperRef} className="w-full shrink-0 flex justify-center">
           <div
-            className="overflow-hidden rounded-2xl border border-border/50"
+            className="overflow-hidden rounded-xs border border-border/50"
             style={{
               width: dims.w,
               height: dims.h,

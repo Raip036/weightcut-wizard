@@ -26,7 +26,7 @@ export function DehydrationRingPanel({
   // No dehydration needed — show success message
   if (dehydrationNeeded <= 0) {
     return (
-      <div className="card-surface rounded-2xl border border-border/50 p-5">
+      <div className="card-surface rounded-xs border border-border/50 p-5">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-full bg-green-500/20 flex items-center justify-center">
             <CheckCircle className="h-5 w-5 text-green-400" />
@@ -43,7 +43,7 @@ export function DehydrationRingPanel({
   }
 
   return (
-    <div className="card-surface rounded-2xl border border-border/50 p-5 space-y-4">
+    <div className="card-surface rounded-xs border border-border/50 p-5 space-y-4">
       <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
         Dehydration Required
       </h3>
@@ -62,7 +62,7 @@ export function DehydrationRingPanel({
         />
 
         <div className="flex-1 space-y-3">
-          <div className="bg-muted/50 p-3 rounded-2xl border border-border/50">
+          <div className="bg-muted/50 p-3 rounded-xs border border-border/50">
             <span className="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">
               Water Weight to Lose
             </span>
@@ -73,7 +73,7 @@ export function DehydrationRingPanel({
           </div>
 
           {saunaSessions > 0 && (
-            <div className="bg-muted/50 p-3 rounded-2xl border border-border/50">
+            <div className="bg-muted/50 p-3 rounded-xs border border-border/50">
               <span className="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">
                 Est. Sauna Sessions
               </span>
@@ -89,7 +89,7 @@ export function DehydrationRingPanel({
       </div>
 
       {dehydrationSafety === "red" && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-3">
+        <div className="bg-red-500/10 border border-red-500/20 rounded-xs p-3">
           <p className="text-sm text-red-400 font-medium">
             Dehydration exceeds 4% BW — significant performance risk.
             Consider moving up a weight class or extending timeline.

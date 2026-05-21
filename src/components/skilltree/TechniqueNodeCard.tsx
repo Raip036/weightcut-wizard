@@ -25,7 +25,7 @@ export function TechniqueNodeCard({ node, onTap }: TechniqueNodeCardProps) {
       onClick={handleTap}
       className={`
         w-[120px] min-h-[52px] px-3 py-2
-        card-surface rounded-2xl border border-border/50
+        card-surface rounded-xs border border-border/50
         border-l-[3px] ${LEVEL_COLORS[node.level] || LEVEL_COLORS.seen}
         text-left select-none cursor-pointer
         active:scale-[0.97] transition-transform duration-100

@@ -178,7 +178,7 @@ function DefaultFallback({ error, errorInfo, onRetry }: DefaultFallbackProps) {
                 initial={{ opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.2, ease: "easeOut" }}
-                className="user-selectable mt-3 font-mono text-[11px] leading-relaxed text-muted-foreground bg-muted/40 rounded-xl p-3 max-h-[40vh] overflow-auto whitespace-pre-wrap break-all"
+                className="user-selectable mt-3 font-mono text-[11px] leading-relaxed text-muted-foreground bg-muted/40 rounded-xs p-3 max-h-[40vh] overflow-auto whitespace-pre-wrap break-all"
               >
                 {report}
               </motion.pre>

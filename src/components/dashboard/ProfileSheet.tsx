@@ -111,7 +111,7 @@ export function ProfileSheet({ open, onOpenChange }: ProfileSheetProps) {
             <button
               type="button"
               onClick={() => setConfirmOpen(true)}
-              className="w-full flex items-center gap-3 rounded-xl px-3 py-3.5 active:bg-destructive/5 transition-colors text-left"
+              className="w-full flex items-center gap-3 rounded-xs px-3 py-3.5 active:bg-destructive/5 transition-colors text-left"
             >
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-destructive/10 text-destructive shrink-0">
                 <LogOut className="h-4 w-4" />
@@ -124,7 +124,7 @@ export function ProfileSheet({ open, onOpenChange }: ProfileSheetProps) {
 
       {/* Confirmation dialog */}
       <AlertDialog open={confirmOpen} onOpenChange={(o) => { if (!signingOut) setConfirmOpen(o); }}>
-        <AlertDialogContent className="max-w-[240px] rounded-2xl p-0 border-0 bg-card/90 backdrop-blur-xl overflow-hidden gap-0 shadow-2xl">
+        <AlertDialogContent className="max-w-[240px] rounded-xs p-0 border-0 bg-card/90 backdrop-blur-xl overflow-hidden gap-0 shadow-2xl">
           <VisuallyHidden><AlertDialogTitle>Sign Out</AlertDialogTitle></VisuallyHidden>
           <AlertDialogDescription asChild>
             <div className="pt-4 pb-3 px-4 text-center">
@@ -170,7 +170,7 @@ function SheetRow({
     <button
       type="button"
       onClick={onPress}
-      className="w-full flex items-center gap-3 rounded-xl px-3 py-3.5 active:bg-white/5 transition-colors text-left"
+      className="w-full flex items-center gap-3 rounded-xs px-3 py-3.5 active:bg-white/5 transition-colors text-left"
     >
       <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary shrink-0">
         {icon}

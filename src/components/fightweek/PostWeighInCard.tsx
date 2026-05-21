@@ -17,7 +17,7 @@ interface PostWeighInCardProps {
 function Row({ icon: Icon, label, text, color, bg }: { icon: typeof Droplets; label: string; text: string; color: string; bg: string }) {
   return (
     <div className="flex items-start gap-2.5">
-      <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${bg}`}>
+      <div className={`h-7 w-7 rounded-xs flex items-center justify-center shrink-0 ${bg}`}>
         <Icon className={`h-3.5 w-3.5 ${color}`} />
       </div>
       <div className="flex-1 min-w-0">
@@ -30,7 +30,7 @@ function Row({ icon: Icon, label, text, color, bg }: { icon: typeof Droplets; la
 
 export const PostWeighInCard = memo(function PostWeighInCard({ data }: PostWeighInCardProps) {
   return (
-    <div className="card-surface rounded-2xl border border-border/50 p-4 space-y-3">
+    <div className="card-surface rounded-xs border border-border/50 p-4 space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Post Weigh-In Recovery</h3>
         <div className="text-right">

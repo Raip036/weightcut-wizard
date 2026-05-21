@@ -199,7 +199,7 @@ export function RecoveryCoachChat({ userId, userName }: RecoveryCoachChatProps) 
           coach, not a static text box. */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
         <div className="flex items-center gap-2.5">
-          <div className="h-9 w-9 rounded-2xl bg-primary/15 flex items-center justify-center">
+          <div className="h-9 w-9 rounded-xs bg-primary/15 flex items-center justify-center">
             <Brain className="h-4 w-4 text-primary" strokeWidth={2.4} />
           </div>
           <div className="leading-tight">
@@ -215,7 +215,7 @@ export function RecoveryCoachChat({ userId, userName }: RecoveryCoachChatProps) 
             <button
               type="button"
               onClick={clearChat}
-              className="h-8 w-8 flex items-center justify-center rounded-xl text-muted-foreground/60 active:text-destructive active:bg-destructive/10 transition-colors"
+              className="h-8 w-8 flex items-center justify-center rounded-xs text-muted-foreground/60 active:text-destructive active:bg-destructive/10 transition-colors"
               aria-label="Clear chat"
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -278,7 +278,7 @@ export function RecoveryCoachChat({ userId, userName }: RecoveryCoachChatProps) 
                 else startListening();
               }}
               disabled={sending}
-              className={`h-9 w-9 shrink-0 flex items-center justify-center rounded-xl transition-colors ${
+              className={`h-9 w-9 shrink-0 flex items-center justify-center rounded-xs transition-colors ${
                 isListening
                   ? "bg-red-500/15 text-red-400"
                   : "bg-muted/40 text-muted-foreground active:bg-muted/60"
@@ -300,7 +300,7 @@ export function RecoveryCoachChat({ userId, userName }: RecoveryCoachChatProps) 
             }}
             placeholder={isListening ? "Listening..." : "Describe how you feel..."}
             rows={1}
-            className={`flex-1 min-h-[36px] max-h-[140px] resize-none rounded-xl border border-border/40 bg-muted/20 py-2 px-3 text-[13px] focus:outline-none focus:ring-1 focus:ring-primary/40 ${
+            className={`flex-1 min-h-[36px] max-h-[140px] resize-none rounded-xs border border-border/40 bg-muted/20 py-2 px-3 text-[13px] focus:outline-none focus:ring-1 focus:ring-primary/40 ${
               isListening ? "border-red-500/30" : ""
             }`}
             disabled={sending}
@@ -309,7 +309,7 @@ export function RecoveryCoachChat({ userId, userName }: RecoveryCoachChatProps) 
             type="button"
             onClick={send}
             disabled={sendDisabled}
-            className="h-9 w-9 shrink-0 flex items-center justify-center rounded-xl bg-primary text-primary-foreground disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 transition-all"
+            className="h-9 w-9 shrink-0 flex items-center justify-center rounded-xs bg-primary text-primary-foreground disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 transition-all"
             aria-label="Send message"
           >
             <Send className="h-4 w-4" />
@@ -326,7 +326,7 @@ function MessageBubble({ role, content }: { role: "user" | "assistant"; content:
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div
-        className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed ${
+        className={`max-w-[88%] rounded-xs px-3.5 py-2.5 text-[13px] leading-relaxed ${
           isUser
             ? "bg-primary/15 text-foreground"
             : "bg-muted/40 text-foreground"

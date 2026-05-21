@@ -221,7 +221,7 @@ function StatStrip({
   if (!maintenance && !deficit && !target && !protein && !carbs && !fats) return null;
   const round100 = (n: number) => Math.round(n / 100) * 100;
   return (
-    <div className="card-surface rounded-2xl border border-border/40 overflow-hidden mt-3">
+    <div className="card-surface rounded-xs border border-border/40 overflow-hidden mt-3">
       {/* kcal row */}
       {(maintenance != null || deficit != null || target != null) && (
         <div className="flex divide-x divide-border/40">
@@ -300,7 +300,7 @@ function StatStrip({
 function DailyFocusBlock({ bullets }: { bullets: string[] }) {
   if (!bullets || bullets.length === 0) return null;
   return (
-    <div className="rounded-2xl border border-primary/20 bg-primary/[0.04] p-4 mt-3">
+    <div className="rounded-xs border border-primary/20 bg-primary/[0.04] p-4 mt-3">
       <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-primary/80 mb-2">
         Daily Focus
       </p>
@@ -324,7 +324,7 @@ function CoachNote({ text }: { text: string }) {
   const cleaned = cleanText(text);
   if (!cleaned) return null;
   return (
-    <div className="rounded-2xl border border-secondary/20 bg-secondary/[0.05] p-3.5 mt-3">
+    <div className="rounded-xs border border-secondary/20 bg-secondary/[0.05] p-3.5 mt-3">
       <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-secondary/80 mb-1.5">
         Your Plan
       </p>
@@ -358,7 +358,7 @@ function PhasePills({
               triggerHaptic(ImpactStyle.Light);
               onTapPhase(p.weekStart);
             }}
-            className="w-full flex rounded-2xl border border-border/50 bg-card overflow-hidden active:scale-[0.99] transition-transform"
+            className="w-full flex rounded-xs border border-border/50 bg-card overflow-hidden active:scale-[0.99] transition-transform"
           >
             <div className={`w-1.5 shrink-0 ${PHASE_RAIL[p.name]}`} aria-hidden />
             <div className="flex-1 p-3.5 text-left min-w-0">
@@ -395,7 +395,7 @@ function WeekCard({
   return (
     <div
       id={`week-card-${row.week}`}
-      className={`relative flex rounded-2xl border border-border/50 bg-card overflow-hidden ${
+      className={`relative flex rounded-xs border border-border/50 bg-card overflow-hidden ${
         isToughest ? "ring-1 ring-amber-500/40" : ""
       }`}
     >
@@ -428,7 +428,7 @@ function WeekCard({
 
         {/* 4-tile macro grid — the main focus */}
         <div className="grid grid-cols-4 gap-1.5">
-          <div className="rounded-xl bg-muted/30 py-2 text-center">
+          <div className="rounded-xs bg-muted/30 py-2 text-center">
             <p className="text-[18px] font-black tabular-nums leading-none text-foreground">
               {row.calories.toLocaleString()}
             </p>
@@ -436,7 +436,7 @@ function WeekCard({
               Cal
             </p>
           </div>
-          <div className="rounded-xl bg-muted/30 py-2 text-center">
+          <div className="rounded-xs bg-muted/30 py-2 text-center">
             <p
               className="text-[18px] font-black tabular-nums leading-none"
               style={{ color: MACRO_COLOR.protein }}
@@ -447,7 +447,7 @@ function WeekCard({
               Protein
             </p>
           </div>
-          <div className="rounded-xl bg-muted/30 py-2 text-center">
+          <div className="rounded-xs bg-muted/30 py-2 text-center">
             <p
               className="text-[18px] font-black tabular-nums leading-none"
               style={{ color: MACRO_COLOR.carbs }}
@@ -458,7 +458,7 @@ function WeekCard({
               Carbs
             </p>
           </div>
-          <div className="rounded-xl bg-muted/30 py-2 text-center">
+          <div className="rounded-xs bg-muted/30 py-2 text-center">
             <p
               className="text-[18px] font-black tabular-nums leading-none"
               style={{ color: MACRO_COLOR.fat }}
@@ -556,7 +556,7 @@ function FightWeekCarousel({ block }: { block: FightWeekBlock }) {
               className="shrink-0 basis-[88%]"
             >
               <div
-                className={`h-full rounded-2xl border border-border/50 bg-gradient-to-b ${stage.bg} p-4`}
+                className={`h-full rounded-xs border border-border/50 bg-gradient-to-b ${stage.bg} p-4`}
               >
                 <p className="text-[10px] uppercase tracking-wider font-bold text-foreground/70">
                   {stage.day}
@@ -745,7 +745,7 @@ export function InlinePlanDisplay({
 
       {/* PLAN RULES */}
       {planData.keyPrinciples && planData.keyPrinciples.length > 0 && (
-        <div className="card-surface rounded-2xl border border-border/40 p-4 mt-3 space-y-1.5">
+        <div className="card-surface rounded-xs border border-border/40 p-4 mt-3 space-y-1.5">
           <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-bold mb-1">
             Plan Rules
           </p>
@@ -763,7 +763,7 @@ export function InlinePlanDisplay({
 
       {/* SAFETY */}
       {planData.safetyNotes && (
-        <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-3.5 mt-3 flex items-start gap-2">
+        <div className="rounded-xs border border-emerald-500/20 bg-emerald-500/5 p-3.5 mt-3 flex items-start gap-2">
           <ShieldCheck className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
           <p className="text-[12px] text-emerald-200/90 leading-snug">
             {cleanText(planData.safetyNotes)}
@@ -772,7 +772,7 @@ export function InlinePlanDisplay({
       )}
 
       {/* TOMORROW-MORNING ANCHOR */}
-      <div className="rounded-2xl border border-border/40 bg-muted/20 p-3.5 mt-3 flex items-start gap-2.5">
+      <div className="rounded-xs border border-border/40 bg-muted/20 p-3.5 mt-3 flex items-start gap-2.5">
         <Sun className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
         <div>
           <p className="text-[12px] font-semibold text-foreground">
@@ -793,7 +793,7 @@ export function InlinePlanDisplay({
       <div className="fixed bottom-0 inset-x-0 z-30 px-4 pt-2 pb-[max(env(safe-area-inset-bottom),12px)] bg-background/85 backdrop-blur-md border-t border-border/30">
         <Button
           onClick={onContinue}
-          className="w-full h-12 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-transform"
+          className="w-full h-12 rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-transform"
         >
           Continue to Dashboard
         </Button>

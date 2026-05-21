@@ -215,7 +215,7 @@ export default function Moderation(): JSX.Element {
             type="button"
             aria-label="Back"
             onClick={handleBack}
-            className="h-11 w-11 -ml-2 flex items-center justify-center rounded-2xl active:bg-white/5 transition-colors"
+            className="h-11 w-11 -ml-2 flex items-center justify-center rounded-xs active:bg-white/5 transition-colors"
           >
             <ChevronLeft className="h-6 w-6" />
           </button>
@@ -271,10 +271,10 @@ function ReportRow(props: {
   const postId = row.post?.id ?? null;
 
   return (
-    <article className="glass-card rounded-2xl border border-border/50 p-4">
+    <article className="glass-card rounded-xs border border-border/50 p-4">
       <div className="flex items-start gap-3">
         {/* 56px thumbnail */}
-        <div className="h-14 w-14 shrink-0 rounded-xl overflow-hidden bg-neutral-800 border border-border/40">
+        <div className="h-14 w-14 shrink-0 rounded-xs overflow-hidden bg-neutral-800 border border-border/40">
           {row.post?.url ? (
             <img
               src={row.post.url}
@@ -319,7 +319,7 @@ function ReportRow(props: {
           type="button"
           variant="destructive"
           size="sm"
-          className="h-11 flex-1 rounded-xl"
+          className="h-11 flex-1 rounded-xs"
           disabled={busy || !postId}
           onClick={() => {
             if (postId) onConfirm(row.id, postId);
@@ -338,7 +338,7 @@ function ReportRow(props: {
           type="button"
           variant="ghost"
           size="sm"
-          className="h-11 rounded-xl"
+          className="h-11 rounded-xs"
           disabled={busy}
           onClick={() => onDismiss(row.id)}
         >
@@ -357,10 +357,10 @@ function ReportRowSkeletons(): JSX.Element {
       {[0, 1, 2].map((i) => (
         <div
           key={i}
-          className="glass-card rounded-2xl border border-border/50 p-4"
+          className="glass-card rounded-xs border border-border/50 p-4"
         >
           <div className="flex items-start gap-3">
-            <Skeleton className="h-14 w-14 rounded-xl" />
+            <Skeleton className="h-14 w-14 rounded-xs" />
             <div className="flex-1 space-y-2">
               <Skeleton className="h-4 w-32" />
               <Skeleton className="h-3 w-20" />
@@ -368,8 +368,8 @@ function ReportRowSkeletons(): JSX.Element {
             </div>
           </div>
           <div className="mt-3 flex gap-2">
-            <Skeleton className="h-11 flex-1 rounded-xl" />
-            <Skeleton className="h-11 w-24 rounded-xl" />
+            <Skeleton className="h-11 flex-1 rounded-xs" />
+            <Skeleton className="h-11 w-24 rounded-xs" />
           </div>
         </div>
       ))}
@@ -380,7 +380,7 @@ function ReportRowSkeletons(): JSX.Element {
 function EmptyState(): JSX.Element {
   return (
     <div className="flex flex-col items-center justify-center text-center px-6 py-16">
-      <div className="h-14 w-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mb-4">
+      <div className="h-14 w-14 rounded-xs bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mb-4">
         <ShieldAlert className="h-6 w-6 text-emerald-300" />
       </div>
       <p className="text-[15px] font-semibold">All clear. No open reports.</p>
@@ -414,7 +414,7 @@ function AccessDenied(props: { onBack: () => void }): JSX.Element {
         paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 6rem)",
       }}
     >
-      <div className="h-14 w-14 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center mb-4">
+      <div className="h-14 w-14 rounded-xs bg-red-500/10 border border-red-500/30 flex items-center justify-center mb-4">
         <ShieldAlert className="h-6 w-6 text-red-300" />
       </div>
       <p className="text-[17px] font-semibold">Coaches only</p>
@@ -425,7 +425,7 @@ function AccessDenied(props: { onBack: () => void }): JSX.Element {
       <Button
         type="button"
         variant="secondary"
-        className="mt-6 h-11 rounded-2xl px-5"
+        className="mt-6 h-11 rounded-xs px-5"
         onClick={props.onBack}
       >
         Back

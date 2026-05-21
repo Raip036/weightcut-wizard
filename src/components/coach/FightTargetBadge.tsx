@@ -102,7 +102,7 @@ export const FightTargetBadge = memo(function FightTargetBadge({
 
   // card variant — used on AthleteDetail
   return (
-    <div className={`card-surface rounded-2xl border border-border p-3 ${className}`}>
+    <div className={`card-surface rounded-xs border border-border p-3 ${className}`}>
       <div className="flex items-baseline justify-between mb-2">
         <span className="text-[11px] uppercase tracking-wider text-muted-foreground/70 font-semibold">
           {isFighter ? "Fight target" : "Goal"}

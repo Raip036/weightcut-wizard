@@ -164,7 +164,7 @@ export default function TrainingLibrary() {
             <button
               type="button"
               onClick={() => navigate(-1)}
-              className="-ml-2 p-2 rounded-lg active:bg-muted/40 transition-colors"
+              className="-ml-2 p-2 rounded-xs active:bg-muted/40 transition-colors"
               aria-label="Back"
             >
               <ChevronLeft className="h-5 w-5 text-muted-foreground" />
@@ -219,7 +219,7 @@ export default function TrainingLibrary() {
         {/* Body */}
         {isEmpty ? (
           <div className="px-6 py-12 text-center">
-            <div className="mx-auto h-16 w-16 rounded-2xl bg-muted/30 flex items-center justify-center mb-4">
+            <div className="mx-auto h-16 w-16 rounded-xs bg-muted/30 flex items-center justify-center mb-4">
               <ImageIcon className="h-7 w-7 text-muted-foreground/60" />
             </div>
             <h2 className="text-[16px] font-semibold mb-1">No clips yet</h2>
@@ -230,7 +230,7 @@ export default function TrainingLibrary() {
             <button
               type="button"
               onClick={() => navigate("/training-calendar")}
-              className="mt-5 h-10 px-4 rounded-xl bg-primary text-primary-foreground text-[13px] font-semibold active:scale-[0.98] transition-transform"
+              className="mt-5 h-10 px-4 rounded-xs bg-primary text-primary-foreground text-[13px] font-semibold active:scale-[0.98] transition-transform"
             >
               Open training calendar
             </button>
@@ -253,7 +253,7 @@ export default function TrainingLibrary() {
                           triggerHapticSelection();
                           setLightboxIndex(idx);
                         }}
-                        className="relative aspect-square rounded-xl overflow-hidden bg-muted/40 active:scale-[0.98] transition-transform"
+                        className="relative aspect-square rounded-xs overflow-hidden bg-muted/40 active:scale-[0.98] transition-transform"
                         style={{
                           // Tiles below the fold get lazy-rendered by the
                           // browser via content-visibility — keeps the

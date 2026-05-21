@@ -97,7 +97,7 @@ export const CoachingLibrarySheet = memo(function CoachingLibrarySheet({
           <SheetHeader>
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <div className="h-7 w-7 rounded-lg bg-primary/15 flex items-center justify-center">
+                <div className="h-7 w-7 rounded-xs bg-primary/15 flex items-center justify-center">
                   <BookOpen className="h-4 w-4 text-primary" />
                 </div>
                 <div>
@@ -164,7 +164,7 @@ export const CoachingLibrarySheet = memo(function CoachingLibrarySheet({
               {[0, 1, 2, 3].map((i) => (
                 <div
                   key={i}
-                  className="card-surface rounded-2xl border border-border p-3 space-y-2"
+                  className="card-surface rounded-xs border border-border p-3 space-y-2"
                 >
                   <div className="h-2.5 rounded shimmer-skeleton w-1/3" />
                   <div className="h-2.5 rounded shimmer-skeleton w-full" />
@@ -175,7 +175,7 @@ export const CoachingLibrarySheet = memo(function CoachingLibrarySheet({
           )}
 
           {!loading && entries.length === 0 && (
-            <div className="card-surface rounded-2xl border border-border p-6 text-center">
+            <div className="card-surface rounded-xs border border-border p-6 text-center">
               <p className="text-[13px] text-muted-foreground">
                 No coaching insights yet.
               </p>
@@ -186,7 +186,7 @@ export const CoachingLibrarySheet = memo(function CoachingLibrarySheet({
           )}
 
           {!loading && entries.length > 0 && filtered.length === 0 && (
-            <div className="card-surface rounded-2xl border border-border p-5 text-center">
+            <div className="card-surface rounded-xs border border-border p-5 text-center">
               <p className="text-[13px] text-muted-foreground">
                 No insights for {activeFilter}.
               </p>
@@ -206,7 +206,7 @@ export const CoachingLibrarySheet = memo(function CoachingLibrarySheet({
             return (
               <div
                 key={entry.id}
-                className="card-surface rounded-2xl border border-border p-3 space-y-2 overflow-hidden"
+                className="card-surface rounded-xs border border-border p-3 space-y-2 overflow-hidden"
                 style={{ borderLeft: `3px solid ${color}` }}
               >
                 <div className="flex items-center justify-between gap-2">
@@ -230,7 +230,7 @@ export const CoachingLibrarySheet = memo(function CoachingLibrarySheet({
                 )}
                 {typeof data.next_focus === "string" && data.next_focus && (
                   <div
-                    className="rounded-lg p-2.5"
+                    className="rounded-xs p-2.5"
                     style={{
                       backgroundColor: `${color}10`,
                       border: `1px solid ${color}33`,
@@ -259,7 +259,7 @@ export const CoachingLibrarySheet = memo(function CoachingLibrarySheet({
             <button
               onClick={loadMore}
               disabled={loadingMore}
-              className="w-full h-10 rounded-2xl bg-muted/30 text-[12px] font-semibold flex items-center justify-center gap-2 active:opacity-80 transition-opacity disabled:opacity-60"
+              className="w-full h-10 rounded-xs bg-muted/30 text-[12px] font-semibold flex items-center justify-center gap-2 active:opacity-80 transition-opacity disabled:opacity-60"
             >
               {loadingMore && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               {loadingMore ? "Loading…" : "Load more"}

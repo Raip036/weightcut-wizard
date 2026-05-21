@@ -47,12 +47,12 @@ export function TechniqueDetailSheet({
         <div className="px-4 pb-4 space-y-5">
           {/* Meta info */}
           <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-            <span className="px-2 py-1 rounded-lg bg-muted/50">{node.sport}</span>
+            <span className="px-2 py-1 rounded-xs bg-muted/50">{node.sport}</span>
             {node.category && (
-              <span className="px-2 py-1 rounded-lg bg-muted/50">{node.category}</span>
+              <span className="px-2 py-1 rounded-xs bg-muted/50">{node.category}</span>
             )}
             {node.timesLogged > 0 && (
-              <span className="px-2 py-1 rounded-lg bg-muted/50">
+              <span className="px-2 py-1 rounded-xs bg-muted/50">
                 Logged {node.timesLogged}x
               </span>
             )}
@@ -69,7 +69,7 @@ export function TechniqueDetailSheet({
                     triggerHapticSelection();
                     onUpdateLevel(node.id, level);
                   }}
-                  className={`flex-1 min-h-[44px] rounded-2xl text-xs font-medium transition-colors ${
+                  className={`flex-1 min-h-[44px] rounded-xs text-xs font-medium transition-colors ${
                     node.level === level
                       ? LEVEL_STYLES[level] + " ring-1 ring-current"
                       : "bg-muted/30 text-muted-foreground hover:bg-muted/50"
@@ -90,10 +90,10 @@ export function TechniqueDetailSheet({
                 {connectedNodes.map((cn) => (
                   <div
                     key={cn.id}
-                    className="flex items-center justify-between px-3 py-2 rounded-2xl bg-muted/30 text-sm"
+                    className="flex items-center justify-between px-3 py-2 rounded-xs bg-muted/30 text-sm"
                   >
                     <span>{cn.label}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-lg ${LEVEL_STYLES[cn.level]}`}>
+                    <span className={`text-xs px-2 py-0.5 rounded-xs ${LEVEL_STYLES[cn.level]}`}>
                       {LEVEL_LABELS[cn.level]}
                     </span>
                   </div>

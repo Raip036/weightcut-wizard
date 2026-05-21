@@ -110,8 +110,8 @@ export default function NewAnnouncementWidget({ userId }: Props) {
   // pulse, distinct icon) so it's instantly distinguishable from a
   // plain text announcement.
   const cardClass = isFightOffer
-    ? "w-full rounded-2xl border-2 border-primary bg-primary/[0.08] p-3 flex items-center gap-3 active:scale-[0.99] transition-all"
-    : "w-full card-surface rounded-2xl border border-border p-3 flex items-center gap-3 active:scale-[0.99] transition-all";
+    ? "w-full rounded-xs border-2 border-primary bg-primary/[0.08] p-3 flex items-center gap-3 active:scale-[0.99] transition-all"
+    : "w-full card-surface rounded-xs border border-border p-3 flex items-center gap-3 active:scale-[0.99] transition-all";
   const iconBg = isFightOffer ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary";
   const Icon = isFightOffer ? Swords : Bell;
   const headlineCopy = isFightOffer

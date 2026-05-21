@@ -42,7 +42,7 @@ export function WeightCutBreakdownCard({
   const activeComponents = COMPONENTS.filter(c => values[c.key] > 0);
 
   return (
-    <div className="card-surface rounded-2xl border border-border/50 p-5 space-y-4">
+    <div className="card-surface rounded-xs border border-border/50 p-5 space-y-4">
       <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
         Weight Cut Breakdown
       </h3>
@@ -79,7 +79,7 @@ export function WeightCutBreakdownCard({
           return (
             <div
               key={comp.key}
-              className="bg-muted/50 p-3 rounded-2xl border border-border/50"
+              className="bg-muted/50 p-3 rounded-xs border border-border/50"
             >
               <div className="flex items-center gap-2 mb-1">
                 <div

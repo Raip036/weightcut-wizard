@@ -103,7 +103,7 @@ export default function MyGym() {
             </p>
             <button
               onClick={() => navigate("/join")}
-              className="h-11 px-5 rounded-xl bg-primary text-primary-foreground text-[14px] font-semibold active:scale-[0.98] transition-transform"
+              className="h-11 px-5 rounded-xs bg-primary text-primary-foreground text-[14px] font-semibold active:scale-[0.98] transition-transform"
             >
               Enter invite code
             </button>
@@ -210,13 +210,13 @@ function GymCard({
       </div>
 
       {/* Quick actions group */}
-      <div className="rounded-2xl bg-card/60 border border-border/40 overflow-hidden divide-y divide-border/30">
+      <div className="rounded-xs bg-card/60 border border-border/40 overflow-hidden divide-y divide-border/30">
         <button
           type="button"
           onClick={() => { triggerHaptic(ImpactStyle.Light); onOpenFeed(); }}
           className="w-full min-h-[56px] flex items-center gap-3 px-4 py-3 text-left active:bg-muted/40 transition-colors"
         >
-          <div className="h-9 w-9 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+          <div className="h-9 w-9 rounded-xs bg-primary/15 flex items-center justify-center shrink-0">
             <Share2 className="h-4 w-4 text-primary" />
           </div>
           <div className="flex-1 min-w-0">

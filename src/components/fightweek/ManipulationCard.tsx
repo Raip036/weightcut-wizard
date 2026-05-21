@@ -20,7 +20,7 @@ interface ManipulationCardProps {
 
 export const ManipulationCard = memo(function ManipulationCard({ sodium, fibre }: ManipulationCardProps) {
   return (
-    <div className="card-surface rounded-2xl border border-border/50 p-4">
+    <div className="card-surface rounded-xs border border-border/50 p-4">
       <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Sodium and Fibre</h3>
 
       <div className="grid grid-cols-2 gap-3">

@@ -99,7 +99,7 @@ export default function Camp() {
         <button
           type="button"
           onClick={() => navigate("/fight-camps")}
-          className="w-full text-left rounded-2xl bg-primary/10 p-4 active:scale-[0.99] transition-transform"
+          className="w-full text-left rounded-xs bg-primary/10 p-4 active:scale-[0.99] transition-transform"
         >
           {/* Top row: name + days left */}
           <div className="flex items-start justify-between gap-3 mb-3">
@@ -114,7 +114,7 @@ export default function Camp() {
                 {activeCamp.name}
               </p>
             </div>
-            <div className="text-center shrink-0 bg-primary/10 rounded-xl px-3 py-2">
+            <div className="text-center shrink-0 bg-primary/10 rounded-xs px-3 py-2">
               <p className="text-title font-bold tabular-nums text-primary leading-none">
                 {campProgress.daysLeft}
               </p>
@@ -158,13 +158,13 @@ export default function Camp() {
                 type="button"
                 onClick={() => navigate(section.url)}
                 className={[
-                  "w-full rounded-2xl p-4 flex items-center gap-3.5 active:scale-[0.99] transition-all text-left",
+                  "w-full rounded-xs p-4 flex items-center gap-3.5 active:scale-[0.99] transition-all text-left",
                   section.primary ? "bg-primary/10" : "card-surface",
                 ].join(" ")}
               >
                 <div
                   className={[
-                    "h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0",
+                    "h-10 w-10 rounded-xs flex items-center justify-center flex-shrink-0",
                     section.primary ? "bg-primary/20" : "bg-muted/30",
                   ].join(" ")}
                 >
@@ -214,9 +214,9 @@ export default function Camp() {
                   key={section.url}
                   type="button"
                   onClick={() => navigate(section.url)}
-                  className="w-full rounded-2xl bg-muted/10 p-4 flex items-center gap-3.5 active:scale-[0.99] transition-all text-left"
+                  className="w-full rounded-xs bg-muted/10 p-4 flex items-center gap-3.5 active:scale-[0.99] transition-all text-left"
                 >
-                  <div className="h-10 w-10 rounded-xl bg-muted/20 flex items-center justify-center flex-shrink-0">
+                  <div className="h-10 w-10 rounded-xs bg-muted/20 flex items-center justify-center flex-shrink-0">
                     <Icon className="h-5 w-5 text-muted-foreground/70" />
                   </div>
                   <div className="flex-1 min-w-0">

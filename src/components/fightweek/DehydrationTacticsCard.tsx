@@ -27,7 +27,7 @@ export const DehydrationTacticsCard = memo(function DehydrationTacticsCard({ tac
   if (!tactics?.length) return null;
 
   return (
-    <div className="card-surface rounded-2xl border border-border/50 p-4 space-y-3">
+    <div className="card-surface rounded-xs border border-border/50 p-4 space-y-3">
       <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Dehydration Tactics</h3>
 
       <div className="space-y-2">
@@ -35,9 +35,9 @@ export const DehydrationTacticsCard = memo(function DehydrationTacticsCard({ tac
           const meta = METHOD_META[t.method] ?? METHOD_META.dry_sauna;
           const Icon = meta.icon;
           return (
-            <div key={i} className="rounded-2xl bg-muted/30 border border-border/30 p-3">
+            <div key={i} className="rounded-xs bg-muted/30 border border-border/30 p-3">
               <div className="flex items-start gap-2.5">
-                <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${meta.bg}`}>
+                <div className={`h-8 w-8 rounded-xs flex items-center justify-center shrink-0 ${meta.bg}`}>
                   <Icon className={`h-4 w-4 ${meta.color}`} />
                 </div>
                 <div className="flex-1 min-w-0">

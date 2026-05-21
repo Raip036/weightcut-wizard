@@ -79,17 +79,17 @@ export function RoutineLibrary({ routines, loading, onDelete, onRename, onStartW
   if (routines.length === 0) {
     return (
       <div className="card-surface rounded-xs p-8 text-center">
-        <div className="h-12 w-12 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-3">
+        <div className="h-12 w-12 rounded-xs bg-muted/50 flex items-center justify-center mx-auto mb-3">
           <Dumbbell className="h-6 w-6 text-muted-foreground/30" />
         </div>
         <p className="text-sm font-medium text-muted-foreground">No routines yet</p>
         <p className="text-xs text-muted-foreground/60 mt-1 mb-4">Create your first routine</p>
         <div className="flex gap-2 justify-center">
-          <Button onClick={onOpenManualCreator} variant="outline" className="h-10 px-3.5 rounded-2xl text-xs font-medium">
+          <Button onClick={onOpenManualCreator} variant="outline" className="h-10 px-3.5 rounded-xs text-xs font-medium">
             <Plus className="!size-3.5" />
             Manual
           </Button>
-          <Button onClick={onOpenGenerator} className="relative h-10 px-3.5 rounded-2xl text-xs font-medium">
+          <Button onClick={onOpenGenerator} className="relative h-10 px-3.5 rounded-xs text-xs font-medium">
             <span className="inline-flex items-center gap-1.5">
               AI Generate
             </span>
@@ -113,7 +113,7 @@ export function RoutineLibrary({ routines, loading, onDelete, onRename, onStartW
           <Button
             onClick={onOpenManualCreator}
             size="sm"
-            className="h-8 px-2.5 rounded-2xl text-xs font-medium"
+            className="h-8 px-2.5 rounded-xs text-xs font-medium"
             variant="outline"
           >
             <Plus className="!size-3.5" />
@@ -122,7 +122,7 @@ export function RoutineLibrary({ routines, loading, onDelete, onRename, onStartW
           <Button
             onClick={onOpenGenerator}
             size="sm"
-            className="relative h-8 px-2.5 rounded-2xl text-xs font-medium"
+            className="relative h-8 px-2.5 rounded-xs text-xs font-medium"
           >
             <span className="inline-flex items-center gap-1.5">
               AI Generate

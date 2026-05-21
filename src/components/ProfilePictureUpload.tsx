@@ -244,7 +244,7 @@ export function ProfilePictureUpload({
             className="fixed inset-0 z-[10003] bg-black/80 animate-in fade-in duration-200"
             onClick={() => !uploading && setIsOpen(false)}
           />
-          <div className="fixed left-1/2 top-[env(safe-area-inset-top,1rem)] z-[10004] -translate-x-1/2 w-[calc(100vw-2rem)] sm:max-w-lg sm:top-1/2 sm:-translate-y-1/2 max-h-[calc(100vh-2rem)] overflow-y-auto border bg-background p-4 sm:p-6 shadow-lg rounded-2xl space-y-3 sm:space-y-4 mt-2 sm:mt-0">
+          <div className="fixed left-1/2 top-[env(safe-area-inset-top,1rem)] z-[10004] -translate-x-1/2 w-[calc(100vw-2rem)] sm:max-w-lg sm:top-1/2 sm:-translate-y-1/2 max-h-[calc(100vh-2rem)] overflow-y-auto border bg-background p-4 sm:p-6 shadow-lg rounded-xs space-y-3 sm:space-y-4 mt-2 sm:mt-0">
             <div className="flex items-center justify-between">
               <h3 className="text-base sm:text-lg font-semibold">Crop Profile Picture</h3>
               <button

@@ -234,7 +234,7 @@ export function FightOfferDetailSheet({ offerId, open, onOpenChange }: Props) {
         ) : (
           <div className="flex-1 min-h-0 overflow-y-auto space-y-3 px-1">
             {/* Header card — date / weight class / meta */}
-            <div className="card-surface rounded-2xl border border-border p-3 space-y-2">
+            <div className="card-surface rounded-xs border border-border p-3 space-y-2">
               <div className="flex items-baseline gap-3">
                 <span className="text-[22px] font-semibold tabular-nums leading-none">
                   {new Date(data.fight_date).toLocaleDateString("en-US", {
@@ -293,7 +293,7 @@ export function FightOfferDetailSheet({ offerId, open, onOpenChange }: Props) {
 
             {/* Responses */}
             {ranked.length === 0 ? (
-              <div className="card-surface rounded-2xl border border-dashed border-border p-6 text-center">
+              <div className="card-surface rounded-xs border border-dashed border-border p-6 text-center">
                 <p className="text-[13px] font-semibold mb-1">No responses yet</p>
                 <p className="text-[12px] text-muted-foreground leading-snug">
                   Fighters will appear here as they tap in.
@@ -308,7 +308,7 @@ export function FightOfferDetailSheet({ offerId, open, onOpenChange }: Props) {
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold mb-1.5 px-1">
                       {SIGNAL_LABEL[bucket]} · {rows.length}
                     </p>
-                    <div className="card-surface rounded-2xl border border-border overflow-hidden divide-y divide-border/40">
+                    <div className="card-surface rounded-xs border border-border overflow-hidden divide-y divide-border/40">
                       {rows.map((r) => {
                         const delta =
                           r.current_weight_kg != null
@@ -409,7 +409,7 @@ export function FightOfferDetailSheet({ offerId, open, onOpenChange }: Props) {
                   type="button"
                   onClick={handleReopen}
                   disabled={busyAction !== null}
-                  className="col-span-2 h-10 rounded-2xl bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-foreground/85 text-[12px] font-semibold active:scale-[0.99] transition-transform inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  className="col-span-2 h-10 rounded-xs bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-foreground/85 text-[12px] font-semibold active:scale-[0.99] transition-transform inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
                 >
                   {busyAction === "reopen" ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -424,7 +424,7 @@ export function FightOfferDetailSheet({ offerId, open, onOpenChange }: Props) {
                   type="button"
                   onClick={handleWithdraw}
                   disabled={busyAction !== null}
-                  className="h-10 rounded-2xl text-amber-400 text-[12px] font-semibold active:scale-[0.99] transition-transform inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  className="h-10 rounded-xs text-amber-400 text-[12px] font-semibold active:scale-[0.99] transition-transform inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
                 >
                   {busyAction === "withdraw" ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -438,7 +438,7 @@ export function FightOfferDetailSheet({ offerId, open, onOpenChange }: Props) {
                 type="button"
                 onClick={() => setConfirmDelete(true)}
                 disabled={busyAction !== null}
-                className={`h-10 rounded-2xl text-destructive text-[12px] font-semibold active:scale-[0.99] transition-transform inline-flex items-center justify-center gap-1.5 disabled:opacity-50 ${
+                className={`h-10 rounded-xs text-destructive text-[12px] font-semibold active:scale-[0.99] transition-transform inline-flex items-center justify-center gap-1.5 disabled:opacity-50 ${
                   data.status === "withdrawn" ? "col-span-2" : ""
                 }`}
               >
@@ -466,7 +466,7 @@ export function FightOfferDetailSheet({ offerId, open, onOpenChange }: Props) {
                 type="button"
                 onClick={() => setConfirmingFighter(null)}
                 disabled={picking === confirmingFighter.userId}
-                className="flex-1 h-10 rounded-2xl bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-foreground/85 text-[13px] font-semibold active:scale-[0.98] transition-transform"
+                className="flex-1 h-10 rounded-xs bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-foreground/85 text-[13px] font-semibold active:scale-[0.98] transition-transform"
               >
                 Cancel
               </button>
@@ -480,7 +480,7 @@ export function FightOfferDetailSheet({ offerId, open, onOpenChange }: Props) {
                   )
                 }
                 disabled={picking === confirmingFighter.userId}
-                className="flex-[2] h-10 rounded-2xl bg-primary text-primary-foreground text-[13px] font-semibold active:scale-[0.98] transition-transform inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
+                className="flex-[2] h-10 rounded-xs bg-primary text-primary-foreground text-[13px] font-semibold active:scale-[0.98] transition-transform inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
               >
                 {picking === confirmingFighter.userId ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />

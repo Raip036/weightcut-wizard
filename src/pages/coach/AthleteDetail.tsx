@@ -74,7 +74,7 @@ export default function AthleteDetail() {
         >
           <ChevronLeft className="h-4 w-4" /> Back
         </button>
-        <div className="card-surface rounded-2xl border border-border p-6 text-center">
+        <div className="card-surface rounded-xs border border-border p-6 text-center">
           <p className="text-[13px] font-semibold mb-1">Athlete not available</p>
           <p className="text-[12px] text-muted-foreground leading-snug">
             {error || "They may have left your gym or paused sharing."}
@@ -130,7 +130,7 @@ export default function AthleteDetail() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate("/coach")}
-            className="-ml-2 p-2 rounded-lg active:bg-muted/50 transition-colors"
+            className="-ml-2 p-2 rounded-xs active:bg-muted/50 transition-colors"
             aria-label="Back to coach dashboard"
           >
             <ChevronLeft className="h-5 w-5 text-muted-foreground" />
@@ -151,7 +151,7 @@ export default function AthleteDetail() {
         )}
 
         {/* Weight summary + 7d chart */}
-        <div className="card-surface rounded-2xl border border-border p-3">
+        <div className="card-surface rounded-xs border border-border p-3">
           <div className="flex items-baseline justify-between mb-2">
             <span className="text-[11px] uppercase tracking-wider text-muted-foreground/70 font-semibold">Weight</span>
             <div className="text-right">
@@ -167,7 +167,7 @@ export default function AthleteDetail() {
           </div>
           <div className="h-24">
             {weight_7d && weight_7d.length > 0 ? (
-              <Suspense fallback={<div className="h-full w-full animate-pulse bg-muted/20 rounded-2xl" />}>
+              <Suspense fallback={<div className="h-full w-full animate-pulse bg-muted/20 rounded-xs" />}>
                 <AthleteWeightChart data={weight_7d} />
               </Suspense>
             ) : (
@@ -192,7 +192,7 @@ export default function AthleteDetail() {
         )}
 
         {/* 7-day training strain — RPE-hours per day */}
-        <div className="card-surface rounded-2xl border border-border p-3">
+        <div className="card-surface rounded-xs border border-border p-3">
           <div className="flex items-baseline justify-between mb-2">
             <span className="text-[11px] uppercase tracking-wider text-muted-foreground/70 font-semibold">
               Strain · 7 days
@@ -211,7 +211,7 @@ export default function AthleteDetail() {
 
         {/* Today's macros */}
         {today_macros && (
-          <div className="card-surface rounded-2xl border border-border p-3">
+          <div className="card-surface rounded-xs border border-border p-3">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] uppercase tracking-wider text-muted-foreground/70 font-semibold">Today</span>
               <span className="text-[11px] text-muted-foreground tabular-nums">
@@ -240,7 +240,7 @@ export default function AthleteDetail() {
         )}
 
         {/* Recent training */}
-        <div className="card-surface rounded-2xl border border-border overflow-hidden">
+        <div className="card-surface rounded-xs border border-border overflow-hidden">
           <div className="px-3 py-2 border-b border-border/40">
             <span className="text-[11px] uppercase tracking-wider text-muted-foreground/70 font-semibold">Recent training</span>
           </div>
@@ -277,13 +277,13 @@ export default function AthleteDetail() {
         <div className="flex items-center gap-2 pt-1">
           <button
             disabled
-            className="flex-1 h-10 rounded-xl bg-muted/40 text-muted-foreground/60 text-[12px] font-medium cursor-not-allowed"
+            className="flex-1 h-10 rounded-xs bg-muted/40 text-muted-foreground/60 text-[12px] font-medium cursor-not-allowed"
           >
             Send check-in · soon
           </button>
           <button
             onClick={() => setRemoveDialogOpen(true)}
-            className="h-10 px-3 rounded-xl text-[12px] font-medium text-destructive active:bg-destructive/10 transition-colors"
+            className="h-10 px-3 rounded-xs text-[12px] font-medium text-destructive active:bg-destructive/10 transition-colors"
           >
             Remove
           </button>
