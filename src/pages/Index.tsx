@@ -107,17 +107,19 @@ const Index = () => {
           regardless of viewport size. */}
       <div className="flex-1 flex flex-col px-6 py-4">
         {/* Hero — 3D wizard + headline + subhead. flex-1 inside the
-            body so it occupies the middle ground. `justify-start pt-4`
-            anchors the wizard near the top of the available area so the
-            text below has room to breathe and sit lower visually. */}
-        <div className="flex-1 flex flex-col items-center justify-start pt-2">
+            body so it occupies the middle ground. `justify-center`
+            centers the wizard+text block vertically; the small mt-6
+            below (down from mt-16) brings the headline up close to
+            the wizard's feet rather than separating them with empty
+            space. */}
+        <div className="flex-1 flex flex-col items-center justify-center">
           {/* Wizard mascot with floating bob — wrapped in a relative
               container so the sparkles can position absolutely around it. */}
           <div className="relative">
             <motion.img
               src={wizard3D}
               alt="FightCamp Wizard mascot"
-              className="w-[280px] h-[280px] object-contain select-none pointer-events-none"
+              className="w-[300px] h-[300px] object-contain select-none pointer-events-none"
               draggable={false}
               initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 }}
               animate={
@@ -193,15 +195,15 @@ const Index = () => {
             )}
           </div>
 
-          {/* Headline + subhead. mt-16 pushes the text noticeably below
-              the wizard so the hero has clear vertical rhythm. Title
-              uses Sora display at 34px to amplify the size contrast
-              against the 13px Inter body underneath. */}
+          {/* Headline + subhead. mt-6 keeps the text close to the
+              wizard's feet — the previous mt-16 left an awkward void
+              between them. Title uses Sora display at 34px to amplify
+              the size contrast against the 13px Inter body. */}
           <motion.div
             initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: "easeOut", delay: 0.2 }}
-            className="text-center mt-16"
+            className="text-center mt-6"
           >
             <h1 className="font-display text-[34px] font-bold tracking-tight leading-[1.1] text-white">
               Make weight. Stay safe. Win the cut.
