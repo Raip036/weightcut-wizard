@@ -677,7 +677,13 @@ export const submitStepFeedback = mutation({
       feedback,
       at: Date.now(),
     });
-    // Plateau trigger wired in via the orchestrator task.
+    if (feedback === "off") {
+      await ctx.scheduler.runAfter(
+        0,
+        api.actions.trainingCoachPlanner.run,
+        { trigger: "stepFeedback", feedbackPathId: step.pathId },
+      );
+    }
   },
 });
 

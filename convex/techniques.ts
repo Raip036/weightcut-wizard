@@ -7,6 +7,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { requireUserId, optionalUserId } from "./lib/auth";
+import { internal } from "./_generated/api";
 
 export const listTechniques = query({
   args: { sport: v.optional(v.string()) },
@@ -100,6 +101,19 @@ export const logTechnique = mutation({
         firstLoggedAt: now,
         lastLoggedAt: now,
       });
+    }
+    // Training Coach: advance any active path whose current step targets
+    // this technique + sport. Fuzzy match on goal name.
+    const technique = await ctx.db.get(args.techniqueId);
+    if (technique) {
+      await ctx.runMutation(
+        internal.training_paths.advanceStepOnTechniqueLog,
+        {
+          userId,
+          techniqueName: technique.name,
+          sport: technique.sport,
+        },
+      );
     }
     return logId;
   },
