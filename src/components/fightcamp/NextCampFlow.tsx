@@ -632,8 +632,8 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
               transition={{ type: "spring", damping: 22, stiffness: 320 }}
               className="px-5 pb-7 pt-2 flex flex-col items-center gap-2 text-center"
             >
-              <div className="h-12 w-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                <Check className="h-6 w-6 text-emerald-400" strokeWidth={2.6} />
+              <div className="h-12 w-12 rounded-full bg-func-recovery-green/20 flex items-center justify-center">
+                <Check className="h-6 w-6 text-func-recovery-green" strokeWidth={2.6} />
               </div>
               <p className="text-[15px] font-semibold text-foreground">Camp ready</p>
               <p className="text-[12px] text-muted-foreground">Targets and dashboard are updated.</p>

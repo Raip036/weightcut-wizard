@@ -13,10 +13,10 @@ export interface DehydrationTactic {
 }
 
 const METHOD_META: Record<DehydrationMethod, { label: string; color: string; bg: string; icon: typeof Flame }> = {
-  dry_sauna: { label: "Dry Sauna", color: "text-orange-400", bg: "bg-orange-500/15", icon: Flame },
-  hot_bath: { label: "Hot Bath", color: "text-rose-400", bg: "bg-rose-500/15", icon: Droplet },
-  active_sweat: { label: "Active Sweat", color: "text-yellow-400", bg: "bg-yellow-500/15", icon: Activity },
-  sauna_suit: { label: "Sauna Suit", color: "text-purple-400", bg: "bg-purple-500/15", icon: Shirt },
+  dry_sauna: { label: "Dry Sauna", color: "text-func-carbs-orange", bg: "bg-func-carbs-orange/15", icon: Flame },
+  hot_bath: { label: "Hot Bath", color: "text-func-danger-red", bg: "bg-func-danger-red/15", icon: Droplet },
+  active_sweat: { label: "Active Sweat", color: "text-func-warning-yellow", bg: "bg-func-warning-yellow/15", icon: Activity },
+  sauna_suit: { label: "Sauna Suit", color: "text-func-fats-purple", bg: "bg-func-fats-purple/15", icon: Shirt },
 };
 
 interface DehydrationTacticsCardProps {

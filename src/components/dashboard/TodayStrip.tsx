@@ -68,7 +68,7 @@ export default function TodayStrip({ adherence, mealsLoggedToday }: Props) {
             {isLogged && (
               <span
                 aria-hidden
-                className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-400 ring-2 ring-background"
+                className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-func-recovery-green ring-2 ring-background"
               >
                 <Check className="h-2.5 w-2.5 text-background" strokeWidth={3.5} />
               </span>

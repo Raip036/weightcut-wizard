@@ -464,7 +464,7 @@ export function QuickAddDialog({
               value={aiMeal.aiMealDescription}
               onChange={(e) => aiMeal.setAiMealDescription(e.target.value)}
               disabled={aiMeal.aiAnalyzing}
-              className={`text-[15px] min-h-[88px] resize-none rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/30 py-3 px-4 placeholder:text-muted-foreground/50 ${isListening ? "ring-2 ring-red-500/40" : ""}`}
+              className={`text-[15px] min-h-[88px] resize-none rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/30 py-3 px-4 placeholder:text-muted-foreground/50 ${isListening ? "ring-2 ring-func-danger-red/40" : ""}`}
               rows={3}
               onFocus={() => {
                 setTimeout(() => {
@@ -493,7 +493,7 @@ export function QuickAddDialog({
                   disabled={aiMeal.aiAnalyzing}
                   className={`flex items-center justify-center gap-1.5 px-3.5 h-12 rounded-xs text-[14px] font-semibold transition-all ${
                     isListening
-                      ? "bg-red-500/15 text-red-500 animate-pulse"
+                      ? "bg-func-danger-red/15 text-func-danger-red animate-pulse"
                       : "bg-muted/40 text-muted-foreground active:bg-muted/60"
                   }`}
                 >
@@ -693,8 +693,8 @@ export function QuickAddDialog({
                           <div className="flex items-center gap-2 text-[11px] tabular-nums text-muted-foreground/85 flex-shrink-0">
                             <span className="font-bold text-foreground">{item.calories}</span>
                             <span className="text-blue-500">{Math.round(item.protein_g)}P</span>
-                            <span className="text-orange-500">{Math.round(item.carbs_g)}C</span>
-                            <span className="text-purple-500">{Math.round(item.fats_g)}F</span>
+                            <span className="text-func-carbs-orange">{Math.round(item.carbs_g)}C</span>
+                            <span className="text-func-fats-purple">{Math.round(item.fats_g)}F</span>
                           </div>
                           <button
                             type="button"
@@ -796,8 +796,8 @@ export function QuickAddDialog({
                 <div className="flex items-center gap-3 pt-2 border-t border-border/20 text-[13px]">
                   <span className="font-bold text-primary">{manualMeal.calories} kcal</span>
                   <span className="text-blue-500">{manualMeal.protein_g}P</span>
-                  <span className="text-orange-500">{manualMeal.carbs_g}C</span>
-                  <span className="text-purple-500">{manualMeal.fats_g}F</span>
+                  <span className="text-func-carbs-orange">{manualMeal.carbs_g}C</span>
+                  <span className="text-func-fats-purple">{manualMeal.fats_g}F</span>
                 </div>
               </div>
             )}

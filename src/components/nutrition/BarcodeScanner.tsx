@@ -490,11 +490,11 @@ export const BarcodeScanner = ({ onFoodScanned, disabled, className, label }: Ba
                   </div>
                   <div className="rounded-xs border border-white/10 bg-white/5 px-3 py-2.5 text-center">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground/80 font-semibold">Carbs</p>
-                    <p className="text-[16px] font-bold tabular-nums text-amber-400 mt-0.5">{live.carbs}<span className="text-[10px] text-muted-foreground/60 ml-0.5 font-medium">g</span></p>
+                    <p className="text-[16px] font-bold tabular-nums text-func-warning-yellow mt-0.5">{live.carbs}<span className="text-[10px] text-muted-foreground/60 ml-0.5 font-medium">g</span></p>
                   </div>
                   <div className="rounded-xs border border-white/10 bg-white/5 px-3 py-2.5 text-center">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground/80 font-semibold">Fats</p>
-                    <p className="text-[16px] font-bold tabular-nums text-rose-400 mt-0.5">{live.fats}<span className="text-[10px] text-muted-foreground/60 ml-0.5 font-medium">g</span></p>
+                    <p className="text-[16px] font-bold tabular-nums text-func-danger-red mt-0.5">{live.fats}<span className="text-[10px] text-muted-foreground/60 ml-0.5 font-medium">g</span></p>
                   </div>
                 </div>
 

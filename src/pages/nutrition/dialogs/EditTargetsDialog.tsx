@@ -41,7 +41,7 @@ export function EditTargetsDialog({
   const cPct = totalMacroG > 0 ? Math.round((c / totalMacroG) * 100) : 0;
   const fPct = totalMacroG > 0 ? 100 - pPct - cPct : 0;
   const color =
-    calGoal === 0 ? "text-muted-foreground" : diff <= 20 ? "text-green-600" : diff <= 50 ? "text-yellow-600" : "text-red-600";
+    calGoal === 0 ? "text-muted-foreground" : diff <= 20 ? "text-func-recovery-green" : diff <= 50 ? "text-func-warning-yellow" : "text-func-danger-red";
 
   const handleAdjust = (field: "protein" | "carbs" | "fats", value: number) => {
     if (calGoal > 0) {

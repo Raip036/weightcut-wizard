@@ -11,13 +11,13 @@ import type { SessionWithSets } from "@/pages/gym/types";
 function sessionEdgeColor(type: string | null | undefined): string {
   switch ((type ?? "").toLowerCase()) {
     case "strength":      return "bg-blue-400";
-    case "hypertrophy":   return "bg-violet-400";
-    case "powerlifting":  return "bg-amber-400";
-    case "explosiveness": return "bg-yellow-400";
-    case "conditioning":  return "bg-orange-400";
-    case "circuit":       return "bg-rose-400";
-    case "endurance":     return "bg-emerald-400";
-    case "mobility":      return "bg-cyan-400";
+    case "hypertrophy":   return "bg-func-fats-purple";
+    case "powerlifting":  return "bg-func-warning-yellow";
+    case "explosiveness": return "bg-func-warning-yellow";
+    case "conditioning":  return "bg-func-carbs-orange";
+    case "circuit":       return "bg-func-danger-red";
+    case "endurance":     return "bg-func-recovery-green";
+    case "mobility":      return "bg-func-hydration-cyan";
     default:              return "bg-primary";
   }
 }

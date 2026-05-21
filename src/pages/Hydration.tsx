@@ -109,10 +109,10 @@ export default function Hydration() {
   ];
 
   const REHYDRATION_STEPS = [
-    { icon: Activity, label: "Analysing weight loss", color: "text-red-400" },
+    { icon: Activity, label: "Analysing weight loss", color: "text-func-danger-red" },
     { icon: Droplets, label: "Calculating fluid requirements", color: "text-blue-500" },
-    { icon: Zap, label: "Optimising electrolyte ratios", color: "text-yellow-400" },
-    { icon: Beaker, label: "Formulating recovery plan", color: "text-green-400" },
+    { icon: Zap, label: "Optimising electrolyte ratios", color: "text-func-warning-yellow" },
+    { icon: Beaker, label: "Formulating recovery plan", color: "text-func-recovery-green" },
   ];
 
   const { tasks: aiTasks, dismissTask: aiDismiss } = useAITask();
@@ -211,8 +211,8 @@ export default function Hydration() {
                 ))}
               </div>
               <div className="space-y-2">
-                <div className="flex items-start gap-2 rounded-xs bg-amber-500/10 ring-1 ring-amber-500/20 px-3 py-2">
-                  <AlertTriangle className="h-3.5 w-3.5 text-amber-400 mt-0.5 flex-shrink-0" strokeWidth={2.4} />
+                <div className="flex items-start gap-2 rounded-xs bg-func-warning-yellow/10 ring-1 ring-func-warning-yellow/20 px-3 py-2">
+                  <AlertTriangle className="h-3.5 w-3.5 text-func-warning-yellow mt-0.5 flex-shrink-0" strokeWidth={2.4} />
                   <p className="text-[11px] text-foreground/80 leading-snug">
                     Rehydrating too fast can dilute sodium and trigger cramps or nausea. The protocol paces fluid and electrolyte intake to avoid this.
                   </p>
@@ -258,9 +258,9 @@ export default function Hydration() {
             </div>
 
             {!currentWeight && (
-              <div className="flex items-center gap-2 px-3 py-2 rounded-xs bg-red-500/10 border border-red-500/20">
-                <AlertTriangle className="h-3.5 w-3.5 text-red-400 shrink-0" />
-                <p className="text-[11px] text-red-400">Set your current weight in your profile to generate a protocol.</p>
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xs bg-func-danger-red/10 border border-func-danger-red/20">
+                <AlertTriangle className="h-3.5 w-3.5 text-func-danger-red shrink-0" />
+                <p className="text-[11px] text-func-danger-red">Set your current weight in your profile to generate a protocol.</p>
               </div>
             )}
 
@@ -275,7 +275,7 @@ export default function Hydration() {
             <div className="space-y-2.5">
               <DateTimeRow
                 label="Weigh-in"
-                dotColor="bg-emerald-400"
+                dotColor="bg-func-recovery-green"
                 date={weighInDate}
                 time={weighInTime}
                 onDate={setWeighInDate}
@@ -283,7 +283,7 @@ export default function Hydration() {
               />
               <DateTimeRow
                 label="Fight"
-                dotColor="bg-amber-400"
+                dotColor="bg-func-warning-yellow"
                 date={fightDate}
                 time={fightTime}
                 onDate={setFightDate}
@@ -307,7 +307,7 @@ export default function Hydration() {
               <div className="text-right">
                 <p
                   className={`text-[22px] font-black tabular-nums leading-none ${
-                    availableHours <= 5 ? "text-red-300" : availableHours <= 10 ? "text-amber-300" : "text-emerald-300"
+                    availableHours <= 5 ? "text-func-danger-red" : availableHours <= 10 ? "text-func-warning-yellow" : "text-func-recovery-green"
                   }`}
                 >
                   {availableHours}
@@ -390,10 +390,10 @@ export default function Hydration() {
                     const reduction = hasInputs ? Math.round(((normal - fightWeek) / normal) * 100) : 0;
                     const level = glycogenDepletion;
                     const config = {
-                      significant: { color: "text-red-300", bg: "bg-red-500/12", ring: "ring-red-500/25", label: "Significant", target: "8-12 g/kg" },
-                      moderate: { color: "text-amber-300", bg: "bg-amber-500/12", ring: "ring-amber-500/25", label: "Moderate", target: "6-8 g/kg" },
-                      none: { color: "text-emerald-300", bg: "bg-emerald-500/12", ring: "ring-emerald-500/25", label: "None", target: "4-5 g/kg" },
-                    }[level] ?? { color: "text-amber-300", bg: "bg-amber-500/12", ring: "ring-amber-500/25", label: "Moderate", target: "6-8 g/kg" };
+                      significant: { color: "text-func-danger-red", bg: "bg-func-danger-red/12", ring: "ring-func-danger-red/25", label: "Significant", target: "8-12 g/kg" },
+                      moderate: { color: "text-func-warning-yellow", bg: "bg-func-warning-yellow/12", ring: "ring-func-warning-yellow/25", label: "Moderate", target: "6-8 g/kg" },
+                      none: { color: "text-func-recovery-green", bg: "bg-func-recovery-green/12", ring: "ring-func-recovery-green/25", label: "None", target: "4-5 g/kg" },
+                    }[level] ?? { color: "text-func-warning-yellow", bg: "bg-func-warning-yellow/12", ring: "ring-func-warning-yellow/25", label: "Moderate", target: "6-8 g/kg" };
                     return (
                       <div className={`rounded-xs ${config.bg} ring-1 ${config.ring} px-3.5 py-3 text-center`}>
                         <p className={`text-[14px] font-bold ${config.color}`}>{config.label}</p>
@@ -429,8 +429,8 @@ export default function Hydration() {
                     <span className="font-semibold text-foreground/80">Not medical advice.</span> This protocol is an educational guideline based on sports science research. Consult a qualified sports dietitian before implementing. Stop and seek medical attention if you experience dizziness, confusion, nausea, or chest pain.
                   </p>
                   <div className="flex items-start gap-2">
-                    <AlertTriangle className="h-3 w-3 text-amber-400 shrink-0 mt-0.5" />
-                    <p className="text-[11px] text-amber-400 leading-snug">For athletes who have safely completed their weight cut. Never rehydrate without guidance.</p>
+                    <AlertTriangle className="h-3 w-3 text-func-warning-yellow shrink-0 mt-0.5" />
+                    <p className="text-[11px] text-func-warning-yellow leading-snug">For athletes who have safely completed their weight cut. Never rehydrate without guidance.</p>
                   </div>
                 </div>
               )}
@@ -438,7 +438,7 @@ export default function Hydration() {
 
             <Button
               type="submit"
-              className={`relative w-full h-12 min-h-[52px] mt-1 font-bold text-[15px] rounded-xs bg-primary text-primary-foreground transition-all active:scale-[0.98] shadow-lg shadow-primary/30 ${lastError && !loading ? "ring-2 ring-red-500/40" : ""}`}
+              className={`relative w-full h-12 min-h-[52px] mt-1 font-bold text-[15px] rounded-xs bg-primary text-primary-foreground transition-all active:scale-[0.98] shadow-lg shadow-primary/30 ${lastError && !loading ? "ring-2 ring-func-danger-red/40" : ""}`}
               disabled={loading || !currentWeight || !weightLost || parseFloat(weightLost) <= 0}
             >
               {loading ? (
@@ -498,12 +498,12 @@ export default function Hydration() {
                     <p className="text-base font-bold tabular-nums text-blue-400">{totals.totalFluidLitres}L</p>
                     <p className="text-[9px] text-muted-foreground uppercase tracking-wider mt-0.5">Total Fluid</p>
                   </div>
-                  <div className="rounded-xs bg-amber-500/5 border border-amber-500/20 p-2 text-center">
-                    <p className="text-base font-bold tabular-nums text-amber-400">{(totals.totalSodiumMg / 1000).toFixed(1)}g</p>
+                  <div className="rounded-xs bg-func-warning-yellow/5 border border-func-warning-yellow/20 p-2 text-center">
+                    <p className="text-base font-bold tabular-nums text-func-warning-yellow">{(totals.totalSodiumMg / 1000).toFixed(1)}g</p>
                     <p className="text-[9px] text-muted-foreground uppercase tracking-wider mt-0.5">Sodium</p>
                   </div>
-                  <div className="rounded-xs bg-emerald-500/5 border border-emerald-500/20 p-2 text-center">
-                    <p className="text-base font-bold tabular-nums text-emerald-400">{totals.totalCarbsG}g</p>
+                  <div className="rounded-xs bg-func-recovery-green/5 border border-func-recovery-green/20 p-2 text-center">
+                    <p className="text-base font-bold tabular-nums text-func-recovery-green">{totals.totalCarbsG}g</p>
                     <p className="text-[9px] text-muted-foreground uppercase tracking-wider mt-0.5">Carbs</p>
                   </div>
                   <div className="rounded-xs bg-muted border border-border p-2.5 text-center">
@@ -523,18 +523,18 @@ export default function Hydration() {
             )}
 
             {/* Warnings Section */}
-            <div className="rounded-xs bg-amber-500/5 border border-amber-500/20 overflow-hidden">
-              <button className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-amber-500/10 transition-colors" onClick={() => setWarningsOpen((o) => !o)}>
-                <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-                <span className="text-sm font-medium text-amber-400">Safety Warnings ({allWarnings.length})</span>
-                <span className="ml-auto text-amber-400">{warningsOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}</span>
+            <div className="rounded-xs bg-func-warning-yellow/5 border border-func-warning-yellow/20 overflow-hidden">
+              <button className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-func-warning-yellow/10 transition-colors" onClick={() => setWarningsOpen((o) => !o)}>
+                <AlertTriangle className="h-3.5 w-3.5 text-func-warning-yellow shrink-0" />
+                <span className="text-sm font-medium text-func-warning-yellow">Safety Warnings ({allWarnings.length})</span>
+                <span className="ml-auto text-func-warning-yellow">{warningsOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}</span>
               </button>
               {warningsOpen && (
-                <div className="px-4 pb-4 space-y-2 border-t border-amber-500/20">
+                <div className="px-4 pb-4 space-y-2 border-t border-func-warning-yellow/20">
                   {allWarnings.map((warning, idx) => (
                     <div key={idx} className="flex items-start gap-2 pt-2">
-                      <AlertTriangle className="h-3 w-3 text-amber-400 shrink-0 mt-0.5" />
-                      <p className="text-xs text-amber-600 dark:text-amber-300 leading-relaxed">{warning}</p>
+                      <AlertTriangle className="h-3 w-3 text-func-warning-yellow shrink-0 mt-0.5" />
+                      <p className="text-xs text-func-warning-yellow dark:text-func-warning-yellow leading-relaxed">{warning}</p>
                     </div>
                   ))}
                 </div>
@@ -584,7 +584,7 @@ export default function Hydration() {
                   {/* Caffeine */}
                   <div>
                     <p className="text-xs font-bold text-foreground/80 mb-1">Caffeine Strategy</p>
-                    {totals && <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-md px-1.5 py-0.5 inline-block mb-1.5">Your dose: {totals.caffeineLowMg}-{totals.caffeineHighMg}mg</span>}
+                    {totals && <span className="text-[10px] font-bold text-func-warning-yellow bg-func-warning-yellow/10 border border-func-warning-yellow/20 rounded-md px-1.5 py-0.5 inline-block mb-1.5">Your dose: {totals.caffeineLowMg}-{totals.caffeineHighMg}mg</span>}
                     <p className="text-[11px] text-muted-foreground leading-relaxed">{education?.caffeineGuidance ?? "Consume 3-6 mg/kg caffeine ~60 min before competition. Improves reaction time and reduces perceived effort."}</p>
                   </div>
                   {/* Mouth Rinse */}
@@ -645,7 +645,7 @@ export default function Hydration() {
                           <div className="flex items-center gap-2 flex-wrap mb-1.5">
                             <span className="text-[10px] text-muted-foreground">Na {getSodium(step)}mg</span>
                             <span className="text-[10px] text-muted-foreground">K {getPotassium(step)}mg</span>
-                            {getCarbs(step) > 0 && <span className="text-[10px] text-emerald-400 font-medium">{getCarbs(step)}g carbs</span>}
+                            {getCarbs(step) > 0 && <span className="text-[10px] text-func-recovery-green font-medium">{getCarbs(step)}g carbs</span>}
                             {phaseBadge && <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-md border ${phaseBadge.bg} ${phaseBadge.text}`}>{step.phase}</span>}
                           </div>
                           {step.drinkRecipe && (
@@ -657,7 +657,7 @@ export default function Hydration() {
                           {Array.isArray(step.foods) && step.foods.length > 0 && (
                             <div className="flex flex-wrap gap-1 mb-1.5">
                               {step.foods.map((food, fIdx) => (
-                                <span key={fIdx} className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">{food}</span>
+                                <span key={fIdx} className="text-[10px] px-2 py-0.5 rounded-full bg-func-recovery-green/10 border border-func-recovery-green/20 text-func-recovery-green">{food}</span>
                               ))}
                             </div>
                           )}
@@ -675,14 +675,14 @@ export default function Hydration() {
                   <div className="px-4 pb-3 space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] text-muted-foreground">Target {totals?.totalCarbsG ?? protocol.carbRefuelPlan.targetCarbs ?? "—"}g ({totals?.carbTargetPerKg ?? "6-8"} g/kg)</span>
-                      <span className="text-[10px] text-emerald-400 font-medium bg-emerald-500/10 border border-emerald-500/20 rounded-md px-1.5 py-0.5">Max {totals?.maxCarbsPerHour ?? 60}g/h</span>
+                      <span className="text-[10px] text-func-recovery-green font-medium bg-func-recovery-green/10 border border-func-recovery-green/20 rounded-md px-1.5 py-0.5">Max {totals?.maxCarbsPerHour ?? 60}g/h</span>
                     </div>
                     <div className="space-y-1">
                       <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${Math.min(100, Math.round((getCumulativeCarbs() / (totals?.totalCarbsG ?? (getCumulativeCarbs() || 1))) * 100))}%` }} />
+                        <div className="h-full bg-func-recovery-green rounded-full transition-all" style={{ width: `${Math.min(100, Math.round((getCumulativeCarbs() / (totals?.totalCarbsG ?? (getCumulativeCarbs() || 1))) * 100))}%` }} />
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-[10px] text-emerald-400 tabular-nums font-medium">{getCumulativeCarbs()}g planned</span>
+                        <span className="text-[10px] text-func-recovery-green tabular-nums font-medium">{getCumulativeCarbs()}g planned</span>
                         <span className="text-[10px] text-muted-foreground tabular-nums">{totals?.totalCarbsG ?? "—"}g target</span>
                       </div>
                     </div>
@@ -692,18 +692,18 @@ export default function Hydration() {
                   {protocol.carbRefuelPlan.meals.map((meal, idx) => (
                     <div key={idx} className="flex gap-3 px-4 py-3">
                       <div className="flex flex-col items-center shrink-0">
-                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-background shadow-sm" />
+                        <div className="w-2.5 h-2.5 rounded-full bg-func-recovery-green border-2 border-background shadow-sm" />
                         {idx < protocol.carbRefuelPlan.meals.length - 1 && <div className="w-0.5 flex-1 bg-border/40 mt-1" />}
                       </div>
                       <div className="flex-1 min-w-0 pb-3">
                         <div className="flex items-center gap-2 mb-1.5">
-                          <span className="text-[10px] font-medium text-emerald-400">{meal.timing}</span>
-                          <span className="text-sm font-bold tabular-nums text-emerald-400 ml-auto">{meal.carbsG}g</span>
+                          <span className="text-[10px] font-medium text-func-recovery-green">{meal.timing}</span>
+                          <span className="text-sm font-bold tabular-nums text-func-recovery-green ml-auto">{meal.carbsG}g</span>
                         </div>
                         {getMealFoods(meal).length > 0 && (
                           <div className="flex flex-wrap gap-1 mb-1.5">
                             {getMealFoods(meal).map((food, foodIdx) => (
-                              <span key={foodIdx} className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">{food}</span>
+                              <span key={foodIdx} className="text-[10px] px-2 py-0.5 rounded-full bg-func-recovery-green/10 border border-func-recovery-green/20 text-func-recovery-green">{food}</span>
                             ))}
                           </div>
                         )}
@@ -720,7 +720,7 @@ export default function Hydration() {
                         <div key={idx} className="rounded-xs bg-card border border-border p-2 space-y-1">
                           <div className="flex items-start justify-between gap-1.5">
                             <p className="text-[11px] font-medium text-foreground/90 leading-tight min-w-0">{food.name}</p>
-                            <span className="text-[10px] text-emerald-400 font-bold tabular-nums shrink-0">{food.carbsG}g</span>
+                            <span className="text-[10px] text-func-recovery-green font-bold tabular-nums shrink-0">{food.carbsG}g</span>
                           </div>
                           <p className="text-[9px] text-muted-foreground leading-snug">{food.notes}</p>
                         </div>
@@ -773,10 +773,10 @@ function WeightLostPill({
     pct == null
       ? "hidden"
       : pct <= 5
-        ? "bg-emerald-500/12 text-emerald-300 ring-emerald-500/25"
+        ? "bg-func-recovery-green/12 text-func-recovery-green ring-func-recovery-green/25"
         : pct <= 8
-          ? "bg-amber-500/12 text-amber-300 ring-amber-500/25"
-          : "bg-red-500/12 text-red-300 ring-red-500/25";
+          ? "bg-func-warning-yellow/12 text-func-warning-yellow ring-func-warning-yellow/25"
+          : "bg-func-danger-red/12 text-func-danger-red ring-func-danger-red/25";
   return (
     <div className="flex items-center gap-3 rounded-xs bg-muted/30 border border-border/30 px-3 py-2.5">
       <div className="min-w-0 flex-1">

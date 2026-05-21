@@ -35,10 +35,10 @@ const LABEL_COPY = {
 };
 
 const LABEL_STROKE = {
-  sharp: "stroke-emerald-500",
-  sharpening: "stroke-amber-400",
-  off_pace: "stroke-orange-500",
-  at_risk: "stroke-rose-500",
+  sharp: "stroke-func-recovery-green",
+  sharpening: "stroke-func-warning-yellow",
+  off_pace: "stroke-func-carbs-orange",
+  at_risk: "stroke-func-danger-red",
 };
 
 // RGB triplets used by the halo + particles so we can vary opacity in CSS
@@ -350,8 +350,8 @@ export function FightFormRing({
             transform: "translate(-50%, -50%)",
           }}
         >
-          <div className="rounded-full bg-background border border-amber-400/70 p-0.5 shadow-sm">
-            <Lock className="size-2.5 text-amber-400" />
+          <div className="rounded-full bg-background border border-func-warning-yellow/70 p-0.5 shadow-sm">
+            <Lock className="size-2.5 text-func-warning-yellow" />
           </div>
         </div>
       )}

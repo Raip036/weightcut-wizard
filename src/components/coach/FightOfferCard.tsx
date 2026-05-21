@@ -117,7 +117,7 @@ export const FightOfferCard = memo(function FightOfferCard({
           </span>
         )}
         {offer.status === "filled" && (
-          <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[9px] uppercase tracking-wider font-semibold">
+          <span className="px-2 py-0.5 rounded-full bg-func-recovery-green/15 text-func-recovery-green text-[9px] uppercase tracking-wider font-semibold">
             Filled
           </span>
         )}
@@ -220,7 +220,7 @@ export const FightOfferCard = memo(function FightOfferCard({
                   offer.my_signal === "yes"
                     ? "bg-primary/15 text-primary"
                     : offer.my_signal === "maybe"
-                    ? "bg-amber-500/15 text-amber-400"
+                    ? "bg-func-warning-yellow/15 text-func-warning-yellow"
                     : "bg-muted/40 text-muted-foreground"
                 }`}
               >
@@ -236,7 +236,7 @@ export const FightOfferCard = memo(function FightOfferCard({
               <button
                 type="button"
                 onClick={() => handleSignal("maybe")}
-                className="text-[11px] text-amber-400 font-semibold active:opacity-70"
+                className="text-[11px] text-func-warning-yellow font-semibold active:opacity-70"
               >
                 Maybe
               </button>
@@ -256,7 +256,7 @@ export const FightOfferCard = memo(function FightOfferCard({
       ) : offer.status === "filled" ? (
         <p
           className={`text-[12px] font-medium mt-1 ${
-            isPicked ? "text-emerald-400" : "text-muted-foreground/80"
+            isPicked ? "text-func-recovery-green" : "text-muted-foreground/80"
           }`}
         >
           {isPicked

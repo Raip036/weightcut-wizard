@@ -320,7 +320,7 @@ export default function Auth() {
   }, [password, confirmPassword, isLogin, isPasswordReset]);
 
   const inputClass = "h-[50px] rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/40 text-foreground placeholder:text-muted-foreground/50 px-4 text-[16px] focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all";
-  const errorInputClass = "border-red-500/50 focus:ring-red-500/40";
+  const errorInputClass = "border-func-danger-red/50 focus:ring-func-danger-red/40";
 
   return (
     <motion.div
@@ -414,7 +414,7 @@ export default function Auth() {
               <form onSubmit={handlePasswordUpdate} className="space-y-3">
                 <Input type="password" placeholder="New password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} className={`${inputClass} ${passwordError ? errorInputClass : ""}`} />
                 <Input type="password" placeholder="Confirm password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={8} className={`${inputClass} ${passwordError ? errorInputClass : ""}`} />
-                {passwordError && <p className="text-xs text-red-500 text-center">{passwordError}</p>}
+                {passwordError && <p className="text-xs text-func-danger-red text-center">{passwordError}</p>}
                 <Button type="submit" disabled={loading} className="no-tap-select w-full h-[50px] rounded-xs text-[16px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform">
                   {loading ? "Updating..." : "Update Password"}
                 </Button>

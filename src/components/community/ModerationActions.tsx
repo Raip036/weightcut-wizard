@@ -191,7 +191,7 @@ export function ModerationActions({
                 void triggerHaptic();
                 setConfirmRemoveOpen(true);
               }}
-              className="rounded-xs py-2.5 text-red-300 focus:text-red-200 focus:bg-red-500/10"
+              className="rounded-xs py-2.5 text-func-danger-red focus:text-red-200 focus:bg-func-danger-red/10"
             >
               <Trash2 className="h-4 w-4 mr-2" />
               Remove post
@@ -240,7 +240,7 @@ export function ModerationActions({
                 e.preventDefault();
                 void handleRemove();
               }}
-              className="bg-red-500/90 hover:bg-red-500 focus:ring-red-500/40"
+              className="bg-func-danger-red/90 hover:bg-func-danger-red focus:ring-func-danger-red/40"
             >
               {busy ? "Removing…" : "Remove"}
             </AlertDialogAction>

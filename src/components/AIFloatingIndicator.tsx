@@ -42,12 +42,12 @@ function IndicatorPill({
       right: <ElapsedTimer startedAt={task.startedAt} />,
     },
     done: {
-      bg: "bg-green-500 shadow-green-500/30",
+      bg: "bg-func-recovery-green shadow-func-recovery-green/30",
       icon: <CheckCircle2 className="h-3.5 w-3.5" />,
       right: "Ready",
     },
     error: {
-      bg: "bg-red-500 shadow-red-500/30",
+      bg: "bg-func-danger-red shadow-func-danger-red/30",
       icon: <AlertCircle className="h-3.5 w-3.5" />,
       right: "Failed",
     },

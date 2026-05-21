@@ -21,7 +21,7 @@ export function SkillTreeCategory({ group, globalIndexStart }: SkillTreeCategory
       {/* Category header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          {Icon && <Icon className="h-4 w-4 text-green-400" />}
+          {Icon && <Icon className="h-4 w-4 text-func-recovery-green" />}
           <h3 className="text-sm font-semibold">{group.label}</h3>
         </div>
         <span className="text-xs text-muted-foreground font-medium">

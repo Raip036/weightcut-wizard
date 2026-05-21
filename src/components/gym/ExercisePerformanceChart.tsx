@@ -104,14 +104,14 @@ export const ExercisePerformanceChart = memo(function ExercisePerformanceChart({
       {data.length >= 2 && (
         <div className="flex items-center gap-1.5">
           {trendPct > 0 ? (
-            <TrendingUp className="h-3.5 w-3.5 text-green-400" />
+            <TrendingUp className="h-3.5 w-3.5 text-func-recovery-green" />
           ) : trendPct < 0 ? (
-            <TrendingDown className="h-3.5 w-3.5 text-red-400" />
+            <TrendingDown className="h-3.5 w-3.5 text-func-danger-red" />
           ) : (
             <Minus className="h-3.5 w-3.5 text-muted-foreground" />
           )}
           <span className={`text-xs font-semibold tabular-nums ${
-            trendPct > 0 ? "text-green-400" : trendPct < 0 ? "text-red-400" : "text-muted-foreground"
+            trendPct > 0 ? "text-func-recovery-green" : trendPct < 0 ? "text-func-danger-red" : "text-muted-foreground"
           }`}>
             {trendPct > 0 ? "+" : ""}{trendPct.toFixed(1)}%
           </span>

@@ -173,7 +173,7 @@ function HealthSettingsCardInner({
         )}
       >
         <div className="flex items-center gap-2">
-          <HeartPulse className="h-4 w-4 text-rose-400" />
+          <HeartPulse className="h-4 w-4 text-func-danger-red" />
           <h3 className="text-[14px] font-semibold tracking-tight">
             Apple Health
           </h3>
@@ -196,7 +196,7 @@ function HealthSettingsCardInner({
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2">
-            <HeartPulse className="h-4 w-4 text-rose-400" />
+            <HeartPulse className="h-4 w-4 text-func-danger-red" />
             <h3 className="text-[14px] font-semibold tracking-tight">
               Apple Health
             </h3>
@@ -246,9 +246,9 @@ function TierPill({
 }): JSX.Element {
   const cls =
     tone === "good"
-      ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+      ? "bg-func-recovery-green/15 text-func-recovery-green border-func-recovery-green/30"
       : tone === "warn"
-        ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
+        ? "bg-func-warning-yellow/15 text-func-warning-yellow border-func-warning-yellow/30"
         : "bg-muted/40 text-muted-foreground border-border/50";
   return (
     <span
@@ -338,7 +338,7 @@ function ConnectedBody({
                 {row.label}
               </span>
               {row.granted ? (
-                <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold uppercase tracking-wider text-emerald-300">
+                <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold uppercase tracking-wider text-func-recovery-green">
                   <CheckCircle2 className="h-3 w-3" strokeWidth={2.5} />
                   Granted
                 </span>
@@ -347,7 +347,7 @@ function ConnectedBody({
                   type="button"
                   onClick={onOpenHealthSettings}
                   disabled={openingSettings}
-                  className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wider text-amber-300 active:scale-[0.97] transition disabled:opacity-50"
+                  className="inline-flex items-center gap-1 rounded-full border border-func-warning-yellow/40 bg-func-warning-yellow/10 px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wider text-func-warning-yellow active:scale-[0.97] transition disabled:opacity-50"
                 >
                   {openingSettings ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
@@ -409,7 +409,7 @@ function HealthCardErrorFallback({
       )}
     >
       <div className="flex items-center gap-2">
-        <HeartPulse className="h-4 w-4 text-rose-400" />
+        <HeartPulse className="h-4 w-4 text-func-danger-red" />
         <h3 className="text-[14px] font-semibold tracking-tight">
           Apple Health
         </h3>

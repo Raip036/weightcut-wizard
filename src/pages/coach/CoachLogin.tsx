@@ -249,7 +249,7 @@ export default function CoachLogin() {
                   {!isLogin && (
                     <Input type="password" placeholder="Confirm password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={8} className={inputClass} />
                   )}
-                  {errorMsg && <p className="text-xs text-red-500 text-center">{errorMsg}</p>}
+                  {errorMsg && <p className="text-xs text-func-danger-red text-center">{errorMsg}</p>}
                   <Button type="submit" disabled={loading} className="w-full h-[50px] rounded-xs bg-primary text-primary-foreground font-semibold text-[16px] active:scale-[0.98] transition-transform disabled:opacity-50 shadow-lg shadow-primary/20">
                     {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : isLogin ? "Sign In" : "Create Account"}
                   </Button>

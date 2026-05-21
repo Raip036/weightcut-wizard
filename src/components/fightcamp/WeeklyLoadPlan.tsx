@@ -51,9 +51,9 @@ function planRemainingDays(
 
 const INTENT_STYLE: Record<DayPlan["intent"], { color: string; bg: string; pct: number; label: string }> = {
   rest:   { color: "text-blue-300",    bg: "bg-blue-500/30",    pct: 8,  label: "Rest" },
-  easy:   { color: "text-emerald-300", bg: "bg-emerald-500/40", pct: 35, label: "Easy" },
-  steady: { color: "text-amber-300",   bg: "bg-amber-500/55",   pct: 65, label: "Steady" },
-  hard:   { color: "text-red-300",     bg: "bg-red-500/75",     pct: 95, label: "Hard" },
+  easy:   { color: "text-func-recovery-green", bg: "bg-func-recovery-green/40", pct: 35, label: "Easy" },
+  steady: { color: "text-func-warning-yellow",   bg: "bg-func-warning-yellow/55",   pct: 65, label: "Steady" },
+  hard:   { color: "text-func-danger-red",     bg: "bg-func-danger-red/75",     pct: 95, label: "Hard" },
 };
 
 function loadIntent(load: number, max: number): DayPlan["intent"] {
@@ -78,9 +78,9 @@ function headlineFor(ratio: number, daysRemaining: number): string {
 
 /** Plain-language status word, replaces the technical A:C number on the card. */
 function loadStatus(ratio: number): { label: string; color: string } {
-  if (ratio > 1.3) return { label: "Heavy week",    color: "text-red-300" };
+  if (ratio > 1.3) return { label: "Heavy week",    color: "text-func-danger-red" };
   if (ratio < 0.8) return { label: "Light week",    color: "text-blue-300" };
-  return { label: "Balanced", color: "text-emerald-300" };
+  return { label: "Balanced", color: "text-func-recovery-green" };
 }
 
 /** Friendly copy for the cold-start period when ACWR is not yet meaningful. */
@@ -184,7 +184,7 @@ export const WeeklyLoadPlan = memo(function WeeklyLoadPlan({ metrics }: WeeklyLo
   const isReliable = metrics.loadConfidence.isReliable;
   const status = isReliable
     ? loadStatus(metrics.loadRatio)
-    : { label: "Building baseline", color: "text-amber-300" };
+    : { label: "Building baseline", color: "text-func-warning-yellow" };
 
   return (
     <motion.div
@@ -246,9 +246,9 @@ export const WeeklyLoadPlan = memo(function WeeklyLoadPlan({ metrics }: WeeklyLo
           Wraps gracefully on narrow widths. */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-[10px] text-muted-foreground/70">
         <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-blue-500/60" />Rest</span>
-        <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-500/60" />Easy</span>
-        <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-500/60" />Steady</span>
-        <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-500/70" />Hard</span>
+        <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-func-recovery-green/60" />Easy</span>
+        <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-func-warning-yellow/60" />Steady</span>
+        <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-func-danger-red/70" />Hard</span>
         <span className="inline-flex items-center gap-1 ml-auto">
           <span className="h-2 w-2 rounded-sm ring-2 ring-foreground/70" />
           Today
@@ -296,9 +296,9 @@ function WeeklyLoadInfoSheet({
             </p>
             <ul className="space-y-1.5">
               <li><span className="font-semibold text-blue-300">Rest</span> means a full day off training.</li>
-              <li><span className="font-semibold text-emerald-300">Easy</span> is light movement: mobility, technique, slow rounds.</li>
-              <li><span className="font-semibold text-amber-300">Steady</span> is a normal training session at your usual effort.</li>
-              <li><span className="font-semibold text-red-300">Hard</span> is a tough session, sparring, conditioning, or strength.</li>
+              <li><span className="font-semibold text-func-recovery-green">Easy</span> is light movement: mobility, technique, slow rounds.</li>
+              <li><span className="font-semibold text-func-warning-yellow">Steady</span> is a normal training session at your usual effort.</li>
+              <li><span className="font-semibold text-func-danger-red">Hard</span> is a tough session, sparring, conditioning, or strength.</li>
             </ul>
           </section>
 
@@ -307,9 +307,9 @@ function WeeklyLoadInfoSheet({
               What "Heavy" or "Light" week means
             </p>
             <ul className="space-y-1.5">
-              <li><span className="font-semibold text-red-300">Heavy week</span>: you've trained more than usual in the last 7 days compared to your normal. The risk of getting hurt or burnt out goes up if you keep pushing. The plan suggests easier sessions to let you recover.</li>
+              <li><span className="font-semibold text-func-danger-red">Heavy week</span>: you've trained more than usual in the last 7 days compared to your normal. The risk of getting hurt or burnt out goes up if you keep pushing. The plan suggests easier sessions to let you recover.</li>
               <li><span className="font-semibold text-blue-300">Light week</span>: you've trained less than usual. You can add a few harder sessions without overdoing it.</li>
-              <li><span className="font-semibold text-emerald-300">Balanced</span>: this week's training matches what your body is used to. Keep doing what you're doing.</li>
+              <li><span className="font-semibold text-func-recovery-green">Balanced</span>: this week's training matches what your body is used to. Keep doing what you're doing.</li>
             </ul>
           </section>
 

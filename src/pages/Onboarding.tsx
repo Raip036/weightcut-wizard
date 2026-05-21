@@ -114,9 +114,9 @@ function PlanRetryCard({
   onSkip: () => void;
 }) {
   return (
-    <div className="rounded-xs border border-amber-500/30 bg-amber-500/[0.06] p-4 space-y-3">
+    <div className="rounded-xs border border-func-warning-yellow/30 bg-func-warning-yellow/[0.06] p-4 space-y-3">
       <div>
-        <p className="text-[12px] uppercase tracking-wider font-bold text-amber-400/90">
+        <p className="text-[12px] uppercase tracking-wider font-bold text-func-warning-yellow/90">
           Plan didn't generate
         </p>
         <p className="text-[13px] text-foreground/85 leading-snug mt-1">
@@ -185,10 +185,10 @@ function LosingProjectionChart({
   // Same safety palette the rest of the app uses for weekly rates.
   const rateClass =
     perWeek <= 1.0
-      ? "text-emerald-400"
+      ? "text-func-recovery-green"
       : perWeek <= 1.5
-        ? "text-amber-400"
-        : "text-rose-400";
+        ? "text-func-warning-yellow"
+        : "text-func-danger-red";
   const rateLabel =
     perWeek <= 1.0 ? "Safe" : perWeek <= 1.5 ? "Moderate" : "Aggressive";
 
@@ -1091,8 +1091,8 @@ export default function Onboarding() {
           >
             <div className="space-y-2.5">
               {[
-                { value: "cutting", label: "I have a fight coming up", description: "Structured weight cut with a deadline", icon: <Swords className="h-5 w-5 text-red-400" /> },
-                { value: "losing", label: "I want to lose weight", description: "Steady, sustainable fat loss", icon: <Flame className="h-5 w-5 text-orange-400" /> },
+                { value: "cutting", label: "I have a fight coming up", description: "Structured weight cut with a deadline", icon: <Swords className="h-5 w-5 text-func-danger-red" /> },
+                { value: "losing", label: "I want to lose weight", description: "Steady, sustainable fat loss", icon: <Flame className="h-5 w-5 text-func-carbs-orange" /> },
               ].map(opt => (
                 <OptionCard key={opt.value} selected={formData.goal_type === opt.value} icon={opt.icon}
                   label={opt.label} description={opt.description} onClick={() => selectAndAdvance("goal_type", opt.value)} />
@@ -1109,14 +1109,14 @@ export default function Onboarding() {
           >
             <div className="space-y-2.5">
               {[
-                { value: "muay_thai", label: "Muay Thai", icon: <Swords className="h-5 w-5 text-orange-400" /> },
-                { value: "boxing", label: "Boxing", icon: <Swords className="h-5 w-5 text-red-400" /> },
+                { value: "muay_thai", label: "Muay Thai", icon: <Swords className="h-5 w-5 text-func-carbs-orange" /> },
+                { value: "boxing", label: "Boxing", icon: <Swords className="h-5 w-5 text-func-danger-red" /> },
                 { value: "mma", label: "MMA", icon: <Swords className="h-5 w-5 text-blue-400" /> },
-                { value: "bjj", label: "BJJ", icon: <Swords className="h-5 w-5 text-purple-400" /> },
-                { value: "wrestling", label: "Wrestling", icon: <Swords className="h-5 w-5 text-green-400" /> },
-                { value: "kickboxing", label: "Kickboxing", icon: <Swords className="h-5 w-5 text-yellow-400" /> },
+                { value: "bjj", label: "BJJ", icon: <Swords className="h-5 w-5 text-func-fats-purple" /> },
+                { value: "wrestling", label: "Wrestling", icon: <Swords className="h-5 w-5 text-func-recovery-green" /> },
+                { value: "kickboxing", label: "Kickboxing", icon: <Swords className="h-5 w-5 text-func-warning-yellow" /> },
                 { value: "judo", label: "Judo", icon: <Swords className="h-5 w-5 text-indigo-400" /> },
-                { value: "karate", label: "Karate", icon: <Swords className="h-5 w-5 text-rose-400" /> },
+                { value: "karate", label: "Karate", icon: <Swords className="h-5 w-5 text-func-danger-red" /> },
                 { value: "other", label: "Other", icon: <Dumbbell className="h-5 w-5 text-muted-foreground" /> },
               ].map(opt => (
                 <OptionCard key={opt.value} selected={formData.athlete_types.includes(opt.value)} icon={opt.icon}
@@ -1224,18 +1224,18 @@ export default function Onboarding() {
                 return (
                   <div className="w-full max-w-[280px] space-y-3">
                     <div className={`rounded-xs p-4 text-center border ${
-                      isSafe ? "bg-emerald-500/5 border-emerald-500/20" :
+                      isSafe ? "bg-func-recovery-green/5 border-func-recovery-green/20" :
                       isModerate ? "bg-primary/5 border-primary/20" :
-                      isAggressive ? "bg-yellow-500/5 border-yellow-500/20" :
-                      "bg-red-500/5 border-red-500/20"
+                      isAggressive ? "bg-func-warning-yellow/5 border-func-warning-yellow/20" :
+                      "bg-func-danger-red/5 border-func-danger-red/20"
                     }`}>
                       <p className={`text-2xl font-black tabular-nums ${
-                        isSafe ? "text-emerald-400" : isModerate ? "text-primary" : isAggressive ? "text-yellow-400" : "text-red-400"
+                        isSafe ? "text-func-recovery-green" : isModerate ? "text-primary" : isAggressive ? "text-func-warning-yellow" : "text-func-danger-red"
                       }`}>
                         {kgPerWeek.toFixed(1)} <span className="text-sm font-semibold">kg/week</span>
                       </p>
                       <p className={`text-xs mt-1 font-medium ${
-                        isSafe ? "text-emerald-400" : isModerate ? "text-primary" : isAggressive ? "text-yellow-400" : "text-red-400"
+                        isSafe ? "text-func-recovery-green" : isModerate ? "text-primary" : isAggressive ? "text-func-warning-yellow" : "text-func-danger-red"
                       }`}>
                         {isSafe ? "Safe & sustainable" : isModerate ? "Good pace" : isAggressive ? "Aggressive — stay disciplined" : "Very aggressive — consider more time"}
                       </p>
@@ -1289,9 +1289,9 @@ export default function Onboarding() {
                   {fightSubStep === 0 && (
                     <div className="space-y-2.5">
                       {[
-                        { value: "hobbyist", label: "Hobbyist", description: "3% water cut — gentle, minimal risk", icon: <Shield className="h-5 w-5 text-emerald-400" /> },
-                        { value: "amateur", label: "Amateur", description: "5.5% water cut — standard safe dehydration", icon: <Gauge className="h-5 w-5 text-amber-400" /> },
-                        { value: "pro", label: "Pro", description: "8% water cut — aggressive, requires medical oversight", icon: <Flame className="h-5 w-5 text-red-400" /> },
+                        { value: "hobbyist", label: "Hobbyist", description: "3% water cut — gentle, minimal risk", icon: <Shield className="h-5 w-5 text-func-recovery-green" /> },
+                        { value: "amateur", label: "Amateur", description: "5.5% water cut — standard safe dehydration", icon: <Gauge className="h-5 w-5 text-func-warning-yellow" /> },
+                        { value: "pro", label: "Pro", description: "8% water cut — aggressive, requires medical oversight", icon: <Flame className="h-5 w-5 text-func-danger-red" /> },
                       ].map(opt => (
                         <OptionCard key={opt.value} selected={formData.competition_level === opt.value} icon={opt.icon}
                           label={opt.label} description={opt.description}
@@ -1424,34 +1424,34 @@ export default function Onboarding() {
 
                         {/* Water cut risk indicator */}
                         {targetKg > 0 && goalKg > 0 && (
-                          <div className={`w-full max-w-[300px] rounded-xs p-3 border ${isSafe ? "border-emerald-500/20 bg-emerald-500/5" : isModerate ? "border-amber-500/20 bg-amber-500/5" : "border-red-500/20 bg-red-500/5"}`}>
+                          <div className={`w-full max-w-[300px] rounded-xs p-3 border ${isSafe ? "border-func-recovery-green/20 bg-func-recovery-green/5" : isModerate ? "border-func-warning-yellow/20 bg-func-warning-yellow/5" : "border-func-danger-red/20 bg-func-danger-red/5"}`}>
                             <div className="flex items-center justify-between mb-2">
-                              <span className={`text-sm font-bold ${isSafe ? "text-emerald-400" : isModerate ? "text-amber-400" : "text-red-400"}`}>
+                              <span className={`text-sm font-bold ${isSafe ? "text-func-recovery-green" : isModerate ? "text-func-warning-yellow" : "text-func-danger-red"}`}>
                                 {waterCutKg.toFixed(1)}kg water cut ({waterCutPct.toFixed(1)}%)
                               </span>
-                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${isSafe ? "bg-emerald-500/20 text-emerald-400" : isModerate ? "bg-amber-500/20 text-amber-400" : "bg-red-500/20 text-red-400"}`}>
+                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${isSafe ? "bg-func-recovery-green/20 text-func-recovery-green" : isModerate ? "bg-func-warning-yellow/20 text-func-warning-yellow" : "bg-func-danger-red/20 text-func-danger-red"}`}>
                                 {isSafe ? "Safe" : isModerate ? "Moderate Risk" : "High Risk"}
                               </span>
                             </div>
                             <div className="space-y-1.5">
                               {isSafe && (
                                 <>
-                                  <p className="text-[11px] text-emerald-400/80 flex items-start gap-1.5"><span className="mt-0.5">•</span>Within safe limits for most athletes</p>
-                                  <p className="text-[11px] text-emerald-400/80 flex items-start gap-1.5"><span className="mt-0.5">•</span>Minimal impact on strength and reaction time</p>
+                                  <p className="text-[11px] text-func-recovery-green/80 flex items-start gap-1.5"><span className="mt-0.5">•</span>Within safe limits for most athletes</p>
+                                  <p className="text-[11px] text-func-recovery-green/80 flex items-start gap-1.5"><span className="mt-0.5">•</span>Minimal impact on strength and reaction time</p>
                                 </>
                               )}
                               {isModerate && (
                                 <>
-                                  <p className="text-[11px] text-amber-400/80 flex items-start gap-1.5"><span className="mt-0.5">•</span>May reduce power output 5-10% if poorly rehydrated</p>
-                                  <p className="text-[11px] text-amber-400/80 flex items-start gap-1.5"><span className="mt-0.5">•</span>Increased cramping risk — prioritise sodium and potassium</p>
-                                  <p className="text-[11px] text-amber-400/80 flex items-start gap-1.5"><span className="mt-0.5">•</span>Allow 12+ hours between weigh-in and fight for recovery</p>
+                                  <p className="text-[11px] text-func-warning-yellow/80 flex items-start gap-1.5"><span className="mt-0.5">•</span>May reduce power output 5-10% if poorly rehydrated</p>
+                                  <p className="text-[11px] text-func-warning-yellow/80 flex items-start gap-1.5"><span className="mt-0.5">•</span>Increased cramping risk — prioritise sodium and potassium</p>
+                                  <p className="text-[11px] text-func-warning-yellow/80 flex items-start gap-1.5"><span className="mt-0.5">•</span>Allow 12+ hours between weigh-in and fight for recovery</p>
                                 </>
                               )}
                               {isDangerous && (
                                 <>
-                                  <p className="text-[11px] text-red-400/80 flex items-start gap-1.5"><span className="mt-0.5">•</span>Significant risk of impaired reaction time and decision-making</p>
-                                  <p className="text-[11px] text-red-400/80 flex items-start gap-1.5"><span className="mt-0.5">•</span>Strength reduction of 10-20% even with proper rehydration</p>
-                                  <p className="text-[11px] text-red-400/80 flex items-start gap-1.5"><span className="mt-0.5">•</span>Consider working with a sports nutritionist to manage the load — we'll guide you through the rest</p>
+                                  <p className="text-[11px] text-func-danger-red/80 flex items-start gap-1.5"><span className="mt-0.5">•</span>Significant risk of impaired reaction time and decision-making</p>
+                                  <p className="text-[11px] text-func-danger-red/80 flex items-start gap-1.5"><span className="mt-0.5">•</span>Strength reduction of 10-20% even with proper rehydration</p>
+                                  <p className="text-[11px] text-func-danger-red/80 flex items-start gap-1.5"><span className="mt-0.5">•</span>Consider working with a sports nutritionist to manage the load — we'll guide you through the rest</p>
                                 </>
                               )}
                             </div>
@@ -1629,18 +1629,18 @@ export default function Onboarding() {
                         <span className="text-xs text-muted-foreground/60"> ({weeklyLoss.toFixed(1)} kg/wk)</span>
                       </p>
                       {isDangerous && (
-                        <Alert className="border-red-500/30 bg-red-500/5 rounded-xs">
-                          <AlertTriangle className="h-4 w-4 text-red-500" />
-                          <AlertDescription className="text-xs text-red-400">
-                            <strong className="text-red-300">High risk cut.</strong> Losing {weeklyLoss.toFixed(1)} kg/week ({bodyPct.toFixed(0)}% bodyweight) can sap your strength, reaction time, and endurance, and may cost you muscle. Consider working with a sports nutritionist alongside the app to dial in your fuelling — we'll still build your plan and keep you on track.
+                        <Alert className="border-func-danger-red/30 bg-func-danger-red/5 rounded-xs">
+                          <AlertTriangle className="h-4 w-4 text-func-danger-red" />
+                          <AlertDescription className="text-xs text-func-danger-red">
+                            <strong className="text-func-danger-red">High risk cut.</strong> Losing {weeklyLoss.toFixed(1)} kg/week ({bodyPct.toFixed(0)}% bodyweight) can sap your strength, reaction time, and endurance, and may cost you muscle. Consider working with a sports nutritionist alongside the app to dial in your fuelling — we'll still build your plan and keep you on track.
                           </AlertDescription>
                         </Alert>
                       )}
                       {isAggressivePace && !isDangerous && (
-                        <Alert className="border-yellow-500/30 bg-yellow-500/5 rounded-xs">
-                          <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                          <AlertDescription className="text-xs text-yellow-400">
-                            <strong className="text-yellow-300">Aggressive pace.</strong> Losing {weeklyLoss.toFixed(1)} kg/week requires strict adherence. We'll plan for this.
+                        <Alert className="border-func-warning-yellow/30 bg-func-warning-yellow/5 rounded-xs">
+                          <AlertTriangle className="h-4 w-4 text-func-warning-yellow" />
+                          <AlertDescription className="text-xs text-func-warning-yellow">
+                            <strong className="text-func-warning-yellow">Aggressive pace.</strong> Losing {weeklyLoss.toFixed(1)} kg/week requires strict adherence. We'll plan for this.
                           </AlertDescription>
                         </Alert>
                       )}
@@ -1661,9 +1661,9 @@ export default function Onboarding() {
                           {" "}&mdash; that's <strong className="text-foreground">{kgPerWeek.toFixed(1)} kg/week</strong>
                         </p>
                         {kgPerWeek > 1.0 && (
-                          <Alert className="border-yellow-500/30 bg-yellow-500/5 rounded-xs">
-                            <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                            <AlertDescription className="text-xs text-yellow-400">
+                          <Alert className="border-func-warning-yellow/30 bg-func-warning-yellow/5 rounded-xs">
+                            <AlertTriangle className="h-4 w-4 text-func-warning-yellow" />
+                            <AlertDescription className="text-xs text-func-warning-yellow">
                               Losing more than 1 kg/week increases muscle loss risk. Consider extending your timeframe for safer results.
                             </AlertDescription>
                           </Alert>
@@ -1729,18 +1729,18 @@ export default function Onboarding() {
                 const bf = parseFloat(formData.body_fat_pct);
                 const isMale = formData.sex !== "female";
                 const hint = isMale
-                  ? bf <= 8 ? { label: "Competition lean", desc: "Visible abs, vascularity, very defined. Hard to maintain.", color: "text-red-400" }
-                    : bf <= 12 ? { label: "Athletic", desc: "Clear abs, muscle definition, visible veins on arms.", color: "text-emerald-400" }
+                  ? bf <= 8 ? { label: "Competition lean", desc: "Visible abs, vascularity, very defined. Hard to maintain.", color: "text-func-danger-red" }
+                    : bf <= 12 ? { label: "Athletic", desc: "Clear abs, muscle definition, visible veins on arms.", color: "text-func-recovery-green" }
                     : bf <= 15 ? { label: "Fit", desc: "Some ab definition, lean arms and face. Most fighters walk around here.", color: "text-primary" }
                     : bf <= 20 ? { label: "Average", desc: "Soft midsection, no visible abs. Some face fullness.", color: "text-muted-foreground" }
-                    : bf <= 25 ? { label: "Above average", desc: "Noticeable belly, rounder face. Harder to see muscle.", color: "text-amber-400" }
-                    : { label: "Higher", desc: "Significant midsection, wide waist. Focus on building habits first.", color: "text-amber-400" }
-                  : bf <= 14 ? { label: "Competition lean", desc: "Very defined, visible muscle striations. Hard to maintain.", color: "text-red-400" }
-                    : bf <= 18 ? { label: "Athletic", desc: "Toned, some ab definition, lean arms.", color: "text-emerald-400" }
+                    : bf <= 25 ? { label: "Above average", desc: "Noticeable belly, rounder face. Harder to see muscle.", color: "text-func-warning-yellow" }
+                    : { label: "Higher", desc: "Significant midsection, wide waist. Focus on building habits first.", color: "text-func-warning-yellow" }
+                  : bf <= 14 ? { label: "Competition lean", desc: "Very defined, visible muscle striations. Hard to maintain.", color: "text-func-danger-red" }
+                    : bf <= 18 ? { label: "Athletic", desc: "Toned, some ab definition, lean arms.", color: "text-func-recovery-green" }
                     : bf <= 23 ? { label: "Fit", desc: "Healthy, some curves, lean face. Most active women are here.", color: "text-primary" }
                     : bf <= 28 ? { label: "Average", desc: "Soft midsection, fuller arms and thighs.", color: "text-muted-foreground" }
-                    : bf <= 33 ? { label: "Above average", desc: "Rounder shape, less muscle definition visible.", color: "text-amber-400" }
-                    : { label: "Higher", desc: "Fuller figure. Focus on building habits first.", color: "text-amber-400" };
+                    : bf <= 33 ? { label: "Above average", desc: "Rounder shape, less muscle definition visible.", color: "text-func-warning-yellow" }
+                    : { label: "Higher", desc: "Fuller figure. Focus on building habits first.", color: "text-func-warning-yellow" };
 
                 return (
                   <div className="text-center max-w-[260px] animate-in fade-in duration-300">
@@ -1853,10 +1853,10 @@ export default function Onboarding() {
           >
             <div className="space-y-2.5">
               {[
-                { value: "less_than_6", label: "Less than 6 hours", icon: <Moon className="h-5 w-5 text-red-400" /> },
-                { value: "6_to_7", label: "6-7 hours", icon: <Moon className="h-5 w-5 text-yellow-400" /> },
-                { value: "7_to_8", label: "7-8 hours", icon: <Moon className="h-5 w-5 text-green-400" /> },
-                { value: "8_plus", label: "8+ hours", icon: <Moon className="h-5 w-5 text-emerald-400" /> },
+                { value: "less_than_6", label: "Less than 6 hours", icon: <Moon className="h-5 w-5 text-func-danger-red" /> },
+                { value: "6_to_7", label: "6-7 hours", icon: <Moon className="h-5 w-5 text-func-warning-yellow" /> },
+                { value: "7_to_8", label: "7-8 hours", icon: <Moon className="h-5 w-5 text-func-recovery-green" /> },
+                { value: "8_plus", label: "8+ hours", icon: <Moon className="h-5 w-5 text-func-recovery-green" /> },
               ].map(opt => (
                 <OptionCard key={opt.value} selected={formData.sleep_hours === opt.value} icon={opt.icon}
                   label={opt.label} onClick={() => selectAndAdvance("sleep_hours", opt.value)} />
@@ -1880,10 +1880,10 @@ export default function Onboarding() {
           >
             <div className="space-y-2.5">
               {[
-                { value: "cut_stress", label: "Stress during weight cuts", icon: <TrendingDown className="h-5 w-5 text-red-400" /> },
-                { value: "low_energy", label: "Low energy in training", icon: <Zap className="h-5 w-5 text-yellow-400" /> },
-                { value: "binge_eating", label: "Binge eating after cuts", icon: <Utensils className="h-5 w-5 text-orange-400" /> },
-                { value: "no_progress", label: "Not seeing progress", icon: <Brain className="h-5 w-5 text-purple-400" /> },
+                { value: "cut_stress", label: "Stress during weight cuts", icon: <TrendingDown className="h-5 w-5 text-func-danger-red" /> },
+                { value: "low_energy", label: "Low energy in training", icon: <Zap className="h-5 w-5 text-func-warning-yellow" /> },
+                { value: "binge_eating", label: "Binge eating after cuts", icon: <Utensils className="h-5 w-5 text-func-carbs-orange" /> },
+                { value: "no_progress", label: "Not seeing progress", icon: <Brain className="h-5 w-5 text-func-fats-purple" /> },
               ].map(opt => (
                 <OptionCard key={opt.value} selected={formData.primary_struggle === opt.value} icon={opt.icon}
                   label={opt.label} onClick={() => selectAndAdvance("primary_struggle", opt.value)} />
@@ -1904,9 +1904,9 @@ export default function Onboarding() {
           >
             <div className="space-y-2.5">
               {[
-                { value: "safe", label: "Safe & Steady", description: "Slow, sustainable. Best for 8+ week runways.", icon: <Shield className="h-5 w-5 text-green-400" /> },
-                { value: "balanced", label: "Balanced", description: "Standard pace. Works for most timelines.", icon: <Gauge className="h-5 w-5 text-yellow-400" /> },
-                { value: "aggressive", label: "Aggressive", description: "Hard push. Use when the timeline is tight.", icon: <Flame className="h-5 w-5 text-red-400" /> },
+                { value: "safe", label: "Safe & Steady", description: "Slow, sustainable. Best for 8+ week runways.", icon: <Shield className="h-5 w-5 text-func-recovery-green" /> },
+                { value: "balanced", label: "Balanced", description: "Standard pace. Works for most timelines.", icon: <Gauge className="h-5 w-5 text-func-warning-yellow" /> },
+                { value: "aggressive", label: "Aggressive", description: "Hard push. Use when the timeline is tight.", icon: <Flame className="h-5 w-5 text-func-danger-red" /> },
               ].map(opt => (
                 <OptionCard key={opt.value} selected={formData.plan_aggressiveness === opt.value} icon={opt.icon}
                   label={opt.label} description={opt.description} onClick={() => selectAndAdvance("plan_aggressiveness", opt.value)} />
@@ -2159,7 +2159,7 @@ export default function Onboarding() {
                 {/* Legend */}
                 <div className="flex items-center justify-center gap-4 mt-1 text-[10px] text-muted-foreground">
                   <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-primary" />Steady cut</span>
-                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-red-500" />Dehydration</span>
+                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-func-danger-red" />Dehydration</span>
                 </div>
               </div>
             );
@@ -2243,12 +2243,12 @@ export default function Onboarding() {
                         <p className="text-[9px] uppercase tracking-wider text-muted-foreground mt-1">Steady · {stats.cutWeeks}w</p>
                       </div>
                       <div className="card-surface rounded-xs border border-border/40 p-2.5 text-center">
-                        <p className="text-[18px] font-bold tabular-nums leading-none text-red-400">{stats.dehydrationDrop.toFixed(1)}</p>
+                        <p className="text-[18px] font-bold tabular-nums leading-none text-func-danger-red">{stats.dehydrationDrop.toFixed(1)}</p>
                         <p className="text-[9px] uppercase tracking-wider text-muted-foreground mt-1">Dehyd · {stats.dehydrationDays}d</p>
                       </div>
                     </div>
                     <p className="text-[11px] text-muted-foreground text-center leading-snug px-2 pt-1">
-                      Steady cut to <strong className="text-foreground">{fightWeekTarget.toFixed(1)} kg</strong> over {stats.cutWeeks} weeks, then <strong className="text-red-400">{stats.dehydrationDrop.toFixed(1)} kg</strong> water cut to make weight on fight day.
+                      Steady cut to <strong className="text-foreground">{fightWeekTarget.toFixed(1)} kg</strong> over {stats.cutWeeks} weeks, then <strong className="text-func-danger-red">{stats.dehydrationDrop.toFixed(1)} kg</strong> water cut to make weight on fight day.
                     </p>
                   </>
                 ) : (

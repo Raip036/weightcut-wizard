@@ -98,7 +98,7 @@ function MorningCheckInPromptInner({
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xs border border-border/50 bg-background/60">
               <Sunrise
-                className="h-5 w-5 text-amber-300"
+                className="h-5 w-5 text-func-warning-yellow"
                 strokeWidth={2.2}
                 aria-hidden
               />
@@ -166,7 +166,7 @@ function MorningCheckInErrorFallback({
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xs border border-border/50 bg-background/60">
           <Sunrise
-            className="h-5 w-5 text-amber-300"
+            className="h-5 w-5 text-func-warning-yellow"
             strokeWidth={2.2}
             aria-hidden
           />

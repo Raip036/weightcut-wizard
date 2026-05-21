@@ -46,15 +46,15 @@ const REASON_STYLES: Record<
 > = {
   spam: {
     label: "Spam",
-    className: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+    className: "bg-func-warning-yellow/15 text-func-warning-yellow border-func-warning-yellow/30",
   },
   inappropriate: {
     label: "Inappropriate",
-    className: "bg-orange-500/15 text-orange-300 border-orange-500/30",
+    className: "bg-func-carbs-orange/15 text-func-carbs-orange border-func-carbs-orange/30",
   },
   harassment: {
     label: "Harassment",
-    className: "bg-red-500/15 text-red-300 border-red-500/30",
+    className: "bg-func-danger-red/15 text-func-danger-red border-func-danger-red/30",
   },
   other: {
     label: "Other",
@@ -380,8 +380,8 @@ function ReportRowSkeletons(): JSX.Element {
 function EmptyState(): JSX.Element {
   return (
     <div className="flex flex-col items-center justify-center text-center px-6 py-16">
-      <div className="h-14 w-14 rounded-xs bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mb-4">
-        <ShieldAlert className="h-6 w-6 text-emerald-300" />
+      <div className="h-14 w-14 rounded-xs bg-func-recovery-green/10 border border-func-recovery-green/30 flex items-center justify-center mb-4">
+        <ShieldAlert className="h-6 w-6 text-func-recovery-green" />
       </div>
       <p className="text-[15px] font-semibold">All clear. No open reports.</p>
       <p className="mt-1 text-[13px] text-muted-foreground max-w-xs">
@@ -414,8 +414,8 @@ function AccessDenied(props: { onBack: () => void }): JSX.Element {
         paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 6rem)",
       }}
     >
-      <div className="h-14 w-14 rounded-xs bg-red-500/10 border border-red-500/30 flex items-center justify-center mb-4">
-        <ShieldAlert className="h-6 w-6 text-red-300" />
+      <div className="h-14 w-14 rounded-xs bg-func-danger-red/10 border border-func-danger-red/30 flex items-center justify-center mb-4">
+        <ShieldAlert className="h-6 w-6 text-func-danger-red" />
       </div>
       <p className="text-[17px] font-semibold">Coaches only</p>
       <p className="mt-1 text-[13px] text-muted-foreground max-w-xs">

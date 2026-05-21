@@ -106,7 +106,7 @@ function BadgeCard({
       <div className="flex items-center justify-center gap-1 mt-2 min-w-0">
         <span className="text-xs font-semibold truncate">{badge.title}</span>
         {badge.unlocked && (
-          <Check className="h-3 w-3 text-green-500 flex-shrink-0" />
+          <Check className="h-3 w-3 text-func-recovery-green flex-shrink-0" />
         )}
       </div>
 

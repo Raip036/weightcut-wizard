@@ -342,7 +342,7 @@ export default function Goals() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -4, scale: 0.9 }}
               transition={{ duration: 0.18 }}
-              className="absolute top-2 right-12 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-500 text-[11px] font-semibold"
+              className="absolute top-2 right-12 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-func-recovery-green/15 text-func-recovery-green text-[11px] font-semibold"
             >
               <Check className="h-3 w-3" strokeWidth={3} />
               Saved
@@ -517,7 +517,7 @@ function SettingsRow({
         <p className="text-[15px] font-medium leading-tight truncate">{label}</p>
         {hint && (
           <p className={`mt-0.5 text-[12px] font-medium leading-snug flex items-center gap-1 ${
-            hintTone === "ok" ? "text-emerald-500" : hintTone === "warn" ? "text-amber-500" : "text-rose-500"
+            hintTone === "ok" ? "text-func-recovery-green" : hintTone === "warn" ? "text-func-warning-yellow" : "text-func-danger-red"
           }`}>
             <AlertTriangle className="h-3 w-3 shrink-0" />
             <span className="truncate">{hint}</span>

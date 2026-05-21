@@ -118,8 +118,8 @@ export function MealIdeasSection({
                           {meal.portion_size && <p className="text-[13px] text-foreground/80 mt-0.5">{meal.portion_size}</p>}
                           <div className="flex items-center gap-3 mt-2">
                             <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-blue-500" /><span className="text-[13px] tabular-nums font-medium">{Math.round(p)}g P</span></div>
-                            <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-orange-500" /><span className="text-[13px] tabular-nums font-medium">{Math.round(c)}g C</span></div>
-                            <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-purple-500" /><span className="text-[13px] tabular-nums font-medium">{Math.round(f)}g F</span></div>
+                            <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-func-carbs-orange" /><span className="text-[13px] tabular-nums font-medium">{Math.round(c)}g C</span></div>
+                            <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-func-fats-purple" /><span className="text-[13px] tabular-nums font-medium">{Math.round(f)}g F</span></div>
                           </div>
                         </div>
                         {hasDetails && <ChevronDown className={`h-4 w-4 text-muted-foreground/50 flex-shrink-0 mt-1 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />}

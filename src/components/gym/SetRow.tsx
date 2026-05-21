@@ -39,11 +39,11 @@ export function SetRow({ set, index, prTypes, onUpdate, onDelete }: SetRowProps)
       transition={springs.snappy}
       className={`group relative flex items-center gap-2 px-3 py-2.5 transition-colors ${
         set.is_warmup ? "opacity-60" : ""
-      } ${hasPR ? "bg-gradient-to-r from-amber-500/[0.06] via-transparent to-transparent" : ""}`}
+      } ${hasPR ? "bg-gradient-to-r from-func-warning-yellow/[0.06] via-transparent to-transparent" : ""}`}
     >
       {/* PR shimmer rail — subtle gold edge on the left when this set is a PR */}
       {hasPR && (
-        <span aria-hidden className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-amber-400 via-yellow-400 to-amber-500 rounded-l-2xl" />
+        <span aria-hidden className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-func-warning-yellow via-func-warning-yellow to-func-warning-yellow rounded-l-2xl" />
       )}
 
       {/* Set number badge */}
@@ -51,7 +51,7 @@ export function SetRow({ set, index, prTypes, onUpdate, onDelete }: SetRowProps)
         set.is_warmup
           ? "bg-muted text-muted-foreground"
           : hasPR
-            ? "bg-gradient-to-br from-amber-400 to-yellow-500 text-black shadow-md shadow-amber-500/30"
+            ? "bg-gradient-to-br from-func-warning-yellow to-func-warning-yellow text-black shadow-md shadow-func-warning-yellow/30"
             : "bg-gradient-to-br from-primary/20 to-primary/10 text-primary"
       }`}>
         {set.is_warmup ? "W" : index + 1}
@@ -86,8 +86,8 @@ export function SetRow({ set, index, prTypes, onUpdate, onDelete }: SetRowProps)
         onClick={() => onUpdate(set.id, { is_warmup: !set.is_warmup })}
         className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition-all ${
           set.is_warmup
-            ? "text-orange-400 bg-orange-500/15"
-            : "text-muted-foreground/40 active:text-orange-400 active:bg-orange-500/10"
+            ? "text-func-carbs-orange bg-func-carbs-orange/15"
+            : "text-muted-foreground/40 active:text-func-carbs-orange active:bg-func-carbs-orange/10"
         }`}
         aria-label="Toggle warmup"
       >
@@ -101,7 +101,7 @@ export function SetRow({ set, index, prTypes, onUpdate, onDelete }: SetRowProps)
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={springs.bouncy}
-          className="shrink-0 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-400/95 to-yellow-500/95 text-black px-2 py-0.5 shadow-md shadow-amber-500/30"
+          className="shrink-0 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-func-warning-yellow/95 to-func-warning-yellow/95 text-black px-2 py-0.5 shadow-md shadow-func-warning-yellow/30"
           title={prTypes.includes("weight") ? "New heaviest set" : "New rep max"}
         >
           <Trophy className="h-3 w-3" strokeWidth={2.6} fill="currentColor" />

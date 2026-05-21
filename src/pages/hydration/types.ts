@@ -143,12 +143,12 @@ export function getPhaseBadge(phase?: string) {
   if (!phase) return null;
   const lower = phase.toLowerCase();
   if (lower.includes("rapid"))
-    return { bg: "bg-red-500/10 border-red-500/20", text: "text-red-400" };
+    return { bg: "bg-func-danger-red/10 border-func-danger-red/20", text: "text-func-danger-red" };
   if (lower.includes("active"))
     return { bg: "bg-blue-500/10 border-blue-500/20", text: "text-blue-400" };
   if (lower.includes("glycogen") || lower.includes("loading"))
-    return { bg: "bg-emerald-500/10 border-emerald-500/20", text: "text-emerald-400" };
+    return { bg: "bg-func-recovery-green/10 border-func-recovery-green/20", text: "text-func-recovery-green" };
   if (lower.includes("pre-comp"))
-    return { bg: "bg-amber-500/10 border-amber-500/20", text: "text-amber-400" };
+    return { bg: "bg-func-warning-yellow/10 border-func-warning-yellow/20", text: "text-func-warning-yellow" };
   return { bg: "bg-muted border-border/50", text: "text-muted-foreground" };
 }

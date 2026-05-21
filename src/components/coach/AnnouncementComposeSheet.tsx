@@ -522,7 +522,7 @@ export function AnnouncementComposeSheet({ open, onOpenChange, gymId, gymName, a
               autoFocus={kind === "text"}
             />
             <div className="flex justify-end pt-1">
-              <span className={`text-[10px] tabular-nums ${remaining < 100 ? "text-amber-500" : "text-muted-foreground/60"}`}>
+              <span className={`text-[10px] tabular-nums ${remaining < 100 ? "text-func-warning-yellow" : "text-muted-foreground/60"}`}>
                 {remaining}
               </span>
             </div>

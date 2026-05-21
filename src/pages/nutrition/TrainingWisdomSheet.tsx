@@ -89,17 +89,17 @@ export function TrainingWisdomSheet({ open, onOpenChange, loading, wisdom, prefe
           <div className="space-y-6">
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <div className="w-6 h-6 rounded-full bg-orange-500/15 flex items-center justify-center">
-                  <Utensils className="h-3.5 w-3.5 text-orange-500" />
+                <div className="w-6 h-6 rounded-full bg-func-carbs-orange/15 flex items-center justify-center">
+                  <Utensils className="h-3.5 w-3.5 text-func-carbs-orange" />
                 </div>
-                <h4 className="text-sm font-bold uppercase tracking-wider text-orange-500">Pre-Training</h4>
+                <h4 className="text-sm font-bold uppercase tracking-wider text-func-carbs-orange">Pre-Training</h4>
               </div>
               <div className="space-y-2.5">
                 {wisdom.preMeals.map((meal, i) => (
                   <div key={i} className="card-surface p-3.5 space-y-1.5">
                     <div className="flex items-start justify-between gap-2">
                       <h5 className="text-sm font-semibold">{meal.name}</h5>
-                      <span className="text-[13px] font-medium text-orange-500/70 bg-orange-500/10 px-2 py-0.5 rounded-full flex-shrink-0">{meal.timing}</span>
+                      <span className="text-[13px] font-medium text-func-carbs-orange/70 bg-func-carbs-orange/10 px-2 py-0.5 rounded-full flex-shrink-0">{meal.timing}</span>
                     </div>
                     <p className="text-xs text-muted-foreground leading-relaxed">{meal.description}</p>
                     <p className="text-[13px] font-medium text-muted-foreground/60 tabular-nums">{meal.macros}</p>

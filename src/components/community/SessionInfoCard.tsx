@@ -128,7 +128,7 @@ export function SessionInfoCard({
             burstKey={engagement.burstKey}
           >
             <Heart
-              className={`h-5 w-5 transition-colors ${engagement.liked ? "fill-red-500 text-red-500" : "text-foreground"}`}
+              className={`h-5 w-5 transition-colors ${engagement.liked ? "fill-func-danger-red text-func-danger-red" : "text-foreground"}`}
               strokeWidth={2.2}
             />
           </EngagementButton>
@@ -177,7 +177,7 @@ function EngagementButton({ ariaLabel, count, onTap, burstKey, children }: Engag
             animate={{ scale: 1.6, opacity: 0 }}
             transition={{ duration: 0.45, ease: [0.32, 0.72, 0, 1] }}
           >
-            <Heart className="h-5 w-5 fill-red-500/30 text-red-500/40" strokeWidth={0} />
+            <Heart className="h-5 w-5 fill-func-danger-red/30 text-func-danger-red/40" strokeWidth={0} />
           </motion.span>
         </AnimatePresence>
       )}

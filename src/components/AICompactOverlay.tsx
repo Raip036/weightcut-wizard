@@ -145,7 +145,7 @@ export const AICompactOverlay = memo(function AICompactOverlay({
                       exit={{ scale: 0, opacity: 0 }}
                       transition={springs.snappy}
                       onClick={onCancel}
-                      className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground bg-muted/60 hover:bg-red-500/20 hover:text-red-400 border border-border/50 rounded-xs transition-colors touch-manipulation"
+                      className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground bg-muted/60 hover:bg-func-danger-red/20 hover:text-func-danger-red border border-border/50 rounded-xs transition-colors touch-manipulation"
                     >
                       <X className="w-4 h-4" />
                       Cancel

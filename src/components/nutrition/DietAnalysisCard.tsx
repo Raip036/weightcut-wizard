@@ -119,7 +119,7 @@ export function DietAnalysisCard({ analysis, onDismiss, onRefresh, refreshing }:
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-2">Gaps</p>
           <div className="space-y-0 rounded-xs overflow-hidden border-2 border-border">
             {analysis.gaps.map((gap, i) => {
-              const dotColor = { critical: 'bg-red-400', moderate: 'bg-amber-400', low: 'bg-yellow-400' }[gap.severity] ?? 'bg-yellow-400';
+              const dotColor = { critical: 'bg-func-danger-red', moderate: 'bg-func-warning-yellow', low: 'bg-func-warning-yellow' }[gap.severity] ?? 'bg-func-warning-yellow';
               return (
                 <div key={gap.nutrient} className={`px-3.5 py-2.5 ${i > 0 ? 'border-t-2 border-border' : ''}`}>
                   <div className="flex items-center gap-2">

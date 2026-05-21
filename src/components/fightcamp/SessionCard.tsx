@@ -183,7 +183,7 @@ export const SessionCard = memo(function SessionCard({
           {!isRest && (hasSoreness || hasSleep) && (
             <div className="mt-1 flex items-center gap-2">
               {hasSoreness && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 ring-1 ring-red-500/25 px-1.5 py-0.5 text-[10px] font-bold text-red-300">
+                <span className="inline-flex items-center gap-1 rounded-full bg-func-danger-red/10 ring-1 ring-func-danger-red/25 px-1.5 py-0.5 text-[10px] font-bold text-func-danger-red">
                   Sore {session.soreness_level}/10
                 </span>
               )}
@@ -242,7 +242,7 @@ export const SessionCard = memo(function SessionCard({
               {!isRest && (hasSoreness || hasSleep) && (
                 <div className="flex items-center gap-2">
                   {hasSoreness && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 ring-1 ring-red-500/25 px-2 py-0.5 text-[11px] font-semibold text-red-300">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-func-danger-red/10 ring-1 ring-func-danger-red/25 px-2 py-0.5 text-[11px] font-semibold text-func-danger-red">
                       Soreness {session.soreness_level}/10
                     </span>
                   )}

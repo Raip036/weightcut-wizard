@@ -222,8 +222,8 @@ export default function AthleteDetail() {
             <div className="grid grid-cols-3 gap-2">
               {[
                 { label: "Protein", val: today_macros.protein_g, goal: ath.ai_recommended_protein_g, color: "text-blue-500" },
-                { label: "Carbs", val: today_macros.carbs_g, goal: ath.ai_recommended_carbs_g, color: "text-orange-500" },
-                { label: "Fats", val: today_macros.fats_g, goal: ath.ai_recommended_fats_g, color: "text-purple-500" },
+                { label: "Carbs", val: today_macros.carbs_g, goal: ath.ai_recommended_carbs_g, color: "text-func-carbs-orange" },
+                { label: "Fats", val: today_macros.fats_g, goal: ath.ai_recommended_fats_g, color: "text-func-fats-purple" },
               ].map((m) => (
                 <div key={m.label} className="text-center">
                   <p className={`text-[14px] font-semibold tabular-nums ${m.color}`}>

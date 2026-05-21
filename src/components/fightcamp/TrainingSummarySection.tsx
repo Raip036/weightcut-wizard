@@ -347,7 +347,7 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                         </div>
                     ) : buttonState === "up_to_date" ? (
                         <>
-                            <CheckCircle className="h-5 w-5 text-green-500" />
+                            <CheckCircle className="h-5 w-5 text-func-recovery-green" />
                             <span className="text-sm font-semibold text-muted-foreground">Up to date</span>
                         </>
                     ) : (

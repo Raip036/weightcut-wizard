@@ -200,11 +200,11 @@ function ResultRow({
             <span className="tabular-nums">{p}</span>
             <span className="opacity-70">P</span>
           </span>
-          <span className="inline-flex items-baseline gap-0.5 rounded-full bg-orange-500/12 ring-1 ring-orange-500/25 px-2 py-0.5 text-[10px] font-bold text-orange-300">
+          <span className="inline-flex items-baseline gap-0.5 rounded-full bg-func-carbs-orange/12 ring-1 ring-func-carbs-orange/25 px-2 py-0.5 text-[10px] font-bold text-func-carbs-orange">
             <span className="tabular-nums">{c}</span>
             <span className="opacity-70">C</span>
           </span>
-          <span className="inline-flex items-baseline gap-0.5 rounded-full bg-purple-500/12 ring-1 ring-purple-500/25 px-2 py-0.5 text-[10px] font-bold text-purple-300">
+          <span className="inline-flex items-baseline gap-0.5 rounded-full bg-func-fats-purple/12 ring-1 ring-func-fats-purple/25 px-2 py-0.5 text-[10px] font-bold text-func-fats-purple">
             <span className="tabular-nums">{f}</span>
             <span className="opacity-70">F</span>
           </span>

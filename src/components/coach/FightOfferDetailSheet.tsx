@@ -246,7 +246,7 @@ export function FightOfferDetailSheet({ offerId, open, onOpenChange }: Props) {
                   {data.weight_class_kg.toFixed(1)}kg
                 </span>
                 {data.status === "filled" && (
-                  <span className="ml-auto px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[9px] uppercase tracking-wider font-semibold">
+                  <span className="ml-auto px-2 py-0.5 rounded-full bg-func-recovery-green/15 text-func-recovery-green text-[9px] uppercase tracking-wider font-semibold">
                     Filled
                   </span>
                 )}
@@ -279,10 +279,10 @@ export function FightOfferDetailSheet({ offerId, open, onOpenChange }: Props) {
                 </div>
               )}
               <div className="flex items-center gap-3 text-[11px] pt-1">
-                <span className="text-emerald-400 font-semibold">
+                <span className="text-func-recovery-green font-semibold">
                   {grouped.yes.length} yes
                 </span>
-                <span className="text-amber-400 font-semibold">
+                <span className="text-func-warning-yellow font-semibold">
                   {grouped.maybe.length} maybe
                 </span>
                 <span className="text-muted-foreground/70 font-semibold">
@@ -334,7 +334,7 @@ export function FightOfferDetailSheet({ offerId, open, onOpenChange }: Props) {
                                   {r.display_name}
                                 </span>
                                 {isPicked && (
-                                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 flex-shrink-0" />
+                                  <CheckCircle2 className="h-3.5 w-3.5 text-func-recovery-green flex-shrink-0" />
                                 )}
                               </div>
                               <div className="flex items-center gap-2 mt-0.5 text-[11px] tabular-nums">
@@ -349,10 +349,10 @@ export function FightOfferDetailSheet({ offerId, open, onOpenChange }: Props) {
                                   <span
                                     className={
                                       Math.abs(delta) < 0.1
-                                        ? "text-emerald-400 font-semibold"
+                                        ? "text-func-recovery-green font-semibold"
                                         : delta > 0
-                                        ? "text-amber-500 font-semibold"
-                                        : "text-emerald-400 font-semibold"
+                                        ? "text-func-warning-yellow font-semibold"
+                                        : "text-func-recovery-green font-semibold"
                                     }
                                   >
                                     {Math.abs(delta) < 0.1
@@ -424,7 +424,7 @@ export function FightOfferDetailSheet({ offerId, open, onOpenChange }: Props) {
                   type="button"
                   onClick={handleWithdraw}
                   disabled={busyAction !== null}
-                  className="h-10 rounded-xs text-amber-400 text-[12px] font-semibold active:scale-[0.99] transition-transform inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  className="h-10 rounded-xs text-func-warning-yellow text-[12px] font-semibold active:scale-[0.99] transition-transform inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
                 >
                   {busyAction === "withdraw" ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />

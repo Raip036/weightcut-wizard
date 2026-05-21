@@ -210,7 +210,7 @@ export function GymLogoUpload({
               {uploading ? (
                 <Loader2 className="h-2.5 w-2.5 text-foreground animate-spin" />
               ) : status === "success" ? (
-                <Check className="h-2.5 w-2.5 text-emerald-500" />
+                <Check className="h-2.5 w-2.5 text-func-recovery-green" />
               ) : (
                 <Upload className="h-2.5 w-2.5 text-foreground" />
               )}

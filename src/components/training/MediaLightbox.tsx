@@ -285,7 +285,7 @@ export function MediaLightbox({
               type="button"
               onClick={() => onDelete(active)}
               aria-label="Delete media"
-              className="h-9 w-9 rounded-full bg-white/15 backdrop-blur-md flex items-center justify-center active:bg-white/25 transition-colors text-rose-300"
+              className="h-9 w-9 rounded-full bg-white/15 backdrop-blur-md flex items-center justify-center active:bg-white/25 transition-colors text-func-danger-red"
             >
               <Trash2 className="h-4 w-4" strokeWidth={2.2} />
             </button>

@@ -464,10 +464,10 @@ export default function FightWeek() {
 
   const safetyBadge = aiPlan
     ? aiPlan.riskLevel === "green"
-      ? { label: "ON TRACK", cls: "bg-green-500/10 text-green-400 border-green-500/20" }
+      ? { label: "ON TRACK", cls: "bg-func-recovery-green/10 text-func-recovery-green border-func-recovery-green/20" }
       : aiPlan.riskLevel === "orange"
-        ? { label: "CAUTION", cls: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" }
-        : { label: "CRITICAL", cls: "bg-red-500/10 text-red-400 border-red-500/20" }
+        ? { label: "CAUTION", cls: "bg-func-warning-yellow/10 text-func-warning-yellow border-func-warning-yellow/20" }
+        : { label: "CRITICAL", cls: "bg-func-danger-red/10 text-func-danger-red border-func-danger-red/20" }
     : null;
 
   const fwAiTask = aiTasks.find(t => t.status === "running" && t.type === "fight-week");
@@ -614,7 +614,7 @@ export default function FightWeek() {
             <Button
               onClick={generateProtocol}
               disabled={isGenerating || !normalDailyCarbs}
-              className={`relative w-full h-13 min-h-[52px] rounded-xs text-[15px] font-bold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40 shadow-lg shadow-primary/30 ${lastError && !isGenerating ? "ring-2 ring-red-500/40" : ""}`}
+              className={`relative w-full h-13 min-h-[52px] rounded-xs text-[15px] font-bold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40 shadow-lg shadow-primary/30 ${lastError && !isGenerating ? "ring-2 ring-func-danger-red/40" : ""}`}
             >
               {isGenerating ? (
                 <CastingMessage />
@@ -674,8 +674,8 @@ export default function FightWeek() {
                 ))}
               </div>
               <div className="space-y-2">
-                <div className="flex items-start gap-2 rounded-xs bg-amber-500/10 ring-1 ring-amber-500/20 px-3 py-2">
-                  <AlertTriangle className="h-3.5 w-3.5 text-amber-400 mt-0.5 flex-shrink-0" strokeWidth={2.4} />
+                <div className="flex items-start gap-2 rounded-xs bg-func-warning-yellow/10 ring-1 ring-func-warning-yellow/20 px-3 py-2">
+                  <AlertTriangle className="h-3.5 w-3.5 text-func-warning-yellow mt-0.5 flex-shrink-0" strokeWidth={2.4} />
                   <p className="text-[11px] text-foreground/80 leading-snug">
                     Cuts over 8% of bodyweight in &lt;7 days carry serious health risk. The plan flags this and suggests safer pacing.
                   </p>
@@ -723,8 +723,8 @@ export default function FightWeek() {
               </div>
               <div className="card-surface rounded-xs p-2.5 border border-border text-center">
                 <span className={`text-lg font-bold block ${
-                  aiPlan.breakdown.percentBW <= 5 ? "text-green-400" :
-                  aiPlan.breakdown.percentBW <= 8 ? "text-yellow-400" : "text-red-400"
+                  aiPlan.breakdown.percentBW <= 5 ? "text-func-recovery-green" :
+                  aiPlan.breakdown.percentBW <= 8 ? "text-func-warning-yellow" : "text-func-danger-red"
                 }`}>
                   {aiPlan.breakdown.percentBW.toFixed(1)}%
                 </span>
@@ -738,9 +738,9 @@ export default function FightWeek() {
 
             {/* Safety warning */}
             {aiPlan.safetyWarning && (
-              <div className="bg-red-500/10 border border-red-500/20 rounded-xs p-3 flex items-start gap-2">
-                <AlertTriangle className="h-4 w-4 text-red-400 mt-0.5 flex-shrink-0" />
-                <p className="text-sm text-red-300 leading-relaxed">{sanitizeAIText(aiPlan.safetyWarning)}</p>
+              <div className="bg-func-danger-red/10 border border-func-danger-red/20 rounded-xs p-3 flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-func-danger-red mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-func-danger-red leading-relaxed">{sanitizeAIText(aiPlan.safetyWarning)}</p>
               </div>
             )}
 
@@ -756,8 +756,8 @@ export default function FightWeek() {
 
             {/* Sanity warning surfaced gently near the breakdown it relates to. */}
             {sanityWarning && (
-              <div className="rounded-xs border border-yellow-500/30 bg-yellow-500/10 p-3 flex items-start gap-2" role="alert">
-                <AlertTriangle className="h-4 w-4 text-yellow-400 mt-0.5 flex-shrink-0" />
+              <div className="rounded-xs border border-func-warning-yellow/30 bg-func-warning-yellow/10 p-3 flex items-start gap-2" role="alert">
+                <AlertTriangle className="h-4 w-4 text-func-warning-yellow mt-0.5 flex-shrink-0" />
                 <p className="text-xs text-yellow-200 leading-relaxed">{sanityWarning}</p>
               </div>
             )}
@@ -790,15 +790,15 @@ export default function FightWeek() {
             <PostWeighInCard data={aiPlan.postWeighIn} />
 
             {aiPlan.medicalRedFlags?.length > 0 && (
-              <div className="card-surface rounded-xs border border-red-500/20 p-4 space-y-2">
+              <div className="card-surface rounded-xs border border-func-danger-red/20 p-4 space-y-2">
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
-                  <h3 className="text-xs font-bold text-red-300 uppercase tracking-wider">Stop if you see any of these</h3>
+                  <AlertTriangle className="h-3.5 w-3.5 text-func-danger-red" />
+                  <h3 className="text-xs font-bold text-func-danger-red uppercase tracking-wider">Stop if you see any of these</h3>
                 </div>
                 <ul className="space-y-1">
                   {aiPlan.medicalRedFlags.map((flag, i) => (
                     <li key={i} className="text-[12px] text-muted-foreground flex gap-2 leading-relaxed">
-                      <span className="text-red-400 mt-0.5">·</span>
+                      <span className="text-func-danger-red mt-0.5">·</span>
                       {sanitizeAIText(flag)}
                     </li>
                   ))}

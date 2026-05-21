@@ -16,17 +16,17 @@ const LABEL_DISPLAY: Record<FightFormDetail["label"], string> = {
 };
 
 const LABEL_COLOR: Record<FightFormDetail["label"], string> = {
-  sharp: "text-emerald-400",
-  sharpening: "text-amber-400",
-  off_pace: "text-orange-500",
-  at_risk: "text-rose-500",
+  sharp: "text-func-recovery-green",
+  sharpening: "text-func-warning-yellow",
+  off_pace: "text-func-carbs-orange",
+  at_risk: "text-func-danger-red",
 };
 
 const LABEL_RING: Record<FightFormDetail["label"], string> = {
-  sharp: "stroke-emerald-500",
-  sharpening: "stroke-amber-400",
-  off_pace: "stroke-orange-500",
-  at_risk: "stroke-rose-500",
+  sharp: "stroke-func-recovery-green",
+  sharpening: "stroke-func-warning-yellow",
+  off_pace: "stroke-func-carbs-orange",
+  at_risk: "stroke-func-danger-red",
 };
 
 const SUB_LABEL: Record<FightFormSubKey, string> = {
@@ -233,7 +233,7 @@ export function FightFormPanel({ fightForm, trend }: Props) {
             {strengths.slice(0, 3).map((s) => (
               <div key={s.key} className="flex items-start gap-3">
                 <div className="w-14 shrink-0">
-                  <p className="text-[20px] font-semibold tabular-nums leading-none text-emerald-400">
+                  <p className="text-[20px] font-semibold tabular-nums leading-none text-func-recovery-green">
                     {s.value}
                   </p>
                 </div>
@@ -264,10 +264,10 @@ export function FightFormPanel({ fightForm, trend }: Props) {
                   <p
                     className={`text-[20px] font-semibold tabular-nums leading-none ${
                       s.value < 30
-                        ? "text-rose-500"
+                        ? "text-func-danger-red"
                         : s.value < 50
-                        ? "text-orange-500"
-                        : "text-amber-400"
+                        ? "text-func-carbs-orange"
+                        : "text-func-warning-yellow"
                     }`}
                   >
                     {s.value}

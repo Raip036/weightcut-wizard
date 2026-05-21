@@ -58,9 +58,9 @@ function compute(p: Omit<Props, "variant" | "className">): Computed {
 }
 
 const statusStyles: Record<Computed["status"], { dot: string; text: string }> = {
-  safe: { dot: "bg-emerald-500/80", text: "text-emerald-500" },
-  watch: { dot: "bg-amber-500/80", text: "text-amber-500" },
-  danger: { dot: "bg-red-500/80", text: "text-red-500" },
+  safe: { dot: "bg-func-recovery-green/80", text: "text-func-recovery-green" },
+  watch: { dot: "bg-func-warning-yellow/80", text: "text-func-warning-yellow" },
+  danger: { dot: "bg-func-danger-red/80", text: "text-func-danger-red" },
   neutral: { dot: "bg-muted-foreground/40", text: "text-muted-foreground" },
 };
 

@@ -191,7 +191,7 @@ export function ReportPostSheet({
             <div className="mt-1 flex justify-end">
               <span
                 className={`text-[11px] tabular-nums ${
-                  noteRemaining <= 10 ? "text-orange-300" : "text-muted-foreground"
+                  noteRemaining <= 10 ? "text-func-carbs-orange" : "text-muted-foreground"
                 }`}
               >
                 {noteRemaining}

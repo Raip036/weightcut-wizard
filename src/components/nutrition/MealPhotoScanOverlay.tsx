@@ -175,7 +175,7 @@ export const MealPhotoScanOverlay = memo(function MealPhotoScanOverlay({
                     exit={{ scale: 0, opacity: 0 }}
                     transition={springs.snappy}
                     onClick={onCancel}
-                    className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 text-[12px] font-medium text-muted-foreground bg-muted/60 hover:bg-red-500/20 hover:text-red-400 border border-border/50 rounded-xs transition-colors touch-manipulation"
+                    className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 text-[12px] font-medium text-muted-foreground bg-muted/60 hover:bg-func-danger-red/20 hover:text-func-danger-red border border-border/50 rounded-xs transition-colors touch-manipulation"
                   >
                     <X className="w-3.5 h-3.5" />
                     Cancel

@@ -243,7 +243,7 @@ export default function FightCampDetail() {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -2, scale: 0.9 }}
                 transition={{ duration: 0.18 }}
-                className="absolute -top-1 right-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 text-[10px] font-semibold"
+                className="absolute -top-1 right-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-func-recovery-green/15 text-func-recovery-green text-[10px] font-semibold"
               >
                 <Check className="h-2.5 w-2.5" strokeWidth={3} />
                 Saved
@@ -287,7 +287,7 @@ export default function FightCampDetail() {
 
           <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold ${
             outcome.tone === "ok"
-              ? "bg-emerald-500/15 text-emerald-500"
+              ? "bg-func-recovery-green/15 text-func-recovery-green"
               : "bg-muted/40 text-muted-foreground"
           }`}>
             {outcome.tone === "ok" && <CheckCircle2 className="h-3 w-3" />}

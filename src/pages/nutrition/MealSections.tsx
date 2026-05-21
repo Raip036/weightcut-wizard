@@ -100,7 +100,7 @@ export function MealSections({
             aria-label="Repeat last meal"
             title="Repeat last"
           >
-            <RotateCcw className="h-4 w-4 text-amber-400" strokeWidth={2.2} />
+            <RotateCcw className="h-4 w-4 text-func-warning-yellow" strokeWidth={2.2} />
           </button>
         )}
       </div>
@@ -215,7 +215,7 @@ function WizardEmptyState({
             onClick={onRepeatYesterday}
             className="inline-flex items-center gap-1.5 rounded-full bg-muted/40 border border-border/40 px-3 py-1.5 text-[12px] font-semibold text-foreground hover:bg-muted/60 active:scale-[0.97] transition"
           >
-            <RotateCcw className="h-3.5 w-3.5 text-amber-400" strokeWidth={2.4} />
+            <RotateCcw className="h-3.5 w-3.5 text-func-warning-yellow" strokeWidth={2.4} />
             Repeat yesterday
           </button>
         )}

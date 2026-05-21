@@ -88,7 +88,7 @@ export function CoachFightOffersTile({ gymId }: Props) {
                       {o.weight_class_kg.toFixed(1)}kg
                     </span>
                     {o.status === "filled" && (
-                      <span className="text-[9px] uppercase tracking-wider font-semibold text-emerald-400">
+                      <span className="text-[9px] uppercase tracking-wider font-semibold text-func-recovery-green">
                         Filled
                       </span>
                     )}
@@ -108,11 +108,11 @@ export function CoachFightOffersTile({ gymId }: Props) {
                       <span className="text-muted-foreground/60">No responses yet</span>
                     ) : (
                       <>
-                        <span className="text-emerald-400 font-semibold">
+                        <span className="text-func-recovery-green font-semibold">
                           {o.counts.yes} yes
                         </span>
                         {o.counts.maybe > 0 && (
-                          <span className="text-amber-400 font-semibold">
+                          <span className="text-func-warning-yellow font-semibold">
                             {o.counts.maybe} maybe
                           </span>
                         )}

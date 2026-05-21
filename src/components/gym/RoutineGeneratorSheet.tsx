@@ -70,27 +70,27 @@ const FOCUS_AREAS: { value: FocusArea; label: string }[] = [
 
 const MUSCLE_COLORS: Record<string, string> = {
   chest: "bg-blue-500/15 text-blue-400",
-  back: "bg-purple-500/15 text-purple-400",
-  shoulders: "bg-orange-500/15 text-orange-400",
-  biceps: "bg-cyan-500/15 text-cyan-400",
+  back: "bg-func-fats-purple/15 text-func-fats-purple",
+  shoulders: "bg-func-carbs-orange/15 text-func-carbs-orange",
+  biceps: "bg-func-hydration-cyan/15 text-func-hydration-cyan",
   triceps: "bg-pink-500/15 text-pink-400",
-  quads: "bg-green-500/15 text-green-400",
-  hamstrings: "bg-emerald-500/15 text-emerald-400",
-  glutes: "bg-rose-500/15 text-rose-400",
+  quads: "bg-func-recovery-green/15 text-func-recovery-green",
+  hamstrings: "bg-func-recovery-green/15 text-func-recovery-green",
+  glutes: "bg-func-danger-red/15 text-func-danger-red",
   calves: "bg-teal-500/15 text-teal-400",
   abs: "bg-primary/15 text-primary",
   core: "bg-primary/15 text-primary",
   full_body: "bg-indigo-500/15 text-indigo-400",
-  cardio: "bg-red-500/15 text-red-400",
+  cardio: "bg-func-danger-red/15 text-func-danger-red",
 };
 
 const DAY_COLORS = [
   "border-l-blue-500",
-  "border-l-purple-500",
-  "border-l-emerald-500",
-  "border-l-amber-500",
-  "border-l-rose-500",
-  "border-l-cyan-500",
+  "border-l-func-fats-purple",
+  "border-l-func-recovery-green",
+  "border-l-func-warning-yellow",
+  "border-l-func-danger-red",
+  "border-l-func-hydration-cyan",
 ];
 
 function groupByDay(exercises: RoutineExercise[]): { day: string; exercises: RoutineExercise[] }[] {

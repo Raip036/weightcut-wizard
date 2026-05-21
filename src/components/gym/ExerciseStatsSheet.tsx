@@ -99,7 +99,7 @@ export function ExerciseStatsSheet({ exercise, pr, open, onOpenChange }: Exercis
                       </p>
                       <p className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-bold text-foreground">
                         × {bestSet?.reps ?? maxReps} reps
-                        <Trophy className="h-3.5 w-3.5 text-yellow-400" />
+                        <Trophy className="h-3.5 w-3.5 text-func-warning-yellow" />
                       </p>
                     </>
                   ) : maxReps > 0 ? (
@@ -109,7 +109,7 @@ export function ExerciseStatsSheet({ exercise, pr, open, onOpenChange }: Exercis
                       </p>
                       <p className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-bold text-foreground">
                         max reps
-                        <Trophy className="h-3.5 w-3.5 text-yellow-400" />
+                        <Trophy className="h-3.5 w-3.5 text-func-warning-yellow" />
                       </p>
                     </>
                   ) : (

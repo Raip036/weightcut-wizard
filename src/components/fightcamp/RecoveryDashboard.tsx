@@ -79,10 +79,10 @@ interface RecoveryDashboardProps {
 // ── Verdict helpers (inlined from DailyVerdict.tsx for the unified hero) ──
 type Verdict = "push" | "steady" | "easy" | "recover";
 const VERDICT_COPY: Record<Verdict, { headline: string; icon: typeof Zap; color: string; bg: string; ring: string }> = {
-  push:    { headline: "Push today",     icon: Zap,        color: "text-emerald-300", bg: "bg-emerald-500/15", ring: "ring-emerald-500/30" },
+  push:    { headline: "Push today",     icon: Zap,        color: "text-func-recovery-green", bg: "bg-func-recovery-green/15", ring: "ring-func-recovery-green/30" },
   steady:  { headline: "Steady session", icon: Activity,   color: "text-blue-300",    bg: "bg-blue-500/15",    ring: "ring-blue-500/30" },
-  easy:    { headline: "Take it light",  icon: Sun,        color: "text-amber-300",   bg: "bg-amber-500/15",   ring: "ring-amber-500/30" },
-  recover: { headline: "Recover today",  icon: BedDouble,  color: "text-red-300",     bg: "bg-red-500/15",     ring: "ring-red-500/30" },
+  easy:    { headline: "Take it light",  icon: Sun,        color: "text-func-warning-yellow",   bg: "bg-func-warning-yellow/15",   ring: "ring-func-warning-yellow/30" },
+  recover: { headline: "Recover today",  icon: BedDouble,  color: "text-func-danger-red",     bg: "bg-func-danger-red/15",     ring: "ring-func-danger-red/30" },
 };
 function deriveVerdict(metrics: AllMetrics): Verdict {
   const { readiness, overtrainingRisk, loadZone, loadConfidence } = metrics;
@@ -118,9 +118,9 @@ function whyLine(metrics: AllMetrics, checkedInToday: boolean): string {
 function baselineConfidence(baseline: PersonalBaseline | null, totalCheckInDays: number): { label: string; detail: string; tone: string } {
   const baselineUnlocked = baseline?.hooper_mean_14d != null;
   const days = baselineUnlocked ? Math.max(totalCheckInDays, 14) : totalCheckInDays;
-  if (days >= 14) return { label: "Tuned to you", detail: `${days} days of data`, tone: "text-emerald-300 bg-emerald-500/12 ring-emerald-500/30" };
+  if (days >= 14) return { label: "Tuned to you", detail: `${days} days of data`, tone: "text-func-recovery-green bg-func-recovery-green/12 ring-func-recovery-green/30" };
   if (days >= 7) return { label: "Tuning to you", detail: `${days}/14 days`, tone: "text-blue-300 bg-blue-500/12 ring-blue-500/30" };
-  return { label: "Learning your patterns", detail: `${days}/14 days`, tone: "text-amber-300 bg-amber-500/12 ring-amber-500/30" };
+  return { label: "Learning your patterns", detail: `${days}/14 days`, tone: "text-func-warning-yellow bg-func-warning-yellow/12 ring-func-warning-yellow/30" };
 }
 
 function getStrainColor(strain: number) {
@@ -139,13 +139,13 @@ function getOTColor(zone: 'low' | 'moderate' | 'high' | 'critical') {
 function getLoadZoneStyle(zone: string) {
   switch (zone) {
     case 'optimal':
-      return { color: 'text-green-400', bg: 'bg-green-500/20' };
+      return { color: 'text-func-recovery-green', bg: 'bg-func-recovery-green/20' };
     case 'detraining':
       return { color: 'text-blue-400', bg: 'bg-blue-500/20' };
     case 'pushing':
-      return { color: 'text-amber-400', bg: 'bg-amber-500/20' };
+      return { color: 'text-func-warning-yellow', bg: 'bg-func-warning-yellow/20' };
     case 'overreaching':
-      return { color: 'text-red-400', bg: 'bg-red-500/20' };
+      return { color: 'text-func-danger-red', bg: 'bg-func-danger-red/20' };
     default:
       return { color: 'text-muted-foreground', bg: 'bg-accent/20' };
   }
@@ -542,14 +542,14 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
       {/* Caloric Deficit Banner — promoted ABOVE the Trends card because
           it's a state alert, not historical data. */}
       {metrics.deficitImpactScore != null && metrics.deficitImpactScore < 60 && baseline?.avg_deficit_7d != null && (
-        <div className="card-surface rounded-xs p-3 border border-amber-500/30 bg-amber-500/5">
+        <div className="card-surface rounded-xs p-3 border border-func-warning-yellow/30 bg-func-warning-yellow/5">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
+            <AlertTriangle className="h-4 w-4 text-func-warning-yellow shrink-0" />
             <div>
-              <p className="text-xs font-semibold text-amber-400">
+              <p className="text-xs font-semibold text-func-warning-yellow">
                 Caloric Deficit Impacting Recovery
               </p>
-              <p className="text-[10px] text-amber-300/70 mt-0.5">
+              <p className="text-[10px] text-func-warning-yellow/70 mt-0.5">
                 {Math.abs(baseline.avg_deficit_7d).toFixed(0)}kcal avg deficit (7d) — recovery impact score {metrics.deficitImpactScore}/100
               </p>
             </div>

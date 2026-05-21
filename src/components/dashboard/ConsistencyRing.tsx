@@ -60,7 +60,7 @@ export const ConsistencyRing = memo(function ConsistencyRing({
             <div
               className={`w-3.5 h-3.5 rounded-full transition-colors ${
                 day.complete
-                  ? "bg-green-500"
+                  ? "bg-func-recovery-green"
                   : "bg-muted-foreground/20"
               }`}
             />

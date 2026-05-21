@@ -60,14 +60,14 @@ export const WaterLoadingCard = memo(function WaterLoadingCard({ data }: WaterLo
         })}
         <div className="flex flex-col items-center gap-1">
           <div className="flex flex-col justify-end h-[62px] w-full">
-            <div className="w-full rounded-t-md bg-yellow-500/70" style={{ height: `${Math.max(12, (safeTaper / max) * 60)}px` }} />
+            <div className="w-full rounded-t-md bg-func-warning-yellow/70" style={{ height: `${Math.max(12, (safeTaper / max) * 60)}px` }} />
           </div>
           <span className="text-[9px] text-muted-foreground tabular-nums">{formatL(safeTaper)}</span>
           <span className="text-[8px] uppercase tracking-wider text-muted-foreground/60">Day -1</span>
         </div>
         <div className="flex flex-col items-center gap-1">
           <div className="flex flex-col justify-end h-[62px] w-full">
-            <div className="w-full rounded-t-md bg-orange-500/70" style={{ height: "12px" }} />
+            <div className="w-full rounded-t-md bg-func-carbs-orange/70" style={{ height: "12px" }} />
           </div>
           <span className="text-[9px] text-muted-foreground tabular-nums">Sips</span>
           <span className="text-[8px] uppercase tracking-wider text-muted-foreground/60">Weigh-In</span>

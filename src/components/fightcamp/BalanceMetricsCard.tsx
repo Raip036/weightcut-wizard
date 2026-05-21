@@ -16,10 +16,10 @@ function getDirectionIcon(direction: BalanceMetric['direction']) {
 
 function getDirectionColor(direction: BalanceMetric['direction'], severity: BalanceMetric['severity']) {
   if (severity === 'alert') {
-    return direction === 'improving' ? 'text-green-400' : 'text-red-400';
+    return direction === 'improving' ? 'text-func-recovery-green' : 'text-func-danger-red';
   }
   if (severity === 'warning') {
-    return direction === 'improving' ? 'text-green-400/70' : 'text-amber-400';
+    return direction === 'improving' ? 'text-func-recovery-green/70' : 'text-func-warning-yellow';
   }
   return 'text-muted-foreground';
 }

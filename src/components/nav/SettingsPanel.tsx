@@ -346,7 +346,7 @@ export function SettingsPanel({
             <details className="group">
               <summary className="flex items-center justify-between px-3 py-2 cursor-pointer list-none active:bg-muted/40 transition-colors">
                 <div className="flex items-center gap-2">
-                  <Heart className="h-4 w-4 text-amber-500 shrink-0" />
+                  <Heart className="h-4 w-4 text-func-warning-yellow shrink-0" />
                   <p className="text-[13px] font-medium">Medical Disclaimer</p>
                 </div>
                 <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0 transition-transform group-open:rotate-90" />

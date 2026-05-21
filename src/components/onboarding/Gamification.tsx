@@ -61,7 +61,7 @@ export function XPProgressBar({
       </div>
       <div className="relative h-2 rounded-full overflow-hidden bg-muted/40">
         <motion.div
-          className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-primary via-primary to-amber-400"
+          className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-primary via-primary to-func-warning-yellow"
           initial={false}
           animate={{ width: `${pct * 100}%` }}
           transition={{
@@ -121,12 +121,12 @@ export function CuttingNowChip({
   }, []);
   return (
     <div className="mx-5 mt-2 flex items-center gap-1.5 flex-wrap">
-      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25">
+      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-func-recovery-green/10 border border-func-recovery-green/25">
         <span className="relative flex h-1.5 w-1.5">
-          <span className="absolute inset-0 rounded-full bg-emerald-400 animate-ping opacity-60" />
-          <span className="relative h-1.5 w-1.5 rounded-full bg-emerald-400" />
+          <span className="absolute inset-0 rounded-full bg-func-recovery-green animate-ping opacity-60" />
+          <span className="relative h-1.5 w-1.5 rounded-full bg-func-recovery-green" />
         </span>
-        <p className="text-[10px] font-semibold text-emerald-400/90 tabular-nums">
+        <p className="text-[10px] font-semibold text-func-recovery-green/90 tabular-nums">
           {count.toLocaleString()} fighters cutting weight right now
         </p>
       </div>
@@ -339,10 +339,10 @@ export function WeightLossSlam({
   // the rest of the app uses.
   const rateClass =
     perWeekKg <= 1.0
-      ? "text-emerald-400"
+      ? "text-func-recovery-green"
       : perWeekKg <= 1.5
-      ? "text-amber-400"
-      : "text-rose-400";
+      ? "text-func-warning-yellow"
+      : "text-func-danger-red";
 
   return (
     <AnimatePresence>
@@ -405,9 +405,9 @@ export function LossFrameCard({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.32, ease: "easeOut" }}
-      className="rounded-xs border border-amber-500/25 bg-amber-500/[0.06] p-3"
+      className="rounded-xs border border-func-warning-yellow/25 bg-func-warning-yellow/[0.06] p-3"
     >
-      <p className="text-[10px] uppercase tracking-wider font-semibold text-amber-400/90 mb-1">
+      <p className="text-[10px] uppercase tracking-wider font-semibold text-func-warning-yellow/90 mb-1">
         Reality check
       </p>
       <p className="text-[13px] text-foreground/90 leading-snug">
@@ -602,7 +602,7 @@ export function DeclarationButton({
       <div
         ref={fillRef}
         aria-hidden
-        className="absolute inset-y-0 left-0 right-0 bg-amber-300 rounded-xs"
+        className="absolute inset-y-0 left-0 right-0 bg-func-warning-yellow rounded-xs"
         style={{
           transform: "scaleX(0)",
           transformOrigin: "left center",
@@ -703,7 +703,7 @@ export function TaleOfTheTapeCard({
           </motion.div>
         ))}
       </div>
-      <div className="flex items-center justify-center gap-1.5 mt-4 text-emerald-400/90">
+      <div className="flex items-center justify-center gap-1.5 mt-4 text-func-recovery-green/90">
         <ShieldCheck className="h-3.5 w-3.5" />
         <p className="text-[11px] uppercase tracking-wider font-bold">
           Camp Sealed
@@ -761,7 +761,7 @@ export function WittyValidation({ children }: { children: React.ReactNode }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.32 }}
-      className="text-[12px] text-emerald-400/90 mt-1.5 font-medium leading-snug"
+      className="text-[12px] text-func-recovery-green/90 mt-1.5 font-medium leading-snug"
     >
       {children}
     </motion.p>
@@ -836,7 +836,7 @@ export function WeeklyMilestonesScrubber({
         {/* Plateau zone band (weeks 3-4) — drawn under the dots so they remain crisp. */}
         {showPlateauZone && (
           <div
-            className="absolute top-1/2 -translate-y-1/2 h-3 rounded-full bg-amber-500/15 border border-amber-500/25"
+            className="absolute top-1/2 -translate-y-1/2 h-3 rounded-full bg-func-warning-yellow/15 border border-func-warning-yellow/25"
             style={{
               left: `calc(${(2 / weeks) * 100}% + 6px)`,
               right: `calc(${((weeks - 4) / weeks) * 100}% + 6px)`,
@@ -895,7 +895,7 @@ export function WeeklyMilestonesScrubber({
       </div>
 
       {showPlateauZone && (
-        <p className="text-[10px] text-amber-400/80 mt-2 text-center">
+        <p className="text-[10px] text-func-warning-yellow/80 mt-2 text-center">
           Plateau zone weeks 3–4. Normal. Trust the protocol.
         </p>
       )}

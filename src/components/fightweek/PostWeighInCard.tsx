@@ -34,17 +34,17 @@ export const PostWeighInCard = memo(function PostWeighInCard({ data }: PostWeigh
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Post Weigh-In Recovery</h3>
         <div className="text-right">
-          <div className="text-base font-bold tabular-nums text-emerald-400">+{data.targetRegainKg.toFixed(1)}kg</div>
+          <div className="text-base font-bold tabular-nums text-func-recovery-green">+{data.targetRegainKg.toFixed(1)}kg</div>
           <div className="text-[9px] text-muted-foreground uppercase tracking-wider">regain target</div>
         </div>
       </div>
 
       <div className="space-y-3">
         <Row icon={Droplets} label="Fluid" text={data.fluidPlan} color="text-sky-400" bg="bg-sky-500/15" />
-        <Row icon={Wheat} label="Carbs" text={data.carbPlan} color="text-amber-400" bg="bg-amber-500/15" />
-        <Row icon={Waves} label="Sodium" text={data.sodiumPlan} color="text-cyan-400" bg="bg-cyan-500/15" />
+        <Row icon={Wheat} label="Carbs" text={data.carbPlan} color="text-func-warning-yellow" bg="bg-func-warning-yellow/15" />
+        <Row icon={Waves} label="Sodium" text={data.sodiumPlan} color="text-func-hydration-cyan" bg="bg-func-hydration-cyan/15" />
         {data.caffeineNote && (
-          <Row icon={Coffee} label="Caffeine" text={data.caffeineNote} color="text-orange-400" bg="bg-orange-500/15" />
+          <Row icon={Coffee} label="Caffeine" text={data.caffeineNote} color="text-func-carbs-orange" bg="bg-func-carbs-orange/15" />
         )}
       </div>
     </div>

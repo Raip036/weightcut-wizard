@@ -16,7 +16,7 @@ export function CalorieBudgetIndicator({
 
   const getProgressColor = () => {
     if (percentage > 100) return "bg-destructive";
-    if (percentage > 90) return "bg-yellow-500";
+    if (percentage > 90) return "bg-func-warning-yellow";
     return "bg-primary";
   };
 

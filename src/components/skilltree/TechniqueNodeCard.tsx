@@ -5,8 +5,8 @@ import type { GraphNode } from "@/types/technique";
 const LEVEL_COLORS: Record<string, string> = {
   seen: "border-l-muted-foreground/40",
   drilled: "border-l-blue-500",
-  landed: "border-l-green-500",
-  mastered: "border-l-amber-400",
+  landed: "border-l-func-recovery-green",
+  mastered: "border-l-func-warning-yellow",
 };
 
 interface TechniqueNodeCardProps {

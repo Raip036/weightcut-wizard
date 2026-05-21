@@ -99,8 +99,8 @@ const PHASE_RAIL: Record<WeekPhase, string> = {
   foundation: "bg-sky-500",
   build: "bg-primary",
   peak: "bg-secondary",
-  final: "bg-amber-500",
-  fight_week: "bg-amber-500",
+  final: "bg-func-warning-yellow",
+  fight_week: "bg-func-warning-yellow",
 };
 
 const PHASE_LABEL: Record<WeekPhase, string> = {
@@ -396,7 +396,7 @@ function WeekCard({
     <div
       id={`week-card-${row.week}`}
       className={`relative flex rounded-xs border border-border/50 bg-card overflow-hidden ${
-        isToughest ? "ring-1 ring-amber-500/40" : ""
+        isToughest ? "ring-1 ring-func-warning-yellow/40" : ""
       }`}
     >
       <div className={`w-1.5 shrink-0 ${rail}`} aria-hidden />
@@ -411,7 +411,7 @@ function WeekCard({
               · {PHASE_LABEL[row.phase]}
             </span>
             {isToughest && (
-              <span className="ml-1 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 text-[9px] font-bold uppercase">
+              <span className="ml-1 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-func-warning-yellow/15 text-func-warning-yellow text-[9px] font-bold uppercase">
                 Tough
               </span>
             )}
@@ -475,19 +475,19 @@ function WeekCard({
         {(row.risk || row.recovery || toughReason) && (
           <div className="flex flex-wrap gap-1.5 mt-2.5">
             {toughReason && (
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/15 border border-amber-500/25 text-[10px] text-amber-400 leading-tight">
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-func-warning-yellow/15 border border-func-warning-yellow/25 text-[10px] text-func-warning-yellow leading-tight">
                 <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
                 {cleanText(toughReason)}
               </span>
             )}
             {row.risk && (
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-400 leading-tight">
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-func-warning-yellow/10 border border-func-warning-yellow/20 text-[10px] text-func-warning-yellow leading-tight">
                 <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
                 {cleanText(row.risk)}
               </span>
             )}
             {row.recovery && (
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-400 leading-tight">
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-func-recovery-green/10 border border-func-recovery-green/20 text-[10px] text-func-recovery-green leading-tight">
                 <ShieldCheck className="h-2.5 w-2.5 shrink-0" />
                 {cleanText(row.recovery)}
               </span>
@@ -506,10 +506,10 @@ const FIGHT_WEEK_STAGES: {
   field: keyof FightWeekBlock;
   bg: string;
 }[] = [
-  { day: "Day -7", label: "Low Carb", field: "lowCarb", bg: "from-amber-500/10 to-amber-500/5" },
-  { day: "Day -3", label: "Sodium Cut", field: "sodium", bg: "from-orange-500/10 to-orange-500/5" },
-  { day: "Day -2", label: "Water Load", field: "waterLoading", bg: "from-cyan-500/10 to-cyan-500/5" },
-  { day: "Day 0", label: "Weigh-in + Refuel", field: "nutrition", bg: "from-emerald-500/10 to-emerald-500/5" },
+  { day: "Day -7", label: "Low Carb", field: "lowCarb", bg: "from-func-warning-yellow/10 to-func-warning-yellow/5" },
+  { day: "Day -3", label: "Sodium Cut", field: "sodium", bg: "from-func-carbs-orange/10 to-func-carbs-orange/5" },
+  { day: "Day -2", label: "Water Load", field: "waterLoading", bg: "from-func-hydration-cyan/10 to-func-hydration-cyan/5" },
+  { day: "Day 0", label: "Weigh-in + Refuel", field: "nutrition", bg: "from-func-recovery-green/10 to-func-recovery-green/5" },
 ];
 
 function FightWeekCarousel({ block }: { block: FightWeekBlock }) {
@@ -539,7 +539,7 @@ function FightWeekCarousel({ block }: { block: FightWeekBlock }) {
   return (
     <div className="mt-3">
       <div className="flex items-baseline justify-between mb-2 px-1">
-        <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-amber-400">
+        <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-func-warning-yellow">
           Fight Week Protocol
         </p>
         <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -588,7 +588,7 @@ function FightWeekCarousel({ block }: { block: FightWeekBlock }) {
             <span
               key={i}
               className={`h-1.5 rounded-full transition-all ${
-                i === selectedIndex ? "w-5 bg-amber-400" : "w-1.5 bg-muted-foreground/30"
+                i === selectedIndex ? "w-5 bg-func-warning-yellow" : "w-1.5 bg-muted-foreground/30"
               }`}
             />
           ))}
@@ -763,8 +763,8 @@ export function InlinePlanDisplay({
 
       {/* SAFETY */}
       {planData.safetyNotes && (
-        <div className="rounded-xs border border-emerald-500/20 bg-emerald-500/5 p-3.5 mt-3 flex items-start gap-2">
-          <ShieldCheck className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
+        <div className="rounded-xs border border-func-recovery-green/20 bg-func-recovery-green/5 p-3.5 mt-3 flex items-start gap-2">
+          <ShieldCheck className="h-4 w-4 text-func-recovery-green mt-0.5 shrink-0" />
           <p className="text-[12px] text-emerald-200/90 leading-snug">
             {cleanText(planData.safetyNotes)}
           </p>
@@ -773,7 +773,7 @@ export function InlinePlanDisplay({
 
       {/* TOMORROW-MORNING ANCHOR */}
       <div className="rounded-xs border border-border/40 bg-muted/20 p-3.5 mt-3 flex items-start gap-2.5">
-        <Sun className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+        <Sun className="h-4 w-4 text-func-warning-yellow mt-0.5 shrink-0" />
         <div>
           <p className="text-[12px] font-semibold text-foreground">
             Tomorrow, 7am, weigh in fasted.

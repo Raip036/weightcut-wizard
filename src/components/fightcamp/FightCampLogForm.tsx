@@ -463,7 +463,7 @@ export function FightCampLogForm({
               onClick={() => { triggerHapticSelection(); isListening ? stopListening() : startListening(); }}
               className={`flex items-center gap-1 h-7 px-2.5 rounded-full text-[11px] font-semibold transition-all ${
                 isListening
-                  ? "bg-red-500/15 text-red-500 animate-pulse"
+                  ? "bg-func-danger-red/15 text-func-danger-red animate-pulse"
                   : "bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-muted-foreground active:bg-muted/60"
               }`}
             >
@@ -476,7 +476,7 @@ export function FightCampLogForm({
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder={isListening ? "Listening…" : "Techniques, drills, anything worth remembering…"}
-          className={`min-h-[88px] resize-none rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/30 text-[14px] px-4 py-3 placeholder:text-muted-foreground/50 ${isListening ? "ring-2 ring-red-500/40" : ""}`}
+          className={`min-h-[88px] resize-none rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/30 text-[14px] px-4 py-3 placeholder:text-muted-foreground/50 ${isListening ? "ring-2 ring-func-danger-red/40" : ""}`}
         />
         {isListening && interimText && (
           <p className="text-[12px] text-muted-foreground/70 italic px-1">{interimText}</p>

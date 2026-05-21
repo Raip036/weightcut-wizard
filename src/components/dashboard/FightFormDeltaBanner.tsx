@@ -48,8 +48,8 @@ export function FightFormDeltaBanner(p: Props) {
       <span
         className={
           up
-            ? "shrink-0 rounded-full bg-emerald-500/15 text-emerald-400 p-1.5"
-            : "shrink-0 rounded-full bg-rose-500/15 text-rose-400 p-1.5"
+            ? "shrink-0 rounded-full bg-func-recovery-green/15 text-func-recovery-green p-1.5"
+            : "shrink-0 rounded-full bg-func-danger-red/15 text-func-danger-red p-1.5"
         }
       >
         {up ? <TrendingUp className="size-3.5" /> : <TrendingDown className="size-3.5" />}

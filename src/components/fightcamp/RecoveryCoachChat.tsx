@@ -205,7 +205,7 @@ export function RecoveryCoachChat({ userId, userName }: RecoveryCoachChatProps) 
           <div className="leading-tight">
             <h2 className="text-[15px] font-bold tracking-tight">Recovery Coach</h2>
             <div className="flex items-center gap-1 text-[10px] text-muted-foreground/70">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="h-1.5 w-1.5 rounded-full bg-func-recovery-green animate-pulse" />
               Online · Pro feature
             </div>
           </div>
@@ -280,7 +280,7 @@ export function RecoveryCoachChat({ userId, userName }: RecoveryCoachChatProps) 
               disabled={sending}
               className={`h-9 w-9 shrink-0 flex items-center justify-center rounded-xs transition-colors ${
                 isListening
-                  ? "bg-red-500/15 text-red-400"
+                  ? "bg-func-danger-red/15 text-func-danger-red"
                   : "bg-muted/40 text-muted-foreground active:bg-muted/60"
               }`}
               aria-label={isListening ? "Stop listening" : "Start voice input"}
@@ -301,7 +301,7 @@ export function RecoveryCoachChat({ userId, userName }: RecoveryCoachChatProps) 
             placeholder={isListening ? "Listening..." : "Describe how you feel..."}
             rows={1}
             className={`flex-1 min-h-[36px] max-h-[140px] resize-none rounded-xs border border-border/40 bg-muted/20 py-2 px-3 text-[13px] focus:outline-none focus:ring-1 focus:ring-primary/40 ${
-              isListening ? "border-red-500/30" : ""
+              isListening ? "border-func-danger-red/30" : ""
             }`}
             disabled={sending}
           />

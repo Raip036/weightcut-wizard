@@ -14,8 +14,8 @@ const LEVEL_LABELS: Record<TechniqueLevel, string> = {
 const LEVEL_STYLES: Record<TechniqueLevel, string> = {
   seen: "bg-muted text-muted-foreground",
   drilled: "bg-blue-500/20 text-blue-400",
-  landed: "bg-green-500/20 text-green-400",
-  mastered: "bg-amber-400/20 text-amber-400",
+  landed: "bg-func-recovery-green/20 text-func-recovery-green",
+  mastered: "bg-func-warning-yellow/20 text-func-warning-yellow",
 };
 
 interface TechniqueDetailSheetProps {

@@ -127,7 +127,7 @@ export const SleepLogger = memo(function SleepLogger({ userId, compact }: SleepL
             <span className="tabular-nums">{hours}</span>
             <span className="text-muted-foreground">h</span>
           </span>
-          <Check className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+          <Check className="w-4 h-4 text-func-recovery-green flex-shrink-0" />
         </>
       ) : (
         <>

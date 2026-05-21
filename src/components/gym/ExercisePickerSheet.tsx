@@ -34,20 +34,20 @@ function saveIdList(key: string, ids: string[]): void {
 
 // Tile color per muscle group for the row icon — same palette as ExerciseBlock.
 const MUSCLE_BG: Record<string, string> = {
-  chest: "bg-red-500/15 text-red-300",
+  chest: "bg-func-danger-red/15 text-func-danger-red",
   back: "bg-blue-500/15 text-blue-300",
-  shoulders: "bg-purple-500/15 text-purple-300",
+  shoulders: "bg-func-fats-purple/15 text-func-fats-purple",
   biceps: "bg-pink-500/15 text-pink-300",
-  triceps: "bg-orange-500/15 text-orange-300",
-  quads: "bg-green-500/15 text-green-300",
-  hamstrings: "bg-emerald-500/15 text-emerald-300",
+  triceps: "bg-func-carbs-orange/15 text-func-carbs-orange",
+  quads: "bg-func-recovery-green/15 text-func-recovery-green",
+  hamstrings: "bg-func-recovery-green/15 text-func-recovery-green",
   glutes: "bg-lime-500/15 text-lime-300",
   calves: "bg-teal-500/15 text-teal-300",
-  abs: "bg-yellow-500/15 text-yellow-300",
-  forearms: "bg-cyan-500/15 text-cyan-300",
+  abs: "bg-func-warning-yellow/15 text-func-warning-yellow",
+  forearms: "bg-func-hydration-cyan/15 text-func-hydration-cyan",
   traps: "bg-indigo-500/15 text-indigo-300",
-  full_body: "bg-violet-500/15 text-violet-300",
-  cardio: "bg-rose-500/15 text-rose-300",
+  full_body: "bg-func-fats-purple/15 text-func-fats-purple",
+  cardio: "bg-func-danger-red/15 text-func-danger-red",
 };
 
 export function ExercisePickerSheet({
@@ -271,7 +271,7 @@ export function ExercisePickerSheet({
                           className="shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground/50 active:bg-muted/40 transition"
                         >
                           <Star
-                            className={`h-3.5 w-3.5 ${isFav ? "fill-amber-400 text-amber-400" : ""}`}
+                            className={`h-3.5 w-3.5 ${isFav ? "fill-func-warning-yellow text-func-warning-yellow" : ""}`}
                             strokeWidth={2}
                           />
                         </button>

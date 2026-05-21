@@ -12,10 +12,10 @@ interface DailyVerdictProps {
 }
 
 const VERDICT_COPY: Record<Verdict, { headline: string; icon: typeof Zap; color: string; bg: string; ring: string }> = {
-  push:    { headline: "Push today",     icon: Zap,        color: "text-emerald-300", bg: "bg-emerald-500/15", ring: "ring-emerald-500/30" },
+  push:    { headline: "Push today",     icon: Zap,        color: "text-func-recovery-green", bg: "bg-func-recovery-green/15", ring: "ring-func-recovery-green/30" },
   steady:  { headline: "Steady session", icon: Activity,   color: "text-blue-300",    bg: "bg-blue-500/15",    ring: "ring-blue-500/30" },
-  easy:    { headline: "Take it light",  icon: Sun,        color: "text-amber-300",   bg: "bg-amber-500/15",   ring: "ring-amber-500/30" },
-  recover: { headline: "Recover today",  icon: BedDouble,  color: "text-red-300",     bg: "bg-red-500/15",     ring: "ring-red-500/30" },
+  easy:    { headline: "Take it light",  icon: Sun,        color: "text-func-warning-yellow",   bg: "bg-func-warning-yellow/15",   ring: "ring-func-warning-yellow/30" },
+  recover: { headline: "Recover today",  icon: BedDouble,  color: "text-func-danger-red",     bg: "bg-func-danger-red/15",     ring: "ring-func-danger-red/30" },
 };
 
 /**
@@ -157,7 +157,7 @@ export const BaselineConfidencePill = memo(function BaselineConfidencePill({
   if (days >= 14) {
     label = "Tuned to you";
     detail = `${days} days of data feeding your baseline`;
-    tone = "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";
+    tone = "bg-func-recovery-green/15 text-func-recovery-green border-func-recovery-green/30";
   } else if (days >= 7) {
     label = "Tuning to you";
     detail = `${days} of 14 days. Personal baseline weighting in.`;
@@ -165,7 +165,7 @@ export const BaselineConfidencePill = memo(function BaselineConfidencePill({
   } else {
     label = "Learning your patterns";
     detail = `${days} of 14 days. Using a generic baseline for now.`;
-    tone = "bg-amber-500/15 text-amber-300 border-amber-500/30";
+    tone = "bg-func-warning-yellow/15 text-func-warning-yellow border-func-warning-yellow/30";
   }
 
   return (

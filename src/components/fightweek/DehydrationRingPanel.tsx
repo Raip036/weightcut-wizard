@@ -28,11 +28,11 @@ export function DehydrationRingPanel({
     return (
       <div className="card-surface rounded-xs border border-border/50 p-5">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-full bg-green-500/20 flex items-center justify-center">
-            <CheckCircle className="h-5 w-5 text-green-400" />
+          <div className="h-10 w-10 rounded-full bg-func-recovery-green/20 flex items-center justify-center">
+            <CheckCircle className="h-5 w-5 text-func-recovery-green" />
           </div>
           <div>
-            <p className="font-semibold text-green-400">No Dehydration Needed</p>
+            <p className="font-semibold text-func-recovery-green">No Dehydration Needed</p>
             <p className="text-xs text-muted-foreground">
               Achievable entirely through diet manipulation
             </p>
@@ -89,8 +89,8 @@ export function DehydrationRingPanel({
       </div>
 
       {dehydrationSafety === "red" && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-xs p-3">
-          <p className="text-sm text-red-400 font-medium">
+        <div className="bg-func-danger-red/10 border border-func-danger-red/20 rounded-xs p-3">
+          <p className="text-sm text-func-danger-red font-medium">
             Dehydration exceeds 4% BW — significant performance risk.
             Consider moving up a weight class or extending timeline.
           </p>

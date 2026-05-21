@@ -320,7 +320,7 @@ function PulseRingLayer({ x, y }: { x: number; y: number }) {
       {[0, 1, 2].map((i) => (
         <motion.div
           key={i}
-          className="absolute rounded-full border border-amber-300/50"
+          className="absolute rounded-full border border-func-warning-yellow/50"
           style={{ left: -90, top: -90, width: 180, height: 180 }}
           animate={{ scale: [0.6, 1.8], opacity: [0.7, 0] }}
           transition={{ duration: 2.2, repeat: Infinity, delay: i * 0.7, ease: "easeOut" }}
@@ -422,7 +422,7 @@ function WeightScaleLayer({ dims }: { dims: StageDims }) {
         initial={{ opacity: 0, y: 10, scale: 0.94 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.45, ease: "easeOut" }}
-        className="relative w-[260px] rounded-xs bg-zinc-950/85 px-4 pt-3 pb-3 ring-1 ring-amber-400/20 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.9)] backdrop-blur-sm"
+        className="relative w-[260px] rounded-xs bg-zinc-950/85 px-4 pt-3 pb-3 ring-1 ring-func-warning-yellow/20 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.9)] backdrop-blur-sm"
       >
         {/* Header row: live readout + units */}
         <div className="flex items-baseline justify-between">
@@ -436,7 +436,7 @@ function WeightScaleLayer({ dims }: { dims: StageDims }) {
           >
             <motion.span
               className={`font-mono text-[28px] font-bold leading-none tabular-nums transition-colors ${
-                isOver ? "text-red-400" : "text-amber-200"
+                isOver ? "text-func-danger-red" : "text-amber-200"
               }`}
               animate={settled && isOver && !prefersReduced ? { opacity: [1, 0.45, 1, 0.6, 1] } : undefined}
               transition={settled && isOver && !prefersReduced ? { duration: 0.55, ease: "easeInOut" } : undefined}
@@ -450,7 +450,7 @@ function WeightScaleLayer({ dims }: { dims: StageDims }) {
         {/* Bar gauge */}
         <div className="relative mt-3 h-2.5 w-full overflow-hidden rounded-full bg-zinc-800/80">
           <motion.div
-            className="absolute inset-y-0 left-0 bg-gradient-to-r from-amber-300 via-amber-400 to-red-500"
+            className="absolute inset-y-0 left-0 bg-gradient-to-r from-func-warning-yellow via-func-warning-yellow to-func-danger-red"
             initial={{ width: 0 }}
             animate={{ width: `${fillPct}%` }}
             transition={{ duration: 0.08, ease: "linear" }}
@@ -487,7 +487,7 @@ function WeightScaleLayer({ dims }: { dims: StageDims }) {
                   ? { duration: 0.15 }
                   : { type: "spring", stiffness: 420, damping: 18 }
               }
-              className="absolute -right-2 -top-2 rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white ring-2 ring-zinc-950 shadow-lg shadow-red-500/30"
+              className="absolute -right-2 -top-2 rounded-full bg-func-danger-red px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white ring-2 ring-zinc-950 shadow-lg shadow-func-danger-red/30"
             >
               +{over.toFixed(1)} OVER
             </motion.div>
@@ -537,7 +537,7 @@ function ProtocolTimelineLayer({ dims }: { dims: StageDims }) {
         initial={{ opacity: 0, y: 10, scale: 0.94 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.45, ease: "easeOut" }}
-        className="relative w-[300px] rounded-xs bg-zinc-950/85 px-4 pb-3 pt-3 ring-1 ring-amber-400/20 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.9)] backdrop-blur-sm"
+        className="relative w-[300px] rounded-xs bg-zinc-950/85 px-4 pb-3 pt-3 ring-1 ring-func-warning-yellow/20 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.9)] backdrop-blur-sm"
       >
         <div className="mb-2.5 text-center text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
           Cut protocol
@@ -566,7 +566,7 @@ function ProtocolTimelineLayer({ dims }: { dims: StageDims }) {
             <div className="absolute left-1.5 right-1.5 top-1/2 h-px -translate-y-1/2 bg-zinc-800" />
             {/* Animated fill rail draws left-to-right */}
             <motion.div
-              className="absolute left-1.5 top-1/2 h-px -translate-y-1/2 origin-left bg-gradient-to-r from-amber-300 via-amber-400 to-emerald-400"
+              className="absolute left-1.5 top-1/2 h-px -translate-y-1/2 origin-left bg-gradient-to-r from-func-warning-yellow via-func-warning-yellow to-func-recovery-green"
               style={{ right: "0.375rem" }}
               initial={prefersReduced ? { scaleX: 1 } : { scaleX: 0 }}
               animate={{ scaleX: 1 }}
@@ -580,7 +580,7 @@ function ProtocolTimelineLayer({ dims }: { dims: StageDims }) {
                   <motion.div
                     key={`dot-${s.day}`}
                     className={`relative h-2.5 w-2.5 rounded-full ring-2 ring-zinc-950 ${
-                      isLast ? "bg-emerald-400" : "bg-amber-300"
+                      isLast ? "bg-func-recovery-green" : "bg-func-warning-yellow"
                     }`}
                     initial={prefersReduced ? false : { scale: 0, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
@@ -592,7 +592,7 @@ function ProtocolTimelineLayer({ dims }: { dims: StageDims }) {
                   >
                     {isLast && !prefersReduced && (
                       <motion.span
-                        className="absolute inset-0 rounded-full bg-emerald-400"
+                        className="absolute inset-0 rounded-full bg-func-recovery-green"
                         animate={{ scale: [1, 2.2, 1], opacity: [0.6, 0, 0.6] }}
                         transition={{ duration: 1.6, repeat: Infinity, ease: "easeOut", delay: 1.0 }}
                       />
@@ -611,7 +611,7 @@ function ProtocolTimelineLayer({ dims }: { dims: StageDims }) {
                 <motion.span
                   key={`l-${s.day}`}
                   className={`whitespace-nowrap text-[10px] font-medium leading-tight ${
-                    isLast ? "text-emerald-300" : "text-zinc-300"
+                    isLast ? "text-func-recovery-green" : "text-zinc-300"
                   }`}
                   initial={prefersReduced ? false : { opacity: 0, y: 2 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -655,7 +655,7 @@ const ROSTER_SAMPLE: ReadonlyArray<{ name: string; status: "ok" | "watch" | "ale
 function RosterStatusLayer({ dims }: { dims: StageDims }) {
   const prefersReduced = useReducedMotion();
   const dotColor = (s: "ok" | "watch" | "alert") =>
-    s === "ok" ? "bg-emerald-400" : s === "watch" ? "bg-amber-400" : "bg-red-400";
+    s === "ok" ? "bg-func-recovery-green" : s === "watch" ? "bg-func-warning-yellow" : "bg-func-danger-red";
 
   return (
     <div
@@ -700,7 +700,7 @@ function RosterStatusLayer({ dims }: { dims: StageDims }) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.75, duration: 0.4 }}
       >
-        <span className="text-zinc-200">Green</span> on plan · <span className="text-amber-300/95">Yellow</span> watch · <span className="text-red-400">Red</span> alert
+        <span className="text-zinc-200">Green</span> on plan · <span className="text-func-warning-yellow/95">Yellow</span> watch · <span className="text-func-danger-red">Red</span> alert
       </motion.div>
     </div>
   );
@@ -744,10 +744,10 @@ function ReadinessMeterLayer({ dims }: { dims: StageDims }) {
         {/* Gauge bar — 4 segments left-to-right (green→red) */}
         <div className="relative h-3 w-full overflow-hidden rounded-full bg-zinc-800/80">
           <div className="absolute inset-y-0 left-0 right-0 flex">
-            <div className="h-full w-1/4 bg-emerald-400/85" />
+            <div className="h-full w-1/4 bg-func-recovery-green/85" />
             <div className="h-full w-1/4 bg-sky-400/85" />
-            <div className="h-full w-1/4 bg-amber-400/85" />
-            <div className="h-full w-1/4 bg-red-500/85" />
+            <div className="h-full w-1/4 bg-func-warning-yellow/85" />
+            <div className="h-full w-1/4 bg-func-danger-red/85" />
           </div>
           {/* Needle/marker */}
           <motion.div
