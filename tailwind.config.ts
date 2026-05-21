@@ -177,7 +177,6 @@ export default {
         "gradient-aurora": "var(--gradient-aurora)",
         "gradient-cosmic": "var(--gradient-cosmic)",
         "gradient-mystic": "var(--gradient-mystic)",
-        "gradient-cta": "var(--gradient-cta)",
       },
       keyframes: {
         "accordion-down": {
