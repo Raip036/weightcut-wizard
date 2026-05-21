@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { X, Zap, Check, Loader2, RotateCcw, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSubscriptionContext } from "@/contexts/SubscriptionContext";
@@ -98,12 +98,45 @@ const FEATURES = [
   "Weight trend AI insights",
 ];
 
+/**
+ * Wait up to `timeoutMs` for the reactive Convex profile to flip into a
+ * paid tier. Used by the paywall flow to ride out the sandbox StoreKit
+ * propagation race: the local customerInfo can lag behind the RC server-
+ * to-server webhook by several seconds, and bailing immediately would
+ * show a misleading "Could not verify purchase" toast even though the
+ * webhook is about to grant entitlement.
+ *
+ * Returns true if the profile tier becomes non-"free" within the window,
+ * false otherwise. Does NOT mutate any state on its own — caller decides
+ * whether to close the paywall or surface the error.
+ */
+async function waitForProfilePro(opts: {
+  refresh: () => Promise<boolean>;
+  readTier: () => string | undefined;
+  timeoutMs?: number;
+  intervalMs?: number;
+}): Promise<boolean> {
+  const { refresh, readTier, timeoutMs = 10_000, intervalMs = 1000 } = opts;
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await refresh();
+    const tier = readTier();
+    if (tier && tier !== "free") return true;
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+  return false;
+}
+
 export function PaywallOverlay() {
   const { isPaywallOpen, closePaywall } = useSubscriptionContext();
-  const { refreshProfile } = useProfile();
+  const { profile, refreshProfile } = useProfile();
   const [activating, setActivating] = useState(false);
   const activatePremium = useAction(api.actions.activatePremium.run);
   const { toast } = useToast();
+  // Stable ref so the polling loop inside activatePro always reads the
+  // freshest profile value without re-creating the callback every render.
+  const profileRef = useRef(profile);
+  useEffect(() => { profileRef.current = profile; }, [profile]);
 
   /**
    * STRICT activation: caller must already have confirmed the paywall returned
@@ -121,10 +154,36 @@ export function PaywallOverlay() {
    * paywall → get premium" in sandbox.
    */
   const activatePro = useCallback(async (customerInfo: any) => {
-    // Local sanity check (defence in depth — the real check is server-side).
+    // Defence-in-depth check. If the local SDK already sees the entitlement,
+    // we go straight to the server-verified path. If it doesn't (sandbox
+    // propagation race), we wait briefly for the RC webhook to land instead
+    // of flashing a misleading "Could not verify purchase" toast — but we
+    // still DO NOT bypass the server-verify path: we never trust the client
+    // to flip premium on its own. See commit history in `purchases.ts` for
+    // the security rationale.
     if (!isPremiumFromCustomerInfo(customerInfo)) {
-      logger.warn("activatePro: refusing — local customerInfo not strictly premium");
-      toast({ title: "Could not verify purchase", description: "Please try again or use Restore Purchases.", variant: "destructive" });
+      logger.warn("activatePro: local customerInfo not premium — waiting for webhook");
+      setActivating(true);
+      try {
+        const grantedByWebhook = await waitForProfilePro({
+          refresh: refreshProfile,
+          readTier: () => profileRef.current?.subscription_tier,
+        });
+        if (grantedByWebhook) {
+          logger.info("activatePro: profile flipped by webhook during wait");
+          return;
+        }
+        // 10s elapsed with no webhook write — surface the original error.
+        logger.warn("activatePro: webhook timeout; reporting verify failure");
+        toast({
+          title: "Could not verify purchase",
+          description: "Please try again or use Restore Purchases.",
+          variant: "destructive",
+        });
+      } finally {
+        setActivating(false);
+        closePaywall();
+      }
       return;
     }
     setActivating(true);
@@ -137,6 +196,17 @@ export function PaywallOverlay() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       logger.error("Pro activation error", { error: msg });
+      // Same webhook-wait safety net for the RC_NOT_ENTITLED sandbox race.
+      if (msg.includes("RC_NOT_ENTITLED")) {
+        const grantedByWebhook = await waitForProfilePro({
+          refresh: refreshProfile,
+          readTier: () => profileRef.current?.subscription_tier,
+        });
+        if (grantedByWebhook) {
+          logger.info("activatePro: webhook covered RC_NOT_ENTITLED race");
+          return;
+        }
+      }
       toast({
         title: "Could not verify purchase",
         description: msg.includes("RC_NOT_ENTITLED")

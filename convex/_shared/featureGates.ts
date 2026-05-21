@@ -32,6 +32,7 @@ export const FEATURE_GATES = {
   AI_HYDRATION_INSIGHTS: { minTier: "pro" as const },
   AI_TRAINING_INSIGHTS: { minTier: "pro" as const },
   AI_TRAINING_SUMMARY: { minTier: "pro" as const },
+  AI_TRAINING_COACH_PATHS: { minTier: "pro" as const },
   AI_DAILY_WISDOM: { minTier: "pro" as const },
   AI_FIGHT_WEEK_ANALYSIS: { minTier: "pro" as const },
   AI_CUT_PLAN: { minTier: "pro" as const },

@@ -10,6 +10,7 @@ import { query, mutation } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Id } from "./_generated/dataModel";
 import { requireUserId } from "./lib/auth";
+import { api } from "./_generated/api";
 
 // ───────────────────────────────────────────────────────────────────────
 // Smart-defaults constants
@@ -498,11 +499,20 @@ export const createCalendarEntry = mutation({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .filter((q) => q.eq(q.field("status"), "active"))
       .first();
-    return await ctx.db.insert("fight_camp_calendar", {
+    const sessionId = await ctx.db.insert("fight_camp_calendar", {
       userId,
       gymId: membership?.gymId,
       ...args,
     });
+    // Training Coach: schedule note-extraction planner if notes are present.
+    if (args.notes && args.notes.trim().length > 0) {
+      await ctx.scheduler.runAfter(
+        2_000,
+        api.actions.trainingCoachPlanner.run,
+        { trigger: "sessionSave", sessionId },
+      );
+    }
+    return sessionId;
   },
 });
 
@@ -549,6 +559,16 @@ export const updateCalendarEntry = mutation({
     }
 
     await ctx.db.patch(id, patch as any);
+
+    // Training Coach: if the notes field was edited (and is non-empty), kick
+    // off the planner. Mirrors createCalendarEntry's hook.
+    if (typeof rest.notes === "string" && rest.notes.trim().length > 0) {
+      await ctx.scheduler.runAfter(
+        2_000,
+        api.actions.trainingCoachPlanner.run,
+        { trigger: "sessionSave", sessionId: id },
+      );
+    }
   },
 });
 
