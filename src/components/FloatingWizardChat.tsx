@@ -7,14 +7,14 @@ import ReactMarkdown from "react-markdown";
 import { triggerHapticSelection, triggerHapticSuccess, triggerHaptic } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
 import wizardAvatar from "@/assets/wizard-logo.webp";
-/* Orb illustration for the floating FAB. The in-chat avatars inside the
+/* 3D wizard mascot for the floating FAB. The in-chat avatars inside the
    conversation panel still use wizardAvatar for assistant-identity
-   continuity — only the FAB swaps to the orb. */
-import orbImage from "@/assets/orb.png";
+   continuity — only the FAB swaps to the mascot illustration. */
+import wizardFabImage from "@/assets/thoughtful_wizard.png";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 
-/* FAB rendered at 64px so the orb illustration reads at a glance
-   instead of looking like a tiny grey blob. Keep in sync with the
+/* FAB rendered at 64px so the wizard mascot reads at a glance
+   instead of looking like a tiny smudge. Keep in sync with the
    `w-16 h-16` Tailwind utility on the button below — this constant
    drives the snap/drag math, the className drives the visual. */
 const FAB_SIZE = 64;
@@ -166,31 +166,31 @@ export function FloatingWizardChat() {
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         data-tutorial="wizard-chat"
-        /* Orb FAB — no background fill, no border. The orb image itself
-           provides the visual. Wrapping motion is applied to the INNER
-           image (not the button) so it doesn't fight with the drag/snap
-           transforms applied imperatively to the button. Soft glow via
-           drop-shadow filter so it doesn't get clipped by the round
-           bounding box. Dimmed (grayscale + opacity) when the user
-           lacks paid access. */
+        /* Wizard FAB — no background fill, no border. The mascot image
+           itself provides the visual. Wrapping motion is applied to the
+           INNER image (not the button) so it doesn't fight with the
+           drag/snap transforms applied imperatively to the button. Soft
+           lilac/cyan glow via drop-shadow filter so it doesn't get
+           clipped by the bounding box. Dimmed (grayscale + opacity)
+           when the user lacks paid access. */
         className={`fixed top-0 left-0 z-[10000] w-16 h-16 flex items-center justify-center md:hidden touch-none ${
           open ? "pointer-events-none opacity-0" : "opacity-100"
         }`}
         style={{
           willChange: "transform",
           transition: open ? "opacity 0.15s" : undefined,
-          /* Saturation + brightness boost compensates for the orb PNG
-             reading washed-out against the dark page; drop-shadows
-             provide the lilac/cyan glow halo. */
+          /* Drop-shadows provide the lilac/cyan glow halo around the
+             mascot. The mascot PNG already has saturated brand colors,
+             so no extra saturation/brightness boost is needed. */
           filter: hasAccess
-            ? "saturate(1.55) brightness(1.08) drop-shadow(0 0 14px rgba(139, 126, 234, 0.65)) drop-shadow(0 0 28px rgba(74, 180, 237, 0.35))"
+            ? "drop-shadow(0 0 14px rgba(139, 126, 234, 0.65)) drop-shadow(0 0 28px rgba(74, 180, 237, 0.35))"
             : "grayscale(0.7) brightness(0.7) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.4))",
         }}
         aria-label="Open AI Wizard"
         aria-hidden={open}
       >
         <motion.img
-          src={orbImage}
+          src={wizardFabImage}
           alt="AI Coach"
           className="w-full h-full object-contain pointer-events-none select-none"
           draggable={false}

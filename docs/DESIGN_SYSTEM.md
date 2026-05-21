@@ -250,8 +250,9 @@ ancestor) or the backdrop-filter silently disables in WKWebView.
 - **Skip pill**: Void bg + glass blur, top-right
 
 ### Floating wizard chat (`src/components/FloatingWizardChat.tsx`)
-Orb FAB (64×64) with brand drop-shadow glow, gentle bobbing, 3 sparkles
-drifting around it when the user has paid access. Uses `src/assets/orb.png`.
+Wizard mascot FAB (64×64) with brand drop-shadow glow, gentle bobbing,
+3 sparkles drifting around it when the user has paid access. Uses
+`src/assets/thoughtful_wizard.png`.
 
 ### Welcome landing (`src/pages/Index.tsx`)
 3D wizard mascot (`src/assets/wizard_3D.png`, 300×300) with 5 sparkles + soft
