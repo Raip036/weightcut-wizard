@@ -26,7 +26,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowRight, UserPlus, History, Dumbbell } from "lucide-react";
+import { ArrowRight, Dumbbell } from "lucide-react";
 import wizardMascot from "@/assets/wizard-tutorial.png";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -286,7 +286,6 @@ export default function Community() {
                     transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
                   >
                     <EmptyFeed
-                      onInviteClick={() => navigate("/my-gym")}
                       onLogSessionClick={() => navigate("/training-calendar")}
                     />
                   </motion.div>
@@ -355,11 +354,10 @@ export default function Community() {
 /* ─── Empty feed state ─── */
 
 interface EmptyFeedProps {
-  onInviteClick: () => void;
   onLogSessionClick: () => void;
 }
 
-function EmptyFeed({ onInviteClick, onLogSessionClick }: EmptyFeedProps) {
+function EmptyFeed({ onLogSessionClick }: EmptyFeedProps) {
   return (
     <section className="mt-8 text-center max-w-sm mx-auto">
       <img
@@ -379,18 +377,6 @@ function EmptyFeed({ onInviteClick, onLogSessionClick }: EmptyFeedProps) {
           sublabel="Add it to the feed"
           onClick={onLogSessionClick}
           primary
-        />
-        <EmptyActionChip
-          icon={<UserPlus className="h-4 w-4" />}
-          label="Invite a teammate"
-          sublabel="Bring someone into the gym"
-          onClick={onInviteClick}
-        />
-        <EmptyActionChip
-          icon={<History className="h-4 w-4" />}
-          label="Browse history"
-          sublabel="Revisit past sessions"
-          onClick={onLogSessionClick}
         />
       </div>
     </section>

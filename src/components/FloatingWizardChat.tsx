@@ -1,22 +1,17 @@
 import { useRef, useEffect, useState, useCallback } from "react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { useWizardBackground } from "@/contexts/WizardBackgroundContext";
-import { Send, Trash2, X, Sparkles } from "lucide-react";
+import { Send, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
 import { triggerHapticSelection, triggerHapticSuccess, triggerHaptic } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
-import wizardAvatar from "@/assets/wizard-logo.webp";
-/* 3D wizard mascot for the floating FAB. The in-chat avatars inside the
-   conversation panel still use wizardAvatar for assistant-identity
-   continuity — only the FAB swaps to the mascot illustration. */
-import wizardFabImage from "@/assets/thoughtful_wizard.png";
+import { Orb } from "@/components/chat/Orb";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 
-/* FAB rendered at 64px so the wizard mascot reads at a glance
-   instead of looking like a tiny smudge. Keep in sync with the
-   `w-16 h-16` Tailwind utility on the button below — this constant
-   drives the snap/drag math, the className drives the visual. */
+/* FAB rendered at 64px so the orb reads at a glance.
+   Keep in sync with the `w-16 h-16` Tailwind utility on the button —
+   this constant drives the snap/drag math, the className drives the visual. */
 const FAB_SIZE = 64;
 const EDGE_MARGIN = 16;
 const SNAP_SPRING = "transform 0.35s cubic-bezier(0.25, 1, 0.5, 1)";
@@ -32,8 +27,13 @@ function loadSavedPosition(): { x: number; y: number } | null {
 export function FloatingWizardChat() {
   const { messages, isLoading, sendMessage, clearChat } = useWizardBackground();
   const { hasAccess } = useFeatureAccess("AI_WIZARD_CHAT");
+  const prefersReduced = useReducedMotion();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
+  const [inputFocused, setInputFocused] = useState(false);
+  /* Captured FAB centre at the moment of open — used as the
+     transform-origin so the panel blooms from the orb. */
+  const [originPoint, setOriginPoint] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -79,6 +79,16 @@ export function FloatingWizardChat() {
     setTimeout(() => { if (el) el.style.transition = "none"; }, 350);
   }, []);
 
+  const handleFabPress = useCallback(() => {
+    triggerHapticSelection();
+    // Capture FAB centre as bloom origin BEFORE we hide the button.
+    setOriginPoint({
+      x: posRef.current.x + FAB_SIZE / 2,
+      y: posRef.current.y + FAB_SIZE / 2,
+    });
+    setOpen(true);
+  }, []);
+
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     const touch = e.touches[0];
     const { x, y } = posRef.current;
@@ -113,9 +123,7 @@ export function FloatingWizardChat() {
       triggerHaptic(ImpactStyle.Light);
       snapToEdge();
     }
-  }, [snapToEdge]);
-
-  // No warmup needed under Convex — actions are co-located with the deployment.
+  }, [snapToEdge, handleFabPress]);
 
   // Auto-scroll on new messages. For assistant replies, show the top of the new
   // message; for user sends / loading, stay at the bottom.
@@ -151,248 +159,250 @@ export function FloatingWizardChat() {
     triggerHapticSuccess();
   };
 
-  const handleFabPress = () => {
-    triggerHapticSelection();
-    // Always open the chat — gem is only deducted when user sends a message
-    setOpen(true);
-  };
+  // Orb state mirrors chat lifecycle: thinking while streaming, listening when
+  // the composer is focused, otherwise idle.
+  const orbState: "idle" | "listening" | "thinking" = isLoading
+    ? "thinking"
+    : inputFocused
+      ? "listening"
+      : "idle";
 
   return (
     <>
-      {/* Floating button — draggable, snaps to edges. Always mounted to preserve position. */}
+      {/* Floating button — draggable on touch (iOS), click-to-open on desktop.
+          Always mounted to preserve position. We use a plain <button> instead
+          of motion.button because motion's `whileTap` writes `transform: scale(1)`
+          on release, which would wipe out the manual `translate(x,y)` transform
+          and snap the orb to top-left. The tap-scale lives on the inner Orb
+          wrapper via :active so the FAB's translate transform is untouched. */}
       <button
         ref={fabRef}
+        type="button"
+        onClick={(e) => {
+          // Suppress click that fires immediately after a drag-tap on mobile
+          // (touchend → click). dragState already opened the chat in that flow.
+          if (dragState.current.moved) {
+            e.preventDefault();
+            return;
+          }
+          handleFabPress();
+        }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         data-tutorial="wizard-chat"
-        /* Wizard FAB — no background fill, no border. The mascot image
-           itself provides the visual. Wrapping motion is applied to the
-           INNER image (not the button) so it doesn't fight with the
-           drag/snap transforms applied imperatively to the button. Soft
-           lilac/cyan glow via drop-shadow filter so it doesn't get
-           clipped by the bounding box. Dimmed (grayscale + opacity)
-           when the user lacks paid access. */
         className={`fixed top-0 left-0 z-[10000] w-16 h-16 flex items-center justify-center md:hidden touch-none ${
           open ? "pointer-events-none opacity-0" : "opacity-100"
         }`}
         style={{
           willChange: "transform",
           transition: open ? "opacity 0.15s" : undefined,
-          /* Drop-shadows provide the lilac/cyan glow halo around the
-             mascot. The mascot PNG already has saturated brand colors,
-             so no extra saturation/brightness boost is needed. */
-          filter: hasAccess
-            ? "drop-shadow(0 0 14px rgba(139, 126, 234, 0.65)) drop-shadow(0 0 28px rgba(74, 180, 237, 0.35))"
-            : "grayscale(0.7) brightness(0.7) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.4))",
+          background: "transparent",
+          border: "none",
         }}
         aria-label="Open AI Wizard"
         aria-hidden={open}
       >
-        <motion.img
-          src={wizardFabImage}
-          alt="AI Coach"
-          className="w-full h-full object-contain pointer-events-none select-none"
-          draggable={false}
-          /* Subtle bobbing — 3px up/down on a 3.4s loop. Slow + small
-             so it reads as "alive" without being distracting. */
-          animate={{ y: [0, -3, 0] }}
-          transition={{ duration: 3.4, repeat: Infinity, ease: "easeInOut" }}
-        />
-
-        {/* Whimsy sparkles — three Sparkles icons drifting around the
-            orb, each on its own twinkle loop. Sized small (h-2 to h-3)
-            and tinted with brand palette so they read as magical
-            without overpowering the orb itself. Only render when the
-            user has paid access (the locked state should feel quiet,
-            not magical). Pointer-events-none so they never intercept
-            the drag. */}
-        {hasAccess && (
-          <>
-            <motion.span
-              aria-hidden
-              className="absolute pointer-events-none"
-              style={{ top: -4, right: -2 }}
-              animate={{ opacity: [0.4, 1, 0.4], y: [0, -3, 0], rotate: [0, 18, 0] }}
-              transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
-            >
-              <Sparkles className="h-3 w-3 text-brand-wizard-lilac" strokeWidth={1.6} fill="currentColor" />
-            </motion.span>
-            <motion.span
-              aria-hidden
-              className="absolute pointer-events-none"
-              style={{ bottom: 2, left: -4 }}
-              animate={{ opacity: [0.3, 0.85, 0.3], y: [0, 2, 0], rotate: [0, -15, 0] }}
-              transition={{ duration: 3.4, repeat: Infinity, ease: "easeInOut", delay: 0.9 }}
-            >
-              <Sparkles className="h-[10px] w-[10px] text-brand-dream-cyan" strokeWidth={1.6} fill="currentColor" />
-            </motion.span>
-            <motion.span
-              aria-hidden
-              className="absolute pointer-events-none"
-              style={{ top: 8, left: -6 }}
-              animate={{ opacity: [0.25, 0.7, 0.25], y: [0, -2, 0], scale: [0.8, 1.05, 0.8] }}
-              transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut", delay: 1.5 }}
-            >
-              <Sparkles className="h-2 w-2 text-white/90" strokeWidth={1.6} fill="currentColor" />
-            </motion.span>
-          </>
-        )}
+        <span className={`inline-flex ${prefersReduced ? "" : "active:scale-[0.92] transition-transform duration-100"}`}>
+          <Orb size={FAB_SIZE} state="idle" />
+        </span>
       </button>
 
-      {/* Backdrop */}
-      {open && (
-        <div
-          className="fixed inset-0 z-[10001] bg-black/60 animate-in fade-in duration-200"
-          onClick={() => setOpen(false)}
-        />
-      )}
+      {/* Backdrop + Panel — orbit-aware bloom from FAB position. */}
+      <AnimatePresence>
+        {open && (
+          <>
+            {/* Glassy backdrop fades in independently from the panel. */}
+            <motion.div
+              key="wcw-backdrop"
+              className="fixed inset-0 z-[10001] bg-black/55 backdrop-blur-sm"
+              onClick={() => setOpen(false)}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+            />
 
-      {/* Chat Panel */}
-      {open && (
-        <div
-          className="fixed inset-x-0 bottom-0 z-[10002] flex flex-col bg-background border-t border-border/40 rounded-t-[28px] animate-in slide-in-from-bottom duration-300"
-          style={{ height: "85dvh" }}
-        >
-          {/* Drag handle */}
-          <div className="flex justify-center pt-2.5 pb-1 shrink-0">
-            <div className="w-9 h-[5px] rounded-full bg-muted-foreground/30" />
-          </div>
-
-          {/* Header — Apple Health style: clean, bold, status indicator */}
-          <div className="shrink-0 px-5 py-3 border-b border-border/40">
-            <div className="flex items-center gap-3">
-              <div className="relative shrink-0">
-                <div className="w-11 h-11 rounded-full overflow-hidden bg-muted ring-1 ring-border/60">
-                  <img src={wizardAvatar} alt="Coach" className="w-full h-full object-cover mix-blend-screen" />
-                </div>
-                <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-[hsl(var(--success))] ring-2 ring-background" />
-              </div>
-              <div className="min-w-0">
-                <h2 className="text-[17px] font-semibold leading-tight tracking-tight text-foreground">FightCamp Coach</h2>
-                <p className="text-[11px] font-medium text-[hsl(var(--success))] mt-0.5 flex items-center gap-1">
-                  <span className="inline-block w-1 h-1 rounded-full bg-[hsl(var(--success))]" />
-                  Active now
-                </p>
-              </div>
-              <div className="ml-auto flex items-center gap-1.5">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleClearChat}
-                  className="h-9 w-9 rounded-full bg-muted/60 hover:bg-muted text-muted-foreground hover:text-destructive transition-colors"
-                  title="Clear chat history"
-                  aria-label="Clear chat"
-                >
-                  <Trash2 className="h-[15px] w-[15px]" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setOpen(false)}
-                  className="h-9 w-9 rounded-full bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                  title="Close"
-                  aria-label="Close chat"
-                >
-                  <X className="h-[16px] w-[16px]" />
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* Messages area */}
-          <div className="flex-1 overflow-y-auto min-h-0 px-4 py-4 space-y-2.5" ref={scrollRef}>
-            {messages.map((msg, idx) => {
-              const prev = messages[idx - 1];
-              const isGrouped = prev && prev.role === msg.role;
-              return (
-                <div
-                  key={idx}
-                  data-msg-idx={idx}
-                  className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} ${isGrouped ? "mt-0.5" : "mt-2"} ${msg.role === "user" ? "animate-fade-in" : "animate-msg-bounce-in"}`}
-                  style={msg.role !== "user" ? { transformOrigin: "bottom left" } : undefined}
-                >
-                  <div className={`flex items-end gap-2 max-w-[82%] ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
-                    {/* Avatar — only show on first of a group for AI */}
-                    {msg.role === "assistant" ? (
-                      isGrouped ? (
-                        <div className="shrink-0 w-7" />
-                      ) : (
-                        <div className="shrink-0 h-7 w-7 rounded-full overflow-hidden bg-muted ring-1 ring-border/50">
-                          <img src={wizardAvatar} alt="Coach" className="w-full h-full object-cover mix-blend-screen" />
-                        </div>
-                      )
-                    ) : null}
-
-                    {msg.role === "user" ? (
-                      <div className="px-4 py-2.5 rounded-[20px] rounded-br-md text-[15px] leading-snug bg-primary text-primary-foreground">
-                        <div className="wizard-prose wizard-prose-user max-w-none">
-                          <ReactMarkdown>{msg.content}</ReactMarkdown>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="px-4 py-2.5 rounded-[20px] rounded-bl-md text-[15px] leading-snug bg-muted text-foreground">
-                        <div className="wizard-prose max-w-none">
-                          <ReactMarkdown>{msg.content}</ReactMarkdown>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-
-            {isLoading && (
-              <div className="flex justify-start mt-2 animate-msg-bounce-in" style={{ transformOrigin: "bottom left" }}>
-                <div className="flex items-end gap-2 max-w-[82%]">
-                  <div className="shrink-0 h-7 w-7 rounded-full overflow-hidden bg-muted ring-1 ring-border/50">
-                    <img src={wizardAvatar} alt="Coach" className="w-full h-full object-cover mix-blend-screen" />
-                  </div>
-                  <div className="px-4 py-3 rounded-[20px] rounded-bl-md bg-muted flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/70 animate-[typing_1.2s_ease-in-out_infinite]" />
-                    <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/70 animate-[typing_1.2s_ease-in-out_0.15s_infinite]" />
-                    <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/70 animate-[typing_1.2s_ease-in-out_0.3s_infinite]" />
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* ========== INPUT BAR — iOS pill style ==========
-              Keyboard is in `resize: "none"` app-wide, so we reserve
-              `--keyboard-inset` (set by the JS listener in main.tsx) in
-              addition to the safe-area inset. */}
-          <div
-            className="shrink-0 border-t border-border/40 bg-background px-4 pt-3"
-            style={{
-              paddingBottom:
-                "max(calc(env(safe-area-inset-bottom, 0px) + 10px), var(--keyboard-inset, 0px))",
-            }}
-          >
-            <form onSubmit={handleSend} className="flex items-center gap-2">
-              <div className="flex-1 flex items-center h-11 rounded-full bg-muted px-5 ring-1 ring-border/40 focus-within:ring-primary/50 transition-[box-shadow,ring]">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="Message Coach"
-                  disabled={isLoading}
-                  className="flex-1 bg-transparent text-[15px] text-foreground placeholder:text-muted-foreground/70 outline-none border-none disabled:opacity-50"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={!input.trim() || isLoading}
-                aria-label="Send message"
-                className="h-11 w-11 shrink-0 rounded-full bg-primary text-primary-foreground flex items-center justify-center disabled:opacity-40 disabled:scale-90 active:scale-90 transition-all duration-150"
+            {/* Wrapper covers viewport so transformOrigin can be expressed in
+                viewport coordinates. The panel inside is the actual surface. */}
+            <motion.div
+              key="wcw-panel-wrap"
+              className="fixed inset-0 z-[10002] flex items-end pointer-events-none"
+              initial={prefersReduced ? { opacity: 0 } : { opacity: 0, scale: 0.1 }}
+              animate={prefersReduced ? { opacity: 1 } : { opacity: 1, scale: 1 }}
+              exit={prefersReduced ? { opacity: 0 } : { opacity: 0, scale: 0.1 }}
+              style={{
+                transformOrigin: `${originPoint.x}px ${originPoint.y}px`,
+              }}
+              transition={prefersReduced
+                ? { duration: 0.15 }
+                : { type: "spring", stiffness: 380, damping: 32, mass: 0.7 }}
+            >
+              <div
+                className="w-full flex flex-col pointer-events-auto rounded-t-[28px] border border-white/10 bg-card/55 backdrop-blur-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_-12px_40px_rgba(0,0,0,0.45)]"
+                style={{ height: "85dvh" }}
               >
-                <Send className="h-[18px] w-[18px] -ml-0.5" />
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+                {/* Drag handle */}
+                <div className="flex justify-center pt-2.5 pb-1 shrink-0">
+                  <div className="w-9 h-[5px] rounded-full bg-white/25" />
+                </div>
+
+                {/* Header — Apple Health style with orb avatar */}
+                <div className="shrink-0 px-5 py-3 border-b border-white/10">
+                  <div className="flex items-center gap-3">
+                    <div className="relative shrink-0 w-11 h-11 flex items-center justify-center">
+                      <Orb size={36} state={orbState} />
+                      <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-[hsl(var(--success))] ring-2 ring-background z-10" />
+                    </div>
+                    <div className="min-w-0">
+                      <h2 className="text-[17px] font-semibold leading-tight tracking-tight text-foreground">FightCamp Coach</h2>
+                      <p className="text-[11px] font-medium text-[hsl(var(--success))] mt-0.5 flex items-center gap-1">
+                        <span className="inline-block w-1 h-1 rounded-full bg-[hsl(var(--success))]" />
+                        Active now
+                      </p>
+                    </div>
+                    <div className="ml-auto flex items-center gap-1.5">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleClearChat}
+                        className="h-8 w-8 rounded-full bg-white/5 hover:bg-white/10 text-muted-foreground/70 hover:text-destructive transition-colors"
+                        title="Clear chat history"
+                        aria-label="Clear chat"
+                      >
+                        <Trash2 className="h-[13px] w-[13px]" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setOpen(false)}
+                        className="h-9 w-9 rounded-full bg-white/5 hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors"
+                        title="Close"
+                        aria-label="Close chat"
+                      >
+                        <X className="h-[16px] w-[16px]" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Messages area */}
+                <div
+                  ref={scrollRef}
+                  className="flex-1 overflow-y-auto min-h-0 px-4 py-4 space-y-2.5 wcw-scroll"
+                  style={{
+                    overscrollBehaviorY: "contain",
+                    scrollbarWidth: "none",
+                  }}
+                >
+                  {messages.map((msg, idx) => {
+                    const prev = messages[idx - 1];
+                    const isGrouped = prev && prev.role === msg.role;
+                    return (
+                      <div
+                        key={idx}
+                        data-msg-idx={idx}
+                        className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} ${isGrouped ? "mt-0.5" : "mt-2"} ${msg.role === "user" ? "animate-fade-in" : "animate-msg-bounce-in"}`}
+                        style={msg.role !== "user" ? { transformOrigin: "bottom left" } : undefined}
+                      >
+                        <div className={`flex items-end gap-2 max-w-[82%] ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
+                          {/* Assistant orb avatar — only on first of a group */}
+                          {msg.role === "assistant" ? (
+                            isGrouped ? (
+                              <div className="shrink-0 w-7" />
+                            ) : (
+                              <div className="shrink-0 h-7 w-7 flex items-center justify-center">
+                                <Orb size={28} state="idle" />
+                              </div>
+                            )
+                          ) : null}
+
+                          {msg.role === "user" ? (
+                            <div className="px-4 py-2.5 rounded-2xl rounded-br-md text-[15px] leading-snug bg-primary/85 text-primary-foreground backdrop-blur-sm">
+                              <div className="wizard-prose wizard-prose-user max-w-none">
+                                <ReactMarkdown>{msg.content}</ReactMarkdown>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="px-4 py-2.5 rounded-2xl rounded-bl-md text-[15px] leading-snug bg-white/5 border border-white/[0.08] text-foreground">
+                              <div className="wizard-prose max-w-none">
+                                <ReactMarkdown>{msg.content}</ReactMarkdown>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {isLoading && (
+                    <div className="flex justify-start mt-2 animate-msg-bounce-in" style={{ transformOrigin: "bottom left" }}>
+                      <div className="flex items-end gap-2 max-w-[82%]">
+                        <div className="shrink-0 h-7 w-7 flex items-center justify-center">
+                          <Orb size={28} state="thinking" />
+                        </div>
+                        <div className="px-4 py-3 rounded-2xl rounded-bl-md bg-white/5 border border-white/[0.08] flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/70 animate-[typing_1.2s_ease-in-out_infinite]" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/70 animate-[typing_1.2s_ease-in-out_0.15s_infinite]" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/70 animate-[typing_1.2s_ease-in-out_0.3s_infinite]" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* ========== INPUT BAR — glassy pill ==========
+                    Keyboard is in `resize: "none"` app-wide, so we reserve
+                    `--keyboard-inset` (set by the JS listener in main.tsx) in
+                    addition to the safe-area inset. */}
+                <div
+                  className="shrink-0 border-t border-white/10 bg-background/30 backdrop-blur-2xl px-4 pt-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+                  style={{
+                    paddingBottom:
+                      "max(calc(env(safe-area-inset-bottom, 0px) + 10px), var(--keyboard-inset, 0px))",
+                  }}
+                >
+                  <form onSubmit={handleSend} className="flex items-center gap-2">
+                    <div className="flex-1 flex items-center h-11 rounded-full bg-white/8 px-5 ring-1 ring-white/10 focus-within:ring-1 focus-within:ring-primary/30 transition-all">
+                      <input
+                        ref={inputRef}
+                        type="text"
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        onFocus={() => setInputFocused(true)}
+                        onBlur={() => setInputFocused(false)}
+                        placeholder="Message Coach"
+                        disabled={isLoading}
+                        className="flex-1 bg-transparent text-[15px] text-foreground placeholder:text-muted-foreground/70 outline-none border-none disabled:opacity-50"
+                      />
+                    </div>
+                    <div className="relative shrink-0">
+                      {/* Orb-tinted glow halo behind send — only when ready. */}
+                      {input.trim() && !isLoading && (
+                        <span
+                          aria-hidden
+                          className="absolute inset-0 rounded-full bg-primary/45 blur-md scale-110 pointer-events-none"
+                        />
+                      )}
+                      <button
+                        type="submit"
+                        disabled={!input.trim() || isLoading}
+                        aria-label="Send message"
+                        className="relative h-11 w-11 rounded-full bg-primary text-primary-foreground flex items-center justify-center disabled:opacity-40 disabled:scale-90 active:scale-90 transition-all duration-150"
+                      >
+                        <Send className="h-[18px] w-[18px] -ml-0.5" />
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Hide webkit scrollbar inside the chat panel. */}
+      <style>{`.wcw-scroll::-webkit-scrollbar { display: none; }`}</style>
     </>
   );
 }
