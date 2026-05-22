@@ -583,12 +583,32 @@ export function FightFormRing({
               >
                 Day {calibratingDays.current} logged ✓
               </span>
+            ) : calibRemainingDays === 0 ? (
+              // Final stage. The score is moments away — drop the rotating
+              // signal feed and use a calmer two-line stack so the long
+              // copy fits the ring without the bulky 22px headline. Dots are
+              // positioned absolutely outside the text so "your first score"
+              // centers under "Computing" without being pushed off-center.
+              <div className="flex flex-col items-center leading-tight">
+                <span
+                  className="display-number text-lg"
+                  style={{ color: `rgb(${CALIB_RGB})` }}
+                >
+                  Computing
+                </span>
+                <span className="relative mt-1 text-[11px] tracking-wide text-muted-foreground">
+                  your first score
+                  <span aria-hidden className="absolute left-full top-0 pl-0.5">
+                    <span className="ff-ring-calib-dot" style={{ animationDelay: "0s" }}>.</span>
+                    <span className="ff-ring-calib-dot" style={{ animationDelay: "0.35s" }}>.</span>
+                    <span className="ff-ring-calib-dot" style={{ animationDelay: "0.7s" }}>.</span>
+                  </span>
+                </span>
+              </div>
             ) : (
               <>
                 <span className="display-number text-[22px] leading-tight">
-                  {calibRemainingDays === 0 ? (
-                    "Computing first score"
-                  ) : calibRemainingDays === 1 ? (
+                  {calibRemainingDays === 1 ? (
                     "Score ready tomorrow"
                   ) : calibratingDays ? (
                     <>
