@@ -7,7 +7,7 @@ export default {
   darkMode: ["class"],
   content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
   safelist: [
-    { pattern: /^ff-ring-ribbon-[1-4]$/ },
+    { pattern: /^ff-ring-ribbon-[1-2]$/ },
     { pattern: /^ff-ring-particle-(lg|sm|md)$/ },
     { pattern: /^ff-ring-wisp-[0-4]$/ },
   ],

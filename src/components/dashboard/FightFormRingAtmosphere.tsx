@@ -6,11 +6,11 @@ import { memo, useRef } from "react";
 // restarting from frame 0 when the dashboard navigates back in.
 const ATMOSPHERE_EPOCH_MS = Date.now();
 
-// Four concentric aurora ribbons replace the older single-sweep aurora + 5
-// elliptical wisp blobs. Each ribbon is a full-round conic gradient at a
-// different inset/blur/speed/direction — together they read as the layered
-// curtain of light from a northern-lights sky while staying strictly circular.
-const RIBBON_COUNT = 4;
+// Two concentric aurora ribbons (was four — outermost two dropped per design
+// feedback). Each ribbon is a full-round conic gradient at a different
+// inset/speed/direction — together they read as overlapping circular light
+// streams while staying strictly circular.
+const RIBBON_COUNT = 2;
 // Golden-ratio scatter constant. Calibration particles use phase = (i * GOLDEN)
 // % 1 so each phase is a pure function of the index — when particleCount grows
 // (calibProgress climbs), existing particles keep their positions instead of

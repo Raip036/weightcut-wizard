@@ -960,10 +960,11 @@ All colors MUST be HSL.
     will-change: transform;
   }
 
-  /* Innermost band — tight against the ring, fastest rotation.
-     Wide bright arcs (~50-70° each) so they read as flowing light streams,
-     not dots. Mask is ~10% thick (vs the prior 4.5%) so the band is
-     unmistakably an arc not a smudge. */
+  /* Innermost band — tight against the ring, fastest rotation. Wider arcs
+     (~50-70° each) read as flowing light streams. Each band carries TWO
+     animations: rotation around the ring + a shimmer pulse that brightens
+     and dims the band so the light feels alive instead of static. Each
+     ribbon shimmers on its own clock so they don't all peak together. */
   .ff-ring-ribbon-1 {
     inset: -2%;
     background: conic-gradient(
@@ -978,9 +979,11 @@ All colors MUST be HSL.
       rgba(var(--ff-halo-rgb), 0.95) 305deg,
       transparent         355deg
     );
-    -webkit-mask: radial-gradient(circle, transparent 67%, black 71%, black 78%, transparent 82%);
-            mask: radial-gradient(circle, transparent 67%, black 71%, black 78%, transparent 82%);
-    animation: ffRibbonRotateCW 11s linear infinite;
+    -webkit-mask: radial-gradient(circle, transparent 64%, black 69%, black 80%, transparent 84%);
+            mask: radial-gradient(circle, transparent 64%, black 69%, black 80%, transparent 84%);
+    animation:
+      ffRibbonRotateCW 11s linear infinite,
+      ffRibbonShimmer 2.4s ease-in-out infinite;
   }
 
   /* Mid-inner band — counter-rotating, two long arcs offset 180°. */
@@ -997,45 +1000,12 @@ All colors MUST be HSL.
       rgba(var(--ff-halo-rgb), 1)   300deg,
       transparent         355deg
     );
-    -webkit-mask: radial-gradient(circle, transparent 68%, black 72%, black 79%, transparent 83%);
-            mask: radial-gradient(circle, transparent 68%, black 72%, black 79%, transparent 83%);
-    animation: ffRibbonRotateCCW 17s linear infinite;
-  }
-
-  /* Mid-outer band — long sweeping arc + a shorter accent. */
-  .ff-ring-ribbon-3 {
-    inset: -18%;
-    background: conic-gradient(
-      from 220deg,
-      transparent           0deg,
-      rgba(var(--ff-halo-rgb), 0.85)  50deg,
-      rgba(var(--ff-halo-rgb), 0.85) 130deg,
-      transparent         185deg,
-      rgba(var(--ff-halo-rgb), 0.7)  240deg,
-      rgba(var(--ff-halo-rgb), 0.7)  295deg,
-      transparent         350deg
-    );
-    -webkit-mask: radial-gradient(circle, transparent 69%, black 73%, black 80%, transparent 84%);
-            mask: radial-gradient(circle, transparent 69%, black 73%, black 80%, transparent 84%);
-    animation: ffRibbonRotateCW 23s linear infinite;
-  }
-
-  /* Outermost band — biggest radius, slowest, broadest arc. */
-  .ff-ring-ribbon-4 {
-    inset: -26%;
-    background: conic-gradient(
-      from 320deg,
-      transparent           0deg,
-      rgba(var(--ff-halo-rgb), 0.65)  60deg,
-      rgba(var(--ff-halo-rgb), 0.65) 145deg,
-      transparent         210deg,
-      rgba(var(--ff-halo-rgb), 0.55) 270deg,
-      rgba(var(--ff-halo-rgb), 0.55) 330deg,
-      transparent         360deg
-    );
-    -webkit-mask: radial-gradient(circle, transparent 70%, black 74%, black 81%, transparent 85%);
-            mask: radial-gradient(circle, transparent 70%, black 74%, black 81%, transparent 85%);
-    animation: ffRibbonRotateCCW 31s linear infinite;
+    -webkit-mask: radial-gradient(circle, transparent 65%, black 70%, black 81%, transparent 85%);
+            mask: radial-gradient(circle, transparent 65%, black 70%, black 81%, transparent 85%);
+    animation:
+      ffRibbonRotateCCW 17s linear infinite,
+      ffRibbonShimmer 2.9s ease-in-out infinite;
+    animation-delay: 0s, -0.8s;
   }
 
   @keyframes ffRibbonRotateCW {
@@ -1045,6 +1015,13 @@ All colors MUST be HSL.
   @keyframes ffRibbonRotateCCW {
     from { transform: rotate(360deg); }
     to   { transform: rotate(0deg); }
+  }
+  /* Shimmer — brightness pulse that fades the band slightly + boosts its
+     luminance at the peak so the arcs look alive. Filter shorthand stacks
+     with the rotation transform without conflict. */
+  @keyframes ffRibbonShimmer {
+    0%, 100% { opacity: 0.7;  filter: brightness(0.95); }
+    50%      { opacity: 1;    filter: brightness(1.35); }
   }
 
   /* Inner core glow — a soft breathing highlight inside the ring centre.
