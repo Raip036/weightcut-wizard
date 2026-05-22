@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ClipboardList } from "lucide-react";
+import { Icon } from "@/components/ui/Icon";
 import { useQuery } from "convex/react";
 import type { Id } from "@/../convex/_generated/dataModel";
 import { api } from "@/../convex/_generated/api";
@@ -48,10 +48,11 @@ export function MissionStack() {
       >
         <div className="flex items-start gap-3">
           <div className="h-10 w-10 flex items-center justify-center flex-shrink-0">
-            <ClipboardList
-              className="h-5 w-5 text-primary"
+            <Icon
+              name="listOutline"
+              size={20}
+              className="text-primary"
               aria-hidden
-              strokeWidth={2.2}
             />
           </div>
           <div className="flex-1 min-w-0">

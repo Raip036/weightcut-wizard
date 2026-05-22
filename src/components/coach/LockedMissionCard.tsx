@@ -1,4 +1,4 @@
-import { Sparkles } from "lucide-react";
+import { Icon } from "@/components/ui/Icon";
 import { useSubscription } from "@/hooks/useSubscription";
 import { triggerHapticSelection } from "@/lib/haptics";
 
@@ -25,7 +25,7 @@ export function LockedMissionCard() {
     <div className="w-full rounded-xs card-surface p-4 flex flex-col items-start gap-3">
       <div className="flex items-center gap-3">
         <div className="h-10 w-10 flex items-center justify-center flex-shrink-0">
-          <Sparkles className="h-5 w-5 text-primary" aria-hidden />
+          <Icon name="sparklesOutline" size={20} className="text-primary" aria-hidden />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">

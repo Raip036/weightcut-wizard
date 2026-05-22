@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Check, ChevronDown, ChevronRight, Clock } from "lucide-react";
+import { Icon } from "@/components/ui/Icon";
 import { useMutation, useQuery } from "convex/react";
 import type { Doc, Id } from "@/../convex/_generated/dataModel";
 import { api } from "@/../convex/_generated/api";
@@ -169,12 +169,13 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
           </span>
 
           {/* Chevron */}
-          <ChevronDown
+          <Icon
+            name="chevronDownOutline"
+            size={16}
             className={cn(
-              "h-4 w-4 text-muted-foreground/60 flex-shrink-0 transition-transform",
+              "text-muted-foreground/60 flex-shrink-0 transition-transform",
               expanded && "rotate-180",
             )}
-            strokeWidth={2.4}
           />
         </button>
 
@@ -253,9 +254,10 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
                         aria-hidden
                       >
                         {item.completed && (
-                          <Check
-                            className="h-3.5 w-3.5 text-background"
-                            strokeWidth={3}
+                          <Icon
+                            name="checkmarkOutline"
+                            size={14}
+                            className="text-background"
                           />
                         )}
                       </span>
@@ -293,7 +295,7 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
                             )}
                             {item.durationMin && (
                               <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-muted-foreground/80">
-                                <Clock className="h-3 w-3" strokeWidth={2.4} />
+                                <Icon name="timeOutline" size={12} />
                                 {item.durationMin}m
                               </span>
                             )}
@@ -319,12 +321,13 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
                 {itemsExpanded
                   ? "Show fewer"
                   : `Show all ${totalCount} items`}
-                <ChevronRight
+                <Icon
+                  name="chevronForwardOutline"
+                  size={14}
                   className={cn(
-                    "h-3.5 w-3.5 transition-transform",
+                    "transition-transform",
                     itemsExpanded && "rotate-90",
                   )}
-                  strokeWidth={2.4}
                 />
               </button>
             )}

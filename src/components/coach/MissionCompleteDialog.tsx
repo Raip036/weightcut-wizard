@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Trophy } from "lucide-react";
+import { Icon } from "@/components/ui/Icon";
 import {
   Dialog,
   DialogContent,
@@ -66,11 +66,9 @@ export function MissionCompleteDialog({
               backgroundColor: `hsl(var(${token}) / ${leveledUp ? 0.32 : 0.18})`,
             }}
           >
-            <Trophy
-              className="h-7 w-7"
-              style={{ color: `hsl(var(${token}))` }}
-              aria-hidden
-            />
+            <span style={{ color: `hsl(var(${token}))` }}>
+              <Icon name="trophyOutline" size={28} />
+            </span>
           </div>
 
           <span

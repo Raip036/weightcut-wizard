@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar, Trophy, Dumbbell, BookOpen, TrendingDown, ChevronRight, Flag } from "lucide-react";
+import { Icon, type IonIconName } from "@/components/ui/Icon";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useUser } from "@/contexts/UserContext";
@@ -14,7 +14,7 @@ interface CampSection {
   title: string;
   description: string;
   url: string;
-  icon: React.ElementType;
+  icon: IonIconName;
   fighterOnly?: boolean;
   primary?: boolean;
   utility?: boolean;
@@ -25,14 +25,14 @@ const sections: CampSection[] = [
     title: "Training Calendar",
     description: "Schedule sessions, log training and track progress",
     url: "/training-calendar",
-    icon: Calendar,
+    icon: "calendarOutline",
     primary: true,
   },
   {
     title: "Fight Camps",
     description: "Manage camps and plan your preparation phases",
     url: "/fight-camps",
-    icon: Trophy,
+    icon: "trophyOutline",
     fighterOnly: true,
     primary: true,
   },
@@ -40,14 +40,14 @@ const sections: CampSection[] = [
     title: "Gym Tracker",
     description: "Log gym sessions, track exercises and monitor volume",
     url: "/gym",
-    icon: Dumbbell,
+    icon: "barbellOutline",
     primary: true,
   },
   {
     title: "Weight Cut Protocol",
     description: "Manage your cut and rehydration strategy for fight week",
     url: "/weight-cut",
-    icon: TrendingDown,
+    icon: "trendingDownOutline",
     fighterOnly: true,
     primary: true,
   },
@@ -55,7 +55,7 @@ const sections: CampSection[] = [
     title: "Training Library",
     description: "Browse drills, techniques and training resources",
     url: "/training-library",
-    icon: BookOpen,
+    icon: "bookOutline",
     utility: true,
   },
 ];
@@ -153,7 +153,7 @@ export default function Camp() {
           <div className="flex items-start justify-between gap-3 mb-3">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5 mb-0.5">
-                <Flag className="h-3 w-3 text-primary shrink-0" />
+                <Icon name="flagOutline" size={12} className="text-primary shrink-0" />
                 <p className="text-micro uppercase tracking-wider text-primary/80 font-semibold">
                   Active Camp
                 </p>
@@ -203,7 +203,7 @@ export default function Camp() {
           className="w-full rounded-xs card-surface p-4 flex items-center gap-3.5 active:scale-[0.99] transition-all text-left"
         >
           <div className="h-10 w-10 flex items-center justify-center flex-shrink-0">
-            <TrendingDown className="h-5 w-5 text-primary" />
+            <Icon name="trendingDownOutline" size={20} className="text-primary" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-body-sm font-semibold text-foreground leading-tight">
@@ -214,7 +214,7 @@ export default function Camp() {
               {cutPlanSummary.goalWeight ? ` · target ${cutPlanSummary.goalWeight}kg` : ""}
             </p>
           </div>
-          <ChevronRight className="h-4 w-4 text-muted-foreground/40 flex-shrink-0" />
+          <Icon name="chevronForwardOutline" size={16} className="text-muted-foreground/40 flex-shrink-0" />
         </button>
       )}
 
@@ -228,7 +228,6 @@ export default function Camp() {
         </p>
         <div className="space-y-2">
           {actionSections.map((section) => {
-            const Icon = section.icon;
             return (
               <button
                 key={section.url}
@@ -237,7 +236,7 @@ export default function Camp() {
                 className="w-full rounded-xs card-surface p-4 flex items-center gap-3.5 active:scale-[0.99] transition-all text-left"
               >
                 <div className="h-10 w-10 flex items-center justify-center flex-shrink-0">
-                  <Icon className="h-5 w-5 text-muted-foreground" />
+                  <Icon name={section.icon} size={20} className="text-muted-foreground" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-body-sm font-semibold text-foreground leading-tight">
@@ -247,7 +246,7 @@ export default function Camp() {
                     {section.description}
                   </p>
                 </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground/40 flex-shrink-0" />
+                <Icon name="chevronForwardOutline" size={16} className="text-muted-foreground/40 flex-shrink-0" />
               </button>
             );
           })}
@@ -262,7 +261,6 @@ export default function Camp() {
           </p>
           <div className="space-y-2">
             {referenceSections.map((section) => {
-              const Icon = section.icon;
               return (
                 <button
                   key={section.url}
@@ -271,7 +269,7 @@ export default function Camp() {
                   className="w-full rounded-xs card-surface p-4 flex items-center gap-3.5 active:scale-[0.99] transition-all text-left"
                 >
                   <div className="h-10 w-10 flex items-center justify-center flex-shrink-0">
-                    <Icon className="h-5 w-5 text-muted-foreground" />
+                    <Icon name={section.icon} size={20} className="text-muted-foreground" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-body-sm font-semibold text-foreground leading-tight">
@@ -281,7 +279,7 @@ export default function Camp() {
                       {section.description}
                     </p>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground/40 flex-shrink-0" />
+                  <Icon name="chevronForwardOutline" size={16} className="text-muted-foreground/40 flex-shrink-0" />
                 </button>
               );
             })}
