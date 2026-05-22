@@ -474,6 +474,7 @@ export default function NutritionPage() {
           aiMeal={aiMeal}
           macroCalc={macroCalc}
           savingAllMeals={mealOps.savingAllMeals}
+          savingMeal={mealOps.savingMeal}
           onAddManualMeal={handleAddManualMeal}
           aiTask={aiTask ?? null}
           onCancelAi={cancelAI}

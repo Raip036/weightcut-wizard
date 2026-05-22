@@ -1057,25 +1057,56 @@ All colors MUST be HSL.
     }
   }
 
+  /* Breath-synced sweep: 3.2s ease-in-out with extended keyframes that
+     hold near the apex (170°→190° over only 8% of the cycle) so the comet
+     feels like it's "considering" at the top of the arc instead of spinning
+     on a constant motor. Phase-locks with .ff-ring-calib-track below — both
+     run on the same 3.2s clock so the track brightens as the head passes. */
   .ff-ring-calib-sweep {
-    animation: ffCalibSweep 2.8s linear infinite;
+    animation: ffCalibSweep 3.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
     will-change: transform;
   }
 
   @keyframes ffCalibSweep {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(360deg); }
+    0%   { transform: rotate(0deg); }
+    46%  { transform: rotate(170deg); }
+    54%  { transform: rotate(190deg); }
+    100% { transform: rotate(360deg); }
   }
 
-  /* Track breathes while scanning — slow opacity pulse so the ring reads
-     as alive even before the comet passes over it. */
+  /* Track breathes in lockstep with the sweep above — the 50% peak lines
+     up with the comet head passing through the apex, unifying the rhythm. */
   .ff-ring-calib-track {
-    animation: ffCalibTrack 2.4s ease-in-out infinite;
+    animation: ffCalibTrack 3.2s ease-in-out infinite;
   }
 
   @keyframes ffCalibTrack {
-    0%, 100% { stroke-opacity: 0.08; }
-    50%      { stroke-opacity: 0.28; }
+    0%, 100% { stroke-opacity: 0.10; }
+    50%      { stroke-opacity: 0.36; }
+  }
+
+  /* Score-arc spring bloom: fires for ~700ms whenever calibratingDays.current
+     ticks up. Spring overshoot (cubic-bezier 0.34, 1.56, 0.64, 1) + glow
+     drop-shadow give the user a tactile "ka-chunk" that proves their log
+     was credited toward unlock. */
+  .ff-ring-score-bloom {
+    animation: ffRingScoreBloom 700ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    will-change: transform, filter;
+  }
+
+  @keyframes ffRingScoreBloom {
+    0%   {
+      transform: scale(1);
+      filter: drop-shadow(0 0 0 rgba(56, 189, 248, 0));
+    }
+    30%  {
+      transform: scale(1.045);
+      filter: drop-shadow(0 0 22px rgba(56, 189, 248, 0.65));
+    }
+    100% {
+      transform: scale(1);
+      filter: drop-shadow(0 0 0 rgba(56, 189, 248, 0));
+    }
   }
 
   /* Sequential dots: each fades in then out on a shared 1.05s cycle with
@@ -1089,6 +1120,37 @@ All colors MUST be HSL.
   @keyframes ffCalibDot {
     0%, 60%, 100% { opacity: 0; }
     25%           { opacity: 1; }
+  }
+
+  /* Subline crossfade: the React component re-keys the span on every phrase
+     change, so this animation fires once per cycle and gives the rotating
+     "Reading training load…" feed a quiet fade-from-below feel instead of
+     a snap-replace. */
+  .ff-ring-calib-phrase {
+    animation: ffCalibPhraseFade 0.5s ease-out;
+    will-change: opacity, transform;
+  }
+
+  @keyframes ffCalibPhraseFade {
+    0%   { opacity: 0; transform: translateY(3px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Day-completion ping. When daysWithAnyLog increments, the center swaps
+     to "Day N logged ✓" for ~1.6s. The ping bounces in to feel tactile and
+     fades out the last 300ms so the return to default reads as a settle,
+     not a cut. */
+  .ff-ring-calib-ping {
+    animation: ffCalibPing 1.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    will-change: opacity, transform;
+  }
+
+  @keyframes ffCalibPing {
+    0%   { opacity: 0; transform: scale(0.7); }
+    25%  { opacity: 1; transform: scale(1.08); }
+    40%  { opacity: 1; transform: scale(1); }
+    80%  { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(0.96); }
   }
 
   /* Outer-ring fight-week pulse: slow stroke-opacity breath so the fighter
@@ -1106,6 +1168,48 @@ All colors MUST be HSL.
     50% {
       stroke-opacity: 0.75;
     }
+  }
+
+  /* Unlock victory lap: fires once when state transitions calibrating→ok.
+     A scale + glow + brightness sweep that opens cyan (carrying over from
+     calibration) and lands in emerald (the new ok-state baseline). Pairs
+     with the React-driven score arc grow + number count-up, so this class
+     handles the surrounding "celebrate" while the arc handles "reveal". */
+  .ff-ring-unlock-bloom {
+    animation: ffRingUnlockBloom 1500ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform, filter;
+  }
+
+  @keyframes ffRingUnlockBloom {
+    0% {
+      transform: scale(0.97);
+      filter: drop-shadow(0 0 0 rgba(56, 189, 248, 0)) brightness(0.95);
+    }
+    20% {
+      transform: scale(1.07);
+      filter: drop-shadow(0 0 46px rgba(56, 189, 248, 0.92)) brightness(1.22);
+    }
+    45% {
+      transform: scale(1.025);
+      filter: drop-shadow(0 0 30px rgba(16, 185, 129, 0.55)) brightness(1.08);
+    }
+    100% {
+      transform: scale(1);
+      filter: drop-shadow(0 0 0 rgba(16, 185, 129, 0)) brightness(1);
+    }
+  }
+
+  /* Comet finale: while the unlock bloom is firing, fade the four calibration
+     comet arcs out over ~540ms so they hand the stage to the new score arc.
+     Lets the comet keep its existing rotation (no snap-back from re-keying
+     transform) while making its exit feel intentional, not abrupt. */
+  .ff-ring-unlock-comet-finale {
+    animation: ffCalibSweepFinaleFade 540ms cubic-bezier(0.55, 0, 0.85, 0.5) forwards !important;
+  }
+
+  @keyframes ffCalibSweepFinaleFade {
+    0%   { opacity: 1; }
+    100% { opacity: 0; }
   }
 
   /* One-shot bloom that fires when the user crosses into Sharp. Scale + soft

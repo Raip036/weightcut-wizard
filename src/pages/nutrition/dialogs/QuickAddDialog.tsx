@@ -69,6 +69,15 @@ interface QuickAddDialogProps {
     handleCalorieChange: (value: string, setter: React.Dispatch<React.SetStateAction<ManualMealForm>>) => void;
   };
   savingAllMeals: boolean;
+  /**
+   * Single-meal save lock. Disables both the manual "Add to log" CTA and the
+   * AI tab's "Done" button while a `createMealWithItems` mutation is in
+   * flight, so spam taps on slow networks can't fire multiple inserts.
+   * Server-side idempotency in the Convex mutation backs this up — if a tap
+   * does slip through (e.g. before the disabled state propagates), the
+   * duplicate collapses onto the first save's mealId server-side.
+   */
+  savingMeal: boolean;
   onAddManualMeal: () => void;
   aiTask: AiTaskShape | null;
   onCancelAi: () => void;
@@ -97,6 +106,7 @@ export function QuickAddDialog({
   aiMeal,
   macroCalc,
   savingAllMeals,
+  savingMeal,
   onAddManualMeal,
   aiTask,
   onCancelAi,
@@ -296,6 +306,7 @@ export function QuickAddDialog({
               steps={aiTask.steps}
               startedAt={aiTask.startedAt}
               title={aiTask.label}
+              lineItems={aiMeal.aiLineItems}
               onCancel={() => { onCancelAi(); onDismissTask(aiTask.id); }}
             />
           ) : (
@@ -722,10 +733,17 @@ export function QuickAddDialog({
                   </button>
                   <button
                     onClick={aiMeal.handleSaveAiMeal}
-                    disabled={aiMeal.aiLineItems.length === 0}
+                    disabled={aiMeal.aiLineItems.length === 0 || savingMeal}
                     className="flex-1 h-12 rounded-xs text-[15px] font-semibold bg-foreground text-background active:scale-[0.98] transition-transform disabled:opacity-40"
                   >
-                    Done
+                    {savingMeal ? (
+                      <span className="inline-flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Adding…
+                      </span>
+                    ) : (
+                      "Done"
+                    )}
                   </button>
                 </div>
               </div>
@@ -909,10 +927,10 @@ export function QuickAddDialog({
 
             <button
               onClick={onAddManualMeal}
-              disabled={savingAllMeals}
+              disabled={savingAllMeals || savingMeal}
               className="w-full h-12 mt-1 rounded-xs text-[15px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40"
             >
-              {savingAllMeals ? (
+              {savingAllMeals || savingMeal ? (
                 <span className="inline-flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Adding…
