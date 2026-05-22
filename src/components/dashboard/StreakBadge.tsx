@@ -1,4 +1,4 @@
-import { Flame } from "lucide-react";
+import { Icon } from "@/components/ui/Icon";
 import { motion, useReducedMotion } from "motion/react";
 import { springs } from "@/lib/motion";
 import { AnimatedNumber } from "@/components/motion";
@@ -37,10 +37,10 @@ export function StreakBadge({ streak, isActive }: StreakBadgeProps) {
               : undefined
           }
         >
-          <Flame
-            className={`h-4 w-4 ${
-              isActive ? "text-energy" : "text-muted-foreground"
-            }`}
+          <Icon
+            name="flameOutline"
+            size={16}
+            className={isActive ? "text-energy" : "text-muted-foreground"}
           />
         </motion.div>
         <span className="text-sm font-bold display-number">

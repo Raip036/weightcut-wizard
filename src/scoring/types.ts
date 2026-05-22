@@ -165,6 +165,13 @@ export type ScoringConfig = {
   sleep: {
     targetHoursPerNight: number;
     debtPenaltyPerHour: number;
+    /**
+     * Per-night sleep-debt penalty used by `computeSleep` after switching to
+     * the average-per-logged-night formula: `100 - debt * perHourPenalty`,
+     * where `debt` is hours-short PER NIGHT (not weekly).
+     * Default 30: 1h/night short → 70, 2h/night → 40, 3h+/night → ~10 floor.
+     */
+    perHourPenalty: number;
     // Hours to assume when the user has logged meaningful training on a day
     // but never entered sleep — rescues the score from a "forgot to log"
     // penalty without rewarding genuine sleep deprivation.

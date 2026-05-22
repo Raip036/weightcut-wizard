@@ -22,26 +22,43 @@ export function computeWeightCut(input: Input, asOfDate: string, cfg: ScoringCon
   }
   const sorted = [...weights].sort((a, b) => a.date.localeCompare(b.date));
   const current = sorted[sorted.length - 1];
-  const daysElapsed = Math.max(1, daysBetween(campStartDate, current.date));
+  // Floor `daysElapsed` at 7 (not 1): two same-day weigh-ins shouldn't yield
+  // a 7×-blown weekly rate. A week is the minimum window where a "%/wk"
+  // figure makes physiological sense.
+  const daysElapsed = Math.max(7, daysBetween(campStartDate, current.date));
   const weeksElapsed = daysElapsed / 7;
   const kgLost = startingWeightKg - current.weightKg;
   const ratePctPerWeek = (kgLost / startingWeightKg / weeksElapsed) * 100;
 
   const c = cfg.weightCut;
   const [lo, hi] = c.sustainableRatePctPerWeek;
+  // Dead-band: ±0.05%/wk counts as "flat" so day-to-day weigh-in noise
+  // doesn't bounce the user between gaining/plateau/cutting states.
+  const PLATEAU_BAND = 0.05;
   let value: number;
-  if (ratePctPerWeek <= 0) {
-    value = 30; // gaining weight
-  } else if (ratePctPerWeek >= lo && ratePctPerWeek <= hi) {
-    value = 100;
-  } else if (ratePctPerWeek < lo) {
-    value = 60 + (ratePctPerWeek / lo) * 40;
-  } else if (ratePctPerWeek <= c.decayEdgePct) {
-    value = 100 - ((ratePctPerWeek - hi) / (c.decayEdgePct - hi)) * 50;
-  } else if (ratePctPerWeek <= c.dangerEdgePct) {
-    value = 50 - ((ratePctPerWeek - c.decayEdgePct) / (c.dangerEdgePct - c.decayEdgePct)) * 30;
+  if (ratePctPerWeek > PLATEAU_BAND && ratePctPerWeek < lo) {
+    // Slow-but-positive cut: interpolate 50 → 100 across [PLATEAU_BAND, lo]
+    // so there's no discontinuity at the boundary between "flat" and the
+    // legacy `60 + (rate/lo)*40` ramp (which jumped from 30 to 60).
+    const t = (ratePctPerWeek - PLATEAU_BAND) / (lo - PLATEAU_BAND);
+    value = 50 + t * 50;
+  } else if (ratePctPerWeek > PLATEAU_BAND) {
+    // ratePctPerWeek >= lo — sustainable, decay, or danger band.
+    if (ratePctPerWeek <= hi) {
+      value = 100;
+    } else if (ratePctPerWeek <= c.decayEdgePct) {
+      value = 100 - ((ratePctPerWeek - hi) / (c.decayEdgePct - hi)) * 50;
+    } else if (ratePctPerWeek <= c.dangerEdgePct) {
+      value = 50 - ((ratePctPerWeek - c.decayEdgePct) / (c.dangerEdgePct - c.decayEdgePct)) * 30;
+    } else {
+      value = 20;
+    }
+  } else if (ratePctPerWeek >= -PLATEAU_BAND) {
+    // Within the dead-band on either side of 0 — effectively flat.
+    value = 50;
   } else {
-    value = 20;
+    // Gaining (more than 0.05%/wk in the wrong direction).
+    value = 30;
   }
 
   // On-pace check: if we won't hit goalWeight by fightDate at current rate, deduct.

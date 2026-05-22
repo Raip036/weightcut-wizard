@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, startOfWeek, endOfWeek, subWeeks } from "date-fns";
-import { ChevronRight } from "lucide-react";
+import { Icon } from "@/components/ui/Icon";
 import { useQuery } from "convex/react";
 import { convex } from "@/integrations/convex/client";
 import { api } from "@/../convex/_generated/api";
@@ -356,7 +356,7 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
               )}
             </div>
           </div>
-          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/30 flex-shrink-0" />
+          <Icon name="chevronForwardOutline" size={14} className="text-muted-foreground/30 flex-shrink-0" />
         </div>
 
         {/* Week bar chart — fills remaining space. Each session renders as
@@ -460,7 +460,7 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
         <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
           TRAINING
         </span>
-        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60 -mr-1 -mt-0.5" strokeWidth={2.2} />
+        <Icon name="chevronForwardOutline" size={14} className="text-muted-foreground/60 -mr-1 -mt-0.5" />
       </div>
 
       {/* Two-column body: ring+stats left, day bars right */}

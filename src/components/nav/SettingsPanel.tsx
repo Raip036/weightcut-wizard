@@ -1,16 +1,139 @@
-import { Moon, Sun, ChevronRight, BookOpen, Bell, Trash2, Shield, FileText, LifeBuoy, Heart, Trophy, Zap, RotateCcw, Crown, TrendingDown } from "lucide-react";
+import { Icon, type IonIconName } from "@/components/ui/Icon";
 import { Link, useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { ProfilePictureUpload } from "@/components/ProfilePictureUpload";
 import { Capacitor } from "@capacitor/core";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { getSettings, saveSettings, scheduleReminder, cancelReminder, type ReminderSettings } from "@/lib/weightReminder";
 import { useSubscription } from "@/hooks/useSubscription";
 import { restorePurchases, isPremiumFromCustomerInfo, presentCustomerCenter } from "@/lib/purchases";
 import { PremiumBadge } from "@/components/subscription/PremiumBadge";
 import { useProfile } from "@/contexts/UserContext";
 import { useToast as useToastSub } from "@/hooks/use-toast";
+
+/* ────────────────────────────────────────────────────────────────────
+ * iOS-native settings primitives.
+ * `Section` wraps grouped rows in a rounded container with optional
+ * caption header + footer. `Row` renders a single cell with a colored
+ * icon tile, label, optional sublabel, and a trailing slot. Mirrors
+ * the visual rhythm of iOS' Settings.app grouped tables.
+ * ──────────────────────────────────────────────────────────────────── */
+
+function Section({
+  header,
+  footer,
+  children,
+}: {
+  header?: string;
+  footer?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className="mt-5 first:mt-2">
+      {header && (
+        <p className="px-4 pb-1.5 text-[11px] uppercase tracking-[0.06em] text-muted-foreground/70 font-semibold">
+          {header}
+        </p>
+      )}
+      <div className="rounded-2xl bg-muted/15 overflow-hidden divide-y divide-border/25">
+        {children}
+      </div>
+      {footer && (
+        <p className="px-4 pt-1.5 text-[11px] text-muted-foreground/60 leading-snug">
+          {footer}
+        </p>
+      )}
+    </div>
+  );
+}
+
+type TileColor =
+  | "brand" | "indigo" | "orange" | "red";
+
+// Brand tile = the WeightCut Wizard primary blue (HSL 217 91% 53%, ≈ #2161F1).
+// Used for nearly every settings icon so the page reads as one product, with
+// the only exceptions being Dark Mode (indigo / orange depending on theme)
+// and Delete Account (destructive red).
+const TILE_BG: Record<TileColor, string> = {
+  brand:  "bg-primary",
+  indigo: "bg-[#5E5CE6]",   // iOS systemIndigo — Dark Mode (dark)
+  orange: "bg-[#FF9F0A]",   // iOS systemOrange — Dark Mode (light)
+  red:    "bg-[#FF453A]",   // iOS systemRed   — Delete Account
+};
+
+function IconTile({ name, color, glyphClass }: { name: IonIconName; color: TileColor; glyphClass?: string }) {
+  return (
+    <span className={`flex h-7 w-7 items-center justify-center rounded-[7px] shrink-0 ${TILE_BG[color]} ${glyphClass ?? "text-white"}`}>
+      <Icon name={name} size={16} />
+    </span>
+  );
+}
+
+interface RowProps {
+  icon?: { name: IonIconName; color: TileColor };
+  label: string;
+  sublabel?: string;
+  /** Trailing slot — value text, Switch, or chevron. Replaces the default chevron when set. */
+  trailing?: ReactNode;
+  destructive?: boolean;
+  onClick?: () => void;
+  href?: string;
+  disabled?: boolean;
+  /** When true, no chevron rendered and the row is non-interactive layout (used for Switch rows). */
+  asStatic?: boolean;
+}
+
+function Row({ icon, label, sublabel, trailing, destructive, onClick, href, disabled, asStatic }: RowProps) {
+  const labelClasses = destructive
+    ? "text-[15px] font-normal text-destructive"
+    : "text-[15px] font-normal text-foreground";
+
+  const inner = (
+    <>
+      {icon && <IconTile name={icon.name} color={icon.color} />}
+      <div className="flex-1 min-w-0">
+        <p className={labelClasses}>{label}</p>
+        {sublabel && (
+          <p className="text-[12.5px] text-muted-foreground/85 leading-tight mt-0.5">{sublabel}</p>
+        )}
+      </div>
+      {trailing !== undefined ? (
+        trailing
+      ) : !asStatic ? (
+        <Icon name="chevronForwardOutline" size={14} className="text-muted-foreground/45 shrink-0" />
+      ) : null}
+    </>
+  );
+
+  const baseClass = "w-full flex items-center gap-3 px-4 py-3 min-h-[48px] text-left transition-colors";
+  const activeClass = asStatic ? "" : "active:bg-white/[0.04]";
+
+  if (href) {
+    return (
+      <Link to={href} className={`${baseClass} ${activeClass}`}>
+        {inner}
+      </Link>
+    );
+  }
+  if (asStatic) {
+    return <div className={`${baseClass}`}>{inner}</div>;
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`${baseClass} ${activeClass} disabled:opacity-50`}
+    >
+      {inner}
+    </button>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────
+ * Subscription section — Premium status OR upgrade + restore.
+ * ──────────────────────────────────────────────────────────────────── */
 
 function SubscriptionSection() {
   const { isPremium, rawTier, expiresAt, openPaywall } = useSubscription();
@@ -43,56 +166,62 @@ function SubscriptionSection() {
     const planLabel = rawTier === "premium_lifetime" ? "Lifetime" : rawTier === "premium_annual" ? "Annual" : "Monthly";
 
     return (
-      <div className="rounded-xs bg-muted/20 overflow-hidden divide-y divide-border/20">
-        <div className="flex items-center justify-between px-3 py-2">
-          <div className="flex items-center gap-2">
-            <Crown className="h-4 w-4 text-primary shrink-0" />
-            <p className="text-[13px] font-medium">Premium</p>
-            <PremiumBadge />
-          </div>
-          <p className="text-[13px] text-muted-foreground">{planLabel} · {expiryLabel}</p>
-        </div>
-        <button type="button" onClick={() => presentCustomerCenter()}
-          className="w-full flex items-center justify-between px-3 py-2 active:bg-muted/40 transition-colors text-left">
-          <p className="text-[13px] text-foreground">Manage Subscription</p>
-          <ChevronRight className="h-3 w-3 text-muted-foreground" />
-        </button>
-      </div>
+      <Section header="Subscription">
+        <Row
+          icon={{ name: "ribbonOutline", color: "brand" }}
+          label="Premium"
+          sublabel={`${planLabel} · ${expiryLabel}`}
+          trailing={<PremiumBadge />}
+          asStatic
+        />
+        <Row
+          icon={{ name: "settingsOutline", color: "brand" }}
+          label="Manage Subscription"
+          onClick={() => presentCustomerCenter()}
+        />
+      </Section>
     );
   }
 
+  // Non-premium: Upgrade gets its own glowing hero card so it pops off the
+  // page. Restore Purchases drops down into a normal grouped section below
+  // (lower hierarchy — most users don't need it, and iOS Settings hides
+  // utility rows below CTA banners too).
   return (
-    <div className="rounded-xs bg-muted/20 overflow-hidden divide-y divide-border/20">
-      <button type="button" onClick={openPaywall}
-        className="w-full flex items-center justify-between px-3 py-2 active:bg-muted/40 transition-colors text-left">
-        <div className="flex items-center gap-2">
-          <Zap className="h-4 w-4 text-primary shrink-0" />
-          <div>
-            <p className="text-[13px] font-medium">Upgrade to Premium</p>
-            <p className="text-[13px] text-muted-foreground">Unlimited AI</p>
-          </div>
+    <>
+      <button
+        type="button"
+        onClick={openPaywall}
+        className="mt-5 w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-transform active:scale-[0.99] bg-gradient-to-br from-primary/25 via-primary/10 to-primary/[0.04] ring-1 ring-primary/40 shadow-[0_0_28px_-4px_rgba(33,97,241,0.55),inset_0_0_24px_-8px_rgba(33,97,241,0.45)]"
+      >
+        <span className="flex h-9 w-9 items-center justify-center rounded-[9px] shrink-0 bg-primary text-white shadow-[0_0_16px_-2px_rgba(33,97,241,0.7)]">
+          <Icon name="flashOutline" size={18} />
+        </span>
+        <div className="flex-1 min-w-0">
+          <p className="text-[15px] font-semibold text-foreground">Upgrade to Premium</p>
+          <p className="text-[12.5px] text-foreground/70 leading-tight mt-0.5">
+            Unlimited AI · Advanced insights
+          </p>
         </div>
-        <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+        <Icon name="chevronForwardOutline" size={14} className="text-primary/70 shrink-0" />
       </button>
-      <button type="button" onClick={handleRestore} disabled={restoringPurchases}
-        className="w-full flex items-center justify-between px-3 py-2 active:bg-muted/40 transition-colors text-left disabled:opacity-50">
-        <div className="flex items-center gap-2">
-          <RotateCcw className="h-4 w-4 text-muted-foreground shrink-0" />
-          <p className="text-[13px] font-medium">Restore Purchases</p>
-        </div>
-      </button>
-    </div>
+      <Section>
+        <Row
+          icon={{ name: "refreshOutline", color: "brand" }}
+          label="Restore Purchases"
+          onClick={handleRestore}
+          disabled={restoringPurchases}
+          trailing={null}
+        />
+      </Section>
+    </>
   );
 }
 
-/**
- * Single-row "View your plan" entry that mirrors the same affordance on
- * Goals + Dashboard. Detects the plan via `localStorage.wcw_cut_plan` —
- * the same source `/cut-plan` and `/weight-plan` read — and routes to
- * the matching CutPlanReview screen so the user lands on the canonical
- * InlinePlanDisplay timeline. Renders nothing when no plan is present
- * so settings stays tidy for users who skipped the AI generator.
- */
+/* ────────────────────────────────────────────────────────────────────
+ * Cut/Weight plan link — only renders when a plan exists locally.
+ * ──────────────────────────────────────────────────────────────────── */
+
 function PlanLinkSection({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
   const raw = typeof window !== "undefined" ? window.localStorage.getItem("wcw_cut_plan") : null;
@@ -107,35 +236,24 @@ function PlanLinkSection({ onClose }: { onClose: () => void }) {
       summary = `${parsed.totalWeeks} weeks · ${parsed.weeklyLossTarget}`;
     }
   } catch {
-    // Malformed payload — still surface the row so the user can re-open
-    // the plan screen (which will show its own empty state).
+    // Malformed payload — still surface the row.
   }
 
   const route = planType === "weight_loss" ? "/weight-plan" : "/cut-plan";
   const label = planType === "weight_loss" ? "View Weight Loss Plan" : "View Cut Plan";
 
   return (
-    <div className="rounded-xs bg-muted/20 overflow-hidden divide-y divide-border/20">
-      <button
-        type="button"
+    <Section header="Your Plan">
+      <Row
+        icon={{ name: "trendingDownOutline", color: "brand" }}
+        label={label}
+        sublabel={summary || undefined}
         onClick={() => {
           onClose();
-          // Defer one tick so the sheet close animation can start before
-          // the route change — feels less jarring than an instant swap.
           setTimeout(() => navigate(route), 50);
         }}
-        className="w-full flex items-center justify-between px-3 py-2 active:bg-muted/40 transition-colors text-left"
-      >
-        <div className="flex items-center gap-2">
-          <TrendingDown className="h-4 w-4 text-primary shrink-0" />
-          <div>
-            <p className="text-[13px] font-medium">{label}</p>
-            {summary && <p className="text-[13px] text-muted-foreground">{summary}</p>}
-          </div>
-        </div>
-        <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
-      </button>
-    </div>
+      />
+    </Section>
   );
 }
 
@@ -170,6 +288,7 @@ export function SettingsPanel({
 }: SettingsPanelProps) {
   const [reminderSettings, setReminderSettings] = useState<ReminderSettings>(getSettings);
   const [timePickerOpen, setTimePickerOpen] = useState(false);
+  const [medicalOpen, setMedicalOpen] = useState(false);
 
   if (!open) return null;
 
@@ -206,93 +325,130 @@ export function SettingsPanel({
     await scheduleReminder(hour, minute);
   };
 
+  void userName;
+
   return (
     <>
-      <div className="fixed inset-0 z-[10001] bg-black/60 animate-in fade-in duration-200" onClick={onClose} />
-      <div className="fixed inset-x-0 bottom-0 z-[10002] bg-card/95 backdrop-blur-xl border-0 rounded-t-xl animate-in slide-in-from-bottom duration-300 flex flex-col" style={{ maxHeight: "85dvh" }}>
+      <div
+        className="fixed inset-0 z-[10001] bg-black/60 animate-in fade-in duration-200"
+        onClick={onClose}
+      />
+      <div
+        className="fixed inset-x-0 bottom-0 z-[10002] bg-black border-0 rounded-t-2xl animate-in slide-in-from-bottom duration-300 flex flex-col"
+        style={{ maxHeight: "92dvh" }}
+      >
         {/* Drag handle */}
         <div className="flex justify-center pt-2.5 pb-1 shrink-0">
-          <div className="w-9 h-1 rounded-full bg-muted-foreground/20" />
-        </div>
-        <div className="px-4 pb-1.5 shrink-0">
-          <h2 className="text-[15px] font-semibold">Settings</h2>
+          <div className="w-9 h-1 rounded-full bg-muted-foreground/25" />
         </div>
 
-        <div className="px-3 space-y-2 overflow-y-auto overscroll-contain" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)" }}>
-          {/* Profile */}
-          <div className="rounded-xs bg-muted/20 p-3">
-            <div className="flex items-center gap-3">
-              <ProfilePictureUpload
-                size="sm"
-                showRemove={false}
-                currentAvatarUrl={avatarUrl || undefined}
-                onUploadSuccess={onAvatarChange}
+        {/* iOS-style large title header */}
+        <div className="px-4 pt-2 pb-3 shrink-0 flex items-center justify-between">
+          <h2 className="text-[26px] font-bold tracking-tight">Settings</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close settings"
+            className="h-8 w-8 rounded-full bg-muted/40 flex items-center justify-center text-muted-foreground active:bg-muted/60 transition-colors"
+          >
+            <Icon name="closeOutline" size={16} />
+          </button>
+        </div>
+
+        <div
+          className="px-3 overflow-y-auto overscroll-contain scrollbar-hide"
+          style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1.5rem)" }}
+        >
+          {/* Profile card — distinct from grouped sections (hero, not a row) */}
+          <div className="rounded-2xl bg-muted/15 p-4 flex items-center gap-3.5">
+            <ProfilePictureUpload
+              size="lg"
+              showRemove={false}
+              currentAvatarUrl={avatarUrl || undefined}
+              onUploadSuccess={onAvatarChange}
+            />
+            <div className="flex-1 min-w-0">
+              <Input
+                id="name"
+                value={editedName}
+                onChange={(e) => setEditedName(e.target.value)}
+                placeholder="Your name"
+                className="h-9 text-[15px] font-medium rounded-lg border-border/30 bg-background/40 px-3"
               />
-              <div className="flex-1 min-w-0">
-                <Input id="name" value={editedName} onChange={(e) => setEditedName(e.target.value)} placeholder="Your name"
-                  className="h-8 text-[13px] rounded-xs border-border/30 bg-muted/20" />
-              </div>
+              {userEmail && (
+                <p className="text-[12.5px] text-muted-foreground mt-1.5 ml-1 truncate">{userEmail}</p>
+              )}
             </div>
-            {userEmail && <p className="text-[13px] text-muted-foreground mt-1.5 pl-[52px] truncate">{userEmail}</p>}
           </div>
 
-          {/* Subscription */}
           <SubscriptionSection />
 
-          {/* Cut/Weight Plan — only renders when a plan exists locally. */}
           <PlanLinkSection onClose={onClose} />
 
           {/* Preferences */}
-          <div className="rounded-xs bg-muted/20 overflow-hidden divide-y divide-border/20">
-            <button type="button" onClick={onToggleTheme}
-              className="w-full flex items-center justify-between px-3 py-2 active:bg-muted/40 transition-colors text-left">
-              <div className="flex items-center gap-2">
-                {theme === "dark" ? <Moon className="h-4 w-4 text-primary shrink-0" /> : <Sun className="h-4 w-4 text-primary shrink-0" />}
-                <p className="text-[13px] font-medium">{theme === "dark" ? "Dark Mode" : "Light Mode"}</p>
-              </div>
-              <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
-            </button>
-
+          <Section header="Preferences">
+            <Row
+              icon={
+                theme === "dark"
+                  ? { name: "moonOutline", color: "indigo" }
+                  : { name: "sunnyOutline", color: "orange" }
+              }
+              label={theme === "dark" ? "Dark Mode" : "Light Mode"}
+              onClick={onToggleTheme}
+            />
             {onToggleGoalType && (
-              <div className="flex items-center justify-between px-3 py-2">
-                <div className="flex items-center gap-2">
-                  <Trophy className="h-4 w-4 text-primary shrink-0" />
-                  <p className="text-[13px] font-medium">Fighter Mode</p>
-                </div>
-                <Switch checked={goalType === 'cutting'} onCheckedChange={onToggleGoalType} />
-              </div>
+              <Row
+                icon={{ name: "trophyOutline", color: "brand" }}
+                label="Fighter Mode"
+                sublabel="Track fight-camp-specific goals"
+                trailing={
+                  <Switch
+                    checked={goalType === "cutting"}
+                    onCheckedChange={onToggleGoalType}
+                  />
+                }
+                asStatic
+              />
             )}
-
             {Capacitor.isNativePlatform() && (() => {
               const h = reminderSettings.hour;
               const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h;
               const ampm = h < 12 ? "AM" : "PM";
               const displayMinute = String(reminderSettings.minute).padStart(2, "0");
+              const subtitle = reminderSettings.enabled
+                ? `${displayHour}:${displayMinute} ${ampm}`
+                : "Off";
 
               return (
                 <>
-                  <div className="flex items-center justify-between px-3 py-2 cursor-pointer"
-                    onClick={() => { if (reminderSettings.enabled) setTimePickerOpen(!timePickerOpen); }}>
-                    <div className="flex items-center gap-2">
-                      <Bell className="h-4 w-4 text-primary shrink-0" />
-                      <div>
-                        <p className="text-[13px] font-medium">Reminder</p>
-                        {reminderSettings.enabled && <p className="text-[13px] text-muted-foreground">{displayHour}:{displayMinute} {ampm}</p>}
-                      </div>
+                  <div
+                    className="w-full flex items-center gap-3 px-4 py-3 min-h-[48px] cursor-pointer transition-colors active:bg-white/[0.04]"
+                    onClick={() => {
+                      if (reminderSettings.enabled) setTimePickerOpen(!timePickerOpen);
+                    }}
+                  >
+                    <IconTile name="notificationsOutline" color="brand" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[15px] text-foreground">Weight Reminder</p>
+                      <p className="text-[12.5px] text-muted-foreground/85 leading-tight mt-0.5">{subtitle}</p>
                     </div>
-                    <Switch checked={reminderSettings.enabled} onCheckedChange={handleToggle} onClick={(e) => e.stopPropagation()} />
+                    <Switch
+                      checked={reminderSettings.enabled}
+                      onCheckedChange={handleToggle}
+                      onClick={(e) => e.stopPropagation()}
+                    />
                   </div>
                   {timePickerOpen && reminderSettings.enabled && (() => {
                     const curHour24 = reminderSettings.hour;
                     const curHour12 = curHour24 === 0 ? 12 : curHour24 > 12 ? curHour24 - 12 : curHour24;
                     const curAmpm = curHour24 < 12 ? "AM" : "PM";
-                    const sc = "h-7 rounded-md bg-muted/30 text-[13px] font-medium px-2 appearance-none text-foreground";
+                    const sc = "h-8 rounded-lg bg-background/40 text-[14px] font-medium px-2.5 appearance-none text-foreground border border-border/30";
                     return (
-                      <div className="flex items-center gap-1.5 px-3 pb-2">
+                      <div className="flex items-center gap-2 px-4 pb-3 pt-1 pl-[60px]">
                         <select value={curHour12} onChange={(e) => handleTimeChange("hour12", Number(e.target.value))} className={sc}>
                           {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (<option key={h} value={h}>{h}</option>))}
                         </select>
-                        <span className="text-muted-foreground text-[13px]">:</span>
+                        <span className="text-muted-foreground text-[14px]">:</span>
                         <select value={reminderSettings.minute} onChange={(e) => handleTimeChange("minute", Number(e.target.value))} className={sc}>
                           {[0, 15, 30, 45].map((m) => (<option key={m} value={m}>{String(m).padStart(2, "0")}</option>))}
                         </select>
@@ -305,71 +461,86 @@ export function SettingsPanel({
                 </>
               );
             })()}
-          </div>
+          </Section>
 
-          {/* Help */}
-          <div className="rounded-xs bg-muted/20 overflow-hidden divide-y divide-border/20">
-            <button type="button" onClick={onReplayTutorial}
-              className="w-full flex items-center justify-between px-3 py-2 active:bg-muted/40 transition-colors text-left">
-              <div className="flex items-center gap-2">
-                <BookOpen className="h-4 w-4 text-primary shrink-0" />
-                <p className="text-[13px] font-medium">Replay Tutorial</p>
-              </div>
-              <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
-            </button>
-            <Link to="/legal?tab=privacy" className="flex items-center justify-between px-3 py-2 active:bg-muted/40 transition-colors">
-              <div className="flex items-center gap-2">
-                <Shield className="h-4 w-4 text-muted-foreground shrink-0" />
-                <p className="text-[13px] font-medium">Privacy Policy</p>
-              </div>
-              <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
-            </Link>
-            <Link to="/legal?tab=terms" className="flex items-center justify-between px-3 py-2 active:bg-muted/40 transition-colors">
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                <p className="text-[13px] font-medium">Terms of Service</p>
-              </div>
-              <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
-            </Link>
-            <button type="button" onClick={() => window.open("mailto:weightcutwizard@gmail.com", "_blank")}
-              className="w-full flex items-center justify-between px-3 py-2 active:bg-muted/40 transition-colors text-left">
-              <div className="flex items-center gap-2">
-                <LifeBuoy className="h-4 w-4 text-muted-foreground shrink-0" />
-                <p className="text-[13px] font-medium">Support</p>
-              </div>
-              <p className="text-[13px] text-muted-foreground shrink-0">weightcutwizard@gmail.com</p>
-            </button>
-          </div>
+          {/* Help & Legal */}
+          <Section header="Help & Legal">
+            <Row
+              icon={{ name: "bookOutline", color: "brand" }}
+              label="Replay Tutorial"
+              onClick={onReplayTutorial}
+            />
+            <Row
+              icon={{ name: "shieldCheckmarkOutline", color: "brand" }}
+              label="Privacy Policy"
+              href="/legal?tab=privacy"
+            />
+            <Row
+              icon={{ name: "documentTextOutline", color: "brand" }}
+              label="Terms of Service"
+              href="/legal?tab=terms"
+            />
+            <Row
+              icon={{ name: "mailOutline", color: "brand" }}
+              label="Support"
+              trailing={
+                <span className="text-[13px] text-muted-foreground tabular-nums">
+                  weightcutwizard@gmail.com
+                </span>
+              }
+              onClick={() => window.open("mailto:weightcutwizard@gmail.com", "_blank")}
+            />
+          </Section>
 
-          {/* Medical + Danger zone */}
-          <div className="rounded-xs bg-muted/20 overflow-hidden divide-y divide-border/20">
-            <details className="group">
-              <summary className="flex items-center justify-between px-3 py-2 cursor-pointer list-none active:bg-muted/40 transition-colors">
-                <div className="flex items-center gap-2">
-                  <Heart className="h-4 w-4 text-func-warning-yellow shrink-0" />
-                  <p className="text-[13px] font-medium">Medical Disclaimer</p>
-                </div>
-                <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0 transition-transform group-open:rotate-90" />
-              </summary>
-              <p className="text-[13px] text-muted-foreground leading-snug px-3 pb-2">
+          {/* About */}
+          <Section header="About">
+            <button
+              type="button"
+              onClick={() => setMedicalOpen((v) => !v)}
+              className="w-full flex items-center gap-3 px-4 py-3 min-h-[48px] text-left transition-colors active:bg-white/[0.04]"
+              aria-expanded={medicalOpen}
+            >
+              <IconTile name="medkitOutline" color="brand" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[15px] text-foreground">Medical Disclaimer</p>
+              </div>
+              <Icon
+                name="chevronForwardOutline"
+                size={14}
+                className={`text-muted-foreground/45 shrink-0 transition-transform ${medicalOpen ? "rotate-90" : ""}`}
+              />
+            </button>
+            {medicalOpen && (
+              <p className="text-[13px] text-muted-foreground leading-snug px-4 pb-3 pt-1 pl-[60px]">
                 This app is for informational purposes only. Not a substitute for professional medical advice. Consult a healthcare provider before changing your diet or training.
               </p>
-            </details>
-            <button type="button" onClick={onDeleteAccount}
-              className="w-full flex items-center gap-2 px-3 py-2 active:bg-muted/40 transition-colors text-left">
-              <Trash2 className="h-4 w-4 text-destructive shrink-0" />
-              <p className="text-[13px] font-medium text-destructive">Delete Account</p>
-            </button>
-          </div>
+            )}
+          </Section>
+
+          {/* Account / Danger */}
+          <Section header="Account">
+            <Row
+              icon={{ name: "trashOutline", color: "red" }}
+              label="Delete Account"
+              destructive
+              onClick={onDeleteAccount}
+              trailing={null}
+            />
+          </Section>
 
           {/* Save */}
-          <div className="border-t border-border/30">
-            <button onClick={onSave} className="w-full py-2.5 text-[14px] font-semibold text-primary active:bg-muted/50 transition-colors">
+          <div className="mt-5">
+            <button
+              onClick={onSave}
+              className="w-full py-3.5 rounded-2xl bg-primary text-primary-foreground text-[15px] font-semibold active:scale-[0.99] transition-transform"
+            >
               Save Changes
             </button>
           </div>
 
-          <p className="text-center text-[13px] text-muted-foreground/40 pb-1">v{__APP_VERSION__}</p>
+          <p className="text-center text-[11px] text-muted-foreground/40 pt-3">
+            Version {__APP_VERSION__}
+          </p>
         </div>
       </div>
     </>

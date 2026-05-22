@@ -1,14 +1,34 @@
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
+import { useNavigate } from "react-router-dom";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Progress } from "@/components/ui/progress";
 import { ShareButton } from "@/components/share/ShareButton";
 import { ShareCardDialog } from "@/components/share/ShareCardDialog";
 import { FightFormScoreCard } from "@/components/share/cards/FightFormScoreCard";
 import { FightFormTrendSparkline } from "./FightFormTrendSparkline";
-import type { FightFormLabel, FightFormState, ScoringPhase, SubScoreKey, SubScore as SubScoreType } from "@/scoring/types";
+import { FightFormSubScoreTile, type TrendPoint } from "./FightFormSubScoreTile";
+import { Icon, type IonIconName } from "@/components/ui/Icon";
+import { cn } from "@/lib/utils";
+import type {
+  FightFormLabel,
+  FightFormState,
+  ScoringPhase,
+  SubScoreKey,
+  SubScore as SubScoreType,
+} from "@/scoring/types";
 
 type SubScore = { value: number; weight: number; reason: string };
 export type FightFormTrendPoint = { date: string; score: number; state: FightFormState };
+
+type Cap = { ruleId: string; cap: number };
+
+export type LoggedTodayMap = {
+  training: boolean;
+  sleep: boolean;
+  weight: boolean;
+  wellness: boolean;
+  meals: boolean;
+};
 
 type Props = {
   open: boolean;
@@ -21,9 +41,34 @@ type Props = {
   subScores: Record<string, SubScore> | null;
   topDriver: string | null;
   topLimiter: string | null;
-  appliedCeiling: { ruleId: string; cap: number } | null;
+  appliedCeiling: Cap | null;
+  /**
+   * Optional list of ALL currently-active ceilings (not just the tightest).
+   * When provided and length > 1, the sheet renders a multi-cap section.
+   * When omitted or length <= 1, falls back to the single `appliedCeiling`.
+   */
+  activeCeilings?: Cap[] | null;
   trend?: FightFormTrendPoint[] | null;
+  // Optional decoration props — all degrade cleanly when missing.
+  // `yesterdaySubScores` powers delta chips; `subScoreTrend` powers
+  // inline sparklines + the expanded drill-down chart; `loggedToday`
+  // drives the calibration teaser's ✓ chips; `calibration` populates
+  // the "Unlocks in N days" headline.
+  yesterdaySubScores?: Record<string, number>;
+  subScoreTrend?: Record<string, TrendPoint[]>;
+  loggedToday?: LoggedTodayMap;
+  calibration?: { current: number; needed: number };
 };
+
+const CEILING_LABEL: Record<string, string> = {
+  weight_cut_dangerous: "Aggressive weight loss",
+  sleep_debt: "Sleep debt over 10h",
+  training_spike: "Training load spike",
+};
+
+function ceilingLabel(ruleId: string): string {
+  return CEILING_LABEL[ruleId] ?? ruleId;
+}
 
 const LABEL_ACCENT: Record<string, { stroke: string; fill: string }> = {
   sharp: { stroke: "stroke-func-recovery-green", fill: "fill-func-recovery-green" },
@@ -40,11 +85,79 @@ const SUBSCORE_LABEL: Record<string, string> = {
   nutritionAdherence: "Nutrition",
 };
 
+// Icon per sub-score. Matched to TodayStrip where possible so the same
+// signal reads consistently across the dashboard chrome and this sheet.
+const SUBSCORE_ICON: Record<string, IonIconName> = {
+  trainingLoad: "barbellOutline",
+  sleep: "moonOutline",
+  weightCut: "speedometerOutline",
+  wellness: "heartOutline",
+  nutritionAdherence: "restaurantOutline",
+};
+
+// Maps a sub-score key → the corresponding `loggedToday` boolean, so the
+// calibration teaser can show ✓/Not yet without the parent having to remap.
+const SUBSCORE_TO_LOGGED: Record<string, keyof LoggedTodayMap> = {
+  trainingLoad: "training",
+  sleep: "sleep",
+  weightCut: "weight",
+  wellness: "wellness",
+  nutritionAdherence: "meals",
+};
+
 const LABEL_DISPLAY: Record<string, string> = {
   sharp: "Sharp",
   sharpening: "Sharpening",
   off_pace: "Off Pace",
   at_risk: "At Risk",
+};
+
+// Sub-score categories rendered as locked rows in the calibration teaser
+// and as the canonical ordering for the unlocked tile grid. Single source
+// of truth so the teaser and the unlocked grid stay in sync.
+const SUBSCORE_ORDER: string[] = [
+  "trainingLoad",
+  "sleep",
+  "weightCut",
+  "wellness",
+  "nutritionAdherence",
+];
+
+// ─── Limiter action card ───────────────────────────────────────────────────
+// Three concrete, tappable actions per limiter category. Each entry routes
+// to the page the user would naturally use to actually move that
+// sub-score. No AI — these are hardcoded so they're always available.
+type LimiterAction = { label: string; route: string };
+
+const LIMITER_ACTIONS: Record<string, LimiterAction[]> = {
+  trainingLoad: [
+    { label: "Log today's session", route: "/training-calendar" },
+    { label: "Add a recovery day", route: "/training-calendar" },
+  ],
+  sleep: [
+    { label: "Set a wind-down alarm", route: "/sleep" },
+    { label: "Log last night's sleep", route: "/sleep" },
+  ],
+  weightCut: [
+    { label: "Log this morning's weight", route: "/weight" },
+    { label: "Check your weekly pace", route: "/weight" },
+  ],
+  wellness: [
+    { label: "Do today's 4-tap check-in", route: "/recovery/check-in" },
+    { label: "Walk for 20 minutes", route: "/recovery" },
+  ],
+  nutritionAdherence: [
+    { label: "Log today's meals", route: "/nutrition" },
+    { label: "Hit your protein target", route: "/nutrition" },
+  ],
+};
+
+const SUBSCORE_EXPLAINER: Record<string, string> = {
+  trainingLoad: "Based on your training load compared to your camp baseline.",
+  sleep: "Based on your nightly sleep duration and consistency this week.",
+  weightCut: "Based on your weight trend vs the pace your camp plan needs.",
+  wellness: "Based on your daily 4-tap check-ins for stress, soreness, energy and mood.",
+  nutritionAdherence: "Based on how closely your meals match your calorie and protein targets.",
 };
 
 /**
@@ -108,13 +221,51 @@ function phaseCopy(phase: string | null): string | null {
 export function FightFormScoreSheet(p: Props) {
   const [shareOpen, setShareOpen] = useState(false);
   const [shareVariant, setShareVariant] = useState<"dark" | "transparent">("dark");
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const prefersReducedMotion = useReducedMotion();
+
+  // Resolve the cap list — see the prop docs above.
+  const caps: Cap[] =
+    p.activeCeilings && p.activeCeilings.length > 0
+      ? p.activeCeilings
+      : p.appliedCeiling
+        ? [p.appliedCeiling]
+        : [];
+  const tightestRuleId =
+    caps.length === 0
+      ? null
+      : caps.reduce((min, c) => (c.cap < min.cap ? c : min), caps[0]).ruleId;
+
+  const isCalibrating = !p.subScores || Object.keys(p.subScores).length === 0;
+  const limiterActions = p.topLimiter ? LIMITER_ACTIONS[p.topLimiter] ?? null : null;
+
+  const handleActionTap = (route: string) => {
+    p.onClose();
+    navigate(route);
+  };
+
+  // Calibration headline string. Inlined IIFE was the original site — pulled
+  // out so the JSX below stays readable.
+  const calibHeadline = (() => {
+    if (!p.calibration) return "Calibrating your score";
+    const remaining = Math.max(0, p.calibration.needed - p.calibration.current);
+    if (remaining === 0) return "Computing your first score…";
+    if (remaining === 1) return "Unlocks in 1 day";
+    return `Unlocks in ${remaining} days`;
+  })();
+
+  // Sub-score → accent for the share/trend sparkline. Same lookup is hit
+  // both in the drill-down chart and the 14-day overall chart.
+  const accent = LABEL_ACCENT[p.label];
+  const accentForLabel = accent ? `${accent.stroke} ${accent.fill}` : undefined;
+
   return (
     <Sheet open={p.open} onOpenChange={(v) => !v && p.onClose()}>
       <SheetContent side="bottom" className="max-h-[90vh] overflow-y-auto">
         {/* Title is absolutely centered on the sheet itself; share button
             floats over the left edge and the Sheet's built-in close X floats
-            over the right. Centering is independent of either button's width
-            so the title sits dead-center in the dialog. */}
+            over the right. */}
         <SheetHeader className="relative flex items-center justify-center min-h-9 space-y-0">
           <SheetTitle className="text-2xl text-center">Fight Form Score</SheetTitle>
           <div className="absolute left-0 top-1/2 -translate-y-1/2">
@@ -137,53 +288,233 @@ export function FightFormScoreSheet(p: Props) {
           )}
         </div>
 
-        {p.subScores && (
-          <div className="mt-6 space-y-3">
-            <div className="section-header">What's driving your score</div>
-            {Object.entries(p.subScores)
-              .sort(([, a], [, b]) => b.value * b.weight - a.value * a.weight)
-              .map(([key, sub]) => {
-                const isLimiter = key === p.topLimiter;
-                const isDriver = key === p.topDriver;
-                return (
-                  <div key={key}>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="inline-flex items-center gap-1.5">
-                        <span>{SUBSCORE_LABEL[key] ?? key}</span>
-                        {isDriver && (
-                          <span className="text-[10px] uppercase tracking-wide font-semibold text-func-recovery-green">
-                            Driver
-                          </span>
-                        )}
-                        {isLimiter && (
-                          <span className="text-[10px] uppercase tracking-wide font-semibold text-func-warning-yellow">
-                            Limiter
-                          </span>
-                        )}
-                      </span>
-                      <span className="display-number text-sm">{sub.value}</span>
-                    </div>
-                    <Progress value={sub.value} className="h-1.5 mt-1" />
-                    <p className="text-xs text-muted-foreground mt-1 leading-snug">
-                      {summarizeSubScore(key, sub.value)}
-                    </p>
-                  </div>
-                );
-              })}
+        {/* Limiter focus card — pinned beneath the headline so the user
+            sees the most actionable thing first. Only shown in unlocked
+            (subScores present) state; the calibration teaser owns the
+            screen otherwise. */}
+        {!isCalibrating && p.topLimiter && limiterActions && (
+          <div className="mt-5 rounded-xs border border-primary/20 bg-primary/5 px-3 py-3">
+            <div className="flex items-center gap-1.5 mb-2">
+              <span className="text-[10px] uppercase tracking-wide font-semibold text-primary/80">
+                Focus
+              </span>
+              <span className="text-body-sm font-semibold text-foreground">
+                {SUBSCORE_LABEL[p.topLimiter] ?? p.topLimiter}
+              </span>
+            </div>
+            <ul className="space-y-1">
+              {limiterActions.map((action) => (
+                <li key={action.label}>
+                  <button
+                    type="button"
+                    onClick={() => handleActionTap(action.route)}
+                    className="w-full flex items-center justify-between gap-2 rounded-xs px-2 py-2 text-left text-body-sm text-foreground/90 active:bg-primary/10 transition-colors"
+                  >
+                    <span className="flex items-center gap-2 min-w-0">
+                      <Icon name="arrowForwardOutline" size={14} className="text-primary shrink-0" />
+                      <span className="truncate">{action.label}</span>
+                    </span>
+                    <Icon name="chevronForwardOutline" size={12} className="text-muted-foreground/60 shrink-0" />
+                  </button>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 
+        {caps.length > 0 && (
+          <div className="mt-6 space-y-2 rounded-xs border border-func-warning-yellow/30 bg-func-warning-yellow/[0.05] px-3 py-2.5">
+            <div className="section-header text-func-warning-yellow">
+              {caps.length === 1
+                ? "Score capped"
+                : `Score capped by ${caps.length} rules`}
+            </div>
+            <ul className="space-y-1.5">
+              {caps
+                .slice()
+                .sort((a, b) => a.cap - b.cap)
+                .map((c) => {
+                  const isTightest = c.ruleId === tightestRuleId;
+                  return (
+                    <li
+                      key={c.ruleId}
+                      className="flex items-center justify-between text-xs"
+                    >
+                      <span
+                        className={
+                          isTightest && caps.length > 1
+                            ? "font-semibold text-foreground"
+                            : "text-foreground/85"
+                        }
+                      >
+                        {ceilingLabel(c.ruleId)}
+                        {isTightest && caps.length > 1 && (
+                          <span className="ml-1.5 text-[10px] uppercase tracking-wide font-semibold text-func-warning-yellow">
+                            Tightest
+                          </span>
+                        )}
+                      </span>
+                      <span className="display-number text-sm tabular-nums">
+                        cap {c.cap}
+                      </span>
+                    </li>
+                  );
+                })}
+            </ul>
+          </div>
+        )}
+
+        {/* ─── Calibration (locked) state ────────────────────────────── */}
+        {isCalibrating && (
+          <div className="mt-6 space-y-3">
+            <div className="rounded-xs border border-sky-400/20 bg-sky-400/[0.05] px-3 py-3 text-center">
+              <p className="text-body-sm font-semibold text-foreground">{calibHeadline}</p>
+              <p className="text-micro text-muted-foreground mt-1 leading-snug">
+                Log any 3 days of signals to unlock your score. We'll then
+                show your daily breakdown across these 5 areas.
+              </p>
+            </div>
+
+            <ul className="space-y-1.5">
+              {SUBSCORE_ORDER.map((key) => {
+                const loggedKey = SUBSCORE_TO_LOGGED[key];
+                const logged = p.loggedToday ? p.loggedToday[loggedKey] : false;
+                return (
+                  <li
+                    key={key}
+                    className="flex items-center gap-2.5 rounded-xs border border-border/40 bg-muted/20 px-3 py-2.5 opacity-80"
+                  >
+                    <Icon
+                      name={SUBSCORE_ICON[key] ?? "ellipseOutline"}
+                      size={16}
+                      className="text-muted-foreground shrink-0"
+                    />
+                    <span className="flex-1 text-body-sm font-medium text-foreground/80">
+                      {SUBSCORE_LABEL[key] ?? key}
+                    </span>
+                    {p.loggedToday && (
+                      <span
+                        className={cn(
+                          "text-[10px] font-semibold px-1.5 py-0.5 rounded-full border leading-none",
+                          logged
+                            ? "text-func-recovery-green bg-func-recovery-green/10 border-func-recovery-green/30"
+                            : "text-muted-foreground bg-muted/30 border-border/40",
+                        )}
+                      >
+                        {logged ? "Logged today ✓" : "Not yet"}
+                      </span>
+                    )}
+                    <Icon
+                      name="lockClosedOutline"
+                      size={14}
+                      className="text-muted-foreground/60 shrink-0"
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+
+        {/* ─── Unlocked state — tile grid + drill-down ────────────────── */}
+        {!isCalibrating && p.subScores && (
+          <div className="mt-6 space-y-3">
+            <div className="section-header">What's driving your score</div>
+            <div className="grid grid-cols-2 gap-2">
+              {SUBSCORE_ORDER.filter((key) => p.subScores && p.subScores[key]).map((key) => {
+                const sub = p.subScores![key];
+                const yesterday = p.yesterdaySubScores?.[key];
+                const trend = p.subScoreTrend?.[key];
+                return (
+                  <FightFormSubScoreTile
+                    key={key}
+                    subKey={key}
+                    label={SUBSCORE_LABEL[key] ?? key}
+                    icon={SUBSCORE_ICON[key] ?? "ellipseOutline"}
+                    value={sub.value}
+                    yesterdayValue={yesterday}
+                    trend={trend}
+                    expanded={expandedKey === key}
+                    onToggle={() =>
+                      setExpandedKey((prev) => (prev === key ? null : key))
+                    }
+                  />
+                );
+              })}
+            </div>
+
+            {/* Drill-down panel — one open at a time. Animated height so
+                the grid above doesn't jump on collapse. */}
+            <AnimatePresence initial={false}>
+              {expandedKey && p.subScores[expandedKey] && (
+                <motion.div
+                  key={expandedKey}
+                  id={`subscore-detail-${expandedKey}`}
+                  initial={prefersReducedMotion ? false : { height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={prefersReducedMotion ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                  transition={
+                    prefersReducedMotion
+                      ? { duration: 0 }
+                      : { duration: 0.22, ease: "easeOut" }
+                  }
+                  className="overflow-hidden"
+                >
+                  <div className="rounded-xs border border-border/40 bg-muted/15 px-3 py-3 space-y-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Icon
+                          name={SUBSCORE_ICON[expandedKey] ?? "ellipseOutline"}
+                          size={14}
+                          className="text-foreground shrink-0"
+                        />
+                        <span className="text-body-sm font-semibold truncate">
+                          {SUBSCORE_LABEL[expandedKey] ?? expandedKey}
+                        </span>
+                      </div>
+                      <span className="display-number text-base tabular-nums">
+                        {p.subScores[expandedKey].value}
+                      </span>
+                    </div>
+                    <p className="text-note text-foreground/85 leading-snug">
+                      {summarizeSubScore(
+                        expandedKey,
+                        p.subScores[expandedKey].value,
+                      )}
+                    </p>
+                    {p.subScoreTrend?.[expandedKey] &&
+                      p.subScoreTrend[expandedKey].length >= 2 && (
+                        <div className="h-14 rounded-xs bg-background/40 p-2">
+                          <FightFormTrendSparkline
+                            points={p.subScoreTrend[expandedKey].map((pt) => ({
+                              date: pt.date,
+                              score: pt.value,
+                              state: "ok" as FightFormState,
+                            }))}
+                            accentClass={accentForLabel}
+                          />
+                        </div>
+                      )}
+                    <p className="text-micro text-muted-foreground/80 leading-snug">
+                      {SUBSCORE_EXPLAINER[expandedKey] ??
+                        "Based on your recent activity in this area."}
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
+
+        {/* Overall 14-day trend — now lives below the primary content.
+            In the locked state this is the main signal the user has; in
+            the unlocked state it's a supporting reference, hence pushed
+            down after the tile grid + drill-down. */}
         {p.trend && p.trend.length > 0 && (
           <div className="mt-6 space-y-2">
             <div className="section-header">14-day trend</div>
             <div className="h-12">
-              <FightFormTrendSparkline
-                points={p.trend}
-                accentClass={(() => {
-                  const accent = LABEL_ACCENT[p.label];
-                  return accent ? `${accent.stroke} ${accent.fill}` : undefined;
-                })()}
-              />
+              <FightFormTrendSparkline points={p.trend} accentClass={accentForLabel} />
             </div>
           </div>
         )}
@@ -207,6 +538,12 @@ export function FightFormScoreSheet(p: Props) {
             void el.offsetWidth;
             el.classList.add("share-variant-flash");
           };
+          const labelBtnStyle = (v: "dark" | "transparent"): CSSProperties => ({
+            background: "none", border: "none", padding: 0, cursor: "pointer",
+            fontSize: 12, fontWeight: 600,
+            color: shareVariant === v ? "#ffffff" : "rgba(255,255,255,0.35)",
+            transition: "color 0.2s",
+          });
           return (
             <div
               onTouchStart={(e) => { touchStartX = e.touches[0].clientX; }}
@@ -230,19 +567,7 @@ export function FightFormScoreSheet(p: Props) {
                 transparent={transparent}
               />
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginTop: 10 }}>
-                <button
-                  onClick={() => setShareVariant("dark")}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    padding: 0,
-                    cursor: "pointer",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: shareVariant === "dark" ? "#ffffff" : "rgba(255,255,255,0.35)",
-                    transition: "color 0.2s",
-                  }}
-                >
+                <button onClick={() => setShareVariant("dark")} style={labelBtnStyle("dark")}>
                   Dark
                 </button>
                 <div style={{ display: "flex", gap: 6 }}>
@@ -252,11 +577,7 @@ export function FightFormScoreSheet(p: Props) {
                       onClick={() => setShareVariant(v)}
                       aria-label={`${v} style`}
                       style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: 4,
-                        border: "none",
-                        padding: 0,
+                        width: 8, height: 8, borderRadius: 4, border: "none", padding: 0,
                         cursor: "pointer",
                         background: shareVariant === v ? "#ffffff" : "rgba(255,255,255,0.3)",
                         transition: "background 0.2s",
@@ -264,19 +585,7 @@ export function FightFormScoreSheet(p: Props) {
                     />
                   ))}
                 </div>
-                <button
-                  onClick={() => setShareVariant("transparent")}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    padding: 0,
-                    cursor: "pointer",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: shareVariant === "transparent" ? "#ffffff" : "rgba(255,255,255,0.35)",
-                    transition: "color 0.2s",
-                  }}
-                >
+                <button onClick={() => setShareVariant("transparent")} style={labelBtnStyle("transparent")}>
                   Transparent
                 </button>
               </div>
@@ -287,4 +596,3 @@ export function FightFormScoreSheet(p: Props) {
     </Sheet>
   );
 }
-

@@ -87,4 +87,50 @@ describe("computeFightFormScore", () => {
       expect(r.inputSources).toEqual(sources);
     });
   });
+
+  describe("Fix #1 — composite redistribution on missing data", () => {
+    it("composite uses only present sub-scores (weight:0 entries excluded)", () => {
+      // Strong signal in every domain EXCEPT meals (which is empty).
+      // After fix #2, nutritionAdherence drops weight to 0 and the composite
+      // should ignore it — score should be high, not dragged down to ~85.
+      const r = computeFightFormScore(baseInputs({ meals: [] }), ScoringConfigV1);
+      // With nutrition excluded and everything else strong, raw should still
+      // be in the 90s. The old broken composite would have averaged in a 0.
+      expect(r.subScores.nutritionAdherence.weight).toBe(0);
+      expect(r.rawScore).toBeGreaterThanOrEqual(85);
+    });
+
+    it("composite divides by sum-of-present-weights, not all weights", () => {
+      // Sanity: if every sub-score with data scores 100 and the rest drop
+      // out, the composite is 100 (not 100 × presentWeight / totalWeight).
+      const inputs = baseInputs({
+        meals: [],          // nutrition → weight:0
+        hooperByDate: [],   // wellness → weight:0
+      });
+      const r = computeFightFormScore(inputs, ScoringConfigV1);
+      expect(r.subScores.nutritionAdherence.weight).toBe(0);
+      expect(r.subScores.wellness.weight).toBe(0);
+      // Other three sub-scores are at their max → composite should be ~100.
+      expect(r.rawScore).toBeGreaterThanOrEqual(95);
+    });
+  });
+
+  describe("Fix #6 — post-fight returns paused", () => {
+    it("returns state:'paused' when daysToFight < 0", () => {
+      const r = computeFightFormScore(
+        baseInputs({ date: "2026-07-01", fightDate: "2026-06-15" }),
+        ScoringConfigV1,
+      );
+      expect(r.state).toBe("paused");
+      expect(r.score).toBe(0);
+    });
+
+    it("returns state:'ok' on the day of the fight (daysToFight = 0)", () => {
+      const r = computeFightFormScore(
+        baseInputs({ date: "2026-06-15", fightDate: "2026-06-15" }),
+        ScoringConfigV1,
+      );
+      expect(r.state).toBe("ok");
+    });
+  });
 });

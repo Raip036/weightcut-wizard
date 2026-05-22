@@ -1,4 +1,4 @@
-import { TrendingDown, TrendingUp } from "lucide-react";
+import { Icon } from "@/components/ui/Icon";
 import type { SubScoreKey } from "@/scoring/types";
 
 type Props = {
@@ -52,7 +52,7 @@ export function FightFormDeltaBanner(p: Props) {
             : "shrink-0 rounded-full bg-func-danger-red/15 text-func-danger-red p-1.5"
         }
       >
-        {up ? <TrendingUp className="size-3.5" /> : <TrendingDown className="size-3.5" />}
+        {up ? <Icon name="trendingUpOutline" size={14} /> : <Icon name="trendingDownOutline" size={14} />}
       </span>
       <span className="text-[12.5px] leading-snug text-foreground/90">{headline}</span>
     </button>

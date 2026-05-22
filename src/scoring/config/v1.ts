@@ -23,7 +23,10 @@ export const ScoringConfigV1: ScoringConfig = {
   },
   sleep: {
     targetHoursPerNight: 8,
+    // Legacy weekly-debt penalty — retained for back-compat; the active
+    // formula is `perHourPenalty` applied to per-night debt.
     debtPenaltyPerHour: 8,
+    perHourPenalty: 30,
     defaultAssumedHours: 7,
     minTrainingDurationForAssumption: 20,
   },

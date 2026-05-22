@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Lock } from "lucide-react";
+import { Icon } from "@/components/ui/Icon";
 import { cn } from "@/lib/utils";
 import { FightFormRingAtmosphere } from "./FightFormRingAtmosphere";
 
@@ -19,6 +19,12 @@ type Props = {
   // One-shot bloom + glow when the user first crosses into Sharp on a
   // given day. Parent is responsible for setting + clearing this flag.
   celebrateSharp?: boolean;
+  // Count of days (within the dashboard's rolling window) where the user
+  // lit up all five TodayStrip ritual pills. Drives the "Day N completed"
+  // animation — fires once each time this number ticks up. Separate from
+  // `calibratingDays`, which counts any-signal days for the engine's
+  // cold-start gate.
+  ritualDaysCount?: number;
   onTap?: () => void;
   size?: number;
 };
@@ -111,6 +117,7 @@ export function FightFormRing({
   appliedCeiling,
   phase,
   celebrateSharp,
+  ritualDaysCount,
   onTap,
   size = 220,
 }: Props) {
@@ -185,7 +192,11 @@ export function FightFormRing({
   // the victory lap. Stays at 1 outside of unlock so normal renders aren't
   // gated by it.
   const [unlockProgress, setUnlockProgress] = useState(1);
-  const prevDaysRef = useRef(calibratingDays?.current ?? 0);
+  // Tracks the last `ritualDaysCount` we saw so we can fire the
+  // "Day N completed" animation exactly once when the user finishes a new
+  // all-five-pills day. Previously this referenced `calibratingDays.current`
+  // (any-signal days), which over-fired the celebration.
+  const prevRitualDaysRef = useRef(ritualDaysCount ?? 0);
   const prevStateRef = useRef(state);
 
   // Unlock victory lap: fires once when state transitions calibrating→ok.
@@ -244,16 +255,20 @@ export function FightFormRing({
     return () => window.clearInterval(id);
   }, [isCalib]);
 
+  // Fire the "Day N completed" celebration when the count of fully-logged
+  // ritual days ticks up. Runs in any state (ok or calibrating) — completing
+  // all five pills on a given day deserves the same celebration regardless
+  // of whether the engine has unlocked the score yet.
   useEffect(() => {
-    if (!isCalib || !calibratingDays) return;
-    if (calibratingDays.current > prevDaysRef.current) {
+    const next = ritualDaysCount ?? 0;
+    if (next > prevRitualDaysRef.current) {
       setDayPing(true);
       const t = window.setTimeout(() => setDayPing(false), CALIB_DAY_PING_MS);
-      prevDaysRef.current = calibratingDays.current;
+      prevRitualDaysRef.current = next;
       return () => window.clearTimeout(t);
     }
-    prevDaysRef.current = calibratingDays.current;
-  }, [isCalib, calibratingDays?.current]);
+    prevRitualDaysRef.current = next;
+  }, [ritualDaysCount]);
 
   const calibRemainingDays = isCalib && calibratingDays
     ? Math.max(0, calibratingDays.needed - calibratingDays.current)
@@ -442,7 +457,7 @@ export function FightFormRing({
           }}
         >
           <div className="rounded-full bg-background border border-func-warning-yellow/70 p-0.5">
-            <Lock className="size-2.5 text-func-warning-yellow" />
+            <Icon name="lockClosedOutline" size={10} className="text-func-warning-yellow" />
           </div>
         </div>
       )}
@@ -469,12 +484,12 @@ export function FightFormRing({
                 Day {Math.min(calibratingDays.current, calibratingDays.needed)} of {calibratingDays.needed}
               </span>
             )}
-            {dayPing && calibratingDays ? (
+            {dayPing && ritualDaysCount != null ? (
               <span
-                key={`ping-${calibratingDays.current}`}
+                key={`ping-${ritualDaysCount}`}
                 className="display-number text-2xl text-func-recovery-green ff-ring-calib-ping"
               >
-                Day {calibratingDays.current} logged ✓
+                Day {ritualDaysCount} completed ✓
               </span>
             ) : calibRemainingDays === 0 ? (
               // Final stage. The score is moments away — drop the rotating

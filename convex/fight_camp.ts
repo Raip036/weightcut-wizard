@@ -584,6 +584,15 @@ export const createCalendarEntry = mutation({
         console.warn("disciplineXp schedule failed", err);
       }
     }
+    // Recompute fight-form score after calendar entry creation
+    try {
+      await ctx.runMutation(internal.fightFormScore.scheduleRecompute, {
+        userId,
+        date: args.date,
+      });
+    } catch (err) {
+      console.warn("fight-form recompute schedule failed", err);
+    }
     return sessionId;
   },
 });
@@ -691,6 +700,18 @@ export const updateCalendarEntry = mutation({
         console.warn("autoSummary schedule failed", err);
       }
     }
+
+    // Recompute fight-form score after calendar entry update. `date` is
+    // not editable via this mutation (no `date` arg in the validator), so
+    // a single recompute against the row's existing date is sufficient.
+    try {
+      await ctx.runMutation(internal.fightFormScore.scheduleRecompute, {
+        userId,
+        date: row.date,
+      });
+    } catch (err) {
+      console.warn("fight-form recompute schedule failed", err);
+    }
   },
 });
 
@@ -755,6 +776,16 @@ export const deleteCalendarEntry = mutation({
       await ctx.db.delete(id);
     } catch {
       /* already gone — fine */
+    }
+
+    // Recompute fight-form score after calendar entry deletion
+    try {
+      await ctx.runMutation(internal.fightFormScore.scheduleRecompute, {
+        userId,
+        date: row.date,
+      });
+    } catch (err) {
+      console.warn("fight-form recompute schedule failed", err);
     }
   },
 });

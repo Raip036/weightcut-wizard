@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Moon, ChevronRight, Check, Minus, Plus, X } from "lucide-react";
+import { Icon } from "@/components/ui/Icon";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import { localCache } from "@/lib/localCache";
@@ -127,7 +127,7 @@ export const SleepLogger = memo(function SleepLogger({ userId, compact, classNam
       {/* Footer — label left, chevron right */}
       <div className="flex items-center justify-between">
         <p className="text-micro text-muted-foreground">Last night</p>
-        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40" strokeWidth={2.2} />
+        <Icon name="chevronForwardOutline" size={14} className="text-muted-foreground/40" />
       </div>
     </button>
   ) : (
@@ -136,19 +136,19 @@ export const SleepLogger = memo(function SleepLogger({ userId, compact, classNam
       className="card-surface rounded-xs p-3 sm:p-4 w-full flex items-center gap-3 active:scale-[0.98] transition-all duration-200 text-left"
       onClick={openSheet}
     >
-      <Moon className="w-5 h-5 text-primary flex-shrink-0" />
+      <Icon name="moonOutline" size={20} className="text-primary flex-shrink-0" />
       {saved ? (
         <>
           <span className="text-sm font-semibold flex-1">
             <span className="tabular-nums">{hours}</span>
             <span className="text-muted-foreground">h</span>
           </span>
-          <Check className="w-4 h-4 text-func-recovery-green flex-shrink-0" />
+          <Icon name="checkmarkOutline" size={16} className="text-func-recovery-green flex-shrink-0" />
         </>
       ) : (
         <>
           <span className="text-sm font-medium text-muted-foreground flex-1">Log Sleep</span>
-          <ChevronRight className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" />
+          <Icon name="chevronForwardOutline" size={16} className="text-muted-foreground/40 flex-shrink-0" />
         </>
       )}
     </button>
@@ -169,7 +169,7 @@ export const SleepLogger = memo(function SleepLogger({ userId, compact, classNam
           <div className="flex items-center justify-between px-1 pb-3 shrink-0 gap-2">
             <SheetHeader className="text-left flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <Moon className="w-4 h-4 text-primary" />
+                <Icon name="moonOutline" size={16} className="text-primary" />
                 <SheetTitle className="text-base font-semibold">Sleep</SheetTitle>
               </div>
               <p className="text-note text-muted-foreground truncate">
@@ -193,7 +193,7 @@ export const SleepLogger = memo(function SleepLogger({ userId, compact, classNam
               aria-label="Close sleep logger"
               className="h-9 w-9 rounded-full flex items-center justify-center text-muted-foreground/80 bg-muted/40 dark:bg-white/[0.06] border border-border/30 active:text-foreground active:bg-muted/60 transition-colors flex-shrink-0"
             >
-              <X className="h-4 w-4" strokeWidth={2.4} />
+              <Icon name="closeOutline" size={16} />
             </button>
           </div>
 
@@ -206,7 +206,7 @@ export const SleepLogger = memo(function SleepLogger({ userId, compact, classNam
               disabled={draftHours <= MIN_HOURS}
               aria-label="Decrease hours"
             >
-              <Minus className="w-5 h-5" />
+              <Icon name="removeOutline" size={20} />
             </button>
             <div className="flex items-baseline gap-1 min-w-[88px] justify-center">
               <span className="text-[44px] font-bold tabular-nums leading-none tracking-tight">
@@ -221,7 +221,7 @@ export const SleepLogger = memo(function SleepLogger({ userId, compact, classNam
               disabled={draftHours >= MAX_HOURS}
               aria-label="Increase hours"
             >
-              <Plus className="w-5 h-5" />
+              <Icon name="addOutline" size={20} />
             </button>
           </div>
 

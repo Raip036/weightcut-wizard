@@ -150,13 +150,25 @@ export const createSession = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
-    return await ctx.db.insert("gym_sessions", {
+    const sessionId = await ctx.db.insert("gym_sessions", {
       userId,
       date: args.date,
       sessionType: args.sessionType,
       status: args.status ?? "in_progress",
       updatedAt: Date.now(),
     });
+    // Recompute fight-form score after session creation. Recompute is
+    // cheap + idempotent, so we hook unconditionally rather than try to
+    // detect whether the session will ever be completed.
+    try {
+      await ctx.runMutation(internal.fightFormScore.scheduleRecompute, {
+        userId,
+        date: args.date,
+      });
+    } catch (err) {
+      console.warn("fight-form recompute schedule failed", err);
+    }
+    return sessionId;
   },
 });
 
@@ -193,6 +205,18 @@ export const addSetToSession = mutation({
       isBodyweight: args.isBodyweight ?? false,
       notes: args.notes,
     });
+    // Recompute fight-form score after adding a set. The session may end
+    // up with durationMinutes + perceivedFatigue set even without
+    // completeSession being called explicitly; hook unconditionally
+    // since recompute is idempotent.
+    try {
+      await ctx.runMutation(internal.fightFormScore.scheduleRecompute, {
+        userId,
+        date: session.date,
+      });
+    } catch (err) {
+      console.warn("fight-form recompute schedule failed", err);
+    }
     return setId;
   },
 });
@@ -217,6 +241,19 @@ export const updateSet = mutation({
       if (val !== undefined) patch[k] = val;
     }
     await ctx.db.patch(id, patch as any);
+    // Recompute fight-form score after set update. The set row doesn't
+    // carry its own date — resolve it via the parent session.
+    try {
+      const session = await ctx.db.get(row.sessionId);
+      if (session) {
+        await ctx.runMutation(internal.fightFormScore.scheduleRecompute, {
+          userId,
+          date: session.date,
+        });
+      }
+    } catch (err) {
+      console.warn("fight-form recompute schedule failed", err);
+    }
   },
 });
 
@@ -227,7 +264,27 @@ export const deleteSet = mutation({
     const row = await ctx.db.get(id);
     if (!row) return;
     if (row.userId !== userId) throw new Error("Not authorized");
+    // Capture the parent session's date BEFORE the delete so the
+    // recompute hook below can still find it.
+    let sessionDate: string | null = null;
+    try {
+      const session = await ctx.db.get(row.sessionId);
+      sessionDate = session?.date ?? null;
+    } catch {
+      /* session missing — treat as no recompute target */
+    }
     await ctx.db.delete(id);
+    // Recompute fight-form score after set deletion
+    if (sessionDate) {
+      try {
+        await ctx.runMutation(internal.fightFormScore.scheduleRecompute, {
+          userId,
+          date: sessionDate,
+        });
+      } catch (err) {
+        console.warn("fight-form recompute schedule failed", err);
+      }
+    }
   },
 });
 
@@ -250,10 +307,15 @@ export const completeSession = mutation({
       notes: args.notes,
       updatedAt: Date.now(),
     });
-    await ctx.scheduler.runAfter(5_000, internal.fightFormScore.recomputeForUserDate, {
-      userId,
-      date: row.date,
-    });
+    // Recompute fight-form score after session completion
+    try {
+      await ctx.runMutation(internal.fightFormScore.scheduleRecompute, {
+        userId,
+        date: row.date,
+      });
+    } catch (err) {
+      console.warn("fight-form recompute schedule failed", err);
+    }
   },
 });
 
@@ -264,6 +326,7 @@ export const deleteSession = mutation({
     const row = await ctx.db.get(id);
     if (!row) return;
     if (row.userId !== userId) throw new Error("Not authorized");
+    const date = row.date;
     // Cascade — delete sets first.
     const sets = await ctx.db
       .query("gym_sets")
@@ -271,5 +334,14 @@ export const deleteSession = mutation({
       .collect();
     for (const s of sets) await ctx.db.delete(s._id);
     await ctx.db.delete(id);
+    // Recompute fight-form score after session deletion
+    try {
+      await ctx.runMutation(internal.fightFormScore.scheduleRecompute, {
+        userId,
+        date,
+      });
+    } catch (err) {
+      console.warn("fight-form recompute schedule failed", err);
+    }
   },
 });

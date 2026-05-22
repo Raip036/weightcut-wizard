@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Settings, Pencil, ChevronRight, User, LogOut } from "lucide-react";
+import { Icon } from "@/components/ui/Icon";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -88,17 +88,17 @@ export function ProfileSheet({ open, onOpenChange }: ProfileSheetProps) {
           {/* Nav actions */}
           <div className="px-3 py-3 space-y-1">
             <SheetRow
-              icon={<User className="h-4 w-4" />}
+              icon={<Icon name="personOutline" size={16} />}
               label="View Profile"
               onPress={() => go(`/profile/${userId}`)}
             />
             <SheetRow
-              icon={<Pencil className="h-4 w-4" />}
+              icon={<Icon name="pencilOutline" size={16} />}
               label="Edit Profile"
               onPress={() => go("/goals")}
             />
             <SheetRow
-              icon={<Settings className="h-4 w-4" />}
+              icon={<Icon name="settingsOutline" size={16} />}
               label="Settings"
               onPress={openSettings}
             />
@@ -114,7 +114,7 @@ export function ProfileSheet({ open, onOpenChange }: ProfileSheetProps) {
               className="w-full flex items-center gap-3 rounded-xs px-3 py-3.5 active:bg-destructive/5 transition-colors text-left"
             >
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-destructive/10 text-destructive shrink-0">
-                <LogOut className="h-4 w-4" />
+                <Icon name="logOutOutline" size={16} />
               </span>
               <span className="flex-1 text-note font-medium text-destructive">Sign Out</span>
             </button>
@@ -176,7 +176,7 @@ function SheetRow({
         {icon}
       </span>
       <span className="flex-1 text-note font-medium">{label}</span>
-      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+      <Icon name="chevronForwardOutline" size={16} className="text-muted-foreground" />
     </button>
   );
 }

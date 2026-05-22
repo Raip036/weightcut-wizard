@@ -292,11 +292,33 @@ export const updateMeal = mutation({
     const meal = await ctx.db.get(id);
     if (!meal) throw new Error("Meal not found");
     if (meal.userId !== userId) throw new Error("Not authorized");
+    const oldDate = meal.date;
     const clean: Record<string, unknown> = {};
     for (const [k, val] of Object.entries(patch)) {
       if (val !== undefined) clean[k] = val;
     }
     await ctx.db.patch(id, clean as any);
+    // Recompute fight-form score after meal update. If the meal was moved
+    // to a different date, schedule recomputes for BOTH the old and new
+    // date so the nutrition sub-score recovers from the old date too.
+    const newDate =
+      typeof patch.date === "string" && patch.date !== oldDate
+        ? patch.date
+        : null;
+    try {
+      await ctx.runMutation(internal.fightFormScore.scheduleRecompute, {
+        userId,
+        date: oldDate,
+      });
+      if (newDate) {
+        await ctx.runMutation(internal.fightFormScore.scheduleRecompute, {
+          userId,
+          date: newDate,
+        });
+      }
+    } catch (err) {
+      console.warn("fight-form recompute schedule failed", err);
+    }
   },
 });
 
@@ -364,6 +386,7 @@ export const deleteMeal = mutation({
     const meal = await ctx.db.get(id);
     if (!meal) return;
     if (meal.userId !== userId) throw new Error("Not authorized");
+    const date = meal.date;
     // Cascade — delete child items first.
     const items = await ctx.db
       .query("meal_items")
@@ -373,5 +396,14 @@ export const deleteMeal = mutation({
       await ctx.db.delete(it._id);
     }
     await ctx.db.delete(id);
+    // Recompute fight-form score after meal deletion
+    try {
+      await ctx.runMutation(internal.fightFormScore.scheduleRecompute, {
+        userId,
+        date,
+      });
+    } catch (err) {
+      console.warn("fight-form recompute schedule failed", err);
+    }
   },
 });

@@ -310,7 +310,7 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
       {/* Isolated streak query — if the function isn't deployed yet
           (or fails), the ErrorBoundary swallows it and `streak` stays 0. */}
       {userId && (
-        <ErrorBoundary fallback={null}>
+        <ErrorBoundary fallback={null} silent>
           <StreakProbe onStreak={setStreak} />
         </ErrorBoundary>
       )}

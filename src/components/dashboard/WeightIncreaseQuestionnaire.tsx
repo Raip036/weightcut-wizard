@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Quote, CheckCircle2 } from "lucide-react";
+import { Icon } from "@/components/ui/Icon";
 
 interface WeightIncreaseQuestionnaireProps {
     open: boolean;
@@ -68,7 +68,7 @@ export function WeightIncreaseQuestionnaire({ open, onOpenChange, onComplete }: 
                     <div className="animate-in fade-in duration-200">
                         <div className="rounded-md bg-func-recovery-green/10 p-2.5">
                             <div className="flex items-center gap-1.5 mb-1.5">
-                                <CheckCircle2 className="h-3 w-3 text-func-recovery-green" />
+                                <Icon name="checkmarkCircleOutline" size={12} className="text-func-recovery-green" />
                                 <h3 className="text-[13px] font-semibold text-func-recovery-green">Water Retention</h3>
                             </div>
                             <p className="text-[13px] text-muted-foreground leading-snug">
