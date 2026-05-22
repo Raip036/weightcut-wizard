@@ -42,6 +42,7 @@ import { cn } from "@/lib/utils";
 import { logger } from "@/lib/logger";
 // Agent A's typed wrapper. Methods documented in spec §4.
 import { HEALTH_METRICS, healthKit } from "@/services/healthKit";
+import { forceNextHealthKitSync, runHealthKitSync } from "@/services/healthKitSync";
 // Agent B's Convex API. Path is `api.health.setHealthKitConnected`.
 // Typed once Agent B's codegen lands; treated as any here so this file
 // compiles ahead of that without forcing a circular install order.
@@ -128,6 +129,7 @@ export function ConnectAppleHealthSheet({
   const [error, setError] = useState<string | null>(null);
 
   const setHealthKitConnected = useMutation(api.health.setHealthKitConnected);
+  const insertHealthSamples = useMutation(api.health.insertSamples);
 
   useEffect(() => {
     let mounted = true;
@@ -170,6 +172,28 @@ export function ConnectAppleHealthSheet({
         logger.error("setHealthKitConnected failed", mutErr);
       }
 
+      // Kick off the first sync immediately so the user sees data within
+      // seconds of granting permission. Force-bypass the 60s throttle —
+      // a brand-new connect is exactly when we want the user to see
+      // numbers populating the tier card, not "first sync pending."
+      // Fire-and-forget — `onConnected` should not wait on the network.
+      forceNextHealthKitSync();
+      runHealthKitSync(insertHealthSamples, { force: true }).catch((err) => {
+        logger.error("post-connect HealthKit sync failed", err);
+      });
+
+      // Register the app for background HealthKit deliveries. Best-effort:
+      // if the plugin can't register (older OS, denied, no entitlement)
+      // we just log and move on — the foreground sync still works.
+      // Cast through `unknown` so this compiles ahead of the parallel
+      // agent's signature rewrite (the old API was zero-arg).
+      const enableBg = healthKit.enableBackgroundDelivery as unknown as (
+        metrics: readonly string[],
+      ) => Promise<void>;
+      enableBg(HEALTH_METRICS).catch((err) => {
+        logger.error("enableBackgroundDelivery failed", err);
+      });
+
       onConnected?.(granted);
     } catch (err) {
       logger.error("HealthKit permission request failed", err);
@@ -179,7 +203,7 @@ export function ConnectAppleHealthSheet({
     } finally {
       setConnecting(false);
     }
-  }, [connecting, onConnected, setHealthKitConnected]);
+  }, [connecting, onConnected, setHealthKitConnected, insertHealthSamples]);
 
   const skipLabel = context === "onboarding" ? "Skip for now" : "Not now";
 

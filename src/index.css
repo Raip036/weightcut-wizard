@@ -865,6 +865,7 @@ All colors MUST be HSL.
     }
 
     .ff-ring-halo,
+    .ff-ring-ribbon,
     .ff-ring-aurora,
     .ff-ring-wisp,
     .ff-ring-core,
@@ -910,14 +911,14 @@ All colors MUST be HSL.
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 5px;
-    height: 5px;
-    margin: -2.5px 0 0 -2.5px;
+    width: 4px;
+    height: 4px;
+    margin: -2px 0 0 -2px;
     border-radius: 9999px;
-    background: rgb(var(--ff-halo-rgb));
+    background: rgba(var(--ff-halo-rgb), 0.9);
     box-shadow:
-      0 0 6px rgba(var(--ff-halo-rgb), 1),
-      0 0 14px rgba(var(--ff-halo-rgb), 0.7);
+      0 0 4px rgba(var(--ff-halo-rgb), 0.7),
+      0 0 9px rgba(var(--ff-halo-rgb), 0.35);
     transform-origin: center;
     animation-name: ffParticleOrbit, ffParticleTwinkle;
     animation-timing-function: linear, ease-in-out;
@@ -926,98 +927,124 @@ All colors MUST be HSL.
   }
 
   /* Size variants — picked round-robin in the React component so the swarm
-     has visual variety instead of a uniform dotted ring. */
+     has visual variety instead of a uniform dotted ring. Softer than the
+     pre-aurora design so they blend into the ribbons. */
   .ff-ring-particle-lg {
-    width: 7px;
-    height: 7px;
-    margin: -3.5px 0 0 -3.5px;
+    width: 5px;
+    height: 5px;
+    margin: -2.5px 0 0 -2.5px;
     box-shadow:
-      0 0 8px rgba(var(--ff-halo-rgb), 1),
-      0 0 18px rgba(var(--ff-halo-rgb), 0.75);
+      0 0 5px rgba(var(--ff-halo-rgb), 0.7),
+      0 0 12px rgba(var(--ff-halo-rgb), 0.4);
   }
   .ff-ring-particle-sm {
-    width: 3px;
-    height: 3px;
-    margin: -1.5px 0 0 -1.5px;
+    width: 2.5px;
+    height: 2.5px;
+    margin: -1.25px 0 0 -1.25px;
     box-shadow:
-      0 0 5px rgba(var(--ff-halo-rgb), 0.9),
-      0 0 10px rgba(var(--ff-halo-rgb), 0.55);
+      0 0 3px rgba(var(--ff-halo-rgb), 0.65),
+      0 0 7px rgba(var(--ff-halo-rgb), 0.3);
   }
 
-  /* Aurora sheen — slow rotating conic gradient sits behind the SVG ring
-     and reads as a trailing comet tail of light. Rotates once every ~16s. */
-  .ff-ring-aurora {
-    background: conic-gradient(
-      from 0deg,
-      rgba(var(--ff-halo-rgb), 0) 0deg,
-      rgba(var(--ff-halo-rgb), 0) 200deg,
-      rgba(var(--ff-halo-rgb), 0.18) 280deg,
-      rgba(var(--ff-halo-rgb), 0.42) 340deg,
-      rgba(var(--ff-halo-rgb), 0) 360deg
-    );
-    filter: blur(24px);
-    animation: ffRingAurora 16s linear infinite;
+  /* Aura light-bands — four concentric thin rings at different radii.
+     Each ring is a hard-edged conic gradient masked into a 2-3px circular
+     band, so you see crisp curving streaks of light (not a diffuse halo).
+     Different radii + rotation speeds + alternating directions give the
+     swirling "magnific aura" look — circular waves of light that overlap
+     and interleave. Tinted by `--ff-halo-rgb`. */
+  .ff-ring-ribbon {
+    position: absolute;
+    border-radius: 9999px;
+    pointer-events: none;
+    transform-origin: center;
     will-change: transform;
   }
 
-  @keyframes ffRingAurora {
+  /* Innermost band — tight against the ring, fastest rotation.
+     Wide bright arcs (~50-70° each) so they read as flowing light streams,
+     not dots. Mask is ~10% thick (vs the prior 4.5%) so the band is
+     unmistakably an arc not a smudge. */
+  .ff-ring-ribbon-1 {
+    inset: -2%;
+    background: conic-gradient(
+      from 0deg,
+      transparent           0deg,
+      rgba(var(--ff-halo-rgb), 1)    35deg,
+      rgba(var(--ff-halo-rgb), 1)    75deg,
+      transparent         120deg,
+      rgba(var(--ff-halo-rgb), 0.9)  175deg,
+      rgba(var(--ff-halo-rgb), 0.9)  215deg,
+      transparent         265deg,
+      rgba(var(--ff-halo-rgb), 0.95) 305deg,
+      transparent         355deg
+    );
+    -webkit-mask: radial-gradient(circle, transparent 67%, black 71%, black 78%, transparent 82%);
+            mask: radial-gradient(circle, transparent 67%, black 71%, black 78%, transparent 82%);
+    animation: ffRibbonRotateCW 11s linear infinite;
+  }
+
+  /* Mid-inner band — counter-rotating, two long arcs offset 180°. */
+  .ff-ring-ribbon-2 {
+    inset: -10%;
+    background: conic-gradient(
+      from 95deg,
+      transparent           0deg,
+      rgba(var(--ff-halo-rgb), 0.9)  40deg,
+      rgba(var(--ff-halo-rgb), 0.9) 100deg,
+      transparent         150deg,
+      transparent         200deg,
+      rgba(var(--ff-halo-rgb), 1)   240deg,
+      rgba(var(--ff-halo-rgb), 1)   300deg,
+      transparent         355deg
+    );
+    -webkit-mask: radial-gradient(circle, transparent 68%, black 72%, black 79%, transparent 83%);
+            mask: radial-gradient(circle, transparent 68%, black 72%, black 79%, transparent 83%);
+    animation: ffRibbonRotateCCW 17s linear infinite;
+  }
+
+  /* Mid-outer band — long sweeping arc + a shorter accent. */
+  .ff-ring-ribbon-3 {
+    inset: -18%;
+    background: conic-gradient(
+      from 220deg,
+      transparent           0deg,
+      rgba(var(--ff-halo-rgb), 0.85)  50deg,
+      rgba(var(--ff-halo-rgb), 0.85) 130deg,
+      transparent         185deg,
+      rgba(var(--ff-halo-rgb), 0.7)  240deg,
+      rgba(var(--ff-halo-rgb), 0.7)  295deg,
+      transparent         350deg
+    );
+    -webkit-mask: radial-gradient(circle, transparent 69%, black 73%, black 80%, transparent 84%);
+            mask: radial-gradient(circle, transparent 69%, black 73%, black 80%, transparent 84%);
+    animation: ffRibbonRotateCW 23s linear infinite;
+  }
+
+  /* Outermost band — biggest radius, slowest, broadest arc. */
+  .ff-ring-ribbon-4 {
+    inset: -26%;
+    background: conic-gradient(
+      from 320deg,
+      transparent           0deg,
+      rgba(var(--ff-halo-rgb), 0.65)  60deg,
+      rgba(var(--ff-halo-rgb), 0.65) 145deg,
+      transparent         210deg,
+      rgba(var(--ff-halo-rgb), 0.55) 270deg,
+      rgba(var(--ff-halo-rgb), 0.55) 330deg,
+      transparent         360deg
+    );
+    -webkit-mask: radial-gradient(circle, transparent 70%, black 74%, black 81%, transparent 85%);
+            mask: radial-gradient(circle, transparent 70%, black 74%, black 81%, transparent 85%);
+    animation: ffRibbonRotateCCW 31s linear infinite;
+  }
+
+  @keyframes ffRibbonRotateCW {
     from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+    to   { transform: rotate(360deg); }
   }
-
-  /* Wind wisps — large blurred ellipses drifting around the ring on long
-     elliptical paths. Each `.ff-ring-wisp-N` uses a distinct keyframe so
-     the wisps don't fall into phase. */
-  .ff-ring-wisp {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 60px;
-    height: 28px;
-    margin: -14px 0 0 -30px;
-    border-radius: 9999px;
-    background: rgba(var(--ff-halo-rgb), 0.35);
-    filter: blur(18px);
-    animation-timing-function: ease-in-out;
-    animation-iteration-count: infinite;
-    will-change: transform, opacity;
-    opacity: 0;
-  }
-  .ff-ring-wisp-0 { animation-name: ffRingWisp0; }
-  .ff-ring-wisp-1 { animation-name: ffRingWisp1; }
-  .ff-ring-wisp-2 { animation-name: ffRingWisp2; }
-  .ff-ring-wisp-3 { animation-name: ffRingWisp3; }
-  .ff-ring-wisp-4 { animation-name: ffRingWisp4; }
-
-  @keyframes ffRingWisp0 {
-    0%   { transform: rotate(0deg)   translateX(78px) rotate(0deg);   opacity: 0; }
-    20%  { opacity: 0.9; }
-    80%  { opacity: 0.8; }
-    100% { transform: rotate(360deg) translateX(78px) rotate(-360deg); opacity: 0; }
-  }
-  @keyframes ffRingWisp1 {
-    0%   { transform: rotate(72deg)  translateX(94px) rotate(-72deg);  opacity: 0; }
-    20%  { opacity: 0.7; }
-    80%  { opacity: 0.6; }
-    100% { transform: rotate(432deg) translateX(94px) rotate(-432deg); opacity: 0; }
-  }
-  @keyframes ffRingWisp2 {
-    0%   { transform: rotate(144deg) translateX(70px) rotate(-144deg); opacity: 0; }
-    20%  { opacity: 0.95; }
-    80%  { opacity: 0.7; }
-    100% { transform: rotate(504deg) translateX(70px) rotate(-504deg); opacity: 0; }
-  }
-  @keyframes ffRingWisp3 {
-    0%   { transform: rotate(216deg) translateX(102px) rotate(-216deg); opacity: 0; }
-    20%  { opacity: 0.6; }
-    80%  { opacity: 0.55; }
-    100% { transform: rotate(576deg) translateX(102px) rotate(-576deg); opacity: 0; }
-  }
-  @keyframes ffRingWisp4 {
-    0%   { transform: rotate(288deg) translateX(88px) rotate(-288deg); opacity: 0; }
-    20%  { opacity: 0.85; }
-    80%  { opacity: 0.65; }
-    100% { transform: rotate(648deg) translateX(88px) rotate(-648deg); opacity: 0; }
+  @keyframes ffRibbonRotateCCW {
+    from { transform: rotate(360deg); }
+    to   { transform: rotate(0deg); }
   }
 
   /* Inner core glow — a soft breathing highlight inside the ring centre.

@@ -1,8 +1,10 @@
 import { useEffect, useState, useCallback, useRef, useMemo, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAction, useConvex, useMutation, useQuery } from "convex/react";
+import { Capacitor } from "@capacitor/core";
 import { format } from "date-fns";
 import { api } from "@/../convex/_generated/api";
+import { runHealthKitSync } from "@/services/healthKitSync";
 import { FEATURE_FLAGS } from "@/lib/featureFlags";
 import { FightFormRing } from "@/components/dashboard/FightFormRing";
 import { FightFormInsightStrip } from "@/components/dashboard/FightFormInsightStrip";
@@ -252,6 +254,27 @@ export default function Dashboard() {
   }, [userId, hasCutPlan, loadCutPlan]);
 
   useEffect(() => { trackInstallDate(); }, []);
+
+  // Dashboard-mount HealthKit sync.
+  //
+  // Fires once per mount, gated to:
+  //   1. Native platform (web/Android short-circuits inside the helper
+  //      anyway, but skipping the call keeps the dashboard's first-paint
+  //      profile cleaner).
+  //   2. A connected profile (`healthKitConnectedAt`). Unconnected users
+  //      would just see the helper return null after `isAvailable()`.
+  //
+  // The helper's module-level 60s throttle is shared with the App.tsx
+  // foreground listener so the typical "open app → land on Dashboard"
+  // flow only triggers one sync, not two.
+  const insertHealthSamples = useMutation(api.health.insertSamples);
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    if (!profile?.healthKitConnectedAt) return;
+    runHealthKitSync(insertHealthSamples).catch((err) => {
+      logger.error("dashboard-mount HealthKit sync failed", err);
+    });
+  }, [profile?.healthKitConnectedAt, insertHealthSamples]);
 
   // Sharp crossing celebration. Conditions for firing:
   //   1. State is "ok" and the displayed score is in Sharp territory (>=80).
@@ -804,13 +827,10 @@ export default function Dashboard() {
             )}
           </header>
 
-          {/* Greeting + date — small caps Inter Light date below the
-              greeting, with breathing room from the top row above. */}
+          {/* Date — small caps Inter Light, with breathing room from the
+              top row above. */}
           <div className="pt-1">
-            <h1 className="text-title font-semibold leading-tight">
-              {userName ? `${getGreeting()}, ${userName}` : "Today"}
-            </h1>
-            <p className="text-micro uppercase tracking-[0.15em] font-light text-muted-foreground/70 mt-1">
+            <p className="text-micro uppercase tracking-[0.15em] font-light text-muted-foreground/70">
               {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
             </p>
           </div>
@@ -875,6 +895,49 @@ export default function Dashboard() {
               calibration={ffCalibration ?? null}
               onHeadlineTap={() => setScoreSheetOpen(true)}
             />
+            {/* Calibration countdown — slim cyan card sitting under the ring
+                while the score is still being calibrated. Pairs the day
+                countdown with what unlocks at completion so the wait feels
+                purposeful. Hidden once the engine flips state to "ok". */}
+            {ffScore.state === "calibrating"
+              && ffCalibration
+              && !ffCalibration.unlocked
+              && (() => {
+                const remaining = Math.max(0, ffCalibration.daysNeeded - ffCalibration.daysWithAnyLog);
+                const pct = Math.min(100, Math.round((ffCalibration.daysWithAnyLog / Math.max(1, ffCalibration.daysNeeded)) * 100));
+                return (
+                  <div className="mt-3 w-full max-w-sm rounded-2xl border border-sky-400/20 bg-sky-400/[0.05] px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex flex-col items-center justify-center min-w-[42px]">
+                        <span className="text-2xl font-bold text-sky-300 leading-none tabular-nums">
+                          {remaining === 0 ? "—" : remaining}
+                        </span>
+                        <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-sky-300/70 mt-1">
+                          {remaining === 1 ? "day" : "days"}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] font-semibold text-foreground leading-tight">
+                          {remaining === 0
+                            ? "Computing your first score…"
+                            : remaining === 1
+                              ? "One more day until your score"
+                              : "Until your Fight Form Score"}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground leading-snug mt-1">
+                          Unlocks score, top driver &amp; weight-cut pacing
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-2.5 h-1 rounded-full bg-sky-400/10 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-sky-400/70 transition-all duration-700"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
             {ffScore.state === "ok" && (
               <FightFormDeltaBanner
                 delta={ffDelta?.delta ?? null}

@@ -36,6 +36,46 @@ export const listCheckins = query({
   },
 });
 
+/**
+ * Count consecutive days back from today (inclusive) where the user has at
+ * least one wellness check-in. Stops at the first missing day and caps at 60.
+ *
+ * Implementation: pull up to ~70 most recent rows via `by_user_date` (cheap —
+ * the index is already (userId, date DESC)) and walk a date pointer backwards
+ * from today. Whether "today" counts is intentional: if the user hasn't logged
+ * today yet, streak starts from yesterday. That keeps the streak from
+ * disappearing midday before the user has had a chance to check in.
+ */
+export const getCheckInStreak = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireUserId(ctx);
+    const rows = await ctx.db
+      .query("daily_wellness_checkins")
+      .withIndex("by_user_date", (q) => q.eq("userId", userId))
+      .order("desc")
+      .take(70);
+    if (rows.length === 0) return { streak: 0 };
+
+    const dateSet = new Set(rows.map((r) => r.date));
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0, 10);
+    // If today not logged, start streak counting from yesterday — keeps the
+    // streak alive during the day before check-in.
+    const startOffset = dateSet.has(todayStr) ? 0 : 1;
+
+    let streak = 0;
+    for (let i = startOffset; i < 60 + startOffset; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      if (dateSet.has(key)) streak++;
+      else break;
+    }
+    return { streak };
+  },
+});
+
 export const upsertCheckin = mutation({
   args: {
     date: v.string(),
@@ -97,6 +137,18 @@ export const getLatestBaseline = query({
   },
 });
 
+// Client sends this payload with snake_case keys (the `PersonalBaseline` type
+// in performanceEngine is snake_case end-to-end). The schema is camelCase. We
+// translate at the boundary so neither side has to change.
+function snakeToCamelKeys(input: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(input)) {
+    const camel = k.replace(/_([a-z0-9])/g, (_, c) => c.toUpperCase());
+    out[camel] = v;
+  }
+  return out;
+}
+
 export const upsertBaseline = mutation({
   args: {
     baselineDate: v.string(),
@@ -104,6 +156,7 @@ export const upsertBaseline = mutation({
   },
   handler: async (ctx, { baselineDate, data }) => {
     const userId = await requireUserId(ctx);
+    const normalized = snakeToCamelKeys(data ?? {});
     const existing = await ctx.db
       .query("personal_baselines")
       .withIndex("by_user_date", (q) =>
@@ -112,7 +165,7 @@ export const upsertBaseline = mutation({
       .unique();
     if (existing) {
       await ctx.db.patch(existing._id, {
-        ...data,
+        ...normalized,
         updatedAt: Date.now(),
       });
       return existing._id;
@@ -120,7 +173,7 @@ export const upsertBaseline = mutation({
     return await ctx.db.insert("personal_baselines", {
       userId,
       baselineDate,
-      ...data,
+      ...normalized,
       updatedAt: Date.now(),
     });
   },

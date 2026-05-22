@@ -73,10 +73,15 @@ export default function TodayStrip({ adherence, mealsLoggedToday }: Props) {
       <div className="flex items-stretch gap-1.5 w-full">
         {PILLS.map(({ key, label, href, Icon }) => {
           const isLogged = logged[key];
+          // Send users straight into the dedicated full-screen check-in
+          // when wellness isn't done yet; once logged, route back to the
+          // recovery dashboard so they can review their stats.
+          const finalHref =
+            key === "wellness" && !isLogged ? "/recovery/check-in" : href;
           return (
             <Link
               key={key}
-              to={href}
+              to={finalHref}
               onClick={() => { void triggerHaptic(ImpactStyle.Light); }}
               className={cn(
                 "relative flex-1 min-h-[52px] rounded-md flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 transition-colors",

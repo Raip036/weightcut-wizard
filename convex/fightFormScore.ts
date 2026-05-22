@@ -315,6 +315,15 @@ export const recomputeForUserDate = internalAction({
         proteinG: inputs.profile?.aiRecommendedProteinG ?? null,
       },
       priorRawScores: inputs.priorRawScores,
+      // HealthKit-derived signals (HRV, RHR, sleep, wrist temp, VO2max)
+      // assembled by `fetchScoringInputs`; drives the `recovery` sub-score.
+      healthSignals: inputs.healthSignals,
+      // Morning check-in soreness/energy — augments recovery.
+      selfReportRecovery: inputs.selfReportRecovery,
+      // Per-input provenance — recorded by `fetchScoringInputs` based on
+      // which table (HealthKit `daily_health_summary` vs. manual
+      // `sleep_logs` / `weight_logs`) won the merge for each date.
+      sources: inputs.sources,
     };
     const score = computeFightFormScore(scoringInputs, CURRENT_CONFIG);
     await ctx.runMutation(internal.fightFormScore_internal.upsertScore, {

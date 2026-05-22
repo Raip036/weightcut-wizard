@@ -1,12 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-// Captured at module load. Survives unmount→remount of <FightFormRing/>
-// because the module stays in the JS heap while the SPA is alive — so
-// looping atmospheric animations resume from where they "would have been"
-// instead of restarting from frame 0.
-const RING_EPOCH_MS = Date.now();
+import { FightFormRingAtmosphere } from "./FightFormRingAtmosphere";
 
 type Props = {
   score: number;
@@ -82,11 +77,6 @@ const PARTICLE_COUNT_BY_LABEL = {
   at_risk: 20,
 } as const;
 
-// Soft drifting "wind wisps" — larger blurred ellipses that float around
-// the ring at slow speeds. Layered behind the orbiting particles to give
-// Whoop-style atmospheric depth.
-const WISP_COUNT = 5;
-
 // Calibration "pre-bloom" palette. Cool cyan (sky-400) so the calibrating
 // state reads as a distinct phase, then saturates toward the eventual label
 // color as days complete. Until then, the ring uses this base.
@@ -98,14 +88,8 @@ const CALIB_HALO_DURATION = "4.6s";
 // Density window for the calibration particle field. Floor + ceiling tuned
 // to read as a continuous flow (matching sharpening density) rather than a
 // sparse marching line, while keeping calibration distinct from sharp.
-const CALIB_PARTICLE_MIN = 44;
-const CALIB_PARTICLE_MAX = 72;
-// Golden-ratio scatter constant. Multiplying particle index by this and
-// taking the fractional part gives a maximally-uniform but non-grid spread
-// around the orbit — particles look organic instead of marching in lockstep.
-// Critically, each particle's phase is a pure function of its index, so
-// adding particles when calibProgress grows doesn't shift existing ones.
-const GOLDEN_PHASE = 0.6180339887498949;
+const CALIB_PARTICLE_MIN = 10;
+const CALIB_PARTICLE_MAX = 18;
 // Rotated through the subline so the user sees the engine is actively
 // reading specific signals, not just spinning.
 const CALIB_PHRASES = [
@@ -293,8 +277,6 @@ export function FightFormRing({
   const showPhaseFightWeek = state === "ok" && phase === "fightWeek";
   const phaseRadius = radius + 5;
 
-  const elapsedSec = (Date.now() - RING_EPOCH_MS) / 1000;
-
   return (
     <button
       type="button"
@@ -308,110 +290,21 @@ export function FightFormRing({
       aria-label="Open Fight Form Score details"
       style={{ width: size, height: size }}
     >
-      {/* Aurora sheen — slow rotating conic gradient sweep behind the ring.
-          Reads as a trailing "comet tail" of light that rotates once every
-          12-20s depending on label. Whoop's hero-ring move. */}
-      {showHalo && (
-        <div
-          aria-hidden
-          className="ff-ring-aurora absolute inset-0 rounded-full pointer-events-none"
-          style={{
-            ["--ff-halo-rgb" as any]: labelRgb,
-            animationDelay: `${-elapsedSec}s`,
-          }}
-        />
-      )}
-
-      {/* Aurora halo. Sits behind everything via z-index. Color, intensity
-          and speed are state-reactive via inline CSS vars consumed by the
-          ff-ring-halo keyframe in index.css. */}
-      {showHalo && (
-        <div
-          aria-hidden
-          className="ff-ring-halo absolute inset-0 rounded-full pointer-events-none"
-          style={{
-            ["--ff-halo-rgb" as any]: labelRgb,
-            ["--ff-halo-peak" as any]: haloPeak,
-            animationDuration: haloDuration,
-            animationDelay: `${-elapsedSec}s`,
-          }}
-        />
-      )}
-
-      {/* Drifting wind wisps — large soft blurred ellipses that float around
-          the ring on long, varied timelines. Layered behind the particles
-          for atmospheric depth. */}
-      {showHalo && (
-        <div aria-hidden className="absolute inset-0 pointer-events-none overflow-hidden rounded-full">
-          {Array.from({ length: WISP_COUNT }).map((_, i) => {
-            const wispDuration = 18 + (i * 3.5); // 18s, 21.5s, 25s, 28.5s, 32s
-            const startOffset = -((wispDuration * i) / WISP_COUNT);
-            return (
-              <span
-                key={i}
-                className={`ff-ring-wisp ff-ring-wisp-${i}`}
-                style={{
-                  ["--ff-halo-rgb" as any]: labelRgb,
-                  animationDuration: `${wispDuration}s`,
-                  animationDelay: `${startOffset - elapsedSec}s`,
-                }}
-              />
-            );
-          })}
-        </div>
-      )}
-
-      {/* Inner core glow — a soft breathing inner highlight that pulses
-          gently regardless of state. Sells the "alive" feel even at low
-          scores where the halo opacity is muted. */}
-      {showHalo && (
-        <div
-          aria-hidden
-          className="ff-ring-core absolute inset-0 rounded-full pointer-events-none"
-          style={{
-            ["--ff-halo-rgb" as any]: labelRgb,
-            animationDelay: `${-elapsedSec}s`,
-          }}
-        />
-      )}
-
-      {/* Particles — visible at every "ok" score, density scales by label.
-          Mixed sizes (every 3rd particle is bigger, every 5th is a small
-          sparkle) keep the orbit from reading as mechanical. */}
-      {showParticles && (
-        <div aria-hidden className="absolute inset-0 pointer-events-none">
-          {Array.from({ length: particleCount }).map((_, i) => {
-            // Spread across 9 concentric orbits so the heavy swarm fans
-            // into a thick atmospheric halo instead of stacking on one ring.
-            const orbitRadius = radius - 4 + ((i % 9) - 4) * 6; // -28..+26 px
-            const orbitDuration = 9 + (i % 11) * 0.95;            // 9s..18.5s
-            const twinkleDuration = 1.2 + (i % 7) * 0.45;         // 1.2s..3.9s
-            // Per-particle phase. Ok-state keeps the original even-spacing
-            // distribution since its particleCount is fixed per label. The
-            // calibration state uses a golden-ratio scatter so phases are
-            // a pure function of the particle index — when calibProgress
-            // grows and more particles mount, existing particles keep their
-            // positions instead of snapping to new phase offsets.
-            const phase = isCalib
-              ? (i * GOLDEN_PHASE) % 1
-              : i / particleCount;
-            const startOffset = -(orbitDuration * phase);
-            const sizeVariant = i % 4 === 0 ? "lg" : i % 6 === 0 ? "sm" : "md";
-            return (
-              <span
-                key={i}
-                className={`ff-ring-particle ff-ring-particle-${sizeVariant}`}
-                style={{
-                  ["--ff-halo-rgb" as any]: labelRgb,
-                  ["--ff-orbit-r" as any]: `${orbitRadius}px`,
-                  animationDuration: `${orbitDuration}s, ${twinkleDuration}s`,
-                  animationDelay: `${startOffset - elapsedSec}s, ${-(i * 0.4) - elapsedSec}s`,
-                }}
-              />
-            );
-          })}
-        </div>
-      )}
+      {/* All atmospheric layers (aurora, halo, wisps, core, particles) live
+          in a memoized subcomponent so they stay decoupled from this parent
+          ring's transient re-renders (phrase ticks, day-ping toggles, unlock
+          progress). Without this, every inline animationDelay rewrite was
+          re-anchoring the CSS animations and visibly resetting the swarm. */}
+      <FightFormRingAtmosphere
+        show={showHalo}
+        showParticles={showParticles}
+        isCalib={isCalib}
+        labelRgb={labelRgb}
+        haloDuration={haloDuration}
+        haloPeak={haloPeak}
+        particleCount={particleCount}
+        radius={radius}
+      />
 
       <svg width={size} height={size} className="-rotate-90 relative">
         {/* Phase border (outer). Build = none. Peak = dashed orbit. Fight

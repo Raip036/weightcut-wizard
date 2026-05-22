@@ -1,4 +1,4 @@
-import type { FightFormScore, ScoringConfig, ScoringInputs, SubScoreKey } from "./types";
+import type { FightFormScore, ScoringConfig, ScoringInputs, ScoringInputSources, SubScoreKey } from "./types";
 import { computeTrainingLoad } from "./subScores/trainingLoad";
 import { computeSleep } from "./subScores/sleep";
 import { computeWeightCut } from "./subScores/weightCut";
@@ -141,13 +141,35 @@ function emptySubScores(): FightFormScore["subScores"] {
   };
 }
 
+/**
+ * Build the `inputSources` surface for the engine output. When
+ * `inputs.sources` was populated (Convex call path), pass it straight
+ * through. When absent (legacy tests, ad-hoc callers), derive a
+ * `'manual'`-everywhere fallback from the inputs themselves so the field
+ * is never undefined on the output.
+ */
+function resolveInputSources(inputs: ScoringInputs): ScoringInputSources {
+  if (inputs.sources) return inputs.sources;
+  const sleepHoursByDate: Record<string, "healthkit" | "manual"> = {};
+  for (const s of inputs.sleepHours) sleepHoursByDate[s.date] = "manual";
+  const weightsByDate: Record<string, "healthkit" | "manual"> = {};
+  for (const w of inputs.weights) weightsByDate[w.date] = "manual";
+  const sortedWeights = [...inputs.weights].sort((a, b) => a.date.localeCompare(b.date));
+  const weightLatest = sortedWeights.length > 0 ? "manual" : null;
+  const sleepHoursTargetDate = inputs.sleepHours.some((s) => s.date === inputs.date)
+    ? "manual"
+    : null;
+  return { sleepHoursByDate, weightsByDate, weightLatest, sleepHoursTargetDate };
+}
+
 export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig): FightFormScore {
+  const inputSources = resolveInputSources(inputs);
   if (inputs.isCampPaused) {
     return {
       score: 0, rawScore: 0, label: "off_pace", state: "paused", phase: null,
       campAge: null, subScores: emptySubScores(), topDriver: "weightCut",
       topLimiter: "weightCut", appliedCeiling: null, algorithmVersion: cfg.version,
-      recoveryConfidence: 0,
+      recoveryConfidence: 0, inputSources,
     };
   }
   if (!inputs.fightDate || !inputs.campStartDate) {
@@ -155,7 +177,7 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
       score: 0, rawScore: 0, label: "off_pace", state: "no_camp", phase: null,
       campAge: null, subScores: emptySubScores(), topDriver: "weightCut",
       topLimiter: "weightCut", appliedCeiling: null, algorithmVersion: cfg.version,
-      recoveryConfidence: 0,
+      recoveryConfidence: 0, inputSources,
     };
   }
 
@@ -165,7 +187,7 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
       score: 0, rawScore: 0, label: "off_pace", state: "calibrating", phase: null,
       campAge: null, subScores: emptySubScores(), topDriver: "weightCut",
       topLimiter: "weightCut", appliedCeiling: null, algorithmVersion: cfg.version,
-      recoveryConfidence: 0,
+      recoveryConfidence: 0, inputSources,
     };
   }
 
@@ -251,5 +273,6 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
     appliedCeiling: ceil.applied,
     algorithmVersion: cfg.version,
     recoveryConfidence: recovery.confidence,
+    inputSources,
   };
 }

@@ -20,6 +20,7 @@ import {
   ExternalLink,
   HeartPulse,
   Loader2,
+  RefreshCw,
   Settings,
   XCircle,
 } from "lucide-react";
@@ -27,9 +28,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { logger } from "@/lib/logger";
 import { healthKit } from "@/services/healthKit";
+import { forceNextHealthKitSync, runHealthKitSync } from "@/services/healthKitSync";
 import { api } from "@/../convex/_generated/api";
 import { useUser } from "@/contexts/UserContext";
 import ErrorBoundary from "@/components/ErrorBoundary";
@@ -101,6 +104,9 @@ function HealthSettingsCardInner({
   const tierInfo: TierInfo | undefined = tierInfoRaw ?? undefined;
 
   const markDisconnected = useMutation(api.health.markDisconnected);
+  const insertHealthSamples = useMutation(api.health.insertSamples);
+  const { toast } = useToast();
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -163,6 +169,44 @@ function HealthSettingsCardInner({
     }
   }, [openingSettings]);
 
+  // Manual "Sync now" handler. Bypasses the 60s throttle so the user
+  // always sees feedback on tap, then surfaces a toast with the result.
+  const handleManualSync = useCallback(async () => {
+    if (syncing) return;
+    setSyncing(true);
+    try {
+      forceNextHealthKitSync();
+      const result = await runHealthKitSync(insertHealthSamples, { force: true });
+      if (result == null) {
+        toast({
+          title: "Couldn't sync Apple Health",
+          description:
+            "We couldn't reach Apple Health right now. Try again in a moment.",
+          variant: "destructive",
+        });
+      } else if (result.insertedCount === 0) {
+        toast({
+          title: "Already up to date",
+          description: "No new samples since the last sync.",
+        });
+      } else {
+        toast({
+          title: "Apple Health synced",
+          description: `${result.insertedCount} new sample${result.insertedCount === 1 ? "" : "s"} added.`,
+        });
+      }
+    } catch (err) {
+      logger.error("manual HealthKit sync failed", err);
+      toast({
+        title: "Sync failed",
+        description: "Something went wrong syncing Apple Health.",
+        variant: "destructive",
+      });
+    } finally {
+      setSyncing(false);
+    }
+  }, [syncing, insertHealthSamples, toast]);
+
   // ─── Web / Android build (spec §10.10) ──────────────────────────
   if (available === false) {
     return (
@@ -208,10 +252,13 @@ function HealthSettingsCardInner({
           <ConnectedBody
             grantedMetrics={grantedMetrics}
             lastSyncAt={lastSyncAt}
+            connectedAt={connectedAt}
             onOpenHealthSettings={handleOpenHealthSettings}
             openingSettings={openingSettings}
             onDisconnect={handleDisconnect}
             disconnecting={disconnecting}
+            onManualSync={handleManualSync}
+            syncing={syncing}
           />
         ) : (
           <DisconnectedBody onConnect={() => setSheetOpen(true)} />
@@ -287,17 +334,23 @@ function DisconnectedBody({
 function ConnectedBody({
   grantedMetrics,
   lastSyncAt,
+  connectedAt,
   onOpenHealthSettings,
   openingSettings,
   onDisconnect,
   disconnecting,
+  onManualSync,
+  syncing,
 }: {
   grantedMetrics: string[];
   lastSyncAt: number | null;
+  connectedAt: number | null;
   onOpenHealthSettings: () => void;
   openingSettings: boolean;
   onDisconnect: () => void;
   disconnecting: boolean;
+  onManualSync: () => void;
+  syncing: boolean;
 }): JSX.Element {
   const grantedSet = useMemo(
     () => new Set(grantedMetrics),
@@ -316,11 +369,37 @@ function ConnectedBody({
   const [showAll, setShowAll] = useState(false);
   const visible = showAll ? rows : rows.slice(0, 5);
 
+  // Sync stall detection. If the user has been connected for > 5 minutes
+  // and we still don't have a single ingested sample timestamp on the
+  // profile, the integration is effectively wedged — the foreground
+  // listener should have fired by now. Surface a more useful state with
+  // a direct "tap to retry" affordance instead of the optimistic copy.
+  const stalled =
+    !lastSyncAt &&
+    !!connectedAt &&
+    Date.now() - connectedAt > 5 * 60 * 1000;
+
   return (
     <div className="space-y-3">
-      <p className="text-[11px] text-muted-foreground">
-        {formatLastSync(lastSyncAt)}
-      </p>
+      {stalled ? (
+        <button
+          type="button"
+          onClick={onManualSync}
+          disabled={syncing}
+          className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-func-warning-yellow hover:text-func-warning-yellow/85 active:scale-[0.98] transition disabled:opacity-50"
+        >
+          {syncing ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <RefreshCw className="h-3 w-3" />
+          )}
+          {syncing ? "Syncing…" : "Sync stalled — tap to retry"}
+        </button>
+      ) : (
+        <p className="text-[11px] text-muted-foreground">
+          {formatLastSync(lastSyncAt)}
+        </p>
+      )}
 
       <ul className="space-y-1">
         <AnimatePresence initial={false}>
@@ -373,6 +452,19 @@ function ConnectedBody({
       )}
 
       <div className="flex flex-col gap-1.5 pt-1">
+        <button
+          type="button"
+          onClick={onManualSync}
+          disabled={syncing}
+          className="inline-flex items-center justify-center gap-1.5 rounded-xs border border-border/50 bg-primary/10 px-3 py-2 text-[12px] font-semibold text-primary active:scale-[0.98] transition disabled:opacity-50"
+        >
+          {syncing ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <RefreshCw className="h-3.5 w-3.5" />
+          )}
+          {syncing ? "Syncing…" : "Sync now"}
+        </button>
         <button
           type="button"
           onClick={onOpenHealthSettings}
