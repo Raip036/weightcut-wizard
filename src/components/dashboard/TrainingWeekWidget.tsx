@@ -1,6 +1,6 @@
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { format, startOfWeek, endOfWeek } from "date-fns";
+import { format, startOfWeek, endOfWeek, subWeeks } from "date-fns";
 import { ChevronRight } from "lucide-react";
 import { useQuery } from "convex/react";
 import { convex } from "@/integrations/convex/client";
@@ -10,6 +10,56 @@ import { getSessionColor, getUserColors } from "@/lib/sessionColors";
 import { AnimatedRing } from "@/components/motion";
 import { Skeleton } from "@/components/ui/skeleton-loader";
 import { triggerHapticSelection } from "@/lib/haptics";
+
+/**
+ * Animates a number from 0 → target on mount, and from previous → next
+ * whenever `value` changes. ~600ms ease-out-cubic by default. Honours
+ * `prefers-reduced-motion` by jumping straight to the final value.
+ */
+function useCountUp(value: number, durationMs = 600): number {
+  const [display, setDisplay] = useState<number>(() => {
+    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      return value;
+    }
+    return 0;
+  });
+  const fromRef = useRef<number>(display);
+  const rafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") { setDisplay(value); return; }
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      setDisplay(value);
+      fromRef.current = value;
+      return;
+    }
+    const from = fromRef.current;
+    const to = value;
+    if (from === to) return;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / durationMs);
+      // ease-out cubic
+      const eased = 1 - Math.pow(1 - t, 3);
+      const current = from + (to - from) * eased;
+      setDisplay(current);
+      if (t < 1) {
+        rafRef.current = requestAnimationFrame(tick);
+      } else {
+        fromRef.current = to;
+        rafRef.current = null;
+      }
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+      // Persist whatever we last rendered as the starting point for the next animation
+      fromRef.current = value;
+    };
+  }, [value, durationMs]);
+
+  return display;
+}
 
 interface WeekSession {
   id: string;
@@ -146,6 +196,32 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
     setLoading(false);
   }, [userId, liveCalendar]);
 
+  // Previous-week totals — fetched once per userId, separate from the current
+  // week so we don't disturb the existing caching pipeline. Compact-only.
+  const [prevWeekTotals, setPrevWeekTotals] = useState<{ sessions: number; minutes: number } | null>(null);
+  useEffect(() => {
+    if (!userId || !compact) return;
+    let cancelled = false;
+    const now = new Date();
+    const prevWs = startOfWeek(subWeeks(now, 1), { weekStartsOn: 1 });
+    const prevWe = endOfWeek(subWeeks(now, 1), { weekStartsOn: 1 });
+    (async () => {
+      try {
+        const raw = (await convex.query(api.fight_camp.listCalendar, {
+          from: format(prevWs, "yyyy-MM-dd"),
+          to: format(prevWe, "yyyy-MM-dd"),
+        })) ?? [];
+        if (cancelled) return;
+        const items = (raw as any[]).filter((r) => r.sessionType !== "Rest");
+        const minutes = items.reduce((s, r) => s + (r.durationMinutes ?? 0), 0);
+        setPrevWeekTotals({ sessions: items.length, minutes });
+      } catch {
+        // Non-critical — leave delta unrendered
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [userId, compact]);
+
   // Build day-of-week map (Mon=0..Sun=6)
   const dayMap = new Map<number, WeekSession[]>();
   const ws = startOfWeek(new Date(), { weekStartsOn: 1 });
@@ -161,6 +237,21 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
   // Stats
   const totalSessions = sessions.length;
   const totalMinutes = sessions.reduce((s, x) => s + x.duration_minutes, 0);
+
+  // Count-up animated values (compact-only — kept here for both branches
+  // so the hook order stays stable, only consumed in the compact branch)
+  const animatedSessions = useCountUp(totalSessions);
+  const totalDisplayRaw = totalMinutes >= 60 ? Math.round(totalMinutes / 60) : totalMinutes;
+  const animatedTotal = useCountUp(totalDisplayRaw);
+
+  // Delta vs previous week (in same unit as the displayed total)
+  const deltaMin = prevWeekTotals ? totalMinutes - prevWeekTotals.minutes : null;
+  const deltaDisplay = deltaMin == null
+    ? null
+    : (totalMinutes >= 60 || (prevWeekTotals?.minutes ?? 0) >= 60)
+      ? Math.round(deltaMin / 60)
+      : deltaMin;
+  const deltaUnitSuffix = totalMinutes >= 60 ? "h" : "m";
 
   // Type breakdown for the ring segments
   const typeCounts = new Map<string, number>();
@@ -238,7 +329,7 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
               id="training-week-ring"
             />
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="display-number text-xs font-bold">{totalSessions}</span>
+              <span className="display-number text-xs font-bold tabular-nums">{Math.round(animatedSessions)}</span>
             </div>
           </div>
           <div className="flex-1 min-w-0">
@@ -246,45 +337,60 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
                 (not bold). Matches the WEIGHT label on the sibling card. */}
             <div className="text-[10px] font-normal uppercase tracking-[0.08em] text-muted-foreground">Training</div>
             <div className="flex items-baseline gap-1 mt-0.5">
-              <span className="display-number text-lg font-bold">
-                {totalMinutes >= 60 ? Math.round(totalMinutes / 60) : totalMinutes}
+              <span className="display-number text-lg font-bold tabular-nums">
+                {Math.round(animatedTotal)}
               </span>
               <span className="text-[10px] text-muted-foreground font-medium">
                 {totalMinutes >= 60 ? "hrs" : "min"}
               </span>
+              {deltaMin != null && deltaDisplay != null && (
+                deltaMin === 0 ? (
+                  <span className="text-[10px] font-semibold tabular-nums ml-1 text-muted-foreground/70">
+                    ±0{deltaUnitSuffix}
+                  </span>
+                ) : (
+                  <span className={`text-[10px] font-semibold tabular-nums ml-1 ${deltaMin > 0 ? "text-func-recovery-green" : "text-func-danger-red"}`}>
+                    {deltaMin > 0 ? "+" : "−"}{Math.abs(deltaDisplay)}{deltaUnitSuffix}
+                  </span>
+                )
+              )}
             </div>
           </div>
           <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/30 flex-shrink-0" />
         </div>
 
-        {/* Week bar chart — fills remaining space */}
+        {/* Week bar chart — fills remaining space. Each session renders as
+            its own rounded segment within the day's column, stacked from
+            bottom-up. Per-segment height = (duration / 120) * columnH. */}
         <div className="flex items-end justify-between mt-auto px-0.5 gap-1">
           {DAY_LABELS.map((label, i) => {
             const daySessions = dayMap.get(i) ?? [];
             const isToday = i === todayIdx;
             const isFuture = i > todayIdx;
-            const totalDayMin = daySessions.reduce((s, x) => s + x.duration_minutes, 0);
             const maxMin = 120;
-            const barH = daySessions.length > 0 ? Math.max(6, Math.round((totalDayMin / maxMin) * 28)) : 0;
+            const columnH = 32;
+            // Render longest segment first so it visually anchors the day
+            const ordered = [...daySessions].sort((a, b) => b.duration_minutes - a.duration_minutes);
 
             return (
               <div key={i} className="flex flex-col items-center gap-0.5 flex-1">
-                <div className="w-full flex flex-col justify-end items-center" style={{ height: 32 }}>
-                  {daySessions.length > 0 ? (
-                    <div
-                      className="w-full rounded-sm transition-all duration-500"
-                      style={{
-                        height: barH,
-                        background: daySessions.length === 1
-                          ? getSessionColor(daySessions[0].session_type, customColors)
-                          : `linear-gradient(to top, ${daySessions.map(s => getSessionColor(s.session_type, customColors)).join(", ")})`,
-                        maxWidth: 20,
-                      }}
-                    />
-                  ) : (
+                <div className="w-full flex flex-col justify-end items-center gap-[2px]" style={{ height: columnH, maxWidth: 20 }}>
+                  {ordered.length > 0 ? ordered.map((s) => {
+                    const segH = Math.max(4, Math.min(columnH, Math.round((s.duration_minutes / maxMin) * columnH)));
+                    return (
+                      <div
+                        key={s.id}
+                        className="w-full rounded-[3px] transition-all duration-500"
+                        style={{
+                          height: segH,
+                          background: getSessionColor(s.session_type, customColors),
+                        }}
+                      />
+                    );
+                  }) : (
                     <div
                       className="w-full rounded-sm"
-                      style={{ height: 3, maxWidth: 20, background: isFuture ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.08)" }}
+                      style={{ height: 3, background: isFuture ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.08)" }}
                     />
                   )}
                 </div>

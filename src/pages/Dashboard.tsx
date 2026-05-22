@@ -744,10 +744,12 @@ export default function Dashboard() {
     // own cold-start gate). We only pass the fraction while the user is
     // genuinely short of the threshold — once met, the ring center swaps
     // to "Calibrating · computing…" while the recompute below fires.
+    // Always surface the day-count to the ring during calibration so the
+    // tiny "Day N of M" badge stays visible while the user is still logging
+    // toward their first score (was previously gated to `< daysNeeded` which
+    // hid the count once they hit the threshold).
     const ringCalibratingDays =
-      ffScore.state === "calibrating"
-        && ffCalibration
-        && ffCalibration.daysWithAnyLog < ffCalibration.daysNeeded
+      ffScore.state === "calibrating" && ffCalibration
         ? { current: ffCalibration.daysWithAnyLog, needed: ffCalibration.daysNeeded }
         : undefined;
 
@@ -1031,7 +1033,7 @@ export default function Dashboard() {
                 </div>
               </div>
             </button>
-            {userId && <SleepLogger userId={userId} compact />}
+            {userId && <TrainingWeekWidget userId={userId} compact />}
           </div>
 
           <div>
