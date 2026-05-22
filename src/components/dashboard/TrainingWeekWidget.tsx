@@ -276,7 +276,7 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
     // Compact skeleton: mimics exact final layout, clipped by overflow-hidden
     if (compact) {
       return (
-        <div className="card-surface rounded-xs overflow-hidden p-3.5 aspect-square flex flex-col">
+        <div className="card-surface card-glow rounded-2xl overflow-hidden p-3.5 aspect-square flex flex-col">
           <div className="flex items-center gap-2.5 min-w-0">
             <Skeleton className="w-11 h-11 rounded-full shrink-0" />
             <div className="flex-1 min-w-0 space-y-1.5">
@@ -294,7 +294,7 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
     }
     // Full skeleton
     return (
-      <div className="card-surface rounded-xs overflow-hidden p-5">
+      <div className="card-surface card-glow rounded-2xl overflow-hidden p-5">
         <div className="flex items-center gap-4 min-w-0">
           <Skeleton className="w-20 h-20 rounded-full shrink-0" />
           <div className="flex-1 min-w-0 space-y-2">
@@ -315,7 +315,7 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
   if (compact) {
     return (
       <div
-        className="card-surface p-3.5 rounded-xs overflow-hidden cursor-pointer active:scale-[0.98] transition-all duration-200 aspect-square flex flex-col"
+        className="card-surface card-glow p-3.5 rounded-2xl overflow-hidden cursor-pointer active:scale-[0.98] transition-all duration-200 aspect-square flex flex-col"
         onClick={() => { triggerHapticSelection(); navigate("/training-calendar?openLogSession=true"); }}
       >
         {/* Header: ring + stats */}
@@ -452,7 +452,7 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
   // Full-size (non-compact) layout
   return (
     <div
-      className="card-surface p-3 rounded-xs overflow-hidden cursor-pointer active:scale-[0.98] transition-all duration-200"
+      className="card-surface card-glow p-3 rounded-2xl overflow-hidden cursor-pointer active:scale-[0.98] transition-all duration-200"
       onClick={() => { triggerHapticSelection(); navigate("/training-calendar?openLogSession=true"); }}
     >
       {/* Header row — eyebrow label + chevron, matches Weight/Sleep cards */}

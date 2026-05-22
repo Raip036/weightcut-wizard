@@ -219,7 +219,7 @@ export function CutPaceForecast({
     <button
       type="button"
       onClick={() => { triggerHapticSelection(); navigate("/cut-plan"); }}
-      className="w-full card-surface rounded-xs p-4 text-left active:scale-[0.99] transition-transform"
+      className="w-full card-surface card-glow rounded-2xl p-4 text-left active:scale-[0.99] transition-transform"
     >
       {/* Header — status chip + summary count */}
       <div className="flex items-center justify-between gap-2">

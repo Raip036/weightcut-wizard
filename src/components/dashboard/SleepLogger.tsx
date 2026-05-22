@@ -100,7 +100,7 @@ export const SleepLogger = memo(function SleepLogger({ userId, compact, classNam
   const trigger = compact ? (
     <button
       type="button"
-      className={cn("card-surface rounded-xs p-3 aspect-square flex flex-col text-left active:scale-[0.98] transition-all w-full", className)}
+      className={cn("card-surface card-glow rounded-2xl p-3 aspect-square flex flex-col text-left active:scale-[0.98] transition-all w-full", className)}
       onClick={() => { triggerHaptic(ImpactStyle.Light); navigate("/sleep"); }}
     >
       {/* Header — eyebrow label only */}
@@ -133,7 +133,7 @@ export const SleepLogger = memo(function SleepLogger({ userId, compact, classNam
   ) : (
     <button
       type="button"
-      className="card-surface rounded-xs p-3 sm:p-4 w-full flex items-center gap-3 active:scale-[0.98] transition-all duration-200 text-left"
+      className="card-surface card-glow rounded-2xl p-3 sm:p-4 w-full flex items-center gap-3 active:scale-[0.98] transition-all duration-200 text-left"
       onClick={openSheet}
     >
       <Icon name="moonOutline" size={20} className="text-primary flex-shrink-0" />

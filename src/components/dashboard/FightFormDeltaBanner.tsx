@@ -42,7 +42,7 @@ export function FightFormDeltaBanner(p: Props) {
     <button
       type="button"
       onClick={p.onTap}
-      className="card-surface rounded-xs border border-border/50 px-3.5 py-2 mt-2 flex items-center justify-center gap-2.5 w-full max-w-sm text-center transition-colors hover:border-border"
+      className="card-surface card-glow rounded-2xl px-3.5 py-2 mt-2 flex items-center justify-center gap-2.5 w-full max-w-sm text-center transition-colors"
       aria-label="Open Fight Form Score details"
     >
       <span

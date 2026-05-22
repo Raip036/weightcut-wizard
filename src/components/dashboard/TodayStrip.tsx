@@ -45,7 +45,7 @@ export default function TodayStrip({ adherence, mealsLoggedToday }: Props) {
   const allSet = doneCount === total;
 
   return (
-    <div className="card-surface rounded-xs px-3 pt-3 pb-4 space-y-2.5">
+    <div className="card-surface card-glow rounded-2xl px-3 pt-3 pb-4 space-y-2.5">
       {/* Header row — label + count */}
       <div className="flex items-center justify-between">
         <p className="font-display text-note font-semibold">Today's log</p>

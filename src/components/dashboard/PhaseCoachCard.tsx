@@ -58,7 +58,7 @@ export function PhaseCoachCard({ phase, daysUntilFight, signal }: PhaseCoachCard
     <button
       type="button"
       onClick={() => { triggerHapticSelection(); navigate("/fight-camps"); }}
-      className="w-full card-surface rounded-xs p-3.5 text-left active:scale-[0.99] transition-transform"
+      className="w-full card-surface card-glow rounded-2xl p-3.5 text-left active:scale-[0.99] transition-transform"
     >
       <div className="flex items-center gap-2">
         <span className={`h-7 w-7 rounded-xs bg-muted/40 flex items-center justify-center shrink-0 ${meta.accent}`}>

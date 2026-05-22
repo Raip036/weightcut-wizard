@@ -15,7 +15,7 @@ export const WeightProgressRing = memo(function WeightProgressRing({ currentWeig
   const displayProgress = Math.min(Math.max(progressPercentage, 0), 100);
 
   return (
-    <div className="card-surface rounded-xs border border-border p-3.5">
+    <div className="card-surface card-glow rounded-2xl p-3.5">
       {/* Header */}
       <div className="mb-2.5">
         <span className="text-[10px] font-bold uppercase tracking-widest text-foreground">Weight Progress</span>

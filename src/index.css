@@ -554,6 +554,33 @@ All colors MUST be HSL.
     /* No border per Design System v1. */
   }
 
+  /* Outline glow — primary-tinted border + soft top-left gradient wash.
+     Apply alongside `card-surface` to give a widget the same "lit" feel
+     as the active-camp hero on /camp. The ::before pseudo carries the
+     gradient so call sites don't need a separate child div. */
+  .card-glow {
+    position: relative;
+    border: 1px solid hsl(var(--primary) / 0.20);
+    border-radius: 1rem;
+    overflow: hidden;
+  }
+  .card-glow::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary) / 0.05),
+      transparent 60%
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+  .card-glow > * {
+    position: relative;
+    z-index: 1;
+  }
+
   /* Section header utility — uppercase eyebrow used above card content
      and section titles. Design System v1: Inter regular, not bold. */
   .section-header {

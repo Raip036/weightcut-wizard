@@ -83,7 +83,7 @@ export function GymInvitesBanner() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ type: "spring", damping: 26, stiffness: 320 }}
-            className="w-full rounded-xs border-2 border-primary bg-primary/[0.08] p-3 flex items-center gap-3 active:scale-[0.99] transition-all"
+            className="w-full card-glow rounded-2xl bg-primary/[0.08] p-3 flex items-center gap-3 active:scale-[0.99] transition-all"
           >
             <span className="relative flex h-9 w-9 rounded-full items-center justify-center flex-shrink-0 bg-primary text-primary-foreground">
               <span
