@@ -203,7 +203,9 @@ export const run = action({
 
 Pull cards from the athlete's own notes below — techniques mentioned, coach feedback, specific lessons. DO NOT write generic motivation. DO NOT prescribe next steps or step-by-step instructions (the Training Coach feature owns forward-looking prescriptions). The "front" MUST be retrievable from the "back" — it should be a recall prompt or question the back content actually answers.
 
-Generate 3 to 6 cards, balanced across the disciplines actually trained this week (${disciplinesTrained.join(", ") || "the disciplines below"}). Use the session_type values EXACTLY as given for each card's "sport" field. Do not merge or rename disciplines (Boxing is not Muay Thai). Set "sourceSessionDate" to the YYYY-MM-DD of the session a card was distilled from when one note clearly seeded it.
+CRITICAL — the flashcard content (front, back, cue) must test the TECHNIQUE ITSELF, never the date or day it was practiced. NEVER include calendar dates, day names ("Monday", "yesterday"), week references ("this week", "last session"), or any temporal framing inside the front, back, or cue fields. A user reviewing this card weeks later should be able to study it without any sense of when it was logged. Example BAD front: "On Tuesday's BJJ session, what was the sweep?" Example GOOD front: "Scissor sweep — what's the base-leg cue?". Dates only live in the separate "sourceSessionDate" metadata field, never in user-visible text.
+
+Generate 3 to 6 cards, balanced across the disciplines actually trained this week (${disciplinesTrained.join(", ") || "the disciplines below"}). Use the session_type values EXACTLY as given for each card's "sport" field. Do not merge or rename disciplines (Boxing is not Muay Thai). Set "sourceSessionDate" to the YYYY-MM-DD of the session a card was distilled from when one note clearly seeded it — this is metadata only and is NOT shown to the athlete.
 
 ${SECOND_PERSON_DIRECTIVE}
 

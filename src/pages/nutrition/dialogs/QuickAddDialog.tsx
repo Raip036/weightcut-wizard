@@ -284,7 +284,7 @@ export function QuickAddDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className={`w-[calc(100vw-1.5rem)] max-w-[420px] max-h-[calc(100vh-4rem)] overflow-y-auto rounded-[28px] p-0 border-0 bg-card/95 backdrop-blur-xl gap-0 ${aiTask ? "[&>button]:hidden" : ""}`}
+        className={`w-[calc(100vw-1.5rem)] max-w-[420px] max-h-[calc(100vh-var(--keyboard-inset,0px)-4rem)] overflow-y-auto rounded-[28px] p-0 border-0 bg-card/95 backdrop-blur-xl gap-0 ${aiTask ? "[&>button]:hidden" : ""}`}
       >
         {aiTask && (
           aiMeal.photoAnalyzing && aiMeal.photoBase64 ? (
