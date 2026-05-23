@@ -48,7 +48,7 @@ export default function TodayStrip({ adherence, mealsLoggedToday }: Props) {
     <div className="card-surface card-glow rounded-2xl px-3 pt-3 pb-4 space-y-2.5">
       {/* Header row — label + count */}
       <div className="flex items-center justify-between">
-        <p className="font-display text-note font-semibold">Today's log</p>
+        <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/80">Today's log</p>
         <p className={cn(
           "text-note font-semibold tabular-nums",
           allSet ? "text-func-recovery-green" : "text-muted-foreground",
@@ -84,9 +84,9 @@ export default function TodayStrip({ adherence, mealsLoggedToday }: Props) {
               to={finalHref}
               onClick={() => { void triggerHaptic(ImpactStyle.Light); }}
               className={cn(
-                "relative flex-1 min-h-[52px] rounded-md flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 transition-colors",
+                "card-press relative flex-1 min-h-[52px] rounded-md flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 transition-colors",
                 isLogged
-                  ? "bg-primary text-primary-foreground border border-primary"
+                  ? "bg-primary/15 text-primary border border-primary/20"
                   : "border border-border/60 text-muted-foreground active:bg-muted/40",
               )}
               aria-label={`${label}${isLogged ? " logged" : " not logged"}`}
@@ -94,12 +94,12 @@ export default function TodayStrip({ adherence, mealsLoggedToday }: Props) {
               <Icon
                 name={icon}
                 size={16}
-                className={isLogged ? "text-primary-foreground" : "text-muted-foreground"}
+                className={isLogged ? "text-primary" : "text-muted-foreground"}
               />
               <span
                 className={cn(
-                  "text-[10px] font-semibold leading-none",
-                  isLogged ? "text-primary-foreground" : "text-muted-foreground",
+                  "text-[10px] font-semibold leading-none tracking-tight",
+                  isLogged ? "text-primary" : "text-muted-foreground",
                 )}
               >
                 {label}

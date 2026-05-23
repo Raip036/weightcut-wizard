@@ -32,7 +32,7 @@ export function LockedMissionCard() {
             <p className="text-body-sm font-semibold text-foreground leading-tight">
               Training Missions
             </p>
-            <span className="text-[10px] uppercase tracking-wide text-primary font-bold">
+            <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-primary">
               Pro
             </span>
           </div>
@@ -46,7 +46,7 @@ export function LockedMissionCard() {
       <button
         type="button"
         onClick={handlePress}
-        className="w-full min-h-[44px] rounded-xs bg-primary text-primary-foreground px-4 py-2.5 text-[13px] font-semibold active:scale-[0.99] transition-transform"
+        className="w-full min-h-[44px] rounded-xs bg-primary text-primary-foreground px-4 py-2.5 text-[13px] font-semibold card-press"
       >
         Upgrade to Pro
       </button>

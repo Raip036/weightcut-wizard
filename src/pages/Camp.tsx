@@ -217,7 +217,7 @@ export default function Camp() {
     // PageTransition drives a single page-level fade; tiles render statically
     // so we don't compose a per-tile cascade on top of it. A faster, simpler
     // entrance than the previous staggered framer-motion sequence.
-    <div className="animate-page-in space-y-4 px-5 pt-3 pb-28 sm:px-5 sm:pt-5 md:px-6 md:pt-6 w-full max-w-2xl mx-auto">
+    <div className="dashboard-enter-stagger space-y-4 px-5 pt-3 pb-36 sm:px-5 sm:pt-5 md:px-6 md:pt-6 w-full max-w-2xl mx-auto">
       {/* Page header */}
       <header className="pt-1">
         <p className="text-micro uppercase tracking-[0.15em] text-muted-foreground/70 font-bold">Your</p>
@@ -242,7 +242,7 @@ export default function Camp() {
           <button
             type="button"
             onClick={() => goTo("/fight-camps")}
-            className="relative w-full text-left rounded-2xl border border-primary/20 bg-primary/10 p-4 active:scale-[0.99] transition-transform overflow-hidden"
+            className="relative w-full text-left rounded-2xl border border-primary/20 bg-primary/10 p-4 card-press overflow-hidden"
           >
             {/* Faint inner gradient wash to lift the hero off the page. */}
             <div
@@ -261,7 +261,7 @@ export default function Camp() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-[22px] font-bold leading-tight truncate min-w-0">
+                    <p className="text-[22px] font-bold tracking-tight leading-tight truncate min-w-0">
                       {activeCamp.name}
                     </p>
                     <span
@@ -271,11 +271,11 @@ export default function Camp() {
                     </span>
                   </div>
                 </div>
-                <div className="text-center shrink-0 bg-primary/10 rounded-xl px-3 py-2">
-                  <p className="text-[28px] font-extrabold tabular-nums text-foreground leading-none">
+                <div className="text-center shrink-0 bg-primary/10 rounded-xl px-3.5 py-2">
+                  <p className="text-[28px] font-bold tabular-nums tracking-tight text-foreground leading-none">
                     {campProgress.daysLeft}
                   </p>
-                  <p className="text-micro uppercase tracking-wider text-foreground font-bold mt-0.5">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/80 font-semibold mt-1">
                     days left
                   </p>
                 </div>
@@ -290,11 +290,11 @@ export default function Camp() {
                   />
                 </div>
                 <div className="flex justify-between items-center">
-                  <p className="text-micro text-foreground font-bold tabular-nums">
+                  <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground/80 font-semibold tabular-nums">
                     Day {campProgress.elapsed} of {campProgress.totalDays}
                   </p>
-                  <p className="text-micro text-muted-foreground font-semibold">
-                    Fight: <span className="text-foreground font-bold">{campProgress.fightLabel}</span>
+                  <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground/80 font-semibold">
+                    Fight: <span className="text-foreground/90 font-bold normal-case">{campProgress.fightLabel}</span>
                   </p>
                 </div>
               </div>
@@ -310,7 +310,7 @@ export default function Camp() {
           onClick={() =>
             goTo(cutPlanSummary.planType === "weight_loss" ? "/weight-plan" : "/cut-plan")
           }
-          className="relative w-full rounded-2xl card-surface border border-primary/20 overflow-hidden p-4 flex items-center gap-3.5 active:scale-[0.99] transition-all text-left"
+          className="relative w-full rounded-2xl card-surface border border-primary/20 overflow-hidden p-4 flex items-center gap-3.5 card-press text-left"
         >
           <div
             aria-hidden
@@ -330,23 +330,9 @@ export default function Camp() {
           Glow lives on the LockedMissionCard surface itself (primary tint +
           border), no ambient halo around the widget. */}
       {userId && (
-        <div className="flex items-center justify-between pt-1">
-          <h2 className="text-[15px] font-semibold text-foreground tracking-tight">
-            Training missions
-          </h2>
-          {cutPlanSummary && (
-            <button
-              type="button"
-              onClick={() =>
-                goTo(cutPlanSummary.planType === "weight_loss" ? "/weight-plan" : "/cut-plan")
-              }
-              className="inline-flex items-center gap-1 text-[13px] font-medium text-primary active:opacity-70 transition-opacity"
-            >
-              View full plan
-              <Icon name="chevronForwardOutline" size={12} className="text-primary" />
-            </button>
-          )}
-        </div>
+        <h2 className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/80 pt-2">
+          Training missions
+        </h2>
       )}
       {userId && <MissionStack />}
 
@@ -373,17 +359,17 @@ export default function Camp() {
 
           const iconSize = isHero ? 56 : isMedium ? 40 : 32;
           const titleClass = isHero
-            ? "text-[20px] leading-tight"
+            ? "text-[20px] leading-tight tracking-tight"
             : isMedium
-              ? "text-[16px] leading-tight"
-              : "text-[14px] leading-tight";
+              ? "text-[16px] leading-tight tracking-tight"
+              : "text-[14px] leading-tight tracking-tight";
 
           return (
             <button
               key={tile.url}
               type="button"
               onClick={() => goTo(tile.url)}
-              className={`${spanClass} ${surfaceClass} rounded-2xl p-4 text-left active:scale-[0.99] transition-transform flex flex-col`}
+              className={`${spanClass} ${surfaceClass} rounded-2xl p-4 text-left card-press flex flex-col`}
             >
               <div
                 aria-hidden
@@ -395,7 +381,7 @@ export default function Camp() {
                   <Icon
                     name={tile.icon}
                     size={iconSize}
-                    className="text-primary"
+                    className="text-primary/90"
                   />
                 </div>
                 <div className="mt-2">

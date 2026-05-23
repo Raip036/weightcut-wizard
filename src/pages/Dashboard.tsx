@@ -873,7 +873,7 @@ export default function Dashboard() {
             onResult={setSubScoreTrend}
           />
         </ErrorBoundary>
-        <div className="dashboard-zoom animate-page-in space-y-3.5 px-5 py-3 sm:p-5 md:p-6 w-full max-w-7xl mx-auto">
+        <div className="dashboard-zoom dashboard-enter-stagger space-y-5 px-5 py-3 sm:p-5 md:p-6 w-full max-w-7xl mx-auto">
           {/* Top row — three columns at the same 40px height:
               [Profile avatar] [Dashboard title] [Days-left tab].
               The avatar is now a direct nav to the edit-profile page
@@ -930,7 +930,7 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => setNextCampOpen(true)}
-              className="w-full text-left rounded-2xl card-surface card-glow p-3 active:scale-[0.99] transition-transform"
+              className="w-full text-left rounded-2xl card-surface card-glow p-3 card-press"
             >
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-xs bg-primary/15 flex items-center justify-center shrink-0">
@@ -1050,7 +1050,9 @@ export default function Dashboard() {
 
           <TodayStrip adherence={adherence} mealsLoggedToday={todayCalories > 0} />
 
-          <p className="font-display text-value font-bold text-white pt-4">Your Stats</p>
+          <div className="pt-3 flex items-baseline justify-between">
+            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/80">Your Stats</p>
+          </div>
 
           <div className="grid grid-cols-2 gap-2 items-stretch">
             {/* Weight metric card — Design System v1 Metric Card layout
@@ -1064,7 +1066,7 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => { triggerHapticSelection(); navigate('/weight'); }}
-              className="card-surface card-glow rounded-2xl p-3 aspect-square flex flex-col text-left active:scale-[0.98] transition-transform"
+              className="card-surface card-glow rounded-2xl p-3 aspect-square flex flex-col text-left card-press"
             >
               <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
                 WEIGHT
@@ -1127,7 +1129,9 @@ export default function Dashboard() {
               has an active camp with a weigh-in date set. */}
           {activeCamp && !activeCamp.isCompleted && profile?.target_date && (
             <>
-              <p className="font-display text-value font-bold text-white pt-4">Camp Status</p>
+              <div className="pt-3 flex items-baseline justify-between">
+                <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/80">Camp Status</p>
+              </div>
               <div className="space-y-2">
                 <CutPaceForecast
                   weightLogs={weightLogs}

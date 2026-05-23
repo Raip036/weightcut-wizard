@@ -245,7 +245,7 @@ All colors MUST be HSL.
     --neutral-400:         140 150 180;   /* #8C96B4 */
     --neutral-500:          77  88 119;   /* #4D5877 */
     --neutral-700:          42  42  42;   /* #2A2A2A */
-    --neutral-800:          30  30  30;   /* #1E1E1E — Card surface */
+    --neutral-800:          22  24  31;   /* #16181F — Card surface (cool blue-tinted dark) */
     --neutral-900:          18  18  18;   /* #121212 */
     --neutral-1000:         15  15  15;   /* #0F0F0F — Page background */
 
@@ -531,8 +531,10 @@ All colors MUST be HSL.
     border-color: hsl(var(--primary-foreground) / 0.3);
   }
 
-  /* Card surfaces — Design System v1. Solid neutral-800 (#1E1E1E),
-     no border, no shadow. Hierarchy comes from the surface contrast
+  /* Card surfaces — Design System v1, refined for Apple+Whoop polish.
+     Solid neutral-800 (#1E1E1E) surface with a barely-there hairline
+     border (4% white) for edge definition, plus a tiny inset top
+     highlight (3% white) so each card reads as a discrete lit panel
      against the darker page background. Dialogs and the sidebar
      opt-in to the same recipe so the whole app reads consistently. */
   .glass-card,
@@ -543,8 +545,8 @@ All colors MUST be HSL.
   .popover-content {
     background: rgb(var(--neutral-800));
     border-radius: var(--radius);
-    /* No border, no shadow per the design-system overhaul.
-       Add a hover state per call site if needed. */
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.03);
   }
 
   .nutrition-dashboard {
@@ -557,12 +559,15 @@ All colors MUST be HSL.
   /* Outline glow — primary-tinted border + soft top-left gradient wash.
      Apply alongside `card-surface` to give a widget the same "lit" feel
      as the active-camp hero on /camp. The ::before pseudo carries the
-     gradient so call sites don't need a separate child div. */
+     gradient so call sites don't need a separate child div. Softened for
+     Apple+Whoop polish — quieter border, gentler wash, plus a tiny inset
+     highlight so it still reads as lit. */
   .card-glow {
     position: relative;
-    border: 1px solid hsl(var(--primary) / 0.20);
+    border: 1px solid hsl(var(--primary) / 0.12);
     border-radius: 1rem;
     overflow: hidden;
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
   }
   .card-glow::before {
     content: "";
@@ -570,7 +575,7 @@ All colors MUST be HSL.
     inset: 0;
     background: linear-gradient(
       135deg,
-      hsl(var(--primary) / 0.05),
+      hsl(var(--primary) / 0.035),
       transparent 60%
     );
     pointer-events: none;
@@ -592,9 +597,69 @@ All colors MUST be HSL.
   }
 
   .display-number {
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: "tnum", "lnum", "ss01", "calt";
     font-weight: 700;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.025em;
+  }
+
+  /* Dashboard motion utilities — Apple+Whoop polish */
+
+  /* Fade-up entrance for dashboard sections */
+  @keyframes dashboardSectionEnter {
+    from { opacity: 0; transform: translate3d(0, 8px, 0); }
+    to   { opacity: 1; transform: translate3d(0, 0, 0); }
+  }
+
+  .dashboard-enter {
+    animation: dashboardSectionEnter 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Stagger children — 60ms delay per child, capped at 8 children. */
+  .dashboard-enter-stagger > * {
+    animation: dashboardSectionEnter 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .dashboard-enter-stagger > *:nth-child(1) { animation-delay: 0ms; }
+  .dashboard-enter-stagger > *:nth-child(2) { animation-delay: 60ms; }
+  .dashboard-enter-stagger > *:nth-child(3) { animation-delay: 120ms; }
+  .dashboard-enter-stagger > *:nth-child(4) { animation-delay: 180ms; }
+  .dashboard-enter-stagger > *:nth-child(5) { animation-delay: 240ms; }
+  .dashboard-enter-stagger > *:nth-child(6) { animation-delay: 300ms; }
+  .dashboard-enter-stagger > *:nth-child(7) { animation-delay: 360ms; }
+  .dashboard-enter-stagger > *:nth-child(n+8) { animation-delay: 420ms; }
+
+  /* Refined press state for tappable cards — replaces ad-hoc active:scale-[0.98]. */
+  .card-press {
+    transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.18s ease;
+    will-change: transform;
+  }
+  .card-press:active {
+    transform: scale(0.985);
+    opacity: 0.96;
+  }
+
+  /* Hairline divider — for separating dashboard sections subtly. */
+  .hairline-divider {
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      transparent,
+      hsl(var(--foreground) / 0.06) 20%,
+      hsl(var(--foreground) / 0.06) 80%,
+      transparent
+    );
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dashboard-enter,
+    .dashboard-enter-stagger > * {
+      animation: none !important;
+      opacity: 1 !important;
+      transform: none !important;
+    }
+    .card-press {
+      transition: none;
+    }
   }
 
   /* Shimmer skeleton — replaces animate-pulse for premium feel */
