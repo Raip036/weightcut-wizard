@@ -2,7 +2,8 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Plus, ChevronRight, List, CalendarDays, Sparkles, Dumbbell, Target, Award, Zap, Footprints, RotateCw, Activity, Flame } from "lucide-react";
 import { motion, LayoutGroup } from "motion/react";
-import wizardLogo from "@/assets/wizard-tutorial.png";
+import { Icon, type IonIconName } from "@/components/ui/Icon";
+import wizardLogo from "@/assets/wizard_3D.png";
 import { useMutation } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import { Button } from "@/components/ui/button";
@@ -47,16 +48,26 @@ function formatVol(v: number): string {
 }
 
 // Icon + accent color per session type for the start-workout grid.
+// The three picker chips (Strength / Hypertrophy / Explosiveness) render
+// with Ionicons for visual consistency with the rest of the app; the
+// remaining entries stay on Lucide because they're only used by legacy
+// surfaces (history badges, etc.).
 const SESSION_TYPE_META: Record<string, { icon: typeof Dumbbell; accent: string }> = {
-  "Strength":      { icon: Dumbbell,    accent: "text-blue-400" },
-  "Hypertrophy":   { icon: Target,      accent: "text-violet-400" },
   "Powerlifting":  { icon: Award,       accent: "text-amber-400" },
-  "Explosiveness": { icon: Zap,         accent: "text-yellow-400" },
   "Conditioning":  { icon: Flame,       accent: "text-orange-400" },
   "Circuit":       { icon: RotateCw,    accent: "text-rose-400" },
   "Endurance":     { icon: Footprints,  accent: "text-emerald-400" },
   "Mobility":      { icon: Activity,    accent: "text-cyan-400" },
   "Custom":        { icon: Plus,        accent: "text-muted-foreground" },
+};
+
+// Picker-chip Ionicon mapping. Lives separately from SESSION_TYPE_META
+// because the rest of the app still consumes Lucide components from
+// SESSION_TYPE_META; only the picker switched.
+const PICKER_ICONS: Record<"Strength" | "Hypertrophy" | "Explosiveness", { name: IonIconName; accent: string }> = {
+  "Strength":      { name: "barbellOutline", accent: "text-blue-400" },
+  "Hypertrophy":   { name: "bodyOutline",    accent: "text-violet-400" },
+  "Explosiveness": { name: "flashOutline",   accent: "text-yellow-400" },
 };
 import { triggerHaptic } from "@/lib/haptics";
 import { useAITask } from "@/contexts/AITaskContext";
@@ -438,30 +449,37 @@ export default function GymTracker() {
                   </div>
                 </div>
 
-                {/* Restricted session-type grid — 3 cards */}
-                <div className="grid grid-cols-2 gap-2">
-                  {VISIBLE_SESSION_TYPES.map((t) => {
-                    const active = sessionType === t;
-                    const meta = SESSION_TYPE_META[t] ?? { icon: Dumbbell, accent: "text-foreground" };
-                    const Icon = meta.icon;
-                    return (
-                      <button
-                        key={t}
-                        onClick={() => {
-                          setSessionType(t as SessionType);
-                          triggerHaptic(ImpactStyle.Light);
-                        }}
-                        className={`relative flex items-center gap-2 rounded-xs border px-3 py-2.5 text-left active:scale-[0.97] transition-all ${
-                          active
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "bg-muted/30 border-border/30 hover:bg-muted/50"
-                        }`}
-                      >
-                        <Icon className={`h-4 w-4 shrink-0 ${active ? "text-primary-foreground" : meta.accent}`} strokeWidth={2.2} />
-                        <span className="text-[13px] font-semibold truncate">{t}</span>
-                      </button>
-                    );
-                  })}
+                {/* Restricted session-type picker — single horizontally
+                    scrollable row so all chips read in one glance and
+                    extra options (when added) just extend the scroll. */}
+                <div className="-mx-4 px-4 overflow-x-auto scrollbar-hide">
+                  <div className="flex items-center gap-2 w-max">
+                    {VISIBLE_SESSION_TYPES.map((t) => {
+                      const active = sessionType === t;
+                      const meta = PICKER_ICONS[t];
+                      return (
+                        <button
+                          key={t}
+                          onClick={() => {
+                            setSessionType(t as SessionType);
+                            triggerHaptic(ImpactStyle.Light);
+                          }}
+                          className={`relative shrink-0 flex items-center gap-2 rounded-xs border px-3 py-2.5 text-left active:scale-[0.97] transition-all ${
+                            active
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-muted/30 border-border/30 hover:bg-muted/50"
+                          }`}
+                        >
+                          <Icon
+                            name={meta.name}
+                            size={16}
+                            className={`${active ? "text-primary-foreground" : meta.accent}`}
+                          />
+                          <span className="text-[13px] font-semibold whitespace-nowrap">{t}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* Big start button — no sparkle icon */}

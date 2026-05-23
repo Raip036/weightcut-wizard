@@ -7,6 +7,7 @@ import { Camera, Edit2, Loader2, Mic, MicOff, Plus, X, Flame, Wheat, Droplet, Dr
 import { motion, LayoutGroup } from "motion/react";
 import { triggerHapticSelection } from "@/lib/haptics";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
+import { useScrollIntoViewOnFocus } from "@/hooks/useScrollIntoViewOnFocus";
 import { AICompactOverlay } from "@/components/AICompactOverlay";
 import { MealPhotoScanOverlay } from "@/components/nutrition/MealPhotoScanOverlay";
 import type { ManualMealForm } from "@/pages/nutrition/types";
@@ -137,6 +138,8 @@ export function QuickAddDialog({
       try { localStorage.setItem("wcw_ai_meal_placeholder_seen", "1"); } catch { /* swallow */ }
     }
   }, [open, quickAddTab, hasSeenAiPlaceholder]);
+
+  const handleInputFocus = useScrollIntoViewOnFocus();
 
   const { isListening, isSupported: voiceSupported, startListening, stopListening, interimText } = useSpeechRecognition({
     onTranscript: (text: string) => aiMeal.setAiMealDescription((prev) => (prev ? prev + " " + text : text)),
@@ -477,12 +480,7 @@ export function QuickAddDialog({
               disabled={aiMeal.aiAnalyzing}
               className={`text-[15px] min-h-[88px] resize-none rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/30 py-3 px-4 placeholder:text-muted-foreground/50 ${isListening ? "ring-2 ring-func-danger-red/40" : ""}`}
               rows={3}
-              onFocus={() => {
-                setTimeout(() => {
-                  const el = document.activeElement;
-                  if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-                }, 300);
-              }}
+              onFocus={handleInputFocus}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey && !aiMeal.aiAnalyzing) {
                   e.preventDefault();
@@ -608,6 +606,7 @@ export function QuickAddDialog({
                     value={manualMeal.meal_name}
                     onChange={(e) => setManualMeal((prev) => ({ ...prev, meal_name: e.target.value }))}
                     placeholder="Name this meal"
+                    onFocus={handleInputFocus}
                     className="h-12 rounded-xs bg-transparent border-0 text-[18px] font-semibold tracking-tight text-foreground placeholder:text-muted-foreground/40 px-0 focus-visible:ring-0"
                   />
                 </div>
@@ -656,6 +655,7 @@ export function QuickAddDialog({
                               value={editingDraft}
                               onChange={(e) => setEditingDraft(e.target.value)}
                               onBlur={commitEditMacro}
+                              onFocus={handleInputFocus}
                               onKeyDown={(e) => {
                                 if (e.key === "Enter") { e.preventDefault(); (e.currentTarget as HTMLInputElement).blur(); }
                                 if (e.key === "Escape") { setEditingMacro(null); setEditingDraft(""); }
@@ -758,6 +758,7 @@ export function QuickAddDialog({
               placeholder="Meal name"
               value={manualMeal.meal_name}
               onChange={(e) => setManualMeal({ ...manualMeal, meal_name: e.target.value })}
+              onFocus={handleInputFocus}
               className={INPUT_CLASS}
               autoFocus
             />
@@ -783,6 +784,7 @@ export function QuickAddDialog({
                           handleBarcodeServingSet(Math.round(m * 10) / 10, Math.round(grams));
                         }
                       }}
+                      onFocus={handleInputFocus}
                       className="w-16 text-[14px] text-right h-9 rounded-xs"
                     />
                     <span className="text-[14px] text-muted-foreground">g</span>
@@ -826,6 +828,7 @@ export function QuickAddDialog({
               placeholder="Calories"
               value={manualMeal.calories}
               onChange={(e) => macroCalc.handleCalorieChange(e.target.value, setManualMeal)}
+              onFocus={handleInputFocus}
               className={INPUT_CLASS}
             />
 
@@ -837,6 +840,7 @@ export function QuickAddDialog({
                 placeholder="Protein"
                 value={manualMeal.protein_g}
                 onChange={(e) => setManualMeal({ ...manualMeal, protein_g: e.target.value })}
+                onFocus={handleInputFocus}
                 className={INPUT_CLASS}
               />
               <Input
@@ -846,6 +850,7 @@ export function QuickAddDialog({
                 placeholder="Carbs"
                 value={manualMeal.carbs_g}
                 onChange={(e) => setManualMeal({ ...manualMeal, carbs_g: e.target.value })}
+                onFocus={handleInputFocus}
                 className={INPUT_CLASS}
               />
               <Input
@@ -855,6 +860,7 @@ export function QuickAddDialog({
                 placeholder="Fats"
                 value={manualMeal.fats_g}
                 onChange={(e) => setManualMeal({ ...manualMeal, fats_g: e.target.value })}
+                onFocus={handleInputFocus}
                 className={INPUT_CLASS}
               />
             </div>
@@ -867,6 +873,7 @@ export function QuickAddDialog({
                 placeholder="Ingredient"
                 value={aiMeal.newIngredient.name}
                 onChange={(e) => aiMeal.setNewIngredient({ ...aiMeal.newIngredient, name: e.target.value })}
+                onFocus={handleInputFocus}
                 className={`${INPUT_CLASS} flex-1`}
               />
               <Input
@@ -875,6 +882,7 @@ export function QuickAddDialog({
                 placeholder="g"
                 value={aiMeal.newIngredient.grams}
                 onChange={(e) => aiMeal.setNewIngredient({ ...aiMeal.newIngredient, grams: e.target.value })}
+                onFocus={handleInputFocus}
                 className={`${INPUT_CLASS} w-16 px-2 text-center`}
               />
               <Button

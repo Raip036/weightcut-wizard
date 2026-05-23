@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion, useReducedMotion } from "motion/react";
 import { Icon, type IonIconName } from "@/components/ui/Icon";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -24,7 +23,7 @@ interface CampSection {
 const sections: CampSection[] = [
   {
     title: "Training Calendar",
-    description: "Schedule sessions, log training and track progress",
+    description: "",
     url: "/training-calendar",
     icon: "calendarOutline",
     primary: true,
@@ -104,7 +103,6 @@ export default function Camp() {
   const { profile, userId, loadCutPlan } = useUser();
   const goalType = (profile?.goal_type as "cutting" | "losing") ?? "cutting";
   const fighter = isFighter(goalType);
-  const prefersReduced = useReducedMotion();
 
   const activeCamp = useQuery(
     api.fight_camp.getActiveCamp,
@@ -215,28 +213,11 @@ export default function Camp() {
     navigate(url);
   };
 
-  // Motion props for entrance animation — respects prefers-reduced-motion.
-  // No y-offset: PageTransition already drives a translate on the route
-  // wrapper; layering another translate per tile produces visible jitter as
-  // the two animations compose. We keep just opacity for the stagger so the
-  // cascade reads without fighting the page-level transform. GPU-friendly
-  // properties only (opacity + transform: translate3d via translateZ hint).
-  const tileMotionProps = (i: number) => ({
-    initial: { opacity: 0 },
-    animate: { opacity: 1 },
-    transition: {
-      delay: prefersReduced ? 0 : i * 0.035,
-      duration: 0.28,
-      ease: "easeOut" as const,
-    },
-    style: { willChange: "opacity" },
-  });
-
   return (
-    // Drop `animate-page-in` here — PageTransition + per-tile motion handle
-    // entrance without the extra CSS-keyframe translate that was causing
-    // jitter when stacked against framer-motion.
-    <div className="space-y-4 px-5 pt-3 pb-28 sm:px-5 sm:pt-5 md:px-6 md:pt-6 w-full max-w-2xl mx-auto">
+    // PageTransition drives a single page-level fade; tiles render statically
+    // so we don't compose a per-tile cascade on top of it. A faster, simpler
+    // entrance than the previous staggered framer-motion sequence.
+    <div className="animate-page-in space-y-4 px-5 pt-3 pb-28 sm:px-5 sm:pt-5 md:px-6 md:pt-6 w-full max-w-2xl mx-auto">
       {/* Page header */}
       <header className="pt-1">
         <p className="text-micro uppercase tracking-[0.15em] text-muted-foreground/70 font-bold">Your</p>
@@ -258,11 +239,10 @@ export default function Camp() {
                 "radial-gradient(60% 60% at 30% 40%, hsl(var(--primary) / 0.18), hsl(var(--primary) / 0.05) 50%, transparent 75%)",
             }}
           />
-          <motion.button
+          <button
             type="button"
             onClick={() => goTo("/fight-camps")}
             className="relative w-full text-left rounded-2xl border border-primary/20 bg-primary/10 p-4 active:scale-[0.99] transition-transform overflow-hidden"
-            {...tileMotionProps(0)}
           >
             {/* Faint inner gradient wash to lift the hero off the page. */}
             <div
@@ -319,32 +299,31 @@ export default function Camp() {
                 </div>
               </div>
             </div>
-          </motion.button>
+          </button>
         </div>
       )}
 
       {/* ── Your plan — quick link to the canonical timeline ───────────── */}
       {cutPlanSummary && (
-        <motion.button
+        <button
           type="button"
           onClick={() =>
             goTo(cutPlanSummary.planType === "weight_loss" ? "/weight-plan" : "/cut-plan")
           }
-          className="w-full rounded-2xl card-surface p-4 flex items-center gap-3.5 active:scale-[0.99] transition-all text-left"
-          {...tileMotionProps(1)}
+          className="relative w-full rounded-2xl card-surface border border-primary/20 overflow-hidden p-4 flex items-center gap-3.5 active:scale-[0.99] transition-all text-left"
         >
-          <Icon name="documentTextOutline" size={26} className="text-primary flex-shrink-0" />
-          <div className="flex-1 min-w-0">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.04] to-transparent"
+          />
+          <Icon name="documentTextOutline" size={26} className="relative text-primary flex-shrink-0" />
+          <div className="relative flex-1 min-w-0">
             <p className="text-body-sm font-semibold text-foreground leading-tight">
               View full plan
             </p>
-            <p className="text-note text-muted-foreground leading-snug mt-0.5 truncate">
-              {cutPlanSummary.totalWeeks} weeks · {cutPlanSummary.weeklyLossTarget}
-              {cutPlanSummary.goalWeight ? ` · target ${cutPlanSummary.goalWeight}kg` : ""}
-            </p>
           </div>
-          <Icon name="chevronForwardOutline" size={16} className="text-muted-foreground/40 flex-shrink-0" />
-        </motion.button>
+          <Icon name="chevronForwardOutline" size={16} className="relative text-muted-foreground/40 flex-shrink-0" />
+        </button>
       )}
 
       {/* ── Training Missions (notes-driven, per-discipline checklists) ──
@@ -366,11 +345,12 @@ export default function Camp() {
               ? "col-span-1 row-span-2"
               : "col-span-1 row-span-1";
 
-          // Per-size surface styling. Hero gets the primary-tinted border +
-          // gradient wash; everyone else uses the standard card surface.
-          const surfaceClass = isHero
-            ? "relative card-surface border border-primary/20 overflow-hidden"
-            : "relative card-surface";
+          // Per-size surface styling. Every tile carries the primary-tinted
+          // border + gradient wash so the Camp grid reads as a single
+          // unified set; the hero still pops via its 2x2 span + larger icon
+          // and subtitle rather than via a stronger surface treatment.
+          const surfaceClass =
+            "relative card-surface border border-primary/20 overflow-hidden";
 
           const iconSize = isHero ? 56 : isMedium ? 40 : 32;
           const titleClass = isHero
@@ -380,19 +360,16 @@ export default function Camp() {
               : "text-[14px] leading-tight";
 
           return (
-            <motion.button
+            <button
               key={tile.url}
               type="button"
               onClick={() => goTo(tile.url)}
               className={`${spanClass} ${surfaceClass} rounded-2xl p-4 text-left active:scale-[0.99] transition-transform flex flex-col`}
-              {...tileMotionProps(i + 2)}
             >
-              {isHero && (
-                <div
-                  aria-hidden
-                  className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.04] to-transparent"
-                />
-              )}
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.04] to-transparent"
+              />
 
               <div className="relative flex-1 flex flex-col">
                 <div className="flex-1">
@@ -406,7 +383,7 @@ export default function Camp() {
                   <p className={`font-semibold text-foreground ${titleClass}`}>
                     {tile.title}
                   </p>
-                  {isHero && (
+                  {isHero && tile.description && (
                     <p className="text-note text-muted-foreground leading-snug mt-1 truncate">
                       {tile.description}
                     </p>
@@ -419,7 +396,7 @@ export default function Camp() {
                 size={14}
                 className="absolute bottom-3 right-3 text-muted-foreground/40"
               />
-            </motion.button>
+            </button>
           );
         })}
       </div>

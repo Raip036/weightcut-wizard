@@ -94,21 +94,6 @@ export function SetRow({ set, index, prTypes, onUpdate, onDelete }: SetRowProps)
         <Flame className="h-3 w-3" />
       </button>
 
-      {/* PR badge — only renders when a PR; takes its own slot so it can
-          breathe without crowding the delete button. */}
-      {hasPR && (
-        <motion.span
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={springs.bouncy}
-          className="shrink-0 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-func-warning-yellow/95 to-func-warning-yellow/95 text-black px-2 py-0.5"
-          title={prTypes.includes("weight") ? "New heaviest set" : "New rep max"}
-        >
-          <Trophy className="h-3 w-3" strokeWidth={2.6} fill="currentColor" />
-          <span className="text-[10px] font-black tracking-wider">PR</span>
-        </motion.span>
-      )}
-
       {/* Delete button */}
       <button
         onClick={() => onDelete(set.id)}
@@ -117,6 +102,24 @@ export function SetRow({ set, index, prTypes, onUpdate, onDelete }: SetRowProps)
       >
         <Trash2 className="h-3 w-3" />
       </button>
+
+      {/* PR badge — floats out of the flex flow so the Set/Weight/Reps/
+          Warmup/Trash column geometry stays identical across PR and
+          non-PR rows. Anchored to the row's top-right corner above the
+          (vertically-centered) trash button, so it doesn't intercept its
+          tap target. `pointer-events-none` makes that explicit. */}
+      {hasPR && (
+        <motion.span
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={springs.bouncy}
+          className="pointer-events-none absolute top-1 right-1 inline-flex items-center gap-0.5 rounded-full bg-gradient-to-r from-func-warning-yellow/95 to-func-warning-yellow/95 text-black px-1.5 py-[1px] z-10"
+          title={prTypes.includes("weight") ? "New heaviest set" : "New rep max"}
+        >
+          <Trophy className="h-2.5 w-2.5" strokeWidth={2.6} fill="currentColor" />
+          <span className="text-[9px] font-black tracking-wider leading-none">PR</span>
+        </motion.span>
+      )}
     </motion.div>
   );
 }

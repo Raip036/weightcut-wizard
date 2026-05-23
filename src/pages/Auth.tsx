@@ -13,6 +13,7 @@ import { ChevronLeft, Mail, Lock, Eye, EyeOff, Swords } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
 import { motion, AnimatePresence } from "motion/react";
 import { logger } from "@/lib/logger";
+import { useScrollIntoViewOnFocus } from "@/hooks/useScrollIntoViewOnFocus";
 
 // ──────────────────────────────────────────────────────────────────────
 // PremiumInput — floating-label, glass-style text field used in the
@@ -109,6 +110,7 @@ export default function Auth() {
   const { toast } = useToast();
   const { userId } = useAuth();
   const { signIn } = useAuthActions();
+  const handleInputFocus = useScrollIntoViewOnFocus();
 
   const isPasswordReset = searchParams.get("reset") === "true";
 
@@ -412,8 +414,8 @@ export default function Auth() {
           <div className="space-y-4">
             {isPasswordReset ? (
               <form onSubmit={handlePasswordUpdate} className="space-y-3">
-                <Input type="password" placeholder="New password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} className={`${inputClass} ${passwordError ? errorInputClass : ""}`} />
-                <Input type="password" placeholder="Confirm password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={8} className={`${inputClass} ${passwordError ? errorInputClass : ""}`} />
+                <Input type="password" placeholder="New password" value={password} onChange={(e) => setPassword(e.target.value)} onFocus={handleInputFocus} required minLength={8} className={`${inputClass} ${passwordError ? errorInputClass : ""}`} />
+                <Input type="password" placeholder="Confirm password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} onFocus={handleInputFocus} required minLength={8} className={`${inputClass} ${passwordError ? errorInputClass : ""}`} />
                 {passwordError && <p className="text-xs text-func-danger-red text-center">{passwordError}</p>}
                 <Button type="submit" disabled={loading} className="no-tap-select w-full h-[50px] rounded-xs text-[16px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform">
                   {loading ? "Updating..." : "Update Password"}
@@ -421,7 +423,7 @@ export default function Auth() {
               </form>
             ) : showForgotPassword ? (
               <form onSubmit={handleForgotPassword} className="space-y-3">
-                <Input type="email" placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} required className={inputClass} autoFocus />
+                <Input type="email" placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} onFocus={handleInputFocus} required className={inputClass} autoFocus />
                 <Button type="submit" disabled={loading} className="no-tap-select w-full h-[50px] rounded-xs text-[16px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform">
                   {loading ? "Sending..." : "Send Reset Link"}
                 </Button>
@@ -477,6 +479,7 @@ export default function Auth() {
                       icon={<Mail className="h-[18px] w-[18px]" />}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
+                      onFocus={handleInputFocus}
                       required
                       autoFocus
                       autoComplete="email"
@@ -499,6 +502,7 @@ export default function Auth() {
                       icon={<Lock className="h-[18px] w-[18px]" />}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
+                      onFocus={handleInputFocus}
                       required
                       minLength={isLogin ? 1 : 8}
                       error={!!passwordError}
@@ -520,6 +524,7 @@ export default function Auth() {
                         icon={<Lock className="h-[18px] w-[18px]" />}
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
+                        onFocus={handleInputFocus}
                         required
                         minLength={8}
                         error={!!passwordError}

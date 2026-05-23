@@ -111,7 +111,11 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
 
   return (
     <>
-      <div className="relative w-full rounded-xs card-surface overflow-hidden">
+      <div className="relative w-full rounded-2xl card-surface border border-primary/20 overflow-hidden">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.04] to-transparent"
+        />
         {/* ────────────────────────────────────────────────────────────
             Header — always visible, tap to expand/collapse.
             Layout: [ring] [discipline + Lv chip + title] [XP] [chevron]
@@ -123,7 +127,7 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
             onToggle();
           }}
           aria-expanded={expanded}
-          className="w-full min-h-[72px] px-4 py-3 flex items-center gap-3 text-left active:bg-muted/15 transition-colors"
+          className="relative w-full min-h-[72px] px-4 py-3 flex items-center gap-3 text-left active:bg-muted/15 transition-colors"
         >
           {/* Level ring — replaces the old accent stripe. Renders with level
               1 / progress 0 while the per-sport XP query is loading. */}
@@ -183,7 +187,7 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
             Body — only rendered when expanded.
             ──────────────────────────────────────────────────────────── */}
         {expanded && (
-          <div className="pl-4 pr-4 pb-4 space-y-3.5 animate-in fade-in slide-in-from-top-1 duration-200">
+          <div className="relative pl-4 pr-4 pb-4 space-y-3.5 animate-in fade-in slide-in-from-top-1 duration-200">
             {/* Rationale */}
             {mission.rationale && (
               <p className="text-note text-muted-foreground leading-snug">
