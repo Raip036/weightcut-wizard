@@ -586,6 +586,20 @@ All colors MUST be HSL.
     z-index: 1;
   }
 
+  /* iOS: skip the ::before compositor layer; collapse the wash into the
+     base element's background-image so card-glow stays visually similar
+     but avoids the extra layer that breaks scroll smoothness in long lists. */
+  .native-app .card-glow::before {
+    display: none;
+  }
+  .native-app .card-glow {
+    background-image: linear-gradient(
+      135deg,
+      hsl(var(--primary) / 0.035),
+      transparent 60%
+    );
+  }
+
   /* Section header utility — uppercase eyebrow used above card content
      and section titles. Design System v1: Inter regular, not bold. */
   .section-header {
@@ -707,15 +721,53 @@ All colors MUST be HSL.
     }
   }
 
+  /* iOS 300ms tap-delay killer. Apply to every interactive surface so taps
+     register immediately. `manipulation` disables double-tap-to-zoom while
+     keeping pinch-zoom available elsewhere. */
+  .card-press,
+  button,
+  a,
+  [role="button"],
+  [data-tappable] {
+    touch-action: manipulation;
+  }
+
   /* iOS WebView: stacked backdrop-filter is documented to cause jank and
    * occasional crashes (capacitor#7450). The BottomNav stays on screen during
    * scroll, so its blur is especially expensive. Drop the heavy blurs on
    * native and compensate with higher card opacity so surfaces remain legible.
    * Lighter `backdrop-blur` and `backdrop-blur-sm` are kept — they're cheap. */
   .native-app .backdrop-blur-xl,
-  .native-app .backdrop-blur-2xl {
+  .native-app .backdrop-blur-2xl,
+  .native-app .backdrop-blur-lg,
+  .native-app .backdrop-blur-md,
+  .native-app .backdrop-blur-sm {
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
+  }
+
+  /* iOS WebView: `filter: blur(...)` on large surfaces is brutal (60-120ms per
+     frame). Strip it on native and reduce the offending element's opacity so
+     it doesn't read as a hard-edged glow. Pair this with the `.aurora-glow-native`
+     utility at affected call sites. */
+  .native-app .blur-3xl,
+  .native-app .blur-2xl,
+  .native-app .blur-xl {
+    filter: none !important;
+    -webkit-filter: none !important;
+  }
+
+  /* GPU-cheap ambient glow — radial-gradient with NO filter:blur. Use as a sibling
+     div with absolute positioning instead of `blur-3xl` on iOS. */
+  .aurora-glow-native {
+    background: radial-gradient(
+      60% 60% at 30% 40%,
+      hsl(var(--primary) / 0.18),
+      hsl(var(--primary) / 0.05) 50%,
+      transparent 75%
+    );
+    opacity: 0.7;
+    pointer-events: none;
   }
 
   /* When we strip the blur, the translucent fill is no longer "frosted" — bump
