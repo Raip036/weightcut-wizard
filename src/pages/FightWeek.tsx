@@ -23,7 +23,8 @@ import { ManipulationCard, type SodiumStrategy, type FibreStrategy } from "@/com
 import { DehydrationTacticsCard, type DehydrationTactic } from "@/components/fightweek/DehydrationTacticsCard";
 import { PostWeighInCard, type PostWeighInData } from "@/components/fightweek/PostWeighInCard";
 import { sanitizeAIText } from "@/lib/sanitizeAIText";
-import { Activity, Shield, CheckCircle, AlertTriangle, Info, Trash2, Crown, Sparkles, Minus, Plus, ChevronRight } from "lucide-react";
+import { Activity, Shield, CheckCircle, AlertTriangle, Info, Trash2, Sparkles, Minus, Plus, ChevronRight } from "lucide-react";
+import { ProGate } from "@/components/subscription/ProGate";
 import wizardLogo from "@/assets/wizard-tutorial.png";
 import { triggerHapticSelection } from "@/lib/haptics";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -611,26 +612,22 @@ export default function FightWeek() {
             />
           </div>
           {inputsValid && (
-            <Button
-              onClick={generateProtocol}
-              disabled={isGenerating || !normalDailyCarbs}
-              className={`relative w-full h-13 min-h-[52px] rounded-xs text-[15px] font-bold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40 ${lastError && !isGenerating ? "ring-2 ring-func-danger-red/40" : ""}`}
-            >
-              {isGenerating ? (
-                <CastingMessage />
-              ) : (
-                <span className="inline-flex items-center gap-1.5">
-                  <Sparkles className="h-4 w-4" strokeWidth={2.4} />
-                  {lastError ? "Try again" : aiPlan ? "Regenerate plan" : "Build my fight-week plan"}
-                </span>
-              )}
-              {!isGenerating && !hasAiAccess && (
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex items-center gap-0.5 text-primary-foreground/70 pointer-events-none">
-                  <Crown className="h-3 w-3" />
-                  <span className="text-[10px] font-medium uppercase tracking-wider">Pro</span>
-                </span>
-              )}
-            </Button>
+            <ProGate feature="AI_FIGHT_WEEK_ANALYSIS" className="w-full">
+              <Button
+                onClick={generateProtocol}
+                disabled={isGenerating || !normalDailyCarbs}
+                className={`w-full h-13 min-h-[52px] rounded-xs text-[15px] font-bold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40 ${lastError && !isGenerating ? "ring-2 ring-func-danger-red/40" : ""}`}
+              >
+                {isGenerating ? (
+                  <CastingMessage />
+                ) : (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Sparkles className="h-4 w-4" strokeWidth={2.4} />
+                    {lastError ? "Try again" : aiPlan ? "Regenerate plan" : "Build my fight-week plan"}
+                  </span>
+                )}
+              </Button>
+            </ProGate>
           )}
           {!inputsValid && (
             <p className="text-[12px] text-center text-muted-foreground/70 px-2">

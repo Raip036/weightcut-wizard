@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { CheckCircle, Crown } from "lucide-react";
+import { CheckCircle } from "lucide-react";
+import { ProGate } from "@/components/subscription/ProGate";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
@@ -8,7 +9,6 @@ import { nutritionLogSchema } from "@/lib/validation";
 import { useUser } from "@/contexts/UserContext";
 import { logger } from "@/lib/logger";
 import { useAITask } from "@/contexts/AITaskContext";
-import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 
 import type { Meal, ManualMealForm } from "@/pages/nutrition/types";
 import {
@@ -108,25 +108,9 @@ export default function NutritionPage() {
   });
   const quickActions = useQuickMealActions({ meals, selectedDate, saveMealToDb: mealOps.saveMealToDb });
   const macroCalc = useMacroCalculation();
-  // Surface a Pro badge alongside AI-feature CTAs for free users. Treated as a
-  // single banner because every AI feature on this page gates to the same tier.
-  const { hasAccess: hasNutritionAiAccess } = useFeatureAccess("AI_MEAL_ANALYSIS");
-
-  const proBadge = !hasNutritionAiAccess ? (
-    <span className="inline-flex items-center gap-0.5 text-primary/70">
-      <Crown className="h-3 w-3" />
-      <span className="text-[10px] font-medium uppercase tracking-wider">Pro</span>
-    </span>
-  ) : null;
-
-  // Variant tuned for solid primary-bg buttons (e.g. the Analyze CTA inside
-  // QuickAddDialog) where `text-primary/70` would melt into the background.
-  const proBadgeOnPrimary = !hasNutritionAiAccess ? (
-    <span className="inline-flex items-center gap-0.5 text-primary-foreground/80">
-      <Crown className="h-3 w-3" />
-      <span className="text-[10px] font-medium uppercase tracking-wider">Pro</span>
-    </span>
-  ) : null;
+  // Pro-gating is now driven by the shared <ProGate> wrapper, which renders
+  // its own glass-blur + lock-chip overlay for free users. The page no
+  // longer needs to mint per-callsite badge JSX.
 
   const todayStr = format(new Date(), "yyyy-MM-dd");
   const loading = mealPlan.generatingPlan || mealOps.loggingMeal !== null || mealOps.savingAllMeals;
@@ -427,18 +411,15 @@ export default function NutritionPage() {
               />
             </Suspense>
           ) : meals.length > 0 && (
-            <button
-              onClick={() => dietAnalysisHook.handleAnalyseDiet()}
-              disabled={nutritionData.dietAnalysisLoading}
-              className="relative card-surface w-full p-3.5 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform rounded-xs"
-            >
-              <span className="text-sm font-medium text-foreground">Analyse Diet</span>
-              {proBadge && (
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                  {proBadge}
-                </span>
-              )}
-            </button>
+            <ProGate feature="AI_DIET_ANALYSIS" className="w-full">
+              <button
+                onClick={() => dietAnalysisHook.handleAnalyseDiet()}
+                disabled={nutritionData.dietAnalysisLoading}
+                className="card-surface w-full p-3.5 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform rounded-xs"
+              >
+                <span className="text-sm font-medium text-foreground">Analyse Diet</span>
+              </button>
+            </ProGate>
           )}
         </div>
 
@@ -480,7 +461,6 @@ export default function NutritionPage() {
           onCancelAi={cancelAI}
           onDismissTask={dismissTask}
           onToast={toast}
-          gemBadge={proBadgeOnPrimary}
         />
 
         <AiMealPlanDialog
@@ -491,7 +471,6 @@ export default function NutritionPage() {
           setAiPrompt={mealPlan.setAiPrompt}
           generatingPlan={mealPlan.generatingPlan}
           onGenerate={mealPlan.handleGenerateMealPlan}
-          gemBadge={proBadge}
         />
 
         <ManualNutritionDialog

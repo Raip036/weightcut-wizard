@@ -6,7 +6,8 @@ import { Progress } from "@/components/ui/progress";
 // Lazy-load recharts wrapper so the ~100KB charts bundle defers until first paint.
 const WeightTrackerChart = lazy(() => import("@/components/charts/WeightTrackerChart"));
 import { format } from "date-fns";
-import { TrendingDown, TrendingUp, Calendar, CalendarClock, Target, AlertTriangle, Activity, Trash2, ChevronDown, CheckCircle2, Crown, Minus, Plus, Loader2, Check } from "lucide-react";
+import { TrendingDown, TrendingUp, Calendar, CalendarClock, Target, AlertTriangle, Activity, Trash2, ChevronDown, CheckCircle2, Minus, Plus, Loader2, Check } from "lucide-react";
+import { ProGate } from "@/components/subscription/ProGate";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -32,7 +33,6 @@ import type { Profile } from "@/pages/weight/types";
 import { isFighter } from "@/lib/goalType";
 import { useWeightData } from "@/hooks/weight/useWeightData";
 import { useWeightAnalysis } from "@/hooks/weight/useWeightAnalysis";
-import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 import { triggerHapticSelection } from "@/lib/haptics";
 import { WeightInsightsBlock } from "@/pages/weight/WeightInsightsBlock";
 import { useQuery } from "convex/react";
@@ -50,7 +50,6 @@ export default function WeightTracker() {
   const activeCamp = useQuery(api.fight_camp.getActiveCamp, userId ? {} : "skip");
   const [madeWeightOpen, setMadeWeightOpen] = useState(false);
   const [madeWeightInput, setMadeWeightInput] = useState<MadeWeightInput | null>(null);
-  const { hasAccess: hasAiAccess } = useFeatureAccess("AI_WEIGHT_ANALYSIS");
   const [searchParams, setSearchParams] = useSearchParams();
   const [timeFilter, setTimeFilter] = useState<"1W" | "1M" | "ALL">("1M");
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -693,29 +692,25 @@ export default function WeightTracker() {
 
         {/* Get AI Button — primary entry when no plan exists yet. */}
         {!analysisPlan && profile && (
-          <Button
-            onClick={getAIAnalysis}
-            disabled={analyzingWeight}
-            className="relative w-full rounded-xs h-12 text-[14px] font-semibold bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-foreground hover:bg-muted/60 active:scale-[0.98] transition-all"
-          >
-            {analyzingWeight ? (
-              <span className="inline-flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Analyzing…
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-2">
-                <Activity className="h-4 w-4 text-primary" strokeWidth={2.4} />
-                Get AI weight strategy
-              </span>
-            )}
-            {!analyzingWeight && !hasAiAccess && (
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex items-center gap-0.5 text-primary/70 pointer-events-none">
-                <Crown className="h-3 w-3" />
-                <span className="text-[10px] font-medium uppercase tracking-wider">Pro</span>
-              </span>
-            )}
-          </Button>
+          <ProGate feature="AI_WEIGHT_ANALYSIS" className="w-full">
+            <Button
+              onClick={getAIAnalysis}
+              disabled={analyzingWeight}
+              className="w-full rounded-xs h-12 text-[14px] font-semibold bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-foreground hover:bg-muted/60 active:scale-[0.98] transition-all"
+            >
+              {analyzingWeight ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Analyzing…
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-primary" strokeWidth={2.4} />
+                  Get AI weight strategy
+                </span>
+              )}
+            </Button>
+          </ProGate>
         )}
 
         <DeleteConfirmDialog
