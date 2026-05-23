@@ -212,10 +212,26 @@ DETERMINISTIC FACTS:
 ${snap.block}`;
 
     // ── Call LLM with retry, fall back to deterministic plan on failure ─
+    //
+    // This action's Zod schema is the strictest in the codebase (CutPlanSchema
+    // requires nested weeklyPlan objects with required fields per week). Earlier
+    // logs showed gpt-oss-120b / qwen3 occasionally returning weeklyPlan items
+    // with missing required keys, tripping the validator 4× and falling back
+    // to deterministic. DeepSeek v3.2 has materially better strict-JSON
+    // adherence in production, so we override the global model swap here
+    // ONLY for this action. Other heavy-reasoning actions stay on the
+    // global default (qwen3-235b via OPENROUTER_MODEL_MAP on OpenRouter,
+    // gpt-oss-120b direct on Groq).
+    const isOpenRouter =
+      typeof process !== "undefined" && process.env?.LLM_PROVIDER === "openrouter";
+    const HEAVY_MODEL = isOpenRouter
+      ? "deepseek/deepseek-v3.2"
+      : "openai/gpt-oss-120b";
+
     let aiResult: any = null;
     try {
       aiResult = await callGroqWithRetry({
-        model: "openai/gpt-oss-120b",
+        model: HEAVY_MODEL,
         messages: [
           { role: "system", content: systemPrompt },
           {
@@ -304,7 +320,7 @@ ${snap.block}`;
           ((currentWeight - goalWeight) / weekCount).toFixed(2),
         ),
       },
-      model: aiResult ? "openai/gpt-oss-120b" : "deterministic-fallback",
+      model: aiResult ? HEAVY_MODEL : "deterministic-fallback",
     });
 
     return plan;

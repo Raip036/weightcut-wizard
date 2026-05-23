@@ -39,14 +39,38 @@ function getProvider(): LlmProvider {
 }
 
 /**
- * Groq model IDs → OpenRouter equivalents. Groq uses bare names like
- * `llama-3.1-8b-instant`; OpenRouter requires `<provider>/<model>` IDs.
- * Models not in this map are passed through unchanged (works for IDs
- * that are identical on both, e.g. `openai/gpt-oss-120b`).
+ * Groq model IDs → OpenRouter equivalents.
+ *
+ * Two purposes:
+ *   1. Translation — Groq uses bare names (`llama-3.1-8b-instant`);
+ *      OpenRouter requires `<provider>/<model>` IDs.
+ *   2. Strategic upgrade — on OpenRouter we can pick smarter models
+ *      that aren't available on Groq directly, within the same budget.
+ *
+ * The current routing (verified against live OpenRouter pricing):
+ *
+ *   Heavy reasoning (was gpt-oss-120b @ $0.039/$0.180):
+ *     → qwen/qwen3-235b-a22b-2507 @ $0.071/$0.100
+ *     235B MoE, strictly smarter on reasoning benchmarks, CHEAPER
+ *     output. Net cost lower on output-heavy calls (plans, summaries).
+ *
+ *   Fast/cheap (was llama-3.1-8b @ $0.020/$0.050):
+ *     → mistralai/mistral-nemo @ $0.020/$0.030
+ *     12B model (vs 8B) — smarter AND cheaper output.
+ *
+ *   Vision (was llama-4-scout @ $0.080/$0.300):
+ *     → google/gemini-2.0-flash-001 @ $0.100/$0.400
+ *     Significantly stronger on meal-photo identification; +25% in,
+ *     +33% out — modest cost lift for a real quality jump.
+ *
+ * Models not in this map pass through unchanged (lets per-action
+ * overrides like deepseek-v3.2 in weightTrackerAnalysis hit OpenRouter
+ * directly without a translation step).
  */
 const OPENROUTER_MODEL_MAP: Record<string, string> = {
-  "llama-3.1-8b-instant": "meta-llama/llama-3.1-8b-instruct",
-  "meta-llama/llama-4-scout-17b-16e-instruct": "meta-llama/llama-4-scout",
+  "llama-3.1-8b-instant": "mistralai/mistral-nemo",
+  "openai/gpt-oss-120b": "qwen/qwen3-235b-a22b-2507",
+  "meta-llama/llama-4-scout-17b-16e-instruct": "google/gemini-2.0-flash-001",
 };
 
 function resolveModel(model: string, provider: LlmProvider): string {
