@@ -228,7 +228,7 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
                       disabled={isPending}
                       onClick={() => handleTick(item._id, item.completed)}
                       className={cn(
-                        "w-full min-h-[44px] flex items-start gap-3 px-3 py-2.5 rounded-xs text-left",
+                        "w-full min-h-[36px] flex items-start gap-2.5 px-2.5 py-1.5 rounded-xs text-left",
                         "transition-colors active:scale-[0.995]",
                         item.completed
                           ? "bg-muted/15 active:bg-muted/25"
@@ -244,7 +244,7 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
                       {/* Checkbox */}
                       <span
                         className={cn(
-                          "h-5 w-5 rounded-xs border flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors",
+                          "h-4 w-4 rounded-xs border flex items-center justify-center flex-shrink-0 mt-[1px] transition-colors",
                           item.completed ? "" : "border-border",
                         )}
                         style={
@@ -260,16 +260,16 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
                         {item.completed && (
                           <Icon
                             name="checkmarkOutline"
-                            size={14}
+                            size={11}
                             className="text-background"
                           />
                         )}
                       </span>
 
-                      <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex-1 min-w-0 space-y-0.5">
                         <p
                           className={cn(
-                            "text-body-sm leading-snug",
+                            "text-[12px] leading-snug",
                             item.completed
                               ? "text-muted-foreground line-through"
                               : "text-foreground",
@@ -280,15 +280,15 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
                         {(item.technique ||
                           item.drillType ||
                           item.durationMin) && (
-                          <div className="flex flex-wrap items-center gap-1.5">
+                          <div className="flex flex-wrap items-center gap-1">
                             {item.technique && (
-                              <span className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground/80 bg-muted/30 rounded-xs px-1.5 py-0.5">
+                              <span className="text-[9px] uppercase tracking-wide font-bold text-muted-foreground/80 bg-muted/30 rounded-xs px-1 py-px">
                                 {item.technique}
                               </span>
                             )}
                             {item.drillType && (
                               <span
-                                className="text-[10px] uppercase tracking-wide font-bold rounded-xs px-1.5 py-0.5"
+                                className="text-[9px] uppercase tracking-wide font-bold rounded-xs px-1 py-px"
                                 style={{
                                   color: `hsl(var(${token}))`,
                                   backgroundColor: `hsl(var(${token}) / 0.12)`,
@@ -298,8 +298,8 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
                               </span>
                             )}
                             {item.durationMin && (
-                              <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-muted-foreground/80">
-                                <Icon name="timeOutline" size={12} />
+                              <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-muted-foreground/80">
+                                <Icon name="timeOutline" size={10} />
                                 {item.durationMin}m
                               </span>
                             )}

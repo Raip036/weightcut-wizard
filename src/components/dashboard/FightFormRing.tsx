@@ -108,6 +108,26 @@ const CALIB_PHRASES = [
 const CALIB_PHRASE_INTERVAL_MS = 3200;
 const CALIB_DAY_PING_MS = 1600;
 
+// ---------------------------------------------------------------------------
+// Module-scope "resume" cache for the score arc
+// ---------------------------------------------------------------------------
+// Dashboard is lazy-loaded and fully unmounts on bottom-nav tab switches
+// (App.tsx routes via AnimatePresence keyed by location.pathname). When the
+// user comes back to /dashboard, the ring component is a brand-new instance:
+// without help, the `transition-all duration-700` on the score arc would
+// animate from 0 → live score on every visit — perceived as initial lag.
+//
+// We keep two numbers on the module heap so they survive remounts during
+// the SPA session: the last *settled* arc length (`cachedDashLen`) and the
+// circumference it was measured against (so we don't paint a stale value
+// at a different ring size). The component reads these on first paint to
+// render the arc exactly where it left off; the existing CSS transition
+// then handles any smooth catch-up to the live score on subsequent frames.
+// A page reload clears the cache by re-evaluating the module — which is the
+// desired behaviour (cold-start should still play the satisfying fill-in).
+let cachedDashLen: number | null = null;
+let cachedCircumference: number | null = null;
+
 export function FightFormRing({
   score,
   label,
@@ -279,6 +299,29 @@ export function FightFormRing({
   const progress = unlocking && state === "ok" ? baseProgress * unlockProgress : baseProgress;
   const dash = circumference * progress;
   const displayedScore = unlocking && state === "ok" ? Math.round(score * unlockProgress) : score;
+
+  // Score-arc resume — paint the cached dash length on first paint after a
+  // remount, then swap to the live `dash` on the next frame. The existing
+  // CSS transition tweens the difference (zero-cost if the score hasn't
+  // changed). On the very first session mount the cache is null, so we
+  // render at 0 and the live dash drives the satisfying initial fill-in.
+  const [arcReady, setArcReady] = useState(false);
+  useLayoutEffect(() => {
+    const id = requestAnimationFrame(() => setArcReady(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+  // Cache only when the ring is settled — mid-unlock values would be replayed
+  // on a remount during that ~1.5s window, which we don't want.
+  useEffect(() => {
+    if (unlocking) return;
+    cachedDashLen = circumference * baseProgress;
+    cachedCircumference = circumference;
+  }, [baseProgress, circumference, unlocking]);
+  const renderedDash = arcReady
+    ? dash
+    : cachedDashLen != null && cachedCircumference === circumference
+      ? cachedDashLen
+      : 0;
   // Keep the comet visible through the first beat of the unlock so it can
   // do its finale fade before dissolving. The finale class swaps in below
   // when unlocking is true.
@@ -375,7 +418,9 @@ export function FightFormRing({
             strokeDashoffset={`${-dash}`}
           />
         )}
-        {/* Score arc */}
+        {/* Score arc — `renderedDash` resumes from the module-cached value
+            on remount, then the duration-700 transition smoothly tweens
+            to the live `dash` on the next frame. */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -383,7 +428,7 @@ export function FightFormRing({
           strokeWidth={10}
           fill="none"
           strokeLinecap="round"
-          strokeDasharray={`${dash} ${circumference}`}
+          strokeDasharray={`${renderedDash} ${circumference}`}
           className={cn(
             "transition-all duration-700",
             state === "ok" ? LABEL_STROKE[label] : "stroke-muted-foreground/40",

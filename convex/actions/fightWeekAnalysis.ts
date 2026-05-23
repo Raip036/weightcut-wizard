@@ -206,7 +206,11 @@ Days to comment on: ${projection.timeline.map((d) => d.day).join(", ")}.`;
 
     try {
       const content = await callGroqText({
-        model: "llama-3.1-8b-instant",
+        // Heavy-tier model — fight-week analysis spans a multi-day
+        // projection and needs accurate, structured reasoning. On
+        // OpenRouter this resolves to qwen3-235b via OPENROUTER_MODEL_MAP;
+        // on Groq direct it stays as gpt-oss-120b.
+        model: "openai/gpt-oss-120b",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -273,7 +277,7 @@ Days to comment on: ${projection.timeline.map((d) => d.day).join(", ")}.`;
         total_to_cut_kg: projection.breakdown.totalToCut,
         dehydration_needed_kg: projection.breakdown.dehydrationNeeded,
       },
-      model: "llama-3.1-8b-instant",
+      model: "openai/gpt-oss-120b",
     });
 
     return { plan };

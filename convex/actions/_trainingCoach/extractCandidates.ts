@@ -25,7 +25,11 @@ export async function extractCandidates(args: {
   let raw: string;
   try {
     raw = await callGroqText({
-      model: "llama-3.1-8b-instant",
+      // Heavy-tier model — candidate extraction quality directly drives
+      // downstream training-coach pipeline quality. On OpenRouter this
+      // resolves to qwen3-235b via OPENROUTER_MODEL_MAP; on Groq direct
+      // it stays as gpt-oss-120b.
+      model: "openai/gpt-oss-120b",
       messages: [
         { role: "system", content: EXTRACT_CANDIDATES_PROMPT },
         { role: "user", content: `<user_input>${cleanNotes}</user_input>` },

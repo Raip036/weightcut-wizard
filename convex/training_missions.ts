@@ -153,6 +153,22 @@ export const markItemCompleted = mutation({
       (i) => (i._id === itemId ? completed : i.completed),
     );
 
+    // Auto-archive the mission once every item is ticked, so it falls
+    // out of `getActiveMissions` and the widget stops showing it as soon
+    // as the user clears the celebration dialog. Unticking the last item
+    // re-opens the mission so the user can finish it again.
+    if (completed && missionCompleted && mission.status === "active") {
+      await ctx.db.patch(mission._id, {
+        status: "completed",
+        completedAt: now,
+      });
+    } else if (!completed && mission.status === "completed") {
+      await ctx.db.patch(mission._id, {
+        status: "active",
+        completedAt: undefined,
+      });
+    }
+
     // XP — only awarded when ticking INTO completed (never on untick) and
     // only when the mission knows its sport (defensive — should always be
     // set, but skip cleanly if not). Fire-and-forget: schedule with delay

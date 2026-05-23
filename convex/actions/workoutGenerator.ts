@@ -158,7 +158,11 @@ ${snap.block}`;
     const userPrompt = `Generate a gym workout routine for me. I'm a ${sport.replace("_", " ")} athlete training my sport ${sportTrainingDays} days per week. Goals: ${goalsStr}. Focus areas: ${focusStr}. Split preference: ${splitStr}. Session length: ${sessionDurationMinutes} minutes. Equipment: ${equipmentList.join(", ")}. Address me directly in every notes field.`;
 
     const content = await callGroqText({
-      model: "llama-3.1-8b-instant",
+      // Heavy-tier model — workout generation benefits from stronger
+      // structured reasoning (split logic, exercise selection, sets/reps
+      // sequencing). On OpenRouter this resolves to qwen3-235b via
+      // OPENROUTER_MODEL_MAP; on Groq direct it stays as gpt-oss-120b.
+      model: "openai/gpt-oss-120b",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
