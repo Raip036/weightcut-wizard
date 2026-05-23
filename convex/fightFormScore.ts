@@ -66,11 +66,15 @@ export const loggedTodayBundle = query({
       .query("daily_wellness_checkins")
       .withIndex("by_user_date", (q) => q.eq("userId", userId).eq("date", targetDate))
       .first();
-    // Training counts as "done" when EITHER (a) there's a completed
-    // `gym_sessions` row, OR (b) there's a non-Rest `fight_camp_calendar`
-    // entry for the date. The latter is the TrainingCalendar/fight-camp
-    // page's primary write surface — without it, logging from that page
-    // wouldn't flip the dashboard's training tick.
+    // Training counts as "done" when ANY of the following exists for the
+    // date:
+    //   (a) a completed `gym_sessions` row,
+    //   (b) any `fight_camp_calendar` entry — INCLUDING rest days. A
+    //       marked rest day is a deliberate logging action ("I'm taking
+    //       today off"), so it should tick the training chip the same
+    //       way a workout entry does. The scoring engine still treats
+    //       rest days as 0-load via the gym_sessions path; this query
+    //       only governs the daily-ritual UI.
     const sessions = await ctx.db
       .query("gym_sessions")
       .withIndex("by_user_date", (q) => q.eq("userId", userId).eq("date", targetDate))
@@ -81,7 +85,7 @@ export const loggedTodayBundle = query({
       .collect();
     const training =
       sessions.some((s) => s.status === "completed") ||
-      calendarEntries.some((c) => (c.sessionType ?? "").toLowerCase() !== "rest");
+      calendarEntries.length > 0;
 
     return {
       weight: weight != null,
@@ -209,7 +213,8 @@ export const calibrationProgress = query({
  * accuracy gain for a UI counter. Empty meals are rare in practice.
  *
  * Training pill semantics mirror `loggedTodayBundle` above: a completed
- * `gym_sessions` row OR a non-Rest `fight_camp_calendar` entry.
+ * `gym_sessions` row OR any `fight_camp_calendar` entry (rest days
+ * included).
  */
 export const fullRitualDaysCount = query({
   args: {
@@ -272,9 +277,10 @@ export const fullRitualDaysCount = query({
     const sleepDates = new Set(sleep.map((s) => s.date));
     const trainingDates = new Set<string>();
     for (const s of sessions) if (s.status === "completed") trainingDates.add(s.date);
-    for (const c of calendar) {
-      if ((c.sessionType ?? "").toLowerCase() !== "rest") trainingDates.add(c.date);
-    }
+    // Any `fight_camp_calendar` entry counts, including rest days — see
+    // `loggedTodayBundle` for the rationale. A marked rest day is a
+    // deliberate logging action and should tick the training pill.
+    for (const c of calendar) trainingDates.add(c.date);
     // Any wellness row counts for the pill — the Hooper-only requirement is
     // for the SCORE math, not for ritual completion.
     const wellnessDates = new Set(wellness.map((w) => w.date));

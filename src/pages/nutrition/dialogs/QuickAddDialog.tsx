@@ -612,73 +612,96 @@ export function QuickAddDialog({
                   />
                 </div>
 
-                {/* 2×2 macro grid — tap a tile to inline-edit that macro.
-                    Useful when the user knows the serving was off (e.g. AI
-                    said 500cal but they ate 1.5× the photo). The override is
-                    used on save; line items below stay at AI values. */}
-                <div className="grid grid-cols-2 gap-2">
-                  {([
-                    { key: "calories" as const, label: "Calories", value: Math.round(totalAiLineItemCalories), unit: "", iconName: "flameOutline" as IonIconName,    color: "#f97316", tint: "rgba(249, 115, 22, 0.12)" },
-                    { key: "carbs_g" as const,  label: "Carbs",    value: Math.round(totalAiCarbs),           unit: "g", iconName: "pizzaOutline" as IonIconName,    color: "#f59e0b", tint: "rgba(245, 158, 11, 0.12)" },
-                    { key: "protein_g" as const,label: "Protein",  value: Math.round(totalAiProtein),         unit: "g", iconName: "fishOutline" as IonIconName,     color: "#ef4444", tint: "rgba(239, 68, 68, 0.12)" },
-                    { key: "fats_g" as const,   label: "Fats",     value: Math.round(totalAiFats),            unit: "g", iconName: "waterOutline" as IonIconName,    color: "#3b82f6", tint: "rgba(59, 130, 246, 0.12)" },
-                  ]).map((m) => {
-                    const isEditing = editingMacro === m.key;
-                    const isOverridden = aiMeal.overrideTotals[m.key] !== undefined;
-                    return (
-                      <div
-                        key={m.label}
-                        className={`card-surface rounded-xs px-3 py-3 flex items-center gap-2.5 text-left transition-transform ${
-                          isEditing ? "ring-2 ring-primary/40" : "active:scale-[0.98]"
-                        }`}
-                        onClick={() => { if (!isEditing) beginEditMacro(m.key, m.value); }}
-                        role="button"
-                        tabIndex={0}
-                      >
+                {/* 2×2 macro grid — Muay-Thai-camp-style chrome:
+                    primary-tinted border + dark blue fill + inner top-left
+                    gradient wash, with a single ambient aurora glow sitting
+                    behind the whole grid (one blur layer for the set, not
+                    four).  Per-macro identity comes from icon colour + value
+                    colour, drawn from the same saved-meals palette
+                    (`func-carbs-orange`, `func-fats-purple`, `blue-500`).
+                    The inline-edit interaction + Atwater cascade is
+                    untouched — only the surface chrome changed. */}
+                <div className="relative">
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute -inset-4 rounded-[2rem] opacity-70 blur-3xl"
+                    style={{
+                      background:
+                        "radial-gradient(60% 60% at 30% 40%, hsl(var(--primary) / 0.18), hsl(var(--primary) / 0.05) 50%, transparent 75%)",
+                    }}
+                  />
+                  <div className="relative grid grid-cols-2 gap-2">
+                    {([
+                      { key: "calories" as const, label: "Calories", value: Math.round(totalAiLineItemCalories), unit: "",  iconName: "flameOutline" as IonIconName, color: "rgb(var(--func-carbs-orange))", tint: "rgb(var(--func-carbs-orange) / 0.14)" },
+                      { key: "carbs_g" as const,  label: "Carbs",    value: Math.round(totalAiCarbs),           unit: "g", iconName: "pizzaOutline" as IonIconName, color: "rgb(var(--func-carbs-orange))", tint: "rgb(var(--func-carbs-orange) / 0.14)" },
+                      { key: "protein_g" as const,label: "Protein",  value: Math.round(totalAiProtein),         unit: "g", iconName: "fishOutline"  as IonIconName, color: "#3B82F6",                       tint: "rgba(59, 130, 246, 0.14)" },
+                      { key: "fats_g" as const,   label: "Fats",     value: Math.round(totalAiFats),            unit: "g", iconName: "waterOutline" as IonIconName, color: "rgb(var(--func-fats-purple))",  tint: "rgb(var(--func-fats-purple) / 0.14)" },
+                    ]).map((m) => {
+                      const isEditing = editingMacro === m.key;
+                      const isOverridden = aiMeal.overrideTotals[m.key] !== undefined;
+                      return (
                         <div
-                          className="h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0"
-                          style={{ background: m.tint, color: m.color }}
+                          key={m.label}
+                          className={`relative rounded-2xl border border-primary/20 bg-primary/10 overflow-hidden px-3 py-3 flex items-center gap-2.5 text-left transition-transform ${
+                            isEditing ? "ring-2 ring-primary/40" : "active:scale-[0.99]"
+                          }`}
+                          onClick={() => { if (!isEditing) beginEditMacro(m.key, m.value); }}
+                          role="button"
+                          tabIndex={0}
                         >
-                          <Icon name={m.iconName} size={16} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-semibold text-muted-foreground/70 leading-none">
-                            {m.label}
-                            {isOverridden && !isEditing && (
-                              <span className="ml-1 text-primary/80">·&nbsp;edited</span>
-                            )}
-                          </p>
-                          {isEditing ? (
-                            <input
-                              autoFocus
-                              type="number"
-                              inputMode="decimal"
-                              value={editingDraft}
-                              onChange={(e) => setEditingDraft(e.target.value)}
-                              onBlur={commitEditMacro}
-                              onFocus={handleInputFocus}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") { e.preventDefault(); (e.currentTarget as HTMLInputElement).blur(); }
-                                if (e.key === "Escape") { setEditingMacro(null); setEditingDraft(""); }
-                              }}
-                              onClick={(e) => e.stopPropagation()}
-                              className="w-full bg-transparent border-0 outline-none text-[15px] font-bold tabular-nums text-foreground leading-none mt-1 p-0 focus:ring-0"
-                              aria-label={`Edit ${m.label}`}
-                            />
-                          ) : (
-                            <p className="text-[15px] font-bold tabular-nums text-foreground leading-none mt-1">
-                              {m.value}<span className="text-[11px] font-semibold text-muted-foreground/60">{m.unit}</span>
+                          <div
+                            aria-hidden
+                            className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.06] via-transparent to-transparent"
+                          />
+                          <div
+                            className="relative h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0"
+                            style={{ background: m.tint, color: m.color }}
+                          >
+                            <Icon name={m.iconName} size={16} />
+                          </div>
+                          <div className="relative flex-1 min-w-0">
+                            <p className="text-[11px] font-semibold text-muted-foreground/70 leading-none">
+                              {m.label}
+                              {isOverridden && !isEditing && (
+                                <span className="ml-1 text-primary/80">·&nbsp;edited</span>
+                              )}
                             </p>
-                          )}
+                            {isEditing ? (
+                              <input
+                                autoFocus
+                                type="number"
+                                inputMode="decimal"
+                                value={editingDraft}
+                                onChange={(e) => setEditingDraft(e.target.value)}
+                                onBlur={commitEditMacro}
+                                onFocus={handleInputFocus}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") { e.preventDefault(); (e.currentTarget as HTMLInputElement).blur(); }
+                                  if (e.key === "Escape") { setEditingMacro(null); setEditingDraft(""); }
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full bg-transparent border-0 outline-none text-[15px] font-bold tabular-nums leading-none mt-1 p-0 focus:ring-0"
+                                style={{ color: m.color }}
+                                aria-label={`Edit ${m.label}`}
+                              />
+                            ) : (
+                              <p
+                                className="text-[15px] font-bold tabular-nums leading-none mt-1"
+                                style={{ color: m.color }}
+                              >
+                                {m.value}<span className="text-[11px] font-semibold text-muted-foreground/60">{m.unit}</span>
+                              </p>
+                            )}
+                          </div>
+                          <Icon
+                            name="pencilOutline"
+                            size={12}
+                            className={`relative flex-shrink-0 ${isOverridden ? "text-primary" : "text-muted-foreground/40"}`}
+                          />
                         </div>
-                        <Icon
-                          name="pencilOutline"
-                          size={12}
-                          className={`flex-shrink-0 ${isOverridden ? "text-primary" : "text-muted-foreground/40"}`}
-                        />
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* Editable detected-foods list — always visible.

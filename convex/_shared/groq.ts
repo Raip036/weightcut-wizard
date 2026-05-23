@@ -1,13 +1,17 @@
 /**
- * Unified Groq client + Zod-validated call helper for Convex actions.
+ * Unified LLM client + Zod-validated call helper for Convex actions.
  *
- * Reads GROQ_API_KEY from process.env. All actions go through `callGroq()`
- * (a single fetch with a 15s connect timeout) or `callGroqWithRetry()` (which
- * adds Zod validation + up to 2 retries with appended error feedback).
+ * Backed by Groq by default; flip `LLM_PROVIDER=openrouter` in Convex env
+ * to route every call through OpenRouter instead (same OpenAI-compatible
+ * shape, no call-site changes). Model IDs that Groq uses but OpenRouter
+ * names differently are translated via OPENROUTER_MODEL_MAP below.
  *
- * Throws a typed `GroqError` on failure so action handlers can short-circuit
- * cleanly. Feature-gate (`PRO_FEATURE_REQUIRED:*`) and authentication checks
- * happen BEFORE this is called.
+ *   npx convex env set LLM_PROVIDER openrouter   # flip to OpenRouter
+ *   npx convex env unset LLM_PROVIDER            # back to Groq (default)
+ *
+ * All actions go through `callGroqRaw`, `callGroqText`, or
+ * `callGroqWithRetry` (Zod validation + retries). Throws a typed
+ * `GroqError` on failure. Feature-gate + auth checks happen BEFORE this.
  */
 
 import type { z } from "zod";
@@ -22,6 +26,86 @@ export class GroqError extends Error {
     super(message);
     this.name = "GroqError";
   }
+}
+
+type LlmProvider = "groq" | "openrouter";
+
+function getProvider(): LlmProvider {
+  const raw =
+    typeof process !== "undefined" && process.env
+      ? process.env.LLM_PROVIDER?.toLowerCase()
+      : undefined;
+  return raw === "openrouter" ? "openrouter" : "groq";
+}
+
+/**
+ * Groq model IDs → OpenRouter equivalents. Groq uses bare names like
+ * `llama-3.1-8b-instant`; OpenRouter requires `<provider>/<model>` IDs.
+ * Models not in this map are passed through unchanged (works for IDs
+ * that are identical on both, e.g. `openai/gpt-oss-120b`).
+ */
+const OPENROUTER_MODEL_MAP: Record<string, string> = {
+  "llama-3.1-8b-instant": "meta-llama/llama-3.1-8b-instruct",
+  "meta-llama/llama-4-scout-17b-16e-instruct": "meta-llama/llama-4-scout",
+};
+
+function resolveModel(model: string, provider: LlmProvider): string {
+  if (provider !== "openrouter") return model;
+  return OPENROUTER_MODEL_MAP[model] ?? model;
+}
+
+interface ProviderConfig {
+  url: string;
+  key: string;
+  extraHeaders: Record<string, string>;
+  extraBody: Record<string, unknown>;
+}
+
+function getProviderConfig(): { provider: LlmProvider; config: ProviderConfig } {
+  const provider = getProvider();
+  if (provider === "openrouter") {
+    const key =
+      typeof process !== "undefined" && process.env
+        ? process.env.OPENROUTER_API_KEY
+        : undefined;
+    if (!key) throw new GroqError("OPENROUTER_API_KEY is not configured", "AI_AUTH");
+    return {
+      provider,
+      config: {
+        url: "https://openrouter.ai/api/v1/chat/completions",
+        key,
+        // OpenRouter uses these for analytics + rate-limit attribution.
+        // No PII; safe to hard-code.
+        extraHeaders: {
+          "HTTP-Referer": "https://fightcampwizard.app",
+          "X-Title": "FightCamp Wizard",
+        },
+        // Provider preference: prefer Groq's hosted backend (cheapest +
+        // fastest when up), fall back to Cerebras/Together if Groq is
+        // down — which is exactly the outage scenario this switch fixes.
+        extraBody: {
+          provider: {
+            order: ["groq", "cerebras", "together", "fireworks"],
+            allow_fallbacks: true,
+          },
+        },
+      },
+    };
+  }
+  const key =
+    typeof process !== "undefined" && process.env
+      ? process.env.GROQ_API_KEY
+      : undefined;
+  if (!key) throw new GroqError("GROQ_API_KEY is not configured", "AI_AUTH");
+  return {
+    provider,
+    config: {
+      url: "https://api.groq.com/openai/v1/chat/completions",
+      key,
+      extraHeaders: {},
+      extraBody: {},
+    },
+  };
 }
 
 /**
@@ -60,39 +144,34 @@ export interface GroqChatCompletionResponse {
   usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
 }
 
-function getGroqKey(): string {
-  const key =
-    typeof process !== "undefined" && process.env
-      ? process.env.GROQ_API_KEY
-      : undefined;
-  if (!key) throw new GroqError("GROQ_API_KEY is not configured", "AI_AUTH");
-  return key;
-}
-
 /**
- * Raw Groq call. Returns the parsed response JSON. Throws GroqError on any
- * non-2xx or timeout. Use this when you need to massage payloads manually
- * (e.g. multi-stage analyze-meal).
+ * Raw chat-completion call against the configured provider (Groq or
+ * OpenRouter — selected by the `LLM_PROVIDER` env var). Returns the parsed
+ * response JSON. Throws GroqError on any non-2xx or timeout. Use this when
+ * you need to massage payloads manually (e.g. multi-stage analyze-meal).
  */
 export async function callGroqRaw(opts: GroqCallOptions): Promise<GroqChatCompletionResponse> {
-  const key = getGroqKey();
+  const { provider, config } = getProviderConfig();
+  const model = resolveModel(opts.model, provider);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? 15000);
   let response: Response;
   try {
-    response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    response = await fetch(config.url, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${key}`,
+        Authorization: `Bearer ${config.key}`,
         "Content-Type": "application/json",
+        ...config.extraHeaders,
       },
       body: JSON.stringify({
-        model: opts.model,
+        model,
         messages: opts.messages,
         temperature: opts.temperature,
         max_tokens: opts.max_tokens,
         ...(opts.response_format ? { response_format: opts.response_format } : {}),
         ...(opts.reasoning_effort ? { reasoning_effort: opts.reasoning_effort } : {}),
+        ...config.extraBody,
       }),
       signal: controller.signal,
     });
@@ -110,9 +189,13 @@ export async function callGroqRaw(opts: GroqCallOptions): Promise<GroqChatComple
     if (response.status === 429)
       throw new GroqError("AI service is busy", "AI_BUSY", 429);
     if (response.status === 401 || response.status === 403)
-      throw new GroqError("Invalid Groq API key", "AI_AUTH", response.status);
+      throw new GroqError(
+        provider === "openrouter" ? "Invalid OpenRouter API key" : "Invalid Groq API key",
+        "AI_AUTH",
+        response.status,
+      );
     throw new GroqError(
-      `Groq API error: ${errorData?.error?.message || "unknown"}`,
+      `${provider === "openrouter" ? "OpenRouter" : "Groq"} API error: ${errorData?.error?.message || "unknown"}`,
       "AI_UNKNOWN",
       response.status,
     );

@@ -330,6 +330,16 @@ export const fetchScoringInputs = internalQuery({
       sleepHoursTargetDate: sleepHoursByDateSource[date] ?? null,
     };
 
+    // Explicitly-marked rest days within the lookback window. Reuses the
+    // `calendarEntries` fetch above (also used by the assumed-sleep rescue)
+    // to avoid a second round-trip to `fight_camp_calendar`. Rest days don't
+    // contribute load (so ACWR math is untouched) but they let the engine
+    // distinguish planned 0-load days from missing data — see
+    // `computeTrainingLoad`'s cold-start gate.
+    const restDays = calendarEntries
+      .filter((c) => (c.sessionType ?? "").toLowerCase() === "rest")
+      .map((c) => c.date);
+
     return {
       date,
       profile,
@@ -341,6 +351,7 @@ export const fetchScoringInputs = internalQuery({
       sessions: sessions
         .filter((s) => s.durationMinutes != null && s.perceivedFatigue != null)
         .map((s) => ({ date: s.date, rpe: s.perceivedFatigue!, durationMinutes: s.durationMinutes! })),
+      restDays,
       hooperByDate: wellness
         .filter((w) => w.hooperIndex != null)
         .map((w) => ({ date: w.date, hooper: w.hooperIndex! })),

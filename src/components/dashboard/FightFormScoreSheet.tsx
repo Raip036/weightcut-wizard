@@ -152,12 +152,23 @@ const LIMITER_ACTIONS: Record<string, LimiterAction[]> = {
   ],
 };
 
-const SUBSCORE_EXPLAINER: Record<string, string> = {
-  trainingLoad: "Based on your training load compared to your camp baseline.",
-  sleep: "Based on your nightly sleep duration and consistency this week.",
-  weightCut: "Based on your weight trend vs the pace your camp plan needs.",
-  wellness: "Based on your daily 4-tap check-ins for stress, soreness, energy and mood.",
-  nutritionAdherence: "Based on how closely your meals match your calorie and protein targets.",
+// Tier → bar fill color for the HOW contribution bar in the drill-down.
+// Mirrors the TIER_BADGE palette in FightFormSubScoreTile.tsx so the
+// expanded panel reads as a natural extension of its parent tile.
+type SubScoreTier = "gold" | "silver" | "bronze" | "building";
+
+function subScoreTier(value: number): SubScoreTier {
+  if (value >= 80) return "gold";
+  if (value >= 60) return "silver";
+  if (value >= 40) return "bronze";
+  return "building";
+}
+
+const TIER_BAR: Record<SubScoreTier, string> = {
+  gold: "bg-amber-300",
+  silver: "bg-slate-200",
+  bronze: "bg-orange-300",
+  building: "bg-muted-foreground/60",
 };
 
 /**
@@ -460,46 +471,114 @@ export function FightFormScoreSheet(p: Props) {
                   }
                   className="overflow-hidden"
                 >
-                  <div className="rounded-xs border border-border/40 bg-muted/15 px-3 py-3 space-y-2.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <Icon
-                          name={SUBSCORE_ICON[expandedKey] ?? "ellipseOutline"}
-                          size={14}
-                          className="text-foreground shrink-0"
-                        />
-                        <span className="text-body-sm font-semibold truncate">
-                          {SUBSCORE_LABEL[expandedKey] ?? expandedKey}
-                        </span>
-                      </div>
-                      <span className="display-number text-base tabular-nums">
-                        {p.subScores[expandedKey].value}
-                      </span>
-                    </div>
-                    <p className="text-note text-foreground/85 leading-snug">
-                      {summarizeSubScore(
-                        expandedKey,
-                        p.subScores[expandedKey].value,
-                      )}
-                    </p>
-                    {p.subScoreTrend?.[expandedKey] &&
-                      p.subScoreTrend[expandedKey].length >= 2 && (
-                        <div className="h-14 rounded-xs bg-background/40 p-2">
-                          <FightFormTrendSparkline
-                            points={p.subScoreTrend[expandedKey].map((pt) => ({
-                              date: pt.date,
-                              score: pt.value,
-                              state: "ok" as FightFormState,
-                            }))}
-                            accentClass={accentForLabel}
-                          />
+                  {(() => {
+                    const sub = p.subScores[expandedKey];
+                    const tier = subScoreTier(sub.value);
+                    const tierBarClass = TIER_BAR[tier];
+                    const contribution = sub.value * sub.weight;
+                    const fillPct = Math.max(0, Math.min(100, sub.value));
+                    const subActions = LIMITER_ACTIONS[expandedKey] ?? null;
+                    return (
+                      <div className="rounded-xs border border-border/40 bg-muted/15 px-3.5 py-3.5 space-y-3">
+                        {/* 1. Header — icon + label + big tabular value */}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <Icon
+                              name={SUBSCORE_ICON[expandedKey] ?? "ellipseOutline"}
+                              size={14}
+                              className="text-foreground shrink-0"
+                            />
+                            <span className="text-body-sm font-semibold truncate">
+                              {SUBSCORE_LABEL[expandedKey] ?? expandedKey}
+                            </span>
+                          </div>
+                          <span className="display-number text-base tabular-nums">
+                            {sub.value}
+                          </span>
                         </div>
-                      )}
-                    <p className="text-micro text-muted-foreground/80 leading-snug">
-                      {SUBSCORE_EXPLAINER[expandedKey] ??
-                        "Based on your recent activity in this area."}
-                    </p>
-                  </div>
+
+                        {/* 2. WHY — one-line summary of what the score means */}
+                        <p className="text-note text-foreground/85 leading-snug">
+                          {summarizeSubScore(expandedKey, sub.value)}
+                        </p>
+
+                        {/* 3. HOW — contribution bar + numeric pts.
+                            Hidden when weight === 0 (e.g. the recovery
+                            sub-score, which exists but isn't yet counted
+                            toward the overall score). */}
+                        {sub.weight > 0 && (
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="flex-1 h-1.5 rounded-full bg-muted/40 overflow-hidden"
+                                aria-hidden
+                              >
+                                <div
+                                  className={cn("h-full rounded-full", tierBarClass)}
+                                  style={{ width: `${fillPct}%` }}
+                                />
+                              </div>
+                              <span className="text-micro font-semibold tabular-nums text-foreground/90 shrink-0">
+                                +{contribution.toFixed(1)} pts
+                              </span>
+                            </div>
+                            <div className="text-[10px] uppercase tracking-wide text-muted-foreground/70 font-medium">
+                              Contribution to score
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 4. Sparkline — 14-day trend for this sub-score */}
+                        {p.subScoreTrend?.[expandedKey] &&
+                          p.subScoreTrend[expandedKey].length >= 2 && (
+                            <div className="h-14 rounded-xs bg-background/40 p-2">
+                              <FightFormTrendSparkline
+                                points={p.subScoreTrend[expandedKey].map((pt) => ({
+                                  date: pt.date,
+                                  score: pt.value,
+                                  state: "ok" as FightFormState,
+                                }))}
+                                accentClass={accentForLabel}
+                              />
+                            </div>
+                          )}
+
+                        {/* 5. WHAT — actionable next steps, reusing the
+                            global Focus card's chevron-row treatment for
+                            visual coherence. */}
+                        {subActions && subActions.length > 0 && (
+                          <div className="space-y-2">
+                            <div className="section-header">What you can do</div>
+                            <ul className="space-y-1">
+                              {subActions.map((action) => (
+                                <li key={action.label}>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleActionTap(action.route)}
+                                    className="w-full flex items-center justify-between gap-2 rounded-xs px-2 py-2 text-left text-body-sm text-foreground/90 active:bg-primary/10 transition-colors"
+                                  >
+                                    <span className="flex items-center gap-2 min-w-0">
+                                      <Icon
+                                        name="arrowForwardOutline"
+                                        size={14}
+                                        className="text-primary shrink-0"
+                                      />
+                                      <span className="truncate">{action.label}</span>
+                                    </span>
+                                    <Icon
+                                      name="chevronForwardOutline"
+                                      size={12}
+                                      className="text-muted-foreground/60 shrink-0"
+                                    />
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </motion.div>
               )}
             </AnimatePresence>

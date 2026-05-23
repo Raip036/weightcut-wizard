@@ -1,10 +1,14 @@
 import { format, isSameDay } from "date-fns";
 import { triggerHapticSelection } from "@/lib/haptics";
+import { Icon } from "@/components/ui/Icon";
 
 interface CalendarMonthGridProps {
   daysInMonth: Date[];
   selectedDate: Date;
-  sessions: { date: string }[];
+  // `session_type` is optional so existing callers passing the minimal
+  // `{ date }[]` shape still type-check. When present, rest-only days
+  // render the moon marker instead of the primary session dot.
+  sessions: { date: string; session_type?: string }[];
   onSelectDate: (day: Date) => void;
 }
 
@@ -23,7 +27,10 @@ export function CalendarMonthGrid({ daysInMonth, selectedDate, sessions, onSelec
         ))}
         {daysInMonth.map((day) => {
           const dateStr = format(day, 'yyyy-MM-dd');
-          const hasSession = sessions.some(s => s.date === dateStr);
+          const entries = sessions.filter(s => s.date === dateStr);
+          const hasRealSession = entries.some(s => s.session_type !== "Rest");
+          const restOnly = !hasRealSession && entries.some(s => s.session_type === "Rest");
+          const hasSession = entries.length > 0;
           const isSelected = isSameDay(day, selectedDate);
           const isToday = isSameDay(day, new Date());
 
@@ -40,7 +47,16 @@ export function CalendarMonthGrid({ daysInMonth, selectedDate, sessions, onSelec
               `}>
                 {format(day, 'd')}
               </div>
-              {hasSession && (
+              {restOnly ? (
+                <div
+                  className={`absolute bottom-1 inline-flex items-center justify-center ${
+                    isSelected ? "text-primary-foreground/70" : "text-muted-foreground/60"
+                  }`}
+                  aria-hidden
+                >
+                  <Icon name="moonOutline" size={8} />
+                </div>
+              ) : hasSession && (
                 <div className="absolute bottom-1 w-1 h-1 rounded-full bg-primary" />
               )}
             </div>

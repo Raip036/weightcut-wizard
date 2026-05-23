@@ -228,6 +228,47 @@ function RouteTracker() {
 }
 
 const AppLayoutContent = () => {
+  // Warm the bottom-nav chunk cache once the protected shell mounts.
+  //
+  // Every primary destination (Dashboard, Camp, Nutrition, Community,
+  // WeightCut) is `React.lazy`, so the FIRST navigation to each one in a
+  // session would otherwise trigger Suspense and flash <DashboardSkeleton/>
+  // in the middle of the PageTransition animation — which reads as jank
+  // even though the motion itself is fine. By kicking off these imports
+  // from `requestIdleCallback`, the chunks are already in the module
+  // cache by the time the user taps a bottom-nav tab. Suspense never
+  // fires, and the entering page renders straight from cache so the
+  // PageTransition's opacity/y/scale animates over the real content.
+  //
+  // The top-level `_idle(...)` block above also kicks off these imports,
+  // but it runs before auth resolves and can lose to network jitter on
+  // cold app launches; this effect is the belt-and-braces second pass
+  // that fires reliably once the user is actually inside the app shell.
+  //
+  // Errors are intentionally swallowed — if a chunk fails to preload
+  // here, the real navigation attempt's <Suspense fallback> will still
+  // handle it (and surface any error via the route's ErrorBoundary).
+  useEffect(() => {
+    const schedule =
+      typeof window !== "undefined" &&
+      typeof (window as unknown as { requestIdleCallback?: unknown }).requestIdleCallback === "function"
+        ? (window as unknown as { requestIdleCallback: (cb: () => void) => number }).requestIdleCallback
+        : (cb: () => void) => window.setTimeout(cb, 400);
+    const handle = schedule(() => {
+      import("./pages/Dashboard").catch(() => {});
+      import("./pages/Camp").catch(() => {});
+      import("./pages/nutrition/NutritionPage").catch(() => {});
+      import("./pages/Community").catch(() => {});
+      import("./pages/WeightCut").catch(() => {});
+    });
+    return () => {
+      const cancel = (window as unknown as { cancelIdleCallback?: (h: number) => void }).cancelIdleCallback;
+      if (typeof cancel === "function" && typeof handle === "number") {
+        cancel(handle);
+      }
+    };
+  }, []);
+
   return (
     <>
       {/* Mobile-first layout: sidebar hidden on mobile, shown on desktop */}

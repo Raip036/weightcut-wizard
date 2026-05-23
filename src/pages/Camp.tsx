@@ -329,6 +329,25 @@ export default function Camp() {
       {/* ── Training Missions (notes-driven, per-discipline checklists) ──
           Glow lives on the LockedMissionCard surface itself (primary tint +
           border), no ambient halo around the widget. */}
+      {userId && (
+        <div className="flex items-center justify-between pt-1">
+          <h2 className="text-[15px] font-semibold text-foreground tracking-tight">
+            Training missions
+          </h2>
+          {cutPlanSummary && (
+            <button
+              type="button"
+              onClick={() =>
+                goTo(cutPlanSummary.planType === "weight_loss" ? "/weight-plan" : "/cut-plan")
+              }
+              className="inline-flex items-center gap-1 text-[13px] font-medium text-primary active:opacity-70 transition-opacity"
+            >
+              View full plan
+              <Icon name="chevronForwardOutline" size={12} className="text-primary" />
+            </button>
+          )}
+        </div>
+      )}
       {userId && <MissionStack />}
 
       {/* ── Bento grid of navigation tiles ─────────────────────────────── */}

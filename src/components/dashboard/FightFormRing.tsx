@@ -445,7 +445,11 @@ export function FightFormRing({
       </svg>
 
       {/* Lock glyph at the cap boundary. Lives outside the rotated SVG so
-          its orientation stays upright regardless of the cap position. */}
+          its orientation stays upright regardless of the cap position.
+          Styled as a glowing amber bead so it reads as a member of the
+          ring's ember palette rather than a foreign UI chip — radial
+          gradient gives it depth, the soft outer shadow ties it back
+          into the spark atmosphere around the arc. */}
       {showGhost && (
         <div
           aria-hidden
@@ -456,8 +460,18 @@ export function FightFormRing({
             transform: "translate(-50%, -50%)",
           }}
         >
-          <div className="rounded-full bg-background border border-func-warning-yellow/70 p-0.5">
-            <Icon name="lockClosedOutline" size={10} className="text-func-warning-yellow" />
+          <div
+            className="flex items-center justify-center rounded-full"
+            style={{
+              width: 14,
+              height: 14,
+              background:
+                "radial-gradient(circle at 35% 28%, rgba(254, 215, 170, 0.85) 0%, rgba(251, 146, 60, 0.98) 48%, rgba(154, 52, 18, 1) 100%)",
+              boxShadow:
+                "0 0 10px 1px rgba(251, 146, 60, 0.55), 0 0 0 0.5px rgba(254, 215, 170, 0.4), inset 0 -0.5px 1px rgba(0, 0, 0, 0.45)",
+            }}
+          >
+            <Icon name="lockClosedOutline" size={8} className="text-background/85" />
           </div>
         </div>
       )}

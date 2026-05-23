@@ -54,6 +54,20 @@ describe("computeTrainingLoad", () => {
     expect(r.reason).toMatch(/cold.start|limited/i);
   });
 
+  it("exits cold start when training + rest days reach the threshold", () => {
+    // 2 training days in the chronic window — below the old 3-day gate
+    // but combined with 1 marked rest day, the engine should now produce
+    // a real ACWR-derived value instead of returning weight: 0.
+    const sessions = [
+      sess("2026-04-01", 6, 60),
+      sess("2026-04-05", 7, 60),
+    ];
+    const restDays = ["2026-04-03"];
+    const r = computeTrainingLoad(sessions, "2026-04-15", cfg, restDays);
+    expect(r.reason).not.toMatch(/^Cold start/);
+    expect(r.reason).toMatch(/rest day/);
+  });
+
   describe("Fix #5 — EWMA direction sanity (today weighs heaviest)", () => {
     it("recent acute spike + low chronic baseline → ACWR > 1 (today dominates the acute window)", () => {
       // 28 days of low-load training (RPE 4, 30 min) + a recent 3-day spike

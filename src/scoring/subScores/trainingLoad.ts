@@ -48,6 +48,7 @@ export function computeTrainingLoad(
   sessions: Session[],
   asOfDate: string,
   cfg: ScoringConfig,
+  restDays: ReadonlyArray<string> = [],
 ): SubScore {
   const c = cfg.trainingLoad;
   const acuteDaily = loadByDay(sessions, asOfDate, c.acuteWindowDays);
@@ -59,13 +60,31 @@ export function computeTrainingLoad(
   if (!haveData) {
     return { value: 50, weight: 0, reason: "Cold start — no training data yet" };
   }
-  // Cold-start: very few training days across the chronic window → ACWR is unreliable.
+  // Count training days AND explicit rest days inside the chronic window
+  // — both are "the user is engaged with the system" signals. Rest days
+  // don't add load (so ACWR is unchanged) but they tell us we're not
+  // just looking at missing data. We unblock the cold-start gate when
+  // training+rest combined hits the threshold AND there are at least 2
+  // actual training days to anchor ACWR.
   const chronicTrainingDays = chronicDaily.filter((v) => v > 0).length;
-  if (chronicTrainingDays < 3) {
+  const chronicWindowStart = (() => {
+    const end = new Date(asOfDate + "T00:00:00Z");
+    const start = new Date(end);
+    start.setUTCDate(start.getUTCDate() - (c.chronicWindowDays - 1));
+    return start.toISOString().slice(0, 10);
+  })();
+  const restDaysInChronic = restDays.filter(
+    (d) => d >= chronicWindowStart && d <= asOfDate,
+  ).length;
+  const engagedDaysInChronic = chronicTrainingDays + restDaysInChronic;
+  if (chronicTrainingDays < 2 || engagedDaysInChronic < 3) {
     return {
       value: 50,
       weight: 0,
-      reason: "Cold start — limited training history, ACWR not yet reliable",
+      reason:
+        chronicTrainingDays === 0
+          ? "Cold start — no training data yet"
+          : "Cold start — limited training history, ACWR not yet reliable",
     };
   }
   if (chronic === 0) {
@@ -92,9 +111,13 @@ export function computeTrainingLoad(
     else value = 40 + ((hiEdge - acwr) / (hiEdge - hi)) * 60;
   }
   value = Math.max(0, Math.min(100, value));
+  const restNote =
+    restDaysInChronic > 0
+      ? ` · ${restDaysInChronic} rest day${restDaysInChronic === 1 ? "" : "s"} logged`
+      : "";
   return {
     value: Math.round(value),
     weight: 0,
-    reason: `ACWR ${acwr.toFixed(2)} (sweet spot ${lo}–${hi})`,
+    reason: `ACWR ${acwr.toFixed(2)} (sweet spot ${lo}–${hi})${restNote}`,
   };
 }
