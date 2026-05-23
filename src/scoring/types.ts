@@ -57,6 +57,25 @@ export type FightFormState = "ok" | "calibrating" | "no_camp" | "paused";
 
 export type FightFormLabel = "sharp" | "sharpening" | "off_pace" | "at_risk";
 
+/**
+ * Per-input provenance flag — which source the value the engine consumed
+ * actually came from. Lets the UI render badges like "Sleep from Apple
+ * Health" without re-querying the raw tables. `'healthkit'` means the
+ * `daily_health_summary` row for that date contributed; `'manual'` means
+ * the value came from `sleep_logs` / `weight_logs`. Per-date maps are
+ * provided so callers can mark *individual* nights / weigh-ins, plus the
+ * single-source flag for the headline value (latest weight / target-date
+ * sleep) most consumed by the UI.
+ */
+export interface ScoringInputSources {
+  sleepHoursByDate: Record<string, "healthkit" | "manual">;
+  weightsByDate: Record<string, "healthkit" | "manual">;
+  /** Source backing the most recent weight in `weights` (latest by date). */
+  weightLatest: "healthkit" | "manual" | null;
+  /** Source backing the sleep entry for the target date, if any. */
+  sleepHoursTargetDate: "healthkit" | "manual" | null;
+}
+
 export type FightFormScore = {
   score: number;          // 0–100 displayed (EMA)
   rawScore: number;
@@ -76,6 +95,14 @@ export type FightFormScore = {
    * UI uses this to render a confidence chip next to the score.
    */
   recoveryConfidence: number;
+  /**
+   * Debug/UX field surfacing where each input the engine consumed came
+   * from (Apple Health vs. manual log). Optional so unit tests and
+   * callers that don't care about provenance can ignore it. Always
+   * populated by `computeFightFormScore` — falls back to `'manual'` for
+   * every entry when `inputs.sources` is absent.
+   */
+  inputSources?: ScoringInputSources;
 };
 
 export type ScoringInputs = {
@@ -113,6 +140,15 @@ export type ScoringInputs = {
    * recovery components per spec §10.14.
    */
   selfReportRecovery?: { soreness: number | null; energy: number | null } | null;
+  /**
+   * Per-input provenance: marks each `sleepHours` / `weights` entry as
+   * coming from HealthKit (`daily_health_summary`) or a manual log.
+   * Populated by `fetchScoringInputs`; passed through to the engine
+   * output's `inputSources` field. Optional so older test fixtures and
+   * non-Convex callers don't have to provide it — missing entries are
+   * treated as `'manual'` for back-compat.
+   */
+  sources?: ScoringInputSources;
 };
 
 export type ScoringConfig = {
@@ -129,6 +165,13 @@ export type ScoringConfig = {
   sleep: {
     targetHoursPerNight: number;
     debtPenaltyPerHour: number;
+    /**
+     * Per-night sleep-debt penalty used by `computeSleep` after switching to
+     * the average-per-logged-night formula: `100 - debt * perHourPenalty`,
+     * where `debt` is hours-short PER NIGHT (not weekly).
+     * Default 30: 1h/night short → 70, 2h/night → 40, 3h+/night → ~10 floor.
+     */
+    perHourPenalty: number;
     // Hours to assume when the user has logged meaningful training on a day
     // but never entered sleep — rescues the score from a "forgot to log"
     // penalty without rewarding genuine sleep deprivation.

@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { motion } from "motion/react";
 import { staggerContainer, staggerItem } from "@/lib/motion";
-import { Dumbbell, ArrowUpDown, Plus, Crown } from "lucide-react";
+import { Dumbbell, ArrowUpDown, Plus } from "lucide-react";
+import { ProGate } from "@/components/subscription/ProGate";
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { RoutineDetailCard } from "./RoutineDetailCard";
 import type { SavedRoutine } from "@/pages/gym/types";
-import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 
 interface RoutineLibraryProps {
   routines: SavedRoutine[];
@@ -23,7 +23,6 @@ type SortMode = "recent" | "name" | "goal";
 export function RoutineLibrary({ routines, loading, onDelete, onRename, onStartWorkout, onOpenGenerator, onOpenManualCreator }: RoutineLibraryProps) {
   const [sortMode, setSortMode] = useState<SortMode>("recent");
   const [deleteTarget, setDeleteTarget] = useState<SavedRoutine | null>(null);
-  const { hasAccess: hasAiAccess } = useFeatureAccess("AI_WORKOUT_GENERATOR");
 
   const sorted = [...routines].sort((a, b) => {
     switch (sortMode) {
@@ -89,17 +88,13 @@ export function RoutineLibrary({ routines, loading, onDelete, onRename, onStartW
             <Plus className="!size-3.5" />
             Manual
           </Button>
-          <Button onClick={onOpenGenerator} className="relative h-10 px-3.5 rounded-xs text-xs font-medium">
-            <span className="inline-flex items-center gap-1.5">
-              AI Generate
-            </span>
-            {!hasAiAccess && (
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex items-center gap-0.5 text-primary-foreground/70 pointer-events-none">
-                <Crown className="!size-2.5" />
-                <span className="text-[10px] font-medium uppercase tracking-wider">Pro</span>
+          <ProGate feature="AI_WORKOUT_GENERATOR">
+            <Button onClick={onOpenGenerator} className="h-10 px-3.5 rounded-xs text-xs font-medium">
+              <span className="inline-flex items-center gap-1.5">
+                AI Generate
               </span>
-            )}
-          </Button>
+            </Button>
+          </ProGate>
         </div>
       </div>
     );
@@ -119,21 +114,17 @@ export function RoutineLibrary({ routines, loading, onDelete, onRename, onStartW
             <Plus className="!size-3.5" />
             Manual
           </Button>
-          <Button
-            onClick={onOpenGenerator}
-            size="sm"
-            className="relative h-8 px-2.5 rounded-xs text-xs font-medium"
-          >
-            <span className="inline-flex items-center gap-1.5">
-              AI Generate
-            </span>
-            {!hasAiAccess && (
-              <span className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center gap-0.5 text-primary-foreground/70 pointer-events-none">
-                <Crown className="!size-2.5" />
-                <span className="text-[10px] font-medium uppercase tracking-wider">Pro</span>
+          <ProGate feature="AI_WORKOUT_GENERATOR">
+            <Button
+              onClick={onOpenGenerator}
+              size="sm"
+              className="h-8 px-2.5 rounded-xs text-xs font-medium"
+            >
+              <span className="inline-flex items-center gap-1.5">
+                AI Generate
               </span>
-            )}
-          </Button>
+            </Button>
+          </ProGate>
         </div>
         <button
           onClick={cycleSortMode}

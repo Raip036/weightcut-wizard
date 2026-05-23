@@ -126,7 +126,7 @@ function headlineFor(p: Props): string {
 export function FightFormInsightStrip(p: Props) {
   if (p.state === "no_camp" || p.state === "paused") {
     return (
-      <p className="text-[12px] text-muted-foreground text-center mt-2 px-6 max-w-xs mx-auto leading-snug">
+      <p className="text-[12px] text-muted-foreground text-center mt-6 px-6 max-w-xs mx-auto leading-snug">
         {headlineFor(p)}
       </p>
     );
@@ -143,7 +143,7 @@ export function FightFormInsightStrip(p: Props) {
     (p.appliedCeiling != null || (p.state === "ok" && (p.topDriver != null || p.topLimiter != null)));
 
   return (
-    <div className="mt-2 flex flex-col items-center gap-2.5">
+    <div className="mt-6 flex flex-col items-center gap-2.5">
       {isTappable ? (
         <button
           type="button"

@@ -2,6 +2,17 @@ import type { ScoringConfig, SubScore } from "../types";
 
 type Session = { date: string; rpe: number; durationMinutes: number };
 
+/**
+ * Standard EWMA: `ema_t = α * x_t + (1-α) * ema_{t-1}`, iterated
+ * chronologically (oldest → newest) from a seed of `values[0]`.
+ *
+ * `loadByDay` returns values in chronological order, so `values[0]` is the
+ * OLDEST day and `values[values.length-1]` is today. After the loop, today
+ * (x_t) contributes weight α directly while older values get α(1-α)^k decay.
+ * That's the correct "today weighs heaviest" smoother — no direction fix
+ * needed. (The Fix-5 audit suggested reversing iteration; that would have
+ * been wrong. Verified by inspection of `loadByDay` ordering.)
+ */
 function ewma(values: number[], days: number): number {
   if (values.length === 0) return 0;
   const alpha = 2 / (days + 1);

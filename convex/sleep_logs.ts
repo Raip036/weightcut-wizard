@@ -60,10 +60,15 @@ export const logSleep = mutation({
     } else {
       resultId = await ctx.db.insert("sleep_logs", { userId, date, hours });
     }
-    await ctx.scheduler.runAfter(5_000, internal.fightFormScore.recomputeForUserDate, {
-      userId,
-      date,
-    });
+    // Recompute fight-form score after sleep log upsert
+    try {
+      await ctx.runMutation(internal.fightFormScore.scheduleRecompute, {
+        userId,
+        date,
+      });
+    } catch (err) {
+      console.warn("fight-form recompute schedule failed", err);
+    }
     return resultId;
   },
 });
@@ -75,6 +80,16 @@ export const deleteLog = mutation({
     const row = await ctx.db.get(id);
     if (!row) return;
     if (row.userId !== userId) throw new Error("Not authorized");
+    const date = row.date;
     await ctx.db.delete(id);
+    // Recompute fight-form score after sleep log deletion
+    try {
+      await ctx.runMutation(internal.fightFormScore.scheduleRecompute, {
+        userId,
+        date,
+      });
+    } catch (err) {
+      console.warn("fight-form recompute schedule failed", err);
+    }
   },
 });

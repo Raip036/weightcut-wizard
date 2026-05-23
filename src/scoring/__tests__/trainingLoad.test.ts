@@ -53,4 +53,32 @@ describe("computeTrainingLoad", () => {
     expect(r.value).toBeLessThanOrEqual(100);
     expect(r.reason).toMatch(/cold.start|limited/i);
   });
+
+  describe("Fix #5 — EWMA direction sanity (today weighs heaviest)", () => {
+    it("recent acute spike + low chronic baseline → ACWR > 1 (today dominates the acute window)", () => {
+      // 28 days of low-load training (RPE 4, 30 min) + a recent 3-day spike
+      // (RPE 10, 60 min). If EWMA seeded the wrong end, the spike would be
+      // discounted and ACWR would stay flat. Correct EWMA: today's spike
+      // dominates the 7-day acute mean.
+      const sessions = [];
+      // Background load: 28 days starting 4 weeks back.
+      for (let i = 3; i < 28; i++) {
+        const d = new Date("2026-05-01");
+        d.setDate(d.getDate() - i);
+        sessions.push(sess(d.toISOString().slice(0, 10), 4, 30));
+      }
+      // Recent spike in last 3 days.
+      for (let i = 0; i < 3; i++) {
+        const d = new Date("2026-05-01");
+        d.setDate(d.getDate() - i);
+        sessions.push(sess(d.toISOString().slice(0, 10), 10, 60));
+      }
+      const r = computeTrainingLoad(sessions, "2026-05-01", cfg);
+      // Spike must register: reason mentions an ACWR > 1.
+      const m = r.reason.match(/ACWR ([\d.]+)/);
+      expect(m).toBeTruthy();
+      const acwr = parseFloat(m![1]);
+      expect(acwr).toBeGreaterThan(1.0);
+    });
+  });
 });

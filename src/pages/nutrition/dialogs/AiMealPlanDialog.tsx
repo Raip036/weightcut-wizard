@@ -1,6 +1,7 @@
 import { format } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { ProGate } from "@/components/subscription/ProGate";
 
 interface AiMealPlanDialogProps {
   open: boolean;
@@ -10,7 +11,6 @@ interface AiMealPlanDialogProps {
   setAiPrompt: React.Dispatch<React.SetStateAction<string>>;
   generatingPlan: boolean;
   onGenerate: () => void;
-  gemBadge: React.ReactNode;
 }
 
 export function AiMealPlanDialog({
@@ -21,7 +21,6 @@ export function AiMealPlanDialog({
   setAiPrompt,
   generatingPlan,
   onGenerate,
-  gemBadge,
 }: AiMealPlanDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -52,24 +51,15 @@ export function AiMealPlanDialog({
             rows={2}
             className="resize-none text-[13px] rounded-xs border-border/30 bg-muted/20"
           />
-          <button
-            onClick={onGenerate}
-            disabled={generatingPlan}
-            className="relative w-full py-2.5 text-[14px] font-semibold text-primary active:bg-muted/50 transition-colors border-t border-border/40 mt-1 disabled:opacity-40"
-          >
-            {generatingPlan ? (
-              "Generating..."
-            ) : (
-              <>
-                Generate Meal Ideas
-                {gemBadge && (
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                    {gemBadge}
-                  </span>
-                )}
-              </>
-            )}
-          </button>
+          <ProGate feature="AI_MEAL_PLANNER" className="w-full">
+            <button
+              onClick={onGenerate}
+              disabled={generatingPlan}
+              className="w-full py-2.5 text-[14px] font-semibold text-primary active:bg-muted/50 transition-colors border-t border-border/40 mt-1 disabled:opacity-40"
+            >
+              {generatingPlan ? "Generating..." : "Generate Meal Ideas"}
+            </button>
+          </ProGate>
         </div>
       </DialogContent>
     </Dialog>

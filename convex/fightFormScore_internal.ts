@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { internalQuery, internalMutation } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { CURRENT_CONFIG } from "../src/scoring/config";
-import type { HealthSignal, HealthSignals } from "../src/scoring/types";
+import type { HealthSignal, HealthSignals, ScoringInputSources } from "../src/scoring/types";
 
 /**
  * Metric strings written by `internal.health.computeBaselines` (spec §5.1).
@@ -150,14 +150,16 @@ export const fetchScoringInputs = internalQuery({
       .collect();
 
     // HealthKit-derived signals (Agent B owns these tables).
-    // `daily_health_summary` is keyed (userId, date); we want the row for
-    // the target `date` exactly. `health_baselines` is keyed (userId, metric)
-    // and there's at most one row per metric per user, so a single index
-    // scan and a map lookup is fine.
-    const healthSummaryRow = await ctx.db
+    // We fetch the FULL lookback window of `daily_health_summary` rows
+    // (not just the target date) because sleep / body-mass values from
+    // HealthKit need to win over manual logs on a *per-date* basis, not
+    // only for today. The single row for the target date is then pulled
+    // out for `assembleHealthSignals` (which still drives recovery).
+    const healthSummaryRows = await ctx.db
       .query("daily_health_summary")
-      .withIndex("by_user_date", (q) => q.eq("userId", userId).eq("date", date))
-      .first();
+      .withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", lookbackStartIso))
+      .collect();
+    const healthSummaryRow = healthSummaryRows.find((r) => r.date === date) ?? null;
     const healthBaselineRows = await ctx.db
       .query("health_baselines")
       .withIndex("by_user_metric", (q) => q.eq("userId", userId))
@@ -226,15 +228,75 @@ export const fetchScoringInputs = internalQuery({
       )
       .collect();
 
-    // "Forgot to log sleep" rescue: if the user has no sleep_log for the
-    // target date but logged a meaningful training session that day (≥ N
-    // minutes, where N is tunable in ScoringConfig), inject a default
-    // sleep entry so the score isn't penalised for a missing log. The
-    // assumption is NOT written to `sleep_logs` — when the user later
-    // enters their real hours, the standard upsert + scheduled recompute
-    // (see convex/sleep_logs.ts) overrides the assumption cleanly.
+    // HealthKit precedence: per-date overrides for sleep hours + body
+    // mass. When `daily_health_summary` has a usable value for a given
+    // date, it WINS over the matching manual `sleep_logs` / `weight_logs`
+    // row — manual is the fallback. We guard on `> 0` (not just non-null)
+    // because the roll-up can write a 0 for "no samples that day" and
+    // we don't want a phantom 0h sleep / 0kg weigh-in to clobber a real
+    // manual entry. The `sources` map records which source the engine
+    // ended up consuming per date for downstream debugging / UI badges.
+    const healthSleepByDate = new Map<string, number>();   // date -> hours
+    const healthWeightByDate = new Map<string, number>();  // date -> kg
+    for (const row of healthSummaryRows) {
+      if (row.sleepMinutes != null && row.sleepMinutes > 0) {
+        healthSleepByDate.set(row.date, row.sleepMinutes / 60);
+      }
+      if (row.bodyMassKg != null && row.bodyMassKg > 0) {
+        healthWeightByDate.set(row.date, row.bodyMassKg);
+      }
+    }
+
+    const sleepDatesUnion = new Set<string>([
+      ...sleep.map((s) => s.date),
+      ...healthSleepByDate.keys(),
+    ]);
+    const sleepHoursByDateSource: Record<string, "healthkit" | "manual"> = {};
+    const mergedSleep: Array<{ date: string; hours: number }> = [];
+    for (const d of sleepDatesUnion) {
+      const hk = healthSleepByDate.get(d);
+      if (hk != null) {
+        mergedSleep.push({ date: d, hours: hk });
+        sleepHoursByDateSource[d] = "healthkit";
+      } else {
+        const manual = sleep.find((s) => s.date === d);
+        if (manual) {
+          mergedSleep.push({ date: d, hours: manual.hours });
+          sleepHoursByDateSource[d] = "manual";
+        }
+      }
+    }
+
+    const weightDatesUnion = new Set<string>([
+      ...weights.map((w) => w.date),
+      ...healthWeightByDate.keys(),
+    ]);
+    const weightsByDateSource: Record<string, "healthkit" | "manual"> = {};
+    const mergedWeights: Array<{ date: string; weightKg: number }> = [];
+    for (const d of weightDatesUnion) {
+      const hk = healthWeightByDate.get(d);
+      if (hk != null) {
+        mergedWeights.push({ date: d, weightKg: hk });
+        weightsByDateSource[d] = "healthkit";
+      } else {
+        const manual = weights.find((w) => w.date === d);
+        if (manual) {
+          mergedWeights.push({ date: d, weightKg: manual.weightKg });
+          weightsByDateSource[d] = "manual";
+        }
+      }
+    }
+
+    // "Forgot to log sleep" rescue: if the user has no sleep entry for
+    // the target date (HK or manual) but logged a meaningful training
+    // session that day (≥ N minutes, where N is tunable in
+    // ScoringConfig), inject a default sleep entry so the score isn't
+    // penalised for a missing log. The assumption is NOT written to
+    // `sleep_logs` — when the user later enters their real hours, the
+    // standard upsert + scheduled recompute (see convex/sleep_logs.ts)
+    // overrides the assumption cleanly.
     const minDuration = CURRENT_CONFIG.sleep.minTrainingDurationForAssumption;
-    const hasSleepForTargetDate = sleep.some((s) => s.date === date);
+    const hasSleepForTargetDate = mergedSleep.some((s) => s.date === date);
     const meaningfulGym = sessions.some(
       (s) =>
         s.date === date &&
@@ -248,19 +310,33 @@ export const fetchScoringInputs = internalQuery({
         (c.durationMinutes ?? 0) >= minDuration,
     );
     const trainedToday = meaningfulGym || meaningfulCalendar;
-    const sleepLogsForScoring = sleep.map((s) => ({ date: s.date, hours: s.hours }));
+    const sleepLogsForScoring = [...mergedSleep];
     const assumedSleepDates: string[] = [];
     if (!hasSleepForTargetDate && trainedToday) {
       sleepLogsForScoring.push({ date, hours: CURRENT_CONFIG.sleep.defaultAssumedHours });
       assumedSleepDates.push(date);
+      // Assumed entries are server-injected, not from any user source;
+      // bucket them under 'manual' so the UI doesn't claim "from Apple
+      // Health" for a fallback we generated.
+      sleepHoursByDateSource[date] = "manual";
     }
+
+    const sortedMergedWeights = [...mergedWeights].sort((a, b) => a.date.localeCompare(b.date));
+    const latestMergedWeight = sortedMergedWeights[sortedMergedWeights.length - 1] ?? null;
+    const sources: ScoringInputSources = {
+      sleepHoursByDate: sleepHoursByDateSource,
+      weightsByDate: weightsByDateSource,
+      weightLatest: latestMergedWeight ? weightsByDateSource[latestMergedWeight.date] ?? "manual" : null,
+      sleepHoursTargetDate: sleepHoursByDateSource[date] ?? null,
+    };
 
     return {
       date,
       profile,
-      weights: weights.map((w) => ({ date: w.date, weightKg: w.weightKg })),
+      weights: mergedWeights,
       sleepHours: sleepLogsForScoring,
       assumedSleepDates,
+      sources,
       // gym_sessions has no session-level `rpe`; use `perceivedFatigue` as proxy.
       sessions: sessions
         .filter((s) => s.durationMinutes != null && s.perceivedFatigue != null)

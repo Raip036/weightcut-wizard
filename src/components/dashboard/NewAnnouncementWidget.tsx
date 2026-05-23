@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
-import { Bell, ChevronRight, Swords } from "lucide-react";
+import { Icon, type IonIconName } from "@/components/ui/Icon";
 import { useMyGyms } from "@/hooks/coach/useMyGyms";
 import { useGymAnnouncements } from "@/hooks/coach/useGymAnnouncements";
 import { triggerHaptic } from "@/lib/haptics";
@@ -110,10 +110,10 @@ export default function NewAnnouncementWidget({ userId }: Props) {
   // pulse, distinct icon) so it's instantly distinguishable from a
   // plain text announcement.
   const cardClass = isFightOffer
-    ? "w-full rounded-xs border-2 border-primary bg-primary/[0.08] p-3 flex items-center gap-3 active:scale-[0.99] transition-all"
-    : "w-full card-surface rounded-xs border border-border p-3 flex items-center gap-3 active:scale-[0.99] transition-all";
+    ? "w-full card-glow rounded-2xl bg-primary/[0.08] p-3 flex items-center gap-3 active:scale-[0.99] transition-all"
+    : "w-full card-surface card-glow rounded-2xl p-3 flex items-center gap-3 active:scale-[0.99] transition-all";
   const iconBg = isFightOffer ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary";
-  const Icon = isFightOffer ? Swords : Bell;
+  const iconName: IonIconName = isFightOffer ? "flashOutline" : "notificationsOutline";
   const headlineCopy = isFightOffer
     ? "New fight offer"
     : count === 1
@@ -137,7 +137,7 @@ export default function NewAnnouncementWidget({ userId }: Props) {
           <span className={`relative flex h-9 w-9 rounded-full items-center justify-center flex-shrink-0 ${iconBg}`}>
             {/* Live pulse — louder for fight offers. */}
             <span className={`absolute inset-0 rounded-full animate-ping ${isFightOffer ? "bg-primary/40" : "bg-primary/25"}`} aria-hidden />
-            <Icon className="relative h-4 w-4" />
+            <Icon name={iconName} size={16} className="relative" />
             {count > 1 && (
               <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center tabular-nums">
                 {count > 9 ? "9+" : count}
@@ -152,7 +152,7 @@ export default function NewAnnouncementWidget({ userId }: Props) {
               {headline.sender_name} · {headline.gym_name}
             </p>
           </div>
-          <ChevronRight className="h-3 w-3 text-muted-foreground/40 flex-shrink-0" />
+          <Icon name="chevronForwardOutline" size={12} className="text-muted-foreground/40 flex-shrink-0" />
         </motion.button>
       )}
     </AnimatePresence>

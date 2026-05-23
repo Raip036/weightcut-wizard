@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query, internalAction, mutation } from "./_generated/server";
+import { query, internalAction, internalMutation, internalQuery, mutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { optionalUserId, requireUserId } from "./lib/auth";
 import { computeFightFormScore } from "../src/scoring/compose";
@@ -99,6 +99,14 @@ export const loggedTodayBundle = query({
  * so the displayed numerator and threshold match when the score actually
  * unlocks. `perSource` is bucketed to the trailing 7 calendar days because
  * a 28-day-wide "X of 28 nights logged" reads as useless to a user.
+ *
+ * Filters must match src/scoring/compose.ts countDistinctDaysOfData — this
+ * is the single source of truth surfaced to the UI. The engine drops rows
+ * that lack the signals it actually consumes (gym_sessions without both
+ * durationMinutes + perceivedFatigue, wellness without hooperIndex); we
+ * apply the same filters before counting distinct dates so the UI's
+ * "Day N of N — unlocked" decision lines up with the engine's
+ * `state === "ok"` decision.
  */
 export const calibrationProgress = query({
   args: { date: v.optional(v.string()) },
@@ -141,7 +149,16 @@ export const calibrationProgress = query({
         .collect(),
     ]);
 
-    const completedSessions = sessions.filter((s) => s.status === "completed");
+    // Engine-aligned filters. compose.ts:countDistinctDaysOfData only counts
+    // dates that survive these filters (the engine drops sessions missing
+    // durationMinutes or perceivedFatigue, and wellness rows missing
+    // hooperIndex, in fightFormScore_internal.fetchScoringInputs). We do NOT
+    // re-apply `status === "completed"` here — match the engine, which
+    // doesn't filter on status either.
+    const engineSessions = sessions.filter(
+      (s) => s.durationMinutes != null && s.perceivedFatigue != null,
+    );
+    const engineWellness = wellness.filter((w) => w.hooperIndex != null);
 
     const inWindow7 = (d: string) => d >= sevenStartIso && d <= targetDate;
     const distinctIn7 = (rows: ReadonlyArray<{ date: string }>) =>
@@ -150,8 +167,8 @@ export const calibrationProgress = query({
     const perSource = {
       sleep: distinctIn7(sleep),
       weight: distinctIn7(weights),
-      training: distinctIn7(completedSessions),
-      wellness: distinctIn7(wellness),
+      training: distinctIn7(engineSessions),
+      wellness: distinctIn7(engineWellness),
       nutrition: distinctIn7(meals),
     };
 
@@ -161,8 +178,8 @@ export const calibrationProgress = query({
     const unionDays = new Set<string>();
     for (const r of weights) unionDays.add(r.date);
     for (const r of sleep) unionDays.add(r.date);
-    for (const r of completedSessions) unionDays.add(r.date);
-    for (const r of wellness) unionDays.add(r.date);
+    for (const r of engineSessions) unionDays.add(r.date);
+    for (const r of engineWellness) unionDays.add(r.date);
     for (const r of meals) unionDays.add(r.date);
     const daysWithAnyLog = unionDays.size;
     const daysNeeded = CURRENT_CONFIG.coldStart.minDaysOfDataIn7d;
@@ -172,6 +189,113 @@ export const calibrationProgress = query({
       daysNeeded,
       unlocked: daysWithAnyLog >= daysNeeded,
       perSource,
+    };
+  },
+});
+
+/**
+ * Distinct dates within the last `windowDays` (default 28) where the user
+ * lit up ALL FIVE of the dashboard TodayStrip ritual pills (weight, sleep,
+ * training, wellness check-in, and a meal with calorie content). Used by
+ * the dashboard ring to fire the "Day N completed" animation only on days
+ * where the full ritual was completed — independent of the engine's
+ * calibration count, which only requires ANY one signal per day.
+ *
+ * Trade-off (documented inline): the meals pill counts any `meals` row,
+ * not "meals with calorie-bearing items". This matches the TodayStrip's
+ * coarse-grained semantics elsewhere (`mealsLoggedToday = todayCalories > 0`
+ * relies on `meals.listWithTotals` aggregating items per meal); doing the
+ * full meal_items join here would add a per-row query and isn't worth the
+ * accuracy gain for a UI counter. Empty meals are rare in practice.
+ *
+ * Training pill semantics mirror `loggedTodayBundle` above: a completed
+ * `gym_sessions` row OR a non-Rest `fight_camp_calendar` entry.
+ */
+export const fullRitualDaysCount = query({
+  args: {
+    from: v.optional(v.string()),
+    to: v.optional(v.string()),
+  },
+  handler: async (ctx, { from, to }) => {
+    const userId = await optionalUserId(ctx);
+    if (!userId) return null;
+
+    const endIso = to ?? todayInUtc();
+    let startIso = from;
+    if (!startIso) {
+      const end = new Date(endIso + "T00:00:00Z");
+      const start = new Date(end);
+      start.setUTCDate(start.getUTCDate() - 27); // inclusive 28-day window
+      startIso = start.toISOString().slice(0, 10);
+    }
+
+    const [weights, sleep, sessions, calendar, wellness, meals] = await Promise.all([
+      ctx.db
+        .query("weight_logs")
+        .withIndex("by_user_date", (q) =>
+          q.eq("userId", userId).gte("date", startIso).lte("date", endIso),
+        )
+        .collect(),
+      ctx.db
+        .query("sleep_logs")
+        .withIndex("by_user_date", (q) =>
+          q.eq("userId", userId).gte("date", startIso).lte("date", endIso),
+        )
+        .collect(),
+      ctx.db
+        .query("gym_sessions")
+        .withIndex("by_user_date", (q) =>
+          q.eq("userId", userId).gte("date", startIso).lte("date", endIso),
+        )
+        .collect(),
+      ctx.db
+        .query("fight_camp_calendar")
+        .withIndex("by_user_date", (q) =>
+          q.eq("userId", userId).gte("date", startIso).lte("date", endIso),
+        )
+        .collect(),
+      ctx.db
+        .query("daily_wellness_checkins")
+        .withIndex("by_user_date", (q) =>
+          q.eq("userId", userId).gte("date", startIso).lte("date", endIso),
+        )
+        .collect(),
+      ctx.db
+        .query("meals")
+        .withIndex("by_user_date", (q) =>
+          q.eq("userId", userId).gte("date", startIso).lte("date", endIso),
+        )
+        .collect(),
+    ]);
+
+    const weightDates = new Set(weights.map((w) => w.date));
+    const sleepDates = new Set(sleep.map((s) => s.date));
+    const trainingDates = new Set<string>();
+    for (const s of sessions) if (s.status === "completed") trainingDates.add(s.date);
+    for (const c of calendar) {
+      if ((c.sessionType ?? "").toLowerCase() !== "rest") trainingDates.add(c.date);
+    }
+    // Any wellness row counts for the pill — the Hooper-only requirement is
+    // for the SCORE math, not for ritual completion.
+    const wellnessDates = new Set(wellness.map((w) => w.date));
+    // Any meals row counts (see trade-off note above).
+    const mealDates = new Set(meals.map((m) => m.date));
+
+    // Intersection across all five sets.
+    let candidates: Set<string> = weightDates;
+    for (const next of [sleepDates, trainingDates, wellnessDates, mealDates]) {
+      const reduced = new Set<string>();
+      for (const d of candidates) if (next.has(d)) reduced.add(d);
+      candidates = reduced;
+      if (candidates.size === 0) break;
+    }
+
+    const sorted = Array.from(candidates).sort();
+    const latestRitualDate = sorted.length > 0 ? sorted[sorted.length - 1] : null;
+
+    return {
+      total: candidates.size,
+      latestRitualDate,
     };
   },
 });
@@ -257,6 +381,83 @@ export const getRecentScores = query({
   },
 });
 
+/**
+ * Returns yesterday's sub-score VALUES (stripped of weight/reason) keyed by
+ * sub-score id, so the FightFormScoreSheet can render `+N` / `−N` deltas
+ * beside each tile without re-querying the full row. Returns `null` when
+ * unauthenticated or when no row exists for yesterday (calibrating, gap
+ * day) — callers should treat null as "no delta to show".
+ *
+ * Shape: `{ date: "YYYY-MM-DD", subScores: Record<string, number> } | null`.
+ */
+export const getYesterdaysSubScores = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await optionalUserId(ctx);
+    if (!userId) return null;
+
+    const y = new Date(todayInUtc() + "T00:00:00Z");
+    y.setUTCDate(y.getUTCDate() - 1);
+    const yesterdayIso = y.toISOString().slice(0, 10);
+
+    const row = await ctx.db
+      .query("fight_form_scores")
+      .withIndex("by_user_date", (q) => q.eq("userId", userId).eq("date", yesterdayIso))
+      .first();
+    if (!row || !row.subScores) return null;
+
+    const subScores: Record<string, number> = {};
+    for (const [k, v] of Object.entries(row.subScores)) {
+      subScores[k] = (v as { value: number }).value;
+    }
+    return { date: yesterdayIso, subScores };
+  },
+});
+
+/**
+ * Per-sub-score time series for the last `days` days (default 7, clamped
+ * 2–30), sparkline-ready. Output is pivoted by sub-score id so the UI can
+ * map directly to one sparkline per tile. Dates inside each series are
+ * ascending; missing days are simply omitted (no null padding) so the
+ * client can decide how to render gaps.
+ *
+ * Shape: `Record<string, Array<{ date: "YYYY-MM-DD", value: number }>>`.
+ * For an unauthenticated viewer this returns `{}` (empty pivot).
+ */
+export const getSubScoreTrend = query({
+  args: { days: v.optional(v.number()) },
+  handler: async (ctx, { days }) => {
+    const userId = await optionalUserId(ctx);
+    if (!userId) return {} as Record<string, Array<{ date: string; value: number }>>;
+
+    const n = Math.max(2, Math.min(30, days ?? 7));
+    const endIso = todayInUtc();
+    const start = new Date(endIso + "T00:00:00Z");
+    start.setUTCDate(start.getUTCDate() - (n - 1));
+    const startIso = start.toISOString().slice(0, 10);
+
+    const rows = await ctx.db
+      .query("fight_form_scores")
+      .withIndex("by_user_date", (q) =>
+        q.eq("userId", userId).gte("date", startIso).lte("date", endIso),
+      )
+      .collect();
+
+    rows.sort((a, b) => a.date.localeCompare(b.date));
+
+    const series: Record<string, Array<{ date: string; value: number }>> = {};
+    for (const row of rows) {
+      if (!row.subScores) continue;
+      for (const [k, v] of Object.entries(row.subScores)) {
+        const value = (v as { value: number }).value;
+        if (!series[k]) series[k] = [];
+        series[k].push({ date: row.date, value });
+      }
+    }
+    return series;
+  },
+});
+
 export const getHistory = query({
   args: { campId: v.id("fight_camps"), limit: v.optional(v.number()) },
   handler: async (ctx, { campId, limit }) => {
@@ -315,6 +516,15 @@ export const recomputeForUserDate = internalAction({
         proteinG: inputs.profile?.aiRecommendedProteinG ?? null,
       },
       priorRawScores: inputs.priorRawScores,
+      // HealthKit-derived signals (HRV, RHR, sleep, wrist temp, VO2max)
+      // assembled by `fetchScoringInputs`; drives the `recovery` sub-score.
+      healthSignals: inputs.healthSignals,
+      // Morning check-in soreness/energy — augments recovery.
+      selfReportRecovery: inputs.selfReportRecovery,
+      // Per-input provenance — recorded by `fetchScoringInputs` based on
+      // which table (HealthKit `daily_health_summary` vs. manual
+      // `sleep_logs` / `weight_logs`) won the merge for each date.
+      sources: inputs.sources,
     };
     const score = computeFightFormScore(scoringInputs, CURRENT_CONFIG);
     await ctx.runMutation(internal.fightFormScore_internal.upsertScore, {
@@ -353,6 +563,125 @@ export const scheduleDailyRecomputeAcrossUsers = internalAction({
     for (const userId of userIds) {
       await ctx.runAction(internal.fightFormScore.recomputeForUserDate, { userId, date });
     }
+  },
+});
+
+// ───────────────────────────────────────────────────────────────────────
+// Coalescing layer
+// ───────────────────────────────────────────────────────────────────────
+//
+// Two mutations 100ms apart used to schedule two independent 5 s
+// `recomputeForUserDate` runs, both of which ended up firing because there
+// was nothing checking whether a later schedule had superseded the earlier
+// one. The pattern below replaces direct `ctx.scheduler.runAfter(...,
+// recomputeForUserDate, ...)` calls with a single `scheduleRecompute`
+// upsert that records the *intended* fire time in
+// `fight_form_recompute_pending`. The scheduled wrapper action
+// (`coalescedRecompute`) reads that row when it runs and no-ops if a
+// later schedule has pushed the fire time further out, leaving exactly
+// one recompute per coalescing window.
+
+const DEFAULT_RECOMPUTE_DELAY_MS = 5_000;
+
+/**
+ * Idempotent coalescer entry point. Called from every mutation that
+ * changes scoring-relevant data; collapses bursts of writes onto a single
+ * recompute. `delayMs` defaults to 5s — pass 10s from the Apple Health
+ * roll-up chain to give the rollup itself time to settle.
+ */
+export const scheduleRecompute = internalMutation({
+  args: {
+    userId: v.id("users"),
+    date: v.string(),
+    delayMs: v.optional(v.number()),
+  },
+  handler: async (ctx, { userId, date, delayMs }) => {
+    const delay = delayMs ?? DEFAULT_RECOMPUTE_DELAY_MS;
+    const scheduledAt = Date.now() + delay;
+    const existing = await ctx.db
+      .query("fight_form_recompute_pending")
+      .withIndex("by_user_date", (q) =>
+        q.eq("userId", userId).eq("date", date),
+      )
+      .first();
+    if (existing) {
+      // Always push the fire time forward — the latest writer wins. The
+      // earlier scheduled wrapper will read this row, see the later
+      // `scheduledAt`, and no-op.
+      await ctx.db.patch(existing._id, { scheduledAt });
+    } else {
+      await ctx.db.insert("fight_form_recompute_pending", {
+        userId,
+        date,
+        scheduledAt,
+      });
+    }
+    await ctx.scheduler.runAfter(
+      delay,
+      internal.fightFormScore.coalescedRecompute,
+      { userId, date },
+    );
+  },
+});
+
+/** Internal: delete the pending row after a recompute completes (or after
+ *  a coalesced no-op). Separate mutation because actions can't write to
+ *  the db directly. */
+export const _clearRecomputePending = internalMutation({
+  args: { userId: v.id("users"), date: v.string() },
+  handler: async (ctx, { userId, date }) => {
+    const existing = await ctx.db
+      .query("fight_form_recompute_pending")
+      .withIndex("by_user_date", (q) =>
+        q.eq("userId", userId).eq("date", date),
+      )
+      .first();
+    if (existing) await ctx.db.delete(existing._id);
+  },
+});
+
+/** Internal: read the current pending row (or null). */
+export const _getRecomputePending = internalQuery({
+  args: { userId: v.id("users"), date: v.string() },
+  handler: async (ctx, { userId, date }) => {
+    const row = await ctx.db
+      .query("fight_form_recompute_pending")
+      .withIndex("by_user_date", (q) =>
+        q.eq("userId", userId).eq("date", date),
+      )
+      .first();
+    return row ? { scheduledAt: row.scheduledAt } : null;
+  },
+});
+
+/**
+ * Wraps `recomputeForUserDate` with the coalescing check. If a later
+ * `scheduleRecompute` has pushed the pending row's `scheduledAt` further
+ * into the future than `Date.now()`, this execution no-ops — the later
+ * schedule's own `coalescedRecompute` will run when it's due.
+ */
+export const coalescedRecompute = internalAction({
+  args: { userId: v.id("users"), date: v.string() },
+  handler: async (ctx, { userId, date }) => {
+    const pending = await ctx.runQuery(
+      internal.fightFormScore._getRecomputePending,
+      { userId, date },
+    );
+    // If the pending row is gone (race with another wrapper), assume
+    // someone else already handled the recompute and bail.
+    if (!pending) return null;
+    // A later schedule has the row — let it run. We're an earlier
+    // wrapper whose fire time is now stale.
+    if (pending.scheduledAt > Date.now()) return null;
+    await ctx.runAction(internal.fightFormScore.recomputeForUserDate, {
+      userId,
+      date,
+    });
+    await ctx.runMutation(
+      internal.fightFormScore._clearRecomputePending,
+      { userId, date },
+    );
+    return null;
   },
 });
 

@@ -42,8 +42,8 @@ export async function capturePhotoBase64(): Promise<CapturePhotoResult> {
         resultType: CameraResultType.Base64,
         source: CameraSource.Camera,
         direction: CameraDirection.Rear,
-        width: 1024,
-        height: 1024,
+        width: 1280,
+        correctOrientation: true,
         promptLabelHeader: "Snap your meal",
         promptLabelPhoto: "Take Photo",
       });
@@ -65,10 +65,17 @@ export async function capturePhotoBase64(): Promise<CapturePhotoResult> {
         const file = input.files?.[0];
         if (!file) return resolve({ base64: null, reason: "cancelled" });
         const reader = new FileReader();
-        reader.onload = () => {
+        reader.onload = async () => {
           const result = reader.result as string;
-          const base64 = result.split(",")[1] ?? null;
-          resolve({ base64, reason: base64 ? null : "error" });
+          const originalBase64 = result.split(",")[1] ?? null;
+          if (!originalBase64) return resolve({ base64: null, reason: "error" });
+          try {
+            const resized = await downscaleDataUrl(result, 1280);
+            resolve({ base64: resized ?? originalBase64, reason: null });
+          } catch (e) {
+            logger.warn("capturePhotoBase64 web resize failed, using original", { error: String(e) });
+            resolve({ base64: originalBase64, reason: null });
+          }
         };
         reader.onerror = () => resolve({ base64: null, reason: "error" });
         reader.readAsDataURL(file);
@@ -87,4 +94,38 @@ export async function capturePhotoBase64(): Promise<CapturePhotoResult> {
     logger.warn("capturePhotoBase64 failed", { error: msg });
     return { base64: null, reason: "error" };
   }
+}
+
+/** Downscale a data URL so the longest edge <= maxEdge (aspect preserved). Returns null if already small enough. */
+async function downscaleDataUrl(dataUrl: string, maxEdge: number): Promise<string | null> {
+  const img = await new Promise<HTMLImageElement>((res, rej) => {
+    const el = new Image();
+    el.onload = () => res(el);
+    el.onerror = () => rej(new Error("image decode failed"));
+    el.src = dataUrl;
+  });
+  const { naturalWidth: w, naturalHeight: h } = img;
+  if (!w || !h) throw new Error("invalid image dimensions");
+  if (w <= maxEdge && h <= maxEdge) return null;
+  const scale = maxEdge / Math.max(w, h);
+  const tw = Math.round(w * scale);
+  const th = Math.round(h * scale);
+  const useOffscreen = typeof OffscreenCanvas !== "undefined";
+  const canvas: OffscreenCanvas | HTMLCanvasElement = useOffscreen
+    ? new OffscreenCanvas(tw, th)
+    : Object.assign(document.createElement("canvas"), { width: tw, height: th });
+  const ctx = canvas.getContext("2d") as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
+  if (!ctx) throw new Error("no 2d context");
+  ctx.drawImage(img, 0, 0, tw, th);
+  const blob = useOffscreen
+    ? await (canvas as OffscreenCanvas).convertToBlob({ type: "image/jpeg", quality: 0.85 })
+    : await new Promise<Blob | null>((r) => (canvas as HTMLCanvasElement).toBlob(r, "image/jpeg", 0.85));
+  if (!blob) throw new Error("canvas encode failed");
+  const out = await new Promise<string>((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result as string);
+    r.onerror = () => rej(new Error("FileReader failed on resized blob"));
+    r.readAsDataURL(blob);
+  });
+  return out.split(",")[1] ?? null;
 }

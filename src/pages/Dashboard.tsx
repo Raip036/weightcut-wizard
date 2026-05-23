@@ -1,8 +1,10 @@
 import { useEffect, useState, useCallback, useRef, useMemo, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAction, useConvex, useMutation, useQuery } from "convex/react";
+import { Capacitor } from "@capacitor/core";
 import { format } from "date-fns";
 import { api } from "@/../convex/_generated/api";
+import { runHealthKitSync } from "@/services/healthKitSync";
 import { FEATURE_FLAGS } from "@/lib/featureFlags";
 import { FightFormRing } from "@/components/dashboard/FightFormRing";
 import { FightFormInsightStrip } from "@/components/dashboard/FightFormInsightStrip";
@@ -11,11 +13,12 @@ import TodayStrip from "@/components/dashboard/TodayStrip";
 import { FightFormScoreSheet } from "@/components/dashboard/FightFormScoreSheet";
 // Lazy-load recharts wrapper so the ~100KB charts bundle defers until first paint.
 const DashboardWeightChart = lazy(() => import("@/components/charts/DashboardWeightChart"));
-import { TrendingDown, Calendar, Lock, ChevronRight, Flame, Zap, CheckCircle2, Scale, Swords, Sparkles, Trophy } from "lucide-react";
+import { Icon } from "@/components/ui/Icon";
 import { TrainingWeekWidget, preloadTrainingWeek } from "@/components/dashboard/TrainingWeekWidget";
 import { WeightProgressRing } from "@/components/dashboard/WeightProgressRing";
 import { StreakBadge } from "@/components/dashboard/StreakBadge";
-import { MilestoneBadges } from "@/components/dashboard/MilestoneBadges";
+import { CutPaceForecast } from "@/components/dashboard/CutPaceForecast";
+import { PhaseCoachCard } from "@/components/dashboard/PhaseCoachCard";
 import { useGamification } from "@/hooks/useGamification";
 import { useUser, useProfile } from "@/contexts/UserContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -29,13 +32,11 @@ import { localCache } from "@/lib/localCache";
 import { nutritionCache } from "@/lib/nutritionCache";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { WeightIncreaseQuestionnaire } from "@/components/dashboard/WeightIncreaseQuestionnaire";
-import { AchievementSheet } from "@/components/achievements/AchievementSheet";
 import { triggerHaptic, triggerHapticSelection } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
 import { logger } from "@/lib/logger";
 import { trackInstallDate, maybeRequestReview } from "@/lib/appReview";
 import { SleepLogger } from "@/components/dashboard/SleepLogger";
-import { TrainingInsightsWidget } from "@/components/dashboard/TrainingInsightsWidget";
 import { ProfileSheet } from "@/components/dashboard/ProfileSheet";
 import NewAnnouncementWidget from "@/components/dashboard/NewAnnouncementWidget";
 import { GymInvitesBanner } from "@/components/dashboard/GymInvitesBanner";
@@ -70,6 +71,56 @@ interface DailyWisdom {
   nutritionStatus: string;
 }
 
+// Probe that owns the fullRitualDaysCount query in isolation. If the query
+// isn't deployed to Convex yet (pre `npx convex dev`), the surrounding
+// ErrorBoundary catches the failure and ritualDaysTotal stays at 0 — the
+// rest of the Dashboard renders normally.
+function RitualDaysProbe({ enabled, onTotal }: { enabled: boolean; onTotal: (n: number) => void }) {
+  const res = useQuery(api.fightFormScore.fullRitualDaysCount, enabled ? {} : "skip");
+  const total = res?.total ?? 0;
+  useEffect(() => { onTotal(total); }, [total, onTotal]);
+  return null;
+}
+
+// Isolated probes for the sub-score decoration queries. Same pattern as
+// RitualDaysProbe — if the function isn't deployed yet (or the row is
+// missing), the surrounding ErrorBoundary swallows the error and the
+// parent simply doesn't receive the optional data. The sheet falls back
+// to a tile grid with no delta chips / no sparklines, which is still
+// a valid state by design.
+function YesterdaySubScoresProbe({
+  enabled,
+  onResult,
+}: {
+  enabled: boolean;
+  onResult: (value: Record<string, number> | undefined) => void;
+}) {
+  const res = useQuery(api.fightFormScore.getYesterdaysSubScores, enabled ? {} : "skip");
+  useEffect(() => {
+    if (res === undefined) return; // loading
+    onResult(res?.subScores ?? undefined);
+  }, [res, onResult]);
+  return null;
+}
+
+function SubScoreTrendProbe({
+  enabled,
+  onResult,
+}: {
+  enabled: boolean;
+  onResult: (value: Record<string, Array<{ date: string; value: number }>> | undefined) => void;
+}) {
+  const res = useQuery(
+    api.fightFormScore.getSubScoreTrend,
+    enabled ? { days: 7 } : "skip",
+  );
+  useEffect(() => {
+    if (res === undefined) return; // loading
+    onResult(res ?? undefined);
+  }, [res, onResult]);
+  return null;
+}
+
 export default function Dashboard() {
   const { userName, currentWeight, userId, profile, loadCutPlan } = useUser();
   const { avatarUrl } = useProfile();
@@ -92,7 +143,6 @@ export default function Dashboard() {
   const [wisdomLoading, setWisdomLoading] = useState(false);
   const [wisdomSheetOpen, setWisdomSheetOpen] = useState(false);
   const [questionnaireOpen, setQuestionnaireOpen] = useState(false);
-  const [achievementSheetOpen, setAchievementSheetOpen] = useState(false);
   const [hasCutPlan, setHasCutPlan] = useState<boolean>(() => !!localStorage.getItem("wcw_cut_plan"));
   const [expandedInfo, setExpandedInfo] = useState<'risk' | 'pace' | null>(null);
   const [frequentMeals, setFrequentMeals] = useState<Array<{ name: string; count: number; avgCalories: number }>>([]);
@@ -146,6 +196,25 @@ export default function Dashboard() {
     api.fightFormScore.calibrationProgress,
     FEATURE_FLAGS.enableFightFormScore ? {} : "skip",
   );
+  // Count of days where the user lit up all five TodayStrip ritual pills.
+  // Drives the ring's "Day N completed" animation (fires when this number
+  // ticks up). Independent of `ffCalibration`, which counts any-signal days
+  // for the engine's cold-start gate.
+  //
+  // Wrapped in a probe + ErrorBoundary below — if the new query isn't deployed
+  // to Convex yet (before `npx convex dev` runs), the failure stays isolated
+  // instead of bringing the whole Dashboard down via the route ErrorBoundary.
+  const [ritualDaysTotal, setRitualDaysTotal] = useState(0);
+  // Sub-score decorations for the FightFormScoreSheet. Both are optional —
+  // the sheet degrades cleanly when missing (no delta chips, no sparklines).
+  // Sourced via isolated probes below so a missing-from-server query can't
+  // crash the dashboard.
+  const [yesterdaySubScores, setYesterdaySubScores] = useState<
+    Record<string, number> | undefined
+  >(undefined);
+  const [subScoreTrend, setSubScoreTrend] = useState<
+    Record<string, Array<{ date: string; value: number }>> | undefined
+  >(undefined);
   const ffDelta = useQuery(
     api.fightFormScore.getDeltaInfo,
     FEATURE_FLAGS.enableFightFormScore ? {} : "skip",
@@ -167,7 +236,7 @@ export default function Dashboard() {
   const recomputeFiredRef = useRef(false);
   const navigate = useNavigate();
   const { safeAsync, isMounted } = useSafeAsync();
-  const { streak, streakIncludesToday, badges, badgesLoading, allAchievements } = useGamification(userId, weightLogs, todayCalories, profile);
+  const { streak, streakIncludesToday } = useGamification(userId, weightLogs, todayCalories, profile);
 
   const lastFetchRef = useRef(0);
 
@@ -253,6 +322,27 @@ export default function Dashboard() {
   }, [userId, hasCutPlan, loadCutPlan]);
 
   useEffect(() => { trackInstallDate(); }, []);
+
+  // Dashboard-mount HealthKit sync.
+  //
+  // Fires once per mount, gated to:
+  //   1. Native platform (web/Android short-circuits inside the helper
+  //      anyway, but skipping the call keeps the dashboard's first-paint
+  //      profile cleaner).
+  //   2. A connected profile (`healthKitConnectedAt`). Unconnected users
+  //      would just see the helper return null after `isAvailable()`.
+  //
+  // The helper's module-level 60s throttle is shared with the App.tsx
+  // foreground listener so the typical "open app → land on Dashboard"
+  // flow only triggers one sync, not two.
+  const insertHealthSamples = useMutation(api.health.insertSamples);
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    if (!profile?.healthKitConnectedAt) return;
+    runHealthKitSync(insertHealthSamples).catch((err) => {
+      logger.error("dashboard-mount HealthKit sync failed", err);
+    });
+  }, [profile?.healthKitConnectedAt, insertHealthSamples]);
 
   // Sharp crossing celebration. Conditions for firing:
   //   1. State is "ok" and the displayed score is in Sharp territory (>=80).
@@ -722,10 +812,12 @@ export default function Dashboard() {
     // own cold-start gate). We only pass the fraction while the user is
     // genuinely short of the threshold — once met, the ring center swaps
     // to "Calibrating · computing…" while the recompute below fires.
+    // Always surface the day-count to the ring during calibration so the
+    // tiny "Day N of M" badge stays visible while the user is still logging
+    // toward their first score (was previously gated to `< daysNeeded` which
+    // hid the count once they hit the threshold).
     const ringCalibratingDays =
-      ffScore.state === "calibrating"
-        && ffCalibration
-        && ffCalibration.daysWithAnyLog < ffCalibration.daysNeeded
+      ffScore.state === "calibrating" && ffCalibration
         ? { current: ffCalibration.daysWithAnyLog, needed: ffCalibration.daysNeeded }
         : undefined;
 
@@ -764,6 +856,23 @@ export default function Dashboard() {
 
     return (
       <ErrorBoundary>
+        {/* Isolated probes for the optional sub-score decoration queries.
+            Each is wrapped in its own ErrorBoundary so a missing query on
+            the server (e.g. before `npx convex dev` ships the new code)
+            can't crash the entire Dashboard. The probes write to local
+            state; consumers read defaults when state is undefined. */}
+        <ErrorBoundary fallback={null} silent>
+          <YesterdaySubScoresProbe
+            enabled={FEATURE_FLAGS.enableFightFormScore}
+            onResult={setYesterdaySubScores}
+          />
+        </ErrorBoundary>
+        <ErrorBoundary fallback={null} silent>
+          <SubScoreTrendProbe
+            enabled={FEATURE_FLAGS.enableFightFormScore}
+            onResult={setSubScoreTrend}
+          />
+        </ErrorBoundary>
         <div className="dashboard-zoom animate-page-in space-y-3.5 px-5 py-3 sm:p-5 md:p-6 w-full max-w-7xl mx-auto">
           {/* Top row — three columns at the same 40px height:
               [Profile avatar] [Dashboard title] [Days-left tab].
@@ -805,13 +914,10 @@ export default function Dashboard() {
             )}
           </header>
 
-          {/* Greeting + date — small caps Inter Light date below the
-              greeting, with breathing room from the top row above. */}
+          {/* Date — small caps Inter Light, with breathing room from the
+              top row above. */}
           <div className="pt-1">
-            <h1 className="text-title font-semibold leading-tight">
-              {userName ? `${getGreeting()}, ${userName}` : "Today"}
-            </h1>
-            <p className="text-micro uppercase tracking-[0.15em] font-light text-muted-foreground/70 mt-1">
+            <p className="text-micro uppercase tracking-[0.15em] font-light text-muted-foreground/70">
               {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
             </p>
           </div>
@@ -824,11 +930,11 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => setNextCampOpen(true)}
-              className="w-full text-left rounded-xs card-surface border border-primary/30 p-3 active:scale-[0.99] transition-transform"
+              className="w-full text-left rounded-2xl card-surface card-glow p-3 active:scale-[0.99] transition-transform"
             >
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-xs bg-primary/15 flex items-center justify-center shrink-0">
-                  <Trophy className="h-5 w-5 text-primary" strokeWidth={2.4} />
+                  <Icon name="trophyOutline" size={20} className="text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-body-sm font-bold tracking-tight text-foreground leading-tight">
@@ -839,7 +945,7 @@ export default function Dashboard() {
                   </p>
                 </div>
                 <span className="inline-flex items-center gap-1 text-note font-semibold text-primary shrink-0">
-                  <Sparkles className="h-3.5 w-3.5" />
+                  <Icon name="sparklesOutline" size={14} />
                   Start next
                 </span>
               </div>
@@ -858,6 +964,7 @@ export default function Dashboard() {
                 appliedCeiling={ffScore.appliedCeiling}
                 phase={ffScore.phase}
                 celebrateSharp={celebrateSharp}
+                ritualDaysCount={ritualDaysTotal}
                 onTap={() =>
                   ffScore.state === "no_camp"
                     ? navigate("/goals")
@@ -876,6 +983,49 @@ export default function Dashboard() {
               calibration={ffCalibration ?? null}
               onHeadlineTap={() => setScoreSheetOpen(true)}
             />
+            {/* Calibration countdown — slim cyan card sitting under the ring
+                while the score is still being calibrated. Pairs the day
+                countdown with what unlocks at completion so the wait feels
+                purposeful. Hidden once the engine flips state to "ok". */}
+            {ffScore.state === "calibrating"
+              && ffCalibration
+              && !ffCalibration.unlocked
+              && (() => {
+                const remaining = Math.max(0, ffCalibration.daysNeeded - ffCalibration.daysWithAnyLog);
+                const pct = Math.min(100, Math.round((ffCalibration.daysWithAnyLog / Math.max(1, ffCalibration.daysNeeded)) * 100));
+                return (
+                  <div className="mt-3 w-full max-w-sm rounded-2xl border border-sky-400/20 bg-sky-400/[0.05] px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex flex-col items-center justify-center min-w-[42px]">
+                        <span className="text-2xl font-bold text-sky-300 leading-none tabular-nums">
+                          {remaining === 0 ? "—" : remaining}
+                        </span>
+                        <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-sky-300/70 mt-1">
+                          {remaining === 1 ? "day" : "days"}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] font-semibold text-foreground leading-tight">
+                          {remaining === 0
+                            ? "Computing your first score…"
+                            : remaining === 1
+                              ? "One more day until your score"
+                              : "Until your Fight Form Score"}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground leading-snug mt-1">
+                          Unlocks score, top driver &amp; weight-cut pacing
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-2.5 h-1 rounded-full bg-sky-400/10 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-sky-400/70 transition-all duration-700"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
             {ffScore.state === "ok" && (
               <FightFormDeltaBanner
                 delta={ffDelta?.delta ?? null}
@@ -914,7 +1064,7 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => { triggerHapticSelection(); navigate('/weight'); }}
-              className="card-surface rounded-xs p-3 aspect-square flex flex-col text-left active:scale-[0.98] transition-transform"
+              className="card-surface card-glow rounded-2xl p-3 aspect-square flex flex-col text-left active:scale-[0.98] transition-transform"
             >
               <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
                 WEIGHT
@@ -938,7 +1088,7 @@ export default function Dashboard() {
                   </Suspense>
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-center">
-                    <TrendingDown className="h-5 w-5 text-muted-foreground/40 mb-1" />
+                    <Icon name="trendingDownOutline" size={20} className="text-muted-foreground/40 mb-1" />
                     <p className="text-note text-muted-foreground">No data yet</p>
                   </div>
                 )}
@@ -957,26 +1107,41 @@ export default function Dashboard() {
                     const isDown = delta < 0;
                     return (
                       <div className={`flex items-center gap-0.5 text-micro font-medium tabular-nums ${isDown ? "text-func-recovery-green" : "text-func-danger-red"}`}>
-                        <TrendingDown
-                          className={`h-3 w-3 ${isDown ? "" : "rotate-180"}`}
-                          strokeWidth={2.4}
+                        <Icon
+                          name="trendingDownOutline"
+                          size={12}
+                          className={isDown ? "" : "rotate-180"}
                         />
                         <span>{Math.abs(delta).toFixed(1)}</span>
                       </div>
                     );
                   })()}
-                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40" strokeWidth={2.2} />
+                  <Icon name="chevronForwardOutline" size={14} className="text-muted-foreground/40" />
                 </div>
               </div>
             </button>
-            {userId && <SleepLogger userId={userId} compact />}
+            {userId && <TrainingWeekWidget userId={userId} compact />}
           </div>
 
-          {userId && <TrainingInsightsWidget userId={userId} />}
-
-          <div>
-            <MilestoneBadges badges={badges} loading={badgesLoading} onTap={() => setAchievementSheetOpen(true)} />
-          </div>
+          {/* CAMP STATUS — forward-looking guidance. Hidden unless the user
+              has an active camp with a weigh-in date set. */}
+          {activeCamp && !activeCamp.isCompleted && profile?.target_date && (
+            <>
+              <p className="font-display text-value font-bold text-white pt-4">Camp Status</p>
+              <div className="space-y-2">
+                <CutPaceForecast
+                  weightLogs={weightLogs}
+                  currentWeight={currentWeightValue}
+                  goalWeight={profile.fight_week_target_kg ?? profile.goal_weight_kg ?? 0}
+                  targetDate={profile.target_date}
+                />
+                <PhaseCoachCard
+                  phase={ffScore.phase}
+                  daysUntilFight={daysUntilTarget || null}
+                />
+              </div>
+            </>
+          )}
         </div>
 
         <ProfileSheet open={profileSheetOpen} onOpenChange={setProfileSheetOpen} />
@@ -994,12 +1159,26 @@ export default function Dashboard() {
           topLimiter={ffScore.topLimiter}
           appliedCeiling={ffScore.appliedCeiling}
           trend={ffTrend ?? null}
-        />
-
-        <AchievementSheet
-          open={achievementSheetOpen}
-          onOpenChange={setAchievementSheetOpen}
-          categories={allAchievements}
+          yesterdaySubScores={yesterdaySubScores}
+          subScoreTrend={subScoreTrend}
+          loggedToday={{
+            // Map adherence (which uses `wellnessCheckin`) → the sheet's
+            // canonical shape (`wellness`). Meals is sourced from the
+            // calorie counter so it lines up with TodayStrip.
+            training: adherence.training,
+            sleep: adherence.sleep,
+            weight: adherence.weight,
+            wellness: adherence.wellnessCheckin,
+            meals: todayCalories > 0,
+          }}
+          calibration={
+            ffCalibration
+              ? {
+                  current: ffCalibration.daysWithAnyLog,
+                  needed: ffCalibration.daysNeeded,
+                }
+              : undefined
+          }
         />
 
         <NextCampFlow
@@ -1013,6 +1192,9 @@ export default function Dashboard() {
 
   return (
     <ErrorBoundary>
+      <ErrorBoundary fallback={null} silent>
+        <RitualDaysProbe enabled={FEATURE_FLAGS.enableFightFormScore} onTotal={setRitualDaysTotal} />
+      </ErrorBoundary>
       <div className="dashboard-zoom animate-page-in space-y-3.5 px-5 py-3 sm:p-5 md:p-6 w-full max-w-7xl mx-auto">
         {/* Greeting header — avatar + name stacked left, days/streak right */}
         <header className="flex items-center justify-between gap-3 pt-1">
@@ -1048,15 +1230,15 @@ export default function Dashboard() {
         </header>
 
         {weightLogs.length === 0 && (
-          <button onClick={() => navigate('/weight')} className="w-full card-surface rounded-xs border border-border/50 p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all">
+          <button onClick={() => navigate('/weight')} className="w-full card-surface card-glow rounded-2xl p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all">
             <div className="h-9 w-9 rounded-xs bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <Scale className="h-4 w-4 text-primary" />
+              <Icon name="speedometerOutline" size={16} className="text-primary" />
             </div>
             <div className="flex-1 text-left min-w-0">
               <p className="text-note font-semibold">Welcome{userName ? `, ${userName}` : ''}</p>
               <p className="text-note text-muted-foreground leading-snug">Log your first weigh-in to get started</p>
             </div>
-            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <Icon name="chevronForwardOutline" size={14} className="text-muted-foreground shrink-0" />
           </button>
         )}
 
@@ -1074,9 +1256,9 @@ export default function Dashboard() {
         {/* Wizard's Daily Wisdom card — conditional states */}
         <div data-tutorial="daily-wisdom-card">
         {!hasTodayLog ? (
-          <button onClick={() => navigate('/weight')} className="w-full card-surface rounded-xs border border-border/50 p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all">
+          <button onClick={() => navigate('/weight')} className="w-full card-surface card-glow rounded-2xl p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all">
             <div className="h-8 w-8 rounded-xs bg-muted/40 flex items-center justify-center flex-shrink-0">
-              <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+              <Icon name="lockClosedOutline" size={14} className="text-muted-foreground" />
             </div>
             <div className="flex-1 text-left min-w-0">
               <p className="text-note font-semibold">Daily Insight</p>
@@ -1084,10 +1266,10 @@ export default function Dashboard() {
                 Log today's weight to unlock
               </p>
             </div>
-            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <Icon name="chevronForwardOutline" size={14} className="text-muted-foreground shrink-0" />
           </button>
         ) : wisdomLoading ? (
-          <div className="card-surface rounded-xs border border-border/50 p-3 flex items-center gap-2.5">
+          <div className="card-surface card-glow rounded-2xl p-3 flex items-center gap-2.5">
             <div className="h-8 w-8 rounded-xs bg-muted/40 flex-shrink-0" />
             <div className="flex-1 min-w-0 space-y-1.5">
               <div className="h-2.5 rounded shimmer-skeleton w-1/3" />
@@ -1095,9 +1277,9 @@ export default function Dashboard() {
             </div>
           </div>
         ) : wisdom ? (
-          <button className="w-full text-left card-surface rounded-xs border border-border/50 p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all" onClick={handleWisdomClick}>
+          <button className="w-full text-left card-surface card-glow rounded-2xl p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all" onClick={handleWisdomClick}>
             <div className="h-8 w-8 rounded-xs bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <Zap className="h-3.5 w-3.5 text-primary" />
+              <Icon name="flashOutline" size={14} className="text-primary" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-1.5">
@@ -1106,7 +1288,7 @@ export default function Dashboard() {
                   <span className={`text-micro px-1.5 py-0.5 rounded-full font-medium ${riskColors[wisdom.riskLevel]}`}>
                     {wisdom.riskLevel.charAt(0).toUpperCase() + wisdom.riskLevel.slice(1)}
                   </span>
-                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                  <Icon name="chevronForwardOutline" size={14} className="text-muted-foreground" />
                 </div>
               </div>
               <p className="text-micro text-muted-foreground mt-0.5 leading-snug line-clamp-2">
@@ -1115,9 +1297,9 @@ export default function Dashboard() {
             </div>
           </button>
         ) : (
-          <div className="card-surface rounded-xs border border-border/50 p-3 flex items-center gap-2.5">
+          <div className="card-surface card-glow rounded-2xl p-3 flex items-center gap-2.5">
             <div className="h-8 w-8 rounded-xs bg-muted/40 flex items-center justify-center flex-shrink-0">
-              <Zap className="h-3.5 w-3.5 text-muted-foreground" />
+              <Icon name="flashOutline" size={14} className="text-muted-foreground" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-note font-semibold">Daily Insight</p>
@@ -1136,7 +1318,7 @@ export default function Dashboard() {
         {/* Weight History + Training — side by side */}
         <div className="grid grid-cols-2 gap-2">
           {/* Weight History Chart */}
-          <div className="card-surface rounded-xs border border-border p-2.5 aspect-square flex flex-col">
+          <div className="card-surface card-glow rounded-2xl p-2.5 aspect-square flex flex-col">
             <div className="flex items-center justify-between mb-1">
               <span className="section-header text-foreground font-bold">Weight</span>
               <div className="flex gap-0.5 bg-muted rounded-full p-0.5">
@@ -1165,7 +1347,7 @@ export default function Dashboard() {
                 </Suspense>
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-center">
-                  <TrendingDown className="h-5 w-5 text-muted-foreground/40 mb-1" />
+                  <Icon name="trendingDownOutline" size={20} className="text-muted-foreground/40 mb-1" />
                   <p className="text-note text-muted-foreground">No data yet</p>
                   <Button variant="ghost" size="sm" className="h-6 text-note px-2" onClick={() => navigate('/weight')}>
                     Log Weight
@@ -1180,8 +1362,6 @@ export default function Dashboard() {
             <TrainingWeekWidget userId={userId} compact />
           )}
         </div>
-
-        {userId && <TrainingInsightsWidget userId={userId} />}
 
         {/* Daily logging row — Cut Plan + Sleep, or Sleep full-width */}
         {isFighter(profile?.goal_type) && hasCutPlan ? (
@@ -1202,16 +1382,16 @@ export default function Dashboard() {
                 } catch { /* malformed — default route stands */ }
                 navigate(route);
               }}
-              className="card-surface rounded-xs border border-border/50 p-3 flex items-center gap-2.5 active:scale-[0.98] transition-all text-left"
+              className="card-surface card-glow rounded-2xl p-3 flex items-center gap-2.5 active:scale-[0.98] transition-all text-left"
             >
               <div className="h-9 w-9 rounded-xs bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <Swords className="h-4 w-4 text-primary" />
+                <Icon name="flashOutline" size={16} className="text-primary" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-note font-semibold leading-tight">Cut Plan</p>
                 <p className="text-micro text-muted-foreground mt-0.5 leading-snug">View your plan</p>
               </div>
-              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <Icon name="chevronForwardOutline" size={14} className="text-muted-foreground shrink-0" />
             </button>
             {userId && <SleepLogger userId={userId} compact />}
           </div>
@@ -1219,10 +1399,25 @@ export default function Dashboard() {
           userId && <SleepLogger userId={userId} compact />
         )}
 
-        {/* Milestone Badges */}
-        <div>
-          <MilestoneBadges badges={badges} loading={badgesLoading} onTap={() => setAchievementSheetOpen(true)} />
-        </div>
+        {/* Camp Status — forward-looking guidance. Hidden unless an active
+            camp + weigh-in date are present. */}
+        {activeCamp && !activeCamp.isCompleted && profile?.target_date && (
+          <>
+            <p className="font-display text-value font-bold text-white pt-2">Camp Status</p>
+            <div className="space-y-2">
+              <CutPaceForecast
+                weightLogs={weightLogs}
+                currentWeight={currentWeightValue}
+                goalWeight={profile.fight_week_target_kg ?? profile.goal_weight_kg ?? 0}
+                targetDate={profile.target_date}
+              />
+              <PhaseCoachCard
+                phase={null}
+                daysUntilFight={daysUntilTarget || null}
+              />
+            </div>
+          </>
+        )}
       </div>
 
       <ProfileSheet open={profileSheetOpen} onOpenChange={setProfileSheetOpen} />
@@ -1412,12 +1607,6 @@ export default function Dashboard() {
         open={questionnaireOpen}
         onOpenChange={setQuestionnaireOpen}
         onComplete={() => { sessionStorage.setItem(`wcw_questionnaire_dismissed_${todayStr}`, '1'); setWisdomSheetOpen(true); }}
-      />
-
-      <AchievementSheet
-        open={achievementSheetOpen}
-        onOpenChange={setAchievementSheetOpen}
-        categories={allAchievements}
       />
 
     </ErrorBoundary>

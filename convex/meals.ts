@@ -168,6 +168,13 @@ export const generatePhotoUploadUrl = mutation({
   },
 });
 
+/**
+ * How far back we honour an idempotency receipt. 24 h is plenty for slow-
+ * network retries (the bug we're guarding against fires within seconds);
+ * past that, a user re-tapping with the same key clearly means a fresh log.
+ */
+const IDEMPOTENCY_WINDOW_MS = 24 * 60 * 60 * 1000;
+
 export const createMealWithItems = mutation({
   args: {
     date: v.string(),
@@ -177,9 +184,35 @@ export const createMealWithItems = mutation({
     notes: v.optional(v.string()),
     photoStorageId: v.optional(v.id("_storage")),
     items: v.array(itemValidator),
+    // Client-supplied dedupe token. When present, two calls with the same
+    // (userId, idempotencyKey) inside the 24 h window collapse onto the
+    // first insert's mealId. The client generates this once per save
+    // attempt; user-initiated retries get a fresh key (because the button
+    // is re-enabled and a fresh `runInsertFlow` call runs with a fresh
+    // UUID), which is what we want — they're explicitly trying again.
+    idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
+
+    // Idempotency short-circuit. Check before doing any work so a duplicate
+    // tap doesn't even hit the validation loop on the second call.
+    if (args.idempotencyKey) {
+      const existing = await ctx.db
+        .query("meal_idempotency_keys")
+        .withIndex("by_user_key", (q) =>
+          q.eq("userId", userId).eq("key", args.idempotencyKey!),
+        )
+        .first();
+      if (existing && Date.now() - existing._creationTime < IDEMPOTENCY_WINDOW_MS) {
+        // Confirm the underlying meal still exists (user could have deleted
+        // it between the duplicate calls). If gone, fall through to a fresh
+        // insert so the user gets the meal they were trying to log.
+        const stillThere = await ctx.db.get(existing.mealId);
+        if (stillThere) return existing.mealId;
+      }
+    }
+
     // Validate item count + per-item macros at the boundary. Negative or
     // non-finite macros leak into TDEE / deficit calcs downstream, so reject
     // them up front instead of clamping silently.
@@ -226,6 +259,18 @@ export const createMealWithItems = mutation({
       });
       i += 1;
     }
+
+    // Record the receipt AFTER the insert succeeded but BEFORE the deferred
+    // scheduler call. If the meal insert had thrown we'd never have got
+    // here, so the only rows that exist have a meal behind them.
+    if (args.idempotencyKey) {
+      await ctx.db.insert("meal_idempotency_keys", {
+        userId,
+        key: args.idempotencyKey,
+        mealId,
+      });
+    }
+
     await ctx.scheduler.runAfter(5_000, internal.fightFormScore.recomputeForUserDate, {
       userId,
       date: args.date,
@@ -247,11 +292,33 @@ export const updateMeal = mutation({
     const meal = await ctx.db.get(id);
     if (!meal) throw new Error("Meal not found");
     if (meal.userId !== userId) throw new Error("Not authorized");
+    const oldDate = meal.date;
     const clean: Record<string, unknown> = {};
     for (const [k, val] of Object.entries(patch)) {
       if (val !== undefined) clean[k] = val;
     }
     await ctx.db.patch(id, clean as any);
+    // Recompute fight-form score after meal update. If the meal was moved
+    // to a different date, schedule recomputes for BOTH the old and new
+    // date so the nutrition sub-score recovers from the old date too.
+    const newDate =
+      typeof patch.date === "string" && patch.date !== oldDate
+        ? patch.date
+        : null;
+    try {
+      await ctx.runMutation(internal.fightFormScore.scheduleRecompute, {
+        userId,
+        date: oldDate,
+      });
+      if (newDate) {
+        await ctx.runMutation(internal.fightFormScore.scheduleRecompute, {
+          userId,
+          date: newDate,
+        });
+      }
+    } catch (err) {
+      console.warn("fight-form recompute schedule failed", err);
+    }
   },
 });
 
@@ -319,6 +386,7 @@ export const deleteMeal = mutation({
     const meal = await ctx.db.get(id);
     if (!meal) return;
     if (meal.userId !== userId) throw new Error("Not authorized");
+    const date = meal.date;
     // Cascade — delete child items first.
     const items = await ctx.db
       .query("meal_items")
@@ -328,5 +396,14 @@ export const deleteMeal = mutation({
       await ctx.db.delete(it._id);
     }
     await ctx.db.delete(id);
+    // Recompute fight-form score after meal deletion
+    try {
+      await ctx.runMutation(internal.fightFormScore.scheduleRecompute, {
+        userId,
+        date,
+      });
+    } catch (err) {
+      console.warn("fight-form recompute schedule failed", err);
+    }
   },
 });

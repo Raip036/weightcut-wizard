@@ -9,6 +9,13 @@ interface Props {
   children?: ReactNode;
   fallback?: ReactNode;
   onError?: (error: Error, errorInfo: ErrorInfo) => void;
+  /**
+   * Skip the universal `logger.error` call in componentDidCatch. Use for
+   * boundaries that wrap known-tolerated failures (e.g. optional Convex
+   * probes that are expected to fail before `npx convex dev` runs) so the
+   * console stays clean.
+   */
+  silent?: boolean;
 }
 
 interface State {
@@ -202,9 +209,11 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    logger.error("ErrorBoundary caught an error", error, {
-      componentStack: errorInfo.componentStack,
-    });
+    if (!this.props.silent) {
+      logger.error("ErrorBoundary caught an error", error, {
+        componentStack: errorInfo.componentStack,
+      });
+    }
     this.setState({ error, errorInfo });
 
     if (this.props.onError) {

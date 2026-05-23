@@ -26,9 +26,13 @@ export function XpSummaryCard() {
         <button
           type="button"
           onClick={() => setLevelSheetOpen(true)}
-          className="card-surface rounded-xs p-4 w-full text-left active:scale-[0.99] transition-transform"
+          className="relative card-surface border border-primary/20 overflow-hidden rounded-2xl p-4 w-full text-left active:scale-[0.99] transition-transform"
         >
-          <p className="text-note text-muted-foreground leading-snug">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.04] to-transparent"
+          />
+          <p className="relative text-note text-muted-foreground leading-snug">
             Train and log notes to start earning XP
           </p>
         </button>
@@ -47,9 +51,13 @@ export function XpSummaryCard() {
       <button
         type="button"
         onClick={() => setLevelSheetOpen(true)}
-        className="card-surface rounded-xs p-4 w-full text-left active:scale-[0.99] transition-transform"
+        className="relative card-surface border border-primary/20 overflow-hidden rounded-2xl p-4 w-full text-left active:scale-[0.99] transition-transform"
       >
-        <p className="text-micro uppercase tracking-wider text-muted-foreground/70 font-bold mb-3">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.04] to-transparent"
+        />
+        <p className="relative text-micro uppercase tracking-wider text-muted-foreground/70 font-bold mb-3">
           Your level
         </p>
         <div
@@ -74,13 +82,15 @@ export function XpSummaryCard() {
                   size={36}
                 />
                 <div className="flex-1 min-w-0">
-                  <p
-                    className="text-note font-bold uppercase tracking-wider truncate leading-tight"
-                    style={{ color: `hsl(var(${token}))` }}
-                  >
-                    {label}
-                  </p>
-                  <p className="text-micro tabular-nums text-muted-foreground/80 leading-tight mt-0.5">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <p
+                      className="text-[12px] font-bold uppercase tracking-[0.14em] truncate leading-tight"
+                      style={{ color: `hsl(var(${token}))` }}
+                    >
+                      {label}
+                    </p>
+                  </div>
+                  <p className="text-[11px] tabular-nums text-muted-foreground leading-tight mt-0.5">
                     {row.currentLevelXp}
                     <span className="text-muted-foreground/40"> / </span>
                     {row.nextLevelXp} XP

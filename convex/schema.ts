@@ -244,6 +244,23 @@ export default defineSchema({
     fatsG: v.number(),
   }).index("by_meal", ["mealId"]),
 
+  /**
+   * Idempotency receipts for `createMealWithItems`. The client generates a
+   * `crypto.randomUUID()` per save attempt and ships it as `idempotencyKey`.
+   * On the server, the mutation checks (userId, key) — if a receipt newer
+   * than 24 h exists and its underlying meal is still alive, the duplicate
+   * call short-circuits and returns the existing mealId instead of
+   * inserting again. Protects against double-fire on flaky networks (two
+   * taps before the in-flight lock propagates, or a retried POST under the
+   * hood). Older receipts stay in the table; the `by_user_key` index keeps
+   * lookups cheap regardless of size.
+   */
+  meal_idempotency_keys: defineTable({
+    userId: v.id("users"),
+    key: v.string(),
+    mealId: v.id("meals"),
+  }).index("by_user_key", ["userId", "key"]),
+
   meal_plans: defineTable({
     userId: v.id("users"),
     planName: v.string(),
@@ -375,6 +392,18 @@ export default defineSchema({
     .index("by_user_date", ["userId", "date"])
     .index("by_user_camp", ["userId", "campId"])
     .index("by_user_date_version", ["userId", "date", "algorithmVersion"]),
+
+  // Coalescing layer for fight-form recomputes. Every relevant mutation
+  // upserts a row here keyed by (userId, date) with the wall-clock time at
+  // which a recompute SHOULD fire. The scheduled `recomputeForUserDate`
+  // checks this row when it runs: if a later schedule has pushed
+  // `scheduledAt` further into the future, the current execution no-ops
+  // and the later schedule will be the one that actually computes.
+  fight_form_recompute_pending: defineTable({
+    userId: v.id("users"),
+    date: v.string(),
+    scheduledAt: v.number(),
+  }).index("by_user_date", ["userId", "date"]),
 
   fight_camp_calendar: defineTable({
     userId: v.id("users"),

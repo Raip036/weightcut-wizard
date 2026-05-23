@@ -16,7 +16,6 @@ import {
   Shield,
   User,
   Clock,
-  Crown,
   Sparkles,
 } from "lucide-react";
 import wizardLogo from "@/assets/wizard-tutorial.png";
@@ -25,7 +24,7 @@ import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { useAITask } from "@/contexts/AITaskContext";
 import { AICompactOverlay } from "@/components/AICompactOverlay";
 import { useRehydrationProtocol } from "@/hooks/hydration/useRehydrationProtocol";
-import { useFeatureAccess } from "@/hooks/useFeatureAccess";
+import { ProGate } from "@/components/subscription/ProGate";
 import { HydrationSkeleton } from "@/components/hydration/HydrationSkeleton";
 import { InputsUsedChipRow } from "@/components/hydration/InputsUsedChipRow";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -49,7 +48,6 @@ export default function Hydration() {
     currentWeight, profileParts,
     handleGenerateProtocol, handleAICancel,
   } = useRehydrationProtocol();
-  const { hasAccess: hasAiAccess } = useFeatureAccess("AI_REHYDRATION_PROTOCOL");
 
   const [activeTab, setActiveTab] = useState<"fluid" | "carbs">("fluid");
   const [warningsOpen, setWarningsOpen] = useState(false);
@@ -436,31 +434,27 @@ export default function Hydration() {
               )}
             </div>
 
-            <Button
-              type="submit"
-              className={`relative w-full h-12 min-h-[52px] mt-1 font-bold text-[15px] rounded-xs bg-primary text-primary-foreground transition-all active:scale-[0.98] ${lastError && !loading ? "ring-2 ring-func-danger-red/40" : ""}`}
-              disabled={loading || !currentWeight || !weightLost || parseFloat(weightLost) <= 0}
-            >
-              {loading ? (
-                <HydrationCastingMessage />
-              ) : lastError ? (
-                <span className="inline-flex items-center gap-1.5">
-                  <Sparkles className="h-4 w-4" strokeWidth={2.4} />
-                  Try again
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5">
-                  <Sparkles className="h-4 w-4" strokeWidth={2.4} />
-                  Generate Protocol
-                </span>
-              )}
-              {!loading && !lastError && !hasAiAccess && (
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex items-center gap-0.5 text-primary-foreground/70 pointer-events-none">
-                  <Crown className="h-3 w-3" />
-                  <span className="text-[10px] font-medium uppercase tracking-wider">Pro</span>
-                </span>
-              )}
-            </Button>
+            <ProGate feature="AI_REHYDRATION_PROTOCOL" className="w-full">
+              <Button
+                type="submit"
+                className={`w-full h-12 min-h-[52px] mt-1 font-bold text-[15px] rounded-xs bg-primary text-primary-foreground transition-all active:scale-[0.98] ${lastError && !loading ? "ring-2 ring-func-danger-red/40" : ""}`}
+                disabled={loading || !currentWeight || !weightLost || parseFloat(weightLost) <= 0}
+              >
+                {loading ? (
+                  <HydrationCastingMessage />
+                ) : lastError ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Sparkles className="h-4 w-4" strokeWidth={2.4} />
+                    Try again
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Sparkles className="h-4 w-4" strokeWidth={2.4} />
+                    Generate Protocol
+                  </span>
+                )}
+              </Button>
+            </ProGate>
           </form>
         </div>
         )}

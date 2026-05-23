@@ -554,6 +554,33 @@ All colors MUST be HSL.
     /* No border per Design System v1. */
   }
 
+  /* Outline glow — primary-tinted border + soft top-left gradient wash.
+     Apply alongside `card-surface` to give a widget the same "lit" feel
+     as the active-camp hero on /camp. The ::before pseudo carries the
+     gradient so call sites don't need a separate child div. */
+  .card-glow {
+    position: relative;
+    border: 1px solid hsl(var(--primary) / 0.20);
+    border-radius: 1rem;
+    overflow: hidden;
+  }
+  .card-glow::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary) / 0.05),
+      transparent 60%
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+  .card-glow > * {
+    position: relative;
+    z-index: 1;
+  }
+
   /* Section header utility — uppercase eyebrow used above card content
      and section titles. Design System v1: Inter regular, not bold. */
   .section-header {
@@ -865,6 +892,7 @@ All colors MUST be HSL.
     }
 
     .ff-ring-halo,
+    .ff-ring-ribbon,
     .ff-ring-aurora,
     .ff-ring-wisp,
     .ff-ring-core,
@@ -910,14 +938,14 @@ All colors MUST be HSL.
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 5px;
-    height: 5px;
-    margin: -2.5px 0 0 -2.5px;
+    width: 4px;
+    height: 4px;
+    margin: -2px 0 0 -2px;
     border-radius: 9999px;
-    background: rgb(var(--ff-halo-rgb));
+    background: rgba(var(--ff-halo-rgb), 0.9);
     box-shadow:
-      0 0 6px rgba(var(--ff-halo-rgb), 1),
-      0 0 14px rgba(var(--ff-halo-rgb), 0.7);
+      0 0 4px rgba(var(--ff-halo-rgb), 0.7),
+      0 0 9px rgba(var(--ff-halo-rgb), 0.35);
     transform-origin: center;
     animation-name: ffParticleOrbit, ffParticleTwinkle;
     animation-timing-function: linear, ease-in-out;
@@ -926,98 +954,101 @@ All colors MUST be HSL.
   }
 
   /* Size variants — picked round-robin in the React component so the swarm
-     has visual variety instead of a uniform dotted ring. */
+     has visual variety instead of a uniform dotted ring. Softer than the
+     pre-aurora design so they blend into the ribbons. */
   .ff-ring-particle-lg {
-    width: 7px;
-    height: 7px;
-    margin: -3.5px 0 0 -3.5px;
+    width: 5px;
+    height: 5px;
+    margin: -2.5px 0 0 -2.5px;
     box-shadow:
-      0 0 8px rgba(var(--ff-halo-rgb), 1),
-      0 0 18px rgba(var(--ff-halo-rgb), 0.75);
+      0 0 5px rgba(var(--ff-halo-rgb), 0.7),
+      0 0 12px rgba(var(--ff-halo-rgb), 0.4);
   }
   .ff-ring-particle-sm {
-    width: 3px;
-    height: 3px;
-    margin: -1.5px 0 0 -1.5px;
+    width: 2.5px;
+    height: 2.5px;
+    margin: -1.25px 0 0 -1.25px;
     box-shadow:
-      0 0 5px rgba(var(--ff-halo-rgb), 0.9),
-      0 0 10px rgba(var(--ff-halo-rgb), 0.55);
+      0 0 3px rgba(var(--ff-halo-rgb), 0.65),
+      0 0 7px rgba(var(--ff-halo-rgb), 0.3);
   }
 
-  /* Aurora sheen — slow rotating conic gradient sits behind the SVG ring
-     and reads as a trailing comet tail of light. Rotates once every ~16s. */
-  .ff-ring-aurora {
-    background: conic-gradient(
-      from 0deg,
-      rgba(var(--ff-halo-rgb), 0) 0deg,
-      rgba(var(--ff-halo-rgb), 0) 200deg,
-      rgba(var(--ff-halo-rgb), 0.18) 280deg,
-      rgba(var(--ff-halo-rgb), 0.42) 340deg,
-      rgba(var(--ff-halo-rgb), 0) 360deg
-    );
-    filter: blur(24px);
-    animation: ffRingAurora 16s linear infinite;
+  /* Aura light-bands — four concentric thin rings at different radii.
+     Each ring is a hard-edged conic gradient masked into a 2-3px circular
+     band, so you see crisp curving streaks of light (not a diffuse halo).
+     Different radii + rotation speeds + alternating directions give the
+     swirling "magnific aura" look — circular waves of light that overlap
+     and interleave. Tinted by `--ff-halo-rgb`. */
+  .ff-ring-ribbon {
+    position: absolute;
+    border-radius: 9999px;
+    pointer-events: none;
+    transform-origin: center;
     will-change: transform;
   }
 
-  @keyframes ffRingAurora {
+  /* Innermost band — tight against the ring, fastest rotation. Wider arcs
+     (~50-70° each) read as flowing light streams. Each band carries TWO
+     animations: rotation around the ring + a shimmer pulse that brightens
+     and dims the band so the light feels alive instead of static. Each
+     ribbon shimmers on its own clock so they don't all peak together. */
+  .ff-ring-ribbon-1 {
+    inset: -2%;
+    background: conic-gradient(
+      from 0deg,
+      transparent           0deg,
+      rgba(var(--ff-halo-rgb), 1)    35deg,
+      rgba(var(--ff-halo-rgb), 1)    75deg,
+      transparent         120deg,
+      rgba(var(--ff-halo-rgb), 0.9)  175deg,
+      rgba(var(--ff-halo-rgb), 0.9)  215deg,
+      transparent         265deg,
+      rgba(var(--ff-halo-rgb), 0.95) 305deg,
+      transparent         355deg
+    );
+    -webkit-mask: radial-gradient(circle, transparent 64%, black 69%, black 80%, transparent 84%);
+            mask: radial-gradient(circle, transparent 64%, black 69%, black 80%, transparent 84%);
+    animation:
+      ffRibbonRotateCW 11s linear infinite,
+      ffRibbonShimmer 2.4s ease-in-out infinite;
+  }
+
+  /* Mid-inner band — counter-rotating, two long arcs offset 180°. */
+  .ff-ring-ribbon-2 {
+    inset: -10%;
+    background: conic-gradient(
+      from 95deg,
+      transparent           0deg,
+      rgba(var(--ff-halo-rgb), 0.9)  40deg,
+      rgba(var(--ff-halo-rgb), 0.9) 100deg,
+      transparent         150deg,
+      transparent         200deg,
+      rgba(var(--ff-halo-rgb), 1)   240deg,
+      rgba(var(--ff-halo-rgb), 1)   300deg,
+      transparent         355deg
+    );
+    -webkit-mask: radial-gradient(circle, transparent 65%, black 70%, black 81%, transparent 85%);
+            mask: radial-gradient(circle, transparent 65%, black 70%, black 81%, transparent 85%);
+    animation:
+      ffRibbonRotateCCW 17s linear infinite,
+      ffRibbonShimmer 2.9s ease-in-out infinite;
+    animation-delay: 0s, -0.8s;
+  }
+
+  @keyframes ffRibbonRotateCW {
     from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+    to   { transform: rotate(360deg); }
   }
-
-  /* Wind wisps — large blurred ellipses drifting around the ring on long
-     elliptical paths. Each `.ff-ring-wisp-N` uses a distinct keyframe so
-     the wisps don't fall into phase. */
-  .ff-ring-wisp {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 60px;
-    height: 28px;
-    margin: -14px 0 0 -30px;
-    border-radius: 9999px;
-    background: rgba(var(--ff-halo-rgb), 0.35);
-    filter: blur(18px);
-    animation-timing-function: ease-in-out;
-    animation-iteration-count: infinite;
-    will-change: transform, opacity;
-    opacity: 0;
+  @keyframes ffRibbonRotateCCW {
+    from { transform: rotate(360deg); }
+    to   { transform: rotate(0deg); }
   }
-  .ff-ring-wisp-0 { animation-name: ffRingWisp0; }
-  .ff-ring-wisp-1 { animation-name: ffRingWisp1; }
-  .ff-ring-wisp-2 { animation-name: ffRingWisp2; }
-  .ff-ring-wisp-3 { animation-name: ffRingWisp3; }
-  .ff-ring-wisp-4 { animation-name: ffRingWisp4; }
-
-  @keyframes ffRingWisp0 {
-    0%   { transform: rotate(0deg)   translateX(78px) rotate(0deg);   opacity: 0; }
-    20%  { opacity: 0.9; }
-    80%  { opacity: 0.8; }
-    100% { transform: rotate(360deg) translateX(78px) rotate(-360deg); opacity: 0; }
-  }
-  @keyframes ffRingWisp1 {
-    0%   { transform: rotate(72deg)  translateX(94px) rotate(-72deg);  opacity: 0; }
-    20%  { opacity: 0.7; }
-    80%  { opacity: 0.6; }
-    100% { transform: rotate(432deg) translateX(94px) rotate(-432deg); opacity: 0; }
-  }
-  @keyframes ffRingWisp2 {
-    0%   { transform: rotate(144deg) translateX(70px) rotate(-144deg); opacity: 0; }
-    20%  { opacity: 0.95; }
-    80%  { opacity: 0.7; }
-    100% { transform: rotate(504deg) translateX(70px) rotate(-504deg); opacity: 0; }
-  }
-  @keyframes ffRingWisp3 {
-    0%   { transform: rotate(216deg) translateX(102px) rotate(-216deg); opacity: 0; }
-    20%  { opacity: 0.6; }
-    80%  { opacity: 0.55; }
-    100% { transform: rotate(576deg) translateX(102px) rotate(-576deg); opacity: 0; }
-  }
-  @keyframes ffRingWisp4 {
-    0%   { transform: rotate(288deg) translateX(88px) rotate(-288deg); opacity: 0; }
-    20%  { opacity: 0.85; }
-    80%  { opacity: 0.65; }
-    100% { transform: rotate(648deg) translateX(88px) rotate(-648deg); opacity: 0; }
+  /* Shimmer — brightness pulse that fades the band slightly + boosts its
+     luminance at the peak so the arcs look alive. Filter shorthand stacks
+     with the rotation transform without conflict. */
+  @keyframes ffRibbonShimmer {
+    0%, 100% { opacity: 0.7;  filter: brightness(0.95); }
+    50%      { opacity: 1;    filter: brightness(1.35); }
   }
 
   /* Inner core glow — a soft breathing highlight inside the ring centre.
@@ -1057,25 +1088,56 @@ All colors MUST be HSL.
     }
   }
 
+  /* Breath-synced sweep: 3.2s ease-in-out with extended keyframes that
+     hold near the apex (170°→190° over only 8% of the cycle) so the comet
+     feels like it's "considering" at the top of the arc instead of spinning
+     on a constant motor. Phase-locks with .ff-ring-calib-track below — both
+     run on the same 3.2s clock so the track brightens as the head passes. */
   .ff-ring-calib-sweep {
-    animation: ffCalibSweep 2.8s linear infinite;
+    animation: ffCalibSweep 3.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
     will-change: transform;
   }
 
   @keyframes ffCalibSweep {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(360deg); }
+    0%   { transform: rotate(0deg); }
+    46%  { transform: rotate(170deg); }
+    54%  { transform: rotate(190deg); }
+    100% { transform: rotate(360deg); }
   }
 
-  /* Track breathes while scanning — slow opacity pulse so the ring reads
-     as alive even before the comet passes over it. */
+  /* Track breathes in lockstep with the sweep above — the 50% peak lines
+     up with the comet head passing through the apex, unifying the rhythm. */
   .ff-ring-calib-track {
-    animation: ffCalibTrack 2.4s ease-in-out infinite;
+    animation: ffCalibTrack 3.2s ease-in-out infinite;
   }
 
   @keyframes ffCalibTrack {
-    0%, 100% { stroke-opacity: 0.08; }
-    50%      { stroke-opacity: 0.28; }
+    0%, 100% { stroke-opacity: 0.10; }
+    50%      { stroke-opacity: 0.36; }
+  }
+
+  /* Score-arc spring bloom: fires for ~700ms whenever calibratingDays.current
+     ticks up. Spring overshoot (cubic-bezier 0.34, 1.56, 0.64, 1) + glow
+     drop-shadow give the user a tactile "ka-chunk" that proves their log
+     was credited toward unlock. */
+  .ff-ring-score-bloom {
+    animation: ffRingScoreBloom 700ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    will-change: transform, filter;
+  }
+
+  @keyframes ffRingScoreBloom {
+    0%   {
+      transform: scale(1);
+      filter: drop-shadow(0 0 0 rgba(56, 189, 248, 0));
+    }
+    30%  {
+      transform: scale(1.045);
+      filter: drop-shadow(0 0 22px rgba(56, 189, 248, 0.65));
+    }
+    100% {
+      transform: scale(1);
+      filter: drop-shadow(0 0 0 rgba(56, 189, 248, 0));
+    }
   }
 
   /* Sequential dots: each fades in then out on a shared 1.05s cycle with
@@ -1089,6 +1151,37 @@ All colors MUST be HSL.
   @keyframes ffCalibDot {
     0%, 60%, 100% { opacity: 0; }
     25%           { opacity: 1; }
+  }
+
+  /* Subline crossfade: the React component re-keys the span on every phrase
+     change, so this animation fires once per cycle and gives the rotating
+     "Reading training load…" feed a quiet fade-from-below feel instead of
+     a snap-replace. */
+  .ff-ring-calib-phrase {
+    animation: ffCalibPhraseFade 0.5s ease-out;
+    will-change: opacity, transform;
+  }
+
+  @keyframes ffCalibPhraseFade {
+    0%   { opacity: 0; transform: translateY(3px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Day-completion ping. When daysWithAnyLog increments, the center swaps
+     to "Day N logged ✓" for ~1.6s. The ping bounces in to feel tactile and
+     fades out the last 300ms so the return to default reads as a settle,
+     not a cut. */
+  .ff-ring-calib-ping {
+    animation: ffCalibPing 1.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    will-change: opacity, transform;
+  }
+
+  @keyframes ffCalibPing {
+    0%   { opacity: 0; transform: scale(0.7); }
+    25%  { opacity: 1; transform: scale(1.08); }
+    40%  { opacity: 1; transform: scale(1); }
+    80%  { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(0.96); }
   }
 
   /* Outer-ring fight-week pulse: slow stroke-opacity breath so the fighter
@@ -1106,6 +1199,48 @@ All colors MUST be HSL.
     50% {
       stroke-opacity: 0.75;
     }
+  }
+
+  /* Unlock victory lap: fires once when state transitions calibrating→ok.
+     A scale + glow + brightness sweep that opens cyan (carrying over from
+     calibration) and lands in emerald (the new ok-state baseline). Pairs
+     with the React-driven score arc grow + number count-up, so this class
+     handles the surrounding "celebrate" while the arc handles "reveal". */
+  .ff-ring-unlock-bloom {
+    animation: ffRingUnlockBloom 1500ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform, filter;
+  }
+
+  @keyframes ffRingUnlockBloom {
+    0% {
+      transform: scale(0.97);
+      filter: drop-shadow(0 0 0 rgba(56, 189, 248, 0)) brightness(0.95);
+    }
+    20% {
+      transform: scale(1.07);
+      filter: drop-shadow(0 0 46px rgba(56, 189, 248, 0.92)) brightness(1.22);
+    }
+    45% {
+      transform: scale(1.025);
+      filter: drop-shadow(0 0 30px rgba(16, 185, 129, 0.55)) brightness(1.08);
+    }
+    100% {
+      transform: scale(1);
+      filter: drop-shadow(0 0 0 rgba(16, 185, 129, 0)) brightness(1);
+    }
+  }
+
+  /* Comet finale: while the unlock bloom is firing, fade the four calibration
+     comet arcs out over ~540ms so they hand the stage to the new score arc.
+     Lets the comet keep its existing rotation (no snap-back from re-keying
+     transform) while making its exit feel intentional, not abrupt. */
+  .ff-ring-unlock-comet-finale {
+    animation: ffCalibSweepFinaleFade 540ms cubic-bezier(0.55, 0, 0.85, 0.5) forwards !important;
+  }
+
+  @keyframes ffCalibSweepFinaleFade {
+    0%   { opacity: 1; }
+    100% { opacity: 0; }
   }
 
   /* One-shot bloom that fires when the user crosses into Sharp. Scale + soft

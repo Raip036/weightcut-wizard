@@ -1,12 +1,22 @@
 import { memo, useEffect, useRef, useState } from "react";
-import { Flame, Calendar, Utensils, Trophy, Scale, TrendingUp, Award, Zap, Star, Dumbbell, Crown, Check, ChevronRight, Sparkles } from "lucide-react";
+import { Icon, type IonIconName } from "@/components/ui/Icon";
 import { motion, AnimatePresence } from "motion/react";
 import type { MilestoneBadge } from "@/hooks/useGamification";
 import { springs } from "@/lib/motion";
 
-const iconMap = {
-  Flame, Calendar, Utensils, Trophy, Scale, TrendingUp, Award, Zap, Star, Dumbbell, Crown,
-} as const;
+const iconMap: Record<string, IonIconName> = {
+  Flame: "flameOutline",
+  Calendar: "calendarOutline",
+  Utensils: "restaurantOutline",
+  Trophy: "trophyOutline",
+  Scale: "speedometerOutline",
+  TrendingUp: "trendingUpOutline",
+  Award: "medalOutline",
+  Zap: "flashOutline",
+  Star: "starOutline",
+  Dumbbell: "barbellOutline",
+  Crown: "ribbonOutline",
+};
 
 interface MilestoneBadgesProps {
   badges: MilestoneBadge[];
@@ -55,7 +65,7 @@ function BadgeCard({
   badge: MilestoneBadge;
   onTap?: () => void;
 }) {
-  const Icon = iconMap[badge.icon];
+  const iconName = iconMap[badge.icon] ?? "starOutline";
   const BadgeWrapper = onTap ? "button" : "div";
 
   /* Track previous unlocked state. When it flips false → true mid-mount
@@ -86,9 +96,9 @@ function BadgeCard({
         }`}
       >
         {badge.unlocked ? (
-          <Icon className="h-5 w-5 text-primary" />
+          <Icon name={iconName} size={20} className="text-primary" />
         ) : (
-          <Icon className="h-5 w-5 text-muted-foreground" />
+          <Icon name={iconName} size={20} className="text-muted-foreground" />
         )}
         {/* Burst overlay anchored at the icon center. Keyed by timestamp
             so a re-burst (rare, but possible if state oscillates) gets a
@@ -101,7 +111,7 @@ function BadgeCard({
       <div className="flex items-center justify-center gap-1 mt-2 min-w-0">
         <span className="text-xs font-semibold truncate">{badge.title}</span>
         {badge.unlocked && (
-          <Check className="h-3 w-3 text-func-recovery-green flex-shrink-0" />
+          <Icon name="checkmarkOutline" size={12} className="text-func-recovery-green flex-shrink-0" />
         )}
       </div>
 
@@ -130,14 +140,14 @@ function SparkleBurst() {
           animate={{ x: p.x, y: p.y, opacity: 0, scale: 1.2 }}
           transition={{ duration: 0.6, delay: p.delay, ease: "easeOut" }}
         >
-          <Sparkles
+          <Icon
+            name="sparklesOutline"
+            size={12}
             className={
               i % 2 === 0
-                ? "h-3 w-3 text-brand-wizard-lilac"
-                : "h-3 w-3 text-brand-dream-cyan"
+                ? "text-brand-wizard-lilac"
+                : "text-brand-dream-cyan"
             }
-            strokeWidth={1.6}
-            fill="currentColor"
           />
         </motion.span>
       ))}
@@ -179,7 +189,7 @@ export const MilestoneBadges = memo(function MilestoneBadges({ badges, loading, 
             <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               Achievements
             </span>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            <Icon name="chevronForwardOutline" size={16} className="text-muted-foreground" />
           </button>
         ) : (
           <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">

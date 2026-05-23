@@ -1,4 +1,4 @@
-import { TrendingDown, TrendingUp } from "lucide-react";
+import { Icon } from "@/components/ui/Icon";
 import type { SubScoreKey } from "@/scoring/types";
 
 type Props = {
@@ -42,7 +42,7 @@ export function FightFormDeltaBanner(p: Props) {
     <button
       type="button"
       onClick={p.onTap}
-      className="card-surface rounded-xs border border-border/50 px-3.5 py-2 mt-2 flex items-center justify-center gap-2.5 w-full max-w-sm text-center transition-colors hover:border-border"
+      className="card-surface card-glow rounded-2xl px-3.5 py-2 mt-2 flex items-center justify-center gap-2.5 w-full max-w-sm text-center transition-colors"
       aria-label="Open Fight Form Score details"
     >
       <span
@@ -52,7 +52,7 @@ export function FightFormDeltaBanner(p: Props) {
             : "shrink-0 rounded-full bg-func-danger-red/15 text-func-danger-red p-1.5"
         }
       >
-        {up ? <TrendingUp className="size-3.5" /> : <TrendingDown className="size-3.5" />}
+        {up ? <Icon name="trendingUpOutline" size={14} /> : <Icon name="trendingDownOutline" size={14} />}
       </span>
       <span className="text-[12.5px] leading-snug text-foreground/90">{headline}</span>
     </button>

@@ -73,10 +73,15 @@ export const logWeight = mutation({
     } else {
       resultId = await ctx.db.insert("weight_logs", { userId, date, weightKg });
     }
-    await ctx.scheduler.runAfter(5_000, internal.fightFormScore.recomputeForUserDate, {
-      userId,
-      date,
-    });
+    // Recompute fight-form score after weight log upsert
+    try {
+      await ctx.runMutation(internal.fightFormScore.scheduleRecompute, {
+        userId,
+        date,
+      });
+    } catch (err) {
+      console.warn("fight-form recompute schedule failed", err);
+    }
     return resultId;
   },
 });
@@ -105,6 +110,16 @@ export const deleteLog = mutation({
     const row = await ctx.db.get(id);
     if (!row) return;
     if (row.userId !== userId) throw new Error("Not authorized");
+    const date = row.date;
     await ctx.db.delete(id);
+    // Recompute fight-form score after weight log deletion
+    try {
+      await ctx.runMutation(internal.fightFormScore.scheduleRecompute, {
+        userId,
+        date,
+      });
+    } catch (err) {
+      console.warn("fight-form recompute schedule failed", err);
+    }
   },
 });

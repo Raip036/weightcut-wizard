@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useMutation } from "convex/react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
@@ -126,6 +126,16 @@ export function useMealOperations(params: UseMealOperationsParams) {
   const deleteMealMut = useMutation(api.meals.deleteMeal);
   const [loggingMeal, setLoggingMeal] = useState<string | null>(null);
   const [savingAllMeals, setSavingAllMeals] = useState(false);
+  // `savingMeal` is the single-meal insert lock surfaced to button `disabled`
+  // props. `savingAllMeals` covers the bulk meal-plan save flow and stays
+  // independent so a one-off save doesn't grey out the "Save all" CTA and
+  // vice versa.
+  const [savingMeal, setSavingMeal] = useState(false);
+  // Source-of-truth for the in-flight guard inside `runInsertFlow`. A ref
+  // (not state) because we need to read+write it synchronously inside the
+  // same tick — by the time a `useState` setter's value propagates, the
+  // second tap of a spam-double-click has already fired its mutation.
+  const inFlightRef = useRef(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [mealToDelete, setMealToDelete] = useState<Meal | null>(null);
 
@@ -146,7 +156,30 @@ export function useMealOperations(params: UseMealOperationsParams) {
     successToast?: { title: string; description?: string };
   }) => {
     if (!userId) throw new Error("Not authenticated");
+
+    // In-flight lock. The UI also gates the Save button on `savingMeal`,
+    // but the React state hasn't necessarily propagated by the time a
+    // doubled tap fires its onClick — the ref gives us a synchronous,
+    // intra-tick guard that beats the render loop. Silent no-op (no
+    // toast) because the button is already disabled visually.
+    //
+    // NOTE: we deliberately don't pass an AbortController to the Convex
+    // mutation here. Convex mutations are atomic and don't expose a
+    // signal; the "abort" guarantee against doubled-up writes comes from
+    // (a) this ref, and (b) the server-side `idempotencyKey` receipt in
+    // `createMealWithItems`. The two together make the write idempotent
+    // end-to-end without needing JS-level cancellation.
+    if (inFlightRef.current) return null;
+    inFlightRef.current = true;
+    setSavingMeal(true);
+
     const optimisticId = crypto.randomUUID();
+    // One stable dedupe token per save attempt. If the user explicitly taps
+    // again after a failure, the disabled state has already flipped back
+    // and a fresh `runInsertFlow` call runs with a new key — which is the
+    // right semantic ("user retried" → new log; "tap fired twice in same
+    // call" → same key → server collapses to one log).
+    const idempotencyKey = crypto.randomUUID();
 
     const optimisticMeal = buildOptimisticMeal({
       id: optimisticId,
@@ -181,6 +214,7 @@ export function useMealOperations(params: UseMealOperationsParams) {
           ? (opts.photoStorageId as unknown as Id<"_storage">)
           : undefined,
         items: rpcItemsToConvexItems(opts.args.p_items),
+        idempotencyKey,
       });
 
       if (canonicalId && canonicalId !== optimisticId) {
@@ -212,6 +246,9 @@ export function useMealOperations(params: UseMealOperationsParams) {
         variant: "destructive",
       });
       return null;
+    } finally {
+      inFlightRef.current = false;
+      setSavingMeal(false);
     }
   }, [userId, selectedDate, setMeals, toast, createMealMut]);
 
@@ -479,6 +516,10 @@ export function useMealOperations(params: UseMealOperationsParams) {
   return {
     loggingMeal,
     savingAllMeals,
+    // Per-meal save lock. Bound to the Save/Add button `disabled` prop in
+    // QuickAddDialog so spam taps on slow networks can't fire multiple
+    // inserts. Distinct from `savingAllMeals` (bulk meal-plan save).
+    savingMeal,
     deleteDialogOpen, setDeleteDialogOpen,
     mealToDelete,
     saveMealToDb,

@@ -22,7 +22,7 @@ export function LockedMissionCard() {
   };
 
   return (
-    <div className="w-full rounded-xs card-surface p-4 flex flex-col items-start gap-3">
+    <div className="relative w-full rounded-2xl border border-primary/20 bg-primary/10 p-4 flex flex-col items-start gap-3 overflow-hidden">
       <div className="flex items-center gap-3">
         <div className="h-10 w-10 flex items-center justify-center flex-shrink-0">
           <Icon name="sparklesOutline" size={20} className="text-primary" aria-hidden />

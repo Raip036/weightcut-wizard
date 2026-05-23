@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Building2, ChevronRight, Loader2 } from "lucide-react";
+import { Icon } from "@/components/ui/Icon";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -83,14 +83,14 @@ export function GymInvitesBanner() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ type: "spring", damping: 26, stiffness: 320 }}
-            className="w-full rounded-xs border-2 border-primary bg-primary/[0.08] p-3 flex items-center gap-3 active:scale-[0.99] transition-all"
+            className="w-full card-glow rounded-2xl bg-primary/[0.08] p-3 flex items-center gap-3 active:scale-[0.99] transition-all"
           >
             <span className="relative flex h-9 w-9 rounded-full items-center justify-center flex-shrink-0 bg-primary text-primary-foreground">
               <span
                 className="absolute inset-0 rounded-full animate-ping bg-primary/40"
                 aria-hidden
               />
-              <Building2 className="relative h-4 w-4" />
+              <Icon name="businessOutline" size={16} className="relative" />
               {count > 1 && (
                 <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center tabular-nums border border-background">
                   {count > 9 ? "9+" : count}
@@ -105,7 +105,7 @@ export function GymInvitesBanner() {
                 Tap to accept or decline
               </p>
             </div>
-            <ChevronRight className="h-3 w-3 text-muted-foreground/40 flex-shrink-0" />
+            <Icon name="chevronForwardOutline" size={12} className="text-muted-foreground/40 flex-shrink-0" />
           </motion.button>
         )}
       </AnimatePresence>
@@ -132,7 +132,7 @@ export function GymInvitesBanner() {
                   >
                     <div className="flex items-center gap-3">
                       <div className="h-9 w-9 rounded-xs bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <Building2 className="h-4 w-4 text-primary" />
+                        <Icon name="businessOutline" size={16} className="text-primary" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-[13px] font-semibold truncate">
@@ -158,7 +158,7 @@ export function GymInvitesBanner() {
                         disabled={isBusy}
                         className="flex-1 h-11 rounded-xs bg-primary text-primary-foreground text-[13px] font-semibold active:scale-[0.99] transition-transform inline-flex items-center justify-center gap-2 disabled:opacity-50"
                       >
-                        {isBusy && <Loader2 className="h-4 w-4 animate-spin" />}
+                        {isBusy && <Icon name="refreshOutline" size={16} className="animate-spin" />}
                         Accept
                       </button>
                     </div>

@@ -1,4 +1,4 @@
-import type { FightFormScore, ScoringConfig, ScoringInputs, SubScoreKey } from "./types";
+import type { FightFormScore, ScoringConfig, ScoringInputs, ScoringInputSources, SubScoreKey } from "./types";
 import { computeTrainingLoad } from "./subScores/trainingLoad";
 import { computeSleep } from "./subScores/sleep";
 import { computeWeightCut } from "./subScores/weightCut";
@@ -141,13 +141,35 @@ function emptySubScores(): FightFormScore["subScores"] {
   };
 }
 
+/**
+ * Build the `inputSources` surface for the engine output. When
+ * `inputs.sources` was populated (Convex call path), pass it straight
+ * through. When absent (legacy tests, ad-hoc callers), derive a
+ * `'manual'`-everywhere fallback from the inputs themselves so the field
+ * is never undefined on the output.
+ */
+function resolveInputSources(inputs: ScoringInputs): ScoringInputSources {
+  if (inputs.sources) return inputs.sources;
+  const sleepHoursByDate: Record<string, "healthkit" | "manual"> = {};
+  for (const s of inputs.sleepHours) sleepHoursByDate[s.date] = "manual";
+  const weightsByDate: Record<string, "healthkit" | "manual"> = {};
+  for (const w of inputs.weights) weightsByDate[w.date] = "manual";
+  const sortedWeights = [...inputs.weights].sort((a, b) => a.date.localeCompare(b.date));
+  const weightLatest = sortedWeights.length > 0 ? "manual" : null;
+  const sleepHoursTargetDate = inputs.sleepHours.some((s) => s.date === inputs.date)
+    ? "manual"
+    : null;
+  return { sleepHoursByDate, weightsByDate, weightLatest, sleepHoursTargetDate };
+}
+
 export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig): FightFormScore {
+  const inputSources = resolveInputSources(inputs);
   if (inputs.isCampPaused) {
     return {
       score: 0, rawScore: 0, label: "off_pace", state: "paused", phase: null,
       campAge: null, subScores: emptySubScores(), topDriver: "weightCut",
       topLimiter: "weightCut", appliedCeiling: null, algorithmVersion: cfg.version,
-      recoveryConfidence: 0,
+      recoveryConfidence: 0, inputSources,
     };
   }
   if (!inputs.fightDate || !inputs.campStartDate) {
@@ -155,7 +177,22 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
       score: 0, rawScore: 0, label: "off_pace", state: "no_camp", phase: null,
       campAge: null, subScores: emptySubScores(), topDriver: "weightCut",
       topLimiter: "weightCut", appliedCeiling: null, algorithmVersion: cfg.version,
-      recoveryConfidence: 0,
+      recoveryConfidence: 0, inputSources,
+    };
+  }
+
+  // Post-fight: once the fight date passes, the camp is over. Surface as
+  // "paused" so the dashboard stops asking the user to log against a dead
+  // schedule. Without this, `resolvePhase` keeps returning `fightWeek`
+  // weights forever and the score drifts on stale data.
+  const daysToFight = (new Date(inputs.fightDate + "T00:00:00Z").getTime()
+    - new Date(inputs.date + "T00:00:00Z").getTime()) / (1000 * 60 * 60 * 24);
+  if (daysToFight < 0) {
+    return {
+      score: 0, rawScore: 0, label: "off_pace", state: "paused", phase: null,
+      campAge: null, subScores: emptySubScores(), topDriver: "weightCut",
+      topLimiter: "weightCut", appliedCeiling: null, algorithmVersion: cfg.version,
+      recoveryConfidence: 0, inputSources,
     };
   }
 
@@ -165,7 +202,7 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
       score: 0, rawScore: 0, label: "off_pace", state: "calibrating", phase: null,
       campAge: null, subScores: emptySubScores(), topDriver: "weightCut",
       topLimiter: "weightCut", appliedCeiling: null, algorithmVersion: cfg.version,
-      recoveryConfidence: 0,
+      recoveryConfidence: 0, inputSources,
     };
   }
 
@@ -180,6 +217,20 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
   );
   const wellness = computeWellness(inputs.hooperByDate, inputs.date, cfg);
   const nutritionAdherence = computeNutritionAdherence(inputs.meals, inputs.targets, inputs.date, cfg);
+
+  // Fix #1 — capture "no data" signal from each sub-score BEFORE compose.ts
+  // overrides their `weight` with the phase weight. Sub-scores returning
+  // `value: 50, weight: 0` use that as a sentinel for "missing data, skip
+  // me." We then assign the phase weight only when the sub-score had data;
+  // otherwise we keep weight:0 and the redistributor excludes it from the
+  // composite denominator.
+  const subScoreHasData = {
+    trainingLoad: !/^(Cold start)/.test(trainingLoad.reason),
+    sleep: !/^(No sleep logs|Only \d+ night)/.test(sleep.reason),
+    weightCut: !/^(No weight logs yet|Camp data incomplete)/.test(weightCut.reason),
+    wellness: wellness.reason !== "No wellness check-ins in 7 days",
+    nutritionAdherence: !/^(Only \d+ day|No calorie\/protein)/.test(nutritionAdherence.reason),
+  };
   const recovery = computeRecovery(
     inputs.healthSignals ?? null,
     inputs.selfReportRecovery ?? null,
@@ -197,11 +248,11 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
   const recoveryWeight = recoveryHasSignal ? weights.wellness : 0;
 
   const subScores: FightFormScore["subScores"] = {
-    trainingLoad: { ...trainingLoad, weight: weights.trainingLoad },
-    sleep: { ...sleep, weight: weights.sleep },
-    weightCut: { ...weightCut, weight: weights.weightCut },
-    wellness: { ...wellness, weight: wellnessWeight },
-    nutritionAdherence: { ...nutritionAdherence, weight: weights.nutritionAdherence },
+    trainingLoad: { ...trainingLoad, weight: subScoreHasData.trainingLoad ? weights.trainingLoad : 0 },
+    sleep: { ...sleep, weight: subScoreHasData.sleep ? weights.sleep : 0 },
+    weightCut: { ...weightCut, weight: subScoreHasData.weightCut ? weights.weightCut : 0 },
+    wellness: { ...wellness, weight: subScoreHasData.wellness ? wellnessWeight : 0 },
+    nutritionAdherence: { ...nutritionAdherence, weight: subScoreHasData.nutritionAdherence ? weights.nutritionAdherence : 0 },
     recovery: {
       value: recovery.value,
       weight: recoveryWeight,
@@ -209,8 +260,18 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
     },
   };
 
-  const totalWeight = Object.values(subScores).reduce((a, s) => a + s.weight, 0);
-  const rawScore = Object.values(subScores).reduce((a, s) => a + s.value * s.weight, 0) / Math.max(1e-9, totalWeight);
+  // Fix #1 — composite redistribution on missing data.
+  // Sub-scores that lack data return `weight: 0` (trainingLoad < 3 sessions,
+  // sleep < 3 nights, nutrition < 3 logged days, wellness no Hooper, recovery
+  // no HealthKit). Including them in the denominator would silently bottom
+  // out the composite even when other sub-scores are healthy. Divide only by
+  // the sum of weights for sub-scores that actually contributed.
+  const subScoreList = Object.values(subScores);
+  const present = subScoreList.filter((s) => s.weight > 0);
+  const totalPresentWeight = present.reduce((a, s) => a + s.weight, 0);
+  const rawScore = totalPresentWeight > 0
+    ? present.reduce((a, s) => a + s.value * s.weight, 0) / Math.max(1e-9, totalPresentWeight)
+    : 50; // every sub-score absent — neutral placeholder; ceilings still run.
 
   const ceil = applyCeilings(rawScore, {
     weightCutDangerousDays: consecutiveDangerousDays(inputs.weights, inputs.startingWeightKg, inputs.campStartDate, cfg),
@@ -251,5 +312,6 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
     appliedCeiling: ceil.applied,
     algorithmVersion: cfg.version,
     recoveryConfidence: recovery.confidence,
+    inputSources,
   };
 }

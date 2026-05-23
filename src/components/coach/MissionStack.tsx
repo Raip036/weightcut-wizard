@@ -44,9 +44,13 @@ export function MissionStack() {
     return (
       <Link
         to="/training-calendar"
-        className="block w-full rounded-xs card-surface p-4"
+        className="relative block w-full rounded-2xl card-surface border border-primary/20 overflow-hidden p-4"
       >
-        <div className="flex items-start gap-3">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.04] to-transparent"
+        />
+        <div className="relative flex items-start gap-3">
           <div className="h-10 w-10 flex items-center justify-center flex-shrink-0">
             <Icon
               name="listOutline"
@@ -60,7 +64,7 @@ export function MissionStack() {
               Training Missions
             </p>
             <p className="text-note text-muted-foreground leading-snug mt-0.5">
-              Log a session with notes — your first mission will appear here.
+              Log a session with notes. Your first mission will appear here.
             </p>
           </div>
         </div>

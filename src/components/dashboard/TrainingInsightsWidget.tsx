@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { format, subDays } from "date-fns";
-import { Brain, ChevronRight, Dumbbell, Lock } from "lucide-react";
+import { Icon } from "@/components/ui/Icon";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { useQuery } from "convex/react";
@@ -396,9 +396,9 @@ export const TrainingInsightsWidget = memo(function TrainingInsightsWidget({
           }`}
         >
           {isPremium ? (
-            <Dumbbell className="h-4 w-4 text-primary" />
+            <Icon name="barbellOutline" size={16} className="text-primary" />
           ) : (
-            <Lock className="h-4 w-4 text-muted-foreground" />
+            <Icon name="lockClosedOutline" size={16} className="text-muted-foreground" />
           )}
         </div>
         <div className="flex-1 min-w-0">
@@ -416,7 +416,7 @@ export const TrainingInsightsWidget = memo(function TrainingInsightsWidget({
               : "Upgrade to see things to work on after each session"}
           </p>
         </div>
-        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+        <Icon name="chevronForwardOutline" size={14} className="text-muted-foreground shrink-0" />
       </button>
 
       <Sheet open={open} onOpenChange={setOpen}>
@@ -429,7 +429,7 @@ export const TrainingInsightsWidget = memo(function TrainingInsightsWidget({
             <SheetHeader>
               <div className="flex items-center gap-2">
                 <div className="h-7 w-7 rounded-xs bg-primary/15 flex items-center justify-center">
-                  <Brain className="h-4 w-4 text-primary" />
+                  <Icon name="bulbOutline" size={16} className="text-primary" />
                 </div>
                 <div>
                   <SheetTitle className="text-[13px] font-semibold">

@@ -397,6 +397,18 @@ export const rollupDaily = internalAction({
       date,
       summary,
     });
+    // Recompute fight-form score after HealthKit rollup. 10s window
+    // (vs. the default 5s) gives the rollup itself time to settle in
+    // case it fans out to further writes before the recompute reads.
+    try {
+      await ctx.runMutation(internal.fightFormScore.scheduleRecompute, {
+        userId,
+        date,
+        delayMs: 10_000,
+      });
+    } catch (err) {
+      console.warn("fight-form recompute schedule failed", err);
+    }
     return null;
   },
 });

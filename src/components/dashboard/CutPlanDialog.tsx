@@ -11,7 +11,7 @@
  */
 import { useMemo } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { X } from "lucide-react";
+import { Icon } from "@/components/ui/Icon";
 import { InlinePlanDisplay } from "@/components/onboarding/InlinePlanDisplay";
 
 interface CutPlanDialogProps {
@@ -59,7 +59,7 @@ export function CutPlanDialog({ open, onOpenChange }: CutPlanDialogProps) {
             aria-label="Close cut plan"
             className="absolute right-3 top-1 h-9 w-9 rounded-full flex items-center justify-center text-muted-foreground/80 bg-muted/40 dark:bg-white/[0.06] border border-border/30 active:text-foreground active:bg-muted/60 transition-colors"
           >
-            <X className="h-4 w-4" strokeWidth={2.4} />
+            <Icon name="closeOutline" size={16} />
           </button>
         </SheetHeader>
 

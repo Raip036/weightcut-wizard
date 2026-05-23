@@ -27,27 +27,40 @@ export function computeNutritionAdherence(
   const proteinPct = cfg.nutrition.proteinShortfallThresholdPct;
   let daysHitCalories = 0;
   let daysProteinShort = 0;
+  let daysWithMeals = 0;
   for (let i = 0; i < 7; i++) {
     const d = new Date(start);
     d.setUTCDate(d.getUTCDate() + i);
     const key = d.toISOString().slice(0, 10);
     const day = byDay.get(key);
-    if (!day) {
-      daysProteinShort++;
-      continue;
-    }
+    // Skip days with no meals — they're missing data, not a failure to hit
+    // targets. Tracked separately so we can drop the sub-score entirely if
+    // the user logged < 3 days in the 7-day window.
+    if (!day) continue;
+    daysWithMeals++;
     const calorieMin = targets.calories * (1 - tolerance);
     const calorieMax = targets.calories * (1 + tolerance);
     if (day.calories >= calorieMin && day.calories <= calorieMax) daysHitCalories++;
     if (day.proteinG < targets.proteinG * (proteinPct / 100)) daysProteinShort++;
   }
 
-  const calorieScore = (daysHitCalories / 7) * 100;
+  // Missing-data guard: < 3 logged days means we can't make a reliable claim.
+  // Mirrors the trainingLoad/sleep pattern of returning weight:0 so compose.ts
+  // redistributes the slot onto sub-scores that DO have signal.
+  if (daysWithMeals < 3) {
+    return {
+      value: 50,
+      weight: 0,
+      reason: `Only ${daysWithMeals} day(s) of meals logged in last 7 — need 3+`,
+    };
+  }
+
+  const calorieScore = (daysHitCalories / daysWithMeals) * 100;
   const proteinPenalty = daysProteinShort * cfg.nutrition.proteinPenaltyPerDay;
   const value = Math.max(0, Math.min(100, calorieScore - proteinPenalty));
   return {
     value: Math.round(value),
     weight: 0,
-    reason: `${daysHitCalories}/7 days on target; ${daysProteinShort} low-protein day(s)`,
+    reason: `${daysHitCalories}/${daysWithMeals} days on target; ${daysProteinShort} low-protein day(s)`,
   };
 }

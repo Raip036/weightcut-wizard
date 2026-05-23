@@ -3,12 +3,21 @@
  * the rest of the app imports `healthKit` / `HEALTH_METRICS` and never touches
  * the underlying Capacitor plugin.
  *
- * Plugin: @perfood/capacitor-healthkit@1.3.2 (declares Cap ^4 peer dep but its
- * podspec depends on `Capacitor` unversioned and the native bridge surface is
- * stable across Cap 4→8). Gaps in 1.3.2: HRV / VO2Max / wrist-temp-delta — the
- * wrapper accepts those metrics but returns `[]` with a debug log until a thin
- * native extension lands. Downstream rollup / scoring already null-tolerates
- * missing metrics and redistributes weights (spec §7.2).
+ * Plugin: @capgo/capacitor-health@^8.5.1 (Capacitor 8, Swift Package Manager,
+ * targets iOS 15+). Replaces the deprecated @perfood/capacitor-healthkit which
+ * was Cap-4 era and missing from CapApp-SPM/Package.swift on Cap 8.
+ *
+ * Plugin coverage:
+ *   - Supported metrics: HRV (heartRateVariability), restingHeartRate, sleep
+ *     stages, workouts, activeEnergy, steps, vo2Max, respiratoryRate, weight,
+ *     bodyFat — covers everything the score engine needs except wrist temp.
+ *   - Unsupported: wrist_temp_delta (no Cap-8 plugin exposes
+ *     HKQuantityTypeIdentifierAppleSleepingWristTemperature yet — the metric
+ *     is left in HEALTH_METRICS so the UI can render a "tier-gated" badge, but
+ *     the wrapper returns [] and `granted: false` for it).
+ *   - Background delivery: the plugin does not yet expose
+ *     `enableBackgroundObserverQuery`, so `enableBackgroundDelivery` remains
+ *     a documented no-op (sync still runs on foreground). Tracked separately.
  *
  * Conventions:
  *  - All timestamps are epoch ms. Convex rollup converts to local YYYY-MM-DD.
@@ -61,57 +70,140 @@ const QUERY_LIMIT = 0;
 
 const HEALTH_APP_URL = "x-apple-health://";
 
-// --- Plugin metric mapping ---
-// Tuple: [pluginSampleName, pluginAuthShortName, canonicalUnit].
-// A null sampleName means the metric is not yet supported by the installed
-// plugin version (HRV / VO2Max / wrist-temp-delta — needs native extension).
-// Auth short-names match the plugin's Swift `getTypes()` switch statement.
-const METRIC_TABLE: Record<HealthMetric, [string | null, string | null, string]> = {
-  hrv_sdnn:           [null,                  null,              "ms"],
-  resting_hr:         ["restingHeartRate",    "restingHeartRate", "bpm"],
-  sleep_total:        ["sleepAnalysis",       "activity",         "min"],
-  sleep_deep:         ["sleepAnalysis",       "activity",         "min"],
-  sleep_rem:          ["sleepAnalysis",       "activity",         "min"],
-  sleep_core:         ["sleepAnalysis",       "activity",         "min"],
-  workout_minutes:    ["workoutType",         "activity",         "min"],
-  active_energy_kcal: ["activeEnergyBurned",  "calories",         "kcal"],
-  steps:              ["stepCount",           "steps",            "count"],
-  vo2_max:            [null,                  null,              "ml/kg/min"],
-  respiratory_rate:   ["respiratoryRate",     "respiratoryRate",  "brpm"],
-  wrist_temp_delta:   [null,                  null,              "celsius"],
-  body_mass_kg:       ["weight",              "weight",           "kg"],
-  body_fat_pct:       ["bodyFat",             "bodyFat",          "pct"],
-};
+// ---------------------------------------------------------------------------
+// Plugin shape — the Capgo @capgo/capacitor-health JS surface we depend on.
+// We declare structurally so this file compiles cleanly before the dep is
+// installed and is resilient to non-breaking additions in the upstream plugin.
+// ---------------------------------------------------------------------------
 
-const pluginSampleName = (m: HealthMetric) => METRIC_TABLE[m][0];
-const pluginAuthName = (m: HealthMetric) => METRIC_TABLE[m][1];
-const metricUnit = (m: HealthMetric) => METRIC_TABLE[m][2];
+/** Subset of `HealthDataType` the wrapper actually requests. */
+type PluginDataType =
+  | "heartRateVariability"
+  | "restingHeartRate"
+  | "sleep"
+  | "workouts"
+  | "calories"
+  | "steps"
+  | "vo2Max"
+  | "respiratoryRate"
+  | "weight"
+  | "bodyFat";
 
-// --- Plugin shape (the plugin's own d.ts isn't tightly typed) ---
-interface PluginQueryResult {
-  countReturn: number;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  resultData: any[];
+type PluginSleepState =
+  | "inBed"
+  | "asleep"
+  | "awake"
+  | "rem"
+  | "deep"
+  | "light";
+
+interface PluginHealthSample {
+  dataType: PluginDataType | string;
+  value: number;
+  unit?: string;
+  startDate: string;
+  endDate: string;
+  sourceName?: string;
+  sourceId?: string;
+  platformId?: string;
+  sleepState?: PluginSleepState;
+}
+
+interface PluginReadSamplesResult {
+  samples: PluginHealthSample[];
+}
+
+interface PluginWorkout {
+  workoutType?: string;
+  duration?: number; // seconds
+  totalEnergyBurned?: number; // kilocalories
+  totalDistance?: number; // meters
+  startDate: string;
+  endDate: string;
+  sourceName?: string;
+  sourceId?: string;
+  platformId?: string;
+}
+
+interface PluginWorkoutsResult {
+  workouts: PluginWorkout[];
+  anchor?: string;
+}
+
+interface PluginAvailabilityResult {
+  available: boolean;
+  platform?: string;
+  reason?: string;
+}
+
+interface PluginAuthorizationStatus {
+  readAuthorized: string[];
+  readDenied: string[];
+  writeAuthorized: string[];
+  writeDenied: string[];
 }
 
 interface PluginHandle {
-  isAvailable: () => Promise<void>;
+  isAvailable: () => Promise<PluginAvailabilityResult>;
   requestAuthorization: (opts: {
-    all: string[];
-    read: string[];
-    write: string[];
-  }) => Promise<void>;
-  queryHKitSampleType: (opts: {
-    sampleName: string;
-    startDate: string;
-    endDate: string;
-    limit: number;
-  }) => Promise<PluginQueryResult>;
-  // Used as a heuristic per-metric permission check post-grant. Returns
-  // resolved on authorised, rejects otherwise (per plugin behaviour for the
-  // WRITE auth check — read-side check is identical at the bridge).
-  isEditionAuthorized?: (opts: { sampleName: string }) => Promise<void>;
+    read?: PluginDataType[];
+    write?: PluginDataType[];
+  }) => Promise<PluginAuthorizationStatus>;
+  checkAuthorization: (opts: {
+    read?: PluginDataType[];
+    write?: PluginDataType[];
+  }) => Promise<PluginAuthorizationStatus>;
+  readSamples: (opts: {
+    dataType: PluginDataType;
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+    ascending?: boolean;
+  }) => Promise<PluginReadSamplesResult>;
+  queryWorkouts: (opts: {
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+    ascending?: boolean;
+  }) => Promise<PluginWorkoutsResult>;
 }
+
+// ---------------------------------------------------------------------------
+// Metric ↔ plugin mapping.
+//
+// `dataType`           — `HealthDataType` string passed to `readSamples` /
+//                        `requestAuthorization`. `null` means the metric is
+//                        not supported by the installed plugin.
+// `requiresWorkoutApi` — read via `queryWorkouts`, not `readSamples`.
+// `canonicalUnit`      — the unit `RawSample.unit` is normalised to.
+// ---------------------------------------------------------------------------
+interface MetricBinding {
+  dataType: PluginDataType | null;
+  requiresWorkoutApi?: boolean;
+  canonicalUnit: string;
+}
+
+const METRIC_TABLE: Record<HealthMetric, MetricBinding> = {
+  hrv_sdnn:           { dataType: "heartRateVariability", canonicalUnit: "ms" },
+  resting_hr:         { dataType: "restingHeartRate",     canonicalUnit: "bpm" },
+  sleep_total:        { dataType: "sleep",                canonicalUnit: "min" },
+  sleep_deep:         { dataType: "sleep",                canonicalUnit: "min" },
+  sleep_rem:          { dataType: "sleep",                canonicalUnit: "min" },
+  sleep_core:         { dataType: "sleep",                canonicalUnit: "min" },
+  workout_minutes:    { dataType: "workouts", requiresWorkoutApi: true, canonicalUnit: "min" },
+  active_energy_kcal: { dataType: "calories",             canonicalUnit: "kcal" },
+  steps:              { dataType: "steps",                canonicalUnit: "count" },
+  vo2_max:            { dataType: "vo2Max",               canonicalUnit: "ml/kg/min" },
+  respiratory_rate:   { dataType: "respiratoryRate",      canonicalUnit: "brpm" },
+  // Wrist-temperature delta is not yet exposed by @capgo/capacitor-health.
+  // The metric stays in HEALTH_METRICS for UI continuity; sync emits zero
+  // samples and checkAuthorization reports it as unsupported.
+  wrist_temp_delta:   { dataType: null,                   canonicalUnit: "celsius" },
+  body_mass_kg:       { dataType: "weight",               canonicalUnit: "kg" },
+  body_fat_pct:       { dataType: "bodyFat",              canonicalUnit: "pct" },
+};
+
+const metricBinding = (m: HealthMetric): MetricBinding => METRIC_TABLE[m];
 
 // --- Lazy plugin loader (web-safe) ---
 let pluginPromise: Promise<PluginHandle | null> | null = null;
@@ -119,22 +211,23 @@ let pluginPromise: Promise<PluginHandle | null> | null = null;
 async function getPlugin(): Promise<PluginHandle | null> {
   if (Capacitor.getPlatform() !== "ios") return null;
   if (!pluginPromise) {
-    // Dynamic import via variable specifier — keeps web/Android bundles
-    // clean and lets TS compile before the wiring agent runs `npm install`.
-    // Missing dep at runtime silently degrades to "no plugin".
+    // Dynamic import via variable specifier — keeps web/Android bundles clean
+    // and lets TS compile before the wiring agent runs `npm install`. We log
+    // any import failure as `error` (not `warn`) because a missing plugin in
+    // an iOS build is a hard misconfiguration that Sentry must surface.
     pluginPromise = (async () => {
       try {
-        const specifier: string = "@perfood/capacitor-healthkit";
+        const specifier: string = "@capgo/capacitor-health";
         const mod = (await import(
           /* @vite-ignore */ specifier
-        )) as { CapacitorHealthkit?: unknown };
-        if (!mod.CapacitorHealthkit) {
-          logger.warn("healthKit: CapacitorHealthkit export missing");
+        )) as { Health?: unknown };
+        if (!mod.Health) {
+          logger.error("healthKit: Health export missing from @capgo/capacitor-health");
           return null;
         }
-        return mod.CapacitorHealthkit as PluginHandle;
+        return mod.Health as PluginHandle;
       } catch (err) {
-        logger.warn("healthKit: plugin import failed", { error: String(err) });
+        logger.error("healthKit: plugin import failed", { error: String(err) });
         return null;
       }
     })();
@@ -157,11 +250,11 @@ function debug(msg: string, data?: Record<string, unknown>) {
   logger.debug(`healthKit: ${msg}`, data);
 }
 
-function uniqueAuthNames(metrics: readonly HealthMetric[]): string[] {
-  const set = new Set<string>();
+function uniqueReadTypes(metrics: readonly HealthMetric[]): PluginDataType[] {
+  const set = new Set<PluginDataType>();
   for (const m of metrics) {
-    const name = pluginAuthName(m);
-    if (name) set.add(name);
+    const t = metricBinding(m).dataType;
+    if (t) set.add(t);
   }
   return [...set];
 }
@@ -178,64 +271,71 @@ function dedupeByExternalId(samples: RawSample[]): RawSample[] {
   return out;
 }
 
-interface RawPluginSample {
-  uuid?: string;
-  startDate?: string;
-  endDate?: string;
-  value?: number;
-  unitName?: string;
-  duration?: number; // hours, for sleep / workouts
-  sleepState?: string;
-  workoutActivityName?: string;
-  totalEnergyBurned?: number;
-  source?: string;
-  sourceBundleId?: string;
-  device?: { name?: string | null } | null;
+function deviceLabel(s: PluginHealthSample | PluginWorkout): string | undefined {
+  return s.sourceName ?? s.sourceId ?? undefined;
 }
 
-function deviceLabel(s: RawPluginSample): string | undefined {
-  const name = s.device?.name ?? undefined;
-  if (name) return name;
-  return s.source ?? undefined;
-}
+// ---------------------------------------------------------------------------
+// Per-metric readers
+// ---------------------------------------------------------------------------
 
-// --- Per-metric readers ---
-async function queryRange(
-  sampleName: string,
+async function readPluginSamples(
+  dataType: PluginDataType,
   sinceMs: number,
   untilMs: number,
-): Promise<RawPluginSample[]> {
+): Promise<PluginHealthSample[]> {
   const plugin = await getPlugin();
   if (!plugin) return [];
   try {
-    const result = await plugin.queryHKitSampleType({
-      sampleName,
+    const result = await plugin.readSamples({
+      dataType,
       startDate: toIso(sinceMs),
       endDate: toIso(untilMs),
       limit: QUERY_LIMIT,
+      ascending: true,
     });
-    return (result?.resultData ?? []) as RawPluginSample[];
+    return result?.samples ?? [];
   } catch (err) {
-    debug(`query failed for ${sampleName}`, { error: String(err) });
+    debug(`readSamples failed for ${dataType}`, { error: String(err) });
+    return [];
+  }
+}
+
+async function readPluginWorkouts(
+  sinceMs: number,
+  untilMs: number,
+): Promise<PluginWorkout[]> {
+  const plugin = await getPlugin();
+  if (!plugin) return [];
+  try {
+    const result = await plugin.queryWorkouts({
+      startDate: toIso(sinceMs),
+      endDate: toIso(untilMs),
+      limit: QUERY_LIMIT,
+      ascending: true,
+    });
+    return result?.workouts ?? [];
+  } catch (err) {
+    debug(`queryWorkouts failed`, { error: String(err) });
     return [];
   }
 }
 
 function mapQuantitySamples(
   metric: HealthMetric,
-  rows: RawPluginSample[],
+  rows: PluginHealthSample[],
 ): RawSample[] {
-  const unit = metricUnit(metric);
+  const unit = metricBinding(metric).canonicalUnit;
   const out: RawSample[] = [];
   for (const r of rows) {
-    if (!r.uuid) continue;
+    if (!r.platformId) continue;
     const value = typeof r.value === "number" ? r.value : NaN;
     if (!Number.isFinite(value)) continue;
     const startedAt = toMs(r.startDate);
     const endedAt = toMs(r.endDate) || startedAt;
     if (!startedAt) continue;
     out.push({
-      externalId: r.uuid,
+      externalId: r.platformId,
       metric,
       value,
       unit,
@@ -249,14 +349,23 @@ function mapQuantitySamples(
 
 type SleepStage = "sleep_total" | "sleep_deep" | "sleep_rem" | "sleep_core";
 
-function mapSleepState(state: string | undefined): SleepStage | null {
+function mapSleepState(state: PluginSleepState | undefined): SleepStage | null {
   if (!state) return null;
-  const s = state.toLowerCase();
-  if (s.includes("deep")) return "sleep_deep";
-  if (s.includes("rem")) return "sleep_rem";
-  if (s.includes("core") || s.includes("light")) return "sleep_core";
-  if (s.includes("asleep") || s.includes("unspecified")) return "sleep_total";
-  return null; // InBed / Awake — ignored for daily totals
+  switch (state) {
+    case "deep":
+      return "sleep_deep";
+    case "rem":
+      return "sleep_rem";
+    case "light":
+      return "sleep_core";
+    case "asleep":
+      // iOS pre-16 collapses all asleep segments into a single 'asleep' state.
+      return "sleep_total";
+    case "inBed":
+    case "awake":
+    default:
+      return null;
+  }
 }
 
 interface SleepBucket {
@@ -274,7 +383,7 @@ interface SleepBucket {
  * synthetic sample per bucket. Night key = local YYYY-MM-DD of (midpoint − 6h)
  * so a session that started at 23:00 still buckets to "last night".
  */
-function bucketSleepSamples(rows: RawPluginSample[]): RawSample[] {
+function bucketSleepSamples(rows: PluginHealthSample[]): RawSample[] {
   const buckets = new Map<string, SleepBucket>();
   const merge = (
     stage: SleepStage,
@@ -327,19 +436,27 @@ function bucketSleepSamples(rows: RawPluginSample[]): RawSample[] {
   }));
 }
 
-function mapWorkoutSamples(rows: RawPluginSample[]): RawSample[] {
+function mapWorkoutSamples(rows: PluginWorkout[]): RawSample[] {
   const out: RawSample[] = [];
   for (const r of rows) {
-    if (!r.uuid) continue;
+    const externalIdBase = r.platformId;
+    if (!externalIdBase) continue;
     const startedAt = toMs(r.startDate);
     const endedAt = toMs(r.endDate);
     if (!startedAt || !endedAt || endedAt <= startedAt) continue;
-    const durationMin = Math.round((endedAt - startedAt) / 60000);
+
+    // Prefer the plugin-reported duration (seconds) so segmented workouts
+    // with paused intervals report active minutes rather than wall-clock.
+    const durationSeconds =
+      typeof r.duration === "number" && r.duration > 0
+        ? r.duration
+        : (endedAt - startedAt) / 1000;
+    const durationMin = Math.round(durationSeconds / 60);
     if (durationMin <= 0) continue;
     const device = deviceLabel(r);
 
     out.push({
-      externalId: `workout-min::${r.uuid}`,
+      externalId: `workout-min::${externalIdBase}`,
       metric: "workout_minutes",
       value: durationMin,
       unit: "min",
@@ -351,7 +468,7 @@ function mapWorkoutSamples(rows: RawPluginSample[]): RawSample[] {
     const teb = r.totalEnergyBurned;
     if (typeof teb === "number" && teb > 0) {
       out.push({
-        externalId: `workout-kcal::${r.uuid}`,
+        externalId: `workout-kcal::${externalIdBase}`,
         metric: "active_energy_kcal",
         value: Math.round(teb),
         unit: "kcal",
@@ -369,27 +486,32 @@ async function readMetric(
   sinceMs: number,
   untilMs: number,
 ): Promise<RawSample[]> {
-  const sampleName = pluginSampleName(metric);
-  if (!sampleName) {
-    debug(`metric ${metric} not yet supported by installed plugin — skipping`);
+  const binding = metricBinding(metric);
+  if (!binding.dataType) {
+    debug(`metric ${metric} not supported by installed plugin — skipping`);
     return [];
   }
 
-  const rows = await queryRange(sampleName, sinceMs, untilMs);
+  if (binding.requiresWorkoutApi) {
+    const workouts = await readPluginWorkouts(sinceMs, untilMs);
+    return mapWorkoutSamples(workouts);
+  }
+
+  const rows = await readPluginSamples(binding.dataType, sinceMs, untilMs);
   if (rows.length === 0) return [];
 
-  if (sampleName === "sleepAnalysis") {
+  if (binding.dataType === "sleep") {
     // All 4 sleep metrics share this code path; downstream dedupeByExternalId
     // collapses duplicates emitted by `sleep_total`/`sleep_deep`/etc.
     return bucketSleepSamples(rows);
   }
-  if (sampleName === "workoutType") {
-    return mapWorkoutSamples(rows);
-  }
   return mapQuantitySamples(metric, rows);
 }
 
-// --- Public API ---
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
 class HealthKitService {
   /** True if HealthKit can be read on this device. Always false on web/Android. */
   async isAvailable(): Promise<boolean> {
@@ -397,8 +519,8 @@ class HealthKitService {
     const plugin = await getPlugin();
     if (!plugin) return false;
     try {
-      await plugin.isAvailable();
-      return true;
+      const result = await plugin.isAvailable();
+      return Boolean(result?.available);
     } catch (err) {
       debug("isAvailable() rejected", { error: String(err) });
       return false;
@@ -418,11 +540,10 @@ class HealthKitService {
     const plugin = await getPlugin();
     if (!plugin) return { granted: false, perMetric: [] };
 
-    const authNames = uniqueAuthNames(metrics);
+    const readTypes = uniqueReadTypes(metrics);
     try {
       await plugin.requestAuthorization({
-        all: authNames,
-        read: authNames,
+        read: readTypes,
         write: [],
       });
       const perMetric = await this.checkAuthorization(metrics);
@@ -435,9 +556,10 @@ class HealthKitService {
 
   /**
    * Best-effort per-metric authorisation snapshot. iOS does not expose read
-   * scope status, so `granted` only reflects whether the metric is supported
-   * by the installed plugin on iOS. Authoritative signal is `sourcesPresent`
-   * server-side after the first successful sync.
+   * scope status, so the plugin reports `readAuthorized` optimistically (any
+   * type whose status is not `notDetermined` is treated as authorised). The
+   * authoritative signal remains `sourcesPresent` server-side after the first
+   * successful sync.
    */
   async checkAuthorization(
     metrics: readonly HealthMetric[] = HEALTH_METRICS,
@@ -450,13 +572,44 @@ class HealthKitService {
       }));
     }
     const plugin = await getPlugin();
-    return metrics.map((metric) => {
-      const supported = pluginSampleName(metric) !== null;
-      return {
+    if (!plugin) {
+      return metrics.map((metric) => ({
         metric,
-        granted: Boolean(plugin) && supported,
-        rawStatus: supported ? "ios-read-opaque" : "plugin-unsupported",
-      };
+        granted: false,
+        rawStatus: "plugin-unavailable",
+      }));
+    }
+
+    const readTypes = uniqueReadTypes(metrics);
+    let authorised = new Set<string>();
+    let denied = new Set<string>();
+    try {
+      const status = await plugin.checkAuthorization({
+        read: readTypes,
+        write: [],
+      });
+      authorised = new Set(status?.readAuthorized ?? []);
+      denied = new Set(status?.readDenied ?? []);
+    } catch (err) {
+      debug("checkAuthorization rejected", { error: String(err) });
+    }
+
+    return metrics.map((metric) => {
+      const binding = metricBinding(metric);
+      if (!binding.dataType) {
+        return {
+          metric,
+          granted: false,
+          rawStatus: "plugin-unsupported",
+        };
+      }
+      if (denied.has(binding.dataType)) {
+        return { metric, granted: false, rawStatus: "ios-read-denied" };
+      }
+      if (authorised.has(binding.dataType)) {
+        return { metric, granted: true, rawStatus: "ios-read-authorized" };
+      }
+      return { metric, granted: false, rawStatus: "ios-read-not-determined" };
     });
   }
 
@@ -485,17 +638,18 @@ class HealthKitService {
         : now - INITIAL_BACKFILL_MS;
     const since = Math.max(0, baseSince);
 
-    // Many metrics share underlying plugin sample types (all 4 sleep stages
-    // collapse to one `sleepAnalysis` query). Dedupe by plugin sample-name
-    // so we issue each native query exactly once.
-    const seenSampleNames = new Set<string>();
+    // Many metrics share underlying plugin data types (all 4 sleep stages
+    // collapse to one `sleep` query). Dedupe by plugin dataType so we issue
+    // each native query exactly once. Workouts use a separate API path.
+    const seenDataTypes = new Set<PluginDataType>();
     const reads: Promise<RawSample[]>[] = [];
     for (const metric of HEALTH_METRICS) {
-      const sampleName = pluginSampleName(metric);
-      if (!sampleName || seenSampleNames.has(sampleName)) continue;
-      seenSampleNames.add(sampleName);
+      const binding = metricBinding(metric);
+      if (!binding.dataType) continue;
+      if (seenDataTypes.has(binding.dataType)) continue;
+      seenDataTypes.add(binding.dataType);
       const target: HealthMetric =
-        sampleName === "sleepAnalysis" ? "sleep_total" : metric;
+        binding.dataType === "sleep" ? "sleep_total" : metric;
       reads.push(readMetric(target, since, now));
     }
 
@@ -521,19 +675,25 @@ class HealthKitService {
   }
 
   /**
-   * Best-effort background-delivery enable. The installed plugin version does
-   * not expose this API — kept as a no-op so callers don't need a platform
-   * branch. Wire up when a native extension lands.
+   * Best-effort background-delivery enable.
+   *
+   * @capgo/capacitor-health v8.5.x does NOT expose
+   * `HKHealthStore.enableBackgroundDelivery` — there is no JS bridge for
+   * `enableBackgroundObserverQuery` yet (see plugin.ts `pluginMethods`). The
+   * wrapper keeps this method on the public surface so callers don't need a
+   * platform branch; replace with a real bridge call when the upstream
+   * plugin lands one (or via a thin in-house native extension).
+   *
+   * Until then sync runs on foreground / app-resume only — fine for v1 since
+   * the score engine recomputes on every sync, but worth tracking.
    */
-  async enableBackgroundDelivery(): Promise<void> {
+  async enableBackgroundDelivery(
+    _metrics: readonly HealthMetric[] = HEALTH_METRICS,
+  ): Promise<void> {
     if (!(await this.isAvailable())) return;
-    try {
-      debug("enableBackgroundDelivery: no-op (plugin support pending)");
-    } catch (err) {
-      logger.warn("healthKit: enableBackgroundDelivery failed", {
-        error: String(err),
-      });
-    }
+    debug(
+      "enableBackgroundDelivery: no-op — @capgo/capacitor-health does not yet expose this bridge",
+    );
   }
 
   /**

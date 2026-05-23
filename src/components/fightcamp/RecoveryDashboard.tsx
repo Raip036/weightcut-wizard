@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo, memo, lazy, Suspense } from "react";
-import { Activity, Brain, AlertTriangle, HelpCircle, ChevronRight, X, Check, Sparkles, Zap, BedDouble, Sun } from "lucide-react";
-import { motion, useReducedMotion } from "motion/react";
+import { Activity, Brain, AlertTriangle, HelpCircle, ChevronRight, ChevronDown, X, Flame, BedDouble, AlertOctagon, BarChart3 } from "lucide-react";
+import { motion, useReducedMotion, AnimatePresence } from "motion/react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
@@ -45,21 +45,29 @@ function AnimatedNumber({
 import { useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import { AIPersistence } from "@/lib/aiPersistence";
-import { RecoveryRing } from "./RecoveryRing";
 // Lazy-load the recharts-backed StrainChart so the ~100KB charts bundle defers until first paint.
 const StrainChart = lazy(() => import("./StrainChart").then(m => ({ default: m.StrainChart })));
 import { ReadinessBreakdownCard } from "./ReadinessBreakdownCard";
 import { BalanceMetricsCard } from "./BalanceMetricsCard";
 import { WellnessCheckIn } from "./WellnessCheckIn";
-import { RecoveryCoachChat } from "./RecoveryCoachChat";
-// DailyVerdictCard + BaselineConfidencePill are intentionally NOT imported —
-// their content is now inlined into the unified hero card below.
 import { WeeklyLoadPlan } from "./WeeklyLoadPlan";
 import { RecoveryHelpSheet } from "./RecoveryHelpSheet";
 import { computeAllMetrics, type SessionRow, type AllMetrics, type ReadinessResult, type WellnessCheckIn as WellnessCheckInData, type PersonalBaseline } from "@/utils/performanceEngine";
 import { loadOrComputeBaseline, computeAndStoreBaseline, storeReadinessScore } from "@/utils/baselineComputer";
 import { useUser } from "@/contexts/UserContext";
 import { logger } from "@/lib/logger";
+import ErrorBoundary from "@/components/ErrorBoundary";
+
+// Probe component: reads the streak query in isolation so an
+// undeployed-function error (e.g. local Convex not pushed yet) can be
+// swallowed by the surrounding ErrorBoundary without crashing the whole
+// dashboard. Reports the latest streak back to the parent via callback.
+function StreakProbe({ onStreak }: { onStreak: (n: number) => void }) {
+  const res = useQuery(api.wellness.getCheckInStreak, {});
+  const value = res?.streak ?? 0;
+  useEffect(() => { onStreak(value); }, [value, onStreak]);
+  return null;
+}
 
 interface AthleteBaseline {
   trainingFrequency: number | null;
@@ -76,91 +84,89 @@ interface RecoveryDashboardProps {
   tdee?: number | null;
 }
 
-// ── Verdict helpers (inlined from DailyVerdict.tsx for the unified hero) ──
-type Verdict = "push" | "steady" | "easy" | "recover";
-const VERDICT_COPY: Record<Verdict, { headline: string; icon: typeof Zap; color: string; bg: string; ring: string }> = {
-  push:    { headline: "Push today",     icon: Zap,        color: "text-func-recovery-green", bg: "bg-func-recovery-green/15", ring: "ring-func-recovery-green/30" },
-  steady:  { headline: "Steady session", icon: Activity,   color: "text-blue-300",    bg: "bg-blue-500/15",    ring: "ring-blue-500/30" },
-  easy:    { headline: "Take it light",  icon: Sun,        color: "text-func-warning-yellow",   bg: "bg-func-warning-yellow/15",   ring: "ring-func-warning-yellow/30" },
-  recover: { headline: "Recover today",  icon: BedDouble,  color: "text-func-danger-red",     bg: "bg-func-danger-red/15",     ring: "ring-func-danger-red/30" },
-};
-function deriveVerdict(metrics: AllMetrics): Verdict {
-  const { readiness, overtrainingRisk, loadZone, loadConfidence } = metrics;
-  const loadReliable = loadConfidence.isReliable;
-  if (overtrainingRisk.zone === "critical") return "recover";
-  if (readiness.label === "strained") return "recover";
-  if (overtrainingRisk.zone === "high") return "easy";
-  if (loadReliable && loadZone.zone === "overreaching") return "easy";
-  if (readiness.label === "recovering") return "easy";
-  if (
-    readiness.score >= 75 &&
-    overtrainingRisk.zone === "low" &&
-    (!loadReliable || loadZone.zone !== "overreaching")
-  ) {
-    return "push";
-  }
-  return "steady";
+// ── Plain-language verdict ─────────────────────────────────────────────
+// Single source of truth for readiness → user-facing copy. Thresholds match
+// the engine's label boundaries (80/55/35 in performanceEngine/readiness.ts),
+// nudged slightly toward the design brief.
+function readinessVerdict(score: number): { line: string; tone: string; tag: string } {
+  if (score >= 80) return { line: "You're locked in — push today.",   tone: "text-func-recovery-green", tag: "Push session" };
+  if (score >= 60) return { line: "Solid base — train smart.",        tone: "text-blue-300",            tag: "Steady session" };
+  if (score >= 40) return { line: "Run easy and watch fatigue.",      tone: "text-func-warning-yellow", tag: "Take it light" };
+  return                  { line: "Recover hard today.",              tone: "text-func-danger-red",     tag: "Recover today" };
 }
-function whyLine(metrics: AllMetrics, checkedInToday: boolean): string {
+
+// Sub-line ("why") shown under the verdict in smaller text.
+function contextLine(metrics: AllMetrics, checkedInToday: boolean): string {
   const { readiness, overtrainingRisk, loadZone, weeklySessionCount, loadConfidence } = metrics;
   const loadReliable = loadConfidence.isReliable;
-  if (overtrainingRisk.zone === "critical") return "Your body is showing real signs of doing too much. Take today off — it will pay off the rest of the week.";
-  if (overtrainingRisk.zone === "high") return "You've been pushing hard. Keep today light or skill-based instead of going all out.";
-  if (readiness.label === "strained") return "You're really run down. Focus on sleep, food, and stretching today. Train again tomorrow.";
-  if (readiness.label === "recovering") return "Your body is still catching up from recent training. A moderate session is the smart call today.";
-  if (loadReliable && loadZone.zone === "overreaching") return "You've trained much harder than usual this week. Take it easier today so your body can adapt.";
-  if (loadReliable && loadZone.zone === "detraining") return `Only ${weeklySessionCount} session${weeklySessionCount === 1 ? "" : "s"} this week. A solid session today will get you back into rhythm.`;
-  if (readiness.label === "peaked") return "Everything is looking good. This is a great day to push the intensity.";
-  if (!loadReliable) return "Still learning your normal training pattern. Train how your body feels today and check back in after a few more sessions.";
+  if (overtrainingRisk.zone === "critical") return "Real signs of overdoing it — a day off pays off the rest of the week.";
+  if (overtrainingRisk.zone === "high") return "You've been pushing hard. Keep today light or skill-based.";
+  if (readiness.label === "strained") return "Run down — focus on sleep, food, and stretching today.";
+  if (readiness.label === "recovering") return "Still catching up from recent work — a moderate session is the smart call.";
+  if (loadReliable && loadZone.zone === "overreaching") return "Much harder than usual this week. Ease off so your body can adapt.";
+  if (loadReliable && loadZone.zone === "detraining") return `Only ${weeklySessionCount} session${weeklySessionCount === 1 ? "" : "s"} this week. A solid effort today gets you back into rhythm.`;
+  if (!loadReliable) return "Still learning your normal training pattern. Train how your body feels.";
   if (!checkedInToday) return "Based on your recent training. Do a quick check-in for a more personalised read.";
-  return "Your training and recovery are well balanced. A normal session is the right call.";
-}
-function baselineConfidence(baseline: PersonalBaseline | null, totalCheckInDays: number): { label: string; detail: string; tone: string } {
-  const baselineUnlocked = baseline?.hooper_mean_14d != null;
-  const days = baselineUnlocked ? Math.max(totalCheckInDays, 14) : totalCheckInDays;
-  if (days >= 14) return { label: "Tuned to you", detail: `${days} days of data`, tone: "text-func-recovery-green bg-func-recovery-green/12 ring-func-recovery-green/30" };
-  if (days >= 7) return { label: "Tuning to you", detail: `${days}/14 days`, tone: "text-blue-300 bg-blue-500/12 ring-blue-500/30" };
-  return { label: "Learning your patterns", detail: `${days}/14 days`, tone: "text-func-warning-yellow bg-func-warning-yellow/12 ring-func-warning-yellow/30" };
+  return "Training and recovery are well balanced. A normal session is the right call.";
 }
 
-function getStrainColor(strain: number) {
-  if (strain <= 7) return { color: "hsl(var(--primary))", glow: "hsl(var(--primary))" };
-  if (strain <= 14) return { color: "#f59e0b", glow: "#f59e0b" };
-  return { color: "#ef4444", glow: "#ef4444" };
+function strainInterp(strain: number): string {
+  if (strain < 7)  return "Building";
+  if (strain < 12) return "Moderate";
+  if (strain < 17) return "Above your norm";
+  return            "All-out";
 }
 
-function getOTColor(zone: 'low' | 'moderate' | 'high' | 'critical') {
-  if (zone === 'low') return { color: "#22c55e", glow: "#22c55e" };
-  if (zone === 'moderate') return { color: "#f59e0b", glow: "#f59e0b" };
-  if (zone === 'high') return { color: "#ef4444", glow: "#ef4444" };
-  return { color: "#dc2626", glow: "#dc2626" }; // critical
+function strainColor(strain: number): string {
+  if (strain < 7)  return "text-foreground";
+  if (strain < 12) return "text-func-recovery-green";
+  if (strain < 17) return "text-func-warning-yellow";
+  return            "text-func-danger-red";
 }
 
-function getLoadZoneStyle(zone: string) {
+function otBadge(zone: 'low' | 'moderate' | 'high' | 'critical'): { label: string; tone: string } {
+  if (zone === "low")      return { label: "Low risk",      tone: "text-func-recovery-green bg-func-recovery-green/15" };
+  if (zone === "moderate") return { label: "Watch fatigue", tone: "text-func-warning-yellow bg-func-warning-yellow/15" };
+  if (zone === "high")     return { label: "High risk",    tone: "text-func-danger-red bg-func-danger-red/15" };
+  return                          { label: "Critical",       tone: "text-func-danger-red bg-func-danger-red/25" };
+}
+
+function loadZoneStyle(zone: string) {
   switch (zone) {
-    case 'optimal':
-      return { color: 'text-func-recovery-green', bg: 'bg-func-recovery-green/20' };
-    case 'detraining':
-      return { color: 'text-blue-400', bg: 'bg-blue-500/20' };
-    case 'pushing':
-      return { color: 'text-func-warning-yellow', bg: 'bg-func-warning-yellow/20' };
-    case 'overreaching':
-      return { color: 'text-func-danger-red', bg: 'bg-func-danger-red/20' };
-    default:
-      return { color: 'text-muted-foreground', bg: 'bg-accent/20' };
+    case 'optimal':     return 'text-func-recovery-green';
+    case 'detraining':  return 'text-blue-400';
+    case 'pushing':     return 'text-func-warning-yellow';
+    case 'overreaching':return 'text-func-danger-red';
+    default:            return 'text-muted-foreground';
   }
 }
 
-function getReadinessColor(label: ReadinessResult['label']) {
-  if (label === 'peaked') return { color: "#22c55e", glow: "#22c55e" };
-  if (label === 'ready') return { color: "hsl(var(--primary))", glow: "hsl(var(--primary))" };
-  if (label === 'recovering') return { color: "#f59e0b", glow: "#f59e0b" };
-  return { color: "#ef4444", glow: "#ef4444" }; // strained
+// Milestone streaks that trigger confetti. Chosen to feel rewarding but not
+// spammy — 3 is the "you're starting a habit" moment.
+const CONFETTI_MILESTONES = [3, 7, 14, 30, 60, 100];
+
+async function fireConfetti() {
+  // Dynamic import so canvas-confetti only loads when actually needed.
+  try {
+    const mod = await import("canvas-confetti");
+    const confetti = mod.default;
+    confetti({
+      particleCount: 80,
+      spread: 70,
+      origin: { y: 0.3 },
+      ticks: 90,
+      scalar: 0.9,
+    });
+  } catch (err) {
+    logger.warn("RecoveryDashboard: confetti failed to load", { err });
+  }
 }
 
 export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, userId, athleteProfile, tdee }: RecoveryDashboardProps) {
-  const { profile } = useUser();
+  const { profile: _profile } = useUser();
+  void _profile;
   const [metrics, setMetrics] = useState<AllMetrics | null>(null);
+  const prefersReduced = useReducedMotion();
 
   // Enhanced wellness state
   const [wellnessCheckIn, setWellnessCheckIn] = useState<WellnessCheckInData | null>(null);
@@ -170,6 +176,7 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
   const [sleepLogs, setSleepLogs] = useState<{ date: string; hours: number }[]>([]);
   const [helpOpen, setHelpOpen] = useState(false);
   const [wellnessSheetOpen, setWellnessSheetOpen] = useState(false);
+  const [expandedCard, setExpandedCard] = useState<string | null>(null);
   const baselineLoadedRef = useRef(false);
 
   const uniqueDays = new Set(sessions28d.map(s => s.date)).size;
@@ -183,22 +190,15 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
     return d.toISOString().split('T')[0];
   }, []);
 
-  // Today's wellness check-in (last 1 day window — `.unique()` enforced server-side).
   const checkinsRows = useQuery(api.wellness.listCheckins, userId ? { from: todayStr, to: todayStr, limit: 1 } : "skip");
-  // Total lifetime check-in count for the "consistency" metric. listCheckins
-  // caps to 90 by default which matches the prior estimate-count behaviour
-  // well enough for beta — past 90d the gradient flattens anyway.
   const checkinHistoryRows = useQuery(api.wellness.listCheckins, userId ? { limit: 90 } : "skip");
-  // 28d sleep logs.
   const sleepRows = useQuery(api.sleep_logs.listForUser, userId ? { limit: 90 } : "skip");
+  const [streak, setStreak] = useState(0);
 
-  // Reset baselineLoadedRef when userId changes to prevent cross-account data leak
   useEffect(() => {
     baselineLoadedRef.current = false;
   }, [userId]);
 
-  // Load baseline once on mount (still a one-shot — baseline computation is
-  // synchronous against the in-memory data and doesn't need to be reactive).
   useEffect(() => {
     if (baselineLoadedRef.current) return;
     baselineLoadedRef.current = true;
@@ -207,9 +207,6 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
       .catch((err) => logger.warn("RecoveryDashboard: baseline fetch failed", { err }));
   }, [userId, tdee]);
 
-  // Apply Convex subscription results to local state. Convex returns undefined
-  // until the first query lands; treat that as "still loading" and don't churn
-  // dependent state.
   useEffect(() => {
     if (!checkinsRows) return;
     const todayRow: any = checkinsRows[0];
@@ -244,70 +241,57 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
     setSleepLogs(filtered);
   }, [sleepRows, from28dStr]);
 
-  // Stable fingerprint for sessions28d so the metrics effect doesn't re-fire
-  // every Convex tick when the parent re-renders with a fresh-but-equivalent
-  // array reference. Joining id+date+updatedAt is enough: any meaningful
-  // session change touches one of those fields.
   const sessions28dFingerprint = useMemo(
     () => sessions28d.map((s: any) => `${s.id ?? s._id ?? ''}:${s.date ?? ''}:${s.updatedAt ?? s.updated_at ?? ''}`).join('|'),
     [sessions28d],
   );
 
-  // Compute metrics whenever sessions or wellness data changes
   useEffect(() => {
     const prevReadiness: number | null = AIPersistence.load(userId, 'prev_readiness');
-
     if (sessions28d.length > 0) {
       setMetrics(computeAllMetrics(
-        sessions28d,
-        athleteProfile?.trainingFrequency,
-        athleteProfile?.activityLevel,
-        wellnessCheckIn,
-        baseline,
-        prevReadiness,
-        sleepLogs,
+        sessions28d, athleteProfile?.trainingFrequency, athleteProfile?.activityLevel,
+        wellnessCheckIn, baseline, prevReadiness, sleepLogs,
       ));
     } else {
       setMetrics(computeAllMetrics(
-        [],
-        undefined,
-        undefined,
-        wellnessCheckIn,
-        baseline,
-        prevReadiness,
-        sleepLogs,
+        [], undefined, undefined, wellnessCheckIn, baseline, prevReadiness, sleepLogs,
       ));
     }
-    // sessions28d intentionally excluded — sessions28dFingerprint is the
-    // stable proxy. Same for sleepLogs (driven by sleepRows query).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessions28dFingerprint, athleteProfile?.trainingFrequency, athleteProfile?.activityLevel, wellnessCheckIn, baseline, userId, sleepLogs]);
 
-  // Store readiness for autoregressive smoothing when it changes (deduplicated)
   const lastStoredScoreRef = useRef<number | null>(null);
   useEffect(() => {
     const score = metrics?.readiness.score;
     if (score == null) return;
-    // Only write if score actually changed (avoids duplicate PATCH calls)
     if (lastStoredScoreRef.current === score) return;
     lastStoredScoreRef.current = score;
 
     AIPersistence.save(userId, 'prev_readiness', score, 48);
 
-    // Write back to check-in row if we checked in today
     if (todayCheckedIn) {
       const today = new Date().toISOString().split('T')[0];
       storeReadinessScore(userId, today, score);
     }
   }, [metrics?.readiness.score, userId, todayCheckedIn]);
 
-  // Handle wellness check-in submission
+  // ── Confetti on milestone streak ─────────────────────────────────────
+  useEffect(() => {
+    if (!userId || streak === 0) return;
+    if (prefersReduced) return;
+    if (!CONFETTI_MILESTONES.includes(streak)) return;
+    const storageKey = `recovery-streak-celebrated:${userId}`;
+    const lastCelebrated = Number(localStorage.getItem(storageKey) ?? "0");
+    if (lastCelebrated >= streak) return;
+    localStorage.setItem(storageKey, String(streak));
+    fireConfetti();
+  }, [streak, userId, prefersReduced]);
+
   const handleWellnessSubmit = useCallback(async (data: WellnessCheckInData) => {
     setWellnessCheckIn(data);
     setTodayCheckedIn(true);
     setCheckInDaysCount(prev => prev + 1);
-
-    // Recompute baseline in background after submission
     computeAndStoreBaseline(userId, tdee).then(b => {
       if (b) setBaseline(b);
     }).catch(() => {});
@@ -315,29 +299,27 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
 
   if (!metrics) return null;
 
-  const readinessColors = getReadinessColor(metrics.readiness.label);
-  const strainColors = getStrainColor(metrics.strain);
-  const otColors = getOTColor(metrics.overtrainingRisk.zone);
+  const verdict = readinessVerdict(metrics.readiness.score);
+  const why = contextLine(metrics, todayCheckedIn);
+  const ot = otBadge(metrics.overtrainingRisk.zone);
 
-  // ── Unified hero — derived values ───────────────────────────────────
-  const rawVerdict = deriveVerdict(metrics);
-  const verdict: Verdict = !metrics.loadConfidence.isReliable ? "steady" : rawVerdict;
-  const verdictCopy = VERDICT_COPY[verdict];
-  const VerdictIcon = verdictCopy.icon;
-  const why = whyLine(metrics, todayCheckedIn);
-  const confidence = baselineConfidence(baseline, checkInDaysCount);
+  const toggleCard = (id: string) => setExpandedCard(prev => prev === id ? null : id);
 
   return (
     <div className="space-y-4 mb-6">
-      {/* Unified hero — verdict + baseline pill + 3 rings + 4-stat strip,
-          all inside one card. Animated number count-up on the headline
-          readiness score; ring stroke draws on via the existing 800ms
-          transition. */}
+      {/* Isolated streak query — if the function isn't deployed yet
+          (or fails), the ErrorBoundary swallows it and `streak` stays 0. */}
+      {userId && (
+        <ErrorBoundary fallback={null} silent>
+          <StreakProbe onStreak={setStreak} />
+        </ErrorBoundary>
+      )}
+      {/* ── Hero card ─────────────────────────────────────────────────── */}
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: "spring", damping: 22, stiffness: 280 }}
-        className={`relative overflow-hidden card-surface rounded-xs border border-border ring-1 ${verdictCopy.ring} p-4`}
+        className="relative overflow-hidden card-surface rounded-2xl border border-border/50 p-5"
       >
         <button
           type="button"
@@ -348,150 +330,54 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
           <HelpCircle className="h-4 w-4" strokeWidth={2.2} />
         </button>
 
-        {/* Row 1 — verdict header + animated Readiness number */}
-        <div className="flex items-start gap-3 pr-9">
-          <div className={`h-12 w-12 shrink-0 rounded-xs flex items-center justify-center ${verdictCopy.bg}`}>
-            <VerdictIcon className={`h-6 w-6 ${verdictCopy.color}`} strokeWidth={2.2} />
+        {/* Top row: streak chip + today's-call tag */}
+        <div className="flex items-center gap-2 pr-9">
+          <div className="inline-flex items-center gap-1 rounded-full bg-orange-500/15 text-orange-300 px-2.5 py-1 text-[11px] font-bold ring-1 ring-orange-500/30">
+            <Flame className="h-3 w-3" strokeWidth={2.4} />
+            {streak > 0 ? `${streak}-day streak` : "Start a streak"}
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-[10px] uppercase tracking-[0.14em] font-semibold text-muted-foreground/70">
-              Today's call
-            </p>
-            <h2 className="text-[20px] font-bold tracking-tight text-foreground leading-tight">
-              {verdictCopy.headline}
-            </h2>
-          </div>
-          <div className="flex flex-col items-center leading-none shrink-0 min-w-[60px]">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60">Readiness</span>
-            <AnimatedNumber
-              value={metrics.readiness.score}
-              className="mt-1.5 text-[26px] font-bold tabular-nums text-foreground"
-            />
-          </div>
-        </div>
-        <p className="text-[13px] text-foreground/85 leading-snug mt-2.5">{why}</p>
-
-        {/* Baseline confidence — slim inline chip */}
-        <div className={`mt-3 inline-flex items-center gap-1.5 rounded-full ring-1 px-2.5 py-1 text-[11px] font-semibold ${confidence.tone}`}>
-          <Sparkles className="h-3 w-3" />
-          {confidence.label}
-          <span className="opacity-70 font-medium">· {confidence.detail}</span>
-        </div>
-
-        {/* Divider */}
-        <div className="my-4 h-px bg-border/30" aria-hidden />
-
-        {/* 3 rings — equal size, larger and clearer */}
-        <div className="grid grid-cols-3 gap-2">
-          <div className="flex justify-center">
-            <RecoveryRing
-              value={metrics.readiness.score}
-              max={100}
-              color={readinessColors.color}
-              glowColor={readinessColors.glow}
-              label="Readiness"
-              size={92}
-              strokeWidth={9}
-              displayValue={`${metrics.readiness.score}`}
-              sublabel={metrics.readiness.label}
-            />
-          </div>
-          <div className="flex justify-center">
-            <RecoveryRing
-              value={metrics.strain}
-              max={21}
-              color={strainColors.color}
-              glowColor={strainColors.glow}
-              label="Strain"
-              size={92}
-              strokeWidth={9}
-              displayValue={metrics.strain.toFixed(1)}
-              sublabel="/ 21"
-            />
-          </div>
-          <div className="flex justify-center">
-            <RecoveryRing
-              value={metrics.overtrainingRisk.score}
-              max={100}
-              color={otColors.color}
-              glowColor={otColors.glow}
-              label="OT Risk"
-              size={92}
-              strokeWidth={9}
-              displayValue={`${Math.round(metrics.overtrainingRisk.score)}`}
-              sublabel={metrics.overtrainingRisk.zone}
-            />
+          <div className="ml-auto text-[10px] uppercase tracking-[0.14em] font-semibold text-muted-foreground/70">
+            Today's call · <span className="text-foreground/80 normal-case tracking-normal font-bold">{verdict.tag}</span>
           </div>
         </div>
 
-        {/* Stats strip — bottom of the hero, with a divider */}
-        <div className="mt-4 pt-3 grid grid-cols-4 gap-1.5 border-t border-border/30">
-          <div className="text-center">
-            <div className="text-sm font-bold display-number text-foreground tabular-nums">{metrics.weeklySessionCount}</div>
-            <div className="text-[8px] text-muted-foreground uppercase tracking-wider leading-tight">Sessions/wk</div>
-          </div>
-          <div className="text-center">
-            {metrics.loadConfidence.isReliable ? (
-              <div className={`text-sm font-bold display-number truncate ${getLoadZoneStyle(metrics.loadZone.zone).color}`}>{metrics.loadZone.label}</div>
-            ) : (
-              <div className="text-sm font-bold display-number truncate text-muted-foreground">Building</div>
-            )}
-            <div className="text-[8px] text-muted-foreground uppercase tracking-wider leading-tight">Training Load</div>
-          </div>
-          <div className="text-center">
-            <div className="text-sm font-bold display-number text-foreground tabular-nums">{metrics.sleepScore}</div>
-            <div className="text-[8px] text-muted-foreground uppercase tracking-wider leading-tight">Sleep Score</div>
-          </div>
-          <div className="text-center">
-            <div className="text-sm font-bold display-number text-foreground tabular-nums">
-              {metrics.avgSleepLast3 > 0 ? `${metrics.avgSleepLast3.toFixed(1)}h` : "—"}
-            </div>
-            <div className="text-[8px] text-muted-foreground uppercase tracking-wider leading-tight">3-Night Avg</div>
-          </div>
+        {/* Center: huge readiness number */}
+        <div className="mt-4 flex flex-col items-center text-center">
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold">Readiness</span>
+          <AnimatedNumber
+            value={metrics.readiness.score}
+            className="text-[72px] leading-none font-display font-bold tabular-nums text-foreground"
+          />
+          <p className={`mt-3 text-[18px] font-semibold leading-snug ${verdict.tone}`}>
+            {verdict.line}
+          </p>
+          <p className="mt-1.5 text-[12px] text-muted-foreground leading-snug max-w-[34ch]">
+            {why}
+          </p>
         </div>
       </motion.div>
 
-      {/* Readiness Breakdown Card (toggleable, default closed) — kept
-          separate from the hero so it doesn't bloat the primary view. */}
-      <ReadinessBreakdownCard
-        breakdown={metrics.readiness.breakdown}
-        totalCheckInDays={checkInDaysCount}
-      />
-
-      {/* 2.6) Wellness check-in / Recovery Coach.
-          When not yet checked in today, show a compact tile that opens the
-          full 4-step form in a bottom sheet (was inline — took a screen).
-          Once submitted, the coach chat replaces it. */}
-      {!hasEnoughData ? (
-        <div className="card-surface rounded-xs p-4 border border-border">
-          <div className="flex items-center gap-2 mb-3">
-            <Brain className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-bold">Recovery Coach</h2>
-          </div>
-          <div className="text-center py-6 text-sm text-muted-foreground">
-            Log a session to unlock the coach.
-          </div>
-        </div>
-      ) : !todayCheckedIn ? (
+      {/* ── Daily check-in tile (above the stack so it's prominent) ─── */}
+      {!todayCheckedIn && hasEnoughData && (
         <button
           type="button"
           onClick={() => setWellnessSheetOpen(true)}
-          className="group w-full text-left card-surface rounded-xs p-4 border border-primary/25 hover:border-primary/40 active:scale-[0.99] transition-all"
+          className="group w-full text-left card-surface rounded-2xl p-4 border border-primary/30 hover:border-primary/50 active:scale-[0.99] transition-all"
           aria-label="Open daily check-in"
         >
           <div className="flex items-center gap-3">
-            <div className="h-11 w-11 shrink-0 rounded-xs bg-primary/15 ring-1 ring-primary/25 flex items-center justify-center">
+            <div className="h-11 w-11 shrink-0 rounded-2xl bg-primary/15 ring-1 ring-primary/25 flex items-center justify-center">
               <Brain className="h-5 w-5 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary/80">
-                Daily check-in
+                Daily check-in {streak > 0 ? `· keep your ${streak}-day streak` : ""}
               </p>
               <p className="mt-0.5 text-[15px] font-semibold leading-tight text-foreground">
                 How are you feeling today?
               </p>
               <p className="mt-0.5 text-[11px] text-muted-foreground leading-snug">
-                4 quick taps · unlocks the recovery coach
+                4 quick taps
               </p>
             </div>
             <span className="inline-flex items-center gap-1 shrink-0 text-[10px] font-bold uppercase tracking-wider text-primary group-hover:translate-x-0.5 transition-transform">
@@ -500,11 +386,177 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
             </span>
           </div>
         </button>
-      ) : (
-        <RecoveryCoachChat userId={userId} userName={profile?.full_name ?? null} />
       )}
 
-      {/* Wellness check-in sheet — opens from the tile above */}
+      {/* ── Expandable card stack ────────────────────────────────────── */}
+      <div className="space-y-2.5">
+        <ExpandableMetricCard
+          id="strain"
+          icon={Activity}
+          iconTone="text-orange-300 bg-orange-500/15"
+          title="Strain"
+          summary={
+            <>
+              <AnimatedNumber value={metrics.strain} format={(n) => n.toFixed(1)} className={`text-[18px] font-bold tabular-nums ${strainColor(metrics.strain)}`} />
+              <span className="text-muted-foreground text-[12px] ml-1">/ 21</span>
+              <span className="ml-2 text-[12px] text-muted-foreground">{strainInterp(metrics.strain)}</span>
+            </>
+          }
+          expanded={expandedCard === "strain"}
+          onToggle={() => toggleCard("strain")}
+        >
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3 font-semibold">
+            7-day strain trend
+          </div>
+          <Suspense fallback={<div className="h-[180px] w-full animate-pulse bg-muted/20 rounded-xs" />}>
+            <StrainChart strainHistory={metrics.strainHistory} forecast={metrics.forecast} />
+          </Suspense>
+          <div className="mt-4 pt-3 grid grid-cols-3 gap-3 border-t border-border/30">
+            <ProjectedStat label="Strain" value={<AnimatedNumber value={metrics.forecast.predictedStrain} format={(n) => n.toFixed(1)} className="text-[22px] font-bold display-number text-foreground tabular-nums" />} />
+            <ProjectedStat label="Load" value={
+              metrics.loadConfidence.isReliable ? (
+                <div className={`text-[18px] font-bold ${loadZoneStyle(metrics.forecast.predictedLoadZone.zone)}`}>
+                  {metrics.forecast.predictedLoadZone.label}
+                </div>
+              ) : (
+                <div className="text-[18px] font-bold text-muted-foreground">Building</div>
+              )
+            } />
+            <ProjectedStat label="OT score" value={<AnimatedNumber value={Math.round(metrics.forecast.predictedOvertrainingScore)} className="text-[22px] font-bold display-number text-foreground tabular-nums" />} />
+          </div>
+        </ExpandableMetricCard>
+
+        <ExpandableMetricCard
+          id="sleep"
+          icon={BedDouble}
+          iconTone="text-blue-300 bg-blue-500/15"
+          title="Sleep"
+          summary={
+            <>
+              <AnimatedNumber value={metrics.sleepScore} className="text-[18px] font-bold tabular-nums text-foreground" />
+              <span className="text-muted-foreground text-[12px] ml-1">/ 100</span>
+              <span className="ml-2 text-[12px] text-muted-foreground">
+                3-night avg: {metrics.avgSleepLast3 > 0 ? `${metrics.avgSleepLast3.toFixed(1)}h` : "—"}
+              </span>
+            </>
+          }
+          expanded={expandedCard === "sleep"}
+          onToggle={() => toggleCard("sleep")}
+        >
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xs bg-muted/20 p-3">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Last night</div>
+              <div className="mt-1 text-[24px] font-bold tabular-nums text-foreground">
+                {metrics.latestSleep > 0 ? `${metrics.latestSleep.toFixed(1)}h` : "—"}
+              </div>
+            </div>
+            <div className="rounded-xs bg-muted/20 p-3">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">3-night average</div>
+              <div className="mt-1 text-[24px] font-bold tabular-nums text-foreground">
+                {metrics.avgSleepLast3 > 0 ? `${metrics.avgSleepLast3.toFixed(1)}h` : "—"}
+              </div>
+            </div>
+          </div>
+          {sleepLogs.length > 0 && (
+            <div className="mt-3">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2 font-semibold">Last 7 nights</div>
+              <SleepSparkline logs={sleepLogs.slice(-7)} />
+            </div>
+          )}
+          <div className="mt-3 text-[12px] text-muted-foreground leading-snug">
+            Sleep score blends duration vs. your needs and recent consistency. Aim for 7-9 hours, consistent bed-time.
+          </div>
+        </ExpandableMetricCard>
+
+        <ExpandableMetricCard
+          id="risk"
+          icon={AlertOctagon}
+          iconTone={`${ot.tone}`}
+          title="Overtraining risk"
+          summary={
+            <>
+              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold ${ot.tone}`}>
+                {ot.label}
+              </span>
+              <span className="ml-2 text-[12px] text-muted-foreground tabular-nums">
+                {Math.round(metrics.overtrainingRisk.score)} / 100
+              </span>
+            </>
+          }
+          expanded={expandedCard === "risk"}
+          onToggle={() => toggleCard("risk")}
+        >
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xs bg-muted/20 p-3">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">7d avg RPE</div>
+              <div className="mt-1 text-[22px] font-bold tabular-nums text-foreground">{metrics.avgRPE7d.toFixed(1)}</div>
+            </div>
+            <div className="rounded-xs bg-muted/20 p-3">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">7d sessions</div>
+              <div className="mt-1 text-[22px] font-bold tabular-nums text-foreground">{metrics.sessionsLast7d}</div>
+            </div>
+            <div className="rounded-xs bg-muted/20 p-3">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Consecutive high days</div>
+              <div className="mt-1 text-[22px] font-bold tabular-nums text-foreground">{metrics.consecutiveHighDays}</div>
+            </div>
+            <div className="rounded-xs bg-muted/20 p-3">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">7d soreness</div>
+              <div className="mt-1 text-[22px] font-bold tabular-nums text-foreground">{metrics.avgSoreness7d.toFixed(1)}</div>
+            </div>
+          </div>
+          {metrics.balanceMetrics && metrics.balanceMetrics.length > 0 && (
+            <div className="mt-4 pt-3 border-t border-border/30">
+              <BalanceMetricsCard balanceMetrics={metrics.balanceMetrics} />
+            </div>
+          )}
+        </ExpandableMetricCard>
+
+        <ExpandableMetricCard
+          id="weekly"
+          icon={BarChart3}
+          iconTone="text-func-recovery-green bg-func-recovery-green/15"
+          title="Weekly load"
+          summary={
+            <>
+              {metrics.loadConfidence.isReliable ? (
+                <span className={`text-[14px] font-bold ${loadZoneStyle(metrics.loadZone.zone)}`}>{metrics.loadZone.label}</span>
+              ) : (
+                <span className="text-[14px] font-bold text-muted-foreground">Building baseline</span>
+              )}
+              <span className="ml-2 text-[12px] text-muted-foreground">{metrics.weeklySessionCount} session{metrics.weeklySessionCount === 1 ? "" : "s"} this week</span>
+            </>
+          }
+          expanded={expandedCard === "weekly"}
+          onToggle={() => toggleCard("weekly")}
+        >
+          <WeeklyLoadPlan metrics={metrics} />
+        </ExpandableMetricCard>
+      </div>
+
+      {/* Readiness Breakdown Card (kept standalone — has its own collapse) */}
+      <ReadinessBreakdownCard
+        breakdown={metrics.readiness.breakdown}
+        totalCheckInDays={checkInDaysCount}
+      />
+
+      {/* Caloric Deficit Banner */}
+      {metrics.deficitImpactScore != null && metrics.deficitImpactScore < 60 && baseline?.avg_deficit_7d != null && (
+        <div className="card-surface rounded-2xl p-3 border border-func-warning-yellow/30 bg-func-warning-yellow/5">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-func-warning-yellow shrink-0" />
+            <div>
+              <p className="text-xs font-semibold text-func-warning-yellow">
+                Caloric Deficit Impacting Recovery
+              </p>
+              <p className="text-[10px] text-func-warning-yellow/70 mt-0.5">
+                {Math.abs(baseline.avg_deficit_7d).toFixed(0)}kcal avg deficit (7d) — recovery impact score {metrics.deficitImpactScore}/100
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Wellness check-in sheet */}
       <Sheet open={wellnessSheetOpen} onOpenChange={setWellnessSheetOpen}>
         <SheetContent
           side="bottom"
@@ -539,142 +591,91 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
         </SheetContent>
       </Sheet>
 
-      {/* Caloric Deficit Banner — promoted ABOVE the Trends card because
-          it's a state alert, not historical data. */}
-      {metrics.deficitImpactScore != null && metrics.deficitImpactScore < 60 && baseline?.avg_deficit_7d != null && (
-        <div className="card-surface rounded-xs p-3 border border-func-warning-yellow/30 bg-func-warning-yellow/5">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-func-warning-yellow shrink-0" />
-            <div>
-              <p className="text-xs font-semibold text-func-warning-yellow">
-                Caloric Deficit Impacting Recovery
-              </p>
-              <p className="text-[10px] text-func-warning-yellow/70 mt-0.5">
-                {Math.abs(baseline.avg_deficit_7d).toFixed(0)}kcal avg deficit (7d) — recovery impact score {metrics.deficitImpactScore}/100
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Unified Trends card — internal tabs swap between the 4 data
-          views (Week plan · Strain chart · Tomorrow forecast · Balance
-          metrics). Replaces 4 separate stacked cards. */}
-      <TrendsCard
-        metrics={metrics}
-        hasBalanceMetrics={!!(metrics.balanceMetrics && metrics.balanceMetrics.length > 0)}
-      />
-
-      {/* Single help sheet — triggered from the ? on the Performance card. */}
       <RecoveryHelpSheet open={helpOpen} onOpenChange={setHelpOpen} />
     </div>
   );
 });
 
-// ── Trends card — tabbed shell ─────────────────────────────────────────
-// Merges Weekly Load Plan, 7-day Strain Chart, Tomorrow's projection, and
-// Balance Metrics into a single card with tab pills at the top. Cuts the
-// page footprint by ~4 cards.
-type TrendsTab = "week" | "strain" | "tomorrow" | "balance";
+// ── Helpers ────────────────────────────────────────────────────────────
 
-function TrendsCard({
-  metrics,
-  hasBalanceMetrics,
-}: {
-  metrics: AllMetrics;
-  hasBalanceMetrics: boolean;
-}) {
-  const [tab, setTab] = useState<TrendsTab>("week");
-  const tabs: Array<{ id: TrendsTab; label: string; visible: boolean }> = [
-    { id: "week",     label: "Week",     visible: true },
-    { id: "strain",   label: "Strain",   visible: true },
-    { id: "tomorrow", label: "Tomorrow", visible: true },
-    { id: "balance",  label: "Balance",  visible: hasBalanceMetrics },
-  ];
-  const visibleTabs = tabs.filter((t) => t.visible);
-  const activeTab = visibleTabs.some((t) => t.id === tab) ? tab : visibleTabs[0]?.id;
-
+function ProjectedStat({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="card-surface rounded-xs border border-border overflow-hidden">
-      {/* Tab pills */}
-      <div className="flex items-center gap-1 p-1.5 bg-muted/20">
-        {visibleTabs.map((t) => {
-          const active = activeTab === t.id;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setTab(t.id)}
-              className={`relative flex-1 h-8 rounded-full text-[12px] font-semibold transition-colors ${
-                active ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-              }`}
-              aria-pressed={active}
-            >
-              {active && (
-                <motion.span
-                  layoutId="trends-tab-pill"
-                  className="absolute inset-0 rounded-full bg-primary"
-                  transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                />
-              )}
-              <span className="relative z-10">{t.label}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Active tab content */}
-      <div className="p-4">
-        {activeTab === "week" && <WeeklyLoadPlan metrics={metrics} />}
-        {activeTab === "strain" && (
-          <>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3 font-semibold">
-              7-day strain trend
-            </div>
-            <Suspense fallback={<div className="h-[180px] w-full animate-pulse bg-muted/20 rounded-xs" />}>
-              <StrainChart strainHistory={metrics.strainHistory} forecast={metrics.forecast} />
-            </Suspense>
-          </>
-        )}
-        {activeTab === "tomorrow" && (
-          <>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3 font-semibold">
-              Projected tomorrow
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="text-center">
-                <AnimatedNumber
-                  value={metrics.forecast.predictedStrain}
-                  format={(n) => n.toFixed(1)}
-                  className="text-[22px] font-bold display-number text-foreground tabular-nums"
-                />
-                <div className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider">Strain</div>
-              </div>
-              <div className="text-center">
-                {metrics.loadConfidence.isReliable ? (
-                  <div className={`text-[18px] font-bold ${getLoadZoneStyle(metrics.forecast.predictedLoadZone.zone).color}`}>
-                    {metrics.forecast.predictedLoadZone.label}
-                  </div>
-                ) : (
-                  <div className="text-[18px] font-bold text-muted-foreground">Building</div>
-                )}
-                <div className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider">Load</div>
-              </div>
-              <div className="text-center">
-                <AnimatedNumber
-                  value={Math.round(metrics.forecast.predictedOvertrainingScore)}
-                  className="text-[22px] font-bold display-number text-foreground tabular-nums"
-                />
-                <div className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider">OT score</div>
-              </div>
-            </div>
-          </>
-        )}
-        {activeTab === "balance" && metrics.balanceMetrics && (
-          <BalanceMetricsCard balanceMetrics={metrics.balanceMetrics} />
-        )}
-      </div>
+    <div className="text-center">
+      {value}
+      <div className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider">{label}</div>
     </div>
   );
 }
 
+function SleepSparkline({ logs }: { logs: { date: string; hours: number }[] }) {
+  if (logs.length === 0) return null;
+  const max = Math.max(9, ...logs.map(l => l.hours));
+  return (
+    <div className="flex items-end gap-1 h-12">
+      {logs.map((l) => {
+        const pct = Math.max(8, (l.hours / max) * 100);
+        const colour = l.hours >= 7 ? "bg-func-recovery-green/60" : l.hours >= 6 ? "bg-func-warning-yellow/60" : "bg-func-danger-red/60";
+        return (
+          <div key={l.date} className="flex-1 flex flex-col items-center gap-1">
+            <div className={`w-full rounded-sm ${colour}`} style={{ height: `${pct}%` }} title={`${l.date}: ${l.hours}h`} />
+            <span className="text-[9px] text-muted-foreground tabular-nums">{l.hours.toFixed(0)}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── ExpandableMetricCard ───────────────────────────────────────────────
+// Single-line collapsed summary; tap to expand into the children content.
+// Uses motion's AnimatePresence + height: "auto" for a smooth reveal.
+type ExpandableMetricCardProps = {
+  id: string;
+  icon: React.ComponentType<any>;
+  iconTone: string;
+  title: string;
+  summary: React.ReactNode;
+  expanded: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+};
+
+function ExpandableMetricCard({ icon: Icon, iconTone, title, summary, expanded, onToggle, children }: ExpandableMetricCardProps) {
+  return (
+    <div className="card-surface rounded-2xl border border-border/50 overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center gap-3 p-4 text-left active:bg-muted/10 transition-colors"
+        aria-expanded={expanded}
+      >
+        <div className={`h-10 w-10 shrink-0 rounded-xl flex items-center justify-center ${iconTone}`}>
+          <Icon className="h-5 w-5" strokeWidth={2.2} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[10px] uppercase tracking-[0.14em] font-semibold text-muted-foreground/70">{title}</div>
+          <div className="mt-0.5 flex items-baseline flex-wrap gap-x-1">{summary}</div>
+        </div>
+        <motion.div animate={{ rotate: expanded ? 180 : 0 }} transition={{ duration: 0.2 }} className="shrink-0 text-muted-foreground">
+          <ChevronDown className="h-4 w-4" strokeWidth={2.4} />
+        </motion.div>
+      </button>
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            key="content"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ height: { duration: 0.25 }, opacity: { duration: 0.2 } }}
+            className="overflow-hidden"
+          >
+            <div className="px-4 pb-4 pt-1 border-t border-border/30">
+              {children}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
