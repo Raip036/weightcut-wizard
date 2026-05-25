@@ -1,14 +1,15 @@
-import { useState, type CSSProperties } from "react";
+import { useState, useRef, useEffect, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ShareButton } from "@/components/share/ShareButton";
 import { ShareCardDialog } from "@/components/share/ShareCardDialog";
 import { FightFormScoreCard } from "@/components/share/cards/FightFormScoreCard";
 import { FightFormTrendSparkline } from "./FightFormTrendSparkline";
-import { FightFormSubScoreTile, type TrendPoint } from "./FightFormSubScoreTile";
+import { type TrendPoint } from "./FightFormSubScoreTile";
 import { Icon, type IonIconName } from "@/components/ui/Icon";
 import { cn } from "@/lib/utils";
+import { triggerHapticSelection } from "@/lib/haptics";
 import type {
   FightFormLabel,
   FightFormState,
@@ -234,7 +235,6 @@ export function FightFormScoreSheet(p: Props) {
   const [shareVariant, setShareVariant] = useState<"dark" | "transparent">("dark");
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const navigate = useNavigate();
-  const prefersReducedMotion = useReducedMotion();
 
   // Resolve the cap list — see the prop docs above.
   const caps: Cap[] =
@@ -427,162 +427,17 @@ export function FightFormScoreSheet(p: Props) {
           </div>
         )}
 
-        {/* ─── Unlocked state — tile grid + drill-down ────────────────── */}
+        {/* ─── Unlocked state — horizontal carousel ──────────────────── */}
         {!isCalibrating && p.subScores && (
-          <div className="mt-6 space-y-3">
-            <div className="section-header">What's driving your score</div>
-            <div className="grid grid-cols-2 gap-2">
-              {SUBSCORE_ORDER.filter((key) => p.subScores && p.subScores[key]).map((key) => {
-                const sub = p.subScores![key];
-                const yesterday = p.yesterdaySubScores?.[key];
-                const trend = p.subScoreTrend?.[key];
-                return (
-                  <FightFormSubScoreTile
-                    key={key}
-                    subKey={key}
-                    label={SUBSCORE_LABEL[key] ?? key}
-                    icon={SUBSCORE_ICON[key] ?? "ellipseOutline"}
-                    value={sub.value}
-                    yesterdayValue={yesterday}
-                    trend={trend}
-                    expanded={expandedKey === key}
-                    onToggle={() =>
-                      setExpandedKey((prev) => (prev === key ? null : key))
-                    }
-                  />
-                );
-              })}
-            </div>
-
-            {/* Drill-down panel — one open at a time. Animated height so
-                the grid above doesn't jump on collapse. */}
-            <AnimatePresence initial={false}>
-              {expandedKey && p.subScores[expandedKey] && (
-                <motion.div
-                  key={expandedKey}
-                  id={`subscore-detail-${expandedKey}`}
-                  initial={prefersReducedMotion ? false : { height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={prefersReducedMotion ? { opacity: 0 } : { height: 0, opacity: 0 }}
-                  transition={
-                    prefersReducedMotion
-                      ? { duration: 0 }
-                      : { duration: 0.22, ease: "easeOut" }
-                  }
-                  className="overflow-hidden"
-                >
-                  {(() => {
-                    const sub = p.subScores[expandedKey];
-                    const tier = subScoreTier(sub.value);
-                    const tierBarClass = TIER_BAR[tier];
-                    const contribution = sub.value * sub.weight;
-                    const fillPct = Math.max(0, Math.min(100, sub.value));
-                    const subActions = LIMITER_ACTIONS[expandedKey] ?? null;
-                    return (
-                      <div className="rounded-xs border border-border/40 bg-muted/15 px-3.5 py-3.5 space-y-3">
-                        {/* 1. Header — icon + label + big tabular value */}
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <Icon
-                              name={SUBSCORE_ICON[expandedKey] ?? "ellipseOutline"}
-                              size={14}
-                              className="text-foreground shrink-0"
-                            />
-                            <span className="text-body-sm font-semibold truncate">
-                              {SUBSCORE_LABEL[expandedKey] ?? expandedKey}
-                            </span>
-                          </div>
-                          <span className="display-number text-base tabular-nums">
-                            {sub.value}
-                          </span>
-                        </div>
-
-                        {/* 2. WHY — one-line summary of what the score means */}
-                        <p className="text-note text-foreground/85 leading-snug">
-                          {summarizeSubScore(expandedKey, sub.value)}
-                        </p>
-
-                        {/* 3. HOW — contribution bar + numeric pts.
-                            Hidden when weight === 0 (e.g. the recovery
-                            sub-score, which exists but isn't yet counted
-                            toward the overall score). */}
-                        {sub.weight > 0 && (
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <div
-                                className="flex-1 h-1.5 rounded-full bg-muted/40 overflow-hidden"
-                                aria-hidden
-                              >
-                                <div
-                                  className={cn("h-full rounded-full", tierBarClass)}
-                                  style={{ width: `${fillPct}%` }}
-                                />
-                              </div>
-                              <span className="text-micro font-semibold tabular-nums text-foreground/90 shrink-0">
-                                +{contribution.toFixed(1)} pts
-                              </span>
-                            </div>
-                            <div className="text-[10px] uppercase tracking-wide text-muted-foreground/70 font-medium">
-                              Contribution to score
-                            </div>
-                          </div>
-                        )}
-
-                        {/* 4. Sparkline — 14-day trend for this sub-score */}
-                        {p.subScoreTrend?.[expandedKey] &&
-                          p.subScoreTrend[expandedKey].length >= 2 && (
-                            <div className="h-14 rounded-xs bg-background/40 p-2">
-                              <FightFormTrendSparkline
-                                points={p.subScoreTrend[expandedKey].map((pt) => ({
-                                  date: pt.date,
-                                  score: pt.value,
-                                  state: "ok" as FightFormState,
-                                }))}
-                                accentClass={accentForLabel}
-                              />
-                            </div>
-                          )}
-
-                        {/* 5. WHAT — actionable next steps, reusing the
-                            global Focus card's chevron-row treatment for
-                            visual coherence. */}
-                        {subActions && subActions.length > 0 && (
-                          <div className="space-y-2">
-                            <div className="section-header">What you can do</div>
-                            <ul className="space-y-1">
-                              {subActions.map((action) => (
-                                <li key={action.label}>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleActionTap(action.route)}
-                                    className="w-full flex items-center justify-between gap-2 rounded-xs px-2 py-2 text-left text-body-sm text-foreground/90 active:bg-primary/10 transition-colors"
-                                  >
-                                    <span className="flex items-center gap-2 min-w-0">
-                                      <Icon
-                                        name="arrowForwardOutline"
-                                        size={14}
-                                        className="text-primary shrink-0"
-                                      />
-                                      <span className="truncate">{action.label}</span>
-                                    </span>
-                                    <Icon
-                                      name="chevronForwardOutline"
-                                      size={12}
-                                      className="text-muted-foreground/60 shrink-0"
-                                    />
-                                  </button>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+          <SubScoreCarousel
+            subScores={p.subScores}
+            yesterdaySubScores={p.yesterdaySubScores}
+            subScoreTrend={p.subScoreTrend}
+            onTap={(key) => {
+              triggerHapticSelection();
+              setExpandedKey(key);
+            }}
+          />
         )}
 
         {/* Overall 14-day trend — now lives below the primary content.
@@ -672,6 +527,312 @@ export function FightFormScoreSheet(p: Props) {
           );
         }}
       </ShareCardDialog>
+
+      {/* Sub-score drill-down dialog — opened from the carousel above.
+          Centred modal rather than a nested bottom sheet so the parent
+          Sheet's scroll position is preserved on close. */}
+      <SubScoreDialog
+        subKey={expandedKey}
+        sub={expandedKey && p.subScores ? p.subScores[expandedKey] ?? null : null}
+        trend={expandedKey ? p.subScoreTrend?.[expandedKey] ?? null : null}
+        accentClass={accentForLabel}
+        onClose={() => setExpandedKey(null)}
+        onAction={handleActionTap}
+      />
     </Sheet>
+  );
+}
+
+/* ─── Sub-score carousel ─────────────────────────────────────────────── */
+
+interface SubScoreCarouselProps {
+  subScores: Record<string, SubScore>;
+  yesterdaySubScores?: Record<string, number>;
+  subScoreTrend?: Record<string, TrendPoint[]>;
+  onTap: (key: string) => void;
+}
+
+function SubScoreCarousel({
+  subScores,
+  yesterdaySubScores,
+  subScoreTrend,
+  onTap,
+}: SubScoreCarouselProps) {
+  // Worst-first order: cards with the lowest value land in the first
+  // slot so the user lands on the most actionable one. Sub-scores
+  // missing from `subScores` are filtered out; weight:0 cards keep
+  // their relative position but float to the end (they have no data).
+  const ordered = SUBSCORE_ORDER
+    .filter((k) => !!subScores[k])
+    .sort((a, b) => {
+      const sa = subScores[a];
+      const sb = subScores[b];
+      const wa = sa.weight > 0 ? 0 : 1;
+      const wb = sb.weight > 0 ? 0 : 1;
+      if (wa !== wb) return wa - wb;
+      return sa.value - sb.value;
+    });
+
+  const railRef = useRef<HTMLDivElement>(null);
+  const [activeIdx, setActiveIdx] = useState(0);
+  useEffect(() => {
+    const el = railRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const cards = el.querySelectorAll<HTMLButtonElement>("[data-subscore-card]");
+      if (cards.length === 0) return;
+      const center = el.scrollLeft + el.clientWidth / 2;
+      let best = 0;
+      let bestDist = Infinity;
+      cards.forEach((c, i) => {
+        const cardCenter = c.offsetLeft + c.offsetWidth / 2;
+        const d = Math.abs(cardCenter - center);
+        if (d < bestDist) {
+          bestDist = d;
+          best = i;
+        }
+      });
+      setActiveIdx(best);
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [ordered.length]);
+
+  return (
+    <div className="mt-6 space-y-2">
+      <div className="section-header px-1">What's driving your score</div>
+      <div
+        ref={railRef}
+        className="flex gap-2 overflow-x-auto -mx-5 px-5 pb-1 snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        style={{ scrollPaddingLeft: "1.25rem", scrollPaddingRight: "1.25rem" }}
+      >
+        {ordered.map((key) => {
+          const sub = subScores[key];
+          const yesterday = yesterdaySubScores?.[key];
+          const delta = yesterday !== undefined ? sub.value - yesterday : null;
+          const tier = subScoreTier(sub.value);
+          const trend = subScoreTrend?.[key];
+          return (
+            <button
+              key={key}
+              type="button"
+              data-subscore-card
+              onClick={() => onTap(key)}
+              className="snap-center shrink-0 w-[78%] rounded-2xl border border-border/40 bg-muted/15 px-4 py-3.5 text-left active:scale-[0.99] transition-transform"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Icon
+                    name={SUBSCORE_ICON[key] ?? "ellipseOutline"}
+                    size={14}
+                    className="text-foreground shrink-0"
+                  />
+                  <span className="text-body-sm font-semibold truncate">
+                    {SUBSCORE_LABEL[key] ?? key}
+                  </span>
+                </div>
+                {delta !== null && (
+                  <span
+                    className={cn(
+                      "text-[10px] font-semibold tabular-nums shrink-0",
+                      delta > 0
+                        ? "text-func-recovery-green"
+                        : delta < 0
+                          ? "text-func-danger-red"
+                          : "text-muted-foreground",
+                    )}
+                  >
+                    {delta > 0 ? "+" : ""}{delta}
+                  </span>
+                )}
+              </div>
+              <div className="mt-2 flex items-end gap-2">
+                <span className="display-number text-3xl leading-none tabular-nums">
+                  {sub.value}
+                </span>
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                  / 100
+                </span>
+              </div>
+              <div className="mt-3 h-1.5 rounded-full bg-muted/40 overflow-hidden">
+                <div
+                  className={cn("h-full rounded-full", TIER_BAR[tier])}
+                  style={{ width: `${Math.max(0, Math.min(100, sub.value))}%` }}
+                />
+              </div>
+              {trend && trend.length >= 2 && (
+                <div className="mt-2 h-8">
+                  <FightFormTrendSparkline
+                    points={trend.map((pt) => ({
+                      date: pt.date,
+                      score: pt.value,
+                      state: "ok" as FightFormState,
+                    }))}
+                  />
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      {/* Active-card dots indicator — 5 cards is past the "obvious it
+          scrolls" threshold so we surface a count. Active dot widens
+          to a pill so position is glanceable. */}
+      {ordered.length > 1 && (
+        <div className="flex items-center justify-center gap-1.5 pt-0.5">
+          {ordered.map((_, i) => (
+            <span
+              key={i}
+              aria-hidden
+              className={cn(
+                "h-1.5 rounded-full transition-all",
+                i === activeIdx ? "w-4 bg-foreground" : "w-1.5 bg-muted-foreground/30",
+              )}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Sub-score drill-down dialog ────────────────────────────────────── */
+
+interface SubScoreDialogProps {
+  subKey: string | null;
+  sub: SubScore | null;
+  trend: TrendPoint[] | null;
+  accentClass?: string;
+  onClose: () => void;
+  onAction: (route: string) => void;
+}
+
+function SubScoreDialog({
+  subKey,
+  sub,
+  trend,
+  accentClass,
+  onClose,
+  onAction,
+}: SubScoreDialogProps) {
+  const open = !!subKey && !!sub;
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-md p-5 gap-3">
+        {subKey && sub && (
+          <SubScoreDialogBody
+            subKey={subKey}
+            sub={sub}
+            trend={trend}
+            accentClass={accentClass}
+            onAction={onAction}
+          />
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SubScoreDialogBody({
+  subKey,
+  sub,
+  trend,
+  accentClass,
+  onAction,
+}: {
+  subKey: string;
+  sub: SubScore;
+  trend: TrendPoint[] | null;
+  accentClass?: string;
+  onAction: (route: string) => void;
+}) {
+  const tier = subScoreTier(sub.value);
+  const contribution = sub.value * sub.weight;
+  const fillPct = Math.max(0, Math.min(100, sub.value));
+  const subActions = LIMITER_ACTIONS[subKey] ?? null;
+  return (
+    <>
+      <DialogTitle className="flex items-center gap-2 text-base">
+        <Icon
+          name={SUBSCORE_ICON[subKey] ?? "ellipseOutline"}
+          size={16}
+          className="text-foreground shrink-0"
+        />
+        <span className="truncate">{SUBSCORE_LABEL[subKey] ?? subKey}</span>
+        <span className="ml-auto display-number text-2xl tabular-nums">
+          {sub.value}
+        </span>
+      </DialogTitle>
+      <DialogDescription className="text-foreground/85 leading-snug">
+        {summarizeSubScore(subKey, sub.value)}
+      </DialogDescription>
+
+      {sub.weight > 0 && (
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <div
+              className="flex-1 h-1.5 rounded-full bg-muted/40 overflow-hidden"
+              aria-hidden
+            >
+              <div
+                className={cn("h-full rounded-full", TIER_BAR[tier])}
+                style={{ width: `${fillPct}%` }}
+              />
+            </div>
+            <span className="text-micro font-semibold tabular-nums text-foreground/90 shrink-0">
+              +{contribution.toFixed(1)} pts
+            </span>
+          </div>
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground/70 font-medium">
+            Contribution to score
+          </div>
+        </div>
+      )}
+
+      {trend && trend.length >= 2 && (
+        <div className="h-16 rounded-xs bg-background/40 p-2">
+          <FightFormTrendSparkline
+            points={trend.map((pt) => ({
+              date: pt.date,
+              score: pt.value,
+              state: "ok" as FightFormState,
+            }))}
+            accentClass={accentClass}
+          />
+        </div>
+      )}
+
+      {subActions && subActions.length > 0 && (
+        <div className="space-y-2">
+          <div className="section-header">What you can do</div>
+          <ul className="space-y-1">
+            {subActions.map((action) => (
+              <li key={action.label}>
+                <button
+                  type="button"
+                  onClick={() => onAction(action.route)}
+                  className="w-full flex items-center justify-between gap-2 rounded-xs px-2 py-2 text-left text-body-sm text-foreground/90 active:bg-primary/10 transition-colors"
+                >
+                  <span className="flex items-center gap-2 min-w-0">
+                    <Icon
+                      name="arrowForwardOutline"
+                      size={14}
+                      className="text-primary shrink-0"
+                    />
+                    <span className="truncate">{action.label}</span>
+                  </span>
+                  <Icon
+                    name="chevronForwardOutline"
+                    size={12}
+                    className="text-muted-foreground/60 shrink-0"
+                  />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </>
   );
 }

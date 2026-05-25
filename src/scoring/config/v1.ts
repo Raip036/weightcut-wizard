@@ -55,9 +55,17 @@ export const ScoringConfigV1: ScoringConfig = {
     wristTempPenaltyPerCelsius: 25,
   },
   nutrition: {
+    // v1 thresholds — retained for back-compat with downstream callers
+    // that may still inspect the shape. The active scoring path (v2)
+    // ignores these and reads the soft-falloff fields below instead.
     calorieToleranceFraction: 0.10,
     proteinShortfallThresholdPct: 80,
     proteinPenaltyPerDay: 5,
+    // v2 — soft-falloff calorie adherence. See nutritionAdherence.ts
+    // for the gradient curve these anchor.
+    calorieFullCreditFraction: 0.10,
+    calorieZeroCreditFraction: 0.40,
+    minLoggedKcalFraction: 0.30,
   },
   ceilings: [
     { id: "weight_cut_dangerous", cap: 50 },

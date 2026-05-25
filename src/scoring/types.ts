@@ -224,9 +224,20 @@ export type ScoringConfig = {
     wristTempPenaltyPerCelsius: number;
   };
   nutrition: {
+    /** v1 — kept for type/back-compat, unread after the v2 rewrite. */
     calorieToleranceFraction: number;
+    /** v1 — kept for type/back-compat, unread after the v2 rewrite. */
     proteinShortfallThresholdPct: number;
+    /** v1 — kept for type/back-compat, unread after the v2 rewrite. */
     proteinPenaltyPerDay: number;
+    /** v2 — drift below this earns full 100-point day credit. Default 0.10. */
+    calorieFullCreditFraction?: number;
+    /** v2 — drift at/above this earns 0 day credit. Default 0.40. */
+    calorieZeroCreditFraction?: number;
+    /** v2 — minimum (logged kcal / target kcal) for a day to count as
+     *  fully logged. Days below this are skipped as "partial logs"
+     *  rather than penalised as under-eating. Default 0.30. */
+    minLoggedKcalFraction?: number;
   };
   ceilings: Array<{ id: string; cap: number }>;
   smoothing: { emaDays: number };

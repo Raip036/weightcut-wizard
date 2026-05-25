@@ -284,7 +284,7 @@ export function QuickAddDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className={`w-[calc(100vw-1.5rem)] max-w-[420px] max-h-[calc(100vh-var(--keyboard-inset,0px)-4rem)] overflow-y-auto rounded-[28px] p-0 border-0 bg-card/95 backdrop-blur-xl gap-0 ${aiTask ? "[&>button]:hidden" : ""}`}
+        className={`!left-3 !translate-x-0 w-[calc(100vw-1.5rem)] max-w-[420px] max-h-[calc(100vh-var(--keyboard-inset,0px)-4rem)] overflow-y-auto overflow-x-hidden rounded-[28px] p-0 border-0 bg-card/95 backdrop-blur-xl gap-0 grid-cols-[minmax(0,1fr)] ${aiTask ? "[&>button]:hidden" : ""}`}
       >
         {aiTask && (
           aiMeal.photoAnalyzing && aiMeal.photoBase64 ? (
@@ -568,11 +568,11 @@ export function QuickAddDialog({
                 {/* Photo renders clean — detected foods live in the
                     editable list below so the image isn't overdrawn. */}
                 {aiMeal.photoBase64 && (
-                  <div className="relative rounded-xs overflow-hidden">
+                  <div className="relative w-full rounded-xs overflow-hidden">
                     <img
                       src={`data:image/jpeg;base64,${aiMeal.photoBase64}`}
                       alt="Meal"
-                      className="w-full h-44 object-cover"
+                      className="block w-full h-44 object-cover"
                     />
                     <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/25 via-transparent to-transparent" />
                   </div>
@@ -620,24 +620,19 @@ export function QuickAddDialog({
                     clearly at 16-18px. Inline-edit + Atwater cascade unchanged. */}
                 <div className="grid grid-cols-2 gap-2">
                   {([
-                    { key: "calories" as const, label: "Calories", value: Math.round(totalAiLineItemCalories), unit: "",  iconName: "flame" as IonIconName,    color: "rgb(var(--func-carbs-orange))", border: "rgb(var(--func-carbs-orange) / 0.35)", bg: "rgb(var(--func-carbs-orange) / 0.10)" },
-                    { key: "carbs_g" as const,  label: "Carbs",    value: Math.round(totalAiCarbs),           unit: "g", iconName: "pizza" as IonIconName,    color: "rgb(var(--func-carbs-orange))", border: "rgb(var(--func-carbs-orange) / 0.35)", bg: "rgb(var(--func-carbs-orange) / 0.10)" },
-                    { key: "protein_g" as const,label: "Protein",  value: Math.round(totalAiProtein),         unit: "g", iconName: "fish" as IonIconName,     color: "rgb(var(--func-protein-blue))", border: "rgb(var(--func-protein-blue) / 0.45)", bg: "rgb(var(--func-protein-blue) / 0.12)" },
-                    { key: "fats_g" as const,   label: "Fats",     value: Math.round(totalAiFats),            unit: "g", iconName: "water" as IonIconName,    color: "rgb(var(--func-fats-purple))",  border: "rgb(var(--func-fats-purple) / 0.40)", bg: "rgb(var(--func-fats-purple) / 0.10)" },
+                    { key: "calories" as const, label: "Calories", value: Math.round(totalAiLineItemCalories), unit: "",  iconName: "flame" as IonIconName,    color: "rgb(var(--func-carbs-orange))" },
+                    { key: "carbs_g" as const,  label: "Carbs",    value: Math.round(totalAiCarbs),           unit: "g", iconName: "pizza" as IonIconName,    color: "rgb(var(--func-carbs-orange))" },
+                    { key: "protein_g" as const,label: "Protein",  value: Math.round(totalAiProtein),         unit: "g", iconName: "fish" as IonIconName,     color: "rgb(var(--func-protein-blue))" },
+                    { key: "fats_g" as const,   label: "Fats",     value: Math.round(totalAiFats),            unit: "g", iconName: "water" as IonIconName,    color: "rgb(var(--func-fats-purple))"  },
                   ]).map((m) => {
                     const isEditing = editingMacro === m.key;
                     const isOverridden = aiMeal.overrideTotals[m.key] !== undefined;
                     return (
                       <div
                         key={m.label}
-                        className={`relative rounded-2xl overflow-hidden px-3 py-3 flex items-center gap-2.5 text-left transition-transform ${
-                          isEditing ? "ring-2" : "active:scale-[0.99]"
+                        className={`card-surface relative rounded-xs px-3 py-3 flex items-center gap-2.5 text-left transition-transform ${
+                          isEditing ? "ring-2 ring-primary/40" : "active:scale-[0.98]"
                         }`}
-                        style={{
-                          background: m.bg,
-                          border: `1px solid ${m.border}`,
-                          ...(isEditing ? { boxShadow: `0 0 0 2px ${m.color}` } : {}),
-                        }}
                         onClick={() => { if (!isEditing) beginEditMacro(m.key, m.value); }}
                         role="button"
                         tabIndex={0}
@@ -666,15 +661,11 @@ export function QuickAddDialog({
                                 if (e.key === "Escape") { setEditingMacro(null); setEditingDraft(""); }
                               }}
                               onClick={(e) => e.stopPropagation()}
-                              className="w-full bg-transparent border-0 outline-none text-[17px] font-bold tabular-nums leading-none mt-1 p-0 focus:ring-0"
-                              style={{ color: m.color }}
+                              className="w-full bg-transparent border-0 outline-none text-[15px] font-bold tabular-nums leading-none mt-1 p-0 focus:ring-0"
                               aria-label={`Edit ${m.label}`}
                             />
                           ) : (
-                            <p
-                              className="text-[17px] font-bold tabular-nums leading-none mt-1"
-                              style={{ color: m.color }}
-                            >
+                            <p className="text-[15px] font-bold tabular-nums text-foreground leading-none mt-1">
                               {m.value}<span className="text-[11px] font-semibold text-muted-foreground/60">{m.unit}</span>
                             </p>
                           )}

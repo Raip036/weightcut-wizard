@@ -37,6 +37,10 @@ export const DashboardCampStatusSection = memo(function DashboardCampStatusSecti
         <PhaseCoachCard
           phase={phase}
           daysUntilFight={daysUntilFight}
+          weightLogs={weightLogs}
+          currentWeight={currentWeight ?? null}
+          targetWeight={goalWeight}
+          targetDateISO={targetDate}
         />
       </div>
     </>

@@ -229,7 +229,7 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
     sleep: !/^(No sleep logs|Only \d+ night)/.test(sleep.reason),
     weightCut: !/^(No weight logs yet|Camp data incomplete)/.test(weightCut.reason),
     wellness: wellness.reason !== "No wellness check-ins in 7 days",
-    nutritionAdherence: !/^(Only \d+ day|No calorie\/protein)/.test(nutritionAdherence.reason),
+    nutritionAdherence: !/^(Only \d+|No calorie)/.test(nutritionAdherence.reason),
   };
   const recovery = computeRecovery(
     inputs.healthSignals ?? null,

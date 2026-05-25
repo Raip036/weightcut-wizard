@@ -113,8 +113,8 @@ function IngredientRow({ item, onUpdate, onRemove }: IngredientRowProps) {
   };
 
   return (
-    <div className="rounded-2xl bg-muted/30 border border-border/30 px-3 py-2.5">
-      <div className="flex items-center gap-2">
+    <div className="rounded-xs bg-muted/30 border border-border/30 px-3 py-2.5 min-w-0">
+      <div className="flex items-center gap-2 min-w-0">
         <div className="flex-1 min-w-0">
           <p className="text-[14px] font-semibold text-foreground truncate leading-tight">
             {capitalize(item.name)}
@@ -123,7 +123,7 @@ function IngredientRow({ item, onUpdate, onRemove }: IngredientRowProps) {
             value={item.quantity}
             onChange={(e) => onUpdate({ quantity: e.target.value })}
             placeholder="Quantity"
-            className="h-6 mt-0.5 -ml-1 px-1 text-[12px] text-muted-foreground/80 bg-transparent border-0 rounded-xs focus-visible:ring-0 focus-visible:bg-muted/40 placeholder:text-muted-foreground/40"
+            className="h-6 mt-0.5 px-1 text-[12px] text-muted-foreground/80 bg-transparent border-0 rounded-xs focus-visible:ring-0 focus-visible:bg-muted/40 placeholder:text-muted-foreground/40"
           />
         </div>
 
@@ -146,7 +146,7 @@ function IngredientRow({ item, onUpdate, onRemove }: IngredientRowProps) {
                 const n = parseFloat(e.target.value);
                 if (Number.isFinite(n)) scaleMacros(n);
               }}
-              className="h-8 text-center text-[14px] font-bold tabular-nums bg-background/60 border-border/30 px-1 rounded-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              className="h-8 text-center text-[14px] font-bold tabular-nums bg-background/60 border-border/30 px-1 rounded-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               aria-label={`Calories for ${item.name}`}
             />
             <p className="text-[9px] uppercase tracking-wider text-muted-foreground/50 mt-0.5">kcal</p>
@@ -171,14 +171,14 @@ function IngredientRow({ item, onUpdate, onRemove }: IngredientRowProps) {
         </button>
       </div>
 
-      <div className="flex items-center gap-1.5 mt-2 text-[10px] tabular-nums">
-        <span className="px-1.5 py-0.5 rounded-md bg-[rgb(var(--func-protein-blue)/0.12)] text-[rgb(var(--func-protein-blue))] font-semibold">
+      <div className="flex flex-wrap items-center gap-1.5 mt-2 text-[10px] tabular-nums">
+        <span className="px-1.5 py-0.5 rounded-xs bg-[rgb(var(--func-protein-blue)/0.12)] text-foreground font-semibold">
           {Math.round(item.protein_g)}P
         </span>
-        <span className="px-1.5 py-0.5 rounded-md bg-[rgb(var(--func-carbs-orange)/0.12)] text-[rgb(var(--func-carbs-orange))] font-semibold">
+        <span className="px-1.5 py-0.5 rounded-xs bg-[rgb(var(--func-carbs-orange)/0.12)] text-foreground font-semibold">
           {Math.round(item.carbs_g)}C
         </span>
-        <span className="px-1.5 py-0.5 rounded-md bg-[rgb(var(--func-fats-purple)/0.12)] text-[rgb(var(--func-fats-purple))] font-semibold">
+        <span className="px-1.5 py-0.5 rounded-xs bg-[rgb(var(--func-fats-purple)/0.12)] text-foreground font-semibold">
           {Math.round(item.fats_g)}F
         </span>
       </div>

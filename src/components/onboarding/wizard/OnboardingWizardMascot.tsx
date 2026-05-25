@@ -171,6 +171,7 @@ export function OnboardingWizardMascot({
   if (hidden) return null;
 
   const pose = line.pose ?? (step === 1 ? "wave" : "idle");
+  const variant = line.variant ?? "3d";
 
   if (mode === "hero") {
     return (
@@ -179,7 +180,7 @@ export function OnboardingWizardMascot({
         style={{ top: "25vh" }}
       >
         <div className="pointer-events-auto">
-          <WizardCharacter pose={pose} />
+          <WizardCharacter pose={pose} variant={variant} />
         </div>
         <div className="pointer-events-auto mt-3 w-full flex justify-center px-4">
           <AnimatePresence mode="wait">
@@ -252,7 +253,7 @@ export function OnboardingWizardMascot({
               left: 0,
             }}
           >
-            <WizardCharacter pose={pose} onTap={handleMascotTap} />
+            <WizardCharacter pose={pose} variant={variant} onTap={handleMascotTap} />
           </div>
         </div>
 

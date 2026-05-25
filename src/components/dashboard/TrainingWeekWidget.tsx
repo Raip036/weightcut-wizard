@@ -405,49 +405,10 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
           })}
         </div>
 
-        {/* Type pills — single-line carousel. When >2 types we duplicate
-            the row and run the `animate-marquee` keyframe (defined in
-            tailwind.config) so every label scrolls into view without
-            ever wrapping or being clipped. Fewer than that, we just
-            render the row statically. */}
-        {typeEntries.length > 0 && (
-          typeEntries.length <= 2 ? (
-            <div className="flex items-center gap-1.5 mt-2 whitespace-nowrap overflow-hidden">
-              {typeEntries.map(([type, count]) => (
-                <span
-                  key={type}
-                  className="inline-flex flex-shrink-0 items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full"
-                  style={{
-                    background: `${getSessionColor(type, customColors)}15`,
-                    color: getSessionColor(type, customColors),
-                  }}
-                >
-                  <span className="w-1 h-1 rounded-full" style={{ background: getSessionColor(type, customColors) }} />
-                  {type} {count}
-                </span>
-              ))}
-            </div>
-          ) : (
-            <div className="mt-2 overflow-hidden" aria-label="Session types this week">
-              <div className="flex items-center gap-1.5 w-max animate-marquee hover:[animation-play-state:paused] pr-1.5">
-                {[...typeEntries, ...typeEntries].map(([type, count], i) => (
-                  <span
-                    key={`${type}-${i}`}
-                    aria-hidden={i >= typeEntries.length}
-                    className="inline-flex flex-shrink-0 items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full"
-                    style={{
-                      background: `${getSessionColor(type, customColors)}15`,
-                      color: getSessionColor(type, customColors),
-                    }}
-                  >
-                    <span className="w-1 h-1 rounded-full" style={{ background: getSessionColor(type, customColors) }} />
-                    {type} {count}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )
-        )}
+        {/* Session-type pills removed by design: session colors in the
+            bar chart above carry the type signal on their own. Keeping
+            an explicit label row duplicated information and crowded
+            the compact tile. */}
       </div>
     );
   }

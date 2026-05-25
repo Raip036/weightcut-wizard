@@ -886,6 +886,20 @@ export default function Dashboard() {
             avatarUrl={avatarUrl}
             userName={userName}
             daysUntilTarget={daysUntilTarget}
+            kgRemaining={
+              profile
+                ? currentWeightValue - (profile.fight_week_target_kg || profile.goal_weight_kg || 0)
+                : null
+            }
+            targetDateISO={profile?.target_date ?? null}
+            campStartISO={
+              weightLogs.length > 0
+                ? weightLogs.reduce(
+                    (min: string, l: { date: string }) => (l.date < min ? l.date : min),
+                    weightLogs[0].date,
+                  )
+                : null
+            }
             onAvatarClick={() => navigate('/goals')}
           />
 
@@ -1377,6 +1391,10 @@ export default function Dashboard() {
               <PhaseCoachCard
                 phase={null}
                 daysUntilFight={daysUntilTarget || null}
+                weightLogs={weightLogs}
+                currentWeight={currentWeightValue}
+                targetWeight={profile.fight_week_target_kg ?? profile.goal_weight_kg ?? null}
+                targetDateISO={profile.target_date}
               />
             </div>
           </>

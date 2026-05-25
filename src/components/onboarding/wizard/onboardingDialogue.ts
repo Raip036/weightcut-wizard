@@ -1,4 +1,5 @@
 import type { WizardPose } from "@/tutorial/types";
+import type { WizardVariant } from "@/tutorial/WizardCharacter";
 
 export type DialogueLine = {
   /** 1–4 words, displayed bold above the body. */
@@ -7,6 +8,8 @@ export type DialogueLine = {
   body: string;
   /** Mascot pose. Defaults to "idle" when omitted. */
   pose?: WizardPose;
+  /** Mascot variant. Defaults to "3d". Use "food" for nutrition/meal-themed steps. */
+  variant?: WizardVariant;
 };
 
 /**
