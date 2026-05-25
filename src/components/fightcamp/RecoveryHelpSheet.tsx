@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ChevronDown, Heart, Flame, Shield, Moon, Gauge, Zap, BarChart3, Brain } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { Icon, type IonIconName } from "@/components/ui/Icon";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 interface RecoveryHelpSheetProps {
@@ -19,7 +20,7 @@ interface RecoveryHelpSheetProps {
 
 type GlossaryItem = {
   key: string;
-  icon: typeof Heart;
+  icon: IonIconName;
   color: string;
   bg: string;
   title: string;
@@ -31,7 +32,7 @@ type GlossaryItem = {
 const GLOSSARY: GlossaryItem[] = [
   {
     key: "readiness",
-    icon: Heart,
+    icon: "heartOutline",
     color: "text-func-recovery-green",
     bg: "bg-func-recovery-green/10",
     title: "Readiness",
@@ -39,14 +40,14 @@ const GLOSSARY: GlossaryItem[] = [
     details: "Combines your wellness check-in (sleep, fatigue, soreness, stress), your training load balance, recent recovery patterns, and your logging consistency. It's smoothed across the last few days so one bad night doesn't tank it.",
     states: [
       { label: "Peaked",     meaning: "80+",      color: "text-func-recovery-green" },
-      { label: "Ready",      meaning: "55 to 79", color: "text-blue-400" },
+      { label: "Ready",      meaning: "55 to 79", color: "text-brand-spirit-blue" },
       { label: "Recovering", meaning: "35 to 54", color: "text-func-warning-yellow" },
       { label: "Strained",   meaning: "under 35", color: "text-func-danger-red" },
     ],
   },
   {
     key: "strain",
-    icon: Flame,
+    icon: "flameOutline",
     color: "text-func-carbs-orange",
     bg: "bg-func-carbs-orange/10",
     title: "Strain",
@@ -54,14 +55,14 @@ const GLOSSARY: GlossaryItem[] = [
     details: "Calculated from how long you trained, how hard it felt (RPE), and the type of session. The scale has diminishing returns at the top, so getting from 18 to 20 is way harder than 8 to 10. Mirrors how real fatigue piles up.",
     states: [
       { label: "Light",   meaning: "0 to 7",   color: "text-func-recovery-green" },
-      { label: "Moderate", meaning: "8 to 13", color: "text-blue-400" },
+      { label: "Moderate", meaning: "8 to 13", color: "text-brand-spirit-blue" },
       { label: "Hard",    meaning: "14 to 17", color: "text-func-warning-yellow" },
       { label: "All Out", meaning: "18 to 21", color: "text-func-danger-red" },
     ],
   },
   {
     key: "ot",
-    icon: Shield,
+    icon: "shieldOutline",
     color: "text-func-danger-red",
     bg: "bg-func-danger-red/10",
     title: "Overtraining risk",
@@ -76,15 +77,15 @@ const GLOSSARY: GlossaryItem[] = [
   },
   {
     key: "training-load",
-    icon: BarChart3,
-    color: "text-blue-400",
-    bg: "bg-blue-500/10",
+    icon: "barChartOutline",
+    color: "text-brand-spirit-blue",
+    bg: "bg-brand-spirit-blue/10",
     title: "Training load",
     summary: "Compares your last 7 days of training to your typical month. Tells you if you're ramping up too fast, holding steady, or backing off.",
     details: "Uses the acute-to-chronic ratio (your 7-day load divided by your 28-day baseline). Needs at least 14 training days in the last month before this number is trustworthy. Until then the card shows 'Building'.",
     states: [
       { label: "Building", meaning: "less than 14 training days logged", color: "text-muted-foreground" },
-      { label: "Low",      meaning: "below your normal volume",            color: "text-blue-400" },
+      { label: "Low",      meaning: "below your normal volume",            color: "text-brand-spirit-blue" },
       { label: "Optimal",  meaning: "matches your normal pattern",         color: "text-func-recovery-green" },
       { label: "High",     meaning: "above normal, watch recovery",        color: "text-func-warning-yellow" },
       { label: "Spike",    meaning: "much more than usual, real risk",     color: "text-func-danger-red" },
@@ -92,16 +93,16 @@ const GLOSSARY: GlossaryItem[] = [
   },
   {
     key: "sleep",
-    icon: Moon,
-    color: "text-indigo-400",
-    bg: "bg-indigo-500/10",
+    icon: "moonOutline",
+    color: "text-brand-night-indigo",
+    bg: "bg-brand-night-indigo/10",
     title: "Sleep score",
     summary: "How well-rested you are based on your last 3 nights versus your normal.",
     details: "Sleep is the single biggest recovery lever. Even small deficits add up. This score weights the last 3 nights against your personal baseline once it's established.",
   },
   {
     key: "hooper",
-    icon: Gauge,
+    icon: "speedometerOutline",
     color: "text-func-hydration-cyan",
     bg: "bg-func-hydration-cyan/10",
     title: "Daily check-in score",
@@ -110,7 +111,7 @@ const GLOSSARY: GlossaryItem[] = [
   },
   {
     key: "forecast",
-    icon: Zap,
+    icon: "flashOutline",
     color: "text-func-warning-yellow",
     bg: "bg-func-warning-yellow/10",
     title: "Projected tomorrow",
@@ -119,7 +120,7 @@ const GLOSSARY: GlossaryItem[] = [
   },
   {
     key: "coach",
-    icon: Brain,
+    icon: "bulbOutline",
     color: "text-primary",
     bg: "bg-primary/10",
     title: "Recovery coach",
@@ -130,6 +131,7 @@ const GLOSSARY: GlossaryItem[] = [
 
 export function RecoveryHelpSheet({ open, onOpenChange }: RecoveryHelpSheetProps) {
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const prefersReduced = useReducedMotion();
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -166,7 +168,7 @@ export function RecoveryHelpSheet({ open, onOpenChange }: RecoveryHelpSheetProps
 
         {/* "Building" callout — directly addresses the cold-start state most
             new users will see for their first two weeks. */}
-        <section className="mt-5 rounded-xs border border-func-warning-yellow/30 bg-func-warning-yellow/10 p-3">
+        <section className="mt-5 rounded-xs border border-func-warning-yellow/30 p-3">
           <p className="text-[11px] uppercase tracking-[0.12em] font-semibold text-func-warning-yellow mb-1">
             Why does it say "Building"?
           </p>
@@ -183,26 +185,41 @@ export function RecoveryHelpSheet({ open, onOpenChange }: RecoveryHelpSheetProps
             What each metric means
           </p>
           <div className="space-y-1.5">
-            {GLOSSARY.map((item) => {
-              const Icon = item.icon;
+            {GLOSSARY.map((item, i) => {
               const isOpen = expandedKey === item.key;
               return (
-                <button
+                <motion.button
                   key={item.key}
                   type="button"
                   onClick={() => setExpandedKey(isOpen ? null : item.key)}
+                  initial={prefersReduced ? false : { opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={
+                    prefersReduced
+                      ? { duration: 0 }
+                      : { type: "spring", stiffness: 320, damping: 26, delay: i * 0.05 }
+                  }
+                  whileTap={prefersReduced ? undefined : { scale: 0.985 }}
                   className="w-full text-left rounded-xs border border-border/30 overflow-hidden active:bg-muted/20 transition-colors"
                 >
                   <div className="flex items-start gap-2.5 p-3">
                     <div className={`w-7 h-7 rounded-full ${item.bg} flex items-center justify-center shrink-0 mt-0.5`}>
-                      <Icon className={`h-3.5 w-3.5 ${item.color}`} />
+                      <Icon name={item.icon} size={14} className={item.color} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-[13px] font-semibold text-foreground">{item.title}</span>
-                        <ChevronDown
-                          className={`h-3.5 w-3.5 text-muted-foreground/50 transition-transform shrink-0 ${isOpen ? "rotate-180" : ""}`}
-                        />
+                        <motion.span
+                          className="inline-flex shrink-0 text-muted-foreground/50"
+                          animate={{ rotate: isOpen ? 180 : 0 }}
+                          transition={
+                            prefersReduced
+                              ? { duration: 0 }
+                              : { type: "spring", stiffness: 320, damping: 26 }
+                          }
+                        >
+                          <Icon name="chevronDownOutline" size={14} />
+                        </motion.span>
                       </div>
                       <p className="text-[12px] text-muted-foreground leading-snug mt-0.5">
                         {item.summary}
@@ -210,27 +227,42 @@ export function RecoveryHelpSheet({ open, onOpenChange }: RecoveryHelpSheetProps
                     </div>
                   </div>
 
-                  {isOpen && (
-                    <div className="px-3 pb-3 pl-12 space-y-2.5">
-                      <p className="text-[12px] text-foreground/80 leading-relaxed">
-                        {item.details}
-                      </p>
-                      {item.states && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {item.states.map((s) => (
-                            <div
-                              key={s.label}
-                              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted/30 border border-border/20"
-                            >
-                              <span className={`text-[10px] font-bold ${s.color}`}>{s.label}</span>
-                              <span className="text-[10px] text-muted-foreground/70">{s.meaning}</span>
+                  <AnimatePresence initial={false}>
+                    {isOpen && (
+                      <motion.div
+                        key="details"
+                        initial={prefersReduced ? false : { height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={prefersReduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                        transition={
+                          prefersReduced
+                            ? { duration: 0 }
+                            : { type: "spring", stiffness: 320, damping: 30 }
+                        }
+                        className="overflow-hidden"
+                      >
+                        <div className="px-3 pb-3 pl-12 space-y-2.5">
+                          <p className="text-[12px] text-foreground/80 leading-relaxed">
+                            {item.details}
+                          </p>
+                          {item.states && (
+                            <div className="flex flex-wrap gap-1.5">
+                              {item.states.map((s) => (
+                                <div
+                                  key={s.label}
+                                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border/30"
+                                >
+                                  <span className={`text-[10px] font-bold ${s.color}`}>{s.label}</span>
+                                  <span className="text-[10px] text-muted-foreground/70">{s.meaning}</span>
+                                </div>
+                              ))}
                             </div>
-                          ))}
+                          )}
                         </div>
-                      )}
-                    </div>
-                  )}
-                </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.button>
               );
             })}
           </div>

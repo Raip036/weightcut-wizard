@@ -115,6 +115,14 @@ export type ScoringInputs = {
   isCampPaused?: boolean;
   isCampCompleted?: boolean;
   sessions: Array<{ date: string; rpe: number; durationMinutes: number }>;
+  /**
+   * Dates (YYYY-MM-DD) the user has explicitly marked as rest in
+   * fight_camp_calendar. Used by the trainingLoad sub-score to distinguish
+   * planned 0-load days from missing data. Does NOT affect ACWR math —
+   * rest days contribute zero load by definition; their only role is to
+   * relax the cold-start gate and enrich the reason string.
+   */
+  restDays?: ReadonlyArray<string>;
   sleepHours: Array<{ date: string; hours: number }>;
   // Dates for which `sleepHours` contains a server-injected default (because
   // the user logged training that day but never entered sleep). Used by

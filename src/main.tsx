@@ -43,6 +43,49 @@ if (Capacitor.isNativePlatform()) {
   }).catch(() => {});
 }
 
+// ---------------------------------------------------------------------------
+// Universal "focused input scrolls into view" handler
+// ---------------------------------------------------------------------------
+// Because Capacitor's resize mode is `none`, the WebView doesn't shrink when
+// the keyboard appears — inputs at the bottom of a Dialog/Sheet/page can end
+// up sitting underneath the keyboard with no automatic recovery.
+//
+// We attach ONE delegated `focusin` listener on the document so every
+// `<input>`, `<textarea>`, and `contenteditable` surface in the app (shadcn
+// or native, present or future) is scrolled into the centre of its scroll
+// container after the keyboard slide-in completes (~250ms on iOS). The
+// document-level listener replaces the per-callsite `useScrollIntoViewOnFocus`
+// wiring — existing call-sites can stay, they're idempotent.
+//
+// The 320ms timeout matches the iOS keyboard animation + a small buffer so
+// the inset on `:root` has been written before we measure positions.
+const KEYBOARD_FOCUS_DELAY_MS = 320;
+document.addEventListener("focusin", (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  const tag = target.tagName;
+  if (tag !== "INPUT" && tag !== "TEXTAREA" && !target.isContentEditable) return;
+  // `type="hidden"` / `type="checkbox"` / `type="radio"` / `type="file"` etc.
+  // don't pop the keyboard; skip the scroll cost.
+  if (tag === "INPUT") {
+    const t = (target as HTMLInputElement).type;
+    if (t === "hidden" || t === "checkbox" || t === "radio" || t === "file" || t === "submit" || t === "button" || t === "reset") {
+      return;
+    }
+  }
+  const el = target;
+  window.setTimeout(() => {
+    // Re-check that the field is still the active one — the user may have
+    // tabbed away or dismissed the keyboard during the delay window.
+    if (document.activeElement !== el) return;
+    try {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    } catch {
+      // Older WebKit can throw on smooth-scroll with detached nodes — best-effort.
+    }
+  }, KEYBOARD_FOCUS_DELAY_MS);
+});
+
 const dsn = import.meta.env.VITE_SENTRY_DSN;
 if (dsn) {
   Sentry.init({

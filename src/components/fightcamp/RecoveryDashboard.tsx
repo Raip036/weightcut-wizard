@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef, useMemo, memo, lazy, Suspense } from "react";
-import { Activity, Brain, AlertTriangle, HelpCircle, ChevronRight, ChevronDown, X, Flame, BedDouble, AlertOctagon, BarChart3 } from "lucide-react";
 import { motion, useReducedMotion, AnimatePresence } from "motion/react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
+import { Icon, type IonIconName } from "@/components/ui/Icon";
 
 // ── AnimatedNumber ─────────────────────────────────────────────────────
 // Counts up from 0 to `value` over `duration` ms on first mount and whenever
@@ -124,11 +124,11 @@ function strainColor(strain: number): string {
   return            "text-func-danger-red";
 }
 
-function otBadge(zone: 'low' | 'moderate' | 'high' | 'critical'): { label: string; tone: string } {
-  if (zone === "low")      return { label: "Low risk",      tone: "text-func-recovery-green bg-func-recovery-green/15" };
-  if (zone === "moderate") return { label: "Watch fatigue", tone: "text-func-warning-yellow bg-func-warning-yellow/15" };
-  if (zone === "high")     return { label: "High risk",    tone: "text-func-danger-red bg-func-danger-red/15" };
-  return                          { label: "Critical",       tone: "text-func-danger-red bg-func-danger-red/25" };
+function otBadge(zone: 'low' | 'moderate' | 'high' | 'critical'): { label: string; tone: string; iconTone: string } {
+  if (zone === "low")      return { label: "Low risk",      tone: "text-func-recovery-green border border-func-recovery-green/30", iconTone: "text-func-recovery-green" };
+  if (zone === "moderate") return { label: "Watch fatigue", tone: "text-func-warning-yellow border border-func-warning-yellow/30", iconTone: "text-func-warning-yellow" };
+  if (zone === "high")     return { label: "High risk",     tone: "text-func-danger-red border border-func-danger-red/30",        iconTone: "text-func-danger-red" };
+  return                          { label: "Critical",      tone: "text-func-danger-red border border-func-danger-red/40",        iconTone: "text-func-danger-red" };
 }
 
 function loadZoneStyle(zone: string) {
@@ -316,33 +316,43 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
       )}
       {/* ── Hero card ─────────────────────────────────────────────────── */}
       <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ type: "spring", damping: 22, stiffness: 280 }}
+        initial={prefersReduced ? false : { opacity: 0, y: 10, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ type: "spring", damping: 22, stiffness: 260 }}
         className="relative overflow-hidden card-surface rounded-2xl border border-border/50 p-5"
       >
         <button
           type="button"
           onClick={() => setHelpOpen(true)}
           aria-label="How to read this page"
-          className="absolute top-3 right-3 h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground/70 active:text-foreground active:bg-muted/40 transition-colors"
+          className="absolute top-3 right-3 h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground/70 active:text-foreground transition-colors"
         >
-          <HelpCircle className="h-4 w-4" strokeWidth={2.2} />
+          <Icon name="helpCircleOutline" size={18} />
         </button>
 
         {/* Top row: streak chip + today's-call tag */}
         <div className="flex items-center gap-2 pr-9">
-          <div className="inline-flex items-center gap-1 rounded-full bg-orange-500/15 text-orange-300 px-2.5 py-1 text-[11px] font-bold ring-1 ring-orange-500/30">
-            <Flame className="h-3 w-3" strokeWidth={2.4} />
+          <motion.div
+            initial={prefersReduced ? false : { opacity: 0, x: -6 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1, type: "spring", damping: 22, stiffness: 280 }}
+            className="inline-flex items-center gap-1 rounded-full border border-primary/30 text-primary px-2.5 py-1 text-[11px] font-bold"
+          >
+            <Icon name="flameOutline" size={12} />
             {streak > 0 ? `${streak}-day streak` : "Start a streak"}
-          </div>
+          </motion.div>
           <div className="ml-auto text-[10px] uppercase tracking-[0.14em] font-semibold text-muted-foreground/70">
             Today's call · <span className="text-foreground/80 normal-case tracking-normal font-bold">{verdict.tag}</span>
           </div>
         </div>
 
         {/* Center: huge readiness number */}
-        <div className="mt-4 flex flex-col items-center text-center">
+        <motion.div
+          initial={prefersReduced ? false : { opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.12, type: "spring", damping: 24, stiffness: 240 }}
+          className="mt-4 flex flex-col items-center text-center"
+        >
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold">Readiness</span>
           <AnimatedNumber
             value={metrics.readiness.score}
@@ -354,20 +364,23 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
           <p className="mt-1.5 text-[12px] text-muted-foreground leading-snug max-w-[34ch]">
             {why}
           </p>
-        </div>
+        </motion.div>
       </motion.div>
 
       {/* ── Daily check-in tile (above the stack so it's prominent) ─── */}
       {!todayCheckedIn && hasEnoughData && (
-        <button
+        <motion.button
           type="button"
           onClick={() => setWellnessSheetOpen(true)}
+          initial={prefersReduced ? false : { opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.18, type: "spring", damping: 24, stiffness: 260 }}
           className="group w-full text-left card-surface rounded-2xl p-4 border border-primary/30 hover:border-primary/50 active:scale-[0.99] transition-all"
           aria-label="Open daily check-in"
         >
           <div className="flex items-center gap-3">
-            <div className="h-11 w-11 shrink-0 rounded-2xl bg-primary/15 ring-1 ring-primary/25 flex items-center justify-center">
-              <Brain className="h-5 w-5 text-primary" />
+            <div className="h-11 w-11 shrink-0 rounded-2xl border border-primary/30 flex items-center justify-center text-primary">
+              <Icon name="bulbOutline" size={22} />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary/80">
@@ -382,18 +395,19 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
             </div>
             <span className="inline-flex items-center gap-1 shrink-0 text-[10px] font-bold uppercase tracking-wider text-primary group-hover:translate-x-0.5 transition-transform">
               <span>~20s</span>
-              <ChevronRight className="h-4 w-4" />
+              <Icon name="chevronForwardOutline" size={14} />
             </span>
           </div>
-        </button>
+        </motion.button>
       )}
 
       {/* ── Expandable card stack ────────────────────────────────────── */}
       <div className="space-y-2.5">
         <ExpandableMetricCard
           id="strain"
-          icon={Activity}
-          iconTone="text-orange-300 bg-orange-500/15"
+          index={0}
+          iconName="pulseOutline"
+          iconTone="text-primary border border-primary/30"
           title="Strain"
           summary={
             <>
@@ -428,8 +442,9 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
 
         <ExpandableMetricCard
           id="sleep"
-          icon={BedDouble}
-          iconTone="text-blue-300 bg-blue-500/15"
+          index={1}
+          iconName="bedOutline"
+          iconTone="text-blue-300 border border-blue-300/30"
           title="Sleep"
           summary={
             <>
@@ -470,8 +485,9 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
 
         <ExpandableMetricCard
           id="risk"
-          icon={AlertOctagon}
-          iconTone={`${ot.tone}`}
+          index={2}
+          iconName="alertCircleOutline"
+          iconTone={`${ot.iconTone} border border-border/40`}
           title="Overtraining risk"
           summary={
             <>
@@ -513,8 +529,9 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
 
         <ExpandableMetricCard
           id="weekly"
-          icon={BarChart3}
-          iconTone="text-func-recovery-green bg-func-recovery-green/15"
+          index={3}
+          iconName="barChartOutline"
+          iconTone="text-func-recovery-green border border-func-recovery-green/30"
           title="Weekly load"
           summary={
             <>
@@ -541,9 +558,14 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
 
       {/* Caloric Deficit Banner */}
       {metrics.deficitImpactScore != null && metrics.deficitImpactScore < 60 && baseline?.avg_deficit_7d != null && (
-        <div className="card-surface rounded-2xl p-3 border border-func-warning-yellow/30 bg-func-warning-yellow/5">
+        <motion.div
+          initial={prefersReduced ? false : { opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.38, type: "spring", damping: 24, stiffness: 260 }}
+          className="card-surface rounded-2xl p-3 border border-func-warning-yellow/30"
+        >
           <div className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-func-warning-yellow shrink-0" />
+            <Icon name="warningOutline" size={16} className="text-func-warning-yellow shrink-0" />
             <div>
               <p className="text-xs font-semibold text-func-warning-yellow">
                 Caloric Deficit Impacting Recovery
@@ -553,7 +575,7 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
               </p>
             </div>
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* Wellness check-in sheet */}
@@ -578,7 +600,7 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
               aria-label="Close"
               className="h-9 w-9 rounded-full bg-muted/40 flex items-center justify-center text-muted-foreground active:bg-muted/60 transition"
             >
-              <X className="h-4 w-4" />
+              <Icon name="closeOutline" size={16} />
             </button>
           </div>
           <div className="px-5 pb-5">
@@ -631,18 +653,25 @@ function SleepSparkline({ logs }: { logs: { date: string; hours: number }[] }) {
 // Uses motion's AnimatePresence + height: "auto" for a smooth reveal.
 type ExpandableMetricCardProps = {
   id: string;
-  icon: React.ComponentType<any>;
+  iconName: IonIconName;
   iconTone: string;
   title: string;
   summary: React.ReactNode;
   expanded: boolean;
   onToggle: () => void;
   children: React.ReactNode;
+  index?: number;
 };
 
-function ExpandableMetricCard({ icon: Icon, iconTone, title, summary, expanded, onToggle, children }: ExpandableMetricCardProps) {
+function ExpandableMetricCard({ iconName, iconTone, title, summary, expanded, onToggle, children, index = 0 }: ExpandableMetricCardProps) {
+  const prefersReduced = useReducedMotion();
   return (
-    <div className="card-surface rounded-2xl border border-border/50 overflow-hidden">
+    <motion.div
+      initial={prefersReduced ? false : { opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.22 + index * 0.04, type: "spring", damping: 24, stiffness: 260 }}
+      className="card-surface rounded-2xl border border-border/50 overflow-hidden"
+    >
       <button
         type="button"
         onClick={onToggle}
@@ -650,14 +679,14 @@ function ExpandableMetricCard({ icon: Icon, iconTone, title, summary, expanded, 
         aria-expanded={expanded}
       >
         <div className={`h-10 w-10 shrink-0 rounded-xl flex items-center justify-center ${iconTone}`}>
-          <Icon className="h-5 w-5" strokeWidth={2.2} />
+          <Icon name={iconName} size={20} />
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-[10px] uppercase tracking-[0.14em] font-semibold text-muted-foreground/70">{title}</div>
           <div className="mt-0.5 flex items-baseline flex-wrap gap-x-1">{summary}</div>
         </div>
         <motion.div animate={{ rotate: expanded ? 180 : 0 }} transition={{ duration: 0.2 }} className="shrink-0 text-muted-foreground">
-          <ChevronDown className="h-4 w-4" strokeWidth={2.4} />
+          <Icon name="chevronDownOutline" size={16} />
         </motion.div>
       </button>
       <AnimatePresence initial={false}>
@@ -676,6 +705,6 @@ function ExpandableMetricCard({ icon: Icon, iconTone, title, summary, expanded, 
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
 }

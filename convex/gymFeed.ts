@@ -31,10 +31,56 @@
  */
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
-import type { MutationCtx } from "./_generated/server";
+import type { Id, Doc } from "./_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
 import { requireUserId } from "./lib/auth";
 import { requireGymViewer } from "./lib/gymAccess";
+
+/**
+ * Consecutive-day post streak for one user, capped at 365. Walks backward
+ * from today through the user's `session_media.capturedAt` dates and
+ * stops on the first day with no post.
+ *
+ * Window-limited to the last 366 days so we never scan a fighter's full
+ * history; nobody has a 2-year posting streak.
+ */
+const STREAK_WINDOW_DAYS = 366;
+async function computeAuthorStreak(
+  ctx: QueryCtx,
+  userId: Id<"users">,
+): Promise<number> {
+  const windowMs = STREAK_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  const cutoff = Date.now() - windowMs;
+  const rows = await ctx.db
+    .query("session_media")
+    .withIndex("by_user_created", (q) => q.eq("userId", userId))
+    .order("desc")
+    .filter((q) => q.gte(q.field("_creationTime"), cutoff))
+    .collect();
+  if (rows.length === 0) return 0;
+
+  const dateSet = new Set(rows.map((r: Doc<"session_media">) => r.capturedAt));
+  // Streak preserved when today hasn't been posted yet — match the
+  // existing wellness streak ergonomic so a fighter checking the feed
+  // before their evening session doesn't see their flame already zeroed.
+  const cursor = new Date();
+  cursor.setUTCHours(0, 0, 0, 0);
+  const todayKey = cursor.toISOString().slice(0, 10);
+  if (!dateSet.has(todayKey)) cursor.setUTCDate(cursor.getUTCDate() - 1);
+
+  let streak = 0;
+  for (let i = 0; i < STREAK_WINDOW_DAYS; i++) {
+    const key = cursor.toISOString().slice(0, 10);
+    if (dateSet.has(key)) {
+      streak += 1;
+      cursor.setUTCDate(cursor.getUTCDate() - 1);
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
 
 // ─── Local rate-limit helper ───────────────────────────────────────────
 //
@@ -165,10 +211,20 @@ export const listFeed = query({
           : Promise.resolve(null),
       ),
     );
+    // Per-author streak — one walk per unique author per page, not per
+    // post. Small gym (4 members) means ~4 lookups per feed page; the
+    // window is capped at 366 days so each lookup is bounded.
+    const authorStreaks = await Promise.all(
+      uniqueAuthorIds.map((uid) => computeAuthorStreak(ctx, uid)),
+    );
     const authorMap = new Map(
       uniqueAuthorIds.map((uid, i) => [
         uid,
-        { profile: authorProfiles[i], avatarUrl: authorAvatarUrls[i] },
+        {
+          profile: authorProfiles[i],
+          avatarUrl: authorAvatarUrls[i],
+          streakDays: authorStreaks[i],
+        },
       ]),
     );
 
@@ -220,6 +276,7 @@ export const listFeed = query({
             userId: m.userId,
             displayName: author?.profile?.displayName ?? "Athlete",
             avatarUrl: author?.avatarUrl ?? null,
+            streakDays: author?.streakDays ?? 0,
           },
           session: session
             ? {
@@ -518,10 +575,12 @@ export const listProfilePosts = query({
     const avatarUrl = profile?.avatarStorageId
       ? await ctx.storage.getUrl(profile.avatarStorageId)
       : null;
+    const streakDays = await computeAuthorStreak(ctx, ownerUserId);
     const author = {
       userId: ownerUserId,
       displayName: profile?.displayName ?? "Athlete",
       avatarUrl,
+      streakDays,
     };
 
     const posts = await Promise.all(

@@ -28,17 +28,24 @@ const SheetOverlay = React.forwardRef<
 ));
 SheetOverlay.displayName = SheetPrimitive.Overlay.displayName;
 
+// Sheet positioning. Each side variant respects the live `--keyboard-inset`
+// CSS variable so the sheet shifts above the iOS keyboard when it appears
+// (Capacitor's `resize: 'none'` mode leaves the WebView at full size).
+//
+//  - bottom sheets lift their bottom edge above the keyboard
+//  - top sheets cap their max-height so they don't bleed into the keyboard
+//  - side sheets pad their bottom so a tall form doesn't end behind it
 const sheetVariants = cva(
   "fixed z-50 gap-4 bg-background p-6 transition ease-[cubic-bezier(0.32,0.72,0,1)] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-250 data-[state=open]:duration-400",
   {
     variants: {
       side: {
-        top: "inset-x-0 top-0 border-b data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top",
+        top: "inset-x-0 top-0 border-b max-h-[calc(100vh-var(--keyboard-inset,0px))] overflow-y-auto data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top",
         bottom:
-          "inset-x-0 bottom-0 border-t rounded-t-3xl data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
-        left: "inset-y-0 left-0 h-full w-3/4 border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left sm:max-w-sm",
+          "inset-x-0 bottom-[var(--keyboard-inset,0px)] border-t rounded-t-3xl max-h-[calc(100vh-var(--keyboard-inset,0px))] overflow-y-auto data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
+        left: "inset-y-0 left-0 h-full w-3/4 border-r pb-[var(--keyboard-inset,0px)] data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left sm:max-w-sm",
         right:
-          "inset-y-0 right-0 h-full w-3/4  border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm",
+          "inset-y-0 right-0 h-full w-3/4  border-l pb-[var(--keyboard-inset,0px)] data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm",
       },
     },
     defaultVariants: {

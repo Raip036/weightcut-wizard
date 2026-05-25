@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { Brain, ChevronDown, ChevronUp, Check, Flame } from "lucide-react";
+import { Icon } from "@/components/ui/Icon";
 import { Button } from "@/components/ui/button";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { useMutation } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import { triggerHapticSelection, celebrateSuccess } from "@/lib/haptics";
@@ -74,12 +74,14 @@ function toneClasses(tone: Chip["tone"], active: boolean): string {
   if (!active) {
     return "bg-muted/40 text-foreground/75 active:bg-muted/60 border-transparent ring-1 ring-white/10";
   }
+  // Active state: keep the muted surface (no saturated tint behind text),
+  // signal selection via a coloured border + text colour token.
   switch (tone) {
-    case "good":    return "bg-emerald-800/60 text-emerald-50 border-emerald-700";
-    case "warn":    return "bg-teal-800/60 text-teal-50 border-teal-700";
-    case "okay":    return "bg-amber-800/60 text-amber-50 border-amber-700";
-    case "bad":     return "bg-orange-900/60 text-orange-50 border-orange-800";
-    case "verybad": return "bg-rose-900/60 text-rose-50 border-rose-800";
+    case "good":    return "bg-muted/40 text-func-recovery-green border-func-recovery-green/60";
+    case "warn":    return "bg-muted/40 text-func-recovery-green border-func-recovery-green/40";
+    case "okay":    return "bg-muted/40 text-primary border-primary/50";
+    case "bad":     return "bg-muted/40 text-func-warning-yellow border-func-warning-yellow/50";
+    case "verybad": return "bg-muted/40 text-func-danger-red border-func-danger-red/60";
   }
 }
 
@@ -126,6 +128,7 @@ function useCountUp(target: number, duration = 600): number {
 export function WellnessCheckIn({ userId, onSubmit, isSubmitting, streak }: WellnessCheckInProps) {
   void userId; // userId is now derived from Convex auth; kept for backward compat.
   const upsertCheckin = useMutation(api.wellness.upsertCheckin);
+  const prefersReducedMotion = useReducedMotion();
 
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState<1 | -1>(1);
@@ -155,7 +158,7 @@ export function WellnessCheckIn({ userId, onSubmit, isSubmitting, streak }: Well
     [answers],
   );
   const hooperLabel = hooperIndex >= 22 ? "Great" : hooperIndex >= 16 ? "Good" : hooperIndex >= 10 ? "Fair" : "Poor";
-  const hooperColor = hooperIndex >= 22 ? "text-func-recovery-green" : hooperIndex >= 16 ? "text-blue-400" : hooperIndex >= 10 ? "text-func-warning-yellow" : "text-func-danger-red";
+  const hooperColor = hooperIndex >= 22 ? "text-func-recovery-green" : hooperIndex >= 16 ? "text-primary" : hooperIndex >= 10 ? "text-func-warning-yellow" : "text-func-danger-red";
   const hooperVerdict = hooperIndex >= 22
     ? "Locked in — push today."
     : hooperIndex >= 16
@@ -222,13 +225,13 @@ export function WellnessCheckIn({ userId, onSubmit, isSubmitting, streak }: Well
       {showStreak && (
         <div className="flex justify-center">
           <motion.div
-            initial={{ opacity: 0, y: -6, scale: 0.96 }}
+            initial={prefersReducedMotion ? false : { opacity: 0, y: -6, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-            className="inline-flex items-center gap-1.5 rounded-full bg-func-carbs-orange/15 text-func-carbs-orange border border-func-carbs-orange/30 px-3 py-1 text-[12px] font-semibold tabular-nums"
+            className="inline-flex items-center gap-1.5 rounded-full text-func-carbs-orange border border-func-carbs-orange/30 px-3 py-1 text-[12px] font-semibold tabular-nums"
             aria-label={`${streak}-day check-in streak`}
           >
-            <Flame className="h-3.5 w-3.5" />
+            <Icon name="flameOutline" size={14} className="text-func-carbs-orange" />
             <span>{streakValue}-day streak</span>
           </motion.div>
         </div>
@@ -269,29 +272,56 @@ export function WellnessCheckIn({ userId, onSubmit, isSubmitting, streak }: Well
             <motion.div
               key={`q-${step}`}
               custom={direction}
-              initial={{ opacity: 0, x: direction === 1 ? 10 : -10 }}
+              initial={prefersReducedMotion ? false : { opacity: 0, x: direction === 1 ? 14 : -14 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: direction === 1 ? -10 : 10 }}
-              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, x: direction === 1 ? -14 : 14 }}
+              transition={{ type: "spring", stiffness: 320, damping: 28 }}
               className="absolute inset-0 flex flex-col items-center justify-center text-center gap-4 px-1"
             >
-              <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-muted-foreground/70">
+              <motion.p
+                initial={prefersReducedMotion ? false : { opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.04, duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                className="text-[11px] uppercase tracking-[0.14em] font-semibold text-muted-foreground/70"
+              >
                 {step + 1} of {QUESTIONS.length}
-              </p>
-              <h3 className="text-[20px] font-bold tracking-tight text-foreground">
+              </motion.p>
+              <motion.h3
+                initial={prefersReducedMotion ? false : { opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.06, type: "spring", stiffness: 280, damping: 24 }}
+                className="text-[20px] font-bold tracking-tight text-foreground"
+              >
                 {currentQ.prompt}
-              </h3>
-              <div className="flex w-full flex-col sm:flex-row gap-2 mt-1">
-                {currentQ.chips.map((c) => {
+              </motion.h3>
+              <motion.div
+                initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.08, type: "spring", stiffness: 260, damping: 22 }}
+                className="flex w-full flex-col sm:flex-row gap-2 mt-1"
+              >
+                {currentQ.chips.map((c, chipIdx) => {
                   const active = answers[currentQ.key] === c.value;
                   return (
                     <motion.button
                       key={c.value}
                       type="button"
                       onClick={() => pickChip(currentQ.key, c.value)}
-                      whileTap={{ scale: 0.92 }}
-                      animate={active ? { scale: [1, 1.03, 1] } : { scale: 1 }}
-                      transition={{ duration: 0.2, ease: "easeOut" }}
+                      initial={prefersReducedMotion ? false : { opacity: 0, y: 8, scale: 0.96 }}
+                      animate={
+                        prefersReducedMotion
+                          ? { opacity: 1 }
+                          : active
+                            ? { opacity: 1, y: 0, scale: [1, 1.05, 1] }
+                            : { opacity: 1, y: 0, scale: 1 }
+                      }
+                      whileTap={prefersReducedMotion ? undefined : { scale: 0.92 }}
+                      transition={{
+                        delay: 0.1 + chipIdx * 0.035,
+                        type: "spring",
+                        stiffness: 320,
+                        damping: 22,
+                      }}
                       className={`flex-1 min-h-[56px] rounded-xl text-[14px] font-semibold tracking-tight border transition-colors ${toneClasses(c.tone, active)}`}
                       aria-label={c.label}
                       aria-pressed={active}
@@ -300,7 +330,7 @@ export function WellnessCheckIn({ userId, onSubmit, isSubmitting, streak }: Well
                     </motion.button>
                   );
                 })}
-              </div>
+              </motion.div>
               {step > 0 && (
                 <button
                   type="button"
@@ -316,14 +346,19 @@ export function WellnessCheckIn({ userId, onSubmit, isSubmitting, streak }: Well
           {onSummary && (
             <motion.div
               key="summary"
-              initial={{ opacity: 0, x: 10 }}
+              initial={prefersReducedMotion ? false : { opacity: 0, x: 14 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -10 }}
-              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, x: -14 }}
+              transition={{ type: "spring", stiffness: 280, damping: 26 }}
               className="absolute inset-0 flex flex-col gap-3 px-1"
             >
               {/* Headline: big Hooper number + label + verdict */}
-              <div className="flex flex-col items-center text-center gap-0.5 pt-1">
+              <motion.div
+                initial={prefersReducedMotion ? false : { opacity: 0, y: 8, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ delay: 0.05, type: "spring", stiffness: 260, damping: 22 }}
+                className="flex flex-col items-center text-center gap-0.5 pt-1"
+              >
                 <span className={`text-[56px] leading-none font-display font-bold tabular-nums ${hooperColor}`}>
                   {hooperIndex}
                 </span>
@@ -336,14 +371,19 @@ export function WellnessCheckIn({ userId, onSubmit, isSubmitting, streak }: Well
                 <p className="text-[13px] text-foreground/70 mt-0.5">
                   {hooperVerdict}
                 </p>
-              </div>
+              </motion.div>
 
               <p className="text-[11px] text-muted-foreground/70 inline-flex items-center justify-center gap-1.5">
-                <Check className="h-3 w-3 text-func-recovery-green" /> Tap any answer to edit
+                <Icon name="checkmarkOutline" size={12} className="text-func-recovery-green" /> Tap any answer to edit
               </p>
 
               {/* Tap-to-edit recap row */}
-              <div className="grid grid-cols-4 gap-1.5">
+              <motion.div
+                initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.12, type: "spring", stiffness: 260, damping: 24 }}
+                className="grid grid-cols-4 gap-1.5"
+              >
                 {QUESTIONS.map((q, idx) => {
                   const c = q.chips.find((chip) => chip.value === answers[q.key]);
                   return (
@@ -351,7 +391,10 @@ export function WellnessCheckIn({ userId, onSubmit, isSubmitting, streak }: Well
                       key={q.key}
                       type="button"
                       onClick={() => { triggerHapticSelection(); setDirection(-1); setStep(idx); }}
-                      whileTap={{ scale: 0.94 }}
+                      initial={prefersReducedMotion ? false : { opacity: 0, y: 6, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ delay: 0.14 + idx * 0.04, type: "spring", stiffness: 320, damping: 22 }}
+                      whileTap={prefersReducedMotion ? undefined : { scale: 0.94 }}
                       className={`card-surface rounded-xl py-2 flex flex-col items-center gap-0.5 transition-colors border ${
                         c ? toneClasses(c.tone, true) : "border-transparent"
                       }`}
@@ -364,24 +407,28 @@ export function WellnessCheckIn({ userId, onSubmit, isSubmitting, streak }: Well
                     </motion.button>
                   );
                 })}
-              </div>
+              </motion.div>
 
               <button
                 type="button"
                 onClick={() => setShowOptional((v) => !v)}
                 className="flex items-center justify-center gap-1 text-[11px] text-muted-foreground/80 active:text-foreground transition-colors mt-1"
               >
-                {showOptional ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                <Icon
+                  name={showOptional ? "chevronUpOutline" : "chevronDownOutline"}
+                  size={12}
+                  className="text-muted-foreground/80"
+                />
                 {showOptional ? "Hide extra detail" : "Add extra detail (optional)"}
               </button>
 
               <AnimatePresence initial={false}>
                 {showOptional && (
                   <motion.div
-                    initial={{ opacity: 0, height: 0 }}
+                    initial={prefersReducedMotion ? false : { opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.22 }}
+                    exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
+                    transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
                     className="overflow-hidden"
                   >
                     <div className="space-y-2.5 pt-1">
@@ -425,14 +472,24 @@ export function WellnessCheckIn({ userId, onSubmit, isSubmitting, streak }: Well
                 )}
               </AnimatePresence>
 
-              <Button
-                onClick={handleSubmit}
-                disabled={isSubmitting}
-                className="w-full rounded-xl h-12 font-semibold gap-2 mt-1"
+              {/* Hero submit reveal — fires once all four questions have been
+                  answered and the user lands on the summary. iOS-style spring
+                  entrance; reduced-motion users see a static button. */}
+              <motion.div
+                initial={prefersReducedMotion ? false : { opacity: 0, y: 8, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 4, scale: 0.98 }}
+                transition={{ delay: 0.18, type: "spring", stiffness: 320, damping: 24 }}
+                className="mt-1"
               >
-                <Brain className="h-4 w-4" />
-                {isSubmitting ? "Analyzing..." : "Get coach advice"}
-              </Button>
+                <Button
+                  onClick={handleSubmit}
+                  disabled={isSubmitting}
+                  className="w-full rounded-xl h-12 font-semibold"
+                >
+                  {isSubmitting ? "Analyzing..." : "Submit check-in"}
+                </Button>
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>

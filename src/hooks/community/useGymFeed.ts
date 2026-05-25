@@ -46,6 +46,13 @@ export interface FeedPost {
     userId: Id<"users">;
     displayName: string;
     avatarUrl: string | null;
+    /**
+     * Consecutive-day post streak for the author, capped at 365. Drives
+     * the flame ring on the polaroid avatar + SessionInfoCard. 0 = no
+     * ring; 7+ triggers the visual. Server-computed in
+     * `computeAuthorStreak`.
+     */
+    streakDays?: number;
   };
   session: {
     id: Id<"training_sessions">;

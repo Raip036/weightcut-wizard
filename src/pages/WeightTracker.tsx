@@ -16,12 +16,14 @@ import { useUser } from "@/contexts/UserContext";
 import {
   AlertDialog,
   AlertDialogAction,
+  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 import { useAITask } from "@/contexts/AITaskContext";
 import { AICompactOverlay } from "@/components/AICompactOverlay";
 import { ShareButton } from "@/components/share/ShareButton";
@@ -35,15 +37,17 @@ import { useWeightData } from "@/hooks/weight/useWeightData";
 import { useWeightAnalysis } from "@/hooks/weight/useWeightAnalysis";
 import { triggerHapticSelection } from "@/lib/haptics";
 import { WeightInsightsBlock } from "@/pages/weight/WeightInsightsBlock";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useMyGyms } from "@/hooks/coach/useMyGyms";
 import { MadeWeightShareSheet } from "@/components/community/MadeWeightShareSheet";
 import type { MadeWeightInput } from "@/lib/madeWeightCard";
 
 export default function WeightTracker() {
-  const { userId, profile: contextProfile, userName, avatarUrl } = useUser();
+  const { userId, profile: contextProfile, userName, avatarUrl, refreshProfile } = useUser();
   const profile = contextProfile as unknown as Profile;
+  const { toast } = useToast();
+  const updateProfile = useMutation(api.profiles.updateProfile);
   // Gym branding + active camp inputs for the Made Weight share card.
   // Both queries skip when userId hasn't resolved, so cold-launch is a no-op.
   const { gyms } = useMyGyms(userId);
@@ -57,6 +61,8 @@ export default function WeightTracker() {
   const [shareOpen, setShareOpen] = useState(false);
   const [weighInShareOpen, setWeighInShareOpen] = useState(false);
   const [showWeightSuccess, setShowWeightSuccess] = useState(false);
+  const [savePlanDialogOpen, setSavePlanDialogOpen] = useState(false);
+  const [savingPlan, setSavingPlan] = useState(false);
 
   const {
     weightLogs, newWeight, setNewWeight, newDate, setNewDate,
@@ -287,6 +293,41 @@ export default function WeightTracker() {
 
   const { tasks: aiTasks, dismissTask: aiDismiss } = useAITask();
   const aiTask = aiTasks.find(t => t.status === "running" && t.type === "weight-analysis");
+
+  /** Promote the freshly generated AI plan to be the user's canonical plan
+   *  by writing it to `profiles.cutPlanJson`. Camp.tsx reads that field and
+   *  renders the "Your plan" card from it, so this single mutation is enough
+   *  to swap the active plan everywhere. Stamps `planType: "weight_loss"`
+   *  when absent so Camp's plan-type router lands on `/weight-plan`. */
+  const handleSavePlan = async () => {
+    if (!analysisPlan) return;
+    setSavingPlan(true);
+    try {
+      const planToSave = {
+        ...analysisPlan,
+        planType: (analysisPlan as any).planType ?? "weight_loss",
+        savedAt: Date.now(),
+        source: "weight_tracker",
+      };
+      await updateProfile({ cutPlanJson: planToSave });
+      // Refresh the in-app profile so /camp picks up the change immediately
+      // without a hard reload. Convex's reactive queries would catch up on
+      // their own; this just makes the swap feel instant on navigation.
+      if (typeof refreshProfile === "function") {
+        await refreshProfile();
+      }
+      toast({ title: "Plan saved", description: "Your new plan is now active on Camp." });
+      setSavePlanDialogOpen(false);
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Couldn't save",
+        description: err instanceof Error ? err.message : "Try again in a moment.",
+      });
+    } finally {
+      setSavingPlan(false);
+    }
+  };
 
   // Pick up completed weight analysis from task context (e.g. when the user
   // navigated away and back while it was running).
@@ -665,6 +706,23 @@ export default function WeightTracker() {
               </div>
 
               <Button
+                onClick={() => setSavePlanDialogOpen(true)}
+                variant="outline"
+                size="sm"
+                className="w-full rounded-xs text-xs h-9 border-primary/40 text-primary hover:bg-primary/10"
+                disabled={savingPlan}
+              >
+                {savingPlan ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Saving…
+                  </span>
+                ) : (
+                  "Save as my plan"
+                )}
+              </Button>
+
+              <Button
                 onClick={getAIAnalysis}
                 disabled={analyzingWeight}
                 variant="ghost"
@@ -731,6 +789,37 @@ export default function WeightTracker() {
             </AlertDialogHeader>
             <AlertDialogFooter className="justify-center sm:justify-center">
               <AlertDialogAction onClick={() => setUnsafeGoalDialogOpen(false)}>I understand</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Confirmation for promoting the AI plan to the user's canonical plan.
+            Destructive — replaces whatever Camp.tsx currently surfaces from
+            `profiles.cutPlanJson` (onboarding plan or a prior save). */}
+        <AlertDialog open={savePlanDialogOpen} onOpenChange={setSavePlanDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Replace your current plan?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This becomes your new active plan and replaces the one from onboarding. You can always generate a new one later.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={savingPlan}>Keep current</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleSavePlan}
+                disabled={savingPlan}
+                className="bg-primary text-primary-foreground"
+              >
+                {savingPlan ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Saving…
+                  </span>
+                ) : (
+                  "Replace plan"
+                )}
+              </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

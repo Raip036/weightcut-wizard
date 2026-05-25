@@ -212,10 +212,19 @@ DETERMINISTIC FACTS:
 ${snap.block}`;
 
     // ── Call LLM with retry, fall back to deterministic plan on failure ─
+    //
+    // Uses the global heavy-reasoning model via OPENROUTER_MODEL_MAP:
+    // on OpenRouter this resolves to qwen3-235b-a22b-2507 (matches every
+    // other heavy-tier feature for routing consistency). The
+    // `callGroqWithRetry` machinery already runs 4 attempts with appended
+    // schema feedback, and falls back to a deterministic plan if the
+    // model can't produce a valid CutPlanSchema after the retries.
+    const HEAVY_MODEL = "openai/gpt-oss-120b";
+
     let aiResult: any = null;
     try {
       aiResult = await callGroqWithRetry({
-        model: "openai/gpt-oss-120b",
+        model: HEAVY_MODEL,
         messages: [
           { role: "system", content: systemPrompt },
           {
@@ -304,7 +313,7 @@ ${snap.block}`;
           ((currentWeight - goalWeight) / weekCount).toFixed(2),
         ),
       },
-      model: aiResult ? "openai/gpt-oss-120b" : "deterministic-fallback",
+      model: aiResult ? HEAVY_MODEL : "deterministic-fallback",
     });
 
     return plan;

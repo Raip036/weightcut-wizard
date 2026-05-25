@@ -17,8 +17,10 @@ import { Icon } from "@/components/ui/Icon";
 import { TrainingWeekWidget, preloadTrainingWeek } from "@/components/dashboard/TrainingWeekWidget";
 import { WeightProgressRing } from "@/components/dashboard/WeightProgressRing";
 import { StreakBadge } from "@/components/dashboard/StreakBadge";
-import { CutPaceForecast } from "@/components/dashboard/CutPaceForecast";
+import { CutPaceForecast, type PlanData } from "@/components/dashboard/CutPaceForecast";
 import { PhaseCoachCard } from "@/components/dashboard/PhaseCoachCard";
+import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { DashboardCampStatusSection } from "@/components/dashboard/DashboardCampStatusSection";
 import { useGamification } from "@/hooks/useGamification";
 import { useUser, useProfile } from "@/contexts/UserContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -873,54 +875,19 @@ export default function Dashboard() {
             onResult={setSubScoreTrend}
           />
         </ErrorBoundary>
-        <div className="dashboard-zoom animate-page-in space-y-3.5 px-5 py-3 sm:p-5 md:p-6 w-full max-w-7xl mx-auto">
+        <div className="dashboard-zoom dashboard-enter-stagger space-y-5 px-5 py-3 sm:p-5 md:p-6 w-full max-w-7xl mx-auto">
           {/* Top row — three columns at the same 40px height:
               [Profile avatar] [Dashboard title] [Days-left tab].
               The avatar is now a direct nav to the edit-profile page
               (/goals); the old ProfileSheet bottom-sheet is no longer
               opened from here. Days-left tab uses the v1 glass recipe
               over a Void surface so it reads as on-brand chrome. */}
-          <header className="relative flex items-center justify-between gap-3 pt-1">
-            <button
-              onClick={() => navigate('/goals')}
-              className="active:opacity-70 transition-opacity"
-              aria-label="Edit profile"
-            >
-              <Avatar className="h-10 w-10">
-                <AvatarImage src={avatarUrl ?? undefined} />
-                <AvatarFallback
-                  className="text-note font-semibold"
-                  style={{ backgroundColor: '#162137', color: '#8C96B4' }}
-                >
-                  {userName?.[0]?.toUpperCase() ?? 'U'}
-                </AvatarFallback>
-              </Avatar>
-            </button>
-
-            {daysUntilTarget > 0 && (
-              <div
-                className="flex items-center h-10 px-3 rounded-xs"
-                style={{
-                  background: 'rgba(0, 5, 19, 0.6)',
-                  backdropFilter: 'blur(20px) saturate(160%)',
-                  WebkitBackdropFilter: 'blur(20px) saturate(160%)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                }}
-              >
-                <p className="text-note font-semibold tabular-nums whitespace-nowrap text-foreground">
-                  {daysUntilTarget} days left until weigh-in
-                </p>
-              </div>
-            )}
-          </header>
-
-          {/* Date — small caps Inter Light, with breathing room from the
-              top row above. */}
-          <div className="pt-1">
-            <p className="text-micro uppercase tracking-[0.15em] font-light text-muted-foreground/70">
-              {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
-            </p>
-          </div>
+          <DashboardHeader
+            avatarUrl={avatarUrl}
+            userName={userName}
+            daysUntilTarget={daysUntilTarget}
+            onAvatarClick={() => navigate('/goals')}
+          />
 
           {/* Post-fight banner — auto-prompts the user to wrap up the camp
               and start the next one once the fight date has passed. The
@@ -930,7 +897,7 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => setNextCampOpen(true)}
-              className="w-full text-left rounded-2xl card-surface card-glow p-3 active:scale-[0.99] transition-transform"
+              className="w-full text-left rounded-2xl card-surface card-glow p-3 card-press"
             >
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-xs bg-primary/15 flex items-center justify-center shrink-0">
@@ -1050,7 +1017,9 @@ export default function Dashboard() {
 
           <TodayStrip adherence={adherence} mealsLoggedToday={todayCalories > 0} />
 
-          <p className="font-display text-value font-bold text-white pt-4">Your Stats</p>
+          <div className="pt-3 flex items-baseline justify-between">
+            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/80">Your Stats</p>
+          </div>
 
           <div className="grid grid-cols-2 gap-2 items-stretch">
             {/* Weight metric card — Design System v1 Metric Card layout
@@ -1064,7 +1033,7 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => { triggerHapticSelection(); navigate('/weight'); }}
-              className="card-surface card-glow rounded-2xl p-3 aspect-square flex flex-col text-left active:scale-[0.98] transition-transform"
+              className="card-surface card-glow rounded-2xl p-3 aspect-square flex flex-col text-left card-press"
             >
               <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
                 WEIGHT
@@ -1126,21 +1095,15 @@ export default function Dashboard() {
           {/* CAMP STATUS — forward-looking guidance. Hidden unless the user
               has an active camp with a weigh-in date set. */}
           {activeCamp && !activeCamp.isCompleted && profile?.target_date && (
-            <>
-              <p className="font-display text-value font-bold text-white pt-4">Camp Status</p>
-              <div className="space-y-2">
-                <CutPaceForecast
-                  weightLogs={weightLogs}
-                  currentWeight={currentWeightValue}
-                  goalWeight={profile.fight_week_target_kg ?? profile.goal_weight_kg ?? 0}
-                  targetDate={profile.target_date}
-                />
-                <PhaseCoachCard
-                  phase={ffScore.phase}
-                  daysUntilFight={daysUntilTarget || null}
-                />
-              </div>
-            </>
+            <DashboardCampStatusSection
+              weightLogs={weightLogs}
+              currentWeight={currentWeightValue}
+              goalWeight={profile.fight_week_target_kg ?? profile.goal_weight_kg ?? 0}
+              targetDate={profile.target_date}
+              phase={ffScore.phase}
+              daysUntilFight={daysUntilTarget || null}
+              plan={profile?.cut_plan_json as PlanData | null | undefined}
+            />
           )}
         </div>
 

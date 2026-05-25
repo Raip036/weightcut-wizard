@@ -18,6 +18,13 @@ interface CutPaceForecastProps {
    */
   goalWeight: number;
   targetDate: string | null | undefined;
+  /**
+   * Authoritative plan source — passed from the parent (which reads
+   * `profile.cut_plan_json`). When defined, takes precedence over the
+   * legacy `loadPlan()` localStorage cache. The fallback exists so
+   * older call sites continue to work until they migrate.
+   */
+  plan?: PlanData | null;
 }
 
 type WeekPhase = "foundation" | "build" | "peak" | "final" | "fight_week";
@@ -28,7 +35,7 @@ interface WeekRow {
   phase: WeekPhase;
 }
 
-interface PlanData {
+export interface PlanData {
   weeklyPlan: WeekRow[];
   totalWeeks?: number;
   targetDate?: string;
@@ -75,11 +82,12 @@ export function CutPaceForecast({
   weightLogs,
   currentWeight,
   targetDate,
+  plan: planProp,
 }: CutPaceForecastProps) {
   const navigate = useNavigate();
 
   const data = useMemo(() => {
-    const plan = loadPlan();
+    const plan = planProp ?? loadPlan();
     if (!plan) return null;
 
     // Derive the plan-start date so we can place each week on a real
@@ -166,7 +174,7 @@ export function CutPaceForecast({
       pastCount: pastWeeks.length,
       totalWeeks,
     };
-  }, [weightLogs, targetDate]);
+  }, [weightLogs, targetDate, planProp]);
 
   if (!data) return null;
 
@@ -192,18 +200,24 @@ export function CutPaceForecast({
     return { label: "PUSHING", text: "text-func-carbs-orange", dot: "bg-func-carbs-orange" };
   })();
 
-  // Tube-map progress fill: the colored line extends to the last "settled"
-  // checkpoint — the furthest station the user has earned. Hit + close
-  // count; missed and no_data stop the line (so the gap is visible).
+  // Tube-map progress fill: the colored line extends to the last PAST
+  // checkpoint — any settled week the user has reached, including misses.
+  // "Hit", "close", "missed", and "no_data" all advance the fill; only
+  // "current" / "future" stop it. The dot color still encodes hit vs
+  // missed; the bar reads as "time elapsed", not "earned distance".
   // The fill width is expressed as a percentage of station-to-station
-  // spacing so CSS transitions can animate when a new station settles.
+  // spacing so CSS transitions animate when a new station settles.
   const stationCount = checkpoints.length;
   const lastSettledIdx = (() => {
     let idx = -1;
     for (let i = 0; i < checkpoints.length; i++) {
       const s = checkpoints[i].status;
-      if (s === "hit" || s === "close") idx = i;
-      else if (s === "missed" || s === "no_data" || s === "current" || s === "future") break;
+      if (s === "hit" || s === "close" || s === "missed" || s === "no_data") {
+        idx = i;
+      } else {
+        // "current" or "future" — stop here; everything past this is not yet reached.
+        break;
+      }
     }
     return idx;
   })();
@@ -245,10 +259,10 @@ export function CutPaceForecast({
 
           {/* Filled progress line — animates on width change. */}
           <div
-            className="absolute top-1/2 -translate-y-1/2 left-1.5 h-[3px] rounded-full bg-func-recovery-green transition-[width] duration-1000 ease-out"
+            className="absolute top-1/2 -translate-y-1/2 left-1.5 h-[3px] rounded-full bg-primary transition-[width] duration-1000 ease-out"
             style={{
               width: `calc((100% - 12px) * ${progressPct / 100})`,
-              boxShadow: progressPct > 0 ? "0 0 8px rgba(16, 185, 129, 0.55)" : undefined,
+              boxShadow: progressPct > 0 ? "0 0 8px hsl(var(--primary) / 0.55)" : undefined,
             }}
           />
 

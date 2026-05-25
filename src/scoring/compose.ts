@@ -209,7 +209,7 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
   const phase = resolvePhase(inputs.date, inputs.fightDate, cfg);
   const weights = weightsForPhase(phase, cfg);
 
-  const trainingLoad = computeTrainingLoad(inputs.sessions, inputs.date, cfg);
+  const trainingLoad = computeTrainingLoad(inputs.sessions, inputs.date, cfg, inputs.restDays ?? []);
   const sleep = computeSleep(inputs.sleepHours, inputs.date, cfg, inputs.assumedSleepDates);
   const weightCut = computeWeightCut(
     { weights: inputs.weights, startingWeightKg: inputs.startingWeightKg, goalWeightKg: inputs.goalWeightKg, campStartDate: inputs.campStartDate, fightDate: inputs.fightDate },

@@ -3,7 +3,7 @@
 // LLM only interprets — never calculates
 
 import { logger } from "@/lib/logger";
-import type { SessionRow, AllMetrics, OvertrainingRisk, WellnessCheckIn, PersonalBaseline, LoadConfidence } from "./types";
+import type { SessionRow, AllMetrics, OvertrainingRisk, WellnessCheckIn, PersonalBaseline, LoadConfidence, DailySessionSummary, ThisWeekSummary, LastWeekSummary } from "./types";
 import { clamp, mapRange, groupByDate } from "./helpers";
 import { sessionLoad, dailyLoad, calculateStrain } from "./load";
 import { deriveCalibration } from "./calibration";
@@ -270,6 +270,74 @@ export function computeAllMetrics(
     enhancedFields.stabilityScore = computeStabilityScore(baseline.hooper_cv_14d);
   }
 
+  // Calendar week boundaries — Monday as week start. Today is computed
+  // from the same Date instance used elsewhere so DST quirks line up.
+  const _now = new Date();
+  const _dow = (_now.getDay() + 6) % 7; // 0..6, Monday = 0
+  const _monday = new Date(_now);
+  _monday.setHours(0, 0, 0, 0);
+  _monday.setDate(_monday.getDate() - _dow);
+  const _lastMonday = new Date(_monday);
+  _lastMonday.setDate(_lastMonday.getDate() - 7);
+  const _lastSunday = new Date(_monday);
+  _lastSunday.setDate(_lastSunday.getDate() - 1);
+  const _todayIso = _now.toISOString().slice(0, 10);
+  const _weekStartIso = _monday.toISOString().slice(0, 10);
+
+  const _toIso = (d: Date) => d.toISOString().slice(0, 10);
+  const _isoForOffset = (start: Date, offset: number) => {
+    const d = new Date(start);
+    d.setDate(d.getDate() + offset);
+    return _toIso(d);
+  };
+
+  // Build the 7-key sessionsByDate map up front so every Mon..Sun
+  // has a stable key (empty array if no sessions).
+  const _sessionsByDate: Record<string, DailySessionSummary[]> = {};
+  for (let i = 0; i < 7; i++) {
+    _sessionsByDate[_isoForOffset(_monday, i)] = [];
+  }
+
+  let _thisWeekSessions = 0;
+  let _thisWeekMinutes = 0;
+  let _lastWeekSessions = 0;
+  let _lastWeekMinutes = 0;
+
+  const _lastWeekStartIso = _toIso(_lastMonday);
+  const _lastWeekEndIso = _toIso(_lastSunday);
+
+  for (const s of sessions28d) {
+    if (s.session_type === "Rest") continue; // exclude rest from training totals
+    const date = s.date;
+    // This calendar week
+    if (date >= _weekStartIso && date <= _todayIso) {
+      _thisWeekSessions += 1;
+      _thisWeekMinutes += s.duration_minutes ?? 0;
+      if (_sessionsByDate[date]) {
+        _sessionsByDate[date].push({
+          sessionType: s.session_type,
+          durationMinutes: s.duration_minutes ?? 0,
+          rpe: s.rpe ?? 0,
+        });
+      }
+    } else if (date >= _lastWeekStartIso && date <= _lastWeekEndIso) {
+      _lastWeekSessions += 1;
+      _lastWeekMinutes += s.duration_minutes ?? 0;
+    }
+  }
+
+  const thisWeek: ThisWeekSummary = {
+    sessionCount: _thisWeekSessions,
+    totalMinutes: _thisWeekMinutes,
+    sessionsByDate: _sessionsByDate,
+    weekStart: _weekStartIso,
+    today: _todayIso,
+  };
+  const lastWeek: LastWeekSummary = {
+    sessionCount: _lastWeekSessions,
+    totalMinutes: _lastWeekMinutes,
+  };
+
   logger.info('[PE] allMetrics', {
     strain: todayStrain,
     acuteLoad,
@@ -292,6 +360,8 @@ export function computeAllMetrics(
     loadZone: getLoadZone(loadRatio, calibration),
     overtrainingRisk,
     weeklySessionCount: sessionsLast7d,
+    thisWeek,
+    lastWeek,
     avgSleep: getAvgSleep(sessions28d, sleepLogs),
     latestSleep: getLatestSleep(sessions28d, sleepLogs),
     latestSoreness: getLatestSoreness(sessions28d),
@@ -320,6 +390,7 @@ export type {
   ReadinessBreakdown, EnhancedReadinessBreakdown, ReadinessResult,
   WellnessCheckIn, BalanceDirection, BalanceSeverity, BalanceMetric,
   PersonalBaseline, AllMetrics,
+  DailySessionSummary, ThisWeekSummary, LastWeekSummary,
 } from "./types";
 
 export { clamp, mapRange, getRecentSleepValues, getRecentSorenessValues, zScore } from "./helpers";

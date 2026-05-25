@@ -17,16 +17,9 @@
 import { useMemo, useState, useRef, useEffect } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { Button } from "@/components/ui/button";
-import {
-  ShieldCheck,
-  Sun,
-  AlertTriangle,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
-import { triggerHaptic, triggerHapticSelection } from "@/lib/haptics";
+import { ShieldCheck, Sun, AlertTriangle } from "lucide-react";
+import { triggerHaptic } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
-import useEmblaCarousel from "embla-carousel-react";
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -62,6 +55,28 @@ interface FightWeekBlock {
   nutrition: string;
 }
 
+type FightWeekPhase = "depletion" | "water-load" | "cut" | "weigh-in";
+
+interface FightWeekDay {
+  dayOffset: number;
+  date: string;
+  weekday: string;
+  phase: FightWeekPhase;
+  carbsGrams: number;
+  proteinGrams: number;
+  sodiumGrams: number;
+  fluidLiters: number;
+  notes: string;
+  flag?: "sodium-cliff" | "fluid-cliff" | "weigh-in";
+}
+
+interface FightWeekRefeed {
+  carbsGPerKgFirstHr: number;
+  carbsGPerKgPhase2: number;
+  sodiumGPerLiterFluid: number;
+  firstMeal: string;
+}
+
 interface PlanData {
   weeklyPlan: WeekRow[];
   phases?: PhaseSummary[];
@@ -75,6 +90,9 @@ interface PlanData {
   targetCalories?: number;
   safetyNotes?: string;
   fightWeek?: FightWeekBlock;
+  fightWeekDays?: FightWeekDay[];
+  fightWeekRefeed?: FightWeekRefeed;
+  fightWeekSafetyFlag?: string;
   keyPrinciples?: string[];
   currentWeight?: number;
   goalWeight?: number;
@@ -481,8 +499,8 @@ function WeekCard({
               </span>
             )}
             {row.risk && (
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-func-warning-yellow/10 border border-func-warning-yellow/20 text-[10px] text-func-warning-yellow leading-tight">
-                <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/[0.06] border border-amber-500/20 text-[10px] text-amber-200/85 leading-tight">
+                <AlertTriangle className="h-2.5 w-2.5 shrink-0 text-amber-400/70" />
                 {cleanText(row.risk)}
               </span>
             )}
@@ -499,109 +517,131 @@ function WeekCard({
   );
 }
 
-// ─── Fight Week carousel ─────────────────────────────────────────────
-const FIGHT_WEEK_STAGES: {
-  day: string;
+// ─── Fight Week day-stack ────────────────────────────────────────────
+// Vertical one-row-per-day timeline. Each row shows carbs / sodium /
+// fluid as inline chips with bodyweight-scaled numbers, plus a short
+// coach cue. Replaces the prior 4-card carousel whose "Day -7 / Day -3"
+// labels misrepresented multi-day overlapping ranges.
+
+function FightWeekChip({
+  label,
+  value,
+  tone,
+}: {
   label: string;
-  field: keyof FightWeekBlock;
-  bg: string;
-}[] = [
-  { day: "Day -7", label: "Low Carb", field: "lowCarb", bg: "from-func-warning-yellow/10 to-func-warning-yellow/5" },
-  { day: "Day -3", label: "Sodium Cut", field: "sodium", bg: "from-func-carbs-orange/10 to-func-carbs-orange/5" },
-  { day: "Day -2", label: "Water Load", field: "waterLoading", bg: "from-func-hydration-cyan/10 to-func-hydration-cyan/5" },
-  { day: "Day 0", label: "Weigh-in + Refuel", field: "nutrition", bg: "from-func-recovery-green/10 to-func-recovery-green/5" },
-];
+  value: string;
+  tone: "carbs" | "hydration" | "warn" | "muted";
+}) {
+  const toneClass = {
+    carbs:
+      "text-func-carbs-orange/90 border-func-carbs-orange/20 bg-func-carbs-orange/[0.05]",
+    hydration:
+      "text-func-hydration-cyan/90 border-func-hydration-cyan/20 bg-func-hydration-cyan/[0.05]",
+    warn:
+      "text-amber-200/90 border-amber-500/20 bg-amber-500/[0.06]",
+    muted:
+      "text-foreground/75 border-border/40 bg-foreground/[0.03]",
+  }[tone];
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border ${toneClass} text-[10.5px] font-medium tabular-nums leading-tight`}
+    >
+      <span className="opacity-60">{label}</span>
+      <span>{value}</span>
+    </span>
+  );
+}
 
-function FightWeekCarousel({ block }: { block: FightWeekBlock }) {
-  const [emblaRef, emblaApi] = useEmblaCarousel({
-    align: "start",
-    containScroll: "trimSnaps",
-    loop: false,
-  });
-  const [selectedIndex, setSelectedIndex] = useState(0);
-
-  // Track selected slide for the dot indicator. useEffect so the
-  // listener is registered ONCE per emblaApi instance, not on every
-  // render — prevents the listener stack from growing per re-render.
-  useEffect(() => {
-    if (!emblaApi) return;
-    const onSelect = () => {
-      setSelectedIndex(emblaApi.selectedScrollSnap());
-      triggerHapticSelection();
-    };
-    emblaApi.on("select", onSelect);
-    return () => { emblaApi.off("select", onSelect); };
-  }, [emblaApi]);
-
-  const scrollPrev = () => emblaApi?.scrollPrev();
-  const scrollNext = () => emblaApi?.scrollNext();
-
+function FightWeekDayStack({
+  days,
+  refeed,
+  safetyFlag,
+  target,
+}: {
+  days: FightWeekDay[];
+  refeed?: FightWeekRefeed;
+  safetyFlag?: string;
+  target?: number;
+}) {
+  if (!days || days.length === 0) return null;
   return (
     <div className="mt-3">
       <div className="flex items-baseline justify-between mb-2 px-1">
-        <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-func-warning-yellow">
+        <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-muted-foreground">
           Fight Week Protocol
         </p>
-        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-          Swipe to step through
-        </p>
+        {typeof target === "number" && target > 0 && (
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground tabular-nums">
+            Target {target.toFixed(1)} kg
+          </p>
+        )}
       </div>
 
-      {/* Edge-bleeding carousel */}
-      <div className="overflow-hidden" ref={emblaRef}>
-        <div className="flex gap-3">
-          {FIGHT_WEEK_STAGES.map((stage) => (
-            <div
-              key={stage.field}
-              className="shrink-0 basis-[88%]"
-            >
-              <div
-                className={`h-full rounded-xs border border-border/50 bg-gradient-to-b ${stage.bg} p-4`}
-              >
-                <p className="text-[10px] uppercase tracking-wider font-bold text-foreground/70">
-                  {stage.day}
-                </p>
-                <h4 className="text-[18px] font-bold text-foreground mt-0.5 mb-3">
-                  {stage.label}
-                </h4>
-                <p className="text-[13px] text-foreground/85 leading-relaxed">
-                  {cleanText(block[stage.field])}
-                </p>
+      {safetyFlag && (
+        <div className="rounded-xs border border-amber-500/20 bg-amber-500/[0.04] p-3 mb-2 flex items-start gap-2">
+          <AlertTriangle className="h-4 w-4 text-amber-400/70 mt-0.5 shrink-0" />
+          <p className="text-[12px] text-foreground/80 leading-snug">
+            Aggressive cut for this timeline. Train light from day -2 and keep fluids steady until then.
+          </p>
+        </div>
+      )}
+
+      <ul className="rounded-xs border border-border/40 bg-card/40 divide-y divide-border/30 overflow-hidden">
+        {days.map((d) => (
+          <li
+            key={d.dayOffset}
+            className="px-3 py-2.5 flex items-start gap-3"
+          >
+            <div className="shrink-0 w-12 tabular-nums">
+              <div className="text-[14px] font-bold text-foreground/90 leading-none">
+                {d.dayOffset === 0 ? "0" : d.dayOffset}
+              </div>
+              <div className="text-[9px] uppercase tracking-wider text-muted-foreground mt-1">
+                {d.weekday || "—"}
               </div>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Dot indicator + arrows */}
-      <div className="flex items-center justify-between mt-2.5 px-1">
-        <button
-          type="button"
-          onClick={scrollPrev}
-          aria-label="Previous day"
-          className="h-7 w-7 rounded-full bg-muted/40 border border-border/40 flex items-center justify-center active:scale-90 transition-transform"
-        >
-          <ChevronLeft className="h-4 w-4 text-foreground/70" />
-        </button>
-        <div className="flex items-center gap-1.5">
-          {FIGHT_WEEK_STAGES.map((_, i) => (
-            <span
-              key={i}
-              className={`h-1.5 rounded-full transition-all ${
-                i === selectedIndex ? "w-5 bg-func-warning-yellow" : "w-1.5 bg-muted-foreground/30"
-              }`}
-            />
-          ))}
-        </div>
-        <button
-          type="button"
-          onClick={scrollNext}
-          aria-label="Next day"
-          className="h-7 w-7 rounded-full bg-muted/40 border border-border/40 flex items-center justify-center active:scale-90 transition-transform"
-        >
-          <ChevronRight className="h-4 w-4 text-foreground/70" />
-        </button>
-      </div>
+            <div className="flex-1 min-w-0">
+              {d.dayOffset === 0 ? (
+                <div>
+                  <p className="text-[13px] font-semibold text-foreground/90">
+                    Weigh-in, then refuel
+                  </p>
+                  {refeed && (
+                    <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
+                      {refeed.carbsGPerKgFirstHr} g/kg/hr carbs for 2 hr, then {refeed.carbsGPerKgPhase2} g/kg/hr. Sodium {refeed.sodiumGPerLiterFluid} g per L fluid.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <div className="flex flex-wrap gap-1.5">
+                    <FightWeekChip
+                      label="carbs"
+                      value={`${d.carbsGrams}g`}
+                      tone="carbs"
+                    />
+                    <FightWeekChip
+                      label="Na"
+                      value={d.sodiumGrams < 0.5 ? "cliff" : `${d.sodiumGrams}g`}
+                      tone={d.flag === "sodium-cliff" ? "warn" : "muted"}
+                    />
+                    <FightWeekChip
+                      label="H₂O"
+                      value={d.fluidLiters < 0.5 ? "sips" : `${d.fluidLiters}L`}
+                      tone={d.flag === "fluid-cliff" ? "warn" : "hydration"}
+                    />
+                  </div>
+                  {d.notes && (
+                    <p className="text-[11px] text-muted-foreground leading-snug mt-1.5">
+                      {cleanText(d.notes)}
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -738,9 +778,16 @@ export function InlinePlanDisplay({
         ))}
       </div>
 
-      {/* FIGHT WEEK CAROUSEL — cutting flow only */}
-      {!isWeightLoss && planData.fightWeek && (
-        <FightWeekCarousel block={planData.fightWeek} />
+      {/* FIGHT WEEK DAY-STACK — cutting flow only */}
+      {!isWeightLoss && planData.fightWeekDays && planData.fightWeekDays.length > 0 && (
+        <FightWeekDayStack
+          days={planData.fightWeekDays}
+          refeed={planData.fightWeekRefeed}
+          safetyFlag={planData.fightWeekSafetyFlag}
+          target={
+            planData.weeklyPlan?.[planData.weeklyPlan.length - 1]?.targetWeight
+          }
+        />
       )}
 
       {/* PLAN RULES */}

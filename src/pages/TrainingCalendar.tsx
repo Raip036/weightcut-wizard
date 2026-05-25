@@ -16,6 +16,7 @@ import { useSafeAsync } from "@/hooks/useSafeAsync";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Icon } from "@/components/ui/Icon";
 
 import { TrainingSummarySection } from "@/components/fightcamp/TrainingSummarySection";
 import { CalendarMonthGrid } from "@/components/fightcamp/CalendarMonthGrid";
@@ -100,6 +101,7 @@ export default function TrainingCalendar() {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [pendingRestDay, setPendingRestDay] = useState(false);
     const [sessions28d, setSessions28d] = useState<TrainingCalendarRow[]>(() => {
         const ws = userId ? recent28dMemCache.get(userId) : null;
         return ws?.data ?? [];
@@ -750,6 +752,127 @@ export default function TrainingCalendar() {
         })();
     };
 
+    // ── Rest-day toggle ────────────────────────────────────────────────
+    // Marks a date as a deliberate rest by writing a `Rest` row into
+    // `fight_camp_calendar`. Mirrors the optimistic + cache pattern used
+    // by handleSaveSession, but skips the form path entirely — Rest is
+    // its own dedicated action, not a session-type option in the form.
+    const handleMarkRestDay = async () => {
+        if (!userId || pendingRestDay) return;
+        const uid = userId;
+        const dateStr = format(selectedDate, "yyyy-MM-dd");
+
+        // Idempotency guard: if a rest row already exists for this date,
+        // do nothing — the UI should be showing the "Remove" affordance.
+        if (sessions.some(s => s.date === dateStr && s.session_type === "Rest")) return;
+
+        setPendingRestDay(true);
+        triggerHapticSelection();
+
+        const tempId = crypto.randomUUID();
+        const memMonthKey = `${uid}:${format(currentDate, "yyyy-MM")}`;
+        const monthKey = monthCacheKey(currentDate);
+        const previousSessions = sessions;
+        const previousMem = monthMemCache.get(memMonthKey);
+
+        const optimisticRow: TrainingCalendarRow = {
+            id: tempId,
+            user_id: uid,
+            date: dateStr,
+            session_type: "Rest",
+            duration_minutes: 0,
+            rpe: 0,
+            intensity: "low",
+            intensity_level: 1,
+            bodyweight: null,
+            fatigue_level: null,
+            soreness_level: null,
+            sleep_hours: null,
+            sleep_quality: null,
+            mobility_done: null,
+            notes: null,
+            media_url: null,
+            created_at: new Date().toISOString(),
+        };
+
+        const next = [...sessions, optimisticRow];
+        setSessions(next);
+        monthMemCache.set(memMonthKey, { data: next, fetchedAt: Date.now() });
+        localCache.set(uid, monthKey, next);
+
+        try {
+            const realId = (await createCalendarMut({
+                date: dateStr,
+                sessionType: "Rest",
+                intensity: "low",
+                intensityLevel: 1,
+                durationMinutes: 0,
+                rpe: 0,
+            })) as Id<"fight_camp_calendar">;
+
+            // Swap the optimistic temp id for the real Convex id so a later
+            // "Remove rest day" tap can call deleteCalendarMut with a valid id.
+            const patch = (rows: TrainingCalendarRow[]) =>
+                rows.map(s => s.id === tempId ? { ...s, id: realId as unknown as string } : s);
+            setSessions(prev => patch(prev));
+            const liveMem = monthMemCache.get(memMonthKey);
+            if (liveMem) {
+                monthMemCache.set(memMonthKey, { data: patch(liveMem.data), fetchedAt: liveMem.fetchedAt });
+            }
+            const liveLocal = localCache.get<TrainingCalendarRow[]>(uid, monthKey);
+            if (liveLocal) {
+                localCache.set(uid, monthKey, patch(liveLocal));
+            }
+
+            // Bump the same trigger session-save uses so dependent widgets
+            // (TrainingSummarySection, dashboard daily-log chip via the
+            // reactive Convex query) pick up the change immediately.
+            setSessionLoggedTrigger(prev => prev + 1);
+
+            // Invalidate the 28d cache so the rolling window picks up the rest row.
+            recent28dMemCache.delete(uid);
+            localCache.remove(uid, "training_sessions_28d");
+            void fetch28DaySessions();
+
+            toast({
+                title: "Rest day logged",
+                description: "Nice — recovery is part of the work.",
+            });
+        } catch (error) {
+            logger.warn("Mark rest day failed", { error: String(error) });
+            // Rollback to pre-optimistic state.
+            setSessions(previousSessions);
+            if (previousMem) {
+                monthMemCache.set(memMonthKey, previousMem);
+            } else {
+                monthMemCache.delete(memMonthKey);
+            }
+            localCache.set(uid, monthKey, previousSessions);
+            toast({
+                title: "Couldn't mark rest day",
+                description: "Check your connection and try again.",
+                variant: "destructive",
+            });
+        } finally {
+            setPendingRestDay(false);
+        }
+    };
+
+    const handleRemoveRestDay = () => {
+        if (!userId || pendingRestDay) return;
+        const dateStr = format(selectedDate, "yyyy-MM-dd");
+        const restEntry = sessions.find(s => s.date === dateStr && s.session_type === "Rest");
+        if (!restEntry) return;
+        setPendingRestDay(true);
+        triggerHapticSelection();
+        // Reuse the existing delete pipeline — same optimistic UI, rollback,
+        // cache invalidation, and "already gone" idempotency.
+        handleDeleteSession(restEntry.id);
+        // handleDeleteSession is fire-and-forget; release the gate on the
+        // next tick. Cache + state update have already happened synchronously.
+        setTimeout(() => setPendingRestDay(false), 0);
+    };
+
     const handleColorChange = (sessionType: string, color: string) => {
         if (!userId) return;
         setUserColor(userId, sessionType, color);
@@ -765,6 +888,14 @@ export default function TrainingCalendar() {
     const prevMonth = () => { setCurrentDate(subMonths(currentDate, 1)); triggerHapticSelection(); };
 
     const sessionsForSelectedDate = sessions.filter(s => s.date === format(selectedDate, 'yyyy-MM-dd'));
+    // Rest-day toggle state for the selected date. Suppress the "Mark rest"
+    // affordance if any real (non-Rest) session is already logged — the day
+    // is accounted for and showing the button there would be noise.
+    const restEntryForSelectedDate = sessionsForSelectedDate.find(s => s.session_type === "Rest") ?? null;
+    const hasRealSessionForSelectedDate = sessionsForSelectedDate.some(s => s.session_type !== "Rest");
+    // Show the rest toggle when: there's a rest entry to remove, OR there's
+    // no real session for the day (so the user can mark it).
+    const showRestToggle = !!restEntryForSelectedDate || !hasRealSessionForSelectedDate;
 
     // ── Week-strip helpers ────────────────────────────────────────────
     // Render the 7 days of the week that contains `selectedDate`. Sunday
@@ -843,7 +974,15 @@ export default function TrainingCalendar() {
                         const active = ds === format(selectedDate, "yyyy-MM-dd");
                         const isTodayCell = isDateToday(d);
                         const isYestCell = isDateYesterday(d);
-                        const dayCount = (sessionsByDate.get(ds) ?? []).length;
+                        const dayEntries = sessionsByDate.get(ds) ?? [];
+                        // Surface rest-only days with a distinct corner marker so
+                        // they read differently from active training days (which
+                        // use the warm primary dots). Rest rows that share a day
+                        // with a real session keep the session-dot treatment —
+                        // the real session is the headline.
+                        const realCount = dayEntries.filter(s => s.session_type !== "Rest").length;
+                        const restOnly = realCount === 0 && dayEntries.some(s => s.session_type === "Rest");
+                        const dayCount = dayEntries.length;
                         return (
                             <motion.button
                                 key={ds}
@@ -854,9 +993,21 @@ export default function TrainingCalendar() {
                                         ? "bg-primary text-primary-foreground border-primary"
                                         : "bg-card/40 text-foreground/85 border-border/40 hover:bg-muted/40"
                                 }`}
-                                aria-label={format(d, "EEEE, MMMM d")}
+                                aria-label={`${format(d, "EEEE, MMMM d")}${restOnly ? ", rest day" : ""}`}
                                 aria-current={active ? "date" : undefined}
                             >
+                                {/* Rest-day corner marker — muted cool tone so it
+                                    doesn't compete with the primary session dots. */}
+                                {restOnly && (
+                                    <span
+                                        className={`absolute top-1 right-1 inline-flex items-center justify-center ${
+                                            active ? "text-primary-foreground/70" : "text-muted-foreground/60"
+                                        }`}
+                                        aria-hidden
+                                    >
+                                        <Icon name="moonOutline" size={10} />
+                                    </span>
+                                )}
                                 <span
                                     className={`text-[9.5px] font-bold uppercase tracking-wider leading-none ${
                                         active ? "text-primary-foreground/85" : "text-muted-foreground/70"
@@ -871,8 +1022,9 @@ export default function TrainingCalendar() {
                                 >
                                     {format(d, "d")}
                                 </span>
-                                {/* Session count dot(s) below */}
-                                {dayCount > 0 && (
+                                {/* Session count dot(s) below — only for real
+                                    sessions. Rest-only days use the moon marker. */}
+                                {!restOnly && dayCount > 0 && (
                                     <span className="absolute bottom-1.5 flex items-center gap-0.5">
                                         {Array.from({ length: Math.min(3, dayCount) }).map((_, i) => (
                                             <span
@@ -950,6 +1102,30 @@ export default function TrainingCalendar() {
                                 </div>
                             </DialogContent>
                         </Dialog>
+
+                {/* Rest-day toggle — secondary outline CTA sitting below the
+                    primary "Log a session" button. Hidden when a real session
+                    is already logged for this date; the day is accounted for. */}
+                {showRestToggle && (
+                    <button
+                        type="button"
+                        onClick={restEntryForSelectedDate ? handleRemoveRestDay : handleMarkRestDay}
+                        disabled={pendingRestDay || !userId}
+                        aria-pressed={!!restEntryForSelectedDate}
+                        className={`w-full h-11 rounded-xs border text-[13px] font-semibold flex items-center justify-center gap-2 transition active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 ${
+                            restEntryForSelectedDate
+                                ? "bg-muted/30 text-foreground border-border/50"
+                                : "bg-transparent text-foreground/85 border-border/40 hover:bg-muted/30"
+                        }`}
+                    >
+                        <Icon
+                            name="moonOutline"
+                            size={15}
+                            className={restEntryForSelectedDate ? "text-foreground/80" : "text-muted-foreground"}
+                        />
+                        {restEntryForSelectedDate ? "Remove rest day" : "Mark as rest day"}
+                    </button>
+                )}
 
                     <div className="space-y-2.5">
                         {isLoading ? (

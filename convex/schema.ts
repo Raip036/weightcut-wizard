@@ -381,6 +381,11 @@ export default defineSchema({
       weightCut:           v.object({ value: v.number(), weight: v.number(), reason: v.string() }),
       wellness:            v.object({ value: v.number(), weight: v.number(), reason: v.string() }),
       nutritionAdherence:  v.object({ value: v.number(), weight: v.number(), reason: v.string() }),
+      // Optional so historical rows written before the recovery sub-score
+      // was added still pass schema validation on read. New writes from
+      // the calculator always include it (currently weight 0 — not yet
+      // factored into the displayed score).
+      recovery:            v.optional(v.object({ value: v.number(), weight: v.number(), reason: v.string() })),
     }),
     appliedCeiling: v.optional(v.object({ ruleId: v.string(), cap: v.number() })),
     campAge: v.optional(v.object({ weeksAhead: v.number() })),

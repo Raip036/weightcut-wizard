@@ -32,29 +32,25 @@ export function FightFormDeltaBanner(p: Props) {
 
   const headline = up
     ? subject
-      ? `Score +${magnitude} since yesterday — ${subject} is climbing.`
-      : `Score +${magnitude} since yesterday.`
+      ? `+${magnitude} vs yesterday · ${subject} leading`
+      : `+${magnitude} vs yesterday`
     : subject
-      ? `Score −${magnitude} since yesterday — ${subject} is the brake.`
-      : `Score −${magnitude} since yesterday.`;
+      ? `−${magnitude} vs yesterday · ${subject} lagging`
+      : `−${magnitude} vs yesterday`;
 
   return (
     <button
       type="button"
       onClick={p.onTap}
-      className="card-surface card-glow rounded-2xl px-3.5 py-2 mt-2 flex items-center justify-center gap-2.5 w-full max-w-sm text-center transition-colors"
+      className="mt-2 mx-auto w-fit flex items-center gap-1.5 rounded-full border border-border/40 bg-foreground/[0.03] px-2.5 py-1 backdrop-blur-sm transition-colors"
       aria-label="Open Fight Form Score details"
     >
-      <span
-        className={
-          up
-            ? "shrink-0 rounded-full bg-func-recovery-green/15 text-func-recovery-green p-1.5"
-            : "shrink-0 rounded-full bg-func-danger-red/15 text-func-danger-red p-1.5"
-        }
-      >
-        {up ? <Icon name="trendingUpOutline" size={14} /> : <Icon name="trendingDownOutline" size={14} />}
-      </span>
-      <span className="text-[12.5px] leading-snug text-foreground/90">{headline}</span>
+      <Icon
+        name={up ? "caretUp" : "caretDown"}
+        size={11}
+        className={up ? "text-func-recovery-green" : "text-func-danger-red"}
+      />
+      <span className="text-[11.5px] font-medium leading-snug text-foreground/85 tracking-tight">{headline}</span>
     </button>
   );
 }

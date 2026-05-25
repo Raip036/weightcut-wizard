@@ -753,9 +753,9 @@ export default function FightWeek() {
 
             {/* Sanity warning surfaced gently near the breakdown it relates to. */}
             {sanityWarning && (
-              <div className="rounded-xs border border-func-warning-yellow/30 bg-func-warning-yellow/10 p-3 flex items-start gap-2" role="alert">
-                <AlertTriangle className="h-4 w-4 text-func-warning-yellow mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-yellow-200 leading-relaxed">{sanityWarning}</p>
+              <div className="rounded-xs border border-amber-500/20 bg-amber-500/[0.04] p-3 flex items-start gap-2" role="alert">
+                <AlertTriangle className="h-4 w-4 text-amber-400/70 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-foreground/80 leading-relaxed">{sanityWarning}</p>
               </div>
             )}
 

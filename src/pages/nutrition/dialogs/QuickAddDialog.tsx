@@ -284,7 +284,7 @@ export function QuickAddDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className={`w-[calc(100vw-1.5rem)] max-w-[420px] max-h-[calc(100vh-4rem)] overflow-y-auto rounded-[28px] p-0 border-0 bg-card/95 backdrop-blur-xl gap-0 ${aiTask ? "[&>button]:hidden" : ""}`}
+        className={`w-[calc(100vw-1.5rem)] max-w-[420px] max-h-[calc(100vh-var(--keyboard-inset,0px)-4rem)] overflow-y-auto rounded-[28px] p-0 border-0 bg-card/95 backdrop-blur-xl gap-0 ${aiTask ? "[&>button]:hidden" : ""}`}
       >
         {aiTask && (
           aiMeal.photoAnalyzing && aiMeal.photoBase64 ? (
@@ -612,40 +612,44 @@ export function QuickAddDialog({
                   />
                 </div>
 
-                {/* 2×2 macro grid — tap a tile to inline-edit that macro.
-                    Useful when the user knows the serving was off (e.g. AI
-                    said 500cal but they ate 1.5× the photo). The override is
-                    used on save; line items below stay at AI values. */}
+                {/* 2×2 macro grid — each card carries its own macro tint
+                    (orange for calories+carbs, blue for protein, purple for
+                    fats) so the cards are visible without a uniform blue
+                    wash. Icons render flat against the card surface (no
+                    circular backdrop) and use solid Ionicons so they read
+                    clearly at 16-18px. Inline-edit + Atwater cascade unchanged. */}
                 <div className="grid grid-cols-2 gap-2">
                   {([
-                    { key: "calories" as const, label: "Calories", value: Math.round(totalAiLineItemCalories), unit: "", iconName: "flameOutline" as IonIconName,    color: "#f97316", tint: "rgba(249, 115, 22, 0.12)" },
-                    { key: "carbs_g" as const,  label: "Carbs",    value: Math.round(totalAiCarbs),           unit: "g", iconName: "pizzaOutline" as IonIconName,    color: "#f59e0b", tint: "rgba(245, 158, 11, 0.12)" },
-                    { key: "protein_g" as const,label: "Protein",  value: Math.round(totalAiProtein),         unit: "g", iconName: "fishOutline" as IonIconName,     color: "#ef4444", tint: "rgba(239, 68, 68, 0.12)" },
-                    { key: "fats_g" as const,   label: "Fats",     value: Math.round(totalAiFats),            unit: "g", iconName: "waterOutline" as IonIconName,    color: "#3b82f6", tint: "rgba(59, 130, 246, 0.12)" },
+                    { key: "calories" as const, label: "Calories", value: Math.round(totalAiLineItemCalories), unit: "",  iconName: "flame" as IonIconName,    color: "rgb(var(--func-carbs-orange))", border: "rgb(var(--func-carbs-orange) / 0.35)", bg: "rgb(var(--func-carbs-orange) / 0.10)" },
+                    { key: "carbs_g" as const,  label: "Carbs",    value: Math.round(totalAiCarbs),           unit: "g", iconName: "pizza" as IonIconName,    color: "rgb(var(--func-carbs-orange))", border: "rgb(var(--func-carbs-orange) / 0.35)", bg: "rgb(var(--func-carbs-orange) / 0.10)" },
+                    { key: "protein_g" as const,label: "Protein",  value: Math.round(totalAiProtein),         unit: "g", iconName: "fish" as IonIconName,     color: "rgb(var(--func-protein-blue))", border: "rgb(var(--func-protein-blue) / 0.45)", bg: "rgb(var(--func-protein-blue) / 0.12)" },
+                    { key: "fats_g" as const,   label: "Fats",     value: Math.round(totalAiFats),            unit: "g", iconName: "water" as IonIconName,    color: "rgb(var(--func-fats-purple))",  border: "rgb(var(--func-fats-purple) / 0.40)", bg: "rgb(var(--func-fats-purple) / 0.10)" },
                   ]).map((m) => {
                     const isEditing = editingMacro === m.key;
                     const isOverridden = aiMeal.overrideTotals[m.key] !== undefined;
                     return (
                       <div
                         key={m.label}
-                        className={`card-surface rounded-xs px-3 py-3 flex items-center gap-2.5 text-left transition-transform ${
-                          isEditing ? "ring-2 ring-primary/40" : "active:scale-[0.98]"
+                        className={`relative rounded-2xl overflow-hidden px-3 py-3 flex items-center gap-2.5 text-left transition-transform ${
+                          isEditing ? "ring-2" : "active:scale-[0.99]"
                         }`}
+                        style={{
+                          background: m.bg,
+                          border: `1px solid ${m.border}`,
+                          ...(isEditing ? { boxShadow: `0 0 0 2px ${m.color}` } : {}),
+                        }}
                         onClick={() => { if (!isEditing) beginEditMacro(m.key, m.value); }}
                         role="button"
                         tabIndex={0}
                       >
-                        <div
-                          className="h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0"
-                          style={{ background: m.tint, color: m.color }}
-                        >
-                          <Icon name={m.iconName} size={16} />
-                        </div>
+                        <span className="flex-shrink-0 inline-flex" style={{ color: m.color }}>
+                          <Icon name={m.iconName} size={20} />
+                        </span>
                         <div className="flex-1 min-w-0">
                           <p className="text-[11px] font-semibold text-muted-foreground/70 leading-none">
                             {m.label}
                             {isOverridden && !isEditing && (
-                              <span className="ml-1 text-primary/80">·&nbsp;edited</span>
+                              <span className="ml-1 text-foreground/70">·&nbsp;edited</span>
                             )}
                           </p>
                           {isEditing ? (
@@ -662,19 +666,23 @@ export function QuickAddDialog({
                                 if (e.key === "Escape") { setEditingMacro(null); setEditingDraft(""); }
                               }}
                               onClick={(e) => e.stopPropagation()}
-                              className="w-full bg-transparent border-0 outline-none text-[15px] font-bold tabular-nums text-foreground leading-none mt-1 p-0 focus:ring-0"
+                              className="w-full bg-transparent border-0 outline-none text-[17px] font-bold tabular-nums leading-none mt-1 p-0 focus:ring-0"
+                              style={{ color: m.color }}
                               aria-label={`Edit ${m.label}`}
                             />
                           ) : (
-                            <p className="text-[15px] font-bold tabular-nums text-foreground leading-none mt-1">
+                            <p
+                              className="text-[17px] font-bold tabular-nums leading-none mt-1"
+                              style={{ color: m.color }}
+                            >
                               {m.value}<span className="text-[11px] font-semibold text-muted-foreground/60">{m.unit}</span>
                             </p>
                           )}
                         </div>
                         <Icon
                           name="pencilOutline"
-                          size={12}
-                          className={`flex-shrink-0 ${isOverridden ? "text-primary" : "text-muted-foreground/40"}`}
+                          size={11}
+                          className="flex-shrink-0 text-muted-foreground/40"
                         />
                       </div>
                     );

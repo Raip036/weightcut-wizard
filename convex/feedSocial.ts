@@ -192,6 +192,159 @@ export const listComments = query({
   },
 });
 
+/**
+ * Latest N comments on one post, oldest-to-newest for Instagram-style
+ * inline preview under the polaroid. Pulls the N newest server-side
+ * (`order("desc").take`) then reverses so the client renders in
+ * conversational order without paginated overhead.
+ *
+ * Only the top polaroid in the stack subscribes — see
+ * `SessionInfoCard.tsx`. Each new comment in this post's `by_post`
+ * range re-emits this query alone (not the full `listFeed`), so the
+ * preview animates in without disturbing the rest of the deck.
+ */
+const LATEST_COMMENTS_MAX = 5;
+export const listLatestComments = query({
+  args: {
+    postId: v.id("session_media"),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, { postId, limit }) => {
+    const post = await ctx.db.get(postId);
+    if (!post || !post.gymId) return { rows: [], totalCount: 0 };
+    const { userId } = await requireGymViewer(ctx, post.gymId);
+
+    const n = Math.min(Math.max(limit ?? 2, 1), LATEST_COMMENTS_MAX);
+    const newest = await ctx.db
+      .query("feed_comments")
+      .withIndex("by_post", (q) => q.eq("postId", postId))
+      .order("desc")
+      .take(n);
+
+    const profileCache = new Map<string, Doc<"profiles"> | null>();
+    const rows = await Promise.all(
+      newest.reverse().map(async (c: Doc<"feed_comments">) => {
+        const key = c.userId as unknown as string;
+        let profile = profileCache.get(key);
+        if (profile === undefined) {
+          profile = await ctx.db
+            .query("profiles")
+            .withIndex("by_user", (q) => q.eq("userId", c.userId))
+            .unique();
+          profileCache.set(key, profile);
+        }
+        const avatarUrl = profile?.avatarStorageId
+          ? await ctx.storage.getUrl(profile.avatarStorageId)
+          : null;
+        return {
+          id: c._id,
+          createdAt: c._creationTime,
+          body: c.body,
+          author: {
+            userId: c.userId,
+            displayName: profile?.displayName ?? "Athlete",
+            avatarUrl,
+          },
+          canDelete: c.userId === userId || post.userId === userId,
+        };
+      }),
+    );
+
+    return { rows, totalCount: post.commentCount ?? 0 };
+  },
+});
+
+/**
+ * Weekly highlight aggregate for one user. Scans the caller's
+ * `session_media` posts in a 7-day window ending at the given
+ * `weekEndMs` (defaults to "now") and returns the rollup the
+ * `WeeklyHighlightCard` renders: post count, like total, the four most-
+ * liked photo thumbs, and a session-type breakdown.
+ *
+ * No scheduler, no image compositing — this is the data feed for the
+ * MVP card. Generating a shareable reel image is a follow-up.
+ */
+export const weeklyHighlight = query({
+  args: { weekEndMs: v.optional(v.number()) },
+  handler: async (ctx, { weekEndMs }) => {
+    const userId = await requireUserId(ctx);
+    const end = weekEndMs ?? Date.now();
+    const start = end - 7 * 24 * 60 * 60 * 1000;
+
+    const rows = await ctx.db
+      .query("session_media")
+      .withIndex("by_user_created", (q) => q.eq("userId", userId))
+      .order("desc")
+      .filter((q) =>
+        q.and(
+          q.gte(q.field("_creationTime"), start),
+          q.lte(q.field("_creationTime"), end),
+          q.eq(q.field("deletedAt"), undefined),
+        ),
+      )
+      .collect();
+
+    if (rows.length === 0) {
+      return {
+        weekStart: start,
+        weekEnd: end,
+        postCount: 0,
+        likeTotal: 0,
+        commentTotal: 0,
+        topThumbs: [] as string[],
+        sessionTypes: {} as Record<string, number>,
+      };
+    }
+
+    // Session-type breakdown via the parent training_session row. One
+    // db.get per unique sessionId — small enough for a personal week.
+    const uniqueSessionIds = [
+      ...new Set(rows.map((r) => r.sessionId)),
+    ];
+    const sessionDocs = await Promise.all(
+      uniqueSessionIds.map((sid) => ctx.db.get(sid)),
+    );
+    const sessionTypeBySessionId = new Map<string, string>();
+    sessionDocs.forEach((s, i) => {
+      const sid = uniqueSessionIds[i] as unknown as string;
+      if (s?.sessionType) sessionTypeBySessionId.set(sid, s.sessionType);
+    });
+
+    const sessionTypes: Record<string, number> = {};
+    let likeTotal = 0;
+    let commentTotal = 0;
+    for (const r of rows) {
+      likeTotal += r.likeCount ?? 0;
+      commentTotal += r.commentCount ?? 0;
+      const t = sessionTypeBySessionId.get(r.sessionId as unknown as string);
+      if (t) sessionTypes[t] = (sessionTypes[t] ?? 0) + 1;
+    }
+
+    // Top 4 photo thumbs by like count, fallback to chronological for
+    // ties. Skip videos (the card layout assumes static collages); they
+    // can land in v2 with a play-on-tap treatment.
+    const photoRows = rows.filter((r) => r.kind === "photo");
+    photoRows.sort((a, b) => (b.likeCount ?? 0) - (a.likeCount ?? 0));
+    const topFour = photoRows.slice(0, 4);
+    const topThumbs = await Promise.all(
+      topFour.map(async (r) => {
+        const id = r.thumbStorageId ?? r.storageId;
+        return await ctx.storage.getUrl(id);
+      }),
+    );
+
+    return {
+      weekStart: start,
+      weekEnd: end,
+      postCount: rows.length,
+      likeTotal,
+      commentTotal,
+      topThumbs: topThumbs.filter((u): u is string => !!u),
+      sessionTypes,
+    };
+  },
+});
+
 // ─── Engagement badge ──────────────────────────────────────────────────
 
 /**

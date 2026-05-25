@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { Brain, Loader2, Mic, MicOff, Send, Trash2 } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { Icon } from "@/components/ui/Icon";
 import { useAIAction } from "@/hooks/useAIAction";
 import { api } from "@/../convex/_generated/api";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
@@ -41,6 +42,7 @@ export function RecoveryCoachChat({ userId, userName }: RecoveryCoachChatProps) 
   const { hasAccess: hasAiAccess } = useFeatureAccess("AI_RECOVERY_COACH");
   const { toast } = useToast();
   const recoveryCoachAction = useAIAction(api.actions.recoveryCoach.run, "AI_RECOVERY_COACH");
+  const prefersReduced = useReducedMotion();
 
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -200,7 +202,7 @@ export function RecoveryCoachChat({ userId, userName }: RecoveryCoachChatProps) 
       <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
         <div className="flex items-center gap-2.5">
           <div className="h-9 w-9 rounded-xs bg-primary/15 flex items-center justify-center">
-            <Brain className="h-4 w-4 text-primary" strokeWidth={2.4} />
+            <Icon name="bulbOutline" size={16} className="text-primary" />
           </div>
           <div className="leading-tight">
             <h2 className="text-[15px] font-bold tracking-tight">Recovery Coach</h2>
@@ -215,10 +217,10 @@ export function RecoveryCoachChat({ userId, userName }: RecoveryCoachChatProps) 
             <button
               type="button"
               onClick={clearChat}
-              className="h-8 w-8 flex items-center justify-center rounded-xs text-muted-foreground/60 active:text-destructive active:bg-destructive/10 transition-colors"
+              className="h-8 w-8 flex items-center justify-center rounded-xs text-muted-foreground/60 active:text-destructive active:scale-[0.98] transition-all"
               aria-label="Clear chat"
             >
-              <Trash2 className="h-3.5 w-3.5" />
+              <Icon name="trashOutline" size={14} />
             </button>
           )}
         </div>
@@ -251,15 +253,32 @@ export function RecoveryCoachChat({ userId, userName }: RecoveryCoachChatProps) 
           </div>
         )}
 
-        {messages.map((m) => (
-          <MessageBubble key={m.id} role={m.role} content={m.content} />
-        ))}
+        <AnimatePresence initial={false}>
+          {messages.map((m) => (
+            <motion.div
+              key={m.id}
+              initial={prefersReduced ? false : { opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={prefersReduced ? { duration: 0 } : { type: "spring", stiffness: 320, damping: 26 }}
+            >
+              <MessageBubble role={m.role} content={m.content} />
+            </motion.div>
+          ))}
+        </AnimatePresence>
 
         {sending && (
-          <div className="flex items-center gap-2 text-muted-foreground/80 text-[12px] pl-1">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          <motion.div
+            initial={prefersReduced ? false : { opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={prefersReduced ? { duration: 0 } : { type: "spring", stiffness: 320, damping: 26 }}
+            className="flex items-center gap-2 text-muted-foreground/80 text-[12px] pl-1"
+          >
+            <span
+              className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-r-transparent"
+              aria-hidden
+            />
             Thinking...
-          </div>
+          </motion.div>
         )}
       </div>
 
@@ -270,7 +289,7 @@ export function RecoveryCoachChat({ userId, userName }: RecoveryCoachChatProps) 
         )}
         <div className="flex items-end gap-1.5">
           {voiceSupported && (
-            <button
+            <motion.button
               type="button"
               onClick={() => {
                 triggerHapticSelection();
@@ -278,15 +297,30 @@ export function RecoveryCoachChat({ userId, userName }: RecoveryCoachChatProps) 
                 else startListening();
               }}
               disabled={sending}
+              animate={
+                isListening && !prefersReduced
+                  ? { scale: [1, 1.06, 1] }
+                  : { scale: 1 }
+              }
+              transition={
+                isListening && !prefersReduced
+                  ? { duration: 1.2, repeat: Infinity, ease: "easeInOut" }
+                  : { type: "spring", stiffness: 320, damping: 26 }
+              }
+              whileTap={prefersReduced ? undefined : { scale: 0.94 }}
               className={`h-9 w-9 shrink-0 flex items-center justify-center rounded-xs transition-colors ${
                 isListening
-                  ? "bg-func-danger-red/15 text-func-danger-red"
+                  ? "border border-func-danger-red/30 text-func-danger-red"
                   : "bg-muted/40 text-muted-foreground active:bg-muted/60"
               }`}
               aria-label={isListening ? "Stop listening" : "Start voice input"}
             >
-              {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-            </button>
+              {isListening ? (
+                <Icon name="micOffOutline" size={16} />
+              ) : (
+                <Icon name="micOutline" size={16} />
+              )}
+            </motion.button>
           )}
           <textarea
             ref={textareaRef}
@@ -305,15 +339,17 @@ export function RecoveryCoachChat({ userId, userName }: RecoveryCoachChatProps) 
             }`}
             disabled={sending}
           />
-          <button
+          <motion.button
             type="button"
             onClick={send}
             disabled={sendDisabled}
-            className="h-9 w-9 shrink-0 flex items-center justify-center rounded-xs bg-primary text-primary-foreground disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 transition-all"
+            whileTap={prefersReduced || sendDisabled ? undefined : { scale: 0.92 }}
+            transition={{ type: "spring", stiffness: 380, damping: 22 }}
+            className="h-9 w-9 shrink-0 flex items-center justify-center rounded-xs bg-primary text-primary-foreground disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.95] transition-all"
             aria-label="Send message"
           >
-            <Send className="h-4 w-4" />
-          </button>
+            <Icon name="sendOutline" size={16} />
+          </motion.button>
         </div>
       </div>
     </div>

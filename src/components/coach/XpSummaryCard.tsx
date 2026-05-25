@@ -26,7 +26,7 @@ export function XpSummaryCard() {
         <button
           type="button"
           onClick={() => setLevelSheetOpen(true)}
-          className="relative card-surface border border-primary/20 overflow-hidden rounded-2xl p-4 w-full text-left active:scale-[0.99] transition-transform"
+          className="relative card-surface border border-primary/20 overflow-hidden rounded-2xl p-4 w-full text-left card-press"
         >
           <div
             aria-hidden
@@ -51,13 +51,13 @@ export function XpSummaryCard() {
       <button
         type="button"
         onClick={() => setLevelSheetOpen(true)}
-        className="relative card-surface border border-primary/20 overflow-hidden rounded-2xl p-4 w-full text-left active:scale-[0.99] transition-transform"
+        className="relative card-surface border border-primary/20 overflow-hidden rounded-2xl p-4 w-full text-left card-press"
       >
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.04] to-transparent"
         />
-        <p className="relative text-micro uppercase tracking-wider text-muted-foreground/70 font-bold mb-3">
+        <p className="relative text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/80 mb-3">
           Your level
         </p>
         <div

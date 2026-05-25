@@ -162,6 +162,47 @@ export interface LoadConfidence {
   isReliable: boolean;       // trainingDaysIn28d >= required
 }
 
+/**
+ * Per-day session summary used by the redesigned weekly card to show
+ * "what actually happened" rather than abstract load bars. Each key is
+ * an ISO date (YYYY-MM-DD); the value is the list of sessions logged
+ * that day (empty array if none).
+ *
+ * Excludes Rest entries — they're tracked separately on the card's
+ * suggestion path, not as "training" sessions.
+ */
+export interface DailySessionSummary {
+  sessionType: string;
+  durationMinutes: number;
+  rpe: number;
+}
+
+/**
+ * Roll-up of the current CALENDAR week (Monday → today, inclusive).
+ * Distinct from `weeklySessionCount` which is a rolling-7d count.
+ */
+export interface ThisWeekSummary {
+  sessionCount: number;
+  totalMinutes: number;
+  /** Date keys for every day in the week (Mon..Sun, 7 entries). Days
+   *  the user hasn't reached yet still appear with an empty array, so
+   *  the UI can render ghost placeholders deterministically. */
+  sessionsByDate: Record<string, DailySessionSummary[]>;
+  /** ISO date (YYYY-MM-DD) of this week's Monday. */
+  weekStart: string;
+  /** ISO date (YYYY-MM-DD) of today, in the same timezone as `weekStart`. */
+  today: string;
+}
+
+/**
+ * Previous calendar week (Mon..Sun). Used for the inline delta on the
+ * card: e.g. "5 sessions · 4h 20m · ▲ +1 vs last wk".
+ */
+export interface LastWeekSummary {
+  sessionCount: number;
+  totalMinutes: number;
+}
+
 export interface AllMetrics {
   strain: number;           // Today's 0-21 strain
   dailyLoad: number;        // Today's raw load
@@ -172,6 +213,8 @@ export interface AllMetrics {
   loadZone: LoadZoneInfo;   // User-friendly interpretation
   overtrainingRisk: OvertrainingRisk;
   weeklySessionCount: number;
+  thisWeek: ThisWeekSummary;
+  lastWeek: LastWeekSummary;
   avgSleep: number;
   latestSleep: number;
   latestSoreness: number;

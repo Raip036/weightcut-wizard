@@ -32,16 +32,16 @@ export const WeightProgressRing = memo(function WeightProgressRing({ currentWeig
       {/* Stats row — grid keeps the percentage centered and contained on narrow screens */}
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 mt-2.5">
         <div className="flex items-baseline gap-1 min-w-0 justify-self-start">
-          <span className="text-sm font-bold display-number text-primary whitespace-nowrap">
+          <span className="text-sm font-bold display-number text-primary whitespace-nowrap tabular-nums tracking-tight">
             <AnimatedNumber value={weightLost} format={(n) => n.toFixed(1)} />
           </span>
           <span className="text-[10px] text-muted-foreground whitespace-nowrap">kg lost</span>
         </div>
-        <span className="text-sm font-bold display-number bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent whitespace-nowrap justify-self-center px-1">
+        <span className="text-sm font-bold display-number bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent whitespace-nowrap justify-self-center px-1 tabular-nums tracking-tight">
           <AnimatedNumber value={displayProgress} format={(n) => `${Math.round(n)}%`} />
         </span>
         <div className="flex items-baseline gap-1 min-w-0 justify-self-end">
-          <span className="text-sm font-bold display-number text-secondary whitespace-nowrap">
+          <span className="text-sm font-bold display-number text-secondary whitespace-nowrap tabular-nums tracking-tight">
             <AnimatedNumber value={Math.max(0, weightRemaining)} format={(n) => n.toFixed(1)} />
           </span>
           <span className="text-[10px] text-muted-foreground whitespace-nowrap">kg to go</span>

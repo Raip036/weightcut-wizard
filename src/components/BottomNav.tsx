@@ -35,6 +35,26 @@ const mainNavItems = [
   { title: "Nutrition", url: "/nutrition", icon: Utensils },
 ];
 
+// Per-path lazy-chunk prefetcher — fires on `pointerdown` for each tab so
+// the destination's bundle is loading by the time the user's finger lifts.
+// Pairs with the idle preload in `App.tsx` for the cold-launch case where
+// the user taps a tab before `requestIdleCallback` has run. All paths here
+// must match the lazy() targets in App.tsx — keep them in sync.
+//
+// Errors are swallowed: a failed prefetch isn't fatal, the real navigation
+// will still hit <Suspense fallback> and try again with the route's
+// ErrorBoundary as a safety net.
+const PREFETCH_BY_PATH: Record<string, () => Promise<unknown>> = {
+  "/dashboard": () => import("@/pages/Dashboard"),
+  "/camp": () => import("@/pages/Camp"),
+  "/community": () => import("@/pages/Community"),
+  "/nutrition": () => import("@/pages/nutrition/NutritionPage"),
+};
+
+const prefetchRoute = (path: string) => {
+  PREFETCH_BY_PATH[path]?.().catch(() => {});
+};
+
 export const BottomNav = memo(function BottomNav() {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
@@ -384,6 +404,7 @@ export const BottomNav = memo(function BottomNav() {
             tutorial="nav-home"
             isActive={activeIndex === 0}
             tapAnimation={TAP_ANIMATIONS.home}
+            onPointerDown={() => prefetchRoute(mainNavItems[0].url)}
           />
           <NavItem
             ref={(el) => { tabRefs.current[1] = el; }}
@@ -393,6 +414,7 @@ export const BottomNav = memo(function BottomNav() {
             tutorial="nav-camp"
             isActive={activeIndex === 1}
             tapAnimation={TAP_ANIMATIONS.nutrition}
+            onPointerDown={() => prefetchRoute(mainNavItems[1].url)}
           />
           <NavItemWithBadge
             ref={(el) => { tabRefs.current[2] = el; }}
@@ -403,6 +425,7 @@ export const BottomNav = memo(function BottomNav() {
             isActive={activeIndex === 2}
             tapAnimation={TAP_ANIMATIONS.gym}
             badge={hasUnreadFeedEngagement}
+            onPointerDown={() => prefetchRoute(mainNavItems[2].url)}
           />
           <NavItem
             ref={(el) => { tabRefs.current[3] = el; }}
@@ -412,6 +435,7 @@ export const BottomNav = memo(function BottomNav() {
             tutorial="nav-nutrition"
             isActive={activeIndex === 3}
             tapAnimation={TAP_ANIMATIONS.weight}
+            onPointerDown={() => prefetchRoute(mainNavItems[3].url)}
           />
         </div>
 
@@ -564,10 +588,15 @@ interface NavItemProps {
   isActive: boolean;
   tutorial?: string;
   tapAnimation?: TargetAndTransition;
+  /** Fired on `pointerdown` — used to kick off lazy-chunk prefetch for
+   *  the destination route so by the time the finger lifts (and the
+   *  NavLink actually navigates) the page bundle is already in cache.
+   *  Eliminates the Suspense skeleton flash on first navigation. */
+  onPointerDown?: () => void;
 }
 
 const NavItem = React.forwardRef<HTMLAnchorElement, NavItemProps>(
-  function NavItem({ to, icon: Icon, label, isActive, tutorial, tapAnimation }, ref) {
+  function NavItem({ to, icon: Icon, label, isActive, tutorial, tapAnimation, onPointerDown }, ref) {
     const iconControls = useAnimationControls();
     const handleClick = () => {
       triggerHaptic(ImpactStyle.Light);
@@ -579,6 +608,7 @@ const NavItem = React.forwardRef<HTMLAnchorElement, NavItemProps>(
         to={to}
         data-tutorial={tutorial}
         onClick={handleClick}
+        onPointerDown={onPointerDown}
         aria-label={label}
         className={NAV_SLOT_CLASS}
       >
@@ -609,7 +639,7 @@ interface NavItemWithBadgeProps extends NavItemProps {
  *  Currently unused (the Corner badge moved to More) but kept available
  *  if a future tab needs the same indicator. */
 const NavItemWithBadge = React.forwardRef<HTMLAnchorElement, NavItemWithBadgeProps>(
-  function NavItemWithBadge({ to, icon: Icon, label, isActive, tutorial, badge, tapAnimation }, ref) {
+  function NavItemWithBadge({ to, icon: Icon, label, isActive, tutorial, badge, tapAnimation, onPointerDown }, ref) {
     const iconControls = useAnimationControls();
     const handleClick = () => {
       triggerHaptic(ImpactStyle.Light);
@@ -621,6 +651,7 @@ const NavItemWithBadge = React.forwardRef<HTMLAnchorElement, NavItemWithBadgePro
         to={to}
         data-tutorial={tutorial}
         onClick={handleClick}
+        onPointerDown={onPointerDown}
         aria-label={label}
         className={NAV_SLOT_CLASS}
       >

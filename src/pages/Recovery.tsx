@@ -2,8 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, subDays } from "date-fns";
 import { useQuery } from "convex/react";
-import { motion } from "motion/react";
-import { Activity, Heart } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
 import { api } from "@/../convex/_generated/api";
 import { useUser } from "@/contexts/UserContext";
 import { RecoveryDashboard } from "@/components/fightcamp/RecoveryDashboard";
@@ -13,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton-loader";
 import { Card } from "@/components/ui/card";
 import { triggerHapticSelection } from "@/lib/haptics";
 import { HealthTilesPanel } from "@/components/health/HealthTilesPanel";
-import { MorningCheckInPrompt } from "@/components/health/MorningCheckInPrompt";
+import { Icon } from "@/components/ui/Icon";
 
 // Local row shape — snake_case shape consumed by RecoveryDashboard / performanceEngine.
 interface TrainingCalendarRow {
@@ -39,6 +38,7 @@ interface TrainingCalendarRow {
 export default function Recovery() {
     const navigate = useNavigate();
     const { userId, profile } = useUser();
+    const prefersReduced = useReducedMotion();
     const from = useMemo(() => format(subDays(new Date(), 28), "yyyy-MM-dd"), []);
     const to = useMemo(() => format(new Date(), "yyyy-MM-dd"), []);
 
@@ -117,16 +117,12 @@ export default function Recovery() {
     if (display.length === 0) {
         return (
             <div className="animate-page-in space-y-3 px-5 py-3 sm:p-5 md:p-6 max-w-7xl mx-auto pb-16 md:pb-6">
-                {userId && (
-                    showHealthTiles
-                        ? <HealthTilesPanel />
-                        : <MorningCheckInPrompt userId={userId} />
-                )}
+                {userId && showHealthTiles && <HealthTilesPanel />}
                 <motion.div
-                    initial={{ opacity: 0, y: 8 }}
+                    initial={prefersReduced ? false : { opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.35, ease: "easeOut" }}
-                    className="relative overflow-hidden rounded-xs border border-border/50 bg-card/60 p-5"
+                    transition={{ type: "spring", damping: 22, stiffness: 260 }}
+                    className="relative overflow-hidden p-5"
                 >
                     <div className="flex items-start gap-3 mb-4">
                         <div className="relative shrink-0" style={{ width: 72, height: 72 }}>
@@ -138,7 +134,7 @@ export default function Recovery() {
                             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary/80">
                                 Coach
                             </p>
-                            <h4 className="mt-0.5 text-[19px] font-bold leading-tight">
+                            <h4 className="mt-0.5 text-[19px] font-bold leading-tight text-foreground">
                                 Let's measure your recovery.
                             </h4>
                             <p className="mt-1 text-[12px] text-muted-foreground leading-snug">
@@ -151,14 +147,14 @@ export default function Recovery() {
                             onClick={() => { triggerHapticSelection(); navigate("/training-calendar"); }}
                             className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-2 text-[12px] font-bold text-primary-foreground active:scale-[0.97] transition"
                         >
-                            <Activity className="h-3.5 w-3.5" strokeWidth={2.5} />
+                            <Icon name="pulseOutline" size={14} />
                             Log a session
                         </button>
                         <button
                             onClick={() => { triggerHapticSelection(); navigate("/sleep"); }}
-                            className="inline-flex items-center gap-1.5 rounded-full bg-muted/40 border border-border/40 px-3.5 py-2 text-[12px] font-semibold text-foreground hover:bg-muted/60 active:scale-[0.97] transition"
+                            className="inline-flex items-center gap-1.5 rounded-full border border-border/40 px-3.5 py-2 text-[12px] font-semibold text-foreground active:scale-[0.97] transition"
                         >
-                            <Heart className="h-3.5 w-3.5 text-rose-400" strokeWidth={2.5} />
+                            <Icon name="heartOutline" size={14} className="text-func-danger-red" />
                             Log sleep
                         </button>
                     </div>
@@ -169,15 +165,16 @@ export default function Recovery() {
 
     return (
         <div className="animate-page-in space-y-3 px-5 py-3 sm:p-5 md:p-6 max-w-7xl mx-auto pb-16 md:pb-6">
-            <header className="pt-1">
-              <p className="text-micro uppercase tracking-[0.15em] text-muted-foreground/70 font-bold">Your</p>
-              <h1 className="text-title font-semibold leading-tight">Wellness</h1>
-            </header>
-            {userId && (
-                showHealthTiles
-                    ? <HealthTilesPanel />
-                    : <MorningCheckInPrompt userId={userId} />
-            )}
+            <motion.header
+                className="pt-1"
+                initial={prefersReduced ? false : { opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ type: "spring", damping: 24, stiffness: 280 }}
+            >
+                <p className="text-micro uppercase tracking-[0.15em] text-muted-foreground/70 font-bold">Your</p>
+                <h1 className="text-title font-semibold leading-tight">Wellness</h1>
+            </motion.header>
+            {userId && showHealthTiles && <HealthTilesPanel />}
             {userId && (
                 <RecoveryDashboard
                     sessions28d={display as any}

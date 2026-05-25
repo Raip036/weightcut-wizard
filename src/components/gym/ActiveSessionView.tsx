@@ -223,7 +223,7 @@ export function ActiveSessionView({
 
       {/* Finish workout dialog */}
       <Dialog open={finishSheetOpen} onOpenChange={setFinishSheetOpen}>
-        <DialogContent className="sm:max-w-[320px] rounded-xs p-0 border-0 bg-card/95 backdrop-blur-xl gap-0 max-h-[calc(100vh-6rem)] overflow-y-auto">
+        <DialogContent className="sm:max-w-[320px] rounded-xs p-0 border-0 bg-card/95 backdrop-blur-xl gap-0 max-h-[calc(100vh-var(--keyboard-inset,0px)-6rem)] overflow-y-auto">
           <div className="px-4 pt-4 pb-3">
             <DialogHeader>
               <DialogTitle className="text-[15px] font-semibold text-center">Finish Workout</DialogTitle>

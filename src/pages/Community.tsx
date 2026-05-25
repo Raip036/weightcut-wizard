@@ -28,7 +28,7 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { ArrowRight, Dumbbell } from "lucide-react";
 import wizardMascot from "@/assets/wizard-tutorial.png";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useUser } from "@/contexts/UserContext";
@@ -40,6 +40,7 @@ import { GymProfileSheet } from "@/components/community/GymProfileSheet";
 import { PolaroidStack } from "@/components/community/PolaroidStack";
 import { SessionInfoCard } from "@/components/community/SessionInfoCard";
 import { ActivitySheet } from "@/components/community/ActivitySheet";
+import { WeeklyHighlightCard } from "@/components/community/WeeklyHighlightCard";
 import { CommentsSheet } from "@/components/gym-feed/CommentsSheet";
 import { useFeedEngagement } from "@/hooks/useFeedEngagement";
 import { logger } from "@/lib/logger";
@@ -300,6 +301,8 @@ export default function Community() {
                   exit={{ opacity: 0, scale: 0.98 }}
                   transition={{ duration: 0.24, ease: [0.32, 0.72, 0, 1] }}
                 >
+                  <WeeklyHighlightCard />
+                  <TrainedTodayBanner gymId={gymId} />
                   <CommunityFeedSection
                     posts={effectivePosts}
                     status={status}
@@ -417,6 +420,62 @@ function EmptyActionChip({
       </div>
       <ArrowRight className={`h-4 w-4 shrink-0 ${primary ? "text-primary-foreground/80" : "text-muted-foreground/60"}`} />
     </button>
+  );
+}
+
+/* ─── "X of N trained today" banner ───
+ *
+ * Subtle motivational chip above the polaroid stack. Surfaces when at
+ * least half of the active members have posted today and the gym isn't
+ * already complete. Phrasing flips when the viewer themselves has
+ * already trained today (positive reinforcement) vs. hasn't (close-the-
+ * circle nudge).
+ *
+ * Reads the same `getMemberCount` query the GymHeader uses — no extra
+ * round-trip per render. Hidden when the query hasn't loaded or when
+ * the gym is too small/quiet to make the count motivational.
+ */
+function TrainedTodayBanner({ gymId }: { gymId: Id<"gyms"> | null }) {
+  type CountsShape = {
+    memberCount: number;
+    activePosters7d: number;
+    activePostersToday?: number;
+    viewerPostedToday?: boolean;
+  } | null;
+  const counts = useQuery(
+    api.gyms.getMemberCount,
+    gymId ? { gymId } : "skip",
+  ) as CountsShape | undefined;
+
+  if (!counts) return null;
+  const today = counts.activePostersToday ?? 0;
+  const total = counts.memberCount ?? 0;
+  // Solo-member gyms or zero-poster days don't get the banner —
+  // motivational only when there's a real group dynamic.
+  if (total < 2 || today === 0) return null;
+  if (today >= total) return null; // everyone posted — no nudge needed
+  const ratio = today / total;
+  if (ratio < 0.5) return null;
+
+  const youDid = counts.viewerPostedToday ?? false;
+  return (
+    <motion.div
+      key="trained-today"
+      initial={{ opacity: 0, y: -4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.24, ease: [0.32, 0.72, 0, 1] }}
+      className="mb-2 flex items-center gap-2 rounded-2xl border border-primary/25 bg-primary/[0.07] px-3.5 py-2.5"
+      role="status"
+    >
+      <span aria-hidden className="text-base leading-none">🔥</span>
+      <p className="text-[12.5px] leading-snug text-foreground/85">
+        <span className="font-semibold text-foreground">
+          {today} of {total}
+        </span>{" "}
+        teammates trained today
+        {youDid ? " — keep it going." : " — close the circle."}
+      </p>
+    </motion.div>
   );
 }
 
