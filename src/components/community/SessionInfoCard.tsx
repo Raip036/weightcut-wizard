@@ -18,9 +18,14 @@
  */
 import { Activity, Hand, Heart, Lock, MessageCircle, Scale, Swords, TrendingDown, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 import type { FeedPost } from "@/hooks/community/useGymFeed";
 import type { UseFeedEngagementResult } from "@/hooks/useFeedEngagement";
 import type { Id } from "../../../convex/_generated/dataModel";
+import { streakRingClass, streakEmoji } from "./PolaroidCard";
+
+const INLINE_COMMENT_PREVIEW_LIMIT = 2;
 
 interface SessionInfoCardProps {
   post: FeedPost;
@@ -61,6 +66,22 @@ export function SessionInfoCard({
   const TypeIcon = SESSION_TYPE_ICON[post.session?.sessionType?.toLowerCase() ?? ""] ?? Swords;
   const typeLabel = formatSessionType(post.session?.sessionType);
 
+  // Instagram-style inline preview: latest 2 comments under the engagement
+  // row. Only this card (the top of the polaroid stack) is mounted, so we
+  // don't spawn N reactive subscriptions for cards below. The query is
+  // independent of `listFeed` — new comments re-emit only this slice so
+  // the preview animates in without disturbing the deck.
+  const latestComments = useQuery(api.feedSocial.listLatestComments, {
+    postId: post.id,
+    limit: INLINE_COMMENT_PREVIEW_LIMIT,
+  });
+  const previewRows = latestComments?.rows ?? [];
+  const totalCommentCount = Math.max(
+    latestComments?.totalCount ?? 0,
+    engagement.commentCount,
+  );
+  const hasOverflow = totalCommentCount > previewRows.length;
+
   return (
     <section className="glass-card rounded-xs border border-border/50 p-4">
       {/* Header row: training-type chip */}
@@ -97,16 +118,25 @@ export function SessionInfoCard({
             <img
               src={post.author.avatarUrl}
               alt=""
-              className="h-7 w-7 rounded-full object-cover shrink-0"
+              className={`h-7 w-7 rounded-full object-cover shrink-0 ${(post.author.streakDays ?? 0) >= 7 ? streakRingClass(post.author.streakDays ?? 0) : ""}`}
             />
           ) : (
-            <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center text-[11px] font-bold shrink-0">
+            <div className={`h-7 w-7 rounded-full bg-muted flex items-center justify-center text-[11px] font-bold shrink-0 ${(post.author.streakDays ?? 0) >= 7 ? streakRingClass(post.author.streakDays ?? 0) : ""}`}>
               {post.author.displayName.slice(0, 1).toUpperCase()}
             </div>
           )}
           <span className="text-[13px] font-medium truncate">
             {post.author.displayName}
           </span>
+          {(post.author.streakDays ?? 0) >= 7 && (
+            <span
+              aria-label={`${post.author.streakDays}-day streak`}
+              className="text-[11px] leading-none shrink-0"
+              title={`${post.author.streakDays}-day training streak`}
+            >
+              {streakEmoji(post.author.streakDays ?? 0)}
+            </span>
+          )}
           <span className="text-[11px] text-muted-foreground shrink-0 tabular-nums">
             · {shortRelative(post.createdAt)}
           </span>
@@ -142,6 +172,41 @@ export function SessionInfoCard({
           </EngagementButton>
         </div>
       </div>
+
+      {/* Instagram-style inline comment preview. Renders only when there
+          is at least one comment so empty cards stay tall-target-friendly
+          for the polaroid flick. "View all" jumps into the existing
+          CommentsSheet via the same handler the comment icon uses. */}
+      {previewRows.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-border/40 space-y-1">
+          {hasOverflow && (
+            <button
+              type="button"
+              onClick={() => onCommentTap(post.id, totalCommentCount)}
+              className="text-[12px] text-muted-foreground active:text-foreground transition-colors"
+            >
+              View all {totalCommentCount} comments
+            </button>
+          )}
+          <AnimatePresence initial={false}>
+            {previewRows.map((c) => (
+              <motion.button
+                key={c.id}
+                type="button"
+                onClick={() => onCommentTap(post.id, totalCommentCount)}
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18, ease: [0.32, 0.72, 0, 1] }}
+                className="block w-full text-left text-[13px] leading-snug truncate"
+              >
+                <span className="font-semibold text-foreground">{c.author.displayName}</span>{" "}
+                <span className="text-foreground/85">{c.body}</span>
+              </motion.button>
+            ))}
+          </AnimatePresence>
+        </div>
+      )}
     </section>
   );
 }

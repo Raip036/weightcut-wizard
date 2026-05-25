@@ -248,7 +248,29 @@ export const getMemberCount = query({
     }
     const activePosters7d = activeUserIds.size;
 
-    return { memberCount, activePosters7d };
+    // Today's poster set — drives the "X of N trained today" banner.
+    // Reuses the same `recentPosts` scan so we don't pay a second index
+    // probe. Uses UTC midnight for the day boundary so members on tour
+    // see consistent rollover with the server (matches the other
+    // capturedAt-based queries).
+    const todayUtc = new Date();
+    todayUtc.setUTCHours(0, 0, 0, 0);
+    const startOfTodayMs = todayUtc.getTime();
+    const todayUserIds = new Set<Id<"users">>();
+    for (const p of recentPosts) {
+      if (p._creationTime >= startOfTodayMs) {
+        todayUserIds.add(p.userId);
+      }
+    }
+    const activePostersToday = todayUserIds.size;
+    const viewerPostedToday = todayUserIds.has(userId);
+
+    return {
+      memberCount,
+      activePosters7d,
+      activePostersToday,
+      viewerPostedToday,
+    };
   },
 });
 

@@ -50,6 +50,22 @@ const DEVELOP_REDUCED_DURATION_MS = 200; // reduced-motion cross-fade
 // Material standard "ease-out" curve from the spec.
 const EASE_OUT: [number, number, number, number] = [0.4, 0, 0.2, 1];
 
+// Streak ring escalates with milestone tiers. Below 7 days the avatar
+// keeps its existing thin white ring so quiet members aren't flagged.
+export function streakRingClass(days: number): string {
+  if (days >= 60) return "ring-2 ring-yellow-300";
+  if (days >= 30) return "ring-2 ring-pink-500";
+  if (days >= 14) return "ring-2 ring-red-500";
+  if (days >= 7) return "ring-2 ring-orange-500";
+  return "ring-1 ring-white/40";
+}
+
+export function streakEmoji(days: number): string {
+  if (days >= 60) return "🏆";
+  if (days >= 30) return "🔥🔥";
+  return "🔥";
+}
+
 interface PolaroidCardProps {
   post: FeedPost;
   /** 0 = top card, 1 = middle, 2 = bottom. Drives z-index + offsets. */
@@ -339,16 +355,25 @@ function PolaroidCardBase({
                 <img
                   src={post.author.avatarUrl}
                   alt=""
-                  className="h-5 w-5 rounded-full object-cover ring-1 ring-white/40"
+                  className={`h-5 w-5 rounded-full object-cover ${streakRingClass(post.author.streakDays ?? 0)}`}
                 />
               ) : (
-                <div className="h-5 w-5 rounded-full bg-white/30 flex items-center justify-center text-[10px] font-bold text-white">
+                <div className={`h-5 w-5 rounded-full bg-white/30 flex items-center justify-center text-[10px] font-bold text-white ${streakRingClass(post.author.streakDays ?? 0)}`}>
                   {post.author.displayName.slice(0, 1).toUpperCase()}
                 </div>
               )}
               <span className="text-[11px] font-medium text-white">
                 {post.author.displayName}
               </span>
+              {(post.author.streakDays ?? 0) >= 7 && (
+                <span
+                  aria-label={`${post.author.streakDays}-day streak`}
+                  className="text-[10px] leading-none"
+                  title={`${post.author.streakDays}-day streak`}
+                >
+                  {streakEmoji(post.author.streakDays ?? 0)}
+                </span>
+              )}
             </button>
           )}
         </div>

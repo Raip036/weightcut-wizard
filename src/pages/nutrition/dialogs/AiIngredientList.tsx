@@ -49,8 +49,8 @@ export function AiIngredientList({ items, onChange }: AiIngredientListProps) {
   if (items.length === 0) return null;
 
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between">
+    <div className="space-y-2">
+      <div className="flex items-center justify-between px-0.5">
         <p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/60">
           Detected foods
         </p>
@@ -58,7 +58,7 @@ export function AiIngredientList({ items, onChange }: AiIngredientListProps) {
           Tap to adjust
         </p>
       </div>
-      <div className="rounded-xs bg-muted/30 divide-y divide-border/15 overflow-hidden">
+      <div className="space-y-1.5">
         <AnimatePresence initial={false}>
           {items.map((item, idx) => (
             <motion.div
@@ -80,6 +80,11 @@ export function AiIngredientList({ items, onChange }: AiIngredientListProps) {
       </div>
     </div>
   );
+}
+
+function capitalize(s: string): string {
+  if (!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 interface IngredientRowProps {
@@ -108,17 +113,17 @@ function IngredientRow({ item, onUpdate, onRemove }: IngredientRowProps) {
   };
 
   return (
-    <div className="px-3 py-2.5">
+    <div className="rounded-2xl bg-muted/30 border border-border/30 px-3 py-2.5">
       <div className="flex items-center gap-2">
         <div className="flex-1 min-w-0">
-          <p className="text-[13px] font-semibold text-foreground truncate leading-tight">
-            {item.name}
+          <p className="text-[14px] font-semibold text-foreground truncate leading-tight">
+            {capitalize(item.name)}
           </p>
           <Input
             value={item.quantity}
             onChange={(e) => onUpdate({ quantity: e.target.value })}
             placeholder="Quantity"
-            className="h-6 mt-1 px-1.5 text-[11px] text-muted-foreground/80 bg-transparent border-0 rounded-xs focus-visible:ring-0 focus-visible:bg-muted/30 placeholder:text-muted-foreground/40"
+            className="h-6 mt-0.5 -ml-1 px-1 text-[12px] text-muted-foreground/80 bg-transparent border-0 rounded-xs focus-visible:ring-0 focus-visible:bg-muted/40 placeholder:text-muted-foreground/40"
           />
         </div>
 
@@ -128,7 +133,7 @@ function IngredientRow({ item, onUpdate, onRemove }: IngredientRowProps) {
             onClick={() => adjustCalories(-10)}
             disabled={item.calories <= 0}
             aria-label="Decrease calories"
-            className="h-7 w-7 rounded-full bg-muted/50 flex items-center justify-center text-foreground/80 active:bg-muted/80 transition-colors disabled:opacity-30"
+            className="h-7 w-7 rounded-full bg-muted/60 flex items-center justify-center text-foreground/80 active:bg-muted/80 transition-colors disabled:opacity-30"
           >
             <Icon name="removeOutline" size={12} />
           </button>
@@ -141,7 +146,7 @@ function IngredientRow({ item, onUpdate, onRemove }: IngredientRowProps) {
                 const n = parseFloat(e.target.value);
                 if (Number.isFinite(n)) scaleMacros(n);
               }}
-              className="h-8 text-center text-[13px] font-bold tabular-nums bg-muted/40 border-border/30 px-1 rounded-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              className="h-8 text-center text-[14px] font-bold tabular-nums bg-background/60 border-border/30 px-1 rounded-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               aria-label={`Calories for ${item.name}`}
             />
             <p className="text-[9px] uppercase tracking-wider text-muted-foreground/50 mt-0.5">kcal</p>
@@ -150,7 +155,7 @@ function IngredientRow({ item, onUpdate, onRemove }: IngredientRowProps) {
             type="button"
             onClick={() => adjustCalories(10)}
             aria-label="Increase calories"
-            className="h-7 w-7 rounded-full bg-muted/50 flex items-center justify-center text-foreground/80 active:bg-muted/80 transition-colors"
+            className="h-7 w-7 rounded-full bg-muted/60 flex items-center justify-center text-foreground/80 active:bg-muted/80 transition-colors"
           >
             <Icon name="addOutline" size={12} />
           </button>
@@ -166,10 +171,16 @@ function IngredientRow({ item, onUpdate, onRemove }: IngredientRowProps) {
         </button>
       </div>
 
-      <div className="flex items-center gap-2.5 mt-1.5 text-[10px] tabular-nums">
-        <span className="text-blue-400 font-semibold">{Math.round(item.protein_g)}P</span>
-        <span className="text-func-carbs-orange font-semibold">{Math.round(item.carbs_g)}C</span>
-        <span className="text-func-fats-purple font-semibold">{Math.round(item.fats_g)}F</span>
+      <div className="flex items-center gap-1.5 mt-2 text-[10px] tabular-nums">
+        <span className="px-1.5 py-0.5 rounded-md bg-[rgb(var(--func-protein-blue)/0.12)] text-[rgb(var(--func-protein-blue))] font-semibold">
+          {Math.round(item.protein_g)}P
+        </span>
+        <span className="px-1.5 py-0.5 rounded-md bg-[rgb(var(--func-carbs-orange)/0.12)] text-[rgb(var(--func-carbs-orange))] font-semibold">
+          {Math.round(item.carbs_g)}C
+        </span>
+        <span className="px-1.5 py-0.5 rounded-md bg-[rgb(var(--func-fats-purple)/0.12)] text-[rgb(var(--func-fats-purple))] font-semibold">
+          {Math.round(item.fats_g)}F
+        </span>
       </div>
     </div>
   );
