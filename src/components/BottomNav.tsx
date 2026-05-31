@@ -335,6 +335,7 @@ export const BottomNav = memo(function BottomNav() {
           See: https://bugs.webkit.org/show_bug.cgi?id=212706 */}
       <div
         data-bottom-nav
+        data-hide-when-keyboard
         className="fixed inset-x-0 z-[9999] md:hidden flex items-center justify-center gap-2 pointer-events-none"
         /* iOS reports `safe-area-inset-bottom` ≈ 34px on home-indicator
            devices, but the indicator BAR itself only occupies the

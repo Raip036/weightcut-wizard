@@ -58,9 +58,10 @@ function IndicatorPill({
   return (
     <button
       onClick={() => onTap(task)}
+      data-hide-when-keyboard
       className={`fixed z-[9997] flex items-center gap-2 px-3 py-2 rounded-full text-white active:scale-95 transition-all md:hidden ${statusConfig.bg}`}
       style={{
-        bottom: `calc(env(safe-area-inset-bottom, 0px) + ${bottomOffset}px)`,
+        bottom: `calc(max(env(safe-area-inset-bottom, 0px), var(--keyboard-inset, 0px)) + ${bottomOffset}px)`,
         left: gymActive ? undefined : "1rem",
         right: gymActive ? "1rem" : undefined,
         height: `${PILL_HEIGHT}px`,

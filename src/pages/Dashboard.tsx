@@ -1047,7 +1047,7 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => { triggerHapticSelection(); navigate('/weight'); }}
-              className="card-surface card-glow rounded-2xl p-3 aspect-square flex flex-col text-left card-press"
+              className="card-surface card-glow rounded-2xl p-3 aspect-square flex flex-col text-left card-press min-w-0 w-full overflow-hidden"
             >
               <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
                 WEIGHT

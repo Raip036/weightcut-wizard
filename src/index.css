@@ -873,6 +873,34 @@ All colors MUST be HSL.
     display: none !important;
   }
 
+  /* Position a fixed/sticky bottom element so it always sits above the
+     iOS keyboard. `--keyboard-inset` is set by Capacitor's
+     keyboardWillShow/Hide listeners in src/main.tsx (0px when the keyboard
+     is closed). When closed, this collapses to `safe-area-inset-bottom`
+     so the element keeps its normal home-indicator clearance. The 220ms
+     transition matches the iOS keyboard slide-in so the element rides up
+     in sync. Apply IN ADDITION TO the existing `fixed`/`sticky bottom-0`
+     classes — this overrides the `bottom` value via specificity. */
+  .bottom-safe-keyboard {
+    bottom: max(env(safe-area-inset-bottom, 0px), var(--keyboard-inset, 0px)) !important;
+    transition: bottom 220ms ease-out;
+  }
+
+  /* When the iOS keyboard is open, hide elements tagged
+     `data-hide-when-keyboard` (currently: BottomNav, AIFloatingIndicator
+     pills). They slide down off-screen so they don't eat vertical space
+     above the keyboard or overlap the focused input. The keyboard-open
+     flag is toggled on `<html>` by the keyboardWillShow/Hide listeners
+     in src/main.tsx. */
+  [data-hide-when-keyboard] {
+    transition: opacity 180ms ease-out, transform 180ms ease-out;
+  }
+  [data-keyboard-open="true"] [data-hide-when-keyboard] {
+    opacity: 0;
+    transform: translateY(100%);
+    pointer-events: none;
+  }
+
   /* Dashboard — bump all text sizes by ~3px for better readability */
   .dashboard-zoom .text-\[9px\] { font-size: 12px !important; }
   .dashboard-zoom .text-\[10px\] { font-size: 13px !important; }

@@ -36,10 +36,16 @@ if (Capacitor.isNativePlatform()) {
       "--keyboard-inset",
       `${info.keyboardHeight}px`,
     );
+    // Surface a boolean flag on <html> so CSS can hide the bottom-nav (and
+    // any other tagged element) without needing the inset value itself.
+    // Pairs with `[data-keyboard-open="true"] [data-hide-when-keyboard]`
+    // in index.css.
+    document.documentElement.dataset.keyboardOpen = "true";
   }).catch(() => {});
 
   Keyboard.addListener("keyboardWillHide", () => {
     document.documentElement.style.setProperty("--keyboard-inset", "0px");
+    delete document.documentElement.dataset.keyboardOpen;
   }).catch(() => {});
 }
 
@@ -60,13 +66,49 @@ if (Capacitor.isNativePlatform()) {
 // The 320ms timeout matches the iOS keyboard animation + a small buffer so
 // the inset on `:root` has been written before we measure positions.
 const KEYBOARD_FOCUS_DELAY_MS = 320;
+const CLEARANCE_PX = 24;              // breathing room above keyboard top
+
+function scrollFocusedIntoView(el: HTMLElement) {
+  // Measure the current keyboard inset (live, after keyboardWillShow has fired).
+  const root = getComputedStyle(document.documentElement);
+  const insetRaw = root.getPropertyValue("--keyboard-inset").trim() || "0px";
+  const keyboardHeight = parseFloat(insetRaw) || 0;
+  if (keyboardHeight === 0) return;  // no keyboard up — let browser handle
+
+  const viewportHeight = window.innerHeight;
+  const visibleAreaBottom = viewportHeight - keyboardHeight - CLEARANCE_PX;
+  const rect = el.getBoundingClientRect();
+
+  if (rect.bottom <= visibleAreaBottom) {
+    return;  // already visible above the keyboard, no scroll needed
+  }
+
+  const scrollDelta = rect.bottom - visibleAreaBottom;
+
+  // Walk up to find the nearest scrollable ancestor (overflow: auto/scroll).
+  // If none found, fall back to window scroll.
+  let container: Element | null = el.parentElement;
+  while (container && container !== document.body) {
+    const style = getComputedStyle(container);
+    const overflowY = style.overflowY;
+    const isScrollable =
+      (overflowY === "auto" || overflowY === "scroll") &&
+      container.scrollHeight > container.clientHeight;
+    if (isScrollable) {
+      container.scrollBy({ top: scrollDelta, behavior: "smooth" });
+      return;
+    }
+    container = container.parentElement;
+  }
+  // Fallback: scroll window
+  window.scrollBy({ top: scrollDelta, behavior: "smooth" });
+}
+
 document.addEventListener("focusin", (event) => {
   const target = event.target;
   if (!(target instanceof HTMLElement)) return;
   const tag = target.tagName;
   if (tag !== "INPUT" && tag !== "TEXTAREA" && !target.isContentEditable) return;
-  // `type="hidden"` / `type="checkbox"` / `type="radio"` / `type="file"` etc.
-  // don't pop the keyboard; skip the scroll cost.
   if (tag === "INPUT") {
     const t = (target as HTMLInputElement).type;
     if (t === "hidden" || t === "checkbox" || t === "radio" || t === "file" || t === "submit" || t === "button" || t === "reset") {
@@ -75,13 +117,11 @@ document.addEventListener("focusin", (event) => {
   }
   const el = target;
   window.setTimeout(() => {
-    // Re-check that the field is still the active one — the user may have
-    // tabbed away or dismissed the keyboard during the delay window.
     if (document.activeElement !== el) return;
     try {
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      scrollFocusedIntoView(el);
     } catch {
-      // Older WebKit can throw on smooth-scroll with detached nodes — best-effort.
+      // best-effort
     }
   }, KEYBOARD_FOCUS_DELAY_MS);
 });

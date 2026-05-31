@@ -1,6 +1,5 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { format, parseISO } from "date-fns";
 import { Icon } from "@/components/ui/Icon";
 import { triggerHapticSelection } from "@/lib/haptics";
 
@@ -56,11 +55,41 @@ interface Checkpoint {
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 // Tolerance bands. ≤ target+HIT counts as a hit; (HIT, CLOSE] is "slightly
-// over" (orange — almost there); > CLOSE is missed (red). Daily weight
-// fluctuates more than HIT from water alone, so a tight boundary would feel
-// punitive; the CLOSE band lets us encourage rather than scold.
+// over" (orange); > CLOSE is missed (red). Drives the per-week dot color.
 const HIT_TOLERANCE_KG = 0.2;
 const CLOSE_TOLERANCE_KG = 0.6;
+
+// Hero pill — 4-tier summary of "how the focused week is going". Independent
+// of the per-week CheckpointStatus used by the dot strip below.
+type HeroTier = "on_track" | "slightly_off" | "behind" | "critical" | "no_data";
+
+function tierFromDelta(actual: number | null, target: number): HeroTier {
+  if (actual == null) return "no_data";
+  const delta = actual - target;
+  if (Math.abs(delta) <= 0.5) return "on_track";
+  if (delta > 0 && delta <= 1.5) return "slightly_off";
+  if (delta > 1.5 && delta <= 2.5) return "behind";
+  if (delta > 2.5) return "critical";
+  // delta < -0.5: ahead of plan; cutting too fast is its own risk.
+  if (delta < -1.0) return "critical";
+  return "on_track";
+}
+
+const TIER_LABEL: Record<HeroTier, string> = {
+  on_track: "ON TRACK",
+  slightly_off: "SLIGHTLY OFF",
+  behind: "BEHIND",
+  critical: "CRITICAL",
+  no_data: "NO LOG",
+};
+
+const TIER_PILL_CLASS: Record<HeroTier, string> = {
+  on_track: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+  slightly_off: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+  behind: "bg-orange-500/15 text-orange-400 border-orange-500/30",
+  critical: "bg-rose-500/15 text-rose-400 border-rose-500/30",
+  no_data: "bg-muted/30 text-muted-foreground border-border/40",
+};
 
 function loadPlan(): PlanData | null {
   try {
@@ -79,6 +108,89 @@ function isoDateNDaysFrom(base: Date, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+// 'Sun May 31' — UTC-anchored so the weekday matches the plan-week boundary.
+function fmtWeekDate(iso: string): string {
+  const d = new Date(iso + "T00:00:00Z");
+  return d.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+// Days between today and the week's end date (positive = in the future).
+function daysUntil(iso: string): number {
+  const target = new Date(iso + "T00:00:00Z").getTime();
+  const today = new Date(new Date().toISOString().slice(0, 10) + "T00:00:00Z").getTime();
+  return Math.round((target - today) / MS_PER_DAY);
+}
+
+// 8-station status row below the hero. Each dot is tappable and drives the
+// parent's focused-week state. Colors mirror the per-week semantics.
+function DotStrip({
+  checkpoints,
+  focusedWeek,
+  onSelect,
+}: {
+  checkpoints: Checkpoint[];
+  focusedWeek: number | null;
+  onSelect: (week: number) => void;
+}) {
+  return (
+    <div className="mt-2 px-1">
+      <div className="flex items-center justify-between">
+        {checkpoints.map((c) => {
+          const isFocus = focusedWeek === c.week;
+          const dotClass = (() => {
+            switch (c.status) {
+              case "hit":
+              case "close":
+                return "bg-emerald-400 border-emerald-400";
+              case "missed":
+                return "bg-orange-400 border-orange-500/70";
+              case "current":
+                return "bg-primary border-primary ring-2 ring-primary/30";
+              case "no_data":
+                return "bg-transparent border-muted-foreground/40 border-dashed";
+              case "future":
+              default:
+                return "bg-transparent border-muted-foreground/35";
+            }
+          })();
+          return (
+            <button
+              key={c.week}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                triggerHapticSelection();
+                onSelect(c.week);
+              }}
+              className="flex flex-col items-center gap-1 py-1 px-0.5 -mx-0.5 active:scale-95 transition-transform"
+              aria-label={`Week ${c.week} ${c.status}`}
+              aria-pressed={isFocus}
+            >
+              <span
+                className={`h-2.5 w-2.5 rounded-full border-2 transition-all ${dotClass} ${
+                  isFocus ? "scale-125" : ""
+                }`}
+              />
+              <span
+                className={`text-[10px] tabular-nums leading-none ${
+                  isFocus ? "text-foreground font-semibold" : "text-muted-foreground"
+                }`}
+              >
+                W{c.week}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function CutPaceForecast({
   weightLogs,
   currentWeight,
@@ -86,14 +198,17 @@ export function CutPaceForecast({
   plan: planProp,
 }: CutPaceForecastProps) {
   const navigate = useNavigate();
+  // User-driven override of the hero focus. `null` => use the natural focus
+  // (current week, or first future week if plan window has passed). Tapping
+  // a dot sets this; tapping the same dot again clears it.
+  const [focusedWeek, setFocusedWeek] = useState<number | null>(null);
 
   const data = useMemo(() => {
     const plan = planProp ?? loadPlan();
     if (!plan) return null;
 
-    // Derive the plan-start date so we can place each week on a real
-    // calendar range. Prefer the plan's own `targetDate`; fall back to the
-    // profile's target_date passed via props.
+    // Anchor each week on a real calendar range. Prefer the plan's own
+    // targetDate; fall back to the profile's target_date passed via props.
     const fightDateIso = plan.targetDate ?? targetDate;
     if (!fightDateIso) return null;
     const fightDate = new Date(fightDateIso + "T00:00:00");
@@ -102,16 +217,13 @@ export function CutPaceForecast({
     const totalWeeks = plan.totalWeeks ?? plan.weeklyPlan.length;
     const planStart = new Date(fightDate.getTime() - totalWeeks * 7 * MS_PER_DAY);
 
-    // The "before dehydration" weight is the target of the last non-fight-week
-    // row. Falls back to the absolute last week if no fight_week phase exists.
+    // "Before dehydration" target = last non-fight-week row.
     const nonDehydrationWeeks = plan.weeklyPlan.filter((w) => w.phase !== "fight_week");
     const finalTarget =
       nonDehydrationWeeks[nonDehydrationWeeks.length - 1] ?? plan.weeklyPlan[plan.weeklyPlan.length - 1];
 
     const todayIso = new Date().toISOString().slice(0, 10);
 
-    // Build a sorted ascending list of weight logs (numeric) once, so per-week
-    // lookups are O(weeks * logs) at worst — fine for typical N≤30 logs.
     const logsAsc = [...weightLogs]
       .filter((l) => !Number.isNaN(parseFloat(l.weight_kg)))
       .map((l) => ({ date: l.date, kg: parseFloat(l.weight_kg) }))
@@ -121,15 +233,12 @@ export function CutPaceForecast({
       const weekStartIso = isoDateNDaysFrom(planStart, (row.week - 1) * 7);
       const weekEndIso = isoDateNDaysFrom(planStart, row.week * 7 - 1);
 
-      // Pick the user's "weight at end of this week" — the latest log in the
-      // week's range. Falls back to the most recent log on or before weekEnd
-      // when nothing was logged inside the window itself.
+      // End-of-week weight: latest log in the week's window.
       const inWindow = logsAsc.filter((l) => l.date >= weekStartIso && l.date <= weekEndIso);
       const actual = inWindow.length > 0 ? inWindow[inWindow.length - 1].kg : null;
 
       let status: CheckpointStatus;
       if (todayIso > weekEndIso) {
-        // Past week
         if (actual == null) status = "no_data";
         else if (actual <= row.targetWeight + HIT_TOLERANCE_KG) status = "hit";
         else if (actual <= row.targetWeight + CLOSE_TOLERANCE_KG) status = "close";
@@ -150,12 +259,10 @@ export function CutPaceForecast({
       };
     });
 
-    // Current-week detail: prefer the explicit "current" checkpoint; fall
-    // back to the next future checkpoint if today is past the plan window
-    // (e.g. fight day has passed).
-    const currentIdx =
-      checkpoints.findIndex((c) => c.status === "current");
-    const focusCheckpoint =
+    // Natural focus: the current week, or the next future week if the plan
+    // window has passed (e.g. fight day is behind us).
+    const currentIdx = checkpoints.findIndex((c) => c.status === "current");
+    const naturalFocus =
       currentIdx >= 0
         ? checkpoints[currentIdx]
         : checkpoints.find((c) => c.status === "future") ?? checkpoints[checkpoints.length - 1];
@@ -163,14 +270,13 @@ export function CutPaceForecast({
     const pastWeeks = checkpoints.filter((c) =>
       c.status === "hit" || c.status === "close" || c.status === "missed" || c.status === "no_data"
     );
-    // "Hit" count tolerates the close band — the user was within striking
-    // distance of the weekly target, which still earns the encouragement.
     const hitCount = pastWeeks.filter((c) => c.status === "hit" || c.status === "close").length;
 
     return {
       checkpoints,
       finalTarget,
-      focusCheckpoint,
+      naturalFocus,
+      currentIdx,
       hitCount,
       pastCount: pastWeeks.length,
       totalWeeks,
@@ -179,275 +285,211 @@ export function CutPaceForecast({
 
   if (!data) return null;
 
-  const { checkpoints, finalTarget, focusCheckpoint, hitCount, pastCount, totalWeeks } = data;
+  const { checkpoints, finalTarget, naturalFocus, currentIdx, totalWeeks } = data;
 
-  // Headline status: derived from the focus checkpoint + overall hit rate.
-  const onTrack = focusCheckpoint
-    ? focusCheckpoint.status === "current"
-      ? currentWeight <= focusCheckpoint.targetWeight + HIT_TOLERANCE_KG
-      : focusCheckpoint.status === "future" && pastCount > 0 && hitCount === pastCount
-    : false;
+  // Resolve the focused checkpoint — explicit override first, falling back
+  // to the natural focus (current or next-future week).
+  const focusCheckpoint =
+    (focusedWeek != null && checkpoints.find((c) => c.week === focusedWeek)) ||
+    naturalFocus;
+  if (!focusCheckpoint) return null;
 
-  // Mono + blue-accent palette: the app's primary blue is the single accent
-  // for "now / on track / progress"; a lone muted amber carries "behind /
-  // off-target"; everything else stays neutral so the card reads as one
-  // calm surface rather than a status-light rainbow.
-  const statusChip = (() => {
-    if (pastCount === 0 && focusCheckpoint?.status === "current") {
-      return { label: "WEEK 1", text: "text-primary", dot: "bg-primary" };
+  const isFinalWeek = focusCheckpoint.week === finalTarget.week;
+  const isCurrentWeek = focusCheckpoint.status === "current";
+  const isPastWeek =
+    focusCheckpoint.status === "hit" ||
+    focusCheckpoint.status === "close" ||
+    focusCheckpoint.status === "missed" ||
+    focusCheckpoint.status === "no_data";
+  const isFutureWeek = focusCheckpoint.status === "future";
+
+  // Most-recent log (any date) — used for the "(last Tue)" fallback when the
+  // user hasn't logged inside the current calendar week.
+  const latestLog = [...weightLogs]
+    .filter((l) => !Number.isNaN(parseFloat(l.weight_kg)))
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .pop();
+
+  // "You" weight per focus mode: past = that week's actual; current = this
+  // week's actual or latest log fallback; future = current weight forward-look.
+  const displayActual: number | null = isPastWeek
+    ? focusCheckpoint.actualWeight
+    : isCurrentWeek
+      ? (focusCheckpoint.actualWeight ?? (latestLog ? parseFloat(latestLog.weight_kg) : null) ?? (currentWeight || null))
+      : currentWeight || null;
+
+  const tier = tierFromDelta(displayActual, focusCheckpoint.targetWeight);
+  const heroEyebrow = isFinalWeek
+    ? `WEIGH-IN · ${fmtWeekDate(focusCheckpoint.weekEndDate)}`
+    : `WEEK ${focusCheckpoint.week} · ${fmtWeekDate(focusCheckpoint.weekEndDate)}`;
+
+  // Top-right chip: days-left for current/future, "Week N of M" for past.
+  const chip = (() => {
+    if (isCurrentWeek || isFutureWeek) {
+      const d = daysUntil(focusCheckpoint.weekEndDate);
+      if (d <= 0) return null;
+      return { icon: "timeOutline" as const, label: `${d} ${d === 1 ? "day" : "days"} left` };
     }
-    if (onTrack) {
-      return { label: "ON TRACK", text: "text-primary", dot: "bg-primary" };
-    }
-    if (focusCheckpoint && currentWeight > focusCheckpoint.targetWeight + 1.0) {
-      return { label: "BEHIND", text: "text-amber-400", dot: "bg-amber-400" };
-    }
-    return { label: "PUSHING", text: "text-amber-400/90", dot: "bg-amber-400/90" };
+    return { icon: "calendarOutline" as const, label: `Week ${focusCheckpoint.week} of ${totalWeeks}` };
   })();
 
-  // Tube-map progress fill: the colored line extends to the last PAST
-  // checkpoint — any settled week the user has reached, including misses.
-  // "Hit", "close", "missed", and "no_data" all advance the fill; only
-  // "current" / "future" stop it. The dot color still encodes hit vs
-  // missed; the bar reads as "time elapsed", not "earned distance".
-  // The fill width is expressed as a percentage of station-to-station
-  // spacing so CSS transitions animate when a new station settles.
-  const stationCount = checkpoints.length;
-  const lastSettledIdx = (() => {
-    let idx = -1;
-    for (let i = 0; i < checkpoints.length; i++) {
-      const s = checkpoints[i].status;
-      if (s === "hit" || s === "close" || s === "missed" || s === "no_data") {
-        idx = i;
-      } else {
-        // "current" or "future" — stop here; everything past this is not yet reached.
-        break;
-      }
-    }
-    return idx;
-  })();
-  // Each station sits at i/(N-1) of the track width. The line stretches
-  // from station 0 to the last settled station so the visual reads as
-  // "you've reached here."
-  const progressPct =
-    stationCount > 1 && lastSettledIdx >= 0
-      ? (lastSettledIdx / (stationCount - 1)) * 100
-      : 0;
+  // No log in the current calendar week → drives the inline CTA below.
+  const noLogThisWeek = isCurrentWeek && focusCheckpoint.actualWeight == null;
+  const kgToFinal = displayActual != null
+    ? Math.max(0, displayActual - finalTarget.targetWeight)
+    : null;
+  const weeksLeftFromFocus = Math.max(0, finalTarget.week - focusCheckpoint.week);
+
+  // Delta value + tone for the "You:" line. Positive = behind/heavy.
+  const delta = displayActual != null ? displayActual - focusCheckpoint.targetWeight : null;
+  const deltaTone =
+    delta == null
+      ? "text-muted-foreground"
+      : delta > 0.5
+        ? "text-orange-400"
+        : delta < -0.5
+          ? "text-amber-400"
+          : "text-emerald-400";
+
+  // Dot tap: toggle override. Tapping the natural-focus week clears it.
+  const handleDotSelect = (week: number) => {
+    setFocusedWeek((prev) => {
+      if (prev === week) return null;
+      if (currentIdx >= 0 && week === checkpoints[currentIdx].week) return null;
+      return week;
+    });
+  };
 
   return (
-    <button
-      type="button"
-      onClick={() => { triggerHapticSelection(); navigate("/cut-plan"); }}
-      className="w-full card-surface card-glow rounded-2xl p-4 text-left active:scale-[0.99] transition-transform"
-    >
-      {/* Header — status chip + summary count */}
-      <div className="flex items-center justify-between gap-2">
-        <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold tracking-wider ${statusChip.text}`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${statusChip.dot}`} aria-hidden />
-          {statusChip.label}
-        </span>
-        <span className="text-[11px] text-muted-foreground tabular-nums">
-          <span className="text-foreground font-semibold">{hitCount}/{pastCount}</span> weeks hit
-        </span>
-      </div>
-
-      {/* Tube-map line. Stations are equally spaced on a flat horizontal
-          track. A colored progress line grows from station 0 → last settled
-          station; the transition animates whenever a new station settles
-          (the `progressPct` style change drives `transition-all`). */}
-      <div className="mt-4 px-1">
-        <div className="relative h-3.5">
-          {/* Background track — sits behind the stations, inset slightly so
-              the first / last station circles sit ON the track ends rather
-              than past them. */}
-          <div className="absolute top-1/2 -translate-y-1/2 left-1.5 right-1.5 h-[3px] rounded-full bg-muted/50" />
-
-          {/* Filled progress line — animates on width change. */}
-          <div
-            className="absolute top-1/2 -translate-y-1/2 left-1.5 h-[3px] rounded-full bg-primary transition-[width] duration-1000 ease-out"
-            style={{
-              width: `calc((100% - 12px) * ${progressPct / 100})`,
-              boxShadow: progressPct > 0 ? "0 0 8px hsl(var(--primary) / 0.55)" : undefined,
-            }}
-          />
-
-          {/* Stations */}
-          <div className="absolute inset-0 flex justify-between items-center">
-            {checkpoints.map((c) => {
-              const stationStyle = (() => {
-                switch (c.status) {
-                  // Hit / close read as "settled & good" via neutral fill
-                  // intensity rather than green; only off-target (missed)
-                  // earns the amber accent.
-                  case "hit":
-                    return "bg-foreground border-foreground";
-                  case "close":
-                    return "bg-foreground/45 border-foreground/45";
-                  case "missed":
-                    return "bg-amber-400/80 border-amber-400/80";
-                  case "current":
-                    return "bg-background border-primary ring-2 ring-primary/30";
-                  case "no_data":
-                    return "bg-muted border-muted-foreground/40";
-                  case "future":
-                  default:
-                    return "bg-background border-muted-foreground/35";
-                }
-              })();
-              const isCurrent = c.status === "current";
-              return (
-                <span
-                  key={c.week}
-                  className={`relative h-3 w-3 rounded-full border-2 transition-all duration-300 ${stationStyle}`}
-                  aria-label={`Week ${c.week} ${c.status}`}
-                >
-                  {isCurrent && (
-                    <span
-                      aria-hidden
-                      className="absolute inset-0 rounded-full animate-ping bg-primary/40"
-                    />
-                  )}
-                </span>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Weight numbers — `px-1.5` matches the track inset so the
-            first/last labels sit exactly under the first/last station
-            centers. Each label is a zero-width flex child with its content
-            translated -50% so it self-centers at its parent's position. */}
-        <div className="mt-2 flex justify-between items-start px-1.5">
-          {checkpoints.map((c) => {
-            const isFocus = focusCheckpoint?.week === c.week;
-            const tone =
-              isFocus
-                ? "text-foreground font-semibold"
-                : c.status === "hit"
-                  ? "text-foreground/70"
-                  : c.status === "close"
-                    ? "text-foreground/45"
-                    : c.status === "missed"
-                      ? "text-amber-400/70"
-                      : "text-muted-foreground/55";
-            return (
-              <span
-                key={c.week}
-                className={`text-[10px] tabular-nums leading-tight text-center w-0 ${tone}`}
-                style={{ minWidth: 0 }}
-              >
-                <span className="inline-block -translate-x-1/2 whitespace-nowrap">
-                  {c.targetWeight.toFixed(1)}
-                </span>
+    <div className="space-y-2">
+      <button
+        type="button"
+        onClick={() => { triggerHapticSelection(); navigate("/cut-plan"); }}
+        aria-label={`${TIER_LABEL[tier]} — ${heroEyebrow}, target ${focusCheckpoint.targetWeight.toFixed(1)} kg`}
+        className="w-full card-surface card-glow rounded-2xl p-4 text-left active:scale-[0.99] transition-transform"
+      >
+        {/* Subtle fade-in on focus change — key forces remount → re-plays anim. */}
+        <div key={focusCheckpoint.week} className="animate-in fade-in duration-200">
+          {/* Top row — status pill (left) + days-left/position chip (right). */}
+          <div className="flex items-center justify-between gap-2">
+            <span
+              className={`inline-flex items-center gap-1.5 text-[10px] font-bold tracking-wider rounded-full border px-2 py-0.5 ${TIER_PILL_CLASS[tier]}`}
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
+              {TIER_LABEL[tier]}
+            </span>
+            {chip && (
+              <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground tabular-nums">
+                <Icon name={chip.icon} size={11} className="opacity-70" />
+                {chip.label}
               </span>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Detail block. The tube map already shows every week's TARGET
-          weight, so this section adds the information the map can't carry:
-          the user's CURRENT weight, the delta vs this week's target
-          (actionable signal), and how far they still have to travel to
-          pre-dehydration. */}
-      <div className="mt-4 pt-3.5 border-t border-border/40">
-        {focusCheckpoint && focusCheckpoint.status === "current" ? (() => {
-          const deltaToWeek = currentWeight - focusCheckpoint.targetWeight;
-          const deltaToFinal = currentWeight - finalTarget.targetWeight;
-          const weeksLeft = Math.max(0, finalTarget.week - focusCheckpoint.week);
-
-          // Deadline for THIS week's target — the end of the current
-          // checkpoint window. Surfaced next to the delta so the user knows
-          // the date by which they should be at the weekly target weight.
-          const weeklyDeadline = (() => {
-            try {
-              return format(parseISO(focusCheckpoint.weekEndDate), "EEE d MMM");
-            } catch {
-              return null;
-            }
-          })();
-
-          // Tone the delta chip by which band the user lands in. Matches
-          // the station-color logic above so the card reads as one piece:
-          // blue = on target, muted amber = close / over.
-          const deltaTone =
-            deltaToWeek <= HIT_TOLERANCE_KG
-              ? { text: "text-primary", icon: "checkmarkOutline" as const, label: "on target" }
-              : deltaToWeek <= CLOSE_TOLERANCE_KG
-                ? { text: "text-amber-400/90", icon: "arrowUpOutline" as const, label: "close" }
-                : { text: "text-amber-400", icon: "arrowUpOutline" as const, label: "over target" };
-
-          return (
-            <>
-              {/* Hero row — current weight (left) + delta chip (right). */}
-              <div className="flex items-end justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground/80 font-semibold">
-                    Your weight
-                  </p>
-                  <p className="mt-0.5 flex items-baseline gap-1">
-                    <span className="display-number font-bold tabular-nums text-foreground text-[22px] leading-none">
-                      {currentWeight.toFixed(1)}
-                    </span>
-                    <span className="text-[12px] text-muted-foreground font-light">kg</span>
-                  </p>
-                </div>
-                <div className="flex flex-col items-end gap-0.5">
-                  <div className={`flex items-center gap-1 ${deltaTone.text}`}>
-                    <Icon name={deltaTone.icon} size={12} />
-                    <span className="text-[13px] font-semibold tabular-nums">
-                      {Math.abs(deltaToWeek).toFixed(1)} kg
-                    </span>
-                    <span className="text-[11px] font-medium opacity-80">{deltaTone.label}</span>
-                  </div>
-                  {weeklyDeadline && (
-                    <span className="flex items-center gap-1 text-[10.5px] text-muted-foreground tabular-nums">
-                      <Icon name="calendarOutline" size={10} className="opacity-70" />
-                      target by {weeklyDeadline}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Horizon row — how far the cut still has to go. */}
-              <div className="mt-2.5 flex items-center justify-between gap-2 text-[11.5px]">
-                <span className="text-muted-foreground">
-                  <span className="tabular-nums text-foreground/85 font-semibold">{Math.max(0, deltaToFinal).toFixed(1)} kg</span>
-                  {" to pre-dehydration"}
-                </span>
-                <span className="text-muted-foreground">
-                  <span className="tabular-nums text-foreground/85 font-semibold">{weeksLeft}</span>
-                  {" "}{weeksLeft === 1 ? "week" : "weeks"} left
-                </span>
-              </div>
-            </>
-          );
-        })() : focusCheckpoint?.status === "future" ? (
-          // Past plan end (fight day passed). Show plan recap instead.
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground/80 font-semibold">
-                Plan complete
-              </p>
-              <p className="mt-0.5 text-[13px] text-foreground/90">
-                <span className="display-number font-bold tabular-nums">{hitCount}</span>
-                <span className="text-muted-foreground"> of </span>
-                <span className="display-number font-bold tabular-nums">{pastCount}</span>
-                <span className="text-muted-foreground"> weeks on target</span>
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground/80 font-semibold">
-                Pre-dehydration
-              </p>
-              <p className="mt-0.5 text-[13px]">
-                <span className="display-number font-bold tabular-nums text-foreground">{finalTarget.targetWeight.toFixed(1)}</span>
-                <span className="text-muted-foreground font-light"> kg</span>
-              </p>
-            </div>
+            )}
           </div>
-        ) : null}
-      </div>
-    </button>
+
+          {/* Eyebrow — WEEK N · Sun May 31 (or WEIGH-IN · …). */}
+          <p className="mt-3 text-[10px] uppercase tracking-[0.12em] text-muted-foreground/85 font-semibold">
+            {heroEyebrow}
+          </p>
+
+          {/* Hero target weight. */}
+          <p className="mt-1 flex items-baseline gap-1.5">
+            <span className="display-number font-bold tabular-nums text-foreground text-[32px] leading-none">
+              {focusCheckpoint.targetWeight.toFixed(1)}
+            </span>
+            <span className="text-[13px] text-muted-foreground font-light">kg</span>
+          </p>
+          <p className="mt-1 text-[10px] uppercase tracking-[0.08em] text-muted-foreground/70 font-semibold">
+            target
+          </p>
+
+          {/* You line + context line. Past / current / future each get the
+              line that's most actionable for that week. */}
+          <div className="mt-3 space-y-1">
+            {isPastWeek ? (
+              <p className="text-[12.5px] text-muted-foreground">
+                {focusCheckpoint.actualWeight != null ? (
+                  <>
+                    Logged:{" "}
+                    <span className="tabular-nums text-foreground/85 font-semibold">
+                      {focusCheckpoint.actualWeight.toFixed(1)} kg
+                    </span>
+                  </>
+                ) : (
+                  <span className="italic">No log this week</span>
+                )}
+              </p>
+            ) : (
+              <p className="text-[12.5px] text-muted-foreground">
+                You:{" "}
+                {displayActual != null ? (
+                  <>
+                    <span className="tabular-nums text-foreground/90 font-semibold">
+                      {displayActual.toFixed(1)} kg
+                    </span>
+                    {delta != null && (
+                      <span className={`ml-1 tabular-nums font-semibold ${deltaTone}`}>
+                        ({delta >= 0 ? "+" : ""}{delta.toFixed(1)})
+                      </span>
+                    )}
+                    {isCurrentWeek && noLogThisWeek && latestLog && (
+                      <span className="ml-1 text-[11px] text-muted-foreground/70">
+                        (last {fmtWeekDate(latestLog.date)})
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span className="italic">no data yet</span>
+                )}
+              </p>
+            )}
+
+            {isCurrentWeek ? (
+              <p className="text-[11.5px] text-muted-foreground">
+                {(() => {
+                  const d = daysUntil(focusCheckpoint.weekEndDate);
+                  const parts: string[] = [];
+                  if (d > 0) parts.push(`in ${d} ${d === 1 ? "day" : "days"}`);
+                  if (kgToFinal != null && kgToFinal > 0) {
+                    parts.push(`${kgToFinal.toFixed(1)} kg to pre-dehydration`);
+                  }
+                  if (weeksLeftFromFocus > 0) {
+                    parts.push(`${weeksLeftFromFocus} ${weeksLeftFromFocus === 1 ? "week" : "weeks"} left`);
+                  }
+                  return parts.join(" · ");
+                })()}
+              </p>
+            ) : isFutureWeek ? (
+              <p className="text-[11.5px] text-muted-foreground">
+                Target by {fmtWeekDate(focusCheckpoint.weekEndDate)}
+              </p>
+            ) : null}
+          </div>
+
+          {/* Inline CTA — only when the user hasn't logged this calendar week. */}
+          {noLogThisWeek && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                triggerHapticSelection();
+                navigate("/weight");
+              }}
+              className="mt-3 inline-flex items-center gap-1.5 text-[12px] font-semibold text-primary active:opacity-80"
+            >
+              Log this week&apos;s weight
+              <Icon name="arrowForwardOutline" size={12} />
+            </button>
+          )}
+        </div>
+      </button>
+
+      {/* Dot strip — lives outside the hero button so taps don't bubble into
+          the /cut-plan navigation. */}
+      <DotStrip
+        checkpoints={checkpoints}
+        focusedWeek={focusCheckpoint.week}
+        onSelect={handleDotSelect}
+      />
+    </div>
   );
 }
