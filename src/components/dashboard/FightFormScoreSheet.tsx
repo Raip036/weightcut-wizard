@@ -18,7 +18,16 @@ import type {
   SubScore as SubScoreType,
 } from "@/scoring/types";
 
-type SubScore = { value: number; weight: number; reason: string };
+type SubScore = {
+  value: number;
+  weight: number;
+  reason: string;
+  // Optional sub-score metadata (e.g. weightCut surfaces targetKg / currentKg
+  // for richer rendering). Sibling agent G is adding this to the canonical
+  // `SubScore` type in `src/scoring/types.ts`; the local mirror tolerates it
+  // either way.
+  meta?: Record<string, number | string>;
+};
 export type FightFormTrendPoint = { date: string; score: number; state: FightFormState };
 
 type Cap = { ruleId: string; cap: number };
@@ -106,6 +115,17 @@ const SUBSCORE_TO_LOGGED: Record<string, keyof LoggedTodayMap> = {
   nutritionAdherence: "meals",
 };
 
+// Routes used by placeholder ("Log to unlock") cards in the carousel.
+// Mirrors the top entry of each LIMITER_ACTIONS list so placeholder taps
+// route the user straight to the page they need to log on.
+const SUBSCORE_LOG_ROUTE: Record<string, string> = {
+  trainingLoad: "/training-calendar",
+  sleep: "/sleep",
+  weightCut: "/weight",
+  wellness: "/recovery/check-in",
+  recovery: "/recovery",
+};
+
 const LABEL_DISPLAY: Record<string, string> = {
   sharp: "Sharp",
   sharpening: "Sharpening",
@@ -116,12 +136,16 @@ const LABEL_DISPLAY: Record<string, string> = {
 // Sub-score categories rendered as locked rows in the calibration teaser
 // and as the canonical ordering for the unlocked tile grid. Single source
 // of truth so the teaser and the unlocked grid stay in sync.
+//
+// `nutritionAdherence` is intentionally excluded — nutrition currently
+// carries weight 0 in the composite (the engine no longer scores meal
+// adherence as part of fight form). It's still tracked in TodayStrip,
+// just not shown in this breakdown.
 const SUBSCORE_ORDER: string[] = [
   "trainingLoad",
   "sleep",
   "weightCut",
   "wellness",
-  "nutritionAdherence",
 ];
 
 // ─── Limiter action card ───────────────────────────────────────────────────
@@ -173,44 +197,15 @@ const TIER_BAR: Record<SubScoreTier, string> = {
 };
 
 /**
- * One plain sentence per metric explaining what the current score means.
- * Tiers: 80+ strong, 60-79 okay, 40-59 light, <40 dragging it down.
- * No symbols, no jargon, no em-dashes.
+ * Safety-net copy when the engine returns no `reason` string. Kept
+ * intentionally generic — the engine now owns the descriptive text per
+ * sub-score and this only fires if `reason` is empty/missing.
  */
-function summarizeSubScore(key: string, value: number): string {
-  const tier = value >= 80 ? "high" : value >= 60 ? "mid" : value >= 40 ? "low" : "vlow";
-  switch (key) {
-    case "trainingLoad":
-      if (tier === "high") return "Your training is dialed in for this phase of camp.";
-      if (tier === "mid") return "Training is on track but could use a bit more consistency.";
-      if (tier === "low") return "Training is lighter than expected for this phase.";
-      return "Training has dropped off and is dragging your score down.";
-    case "sleep":
-      if (tier === "high") return "You are well rested and recovering properly.";
-      if (tier === "mid") return "Sleep is decent but there is still room to improve.";
-      if (tier === "low") return "Sleep is short and recovery is taking a hit.";
-      return "Sleep debt is pulling your score down. Earlier nights this week.";
-    case "weightCut":
-      if (tier === "high") return "Weight is moving at a safe, fight ready pace.";
-      if (tier === "mid") return "Weight pace is okay but watch the trend this week.";
-      if (tier === "low") return "Weight is moving too slow or too fast for this stage.";
-      return "Weight pace is off plan and needs adjusting.";
-    case "wellness":
-      if (tier === "high") return "You feel strong, fresh, and ready to train.";
-      if (tier === "mid") return "Wellness is steady. Keep logging your daily check in.";
-      if (tier === "low") return "You feel beaten up. A real recovery day will help.";
-      return "Wellness is low. Stress, soreness, or mood is bringing it down.";
-    case "nutritionAdherence":
-      if (tier === "high") return "Meals are matching your targets consistently.";
-      if (tier === "mid") return "Nutrition is on track most days. Tighten up a few.";
-      if (tier === "low") return "Meals are drifting from your targets.";
-      return "Nutrition is well off target. Hitting calories and macros will lift this fast.";
-    default:
-      if (tier === "high") return "Looking strong.";
-      if (tier === "mid") return "Holding steady.";
-      if (tier === "low") return "Needs some attention.";
-      return "Pulling your score down.";
-  }
+function fallbackSummary(value: number): string {
+  if (value >= 80) return "Looking strong.";
+  if (value >= 60) return "Holding steady.";
+  if (value >= 40) return "Needs some attention.";
+  return "Pulling your score down.";
 }
 
 function campPaceCopy(weeksAhead: number): string {
@@ -235,6 +230,23 @@ export function FightFormScoreSheet(p: Props) {
   const [shareVariant, setShareVariant] = useState<"dark" | "transparent">("dark");
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const navigate = useNavigate();
+
+  // Subtle pulse on the composite score whenever it changes between
+  // renders. `prevScoreRef` tracks the last value we drew; when it
+  // differs we toggle `scorePulseOn` for one animation cycle (600ms,
+  // matching the .score-pulse keyframe in index.css). The first render
+  // never pulses (otherwise the sheet would always animate on open).
+  const prevScoreRef = useRef<number | null>(null);
+  const [scorePulseOn, setScorePulseOn] = useState(false);
+  useEffect(() => {
+    if (prevScoreRef.current !== null && prevScoreRef.current !== p.score) {
+      setScorePulseOn(true);
+      const t = window.setTimeout(() => setScorePulseOn(false), 650);
+      prevScoreRef.current = p.score;
+      return () => window.clearTimeout(t);
+    }
+    prevScoreRef.current = p.score;
+  }, [p.score]);
 
   // Resolve the cap list — see the prop docs above.
   const caps: Cap[] =
@@ -285,7 +297,14 @@ export function FightFormScoreSheet(p: Props) {
         </SheetHeader>
 
         <div className="mt-4 flex flex-col items-center text-center">
-          <span className="display-number text-7xl leading-none">{p.score}</span>
+          <span
+            className={cn(
+              "display-number text-7xl leading-none inline-block",
+              scorePulseOn && "score-pulse",
+            )}
+          >
+            {p.score}
+          </span>
           <div className="section-header mt-2">{LABEL_DISPLAY[p.label] ?? p.label}</div>
           {p.campAge && (
             <div className="text-xs text-muted-foreground mt-2">
@@ -437,6 +456,7 @@ export function FightFormScoreSheet(p: Props) {
               triggerHapticSelection();
               setExpandedKey(key);
             }}
+            onNavigate={handleActionTap}
           />
         )}
 
@@ -550,6 +570,7 @@ interface SubScoreCarouselProps {
   yesterdaySubScores?: Record<string, number>;
   subScoreTrend?: Record<string, TrendPoint[]>;
   onTap: (key: string) => void;
+  onNavigate: (route: string) => void;
 }
 
 function SubScoreCarousel({
@@ -557,20 +578,25 @@ function SubScoreCarousel({
   yesterdaySubScores,
   subScoreTrend,
   onTap,
+  onNavigate,
 }: SubScoreCarouselProps) {
-  // Worst-first order: cards with the lowest value land in the first
-  // slot so the user lands on the most actionable one. Sub-scores
-  // missing from `subScores` are filtered out; weight:0 cards keep
-  // their relative position but float to the end (they have no data).
-  const ordered = SUBSCORE_ORDER
+  // Always show the 4 core sub-scores so a fresh-start user with no
+  // logged data still sees what they need to log to unlock signal.
+  // `recovery` is appended only when actively contributing (weight > 0);
+  // `nutritionAdherence` is intentionally excluded.
+  // Active sub-scores (weight > 0) sort first by value ascending so the
+  // most actionable lands in the lead slot, then placeholders trail.
+  const candidates = [...SUBSCORE_ORDER];
+  if (subScores.recovery && subScores.recovery.weight > 0) {
+    candidates.push("recovery");
+  }
+  const ordered = candidates
     .filter((k) => !!subScores[k])
     .sort((a, b) => {
-      const sa = subScores[a];
-      const sb = subScores[b];
-      const wa = sa.weight > 0 ? 0 : 1;
-      const wb = sb.weight > 0 ? 0 : 1;
-      if (wa !== wb) return wa - wb;
-      return sa.value - sb.value;
+      const aActive = subScores[a].weight > 0 ? 1 : 0;
+      const bActive = subScores[b].weight > 0 ? 1 : 0;
+      if (aActive !== bActive) return bActive - aActive;
+      return subScores[a].value - subScores[b].value;
     });
 
   const railRef = useRef<HTMLDivElement>(null);
@@ -609,70 +635,24 @@ function SubScoreCarousel({
       >
         {ordered.map((key) => {
           const sub = subScores[key];
-          const yesterday = yesterdaySubScores?.[key];
-          const delta = yesterday !== undefined ? sub.value - yesterday : null;
-          const tier = subScoreTier(sub.value);
-          const trend = subScoreTrend?.[key];
+          if (sub.weight === 0) {
+            return (
+              <SubScorePlaceholderCard
+                key={key}
+                subKey={key}
+                onNavigate={onNavigate}
+              />
+            );
+          }
           return (
-            <button
+            <SubScoreCard
               key={key}
-              type="button"
-              data-subscore-card
-              onClick={() => onTap(key)}
-              className="snap-center shrink-0 w-[78%] rounded-2xl border border-border/40 bg-muted/15 px-4 py-3.5 text-left active:scale-[0.99] transition-transform"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <Icon
-                    name={SUBSCORE_ICON[key] ?? "ellipseOutline"}
-                    size={14}
-                    className="text-foreground shrink-0"
-                  />
-                  <span className="text-body-sm font-semibold truncate">
-                    {SUBSCORE_LABEL[key] ?? key}
-                  </span>
-                </div>
-                {delta !== null && (
-                  <span
-                    className={cn(
-                      "text-[10px] font-semibold tabular-nums shrink-0",
-                      delta > 0
-                        ? "text-func-recovery-green"
-                        : delta < 0
-                          ? "text-func-danger-red"
-                          : "text-muted-foreground",
-                    )}
-                  >
-                    {delta > 0 ? "+" : ""}{delta}
-                  </span>
-                )}
-              </div>
-              <div className="mt-2 flex items-end gap-2">
-                <span className="display-number text-3xl leading-none tabular-nums">
-                  {sub.value}
-                </span>
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-                  / 100
-                </span>
-              </div>
-              <div className="mt-3 h-1.5 rounded-full bg-muted/40 overflow-hidden">
-                <div
-                  className={cn("h-full rounded-full", TIER_BAR[tier])}
-                  style={{ width: `${Math.max(0, Math.min(100, sub.value))}%` }}
-                />
-              </div>
-              {trend && trend.length >= 2 && (
-                <div className="mt-2 h-8">
-                  <FightFormTrendSparkline
-                    points={trend.map((pt) => ({
-                      date: pt.date,
-                      score: pt.value,
-                      state: "ok" as FightFormState,
-                    }))}
-                  />
-                </div>
-              )}
-            </button>
+              subKey={key}
+              sub={sub}
+              yesterdayValue={yesterdaySubScores?.[key]}
+              trend={subScoreTrend?.[key]}
+              onTap={onTap}
+            />
           );
         })}
       </div>
@@ -694,6 +674,213 @@ function SubScoreCarousel({
         </div>
       )}
     </div>
+  );
+}
+
+/* ─── Sub-score card (carousel item) ─────────────────────────────────── */
+
+interface SubScoreCardProps {
+  subKey: string;
+  sub: SubScore;
+  yesterdayValue: number | undefined;
+  trend: TrendPoint[] | undefined;
+  onTap: (key: string) => void;
+}
+
+/**
+ * One card in the horizontal carousel. The `weightCut` variant swaps
+ * the generic "{value} / 100" hero for a target → current → delta
+ * block when the engine surfaces `meta.targetKg` + `meta.currentKg`;
+ * otherwise it falls through to the standard layout so paused /
+ * no-data states don't render empty fields.
+ */
+function SubScoreCard({
+  subKey,
+  sub,
+  yesterdayValue,
+  trend,
+  onTap,
+}: SubScoreCardProps) {
+  const delta = yesterdayValue !== undefined ? sub.value - yesterdayValue : null;
+  const tier = subScoreTier(sub.value);
+
+  const wcTarget =
+    subKey === "weightCut" && typeof sub.meta?.targetKg === "number"
+      ? (sub.meta.targetKg as number)
+      : null;
+  const wcCurrent =
+    subKey === "weightCut" && typeof sub.meta?.currentKg === "number"
+      ? (sub.meta.currentKg as number)
+      : null;
+  const isWcRich = wcTarget != null && wcCurrent != null;
+  const wcDelta = isWcRich ? wcCurrent! - wcTarget! : 0;
+  // Signed-delta color: behind plan (positive) = red, on target band
+  // (|d| ≤ 0.3) = green, slightly ahead (-0.5..0) = green, very ahead
+  // (< -0.5) = amber. Mirrors the engine's grading bands.
+  const wcDeltaColor = !isWcRich
+    ? ""
+    : wcDelta > 0.3
+      ? "text-func-danger-red"
+      : wcDelta >= -0.5
+        ? "text-func-recovery-green"
+        : "text-func-warning-yellow";
+  const wcDeltaLabel = !isWcRich
+    ? ""
+    : Math.abs(wcDelta) <= 0.3
+      ? "On target"
+      : wcDelta > 0
+        ? `+${wcDelta.toFixed(1)} kg off`
+        : `${wcDelta.toFixed(1)} kg ahead`;
+
+  return (
+    <button
+      type="button"
+      data-subscore-card
+      onClick={() => onTap(subKey)}
+      className="snap-center shrink-0 w-[78%] rounded-2xl border border-border/40 bg-muted/15 px-4 py-3.5 text-left active:scale-[0.99] transition-transform"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <Icon
+            name={SUBSCORE_ICON[subKey] ?? "ellipseOutline"}
+            size={14}
+            className="text-foreground shrink-0"
+          />
+          <span className="text-body-sm font-semibold truncate">
+            {SUBSCORE_LABEL[subKey] ?? subKey}
+          </span>
+        </div>
+        {delta !== null && (
+          <span
+            className={cn(
+              "text-[10px] font-semibold tabular-nums shrink-0",
+              delta > 0
+                ? "text-func-recovery-green"
+                : delta < 0
+                  ? "text-func-danger-red"
+                  : "text-muted-foreground",
+            )}
+          >
+            {delta > 0 ? "+" : ""}{delta}
+          </span>
+        )}
+      </div>
+
+      {isWcRich ? (
+        <div className="mt-2.5">
+          <div className="flex items-end gap-2 tabular-nums">
+            <div className="flex flex-col">
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground leading-none mb-1">
+                Target
+              </span>
+              <span className="display-number text-xl leading-none">
+                {wcTarget!.toFixed(1)}
+              </span>
+            </div>
+            <Icon
+              name="arrowForwardOutline"
+              size={14}
+              className="text-muted-foreground/70 mb-1 shrink-0"
+            />
+            <div className="flex flex-col">
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground leading-none mb-1">
+                You
+              </span>
+              <span className="display-number text-xl leading-none">
+                {wcCurrent!.toFixed(1)}
+              </span>
+            </div>
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+              kg
+            </span>
+          </div>
+          <div className={cn("mt-1.5 text-xs font-semibold tabular-nums", wcDeltaColor)}>
+            {wcDeltaLabel}
+          </div>
+        </div>
+      ) : (
+        <div className="mt-2 flex items-end gap-2">
+          <span className="display-number text-3xl leading-none tabular-nums">
+            {sub.value}
+          </span>
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+            / 100
+          </span>
+        </div>
+      )}
+
+      <div className="mt-3 flex items-center gap-2">
+        <div className="flex-1 h-1.5 rounded-full bg-muted/40 overflow-hidden">
+          <div
+            className={cn("h-full rounded-full", TIER_BAR[tier])}
+            style={{ width: `${Math.max(0, Math.min(100, sub.value))}%` }}
+          />
+        </div>
+        {isWcRich && (
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground tabular-nums shrink-0">
+            {sub.value} / 100
+          </span>
+        )}
+      </div>
+
+      {trend && trend.length >= 2 && (
+        <div className="mt-2 h-8">
+          <FightFormTrendSparkline
+            points={trend.map((pt) => ({
+              date: pt.date,
+              score: pt.value,
+              state: "ok" as FightFormState,
+            }))}
+          />
+        </div>
+      )}
+    </button>
+  );
+}
+
+/* ─── Sub-score placeholder card (carousel item, no data) ───────────── */
+
+interface SubScorePlaceholderCardProps {
+  subKey: string;
+  onNavigate: (route: string) => void;
+}
+
+/**
+ * Rendered in place of `SubScoreCard` when a sub-score has weight 0
+ * (no data logged yet). Muted, dashed-border CTA that routes the user
+ * straight to the relevant logging page instead of opening the
+ * drill-down dialog.
+ */
+function SubScorePlaceholderCard({
+  subKey,
+  onNavigate,
+}: SubScorePlaceholderCardProps) {
+  const route = SUBSCORE_LOG_ROUTE[subKey] ?? "/";
+  return (
+    <button
+      type="button"
+      data-subscore-card
+      onClick={() => onNavigate(route)}
+      className="snap-center shrink-0 w-[78%] rounded-2xl border border-dashed border-border/60 bg-muted/10 px-4 py-3.5 text-left opacity-60 active:scale-[0.99] transition-transform"
+    >
+      <div className="flex items-center gap-1.5 min-w-0">
+        <Icon
+          name={SUBSCORE_ICON[subKey] ?? "ellipseOutline"}
+          size={14}
+          className="text-muted-foreground shrink-0"
+        />
+        <span className="text-body-sm font-semibold truncate text-foreground/80">
+          {SUBSCORE_LABEL[subKey] ?? subKey}
+        </span>
+      </div>
+      <div className="mt-3 text-body-sm font-semibold text-foreground/90">
+        Log to unlock
+      </div>
+      <div className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-primary">
+        <span>Tap to log</span>
+        <Icon name="arrowForwardOutline" size={12} className="shrink-0" />
+      </div>
+    </button>
   );
 }
 
@@ -765,7 +952,9 @@ function SubScoreDialogBody({
         </span>
       </DialogTitle>
       <DialogDescription className="text-foreground/85 leading-snug">
-        {summarizeSubScore(subKey, sub.value)}
+        {sub.reason && sub.reason.trim().length > 0
+          ? sub.reason
+          : fallbackSummary(sub.value)}
       </DialogDescription>
 
       {sub.weight > 0 && (

@@ -45,4 +45,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
     }
 
+    func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
+        // Lock the app to portrait orientation on all devices (including iPad)
+        // to prevent the wide "desktop" layout from appearing when the device rotates.
+        return .portrait
+    }
+
 }

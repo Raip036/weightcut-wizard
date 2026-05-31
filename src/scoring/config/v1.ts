@@ -9,9 +9,9 @@ export const ScoringConfigV1: ScoringConfig = {
   // / energy back in via `selfReportRecovery`). This keeps the total
   // weight invariant across both code paths.
   weights: {
-    build:     { trainingLoad: 0.20, sleep: 0.20, weightCut: 0.25, wellness: 0.20, nutritionAdherence: 0.15, recovery: 0 },
-    peak:      { trainingLoad: 0.10, sleep: 0.25, weightCut: 0.30, wellness: 0.20, nutritionAdherence: 0.15, recovery: 0 },
-    fightWeek: { trainingLoad: 0.05, sleep: 0.25, weightCut: 0.40, wellness: 0.20, nutritionAdherence: 0.10, recovery: 0 },
+    build:     { trainingLoad: 0.25, sleep: 0.25, weightCut: 0.25, wellness: 0.25, nutritionAdherence: 0, recovery: 0 },
+    peak:      { trainingLoad: 0.25, sleep: 0.25, weightCut: 0.25, wellness: 0.25, nutritionAdherence: 0, recovery: 0 },
+    fightWeek: { trainingLoad: 0.25, sleep: 0.25, weightCut: 0.25, wellness: 0.25, nutritionAdherence: 0, recovery: 0 },
   },
   phaseThresholdsDays: { fightWeek: 7, peak: 14 },
   trainingLoad: {
@@ -34,6 +34,10 @@ export const ScoringConfigV1: ScoringConfig = {
     sustainableRatePctPerWeek: [0.3, 1.0],
     decayEdgePct: 1.5,
     dangerEdgePct: 2.0,
+    // Stricter threshold (%/wk) reserved for the `weight_cut_dangerous`
+    // ceiling. Sub-score math (weightCut.ts) still uses `dangerEdgePct`
+    // for grading; this only gates the hard score-cap.
+    dangerCeilingPct: 2.5,
     onPaceMissPenalty: 10,
   },
   wellness: { hooperFloor: 4, hooperScalar: 4.2 },
@@ -68,9 +72,9 @@ export const ScoringConfigV1: ScoringConfig = {
     minLoggedKcalFraction: 0.30,
   },
   ceilings: [
-    { id: "weight_cut_dangerous", cap: 50 },
+    { id: "weight_cut_dangerous", cap: 65 },
     { id: "sleep_debt", cap: 65 },
-    { id: "training_spike", cap: 45 },
+    { id: "training_spike", cap: 60 },
   ],
   smoothing: { emaDays: 3 },
   coldStart: { minDaysOfDataIn7d: 3 },

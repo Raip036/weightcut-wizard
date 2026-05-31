@@ -50,7 +50,7 @@ function consecutiveDangerousDays(
     const days = (new Date(cur.date + "T00:00:00Z").getTime() - new Date(prior.date + "T00:00:00Z").getTime()) / 86400000;
     if (days <= 0) continue;
     const pctPerWeek = ((prior.weightKg - cur.weightKg) / startingWeightKg / (days / 7)) * 100;
-    if (pctPerWeek > cfg.weightCut.dangerEdgePct) consecutive++;
+    if (pctPerWeek > cfg.weightCut.dangerCeilingPct) consecutive++;
     else break;
   }
   return consecutive;
@@ -61,15 +61,23 @@ function sleepDebt7d(
   asOfDate: string,
   cfg: ScoringConfig,
 ): number {
+  // Only count debt for nights that were actually logged. Missing nights
+  // contribute zero, otherwise a user who hasn't backfilled a week of sleep
+  // would always trip the `sleep_debt` ceiling. The per-night Max(0, …) keeps
+  // 10h sleep nights from cancelling out a 4h night so accumulated debt is
+  // a true sum of nightly shortfalls, not a net rolling balance.
   const end = new Date(asOfDate + "T00:00:00Z");
   const start = new Date(end);
   start.setUTCDate(start.getUTCDate() - 6);
-  let total = 0;
+  const target = cfg.sleep.targetHoursPerNight;
+  let debt = 0;
   for (const s of sleep) {
     const t = new Date(s.date + "T00:00:00Z").getTime();
-    if (t >= start.getTime() && t <= end.getTime()) total += s.hours;
+    if (t >= start.getTime() && t <= end.getTime()) {
+      debt += Math.max(0, target - s.hours);
+    }
   }
-  return Math.max(0, 7 * cfg.sleep.targetHoursPerNight - total);
+  return debt;
 }
 
 function computeAcwr(sessions: ScoringInputs["sessions"], asOfDate: string, cfg: ScoringConfig): number {
@@ -212,7 +220,16 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
   const trainingLoad = computeTrainingLoad(inputs.sessions, inputs.date, cfg, inputs.restDays ?? []);
   const sleep = computeSleep(inputs.sleepHours, inputs.date, cfg, inputs.assumedSleepDates);
   const weightCut = computeWeightCut(
-    { weights: inputs.weights, startingWeightKg: inputs.startingWeightKg, goalWeightKg: inputs.goalWeightKg, campStartDate: inputs.campStartDate, fightDate: inputs.fightDate },
+    {
+      weights: inputs.weights,
+      startingWeightKg: inputs.startingWeightKg,
+      goalWeightKg: inputs.goalWeightKg,
+      campStartDate: inputs.campStartDate,
+      fightDate: inputs.fightDate,
+      // Passed through as `unknown` from the scoring inputs; the sub-score
+      // does its own structural validation on `weeklyPlan[]`.
+      cutPlanJson: inputs.cutPlanJson as never,
+    },
     inputs.date, cfg,
   );
   const wellness = computeWellness(inputs.hooperByDate, inputs.date, cfg);
@@ -227,7 +244,7 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
   const subScoreHasData = {
     trainingLoad: !/^(Cold start)/.test(trainingLoad.reason),
     sleep: !/^(No sleep logs|Only \d+ night)/.test(sleep.reason),
-    weightCut: !/^(No weight logs yet|Camp data incomplete)/.test(weightCut.reason),
+    weightCut: !/^(No weight logs yet|Camp data incomplete|No cut plan or weight data yet)/.test(weightCut.reason),
     wellness: wellness.reason !== "No wellness check-ins in 7 days",
     nutritionAdherence: !/^(Only \d+|No calorie)/.test(nutritionAdherence.reason),
   };

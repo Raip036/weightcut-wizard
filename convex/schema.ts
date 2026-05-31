@@ -378,7 +378,7 @@ export default defineSchema({
     subScores: v.object({
       trainingLoad:        v.object({ value: v.number(), weight: v.number(), reason: v.string() }),
       sleep:               v.object({ value: v.number(), weight: v.number(), reason: v.string() }),
-      weightCut:           v.object({ value: v.number(), weight: v.number(), reason: v.string() }),
+      weightCut:           v.object({ value: v.number(), weight: v.number(), reason: v.string(), meta: v.optional(v.record(v.string(), v.union(v.number(), v.string()))) }),
       wellness:            v.object({ value: v.number(), weight: v.number(), reason: v.string() }),
       nutritionAdherence:  v.object({ value: v.number(), weight: v.number(), reason: v.string() }),
       // Optional so historical rows written before the recovery sub-score

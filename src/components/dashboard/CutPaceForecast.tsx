@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { format, parseISO } from "date-fns";
 import { Icon } from "@/components/ui/Icon";
 import { triggerHapticSelection } from "@/lib/haptics";
 
@@ -187,17 +188,21 @@ export function CutPaceForecast({
       : focusCheckpoint.status === "future" && pastCount > 0 && hitCount === pastCount
     : false;
 
+  // Mono + blue-accent palette: the app's primary blue is the single accent
+  // for "now / on track / progress"; a lone muted amber carries "behind /
+  // off-target"; everything else stays neutral so the card reads as one
+  // calm surface rather than a status-light rainbow.
   const statusChip = (() => {
     if (pastCount === 0 && focusCheckpoint?.status === "current") {
-      return { label: "WEEK 1", text: "text-func-protein-blue", dot: "bg-func-protein-blue" };
+      return { label: "WEEK 1", text: "text-primary", dot: "bg-primary" };
     }
     if (onTrack) {
-      return { label: "ON TRACK", text: "text-func-recovery-green", dot: "bg-func-recovery-green" };
+      return { label: "ON TRACK", text: "text-primary", dot: "bg-primary" };
     }
     if (focusCheckpoint && currentWeight > focusCheckpoint.targetWeight + 1.0) {
-      return { label: "BEHIND", text: "text-func-warning-yellow", dot: "bg-func-warning-yellow" };
+      return { label: "BEHIND", text: "text-amber-400", dot: "bg-amber-400" };
     }
-    return { label: "PUSHING", text: "text-func-carbs-orange", dot: "bg-func-carbs-orange" };
+    return { label: "PUSHING", text: "text-amber-400/90", dot: "bg-amber-400/90" };
   })();
 
   // Tube-map progress fill: the colored line extends to the last PAST
@@ -271,14 +276,17 @@ export function CutPaceForecast({
             {checkpoints.map((c) => {
               const stationStyle = (() => {
                 switch (c.status) {
+                  // Hit / close read as "settled & good" via neutral fill
+                  // intensity rather than green; only off-target (missed)
+                  // earns the amber accent.
                   case "hit":
-                    return "bg-func-recovery-green border-func-recovery-green text-white";
+                    return "bg-foreground border-foreground";
                   case "close":
-                    return "bg-func-carbs-orange border-func-carbs-orange text-white";
+                    return "bg-foreground/45 border-foreground/45";
                   case "missed":
-                    return "bg-func-danger-red border-func-danger-red text-white";
+                    return "bg-amber-400/80 border-amber-400/80";
                   case "current":
-                    return "bg-background border-func-protein-blue ring-2 ring-func-protein-blue/30";
+                    return "bg-background border-primary ring-2 ring-primary/30";
                   case "no_data":
                     return "bg-muted border-muted-foreground/40";
                   case "future":
@@ -296,7 +304,7 @@ export function CutPaceForecast({
                   {isCurrent && (
                     <span
                       aria-hidden
-                      className="absolute inset-0 rounded-full animate-ping bg-func-protein-blue/40"
+                      className="absolute inset-0 rounded-full animate-ping bg-primary/40"
                     />
                   )}
                 </span>
@@ -316,11 +324,11 @@ export function CutPaceForecast({
               isFocus
                 ? "text-foreground font-semibold"
                 : c.status === "hit"
-                  ? "text-func-recovery-green/90"
+                  ? "text-foreground/70"
                   : c.status === "close"
-                    ? "text-func-carbs-orange/90"
+                    ? "text-foreground/45"
                     : c.status === "missed"
-                      ? "text-func-danger-red/90"
+                      ? "text-amber-400/70"
                       : "text-muted-foreground/55";
             return (
               <span
@@ -348,14 +356,26 @@ export function CutPaceForecast({
           const deltaToFinal = currentWeight - finalTarget.targetWeight;
           const weeksLeft = Math.max(0, finalTarget.week - focusCheckpoint.week);
 
+          // Deadline for THIS week's target — the end of the current
+          // checkpoint window. Surfaced next to the delta so the user knows
+          // the date by which they should be at the weekly target weight.
+          const weeklyDeadline = (() => {
+            try {
+              return format(parseISO(focusCheckpoint.weekEndDate), "EEE d MMM");
+            } catch {
+              return null;
+            }
+          })();
+
           // Tone the delta chip by which band the user lands in. Matches
-          // the station-color logic above so the card reads as one piece.
+          // the station-color logic above so the card reads as one piece:
+          // blue = on target, muted amber = close / over.
           const deltaTone =
             deltaToWeek <= HIT_TOLERANCE_KG
-              ? { text: "text-func-recovery-green", icon: "checkmarkOutline" as const, label: "on target" }
+              ? { text: "text-primary", icon: "checkmarkOutline" as const, label: "on target" }
               : deltaToWeek <= CLOSE_TOLERANCE_KG
-                ? { text: "text-func-carbs-orange", icon: "arrowUpOutline" as const, label: "close" }
-                : { text: "text-func-danger-red", icon: "arrowUpOutline" as const, label: "over target" };
+                ? { text: "text-amber-400/90", icon: "arrowUpOutline" as const, label: "close" }
+                : { text: "text-amber-400", icon: "arrowUpOutline" as const, label: "over target" };
 
           return (
             <>
@@ -372,12 +392,20 @@ export function CutPaceForecast({
                     <span className="text-[12px] text-muted-foreground font-light">kg</span>
                   </p>
                 </div>
-                <div className={`flex items-center gap-1 ${deltaTone.text} text-right`}>
-                  <Icon name={deltaTone.icon} size={12} />
-                  <span className="text-[13px] font-semibold tabular-nums">
-                    {Math.abs(deltaToWeek).toFixed(1)} kg
-                  </span>
-                  <span className="text-[11px] font-medium opacity-80">{deltaTone.label}</span>
+                <div className="flex flex-col items-end gap-0.5">
+                  <div className={`flex items-center gap-1 ${deltaTone.text}`}>
+                    <Icon name={deltaTone.icon} size={12} />
+                    <span className="text-[13px] font-semibold tabular-nums">
+                      {Math.abs(deltaToWeek).toFixed(1)} kg
+                    </span>
+                    <span className="text-[11px] font-medium opacity-80">{deltaTone.label}</span>
+                  </div>
+                  {weeklyDeadline && (
+                    <span className="flex items-center gap-1 text-[10.5px] text-muted-foreground tabular-nums">
+                      <Icon name="calendarOutline" size={10} className="opacity-70" />
+                      target by {weeklyDeadline}
+                    </span>
+                  )}
                 </div>
               </div>
 

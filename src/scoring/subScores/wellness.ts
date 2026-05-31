@@ -24,11 +24,28 @@ export function computeWellness(
   let ema = valid[0].hooper;
   for (let i = 1; i < valid.length; i++) ema = alpha * valid[i].hooper + (1 - alpha) * ema;
 
-  const { hooperFloor, hooperScalar } = cfg.wellness;
-  const value = Math.max(0, Math.min(100, 100 - (ema - hooperFloor) * hooperScalar));
+  // Linear curve over Hooper EMA (lower is better):
+  //   <=5 => 100, >=8 => 0, linear in between.
+  let value: number;
+  if (ema <= 5) {
+    value = 100;
+  } else if (ema >= 8) {
+    value = 0;
+  } else {
+    value = 100 * (8 - ema) / 3.0;
+  }
+  const emaStr = ema.toFixed(1);
+  let reason: string;
+  if (ema <= 5) {
+    reason = `Feeling fresh (Hooper ${emaStr})`;
+  } else if (ema >= 8) {
+    reason = `High fatigue/stress (Hooper ${emaStr})`;
+  } else {
+    reason = `Moderate fatigue building (Hooper ${emaStr})`;
+  }
   return {
     value: Math.round(value),
     weight: 0,
-    reason: `Hooper EMA ${ema.toFixed(1)} (lower is better, floor ${hooperFloor})`,
+    reason,
   };
 }

@@ -6,7 +6,18 @@ export type SubScoreKey =
   | "nutritionAdherence"
   | "recovery";
 
-export type SubScore = { value: number; weight: number; reason: string };
+export type SubScore = {
+  value: number;
+  weight: number;
+  reason: string;
+  /**
+   * Optional sub-score-specific metadata for UI rendering. Sub-scores may
+   * populate this with surfaced numbers (e.g. weightCut surfaces the
+   * current/target/delta kg so the bottom sheet doesn't recompute them).
+   * Always optional — most sub-scores don't need it.
+   */
+  meta?: Record<string, number | string>;
+};
 
 /**
  * A single physiological signal read from HealthKit (or computed from
@@ -130,6 +141,16 @@ export type ScoringInputs = {
   // score reflects a fallback, not real data.
   assumedSleepDates?: ReadonlyArray<string>;
   weights: Array<{ date: string; weightKg: number }>;
+  /**
+   * Parsed `profiles.cutPlanJson` — the AI-generated weight-cut plan
+   * containing `weeklyPlan[]` rows with `{ week, targetWeight }`. Used
+   * by the `weightCut` sub-score to grade adherence to THIS WEEK'S target
+   * weight (replaces the legacy rate-of-loss formula). Optional: when
+   * absent, the sub-score falls back to a linear interp between
+   * `startingWeightKg` and `goalWeightKg`; when neither is available, it
+   * returns weight 0 and is excluded from the composite.
+   */
+  cutPlanJson?: unknown;
   hooperByDate: Array<{ date: string; hooper: number }>;
   meals: Array<{ date: string; calories: number; proteinG: number }>;
   targets: { calories: number | null; proteinG: number | null };
@@ -193,6 +214,13 @@ export type ScoringConfig = {
     sustainableRatePctPerWeek: [number, number];
     decayEdgePct: number;
     dangerEdgePct: number;
+    /**
+     * Stricter weekly-loss threshold (% of starting weight per week) used
+     * exclusively by the `weight_cut_dangerous` ceiling in `compose.ts`.
+     * Sub-score math in `weightCut.ts` continues to grade against
+     * `dangerEdgePct` — this only gates the hard cap.
+     */
+    dangerCeilingPct: number;
     onPaceMissPenalty: number;
   };
   wellness: { hooperFloor: number; hooperScalar: number };

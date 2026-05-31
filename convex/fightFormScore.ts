@@ -515,6 +515,9 @@ export const recomputeForUserDate = internalAction({
       sleepHours: inputs.sleepHours,
       assumedSleepDates: inputs.assumedSleepDates,
       weights: inputs.weights,
+      // Parsed cut plan from `profiles.cutPlanJson`. Drives the new
+      // weekly-plan adherence weightCut sub-score (replaces rate-of-loss).
+      cutPlanJson: inputs.profile?.cutPlanJson ?? null,
       hooperByDate: inputs.hooperByDate,
       meals: inputs.meals,
       targets: {

@@ -33,20 +33,23 @@ const PHASE_META: Record<NonNullable<Phase>, {
   icon: IonIconName;
   accent: string;
 }> = {
+  // Phase accent ramps with intensity within the app's mono + blue/amber
+  // palette: blue for the early build phase, warming to amber as the camp
+  // escalates — no separate orange / red so the card stays on-theme.
   build: {
     label: "BUILD",
     icon: "barbellOutline",
-    accent: "text-func-protein-blue",
+    accent: "text-primary",
   },
   peak: {
     label: "PEAK",
     icon: "flashOutline",
-    accent: "text-func-carbs-orange",
+    accent: "text-amber-400/90",
   },
   fightWeek: {
     label: "FIGHT WEEK",
     icon: "flameOutline",
-    accent: "text-func-danger-red",
+    accent: "text-amber-400",
   },
 };
 
@@ -135,22 +138,22 @@ function fixSuggestion(driftKg: number | null): string {
   return "Ahead of plan. Add 50 g carbs to dinner.";
 }
 
+// A single verdict drives every drift-colored element (line, today dot,
+// legend swatch, badge) so they always agree: on-or-ahead of plan reads in
+// the primary blue accent, meaningfully over plan is the lone amber.
+function isOverPlan(driftKg: number): boolean {
+  return driftKg > 0.3;
+}
+
 function driftBadge(driftKg: number): { label: string; tone: string } {
   const abs = Math.abs(driftKg).toFixed(1);
   if (Math.abs(driftKg) < 0.1) {
-    return { label: "On plan", tone: "text-func-recovery-green" };
+    return { label: "On plan", tone: "text-primary" };
   }
   if (driftKg > 0) {
-    const tone =
-      driftKg < 0.3
-        ? "text-func-recovery-green"
-        : driftKg < 1.0
-          ? "text-amber-300/85"
-          : "text-func-danger-red";
-    return { label: `+${abs} kg over plan`, tone };
+    return { label: `+${abs} kg over plan`, tone: isOverPlan(driftKg) ? "text-amber-400" : "text-primary" };
   }
-  const tone = driftKg > -0.3 ? "text-func-recovery-green" : "text-sky-300/85";
-  return { label: `−${abs} kg under plan`, tone };
+  return { label: `−${abs} kg under plan`, tone: "text-primary" };
 }
 
 export function PhaseCoachCard({
@@ -178,13 +181,12 @@ export function PhaseCoachCard({
   const badge = chart ? driftBadge(chart.driftKg) : null;
 
   // Line color follows the drift verdict so the chart and badge agree.
+  const overPlan = chart ? isOverPlan(chart.driftKg) : false;
   const actualLineClass = !chart
     ? "text-foreground/70"
-    : Math.abs(chart.driftKg) < 0.3
-      ? "text-func-recovery-green"
-      : chart.driftKg > 0
-        ? "text-amber-300"
-        : "text-sky-300";
+    : overPlan
+      ? "text-amber-400"
+      : "text-primary";
 
   return (
     <button
@@ -254,13 +256,7 @@ export function PhaseCoachCard({
               cx={chart.todayPx.x}
               cy={chart.todayPx.y}
               r={3.5}
-              className={
-                Math.abs(chart.driftKg) < 0.3
-                  ? "fill-func-recovery-green"
-                  : chart.driftKg > 0
-                    ? "fill-amber-300"
-                    : "fill-sky-300"
-              }
+              className={overPlan ? "fill-amber-400" : "fill-primary"}
             />
           </svg>
           <div className="flex items-center justify-between mt-1.5 px-0.5">
@@ -271,13 +267,7 @@ export function PhaseCoachCard({
               </span>
               <span className="inline-flex items-center gap-1">
                 <span
-                  className={`inline-block w-2.5 h-[1.5px] ${
-                    Math.abs(chart.driftKg) < 0.3
-                      ? "bg-func-recovery-green"
-                      : chart.driftKg > 0
-                        ? "bg-amber-300"
-                        : "bg-sky-300"
-                  }`}
+                  className={`inline-block w-2.5 h-[1.5px] ${overPlan ? "bg-amber-400" : "bg-primary"}`}
                 />
                 actual
               </span>

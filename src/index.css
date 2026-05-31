@@ -420,6 +420,19 @@ All colors MUST be HSL.
     -webkit-appearance: none;
     appearance: none;
   }
+
+  /* Web-layer safeguard: even if iOS lock-to-portrait fails (rotated iPhone,
+     iPad, browser dev tools), constrain the app's root container so the
+     "desktop" wide layout never appears — always render the vertical phone
+     view. Native portrait lock is handled separately. */
+  @media (orientation: landscape) and (max-height: 500px) {
+    html, body, #root {
+      /* Force portrait phone presentation even when device is landscape */
+      max-width: 100vh;
+      margin-left: auto;
+      margin-right: auto;
+    }
+  }
 }
 
 @layer components {
@@ -816,6 +829,18 @@ All colors MUST be HSL.
   @keyframes fadeSlideUp {
     from { opacity: 0; transform: translateY(12px); }
     to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Subtle pulse used by FightFormScoreSheet when the composite score
+     changes between renders. Soft scale + a brief primary-tinted glow
+     so the eye catches the change without it feeling like a popup. */
+  @keyframes scorePulse {
+    0%   { transform: scale(1);    filter: drop-shadow(0 0 0 transparent); }
+    40%  { transform: scale(1.05); filter: drop-shadow(0 0 8px hsl(var(--primary) / 0.5)); }
+    100% { transform: scale(1);    filter: drop-shadow(0 0 0 transparent); }
+  }
+  .score-pulse {
+    animation: scorePulse 600ms ease-out;
   }
 
 }

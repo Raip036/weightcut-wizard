@@ -6,8 +6,6 @@ export function computeSleep(
   cfg: ScoringConfig,
   assumedSleepDates: ReadonlyArray<string> = [],
 ): SubScore {
-  const target = cfg.sleep.targetHoursPerNight;
-  const perHourPenalty = cfg.sleep.perHourPenalty;
   const end = new Date(asOfDate + "T00:00:00Z");
   const start = new Date(end);
   start.setUTCDate(start.getUTCDate() - 6);
@@ -34,16 +32,26 @@ export function computeSleep(
         : `Only ${nights} night(s) logged in last 7 — need 3+`,
     };
   }
-  // Per-night debt avoids penalising users who log only some nights of the
-  // week. Compare the AVERAGE of logged nights to the per-night target;
-  // a user who logs 4 nights at 7h is "1h short" per night, NOT "28h short"
-  // versus a phantom 7×8h target.
+  // Linear curve over avg hours per logged night:
+  //   >=7.5h => 100, <=5.5h => 0, linear in between.
   const avgHoursPerLoggedNight = total / nights;
-  const debt = Math.max(0, target - avgHoursPerLoggedNight);
-  const value = Math.max(0, Math.min(100, 100 - debt * perHourPenalty));
-  const baseReason = debt > 0
-    ? `${debt.toFixed(1)}h/night sleep debt vs ${target}h target (${nights} night${nights === 1 ? "" : "s"} logged)`
-    : `On target (${nights} night${nights === 1 ? "" : "s"} logged)`;
+  let value: number;
+  if (avgHoursPerLoggedNight >= 7.5) {
+    value = 100;
+  } else if (avgHoursPerLoggedNight <= 5.5) {
+    value = 0;
+  } else {
+    value = 100 * (avgHoursPerLoggedNight - 5.5) / 2.0;
+  }
+  const avgStr = avgHoursPerLoggedNight.toFixed(1);
+  let baseReason: string;
+  if (avgHoursPerLoggedNight >= 7.5) {
+    baseReason = `Sleep on track (avg ${avgStr}h)`;
+  } else if (avgHoursPerLoggedNight <= 5.5) {
+    baseReason = `Significant sleep debt (avg ${avgStr}h)`;
+  } else {
+    baseReason = `Building sleep debt (avg ${avgStr}h)`;
+  }
   const reason = assumedNights > 0
     ? `${baseReason} (assumed ${cfg.sleep.defaultAssumedHours}h on ${assumedNights} day${assumedNights === 1 ? "" : "s"} — log to refine)`
     : baseReason;
