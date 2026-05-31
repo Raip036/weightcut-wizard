@@ -24,11 +24,14 @@
  *     background offset before being promoted.
  */
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { animate, motion, useMotionValue, useTransform, useDragControls, useReducedMotion, type PanInfo, type MotionValue } from "motion/react";
+import { animate, motion, useMotionValue, useTransform, useReducedMotion, type PanInfo, type MotionValue } from "motion/react";
 import { triggerHaptic } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
-import { PolaroidCard } from "./PolaroidCard";
+import { RoundedFeedCard } from "./RoundedFeedCard";
 import { EmptyStackState } from "./EmptyStackState";
+import { EmojiReactionBar } from "./EmojiReactionBar";
+import { CommentInputBar } from "./CommentInputBar";
+import { InlineCommentsPreview } from "./InlineCommentsPreview";
 import type { FeedPost, FeedStatus } from "@/hooks/community/useGymFeed";
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -56,6 +59,25 @@ interface PolaroidStackProps {
   topIndex: number;
   advance: () => void;
   onSwipeCommit?: (postId: Id<"session_media">) => void;
+  /**
+   * Optional engagement wiring for the in-deck reaction bar + comment
+   * input. When omitted, the bar/input collapse — handy for surfaces
+   * (story templates, share previews) that re-use the stack visually
+   * without the social affordances. The parent passes a `topPostId`-
+   * agnostic callback set; the stack itself decides which post is the
+   * current `topPost`.
+   */
+  engagement?: {
+    onReact: (postId: Id<"session_media">, key: string) => void;
+    onSubmitComment: (
+      postId: Id<"session_media">,
+      text: string,
+    ) => Promise<void> | void;
+    onSeeAllComments: (
+      postId: Id<"session_media">,
+      count: number,
+    ) => void;
+  };
 }
 
 interface GloveBurst {
@@ -75,9 +97,9 @@ export function PolaroidStack({
   topIndex,
   advance,
   onSwipeCommit,
+  engagement,
 }: PolaroidStackProps) {
   const prefersReducedMotion = useReducedMotion();
-  const dragControls = useDragControls();
   const dragX = useMotionValue(0);
   const dragMagnitude = useTransform(dragX, (v) => {
     const vw = window.innerWidth || 375;
@@ -139,13 +161,15 @@ export function PolaroidStack({
       animate(dragX, direction * vw * EXIT_DISTANCE_MULT, EXIT_SPRING);
       const exitMs = prefersReducedMotion ? REDUCED_EXIT_DURATION_MS : EXIT_DURATION_MS;
       window.setTimeout(() => {
-        // Clear exitingPost FIRST so the new top card mounts; THEN reset
-        // dragX so the new top starts at rest. Calling advance() last
-        // gives the parent's dismissedIds update its own paint frame,
-        // which prevents the visible "snap" we got when these three
-        // happened in the wrong order.
-        setExitingPost(null);
+        // Reset dragX FIRST so the new TopCard reveals at rest. THEN
+        // unmount the exit card and call advance(). The previous order
+        // (setExitingPost(null) before dragX.set(0)) introduced a race
+        // where the newly-promoted TopCard briefly inherited the in-flight
+        // x value, leaving Framer's drag listener stuck on the unmounted
+        // exit card's motion.div — the root cause of the "second card
+        // unswipeable" bug.
         dragX.set(0);
+        setExitingPost(null);
         advance();
       }, exitMs);
     },
@@ -239,51 +263,79 @@ export function PolaroidStack({
               }
         }
       >
-        <PolaroidCard post={exitingPost} stackPosition={0} isTop rotationDeg={baseRotation} />
+        <RoundedFeedCard post={exitingPost} stackPosition={0} isTop rotationDeg={baseRotation} />
       </motion.div>
     );
   })();
 
   return (
-    <div className="relative mx-auto" style={{ width: 312, height: 396 }}>
-      {exitingNode}
+    <div className="flex flex-col">
+      <div key="deck" className="relative mx-auto" style={{ width: 312, height: 396 }}>
+        {exitingNode}
 
-      {visibleSlots.map((post, idx) => {
-        const stackPos = idx as 0 | 1 | 2;
-        // If a card is mid-flight, the new slot[0] is the NEXT post.
-        // We render it as a non-interactive background card until the
-        // exit animation completes so it doesn't catch taps for a card
-        // that's about to land on it.
-        const isTop = idx === 0 && !exitingPost;
-        const rotationDeg = computeRotation(post.id);
+        {visibleSlots.map((post, idx) => {
+          const stackPos = idx as 0 | 1 | 2;
+          // If a card is mid-flight, the new slot[0] is the NEXT post.
+          // We render it as a non-interactive background card until the
+          // exit animation completes so it doesn't catch taps for a card
+          // that's about to land on it.
+          const isTop = idx === 0 && !exitingPost;
+          const rotationDeg = computeRotation(post.id);
 
-        if (isTop) {
+          if (isTop) {
+            return (
+              <TopCard
+                key={post.id}
+                post={post}
+                rotationDeg={rotationDeg}
+                dragX={dragX}
+                onDragEnd={handleDragEnd}
+                onClick={handleCardClick}
+                onAuthorLongPress={() => onOpenProfile(post.author.userId)}
+                bursts={bursts}
+              />
+            );
+          }
+
           return (
-            <TopCard
+            <RoundedFeedCard
               key={post.id}
               post={post}
+              stackPosition={stackPos}
+              isTop={false}
               rotationDeg={rotationDeg}
-              dragX={dragX}
-              dragControls={dragControls}
-              onDragEnd={handleDragEnd}
-              onClick={handleCardClick}
-              onAuthorLongPress={() => onOpenProfile(post.author.userId)}
-              bursts={bursts}
+              progress={stackPos === 1 ? dragMagnitude : undefined}
             />
           );
-        }
+        })}
+      </div>
 
-        return (
-          <PolaroidCard
-            key={post.id}
-            post={post}
-            stackPosition={stackPos}
-            isTop={false}
-            rotationDeg={rotationDeg}
-            progress={stackPos === 1 ? dragMagnitude : undefined}
+      {/* Engagement section — sits OUTSIDE the draggable card container
+          so its taps never compete with the swipe gesture. Only renders
+          when:
+            - the parent wired the `engagement` callback set, AND
+            - there's a real top post (not mid-exit, not empty deck).
+          We key on `topPost.id` so the comment input + bar reset cleanly
+          when a card is swiped and the next post is promoted to top. */}
+      {engagement && topPost && !exitingPost && (
+        <div key={topPost.id} className="mt-3 space-y-2 px-2 flex-shrink-0">
+          <EmojiReactionBar
+            reactionCounts={topPost.reactionCounts ?? {}}
+            viewerReactions={topPost.viewerReactions ?? []}
+            onReact={(key) => engagement.onReact(topPost.id, key)}
           />
-        );
-      })}
+          <InlineCommentsPreview
+            comments={[]}
+            totalCount={topPost.commentCount}
+            onSeeAll={() =>
+              engagement.onSeeAllComments(topPost.id, topPost.commentCount)
+            }
+          />
+          <CommentInputBar
+            onSubmit={(text) => engagement.onSubmitComment(topPost.id, text)}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -300,7 +352,6 @@ function TopCard({
   post,
   rotationDeg,
   dragX,
-  dragControls,
   onDragEnd,
   onClick,
   onAuthorLongPress,
@@ -309,7 +360,6 @@ function TopCard({
   post: FeedPost;
   rotationDeg: number;
   dragX: MotionValue<number>;
-  dragControls: ReturnType<typeof useDragControls>;
   onDragEnd: (e: unknown, info: PanInfo) => void;
   onClick: (e: React.MouseEvent<HTMLDivElement>) => void;
   onAuthorLongPress: () => void;
@@ -337,13 +387,12 @@ function TopCard({
       }}
       drag="x"
       dragDirectionLock
-      dragControls={dragControls}
       dragElastic={DRAG_ELASTIC}
       dragMomentum={false}
       onDragEnd={onDragEnd}
       onClick={onClick}
     >
-      <PolaroidCard
+      <RoundedFeedCard
         post={post}
         stackPosition={0}
         isTop

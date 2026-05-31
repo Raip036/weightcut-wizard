@@ -85,10 +85,12 @@ export const cascadeTraining = internalMutation({
       .withIndex("by_user_captured", (q) => q.eq("userId", userId))
       .collect();
     for (const m of mediaRows) {
-      try {
-        await ctx.storage.delete(m.storageId);
-      } catch {
-        /* already gone */
+      if (m.storageId) {
+        try {
+          await ctx.storage.delete(m.storageId);
+        } catch {
+          /* already gone */
+        }
       }
       await ctx.db.delete(m._id);
     }

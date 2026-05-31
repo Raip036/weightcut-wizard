@@ -19,12 +19,13 @@ export type CampActivityFeedProps = {
   limit?: number;
 };
 
-type EventKind = "workout" | "weight" | "sleep" | "wellness" | "mission" | "meal";
+type EventKind = "workout" | "weight" | "sleep" | "wellness" | "mission" | "meal" | "reaction";
 
 // Icon per event kind. Weight uses `speedometerOutline` to match the rest
 // of the dashboard chrome (TodayStrip, MilestoneBadges, FightFormScoreSheet
 // all use it for the weight/scale surface — `scaleOutline` would read as
-// inconsistent next to those).
+// inconsistent next to those). Reactions use `happyOutline` to keep a
+// distinct glyph from wellness (which already owns `heartOutline`).
 const ICONS: Record<EventKind, IonIconName> = {
   workout:  "barbellOutline",
   weight:   "speedometerOutline",
@@ -32,6 +33,7 @@ const ICONS: Record<EventKind, IonIconName> = {
   wellness: "heartOutline",
   mission:  "trophyOutline",
   meal:     "restaurantOutline",
+  reaction: "happyOutline",
 };
 
 const COLORS: Record<EventKind, string> = {
@@ -41,6 +43,7 @@ const COLORS: Record<EventKind, string> = {
   wellness: "text-rose-400",
   mission:  "text-emerald-400",
   meal:     "text-orange-400",
+  reaction: "text-pink-400",
 };
 
 /**

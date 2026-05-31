@@ -302,7 +302,6 @@ export default function Community() {
                   transition={{ duration: 0.24, ease: [0.32, 0.72, 0, 1] }}
                 >
                   <WeeklyHighlightCard />
-                  <TrainedTodayBanner gymId={gymId} />
                   <CommunityFeedSection
                     posts={effectivePosts}
                     status={status}
@@ -350,7 +349,41 @@ export default function Community() {
         }}
         onCommentRemoved={() => {}}
       />
+
+      {/* Dev-only seeder. Vite strips the entire branch in production
+          builds because `import.meta.env.DEV` resolves to `false` at
+          build time, so the mutation call site never ships. */}
+      {import.meta.env.DEV && <DevSeedButton />}
     </>
+  );
+}
+
+/* ─── Dev seed button ───
+ *
+ * Tiny floating chip in the bottom-right that calls the dev-only
+ * `seedMockFeed` mutation. Wraps the call in a busy flag so repeated
+ * taps don't queue redundant inserts while one is in flight. */
+function DevSeedButton() {
+  const seed = useMutation(api.seedMockFeed.seedMockFeed);
+  const [busy, setBusy] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        setBusy(true);
+        try {
+          await seed({});
+        } catch (err) {
+          logger.warn("seedMockFeed failed", { err: String(err) });
+        } finally {
+          setBusy(false);
+        }
+      }}
+      className="fixed bottom-24 right-4 z-50 h-10 px-3 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[11px] font-semibold active:scale-95 transition-transform"
+      disabled={busy}
+    >
+      {busy ? "Seeding…" : "Seed mock feed"}
+    </button>
   );
 }
 
@@ -540,6 +573,43 @@ const CommunityFeedSection = React.memo(function CommunityFeedSection({
     [topEngagement.doubleTapLike],
   );
 
+  // Engagement bundle for the in-deck reaction bar + comment input. We
+  // route by `postId` instead of capturing `topPost` so PolaroidStack
+  // can decide which post is currently top (avoids a stale-closure bug
+  // during the swipe → advance transition where the parent's notion of
+  // the top post lags the deck by one paint frame).
+  const addCommentMut = useMutation(api.feedSocial.addComment);
+  const stackEngagement = useMemo(
+    () => ({
+      onReact: (postId: Id<"session_media">, key: string) => {
+        // Reaction is only mutated server-side; the reactive listFeed
+        // will repaint with the new counts on the next websocket tick.
+        // We still route through the engagement hook so the haptic +
+        // error-toast path matches like-toggle behaviour. `key` is an
+        // ASCII slug (heart/fire/muscle/praise/clap), not an emoji.
+        if (postId === topPost?.id) {
+          topEngagement.toggleReaction(key);
+        }
+      },
+      onSubmitComment: async (
+        postId: Id<"session_media">,
+        text: string,
+      ) => {
+        try {
+          await addCommentMut({ postId, body: text });
+          if (postId === topPost?.id) {
+            topEngagement.incrementCommentCount();
+          }
+        } catch (err) {
+          logger.warn("addComment failed", { err: String(err) });
+        }
+      },
+      onSeeAllComments: (postId: Id<"session_media">, count: number) =>
+        onOpenComments(postId, count),
+    }),
+    [topPost?.id, topEngagement, addCommentMut, onOpenComments],
+  );
+
   return (
     <div className="mt-2">
       {/* Stack wrapper carries an explicit bottom buffer so the background
@@ -561,6 +631,7 @@ const CommunityFeedSection = React.memo(function CommunityFeedSection({
           onDoubleTapLike={handleDoubleTapLike}
           onSwipeCommit={onPostSwiped}
           onPostClick={onPostClick}
+          engagement={stackEngagement}
         />
       </div>
 

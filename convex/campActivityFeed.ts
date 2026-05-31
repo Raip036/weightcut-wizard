@@ -34,7 +34,26 @@ export type ActivityEventKind =
   | "sleep"
   | "wellness"
   | "mission"
-  | "meal";
+  | "meal"
+  | "reaction";
+
+/**
+ * Server-side slug → emoji lookup for `feed_reactions.key`. Kept inline
+ * here (rather than imported from the client emoji map) so the activity
+ * feed query stays self-contained and the wire payload already carries
+ * a render-ready string — consistent with how `workout` etc. assemble
+ * their `value` server-side in this query.
+ */
+function keyToEmojiServer(key: string): string {
+  switch (key) {
+    case "heart": return "❤️";
+    case "fire": return "🔥";
+    case "muscle": return "💪";
+    case "praise": return "🙌";
+    case "clap": return "👏";
+    default: return "?";
+  }
+}
 
 export interface ActivityEvent {
   kind: ActivityEventKind;
@@ -56,7 +75,7 @@ export const getRecent = query({
     // Fan-out the most-recent `lim` rows from each surface in parallel.
     // `by_user_date` orders by (userId, date, _creationTime); .order("desc")
     // gives us "newest first" which is exactly what we want before merge.
-    const [workouts, weights, sleep, wellness, missions] = await Promise.all([
+    const [workouts, weights, sleep, wellness, missions, reactions] = await Promise.all([
       ctx.db
         .query("fight_camp_calendar")
         .withIndex("by_user_date", (q) => q.eq("userId", userId))
@@ -82,6 +101,11 @@ export const getRecent = query({
         .withIndex("by_user_status", (q) =>
           q.eq("userId", userId).eq("status", "completed"),
         )
+        .order("desc")
+        .take(lim),
+      ctx.db
+        .query("feed_reactions")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
         .order("desc")
         .take(lim),
     ]);
@@ -129,6 +153,20 @@ export const getRecent = query({
         // row's creation time if a historical row predates the field.
         timestamp: m.completedAt ?? m._creationTime,
         route: "/training-calendar",
+      })),
+      ...reactions.map((r): ActivityEvent => ({
+        kind: "reaction",
+        // Best-effort title — a follow-up async resolution could enrich
+        // with the post author's name; left generic to keep this query a
+        // single-pass indexed scan with no extra reads per row.
+        title: "Reacted to a post",
+        // Server-render the emoji so the wire payload is render-ready,
+        // mirroring how other event kinds assemble `value` server-side
+        // (e.g. "RPE 7", "75.2 kg"). Client doesn't need a slug map.
+        value: keyToEmojiServer(r.key),
+        // `createdAt` is the user-meaningful moment of the reaction tap.
+        timestamp: r.createdAt,
+        route: "/community",
       })),
     ];
 

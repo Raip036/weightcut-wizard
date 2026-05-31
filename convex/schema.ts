@@ -454,9 +454,18 @@ export default defineSchema({
   // photo or video. Indexed by session for the detail drawer + by user
   // ordered for the chronological library page.
   session_media: defineTable({
-    sessionId: v.id("fight_camp_calendar"),
+    // Optional for dev seeded posts where the session foreign key isn't
+    // anchored to a real `fight_camp_calendar` row. Real uploads still
+    // always carry a valid session id.
+    sessionId: v.optional(v.id("fight_camp_calendar")),
     userId: v.id("users"),
-    storageId: v.id("_storage"),
+    // Optional for dev seeded posts that point at external `mockUrl`s
+    // instead of Convex File Storage. Production uploads always set this.
+    storageId: v.optional(v.id("_storage")),
+    // Dev/seed-only: external image URL used when `storageId` is absent.
+    // Real uploads leave this undefined and resolve `storageId` via
+    // ctx.storage.getUrl() instead.
+    mockUrl: v.optional(v.string()),
     // "photo" | "video" — derived from the upload's MIME type so the
     // library and lightbox can pick the right element without sniffing.
     kind: v.union(v.literal("photo"), v.literal("video")),
@@ -487,6 +496,15 @@ export default defineSchema({
     // validate without a migration.
     likeCount: v.optional(v.number()),
     commentCount: v.optional(v.number()),
+    // Counter map for reactions, e.g. { fire: 12, muscle: 4 }. Keys are
+    // ASCII slugs (NOT emoji) — Convex rejects emoji characters as
+    // record/object keys. The client maps slug → emoji for display.
+    // Stored on the post row so the feed query returns counts in O(1)
+    // without scanning the `feed_reactions` table. Atomically patched
+    // by the `toggleReaction` mutation. Optional + defaulted to {} at
+    // read time so existing rows that pre-date this field validate
+    // without a migration.
+    reactionCounts: v.optional(v.record(v.string(), v.number())),
     // 256px JPEG thumb used by the profile grid + polaroid stack so the
     // feed doesn't blow image bandwidth fetching full-resolution.
     // Backfilled by a one-shot internal action on rows missing it.
@@ -527,6 +545,26 @@ export default defineSchema({
   })
     .index("by_post_user", ["postId", "userId"])
     .index("by_owner_created", ["postOwnerId"])
+    .index("by_user", ["userId"]),
+
+  /**
+   * Per-(post, user, key) reaction row. Mirrors `feed_likes` shape but
+   * allows multiple reaction "verbs". Compound `by_post_user_key` index
+   * makes the toggle path an O(1) point-lookup; `by_post_key` is kept
+   * for future per-reaction listings (e.g. "who fire'd this post?").
+   *
+   * `key` is an ASCII slug (`heart` / `fire` / `muscle` / `praise` / `clap`)
+   * — Convex rejects emoji characters as object/record keys, so we store
+   * the slug on the wire and the client maps slug → emoji for display.
+   */
+  feed_reactions: defineTable({
+    postId: v.id("session_media"),
+    userId: v.id("users"),
+    key: v.string(), // ASCII slug: "heart" | "fire" | "muscle" | "praise" | "clap"
+    createdAt: v.number(),
+  })
+    .index("by_post_key", ["postId", "key"])
+    .index("by_post_user_key", ["postId", "userId", "key"])
     .index("by_user", ["userId"]),
 
   /**

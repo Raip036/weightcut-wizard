@@ -153,9 +153,8 @@ export const listActivity = query({
     ): Promise<PostBrief> {
       const cached = postThumbCache.get(post._id);
       if (cached) return cached;
-      const thumbUrl = await ctx.storage.getUrl(
-        post.thumbStorageId ?? post.storageId,
-      );
+      const sid = post.thumbStorageId ?? post.storageId;
+      const thumbUrl = sid ? await ctx.storage.getUrl(sid) : null;
       const brief: PostBrief = {
         postId: post._id,
         thumbUrl,

@@ -19,7 +19,7 @@
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import { mutation, query } from "./_generated/server";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { requireUserId } from "./lib/auth";
 import { requireGymViewer } from "./lib/gymAccess";
 
@@ -298,9 +298,11 @@ export const weeklyHighlight = query({
 
     // Session-type breakdown via the parent training_session row. One
     // db.get per unique sessionId — small enough for a personal week.
+    // Filter undefined sessionIds — `session_media.sessionId` is now optional,
+    // but rows without a parent session contribute nothing to the type breakdown.
     const uniqueSessionIds = [
       ...new Set(rows.map((r) => r.sessionId)),
-    ];
+    ].filter((sid): sid is Id<"fight_camp_calendar"> => sid != null);
     const sessionDocs = await Promise.all(
       uniqueSessionIds.map((sid) => ctx.db.get(sid)),
     );
@@ -329,7 +331,7 @@ export const weeklyHighlight = query({
     const topThumbs = await Promise.all(
       topFour.map(async (r) => {
         const id = r.thumbStorageId ?? r.storageId;
-        return await ctx.storage.getUrl(id);
+        return id ? await ctx.storage.getUrl(id) : null;
       }),
     );
 
@@ -685,7 +687,9 @@ export const listGymReports = query({
           ? {
               id: post._id,
               kind: post.kind,
-              url: await ctx.storage.getUrl(post.storageId),
+              url: post.storageId
+                ? await ctx.storage.getUrl(post.storageId)
+                : null,
               caption: post.caption ?? null,
               authorUserId: post.userId,
               deletedAt: post.deletedAt ?? null,
