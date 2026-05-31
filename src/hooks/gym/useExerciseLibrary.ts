@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { customExerciseSchema } from "@/lib/validation";
 import { EXERCISE_DATABASE } from "@/data/exerciseDatabase";
 import type { Exercise, ExerciseCategory, Equipment, MuscleGroup } from "@/pages/gym/types";
+import type { TrackingType } from "@/lib/exerciseTypes";
 
 let _fallbackCache: Exercise[] | null = null;
 function getFallbackExercises(): Exercise[] {
@@ -59,8 +60,14 @@ export function useExerciseLibrary() {
     muscle_group: string;
     equipment: Equipment | null;
     is_bodyweight: boolean;
+    tracking_type?: TrackingType;
   }): Promise<Exercise | null> => {
-    if (!userId) return null;
+    // Don't fail silently if auth isn't ready yet — surfacing the error keeps a
+    // "created" exercise from quietly never being saved.
+    if (!userId) {
+      toast({ description: "Still signing in — try again in a moment.", variant: "destructive" });
+      return null;
+    }
 
     const result = customExerciseSchema.safeParse(data);
     if (!result.success) {
@@ -75,6 +82,7 @@ export function useExerciseLibrary() {
         muscleGroup: data.muscle_group,
         equipment: data.equipment ?? undefined,
         isBodyweight: data.is_bodyweight,
+        trackingType: data.tracking_type,
       });
       toast({ description: `${data.name} added` });
       return {
@@ -85,6 +93,7 @@ export function useExerciseLibrary() {
         muscle_group: data.muscle_group as MuscleGroup,
         equipment: data.equipment,
         is_bodyweight: data.is_bodyweight,
+        tracking_type: data.tracking_type ?? null,
         is_custom: true,
         created_at: new Date().toISOString(),
       };

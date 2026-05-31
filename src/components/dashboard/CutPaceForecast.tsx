@@ -83,12 +83,15 @@ const TIER_LABEL: Record<HeroTier, string> = {
   no_data: "NO LOG",
 };
 
-const TIER_PILL_CLASS: Record<HeroTier, string> = {
-  on_track: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-  slightly_off: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-  behind: "bg-orange-500/15 text-orange-400 border-orange-500/30",
-  critical: "bg-rose-500/15 text-rose-400 border-rose-500/30",
-  no_data: "bg-muted/30 text-muted-foreground border-border/40",
+// Card left-edge accent — colour-codes the focused week's status in place of
+// the old textual status badge. The tier label still rides the card's
+// aria-label so the status stays available to screen readers.
+const TIER_ACCENT: Record<HeroTier, string> = {
+  on_track: "border-l-emerald-500",
+  slightly_off: "border-l-amber-500",
+  behind: "border-l-orange-500",
+  critical: "border-l-rose-500",
+  no_data: "border-l-border",
 };
 
 function loadPlan(): PlanData | null {
@@ -366,25 +369,20 @@ export function CutPaceForecast({
         type="button"
         onClick={() => { triggerHapticSelection(); navigate("/cut-plan"); }}
         aria-label={`${TIER_LABEL[tier]} — ${heroEyebrow}, target ${focusCheckpoint.targetWeight.toFixed(1)} kg`}
-        className="w-full card-surface card-glow rounded-2xl p-4 text-left active:scale-[0.99] transition-transform"
+        className={`w-full card-surface card-glow rounded-2xl border-l-[3px] ${TIER_ACCENT[tier]} p-4 text-left active:scale-[0.99] transition-transform`}
       >
         {/* Subtle fade-in on focus change — key forces remount → re-plays anim. */}
         <div key={focusCheckpoint.week} className="animate-in fade-in duration-200">
-          {/* Top row — status pill (left) + days-left/position chip (right). */}
-          <div className="flex items-center justify-between gap-2">
-            <span
-              className={`inline-flex items-center gap-1.5 text-[10px] font-bold tracking-wider rounded-full border px-2 py-0.5 ${TIER_PILL_CLASS[tier]}`}
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
-              {TIER_LABEL[tier]}
-            </span>
-            {chip && (
+          {/* Top row — days-left/position chip. Status is now conveyed by the
+              card's left-edge colour accent rather than a textual badge. */}
+          {chip && (
+            <div className="flex items-center justify-end gap-2">
               <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground tabular-nums">
                 <Icon name={chip.icon} size={11} className="opacity-70" />
                 {chip.label}
               </span>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Eyebrow — WEEK N · Sun May 31 (or WEIGH-IN · …). */}
           <p className="mt-3 text-[10px] uppercase tracking-[0.12em] text-muted-foreground/85 font-semibold">

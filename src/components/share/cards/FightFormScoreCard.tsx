@@ -1,6 +1,5 @@
 import { forwardRef } from "react";
 import { CardShell, type AspectRatio } from "../templates/CardShell";
-import { StravaPeriodLabel } from "../templates/StravaStat";
 import { usePremium } from "@/hooks/usePremium";
 import type { FightFormLabel, ScoringPhase, SubScore, SubScoreKey } from "@/scoring/types";
 
@@ -11,6 +10,8 @@ interface FightFormScoreCardProps {
   daysToFight: number | null;
   campAge: { weeksAhead: number } | null;
   subScores: Record<SubScoreKey, SubScore> | null;
+  /** Camp name shown in the top banner — e.g. "FightZumi". Optional. */
+  campName?: string;
   aspect?: AspectRatio;
   transparent?: boolean;
 }
@@ -38,7 +39,9 @@ const SUBSCORE_LABEL: Record<SubScoreKey, string> = {
   weightCut: "Weight Cut",
   wellness: "Wellness",
   nutritionAdherence: "Nutrition",
+  recovery: "Recovery",
 };
+
 
 const PHASE_DISPLAY: Record<ScoringPhase, string> = {
   build: "Build phase",
@@ -46,13 +49,20 @@ const PHASE_DISPLAY: Record<ScoringPhase, string> = {
   fightWeek: "Fight week",
 };
 
-function phaseLine(phase: ScoringPhase | null, daysToFight: number | null): string {
+function phaseSubLine(phase: ScoringPhase | null): string {
   if (!phase) return "Fight Form Score";
-  const phaseTxt = PHASE_DISPLAY[phase];
-  if (daysToFight != null && daysToFight > 0) {
-    return `${phaseTxt} · ${daysToFight} days to fight`;
-  }
-  return phaseTxt;
+  return PHASE_DISPLAY[phase];
+}
+
+function topBannerText(campName: string | undefined, daysToFight: number | null, phase: ScoringPhase | null): string {
+  const days = daysToFight != null && daysToFight > 0
+    ? `${daysToFight} DAYS TO WEIGH-IN`
+    : null;
+  if (campName && days) return `${campName.toUpperCase()} · ${days}`;
+  if (campName) return campName.toUpperCase();
+  if (days) return days;
+  // Final fallback: existing phase line
+  return phase ? PHASE_DISPLAY[phase].toUpperCase() : "FIGHT FORM SCORE";
 }
 
 function campPaceLine(campAge: { weeksAhead: number } | null): string | null {
@@ -72,13 +82,11 @@ function ShareRing({
   color,
   diameter,
   stroke,
-  transparent,
 }: {
   score: number;
   color: string;
   diameter: number;
   stroke: number;
-  transparent?: boolean;
 }) {
   const radius = (diameter - stroke) / 2;
   const cx = diameter / 2;
@@ -86,7 +94,8 @@ function ShareRing({
   const circumference = 2 * Math.PI * radius;
   const progress = Math.max(0, Math.min(1, score / 100));
   const dash = circumference * progress;
-  const trackColor = transparent ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.08)";
+  // Strava-black: hairline white track regardless of transparent variant.
+  const trackColor = "rgba(255,255,255,0.08)";
 
   return (
     <svg
@@ -110,13 +119,14 @@ function ShareRing({
 }
 
 export const FightFormScoreCard = forwardRef<HTMLDivElement, FightFormScoreCardProps>(
-  ({ score, label, phase, daysToFight, campAge, subScores, aspect = "square", transparent }, ref) => {
+  ({ score, label, phase, daysToFight, campAge, subScores, campName, aspect = "square", transparent }, ref) => {
     const { isPremium } = usePremium();
     const s = aspect === "story";
     const labelColor = LABEL_COLOR[label];
 
     // Sort subscores by impact (value × weight) so the strongest signals
     // appear first — matches the bottom-sheet order users see in-app.
+    // Paused sub-scores (weight === 0) naturally sink to the bottom.
     const sortedSubs = subScores
       ? (Object.entries(subScores) as Array<[SubScoreKey, SubScore]>)
           .sort(([, a], [, b]) => b.value * b.weight - a.value * a.weight)
@@ -127,19 +137,51 @@ export const FightFormScoreCard = forwardRef<HTMLDivElement, FightFormScoreCardP
     const scoreSize = s ? 240 : 160;
     const labelSize = s ? 56 : 36;
 
+    // Strava-black hairlines + muted tokens.
+    const HAIRLINE = "rgba(255,255,255,0.08)";
+    const MUTED = "rgba(255,255,255,0.5)";
+
     return (
       <CardShell ref={ref} aspect={aspect} isPremium={isPremium} transparent={transparent}>
         <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-          <StravaPeriodLabel text={phaseLine(phase, daysToFight)} s={s} transparent={transparent} />
+          {/* Top banner: camp · days-to-weigh-in (bold, prominent). */}
+          <div
+            style={{
+              textAlign: "center",
+              fontSize: s ? 32 : 20,
+              fontWeight: 700,
+              letterSpacing: "0.06em",
+              color: "#ffffff",
+              marginBottom: s ? 8 : 4,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {topBannerText(campName, daysToFight, phase)}
+          </div>
+          {/* Phase sub-line — smaller, muted, sits directly under the banner. */}
+          <div
+            style={{
+              textAlign: "center",
+              fontSize: s ? 20 : 12,
+              fontWeight: 500,
+              letterSpacing: "0.04em",
+              color: MUTED,
+              marginBottom: s ? 24 : 12,
+              textTransform: "uppercase",
+            }}
+          >
+            {phaseSubLine(phase)}
+          </div>
 
           {/* Hero ring — centered, with score + label stacked inside. */}
-          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", position: "relative", marginBottom: s ? 64 : 28 }}>
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", position: "relative", marginBottom: s ? 28 : 14 }}>
             <ShareRing
               score={score}
               color={labelColor}
               diameter={ringDiameter}
               stroke={ringStroke}
-              transparent={transparent}
             />
             <div
               style={{
@@ -149,7 +191,7 @@ export const FightFormScoreCard = forwardRef<HTMLDivElement, FightFormScoreCardP
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: s ? 12 : 6,
+                gap: s ? 16 : 10,
               }}
             >
               <div
@@ -175,18 +217,7 @@ export const FightFormScoreCard = forwardRef<HTMLDivElement, FightFormScoreCardP
               >
                 {LABEL_DISPLAY[label]}
               </div>
-              <div
-                style={{
-                  fontSize: s ? 22 : 14,
-                  fontWeight: 600,
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  color: transparent ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.45)",
-                  marginTop: s ? 8 : 4,
-                }}
-              >
-                Fight Form Score
-              </div>
+              {/* "Fight Form Score" caption removed — banner above handles context. */}
             </div>
           </div>
 
@@ -198,17 +229,28 @@ export const FightFormScoreCard = forwardRef<HTMLDivElement, FightFormScoreCardP
                 display: "flex",
                 flexDirection: "column",
                 gap: s ? 18 : 10,
-                background: transparent ? "rgba(0,0,0,0.32)" : "rgba(255,255,255,0.04)",
-                border: transparent ? "1px solid rgba(255,255,255,0.15)" : "1px solid rgba(255,255,255,0.06)",
-                borderRadius: s ? 28 : 18,
-                padding: s ? "32px 40px" : "18px 22px",
+                background: "#0a0a0a",
+                border: `1px solid ${HAIRLINE}`,
+                borderRadius: s ? 20 : 12,
+                padding: s ? "28px 34px" : "14px 18px",
                 marginBottom: s ? 32 : 14,
               }}
             >
               {sortedSubs.map(([key, sub]) => {
+                const isPaused = sub.weight === 0;
                 const pct = Math.max(0, Math.min(100, sub.value));
+                const rowOpacity = isPaused ? 0.35 : 1;
+
                 return (
-                  <div key={key} style={{ display: "flex", flexDirection: "column", gap: s ? 8 : 4 }}>
+                  <div
+                    key={key}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: s ? 8 : 4,
+                      opacity: rowOpacity,
+                    }}
+                  >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                       <span
                         style={{
@@ -219,34 +261,64 @@ export const FightFormScoreCard = forwardRef<HTMLDivElement, FightFormScoreCardP
                       >
                         {SUBSCORE_LABEL[key]}
                       </span>
-                      <span
-                        style={{
-                          fontSize: s ? 28 : 17,
-                          fontWeight: 800,
-                          color: labelColor,
-                          fontVariantNumeric: "tabular-nums",
-                        }}
-                      >
-                        {Math.round(pct)}
-                      </span>
+                      {isPaused ? (
+                        <span
+                          style={{
+                            fontSize: s ? 18 : 11,
+                            fontWeight: 700,
+                            letterSpacing: "0.1em",
+                            color: MUTED,
+                            textTransform: "uppercase",
+                            fontVariantNumeric: "tabular-nums",
+                          }}
+                        >
+                          PAUSED
+                        </span>
+                      ) : (
+                        <span
+                          style={{
+                            fontSize: s ? 28 : 17,
+                            fontWeight: 800,
+                            color: labelColor,
+                            fontVariantNumeric: "tabular-nums",
+                          }}
+                        >
+                          {Math.round(pct)}
+                        </span>
+                      )}
                     </div>
                     <div
                       style={{
                         height: s ? 8 : 5,
                         borderRadius: 999,
-                        background: transparent ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.1)",
+                        background: "rgba(255,255,255,0.08)",
                         overflow: "hidden",
                       }}
                     >
                       <div
                         style={{
                           height: "100%",
-                          width: `${pct}%`,
+                          width: isPaused ? "0%" : `${pct}%`,
                           borderRadius: 999,
                           background: labelColor,
                         }}
                       />
                     </div>
+                    {sub.reason && (
+                      <div
+                        style={{
+                          fontSize: s ? 18 : 11,
+                          color: "rgba(255,255,255,0.45)",
+                          marginTop: s ? 6 : 3,
+                          letterSpacing: "0.02em",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {sub.reason}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -259,8 +331,8 @@ export const FightFormScoreCard = forwardRef<HTMLDivElement, FightFormScoreCardP
               style={{
                 textAlign: "center",
                 fontSize: s ? 22 : 14,
-                fontWeight: 600,
-                color: transparent ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.6)",
+                fontWeight: 500,
+                color: MUTED,
                 letterSpacing: "0.08em",
                 textTransform: "uppercase",
               }}

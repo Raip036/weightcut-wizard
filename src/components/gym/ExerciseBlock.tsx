@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { staggerItem } from "@/lib/motion";
 import { SetRow } from "./SetRow";
 import { formatWeight, formatVolume } from "@/lib/gymCalculations";
+import { resolveTrackingType, effectiveVolumeWeight } from "@/lib/exerciseTypes";
 import type { ExerciseGroup, PRType, GymSet } from "@/pages/gym/types";
 import type { ExercisePR } from "@/pages/gym/types";
 
@@ -23,6 +24,8 @@ interface ExerciseBlockProps {
   onDuplicateLastSet: (exerciseOrder: number) => void;
   onRemoveExercise: (exerciseOrder: number) => void;
   onExerciseTap?: (exerciseId: string) => void;
+  /** Latest bodyweight (kg) — used to count added-load-only volume for weighted exercises. */
+  bodyweightKg?: number | null;
 }
 
 const MUSCLE_BORDER_COLORS: Record<string, string> = {
@@ -62,16 +65,20 @@ const MUSCLE_COLORS: Record<string, string> = {
 export function ExerciseBlock({
   group, pr, newPRSetIds, previousSets, collapsed = false, onToggleCollapse,
   onAddSet, onUpdateSet, onDeleteSet,
-  onDuplicateLastSet, onRemoveExercise, onExerciseTap,
+  onDuplicateLastSet, onRemoveExercise, onExerciseTap, bodyweightKg,
 }: ExerciseBlockProps) {
+  const trackingType = resolveTrackingType(group.exercise.tracking_type, group.exercise.is_bodyweight);
   // Volume of all working sets — surfaced in the collapsed header so the
-  // user can see this exercise's contribution at a glance.
+  // user can see this exercise's contribution at a glance. Weighted exercises
+  // count the added load only (total − bodyweight).
   const blockVolume = useMemo(
     () => group.sets.reduce(
-      (sum, s) => sum + (s.is_warmup ? 0 : (s.weight_kg ?? 0) * (s.reps ?? 0)),
+      (sum, s) => sum + (s.is_warmup
+        ? 0
+        : effectiveVolumeWeight(s.weight_kg ?? 0, trackingType, bodyweightKg) * (s.reps ?? 0)),
       0,
     ),
-    [group.sets],
+    [group.sets, trackingType, bodyweightKg],
   );
   const workingSets = useMemo(
     () => group.sets.filter(s => !s.is_warmup),

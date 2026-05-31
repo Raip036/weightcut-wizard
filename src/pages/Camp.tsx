@@ -9,7 +9,10 @@ import { triggerHaptic } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
 import { MissionStack } from "@/components/coach/MissionStack";
 import { XpSummaryCard } from "@/components/coach/XpSummaryCard";
-import { CampActiveCampHero } from "@/components/coach/CampActiveCampHero";
+import { CampHeroCard } from "@/components/coach/CampHeroCard";
+import { CampActivityFeed } from "@/components/coach/CampActivityFeed";
+import ErrorBoundary from "@/components/ErrorBoundary";
+import { useSubscription } from "@/hooks/useSubscription";
 
 interface CampSection {
   title: string;
@@ -45,7 +48,7 @@ const sections: CampSection[] = [
     primary: true,
   },
   {
-    title: "Weight Cut Protocol",
+    title: "Weight Cut",
     description: "Manage your cut and rehydration strategy for fight week",
     url: "/weight-cut",
     icon: "waterOutline",
@@ -59,6 +62,8 @@ const sections: CampSection[] = [
     icon: "bookOutline",
     utility: true,
   },
+  { title: "Sleep",     description: "", url: "/sleep",     icon: "moonOutline" },
+  { title: "Recovery",  description: "", url: "/recovery",  icon: "heartOutline" },
 ];
 
 // Tile size class — controls layout span + icon/typography scale per bento slot.
@@ -102,11 +107,25 @@ function derivePhase(daysLeft: number): {
 export default function Camp() {
   const navigate = useNavigate();
   const { profile, userId, loadCutPlan } = useUser();
+  const { openPaywall } = useSubscription();
   const goalType = (profile?.goal_type as "cutting" | "losing") ?? "cutting";
   const fighter = isFighter(goalType);
 
   const activeCamp = useQuery(
     api.fight_camp.getActiveCamp,
+    userId ? {} : "skip",
+  );
+
+  // Mission feature gating — drives whether the missions slot renders the
+  // full `<MissionStack />` (Pro or has missions) or a compact upsell line
+  // (non-Pro with zero missions). Mirrors MissionStack's own queries so the
+  // visible component is in sync with what would have rendered.
+  const missionFeature = useQuery(
+    api.training_missions.getMissionFeatureStatus,
+    userId ? {} : "skip",
+  );
+  const missions = useQuery(
+    api.training_missions.getActiveMissions,
     userId ? {} : "skip",
   );
 
@@ -230,7 +249,7 @@ export default function Camp() {
 
       {/* ── Active camp hero ───────────────────────────────────────────── */}
       {activeCamp && !activeCamp.isCompleted && campProgress && phase && (
-        <CampActiveCampHero
+        <CampHeroCard
           campName={activeCamp.name}
           campProgress={campProgress}
           phase={phase}
@@ -261,15 +280,33 @@ export default function Camp() {
         </button>
       )}
 
-      {/* ── Training Missions (notes-driven, per-discipline checklists) ──
-          Glow lives on the LockedMissionCard surface itself (primary tint +
-          border), no ambient halo around the widget. */}
-      {userId && (
-        <h2 className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/80 pt-2">
-          Training missions
-        </h2>
+      {/* ── Training Missions — compact upsell for non-Pro zero-missions,
+          full MissionStack (+heading) for Pro or anyone with active missions. */}
+      {userId && missionFeature !== undefined && missions !== undefined && (
+        !missionFeature.isPro ? (
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic(ImpactStyle.Light);
+              openPaywall();
+            }}
+            className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border border-border/40 bg-card/30 active:bg-card/60 transition-colors"
+          >
+            <span className="flex items-center gap-2 min-w-0">
+              <Icon name="sparklesOutline" size={14} className="text-primary shrink-0" />
+              <span className="text-body-sm text-foreground truncate">Pro: Unlock training missions</span>
+            </span>
+            <Icon name="arrowForwardOutline" size={12} className="text-muted-foreground" />
+          </button>
+        ) : (
+          <>
+            <h2 className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/80 pt-2">
+              Training missions
+            </h2>
+            <MissionStack />
+          </>
+        )
       )}
-      {userId && <MissionStack />}
 
       {/* ── Bento grid of navigation tiles ─────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 auto-rows-[6rem]">
@@ -340,6 +377,12 @@ export default function Camp() {
           );
         })}
       </div>
+
+      {/* ── Recent activity — last few events across logging surfaces.
+          Component renders null when empty, so the page degrades cleanly. */}
+      <ErrorBoundary silent fallback={<></>}>
+        <CampActivityFeed userId={userId} limit={7} />
+      </ErrorBoundary>
     </div>
   );
 }

@@ -293,6 +293,9 @@ export default defineSchema({
     equipment: v.optional(v.string()),
     isCustom: v.boolean(),
     isBodyweight: v.boolean(),
+    // Tracking type: "standard" | "bodyweight" | "weighted". Optional for
+    // back-compat — absent rows resolve via isBodyweight on the client.
+    trackingType: v.optional(v.string()),
   }).index("by_user", ["userId"]),
 
   gym_sessions: defineTable({
@@ -321,7 +324,9 @@ export default defineSchema({
     notes: v.optional(v.string()),
   })
     .index("by_session", ["sessionId"])
-    .index("by_exercise_user", ["exerciseId", "userId"]),
+    .index("by_exercise_user", ["exerciseId", "userId"])
+    // Newest-first per user — drives history-based "recent exercises".
+    .index("by_user", ["userId"]),
 
   exercise_prs: defineTable({
     userId: v.id("users"),

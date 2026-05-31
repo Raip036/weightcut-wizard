@@ -16,6 +16,8 @@ export type SessionType =
 
 export type SessionStatus = "in_progress" | "completed";
 
+import type { TrackingType } from "@/lib/exerciseTypes";
+
 export interface Exercise {
   id: string;
   user_id: string | null;
@@ -25,6 +27,8 @@ export interface Exercise {
   equipment: Equipment | null;
   is_bodyweight: boolean;
   is_custom: boolean;
+  /** "standard" | "bodyweight" | "weighted"; null/absent ⇒ resolve via is_bodyweight. */
+  tracking_type?: TrackingType | null;
   created_at: string;
 }
 

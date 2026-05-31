@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "convex/react";
+import { api } from "@/../convex/_generated/api";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ShareButton } from "@/components/share/ShareButton";
@@ -10,6 +12,7 @@ import { type TrendPoint } from "./FightFormSubScoreTile";
 import { Icon, type IonIconName } from "@/components/ui/Icon";
 import { cn } from "@/lib/utils";
 import { triggerHapticSelection } from "@/lib/haptics";
+import { useUser } from "@/contexts/UserContext";
 import type {
   FightFormLabel,
   FightFormState,
@@ -230,6 +233,11 @@ export function FightFormScoreSheet(p: Props) {
   const [shareVariant, setShareVariant] = useState<"dark" | "transparent">("dark");
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { userId } = useUser();
+  // Active camp name is threaded into the shareable card so the rendered
+  // image identifies which camp the score belongs to. Skip until userId
+  // resolves, matching the pattern used in Dashboard / Camp / Goals.
+  const activeCamp = useQuery(api.fight_camp.getActiveCamp, userId ? {} : "skip");
 
   // Subtle pulse on the composite score whenever it changes between
   // renders. `prevScoreRef` tracks the last value we drew; when it
@@ -517,6 +525,7 @@ export function FightFormScoreSheet(p: Props) {
                 daysToFight={p.daysToFight}
                 campAge={p.campAge}
                 subScores={p.subScores as Record<SubScoreKey, SubScoreType> | null}
+                campName={activeCamp?.name ?? null}
                 aspect={aspect}
                 transparent={transparent}
               />

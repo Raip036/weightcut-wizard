@@ -9,6 +9,7 @@ import { staggerContainer, staggerItem, springs } from "@/lib/motion";
 import { ExerciseBlock } from "./ExerciseBlock";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { formatVolume } from "@/lib/gymCalculations";
+import { resolveTrackingType, effectiveVolumeWeight } from "@/lib/exerciseTypes";
 import type { ActiveWorkout, Exercise, ExercisePR, GymSet } from "@/pages/gym/types";
 
 interface ActiveSessionViewProps {
@@ -26,6 +27,8 @@ interface ActiveSessionViewProps {
   onFinish: (opts: { durationMinutes?: number; notes?: string; perceivedFatigue?: number }) => void;
   onDiscard: () => void;
   onExerciseTap?: (exerciseId: string) => void;
+  /** Latest bodyweight (kg) — counts added-load-only volume for weighted exercises. */
+  bodyweightKg?: number | null;
 }
 
 function ElapsedTimer({ startedAt }: { startedAt: number }) {
@@ -52,7 +55,7 @@ function ElapsedTimer({ startedAt }: { startedAt: number }) {
 export function ActiveSessionView({
   workout, exercises, prs, newPRSetIds, previousSetsMap,
   onOpenExercisePicker, onAddSet, onUpdateSet, onDeleteSet,
-  onDuplicateLastSet, onRemoveExercise, onFinish, onDiscard, onExerciseTap,
+  onDuplicateLastSet, onRemoveExercise, onFinish, onDiscard, onExerciseTap, bodyweightKg,
 }: ActiveSessionViewProps) {
   const [finishSheetOpen, setFinishSheetOpen] = useState(false);
   const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
@@ -79,14 +82,15 @@ export function ActiveSessionView({
   const totalVolume = useMemo(() => {
     let vol = 0;
     for (const group of workout.exerciseGroups) {
+      const trackingType = resolveTrackingType(group.exercise.tracking_type, group.exercise.is_bodyweight);
       for (const set of group.sets) {
         if (!set.is_warmup && set.weight_kg && set.reps) {
-          vol += set.weight_kg * set.reps;
+          vol += effectiveVolumeWeight(set.weight_kg, trackingType, bodyweightKg) * set.reps;
         }
       }
     }
     return vol;
-  }, [workout.exerciseGroups]);
+  }, [workout.exerciseGroups, bodyweightKg]);
 
   const handleFinish = useCallback(() => {
     onFinish({
@@ -179,6 +183,7 @@ export function ActiveSessionView({
             onDuplicateLastSet={onDuplicateLastSet}
             onRemoveExercise={onRemoveExercise}
             onExerciseTap={onExerciseTap}
+            bodyweightKg={bodyweightKg}
           />
         ))}
       </motion.div>

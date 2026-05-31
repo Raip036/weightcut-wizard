@@ -4,8 +4,9 @@ import { Plus, ChevronRight, List, CalendarDays, Sparkles, Dumbbell, Target, Awa
 import { motion, LayoutGroup } from "motion/react";
 import { Icon, type IonIconName } from "@/components/ui/Icon";
 import wizardLogo from "@/assets/wizard_3D.png";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
+import { useUser } from "@/contexts/UserContext";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useGymSessions } from "@/hooks/gym/useGymSessions";
@@ -96,6 +97,12 @@ export default function GymTracker() {
   } = useGymSets({ activeSession, updateActiveSession });
 
   const { exercises, filteredExercises, loading: exercisesLoading, addCustomExercise } = useExerciseLibrary();
+  const { userId, profile } = useUser();
+  // Recent exercises derived from logged-set history (newest-first, deduped) —
+  // drives the picker's "Recent" tab so it spans all past workouts.
+  const recentExerciseIds = useQuery(api.exercises.listRecent, userId ? {} : "skip");
+  // Latest bodyweight — lets weighted exercises count added-load-only volume.
+  const bodyweightKg = profile?.current_weight_kg ?? null;
   // Used by handleStartFromRoutine to upgrade routine exercises that aren't in
   // the library into real Convex rows — set-saving requires a valid Convex id.
   const createCustomExerciseMut = useMutation(api.exercises.createCustom);
@@ -408,6 +415,7 @@ export default function GymTracker() {
               onFinish={handleFinishSession}
               onDiscard={discardSession}
               onExerciseTap={handleExerciseTap}
+              bodyweightKg={bodyweightKg}
             />
           ) : (
             <>
@@ -579,6 +587,7 @@ export default function GymTracker() {
         loading={exercisesLoading}
         onSelect={handleExerciseSelect}
         onCreateCustom={() => setCreateExerciseOpen(true)}
+        recentExerciseIds={recentExerciseIds ?? undefined}
       />
 
       <CreateExerciseDialog
