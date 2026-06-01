@@ -183,6 +183,11 @@ export const listFeed = query({
           // of every read surface. Hard-delete still available via the
           // 90-day archive cron, which clears `gymId` entirely.
           q.eq(q.field("deletedAt"), undefined),
+          // Exclude dev-seeded "stock photo" posts — those carry only a
+          // `mockUrl` and no real `storageId`. Every genuine upload sets
+          // `storageId` (createPost requires it), so this hides seeds
+          // without touching real posts.
+          q.neq(q.field("storageId"), undefined),
         ),
       )
       .paginate({ cursor: paginationOpts.cursor, numItems });
@@ -347,6 +352,8 @@ export const recentForCoachWidget = query({
         q.and(
           q.neq(q.field("visibility"), "private"),
           q.eq(q.field("deletedAt"), undefined),
+          // Hide dev-seeded stock posts (mockUrl-only, no real storageId).
+          q.neq(q.field("storageId"), undefined),
         ),
       )
       .take(cap);
@@ -586,12 +593,17 @@ export const listProfilePosts = query({
       .filter((q) =>
         isOwner
           ? // Owner sees everything except soft-deleted rows. Private
-            // posts stay visible to the author.
-            q.eq(q.field("deletedAt"), undefined)
+            // posts stay visible to the author. Dev-seeded stock posts
+            // (mockUrl-only, no storageId) are hidden everywhere.
+            q.and(
+              q.eq(q.field("deletedAt"), undefined),
+              q.neq(q.field("storageId"), undefined),
+            )
           : // Same-gym peer sees only non-private, non-deleted rows.
             q.and(
               q.eq(q.field("deletedAt"), undefined),
               q.neq(q.field("visibility"), "private"),
+              q.neq(q.field("storageId"), undefined),
             ),
       )
       .paginate({ cursor: paginationOpts.cursor, numItems });

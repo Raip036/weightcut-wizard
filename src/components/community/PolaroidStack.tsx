@@ -158,16 +158,21 @@ export function PolaroidStack({
       triggerHaptic(ImpactStyle.Medium);
 
       const vw = window.innerWidth || 375;
-      animate(dragX, direction * vw * EXIT_DISTANCE_MULT, EXIT_SPRING);
+      // Capture the controls so we can STOP this spring before reset. A
+      // spring has no fixed duration — it keeps driving `dragX` toward the
+      // off-screen target well past `exitMs`. `dragX.set(0)` does NOT cancel
+      // a running animation, so without an explicit `.stop()` the spring
+      // pulls `dragX` back off-screen on the very next frame. The newly-
+      // promoted TopCard binds `style={{ x: dragX }}`, so it then renders
+      // off-screen (blank deck) and the live animation overrides drag input
+      // — the real "next card is blank + unswipeable" bug.
+      const exitControls = animate(dragX, direction * vw * EXIT_DISTANCE_MULT, EXIT_SPRING);
       const exitMs = prefersReducedMotion ? REDUCED_EXIT_DURATION_MS : EXIT_DURATION_MS;
       window.setTimeout(() => {
-        // Reset dragX FIRST so the new TopCard reveals at rest. THEN
-        // unmount the exit card and call advance(). The previous order
-        // (setExitingPost(null) before dragX.set(0)) introduced a race
-        // where the newly-promoted TopCard briefly inherited the in-flight
-        // x value, leaving Framer's drag listener stuck on the unmounted
-        // exit card's motion.div — the root cause of the "second card
-        // unswipeable" bug.
+        // Stop the in-flight spring FIRST, then reset to rest, then unmount
+        // the exit card + advance. Order matters: stop() → set(0) guarantees
+        // the promoted TopCard binds a settled dragX at 0.
+        exitControls.stop();
         dragX.set(0);
         setExitingPost(null);
         advance();

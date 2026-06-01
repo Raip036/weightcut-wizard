@@ -13,7 +13,8 @@
  * LQIP blur-up, top-card-only `layoutId` for shared-element transition.
  * Drag is owned by the parent (PolaroidStack.TopCard).
  */
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
+import { useImageReady } from "@/hooks/useImageReady";
 import {
   motion,
   useMotionValue,
@@ -85,7 +86,9 @@ function RoundedFeedCardBase({
   developing = false,
   progress,
 }: RoundedFeedCardProps) {
-  const [imgLoaded, setImgLoaded] = useState(false);
+  // Top card loads the full-res image; background cards use the 256px thumb.
+  const effectiveSrc = isTop ? post.url : (post.thumbUrl ?? post.url);
+  const img = useImageReady(effectiveSrc);
   const offsets = STACK_OFFSETS[stackPosition];
   const prefersReducedMotion = useReducedMotion() ?? false;
   const reducedDevelop = developing && prefersReducedMotion;
@@ -192,13 +195,15 @@ function RoundedFeedCardBase({
           />
         )}
 
-        {post.url ? (
+        {effectiveSrc && !img.errored ? (
           <motion.img
+            ref={img.ref}
             layoutId={isTop ? `post-${post.id}-image` : undefined}
-            src={isTop ? post.url : (post.thumbUrl ?? post.url)}
+            src={effectiveSrc}
             alt={post.caption ?? "Training media"}
             draggable={false}
-            onLoad={() => setImgLoaded(true)}
+            onLoad={img.onLoad}
+            onError={img.onError}
             loading={isTop ? "eager" : "lazy"}
             decoding="async"
             width={1000}
@@ -206,17 +211,17 @@ function RoundedFeedCardBase({
             className={`absolute inset-0 h-full w-full object-cover ${developing ? "" : "transition-opacity duration-300"}`}
             {...(fullDevelop
               ? {
-                  initial: { filter: "blur(20px)", opacity: imgLoaded ? 1 : 0 },
-                  animate: { filter: "blur(0px)", opacity: imgLoaded ? 1 : 0 },
+                  initial: { filter: "blur(20px)", opacity: img.ready ? 1 : 0 },
+                  animate: { filter: "blur(0px)", opacity: img.ready ? 1 : 0 },
                   transition: { filter: { duration: DEVELOP_BLUR_DURATION_MS / 1000, ease: EASE_OUT } },
                 }
               : reducedDevelop
                 ? {
                     initial: { opacity: 0, filter: "blur(0px)" },
-                    animate: { opacity: imgLoaded ? 1 : 0, filter: "blur(0px)" },
+                    animate: { opacity: img.ready ? 1 : 0, filter: "blur(0px)" },
                     transition: { opacity: { duration: DEVELOP_REDUCED_DURATION_MS / 1000, ease: "linear" } },
                   }
-                : { style: { opacity: imgLoaded ? 1 : 0 } })}
+                : { style: { opacity: img.ready ? 1 : 0 } })}
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-neutral-400 text-xs">

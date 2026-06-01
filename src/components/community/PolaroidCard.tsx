@@ -26,6 +26,7 @@
  *     fades in via opacity on its `onLoad` event.
  */
 import React, { useMemo, useState } from "react";
+import { useImageReady } from "@/hooks/useImageReady";
 import {
   motion,
   useMotionValue,
@@ -124,7 +125,8 @@ function PolaroidCardBase({
   progress,
   gymBrand,
 }: PolaroidCardProps) {
-  const [imgLoaded, setImgLoaded] = useState(false);
+  const effectiveSrc = isTop ? post.url : (post.thumbUrl ?? post.url);
+  const img = useImageReady(effectiveSrc);
   // Track logo load errors so we can swap to the letter-circle fallback
   // without leaving a broken-image icon in the strip. Reset to false
   // whenever the URL changes (a new brand should get a fresh attempt).
@@ -269,8 +271,10 @@ function PolaroidCardBase({
             />
           )}
 
-          {post.url ? (
+          {effectiveSrc && !img.errored ? (
             <motion.img
+              ref={img.ref}
+              onError={img.onError}
               // Shared-element transition target: only bind layoutId on
               // the top card. Binding it on all three cards triggers
               // framer's shared-layout measurement pipeline every render
@@ -283,10 +287,10 @@ function PolaroidCardBase({
               // visually indistinguishable at their scale — use it when
               // available so the initial network cost is ~70% lower. Fall
               // back to the full URL when thumbUrl is absent.
-              src={isTop ? post.url : (post.thumbUrl ?? post.url)}
+              src={effectiveSrc}
               alt={post.caption ?? "Training media"}
               draggable={false}
-              onLoad={() => setImgLoaded(true)}
+              onLoad={img.onLoad}
               loading={isTop ? "eager" : "lazy"}
               decoding="async"
               // Intrinsic dimensions give the browser an aspect-ratio
@@ -305,8 +309,8 @@ function PolaroidCardBase({
               // declares the initial frame so there's no flash on mount.
               {...(fullDevelop
                 ? {
-                    initial: { filter: "blur(20px)", opacity: imgLoaded ? 1 : 0 },
-                    animate: { filter: "blur(0px)", opacity: imgLoaded ? 1 : 0 },
+                    initial: { filter: "blur(20px)", opacity: img.ready ? 1 : 0 },
+                    animate: { filter: "blur(0px)", opacity: img.ready ? 1 : 0 },
                     transition: {
                       filter: {
                         duration: DEVELOP_BLUR_DURATION_MS / 1000,
@@ -317,7 +321,7 @@ function PolaroidCardBase({
                 : reducedDevelop
                   ? {
                       initial: { opacity: 0, filter: "blur(0px)" },
-                      animate: { opacity: imgLoaded ? 1 : 0, filter: "blur(0px)" },
+                      animate: { opacity: img.ready ? 1 : 0, filter: "blur(0px)" },
                       transition: {
                         opacity: {
                           duration: DEVELOP_REDUCED_DURATION_MS / 1000,
@@ -326,7 +330,7 @@ function PolaroidCardBase({
                       },
                     }
                   : {
-                      style: { opacity: imgLoaded ? 1 : 0 },
+                      style: { opacity: img.ready ? 1 : 0 },
                     })}
             />
           ) : (

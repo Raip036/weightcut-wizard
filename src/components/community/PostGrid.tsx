@@ -18,8 +18,9 @@
  */
 import { Lock } from "lucide-react";
 import { motion } from "motion/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
+import { useImageReady } from "@/hooks/useImageReady";
 import type { ProfilePost } from "@/hooks/community/useProfilePosts";
 
 interface PostGridProps {
@@ -41,13 +42,11 @@ function PostTile({
   post: ProfilePost;
   onPress?: (post: ProfilePost) => void;
 }) {
-  // We track "real image loaded" so the LQIP fades out smoothly. Defaults
-  // to false; flips to true on first `onLoad`. If there's no thumbUrl (and
-  // no lqip either) we render a flat dark tile.
-  const [loaded, setLoaded] = useState(false);
-
   // Prefer the 256px thumb URL, falling back to the full-resolution url.
   const src = post.thumbUrl ?? post.url ?? null;
+  // Robust load state: resets on src change, resolves on error, and catches
+  // already-cached images — so the LQIP fades out and the tile never freezes.
+  const img = useImageReady(src);
 
   return (
     <button
@@ -66,24 +65,26 @@ function PostTile({
             "absolute inset-0 h-full w-full object-cover transition-opacity duration-300",
             // 8px blur emulates the BlurHash-style ramp; fades out when full thumb lands.
             "scale-110 [filter:blur(8px)]",
-            loaded ? "opacity-0" : "opacity-100",
+            img.ready ? "opacity-0" : "opacity-100",
           )}
           draggable={false}
         />
       )}
 
       {/* Real image — shared layoutId so the polaroid → grid transition is one element. */}
-      {src ? (
+      {src && !img.errored ? (
         <motion.img
+          ref={img.ref}
           layoutId={`post-${String(post._id)}-image`}
           src={src}
           alt={post.caption ?? ""}
           loading="lazy"
           decoding="async"
-          onLoad={() => setLoaded(true)}
+          onLoad={img.onLoad}
+          onError={img.onError}
           className={cn(
             "absolute inset-0 h-full w-full object-cover transition-opacity duration-300",
-            loaded ? "opacity-100" : "opacity-0",
+            img.ready ? "opacity-100" : "opacity-0",
           )}
           draggable={false}
         />
