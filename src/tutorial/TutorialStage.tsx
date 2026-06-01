@@ -109,22 +109,42 @@ function StageInner({
       return;
     }
 
-    const measure = () => {
+    const ro = new ResizeObserver(() => {
       const el = document.querySelector<HTMLElement>(`[data-tutorial="${selector}"]`);
       if (el) setSpotlightRect(el.getBoundingClientRect());
+    });
+    let observed = false;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
+    const measure = () => {
+      const el = document.querySelector<HTMLElement>(`[data-tutorial="${selector}"]`);
+      if (el) {
+        setSpotlightRect(el.getBoundingClientRect());
+        // Attach the ResizeObserver lazily — the target may not have
+        // existed at effect-mount time (e.g. it lives inside a sheet
+        // that opens via `actionEventName`). Once we find the element
+        // we observe it so subsequent layout shifts re-measure.
+        if (!observed) {
+          ro.observe(el);
+          observed = true;
+        }
+      }
     };
 
-    // Delay first measure so the page has painted after any navigation.
-    const t = setTimeout(measure, 80);
+    // Retry the lookup a few times at 100 ms intervals so steps whose
+    // target appears asynchronously (sheet slide-up, lazy-loaded page,
+    // etc.) still resolve. Initial 80 ms delay matches the prior
+    // post-navigation paint allowance.
+    const RETRY_DELAYS_MS = [80, 180, 280, 380, 480];
+    RETRY_DELAYS_MS.forEach((delay) => {
+      timers.push(setTimeout(measure, delay));
+    });
 
-    const ro = new ResizeObserver(measure);
-    const el = document.querySelector<HTMLElement>(`[data-tutorial="${selector}"]`);
-    if (el) ro.observe(el);
     window.addEventListener("scroll", measure, { passive: true });
     window.addEventListener("resize", measure, { passive: true });
 
     return () => {
-      clearTimeout(t);
+      timers.forEach(clearTimeout);
       ro.disconnect();
       window.removeEventListener("scroll", measure);
       window.removeEventListener("resize", measure);

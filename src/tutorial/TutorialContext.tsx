@@ -111,6 +111,24 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
     }
   }, [state.isActive, state.currentFlow, state.currentStepIndex, userId]);
 
+  // Dispatch `actionEventName` (if set) when a step enters. Bridges
+  // declarative tutorial steps to imperative side-effects in pages
+  // (e.g. open a bottom sheet). Guarded by a ref so we fire exactly
+  // once per step id — strict-mode double-invoke / unrelated re-renders
+  // must not re-dispatch.
+  const lastDispatchedStepIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!state.isActive) {
+      lastDispatchedStepIdRef.current = null;
+      return;
+    }
+    const step = state.currentStep;
+    if (!step?.actionEventName) return;
+    if (lastDispatchedStepIdRef.current === step.id) return;
+    lastDispatchedStepIdRef.current = step.id;
+    window.dispatchEvent(new CustomEvent(step.actionEventName));
+  }, [state.isActive, state.currentStep]);
+
   // --- Navigation handling ---
   // When the current step has a `navigateTo` that differs from location, navigate there.
   // Hide the tooltip while navigating, then reveal once the route matches.

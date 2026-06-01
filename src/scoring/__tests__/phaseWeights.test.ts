@@ -12,8 +12,13 @@ describe("phase resolution", () => {
   it("returns 'fightWeek' when ≤7 days to fight", () => {
     expect(resolvePhase("2026-05-01", "2026-05-05", ScoringConfigV1)).toBe("fightWeek");
   });
-  it("weightsForPhase returns the right map", () => {
+  it("weightsForPhase returns the right map (equal 25/25/25/25 split)", () => {
     const w = weightsForPhase("fightWeek", ScoringConfigV1);
-    expect(w.weightCut).toBe(0.40);
+    // Post-rework: every active sub-score gets equal weight, nutrition = 0.
+    expect(w.weightCut).toBe(0.25);
+    expect(w.trainingLoad).toBe(0.25);
+    expect(w.sleep).toBe(0.25);
+    expect(w.wellness).toBe(0.25);
+    expect(w.nutritionAdherence).toBe(0);
   });
 });

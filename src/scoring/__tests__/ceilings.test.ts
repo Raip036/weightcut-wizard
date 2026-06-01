@@ -8,15 +8,27 @@ import { ScoringConfigV1 } from "../config/v1";
 const baseGuards = { trainingDaysIn28d: 20, acuteLoad: 2000, latestHooper: 12 };
 
 describe("applyCeilings", () => {
-  it("caps at 50 when weight cut is dangerous", () => {
+  it("does NOT cap weight_cut_dangerous at only 3 consecutive days (below new 5-day threshold)", () => {
     const r = applyCeilings(80, {
       weightCutDangerousDays: 3,
       sleepDebt7d: 0,
       acwr: 1.0,
       ...baseGuards,
     }, ScoringConfigV1);
-    expect(r.score).toBe(50);
+    expect(r.score).toBe(80);
+    expect(r.applied).toBeNull();
+  });
+
+  it("caps at 65 when weight cut is dangerous for 5+ consecutive days", () => {
+    const r = applyCeilings(80, {
+      weightCutDangerousDays: 5,
+      sleepDebt7d: 0,
+      acwr: 1.0,
+      ...baseGuards,
+    }, ScoringConfigV1);
+    expect(r.score).toBe(65);
     expect(r.applied?.ruleId).toBe("weight_cut_dangerous");
+    expect(r.applied?.cap).toBe(65);
   });
 
   it("does not cap when no flags", () => {
@@ -32,13 +44,41 @@ describe("applyCeilings", () => {
 
   it("picks the lowest cap when multiple apply", () => {
     const r = applyCeilings(90, {
-      weightCutDangerousDays: 3,
+      weightCutDangerousDays: 5,
       sleepDebt7d: 12,
-      acwr: 2.0,
+      acwr: 2.5,
       ...baseGuards,
     }, ScoringConfigV1);
-    expect(r.score).toBe(45);
+    // sleep_debt cap (65) ties with weight_cut_dangerous (65); training_spike
+    // is now 60 — the lowest of the three.
+    expect(r.score).toBe(60);
     expect(r.applied?.ruleId).toBe("training_spike");
+    expect(r.applied?.cap).toBe(60);
+  });
+
+  it("still caps sleep_debt at 65 when sleepDebt7d > 10 (threshold unchanged)", () => {
+    const r = applyCeilings(85, {
+      weightCutDangerousDays: 0,
+      sleepDebt7d: 11,
+      acwr: 1.0,
+      ...baseGuards,
+    }, ScoringConfigV1);
+    expect(r.score).toBe(65);
+    expect(r.applied?.ruleId).toBe("sleep_debt");
+    expect(r.applied?.cap).toBe(65);
+  });
+
+  it("does NOT cap sleep_debt when sleepDebt7d is 0 (regression: no sleep logs case)", () => {
+    // Fix 1 (sleepDebt7d) returns 0 when no nights are logged. Verify the
+    // ceiling does not fire on that zero value.
+    const r = applyCeilings(85, {
+      weightCutDangerousDays: 0,
+      sleepDebt7d: 0,
+      acwr: 1.0,
+      ...baseGuards,
+    }, ScoringConfigV1);
+    expect(r.score).toBe(85);
+    expect(r.applied).toBeNull();
   });
 
   // ─── Cold-start regression tests ────────────────────────────────
@@ -85,6 +125,33 @@ describe("applyCeilings", () => {
     expect(r.applied).toBeNull();
   });
 
+  it("does NOT fire training_spike at acwr=1.9 (below new 2.0 threshold)", () => {
+    const r = applyCeilings(85, {
+      weightCutDangerousDays: 0,
+      sleepDebt7d: 0,
+      acwr: 1.9,
+      trainingDaysIn28d: 18,
+      acuteLoad: 1500,
+      latestHooper: 12,
+    }, ScoringConfigV1);
+    expect(r.score).toBe(85);
+    expect(r.applied).toBeNull();
+  });
+
+  it("DOES fire training_spike at acwr=2.1 (above new 2.0 threshold)", () => {
+    const r = applyCeilings(85, {
+      weightCutDangerousDays: 0,
+      sleepDebt7d: 0,
+      acwr: 2.1,
+      trainingDaysIn28d: 18,
+      acuteLoad: 1500,
+      latestHooper: 12,
+    }, ScoringConfigV1);
+    expect(r.score).toBe(60);
+    expect(r.applied?.ruleId).toBe("training_spike");
+    expect(r.applied?.cap).toBe(60);
+  });
+
   it("DOES fire training_spike when all guards are passed", () => {
     const r = applyCeilings(85, {
       weightCutDangerousDays: 0,
@@ -94,7 +161,8 @@ describe("applyCeilings", () => {
       acuteLoad: 1500,
       latestHooper: 12,
     }, ScoringConfigV1);
-    expect(r.score).toBe(45);
+    expect(r.score).toBe(60);
     expect(r.applied?.ruleId).toBe("training_spike");
+    expect(r.applied?.cap).toBe(60);
   });
 });

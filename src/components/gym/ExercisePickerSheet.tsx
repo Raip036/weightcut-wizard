@@ -14,6 +14,9 @@ interface ExercisePickerSheetProps {
   loading?: boolean;
   onSelect: (exercise: Exercise) => void;
   onCreateCustom: () => void;
+  /** Exercise ids most-recently logged across past workouts (newest-first),
+   *  from a server query. Drives the "Recent" tab so it spans all sessions. */
+  recentExerciseIds?: string[];
 }
 
 type SmartTab = "all" | "recent" | "favorites";
@@ -57,6 +60,7 @@ export function ExercisePickerSheet({
   loading,
   onSelect,
   onCreateCustom,
+  recentExerciseIds,
 }: ExercisePickerSheetProps) {
   const [search, setSearch] = useState("");
   const [smartTab, setSmartTab] = useState<SmartTab>("all");
@@ -88,16 +92,19 @@ export function ExercisePickerSheet({
       return true;
     });
     if (smartTab === "recent") {
-      const idSet = new Set(recentIds);
+      // Prefer server history (spans all past workouts, survives reinstalls);
+      // fall back to the local tap-list before the query resolves.
+      const sourceIds = recentExerciseIds && recentExerciseIds.length > 0 ? recentExerciseIds : recentIds;
+      const idSet = new Set(sourceIds);
       pool = pool.filter((ex) => idSet.has(ex.id));
       // preserve recent order
-      pool.sort((a, b) => recentIds.indexOf(a.id) - recentIds.indexOf(b.id));
+      pool.sort((a, b) => sourceIds.indexOf(a.id) - sourceIds.indexOf(b.id));
     } else if (smartTab === "favorites") {
       const idSet = new Set(favIds);
       pool = pool.filter((ex) => idSet.has(ex.id));
     }
     return pool;
-  }, [exercises, search, smartTab, categoryFilter, equipmentFilter, recentIds, favIds]);
+  }, [exercises, search, smartTab, categoryFilter, equipmentFilter, recentIds, recentExerciseIds, favIds]);
 
   // Group by muscle for "all" tab; recent/favorites stay flat (user-ordered).
   const grouped = useMemo(() => {

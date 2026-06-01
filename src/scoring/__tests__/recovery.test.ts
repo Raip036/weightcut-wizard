@@ -78,42 +78,69 @@ describe("computeRecovery (pure)", () => {
     expect(r.confidence).toBe(0);
     expect(r.weight).toBe(0);
     expect(r.value).toBe(0);
-    expect(r.reason).toMatch(/no recovery signals/i);
+    expect(r.reason).toMatch(/no.*recovery signals/i);
   });
 
-  it("hits ~1.0 confidence when full Tier 2 + self-report signals are present", () => {
+  it("hits 1.0 confidence when both HRV and RHR are present", () => {
     const r = computeRecovery(
       fullTier2Signals,
       { soreness: 3, energy: 8 },
       ScoringConfigV1,
     );
-    // Sum of all weights = 1.0 (per cfg); every component present.
-    expect(r.confidence).toBeCloseTo(1.0, 5);
+    // Simplified policy: HRV + RHR only → confidence = present/2 = 1.0.
+    expect(r.confidence).toBe(1.0);
     // Sanity: a "great recovery day" should score well above 50.
     expect(r.value).toBeGreaterThan(60);
   });
 
-  it("yields ~0.5 confidence for HRV (0.40) + soreness (0.10) only", () => {
+  it("yields 0.5 confidence for HRV-only (one of two signals present)", () => {
     const r = computeRecovery(
       hrvOnlySignals,
       { soreness: 4, energy: null },
       ScoringConfigV1,
     );
-    // Present weight = 0.40 (hrv) + 0.10 (soreness) = 0.50
-    // Total possible  = 1.00 → confidence = 0.50
-    expect(r.confidence).toBeCloseTo(0.5, 5);
+    // present.length = 1 (HRV only) → confidence = 1/2 = 0.5.
+    expect(r.confidence).toBe(0.5);
     expect(r.value).toBeGreaterThan(0);
     expect(r.value).toBeLessThanOrEqual(100);
   });
 
-  it("self-report-only (signals === null) still produces a positive score", () => {
+  it("RHR missing falls back to HRV alone with confidence 0.5", () => {
+    // Cold-start variant: a healthkit feed with HRV+baseline but no RHR yet.
+    const r = computeRecovery(
+      hrvOnlySignals,
+      null,
+      ScoringConfigV1,
+    );
+    expect(r.confidence).toBe(0.5);
+    expect(r.value).toBeGreaterThan(0);
+  });
+
+  it("uses literature fallbacks for HRV and RHR when baselines are missing", () => {
+    // No baseline yet — engine should use FALLBACK_HRV_BASELINE_MS=50 and
+    // FALLBACK_RHR_BASELINE_BPM=60 so a cold-start user still gets a score.
+    // Both at fallback baseline values → delta=0 each → both score 50.
+    const coldStart: HealthSignals = {
+      hrv:             { value: 50, baseline: null, deviationZ: null, confidence: 1.0 },
+      restingHr:       { value: 60, baseline: null, deviationZ: null, confidence: 1.0 },
+      sleepMinutes:    ABSENT_SIGNAL,
+      sleepEfficiency: ABSENT_SIGNAL,
+      wristTempDelta:  ABSENT_SIGNAL,
+      vo2Max:          ABSENT_SIGNAL,
+    };
+    const r = computeRecovery(coldStart, null, ScoringConfigV1);
+    expect(r.confidence).toBe(1.0);
+    expect(r.value).toBe(50);
+  });
+
+  it("self-report-only (signals === null) contributes nothing now", () => {
+    // Recovery no longer consumes soreness/energy — that moved into the
+    // wellness/Hooper sub-score. With no HealthKit signals, recovery returns
+    // weight 0 + confidence 0 so the composite falls back to wellness.
     const r = computeRecovery(null, { soreness: 2, energy: 9 }, ScoringConfigV1);
-    // Confidence is measured against the full healthWeights total (1.00),
-    // so self-report-only caps at soreness 0.10 + energy 0.05 = 0.15.
-    // The value itself is still a well-defined weighted average within the
-    // present components.
-    expect(r.confidence).toBeCloseTo(0.15, 5);
-    expect(r.value).toBeGreaterThan(50);
+    expect(r.confidence).toBe(0);
+    expect(r.weight).toBe(0);
+    expect(r.value).toBe(0);
   });
 
   it("clamps an outlier z-score effect to the [-3, 3] band", () => {

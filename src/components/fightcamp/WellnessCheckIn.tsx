@@ -7,6 +7,10 @@ import { api } from "@/../convex/_generated/api";
 import { triggerHapticSelection, celebrateSuccess } from "@/lib/haptics";
 import type { WellnessCheckIn as WellnessCheckInData } from "@/utils/performanceEngine";
 import { logger } from "@/lib/logger";
+import wizard3D from "@/assets/wizard_3D.png";
+import thoughtfulWizard from "@/assets/thoughtful_wizard.png";
+
+type MascotMood = "idle" | "happy" | "concerned" | "thinking";
 
 interface WellnessCheckInProps {
   userId: string;
@@ -150,6 +154,30 @@ export function WellnessCheckIn({ userId, onSubmit, isSubmitting, streak }: Well
   const streakValue = useCountUp(streak ?? 0, 600);
   const showStreak = typeof streak === "number" && streak >= 1;
 
+  // Reactive mascot — purely decorative. Resets to idle after a short pulse
+  // so the next question starts neutral. Does NOT affect any form data.
+  const [mascotMood, setMascotMood] = useState<MascotMood>("idle");
+  const mascotResetRef = useRef<number | null>(null);
+  const [celebrating, setCelebrating] = useState(false);
+
+  useEffect(() => () => {
+    if (mascotResetRef.current != null) window.clearTimeout(mascotResetRef.current);
+  }, []);
+
+  const reactToChip = (questionKey: string, value: number) => {
+    let mood: MascotMood;
+    if (questionKey === "sleep_quality") {
+      // Sleep: higher = better
+      mood = value >= 5 ? "happy" : value <= 3 ? "concerned" : "thinking";
+    } else {
+      // Fatigue / soreness / stress: higher = worse
+      mood = value <= 3 ? "happy" : value >= 5 ? "concerned" : "thinking";
+    }
+    setMascotMood(mood);
+    if (mascotResetRef.current != null) window.clearTimeout(mascotResetRef.current);
+    mascotResetRef.current = window.setTimeout(() => setMascotMood("idle"), 1200);
+  };
+
   const onSummary = step >= QUESTIONS.length;
   const currentQ = onSummary ? null : QUESTIONS[step];
 
@@ -169,6 +197,7 @@ export function WellnessCheckIn({ userId, onSubmit, isSubmitting, streak }: Well
 
   const pickChip = (key: string, value: number) => {
     triggerHapticSelection();
+    reactToChip(key, value);
     setAnswers((prev) => ({ ...prev, [key]: value }));
     setDirection(1);
     setTimeout(() => setStep((s) => s + 1), 200);
@@ -216,7 +245,14 @@ export function WellnessCheckIn({ userId, onSubmit, isSubmitting, streak }: Well
     } catch (err) {
       logger.error("Failed to persist wellness check-in", err);
     }
-    onSubmit(checkInData);
+    // Brief celebration overlay before handing control back to the parent
+    // (which typically navigates away). Purely visual — the mutation has
+    // already completed, so this delay only affects perceived UX, not data.
+    setCelebrating(true);
+    window.setTimeout(() => {
+      setCelebrating(false);
+      onSubmit(checkInData);
+    }, 800);
   };
 
   return (
@@ -266,6 +302,40 @@ export function WellnessCheckIn({ userId, onSubmit, isSubmitting, streak }: Well
         />
       </div>
 
+      {/* Reactive mascot — stays mounted across question transitions and
+          animates in response to the user's chip pick. Purely decorative;
+          hidden on the summary step to keep that view focused on the score. */}
+      {!onSummary && (
+        <div className="flex justify-center mb-2">
+          <motion.div
+            aria-hidden="true"
+            animate={
+              prefersReducedMotion
+                ? mascotMood === "idle"
+                  ? { opacity: 1 }
+                  : { opacity: [1, 0.7, 1] }
+                : mascotMood === "happy"
+                  ? { scale: [1, 1.08, 1], rotate: [-2, 2, 0] }
+                  : mascotMood === "concerned"
+                    ? { rotate: [0, -3, 3, 0], scale: [1, 0.96, 1] }
+                    : mascotMood === "thinking"
+                      ? { rotate: [0, 3, -3, 0] }
+                      : { scale: 1, rotate: 0 }
+            }
+            transition={{ duration: 0.6, ease: "easeInOut" }}
+            className="h-20 w-20"
+            style={{ willChange: "transform" }}
+          >
+            <img
+              src={mascotMood === "concerned" ? thoughtfulWizard : wizard3D}
+              alt=""
+              draggable={false}
+              className="h-full w-full object-contain pointer-events-none select-none"
+            />
+          </motion.div>
+        </div>
+      )}
+
       <div className="relative min-h-[230px]">
         <AnimatePresence mode="wait" initial={false} custom={direction}>
           {currentQ && (
@@ -276,7 +346,7 @@ export function WellnessCheckIn({ userId, onSubmit, isSubmitting, streak }: Well
               animate={{ opacity: 1, x: 0 }}
               exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, x: direction === 1 ? -14 : 14 }}
               transition={{ type: "spring", stiffness: 320, damping: 28 }}
-              className="absolute inset-0 flex flex-col items-center justify-center text-center gap-4 px-1"
+              className="absolute inset-x-0 top-0 flex flex-col items-center justify-start text-center gap-4 px-1"
             >
               <motion.p
                 initial={prefersReducedMotion ? false : { opacity: 0, y: -4 }}
@@ -494,6 +564,35 @@ export function WellnessCheckIn({ userId, onSubmit, isSubmitting, streak }: Well
           )}
         </AnimatePresence>
       </div>
+
+      {/* Submit celebration — briefly overlays the screen after the mutation
+          resolves and before the parent navigates away. ~800ms total. */}
+      <AnimatePresence>
+        {celebrating && (
+          <motion.div
+            key="celebration"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-background/85 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            aria-live="polite"
+          >
+            <motion.div
+              className="flex flex-col items-center gap-3"
+              initial={prefersReducedMotion ? { opacity: 0 } : { scale: 0.85, opacity: 0 }}
+              animate={prefersReducedMotion ? { opacity: 1 } : { scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 320, damping: 20 }}
+            >
+              <div className="rounded-full bg-emerald-500/15 border border-emerald-500/30 p-4">
+                <Icon name="checkmarkOutline" size={36} className="text-emerald-400" />
+              </div>
+              <p className="text-[16px] font-semibold">Got it</p>
+              <p className="text-[13px] text-muted-foreground">Check-in saved</p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

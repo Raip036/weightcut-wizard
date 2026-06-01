@@ -190,6 +190,19 @@ export default function Dashboard() {
       document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, []);
+
+  // Tutorial bridge: a step in the onboarding flow can request the Fight
+  // Form Score sheet open declaratively via `actionEventName`. We listen
+  // for that event here and flip the open state — the tutorial's
+  // spotlight resolver (ResizeObserver + retry-on-measure) picks up the
+  // target inside the sheet once it has mounted + finished its slide-up.
+  useEffect(() => {
+    function handleOpen() {
+      setScoreSheetOpen(true);
+    }
+    window.addEventListener("tutorial:open-fight-form-sheet", handleOpen);
+    return () => window.removeEventListener("tutorial:open-fight-form-sheet", handleOpen);
+  }, []);
   const ffAdherence = useQuery(
     api.fightFormScore.loggedTodayBundle,
     FEATURE_FLAGS.enableFightFormScore ? { date: liveTodayStr } : "skip",
@@ -1047,7 +1060,7 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => { triggerHapticSelection(); navigate('/weight'); }}
-              className="card-surface card-glow rounded-2xl p-3 aspect-square flex flex-col text-left card-press"
+              className="card-surface card-glow rounded-2xl p-3 aspect-square flex flex-col text-left card-press min-w-0 w-full overflow-hidden"
             >
               <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
                 WEIGHT

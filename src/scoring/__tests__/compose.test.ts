@@ -22,9 +22,13 @@ const baseInputs = (overrides: Partial<ScoringInputs> = {}): ScoringInputs => ({
     { date: "2026-04-01", weightKg: 80 },
     { date: "2026-05-01", weightKg: 77.5 },
   ],
+  // Hooper 4 is "fresh" under the new wellness curve (<=5 → 100). The base
+  // fixture is supposed to model "strong signal in every domain"; the prior
+  // value of 8 now lands on the new curve's 0 floor and would drag the
+  // composite down for tests that assume all-strong.
   hooperByDate: Array.from({ length: 7 }, (_, i) => {
     const d = new Date("2026-05-01"); d.setDate(d.getDate() - i);
-    return { date: d.toISOString().slice(0, 10), hooper: 8 };
+    return { date: d.toISOString().slice(0, 10), hooper: 4 };
   }),
   meals: Array.from({ length: 7 }, (_, i) => {
     const d = new Date("2026-05-01"); d.setDate(d.getDate() - i);
@@ -112,6 +116,26 @@ describe("computeFightFormScore", () => {
       expect(r.subScores.wellness.weight).toBe(0);
       // Other three sub-scores are at their max → composite should be ~100.
       expect(r.rawScore).toBeGreaterThanOrEqual(95);
+    });
+  });
+
+  describe("Nutrition weight = 0 across all phases", () => {
+    it("changing nutritionAdherence inputs does not move the composite score", () => {
+      const onTarget = computeFightFormScore(baseInputs(), ScoringConfigV1);
+      // Severely off-target meals (1000 kcal under 2500 target). With
+      // nutrition weight pinned to 0, this must not budge the composite.
+      const badMeals = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date("2026-05-01"); d.setDate(d.getDate() - i);
+        return { date: d.toISOString().slice(0, 10), calories: 1500, proteinG: 60 };
+      });
+      const offTarget = computeFightFormScore(
+        baseInputs({ meals: badMeals }),
+        ScoringConfigV1,
+      );
+      expect(offTarget.score).toBe(onTarget.score);
+      expect(offTarget.rawScore).toBe(onTarget.rawScore);
+      // Subscore weight is held at 0 even when data is present.
+      expect(offTarget.subScores.nutritionAdherence.weight).toBe(0);
     });
   });
 

@@ -758,10 +758,12 @@ export const deleteCalendarEntry = mutation({
       .withIndex("by_session", (q) => q.eq("sessionId", id))
       .collect();
     for (const a of attachments) {
-      try {
-        await ctx.storage.delete(a.storageId);
-      } catch {
-        /* storage object already gone — fine */
+      if (a.storageId) {
+        try {
+          await ctx.storage.delete(a.storageId);
+        } catch {
+          /* storage object already gone — fine */
+        }
       }
       try {
         await ctx.db.delete(a._id);
@@ -863,10 +865,12 @@ export const removeSessionMedia = mutation({
     const row = await ctx.db.get(mediaId);
     if (!row) return;
     if (row.userId !== userId) throw new Error("Not authorized");
-    try {
-      await ctx.storage.delete(row.storageId);
-    } catch {
-      /* already gone */
+    if (row.storageId) {
+      try {
+        await ctx.storage.delete(row.storageId);
+      } catch {
+        /* already gone */
+      }
     }
     await ctx.db.delete(mediaId);
   },
@@ -895,7 +899,7 @@ export const listSessionMedia = query({
         kind: r.kind,
         capturedAt: r.capturedAt,
         caption: r.caption ?? null,
-        url: await ctx.storage.getUrl(r.storageId),
+        url: r.storageId ? await ctx.storage.getUrl(r.storageId) : null,
         createdAt: r._creationTime,
       })),
     );
@@ -951,7 +955,7 @@ export const listMyMediaLibrary = query({
           kind: r.kind,
           capturedAt: r.capturedAt,
           caption: r.caption ?? null,
-          url: await ctx.storage.getUrl(r.storageId),
+          url: r.storageId ? await ctx.storage.getUrl(r.storageId) : null,
           sessionType: (s?.sessionType as string) ?? null,
           sessionDate: (s?.date as string) ?? r.capturedAt,
           sessionNotes: (s?.notes as string | undefined) ?? null,

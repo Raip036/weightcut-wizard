@@ -232,9 +232,13 @@ export const listFeed = query({
     // (a user posting several photos from one training block). Collecting
     // unique IDs and fetching once mirrors the `uniqueAuthorIds` block above
     // and cuts ~N/2 db.get calls on a typical page.
-    const uniqueSessionIds = [...new Set(
-      visiblePage.map((m) => m.sessionId).filter(Boolean),
-    )];
+    const uniqueSessionIds = [
+      ...new Set(
+        visiblePage
+          .map((m) => m.sessionId)
+          .filter((sid): sid is Id<"fight_camp_calendar"> => !!sid),
+      ),
+    ];
     const sessionDocs = await Promise.all(
       uniqueSessionIds.map((sid) => ctx.db.get(sid)),
     );
@@ -245,24 +249,39 @@ export const listFeed = query({
     const posts = await Promise.all(
       visiblePage.map(async (m) => {
         const author = authorMap.get(m.userId);
-        const session = sessionMap.get(m.sessionId) ?? null;
-        const [viewerLike, mediaUrl, thumbUrl] = await Promise.all([
-          // O(1) point lookup — "did the calling user like this post?".
-          ctx.db
-            .query("feed_likes")
-            .withIndex("by_post_user", (q) =>
-              q.eq("postId", m._id).eq("userId", viewerId),
-            )
-            .unique(),
-          ctx.storage.getUrl(m.storageId),
-          // Hydrate the 256-px thumbnail when available so the client
-          // can render stack positions 1/2 from the low-res variant
-          // (~70% bandwidth cut on cold launch). Falls through to the
-          // full image when the thumb hasn't been backfilled.
-          m.thumbStorageId
-            ? ctx.storage.getUrl(m.thumbStorageId)
-            : Promise.resolve(null),
-        ]);
+        const session = m.sessionId ? (sessionMap.get(m.sessionId) ?? null) : null;
+        const [viewerLike, mediaUrl, thumbUrl, viewerReactionRows] =
+          await Promise.all([
+            // O(1) point lookup — "did the calling user like this post?".
+            ctx.db
+              .query("feed_likes")
+              .withIndex("by_post_user", (q) =>
+                q.eq("postId", m._id).eq("userId", viewerId),
+              )
+              .unique(),
+            // Real uploads carry a `storageId`; dev-seeded posts fall back
+            // to the inline `mockUrl` (picsum) so the polaroid stack can
+            // render without a Convex Storage round-trip.
+            m.storageId
+              ? ctx.storage.getUrl(m.storageId)
+              : Promise.resolve(m.mockUrl ?? null),
+            // Hydrate the 256-px thumbnail when available so the client
+            // can render stack positions 1/2 from the low-res variant
+            // (~70% bandwidth cut on cold launch). Falls through to the
+            // full image when the thumb hasn't been backfilled.
+            m.thumbStorageId
+              ? ctx.storage.getUrl(m.thumbStorageId)
+              : Promise.resolve(null),
+            // All reactions this viewer has placed on this post.
+            // Bounded by however many distinct reaction keys the user has
+            // tapped — typically 0-2; never grows with total reactions.
+            ctx.db
+              .query("feed_reactions")
+              .withIndex("by_post_user_key", (q) =>
+                q.eq("postId", m._id).eq("userId", viewerId),
+              )
+              .collect(),
+          ]);
         return {
           id: m._id,
           createdAt: m._creationTime,
@@ -290,6 +309,14 @@ export const listFeed = query({
           likeCount: m.likeCount ?? 0,
           commentCount: m.commentCount ?? 0,
           viewerLiked: !!viewerLike,
+          // Aggregate slug → count map for this post, and the subset of
+          // slugs the calling viewer has placed (so the UI can highlight
+          // their own taps). Keys are ASCII slugs (heart / fire / muscle
+          // / praise / clap) — the client maps slug → emoji for display.
+          // Both default to an empty shape for posts pre-dating the
+          // reactions schema.
+          reactionCounts: m.reactionCounts ?? {},
+          viewerReactions: viewerReactionRows.map((r) => r.key),
         };
       }),
     );
@@ -327,7 +354,10 @@ export const recentForCoachWidget = query({
       rows.map(async (m) => ({
         id: m._id,
         kind: m.kind,
-        url: await ctx.storage.getUrl(m.storageId),
+        // Dev-seeded posts may have a `mockUrl` instead of a `storageId`.
+        url: m.storageId
+          ? await ctx.storage.getUrl(m.storageId)
+          : (m.mockUrl ?? null),
         createdAt: m._creationTime,
         userId: m.userId,
         // The widget filter already excludes "private" rows at query
@@ -586,14 +616,18 @@ export const listProfilePosts = query({
     const posts = await Promise.all(
       page.page.map(async (m) => {
         const [session, viewerLike, mediaUrl, thumbUrl] = await Promise.all([
-          ctx.db.get(m.sessionId),
+          m.sessionId ? ctx.db.get(m.sessionId) : Promise.resolve(null),
           ctx.db
             .query("feed_likes")
             .withIndex("by_post_user", (q) =>
               q.eq("postId", m._id).eq("userId", viewerId),
             )
             .unique(),
-          ctx.storage.getUrl(m.storageId),
+          // Mirror listFeed: real uploads use Convex Storage; dev-seeded
+          // posts fall back to the inline mockUrl (picsum).
+          m.storageId
+            ? ctx.storage.getUrl(m.storageId)
+            : Promise.resolve(m.mockUrl ?? null),
           m.thumbStorageId
             ? ctx.storage.getUrl(m.thumbStorageId)
             : Promise.resolve(null),
@@ -631,5 +665,119 @@ export const listProfilePosts = query({
       isDone: page.isDone,
       continueCursor: page.continueCursor,
     };
+  },
+});
+
+// ─── Reactions ─────────────────────────────────────────────────────────
+
+/**
+ * Allowed reaction keys. These are ASCII slugs because Convex rejects
+ * emoji characters as object/record keys (the wire format for both the
+ * `reactionCounts` map on `session_media` and the `feed_reactions.key`
+ * column). The client owns the slug → emoji mapping for display
+ * (`heart` → ❤️, `fire` → 🔥, `muscle` → 💪, `praise` → 🙌, `clap` → 👏).
+ */
+const ALLOWED_REACTION_KEYS = ["heart", "fire", "muscle", "praise", "clap"] as const;
+type ReactionKey = (typeof ALLOWED_REACTION_KEYS)[number];
+
+function isReactionKey(value: string): value is ReactionKey {
+  return (ALLOWED_REACTION_KEYS as readonly string[]).includes(value);
+}
+
+/**
+ * Toggle a single reaction by the calling user on a post.
+ *
+ * Behaviour mirrors `toggleLike` but the verb is one of a curated slug set
+ * (heart / fire / muscle / praise / clap). The cached `reactionCounts`
+ * map on the post row is atomically patched so `listFeed` returns counts
+ * without a join.
+ *
+ * Idempotency: tapping the same key twice removes the reaction. Different
+ * keys stack — a user can place heart AND fire simultaneously by tapping
+ * each once. The `by_post_user_key` compound index makes each tap a single
+ * O(1) point-lookup.
+ */
+export const toggleReaction = mutation({
+  args: { postId: v.id("session_media"), key: v.string() },
+  handler: async (ctx, { postId, key }) => {
+    const userId = await requireUserId(ctx);
+
+    if (!isReactionKey(key)) {
+      throw new Error(
+        `Invalid reaction key: ${key}. Must be one of: ${ALLOWED_REACTION_KEYS.join(", ")}`,
+      );
+    }
+
+    const post = await ctx.db.get(postId);
+    if (!post) throw new Error("Post not found");
+
+    const existing = await ctx.db
+      .query("feed_reactions")
+      .withIndex("by_post_user_key", (q) =>
+        q.eq("postId", postId).eq("userId", userId).eq("key", key),
+      )
+      .first();
+
+    const counts: Record<string, number> = { ...(post.reactionCounts ?? {}) };
+
+    if (existing) {
+      await ctx.db.delete(existing._id);
+      counts[key] = Math.max(0, (counts[key] ?? 0) - 1);
+      if (counts[key] === 0) delete counts[key];
+    } else {
+      await ctx.db.insert("feed_reactions", {
+        postId,
+        userId,
+        key,
+        createdAt: Date.now(),
+      });
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+    await ctx.db.patch(postId, { reactionCounts: counts });
+
+    // Count auto-like: a user "likes" a post when they have at least one
+    // reaction emoji on it. Adding the FIRST reaction implicitly likes.
+    // Removing the LAST reaction implicitly unlikes.
+    const otherReactions = await ctx.db
+      .query("feed_reactions")
+      .withIndex("by_post_user_key", (q) =>
+        q.eq("postId", postId).eq("userId", userId),
+      )
+      .collect();
+    // Note: when we just INSERTED a row, otherReactions already includes it.
+    // When we just DELETED a row, otherReactions excludes it.
+    const hasAnyReactionNow = otherReactions.length > 0;
+
+    const existingLike = await ctx.db
+      .query("feed_likes")
+      .withIndex("by_post_user", (q) =>
+        q.eq("postId", postId).eq("userId", userId),
+      )
+      .first();
+
+    if (hasAnyReactionNow && !existingLike) {
+      // First reaction on this post → auto-like
+      await ctx.db.insert("feed_likes", {
+        postId,
+        postOwnerId: post.userId,
+        userId,
+      });
+      const freshPost = await ctx.db.get(postId);
+      if (freshPost) {
+        await ctx.db.patch(postId, { likeCount: (freshPost.likeCount ?? 0) + 1 });
+      }
+    } else if (!hasAnyReactionNow && existingLike) {
+      // Removed last reaction → auto-unlike. For simplicity we always
+      // remove the like — if a user explicitly hearted AND reacted,
+      // they'll keep the heart by re-tapping it. Acceptable tradeoff to
+      // avoid storing "like source" metadata.
+      await ctx.db.delete(existingLike._id);
+      const freshPost = await ctx.db.get(postId);
+      if (freshPost) {
+        await ctx.db.patch(postId, { likeCount: Math.max(0, (freshPost.likeCount ?? 0) - 1) });
+      }
+    }
+
+    return { added: !existing };
   },
 });

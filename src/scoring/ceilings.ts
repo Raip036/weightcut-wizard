@@ -1,7 +1,7 @@
 import type { ScoringConfig } from "./types";
 
 export type CeilingSignals = {
-  weightCutDangerousDays: number;  // consecutive days >2%/wk
+  weightCutDangerousDays: number;  // consecutive days >2.5%/wk (ceiling-specific threshold)
   sleepDebt7d: number;             // hours
   acwr: number;
   /**
@@ -33,9 +33,9 @@ export function applyCeilings(
   const caps: Array<{ ruleId: string; cap: number }> = [];
   for (const rule of cfg.ceilings) {
     let trigger = false;
-    if (rule.id === "weight_cut_dangerous" && signals.weightCutDangerousDays >= 3) trigger = true;
+    if (rule.id === "weight_cut_dangerous" && signals.weightCutDangerousDays >= 5) trigger = true;
     if (rule.id === "sleep_debt" && signals.sleepDebt7d > 10) trigger = true;
-    if (rule.id === "training_spike" && signals.acwr > 1.8) {
+    if (rule.id === "training_spike" && signals.acwr > 2.0) {
       const haveBaseline = signals.trainingDaysIn28d >= TRAINING_SPIKE_MIN_TRAINING_DAYS;
       const haveAbsoluteLoad = signals.acuteLoad >= TRAINING_SPIKE_MIN_ACUTE_LOAD;
       const wellnessOk = signals.latestHooper != null && signals.latestHooper >= WELLNESS_OK_HOOPER_THRESHOLD;

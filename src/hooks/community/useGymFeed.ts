@@ -65,6 +65,24 @@ export interface FeedPost {
   likeCount: number;
   commentCount: number;
   viewerLiked: boolean;
+  /**
+   * Aggregate reaction-slug → count map for this post. KEYS ARE ASCII
+   * SLUGS (`heart` / `fire` / `muscle` / `praise` / `clap`), NOT emoji
+   * characters — Convex rejects emoji as record keys, so the wire
+   * format uses slugs and `EmojiReactionBar` does the slug → emoji
+   * translation for display. Server-cached on the `session_media` row
+   * and patched atomically by `toggleReaction`, so the client never
+   * has to join `feed_reactions` to render counts. Empty object for
+   * posts pre-dating the reactions schema.
+   */
+  reactionCounts: Record<string, number>;
+  /**
+   * Subset of reaction slugs the calling viewer has personally placed
+   * on this post (e.g. `["heart", "fire"]`). Drives the "active"
+   * highlight in `EmojiReactionBar`. Typically 0-2 entries; never the
+   * entire reaction set.
+   */
+  viewerReactions: string[];
   /** Optional LQIP — present when the backfill action has run. */
   thumbDataUrl?: string | null;
   /** 256-px thumbnail URL for stack positions 1/2 (lower bandwidth). */

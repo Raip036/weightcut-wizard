@@ -36,6 +36,15 @@ export interface UseFeedEngagementResult {
   toggleLike: () => void;
   /** Double-tap on the post body — like-only, never un-likes. No-op if already liked. */
   doubleTapLike: () => void;
+  /**
+   * Tap a reaction in the bar — toggles. Fires the Convex mutation
+   * without local optimistic state because the bar reads its counts off
+   * the live `listFeed` snapshot; the round-trip is typically <100ms and
+   * the haptic confirms the tap landed. `key` is an ASCII slug (`heart`
+   * / `fire` / `muscle` / `praise` / `clap`) — see `EmojiReactionBar`
+   * for the slug → emoji mapping.
+   */
+  toggleReaction: (key: string) => void;
   /** Called by CommentsSheet after a successful comment add. */
   incrementCommentCount: () => void;
   decrementCommentCount: () => void;
@@ -47,6 +56,7 @@ export function useFeedEngagement(
 ): UseFeedEngagementResult {
   const { toast } = useToast();
   const toggleLikeMut = useMutation(api.feedSocial.toggleLike);
+  const toggleReactionMut = useMutation(api.gymFeed.toggleReaction);
 
   // Mirror server state into local optimistic state. We re-sync whenever
   // the SERVER snapshot changes (e.g. another user liked the post, or
@@ -110,6 +120,21 @@ export function useFeedEngagement(
     setCommentCount((c) => Math.max(0, c - 1));
   }, []);
 
+  // Reactions piggy-back on the server's cached `reactionCounts` map,
+  // which the next reactive `listFeed` tick will repaint. We don't
+  // mirror the toggle locally — the round-trip is short and the haptic
+  // already confirms the tap. On rejection we surface a toast. `key` is
+  // the ASCII slug (see `EmojiReactionBar` for the slug ↔ emoji map).
+  const toggleReaction = useCallback(
+    (key: string) => {
+      triggerHaptic(ImpactStyle.Light);
+      toggleReactionMut({ postId, key }).catch(() => {
+        toast({ title: "Couldn't update reaction", variant: "destructive" });
+      });
+    },
+    [postId, toggleReactionMut, toast],
+  );
+
   return {
     liked,
     likeCount,
@@ -117,6 +142,7 @@ export function useFeedEngagement(
     burstKey,
     toggleLike,
     doubleTapLike,
+    toggleReaction,
     incrementCommentCount,
     decrementCommentCount,
   };

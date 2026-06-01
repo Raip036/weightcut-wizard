@@ -303,6 +303,23 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
   const why = contextLine(metrics, todayCheckedIn);
   const ot = otBadge(metrics.overtrainingRisk.zone);
 
+  // ── 7-day series for the inline sparklines / progress bars ──
+  // Strain comes straight from the engine; sleep from the live Convex query;
+  // OT + weekly load don't have an array yet, so we synthesise a tail-loaded
+  // fallback so the row still renders something instead of a flat line.
+  const strain7d = metrics.strainHistory.slice(-7).map(d => d.strain);
+  const sleep7d = sleepLogs.slice(-7).map(l => l.hours);
+  const otNow = Math.round(metrics.overtrainingRisk.score);
+  const ot7d = [0, 0, 0, 0, 0, 0, otNow];
+  const sessions7d = metrics.weeklySessionCount;
+  const load7d = [0, 0, 0, 0, 0, 0, sessions7d];
+
+  const strainProgress = Math.min(1, metrics.strain / 21);
+  const sleepProgress = Math.min(1, metrics.sleepScore / 100);
+  const otProgress = Math.min(1, otNow / 100);
+  // Weekly load: assume 7 sessions/week is "max sensible".
+  const loadProgress = Math.min(1, sessions7d / 7);
+
   const toggleCard = (id: string) => setExpandedCard(prev => prev === id ? null : id);
 
   return (
@@ -321,6 +338,7 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
         transition={{ type: "spring", damping: 22, stiffness: 260 }}
         className="relative overflow-hidden card-surface rounded-2xl border border-border/50 p-5"
       >
+        {/* Info button — absolute top-right so it doesn't affect centering of the two rows. */}
         <button
           type="button"
           onClick={() => setHelpOpen(true)}
@@ -329,9 +347,8 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
         >
           <Icon name="helpCircleOutline" size={18} />
         </button>
-
-        {/* Top row: streak chip + today's-call tag */}
-        <div className="flex items-center gap-2 pr-9">
+        {/* Top row: streak chip centered. Second row: today's-call tag centered. */}
+        <div className="space-y-2 flex flex-col items-center text-center">
           <motion.div
             initial={prefersReduced ? false : { opacity: 0, x: -6 }}
             animate={{ opacity: 1, x: 0 }}
@@ -341,8 +358,8 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
             <Icon name="flameOutline" size={12} />
             {streak > 0 ? `${streak}-day streak` : "Start a streak"}
           </motion.div>
-          <div className="ml-auto text-[10px] uppercase tracking-[0.14em] font-semibold text-muted-foreground/70">
-            Today's call · <span className="text-foreground/80 normal-case tracking-normal font-bold">{verdict.tag}</span>
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
+            Today's call · <span className="font-bold text-foreground">{verdict.tag}</span>
           </div>
         </div>
 
@@ -418,6 +435,10 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
           }
           expanded={expandedCard === "strain"}
           onToggle={() => toggleCard("strain")}
+          sparklineValues={strain7d.length ? strain7d : [0, 0, 0, 0, 0, 0, metrics.strain]}
+          sparklineColor={tierColor(metrics.strain, 21)}
+          progress={strainProgress}
+          progressColor={tierBg(metrics.strain, 21)}
         >
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3 font-semibold">
             7-day strain trend
@@ -457,6 +478,10 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
           }
           expanded={expandedCard === "sleep"}
           onToggle={() => toggleCard("sleep")}
+          sparklineValues={sleep7d.length ? sleep7d : [0, 0, 0, 0, 0, 0, metrics.latestSleep]}
+          sparklineColor={tierColor(metrics.sleepScore, 100, true)}
+          progress={sleepProgress}
+          progressColor={tierBg(metrics.sleepScore, 100, true)}
         >
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-xs bg-muted/20 p-3">
@@ -501,6 +526,10 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
           }
           expanded={expandedCard === "risk"}
           onToggle={() => toggleCard("risk")}
+          sparklineValues={ot7d}
+          sparklineColor={tierColor(otNow, 100)}
+          progress={otProgress}
+          progressColor={tierBg(otNow, 100)}
         >
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-xs bg-muted/20 p-3">
@@ -545,6 +574,10 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
           }
           expanded={expandedCard === "weekly"}
           onToggle={() => toggleCard("weekly")}
+          sparklineValues={load7d}
+          sparklineColor={tierColor(sessions7d, 7)}
+          progress={loadProgress}
+          progressColor={tierBg(sessions7d, 7)}
         >
           <WeeklyLoadPlan metrics={metrics} />
         </ExpandableMetricCard>
@@ -620,6 +653,56 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({ sessions28d, 
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
+// Minimal inline SVG sparkline — used in collapsed metric rows to show a
+// 7-point trend at a glance. Renders nothing when given an empty array; if
+// every value is identical the polyline still draws as a flat midline.
+function MiniSparkline({ values, color, className }: { values: number[]; color: string; className?: string }) {
+  if (!values.length) return null;
+  const w = 64, h = 24, pad = 2;
+  const min = Math.min(...values), max = Math.max(...values);
+  const range = max - min || 1;
+  const points = values.map((v, i) => {
+    const x = pad + (i / Math.max(1, values.length - 1)) * (w - 2 * pad);
+    const y = h - pad - ((v - min) / range) * (h - 2 * pad);
+    return `${x},${y}`;
+  }).join(" ");
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className={className} aria-hidden>
+      <polyline
+        points={points}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        className={color}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+// Map a normalized 0-1 fraction to a Tailwind text-color class. When the
+// metric is inverted (low = bad), pass `invert: true` so high values come
+// back green and low values come back red.
+function tierColor(value: number, max: number, invert = false): string {
+  const raw = Math.max(0, Math.min(1, value / (max || 1)));
+  const pct = invert ? 1 - raw : raw;
+  if (pct >= 0.75) return "text-rose-400";
+  if (pct >= 0.5) return "text-amber-400";
+  if (pct >= 0.25) return "text-emerald-400";
+  return "text-emerald-500/60";
+}
+
+// Same tiers but as a background color, for the progress bar fill.
+function tierBg(value: number, max: number, invert = false): string {
+  const raw = Math.max(0, Math.min(1, value / (max || 1)));
+  const pct = invert ? 1 - raw : raw;
+  if (pct >= 0.75) return "bg-rose-400";
+  if (pct >= 0.5) return "bg-amber-400";
+  if (pct >= 0.25) return "bg-emerald-400";
+  return "bg-emerald-500/60";
+}
+
 function ProjectedStat({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="text-center">
@@ -661,10 +744,35 @@ type ExpandableMetricCardProps = {
   onToggle: () => void;
   children: React.ReactNode;
   index?: number;
+  // ── New visual props ──
+  // 7-day historical values for the inline sparkline. Pass [] / undefined to hide it.
+  sparklineValues?: number[];
+  // Tailwind text-color class applied to the sparkline polyline (e.g. "text-emerald-400").
+  sparklineColor?: string;
+  // 0-1 fraction filled in the under-row progress bar. Omit to hide the bar.
+  progress?: number;
+  // Tailwind bg-color class for the filled portion of the progress bar.
+  progressColor?: string;
 };
 
-function ExpandableMetricCard({ iconName, iconTone, title, summary, expanded, onToggle, children, index = 0 }: ExpandableMetricCardProps) {
+function ExpandableMetricCard({
+  iconName,
+  iconTone,
+  title,
+  summary,
+  expanded,
+  onToggle,
+  children,
+  index = 0,
+  sparklineValues,
+  sparklineColor,
+  progress,
+  progressColor,
+}: ExpandableMetricCardProps) {
   const prefersReduced = useReducedMotion();
+  const showSparkline = sparklineValues && sparklineValues.length > 0;
+  const showProgress = typeof progress === "number";
+  const progressPct = showProgress ? Math.max(0, Math.min(1, progress!)) * 100 : 0;
   return (
     <motion.div
       initial={prefersReduced ? false : { opacity: 0, y: 10 }}
@@ -675,19 +783,38 @@ function ExpandableMetricCard({ iconName, iconTone, title, summary, expanded, on
       <button
         type="button"
         onClick={onToggle}
-        className="w-full flex items-center gap-3 p-4 text-left active:bg-muted/10 transition-colors"
+        className="w-full text-left active:bg-muted/10 transition-colors"
         aria-expanded={expanded}
       >
-        <div className={`h-10 w-10 shrink-0 rounded-xl flex items-center justify-center ${iconTone}`}>
-          <Icon name={iconName} size={20} />
+        <div className="flex items-center gap-3 p-4">
+          <div className={`h-10 w-10 shrink-0 rounded-xl flex items-center justify-center ${iconTone}`}>
+            <Icon name={iconName} size={20} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[10px] uppercase tracking-[0.14em] font-semibold text-muted-foreground/70">{title}</div>
+            <div className="mt-0.5 flex items-baseline flex-wrap gap-x-1">{summary}</div>
+          </div>
+          {showSparkline && (
+            <MiniSparkline
+              values={sparklineValues!}
+              color={sparklineColor ?? "text-muted-foreground"}
+              className="ml-2 shrink-0"
+            />
+          )}
+          <motion.div animate={{ rotate: expanded ? 180 : 0 }} transition={{ duration: 0.2 }} className="shrink-0 text-muted-foreground ml-1">
+            <Icon name="chevronDownOutline" size={16} />
+          </motion.div>
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="text-[10px] uppercase tracking-[0.14em] font-semibold text-muted-foreground/70">{title}</div>
-          <div className="mt-0.5 flex items-baseline flex-wrap gap-x-1">{summary}</div>
-        </div>
-        <motion.div animate={{ rotate: expanded ? 180 : 0 }} transition={{ duration: 0.2 }} className="shrink-0 text-muted-foreground">
-          <Icon name="chevronDownOutline" size={16} />
-        </motion.div>
+        {showProgress && (
+          <div className="h-[3px] w-full bg-muted/20">
+            <motion.div
+              initial={prefersReduced ? false : { width: 0 }}
+              animate={{ width: `${progressPct}%` }}
+              transition={{ delay: 0.24 + index * 0.04, duration: 0.5, ease: "easeOut" }}
+              className={`h-full ${progressColor ?? "bg-emerald-400"}`}
+            />
+          </div>
+        )}
       </button>
       <AnimatePresence initial={false}>
         {expanded && (

@@ -65,6 +65,7 @@ export const customExerciseSchema = z.object({
   muscle_group: z.enum(["chest", "back", "shoulders", "biceps", "triceps", "quads", "hamstrings", "glutes", "calves", "abs", "forearms", "traps", "full_body", "cardio"]),
   equipment: z.enum(["barbell", "dumbbell", "cable", "machine", "bodyweight", "kettlebell", "bands", "none"]).optional().nullable(),
   is_bodyweight: z.boolean().optional(),
+  tracking_type: z.enum(["standard", "bodyweight", "weighted"]).optional(),
 });
 
 // Hydration log validation schema

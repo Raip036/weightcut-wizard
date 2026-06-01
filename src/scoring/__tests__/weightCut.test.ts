@@ -4,145 +4,183 @@ import { ScoringConfigV1 } from "../config/v1";
 
 const cfg = ScoringConfigV1;
 
-describe("computeWeightCut", () => {
-  it("returns 100 when rate is in sustainable band (0.7%/wk)", () => {
-    // 80kg → 79.44kg over 7 days = 0.7% loss
-    const weights = [
-      { date: "2026-04-24", weightKg: 80 },
-      { date: "2026-05-01", weightKg: 79.44 },
-    ];
+/**
+ * Tests for the rewritten `computeWeightCut`: weekly-plan adherence.
+ *
+ * The score compares the latest weight log to THIS WEEK'S target weight
+ * (sourced from `cutPlanJson.weeklyPlan[].targetWeight` or a linear interp
+ * fallback from `startingWeightKg → goalWeightKg`). The grading bands are:
+ *
+ *   delta ∈ [-0.5, +0.3] kg → 100
+ *   delta ∈ (+0.3, +1.5)    → linear 100 → 0
+ *   delta ≥ +1.5            → 0
+ *   delta ∈ (-1.5, -0.5)    → linear 100 → 0 (too aggressive)
+ *   delta ≤ -1.5            → 0
+ *
+ * Most tests below pin an explicit `cutPlanJson` so the week target is
+ * deterministic (76.0 kg) regardless of how the engine resolves week index
+ * from the camp dates.
+ */
+
+// 8-week plan with week-3 target pinned to 76.0 kg. The test scenarios all
+// use asOfDate inside week 3 of camp so this row drives the score.
+const plan = {
+  totalWeeks: 8,
+  weeklyPlan: [
+    { week: 1, targetWeight: 79.0 },
+    { week: 2, targetWeight: 77.5 },
+    { week: 3, targetWeight: 76.0 },
+    { week: 4, targetWeight: 75.5 },
+    { week: 5, targetWeight: 75.0 },
+    { week: 6, targetWeight: 74.5 },
+    { week: 7, targetWeight: 74.0 },
+    { week: 8, targetWeight: 73.5 },
+  ],
+};
+
+// asOf 2026-05-08, camp starts 2026-04-24 → 14 days = floor(14/7)+1 = 3 weeks.
+const asOf = "2026-05-08";
+const baseEnv = {
+  startingWeightKg: 80,
+  goalWeightKg: 73.5,
+  campStartDate: "2026-04-24",
+  fightDate: "2026-06-19", // ~8 weeks
+  cutPlanJson: plan,
+};
+
+describe("computeWeightCut (weekly-plan adherence)", () => {
+  it("returns 100 when weight is on this week's target", () => {
     const r = computeWeightCut(
-      { weights, startingWeightKg: 80, goalWeightKg: 75, campStartDate: "2026-04-24", fightDate: "2026-06-24" },
-      "2026-05-01",
-      cfg,
+      { ...baseEnv, weights: [{ date: asOf, weightKg: 76.0 }] },
+      asOf, cfg,
     );
-    expect(r.value).toBeGreaterThanOrEqual(90);
+    expect(r.value).toBe(100);
+    expect(r.reason).toMatch(/on target/i);
   });
-  it("penalises dangerous cut rate (>2%/wk)", () => {
-    const weights = [
-      { date: "2026-04-24", weightKg: 80 },
-      { date: "2026-05-01", weightKg: 78 }, // 2.5% in a week
-    ];
+
+  it("scores 100 when slightly ahead of plan (-0.4 kg under target)", () => {
     const r = computeWeightCut(
-      { weights, startingWeightKg: 80, goalWeightKg: 75, campStartDate: "2026-04-24", fightDate: "2026-06-24" },
-      "2026-05-01",
-      cfg,
+      { ...baseEnv, weights: [{ date: asOf, weightKg: 75.6 }] },
+      asOf, cfg,
     );
-    expect(r.value).toBeLessThanOrEqual(30);
+    expect(r.value).toBe(100);
+    expect(r.reason).toMatch(/ahead/i);
   });
-  it("returns 50 when no weight data yet", () => {
+
+  it("scores 100 when 0.3 kg behind target (still inside the band)", () => {
     const r = computeWeightCut(
-      { weights: [], startingWeightKg: 80, goalWeightKg: 75, campStartDate: "2026-04-24", fightDate: "2026-06-24" },
-      "2026-05-01",
-      cfg,
+      { ...baseEnv, weights: [{ date: asOf, weightKg: 76.3 }] },
+      asOf, cfg,
+    );
+    expect(r.value).toBe(100);
+  });
+
+  it("scores ~50 when ~0.9 kg behind target (midway in 0.3→1.5 ramp)", () => {
+    // delta=+0.9 → 100*(1-(0.9-0.3)/1.2) = 50.
+    const r = computeWeightCut(
+      { ...baseEnv, weights: [{ date: asOf, weightKg: 76.9 }] },
+      asOf, cfg,
     );
     expect(r.value).toBe(50);
+    expect(r.reason).toMatch(/behind/i);
   });
 
-  describe("Fix #4 — plateau distinct from gaining, smooth ramp, week-floor", () => {
-    it("plateau (≤ |0.05%/wk|) → 50 (no goal so no on-pace penalty)", () => {
-      // 80 → 79.98kg over 14 days = 0.025%/wk, inside the dead band.
-      // goalWeightKg = current so on-pace penalty doesn't fire (kgRemaining ≤ 0).
-      const weights = [
-        { date: "2026-04-17", weightKg: 80 },
-        { date: "2026-05-01", weightKg: 79.98 },
-      ];
+  it("scores 0 when ≥1.5 kg over target (significant deviation)", () => {
+    const r = computeWeightCut(
+      { ...baseEnv, weights: [{ date: asOf, weightKg: 77.5 }] },
+      asOf, cfg,
+    );
+    expect(r.value).toBe(0);
+    expect(r.reason).toMatch(/significant deviation/i);
+  });
+
+  it("scores ~50 when 1.0 kg ahead of plan (midway in -0.5 → -1.5 aggressive ramp)", () => {
+    // delta=-1.0 → 100*(1-(1.0-0.5)/1.0) = 50.
+    const r = computeWeightCut(
+      { ...baseEnv, weights: [{ date: asOf, weightKg: 75.0 }] },
+      asOf, cfg,
+    );
+    expect(r.value).toBe(50);
+    expect(r.reason).toMatch(/risk|aggressive|fast|faster/i);
+  });
+
+  it("scores 0 when ≥1.5 kg under target (cutting dangerously fast)", () => {
+    // delta=-1.6 → < -1.5 → 0.
+    const r = computeWeightCut(
+      { ...baseEnv, weights: [{ date: asOf, weightKg: 74.4 }] },
+      asOf, cfg,
+    );
+    expect(r.value).toBe(0);
+    expect(r.reason).toMatch(/danger/i);
+  });
+
+  it("returns weight:0 + paused reason when no plan AND no camp", () => {
+    const r = computeWeightCut(
+      {
+        weights: [{ date: "2026-05-01", weightKg: 80 }],
+        startingWeightKg: null,
+        goalWeightKg: null,
+        campStartDate: null,
+        fightDate: null,
+      },
+      "2026-05-01", cfg,
+    );
+    expect(r.weight).toBe(0);
+    expect(r.value).toBe(50);
+    expect(r.reason).toMatch(/paused/i);
+  });
+
+  it("returns weight:0 + paused reason when no weight logs yet", () => {
+    const r = computeWeightCut(
+      {
+        weights: [],
+        startingWeightKg: 80,
+        goalWeightKg: 75,
+        campStartDate: "2026-04-24",
+        fightDate: "2026-06-19",
+      },
+      "2026-05-01", cfg,
+    );
+    expect(r.weight).toBe(0);
+    expect(r.value).toBe(50);
+    expect(r.reason).toMatch(/paused/i);
+  });
+
+  describe("cutPlanJson.weeklyPlan resolution", () => {
+    it("picks the correct week from weeklyPlan based on weeksSinceCampStart", () => {
+      // asOf 2026-05-08 = 14 days post-camp-start → week 3 → target 76.0 kg.
       const r = computeWeightCut(
-        { weights, startingWeightKg: 80, goalWeightKg: 79.98, campStartDate: "2026-04-17", fightDate: "2026-07-01" },
-        "2026-05-01",
-        cfg,
+        { ...baseEnv, weights: [{ date: asOf, weightKg: 76.0 }] },
+        asOf, cfg,
       );
-      expect(r.value).toBe(50);
+      expect(r.value).toBe(100);
     });
 
-    it("plateau (≤ |0.05%/wk|) is DISTINCT from gaining — score should differ", () => {
-      // Both with the same goal/fight setup so the on-pace penalty is the
-      // same constant offset — what we're isolating is the band difference.
-      const plateauWeights = [
-        { date: "2026-04-17", weightKg: 80 },
-        { date: "2026-05-01", weightKg: 79.98 }, // ≈0.025%/wk (flat)
-      ];
-      const gainingWeights = [
-        { date: "2026-04-17", weightKg: 80 },
-        { date: "2026-05-01", weightKg: 80.5 },  // +0.31%/wk (gaining)
-      ];
-      const baseInput = {
-        startingWeightKg: 80, goalWeightKg: 75,
-        campStartDate: "2026-04-17", fightDate: "2026-07-01",
-      };
-      const plateau = computeWeightCut({ ...baseInput, weights: plateauWeights }, "2026-05-01", cfg);
-      const gaining = computeWeightCut({ ...baseInput, weights: gainingWeights }, "2026-05-01", cfg);
-      // Pre-fix: both were 30 → 20 with penalty. Post-fix: plateau ≠ gaining.
-      expect(plateau.value).toBeGreaterThan(gaining.value);
+    it("week-7 plan row drives scoring on the corresponding day", () => {
+      // 2026-04-24 + 42d = 2026-06-05 → weeksSinceStart = floor(42/7)+1 = 7.
+      const w7Date = "2026-06-05";
+      const r = computeWeightCut(
+        { ...baseEnv, weights: [{ date: w7Date, weightKg: 74.0 }] },
+        w7Date, cfg,
+      );
+      expect(r.value).toBe(100);
     });
 
-    it("gaining > 0.05%/wk → 30 (no on-pace penalty path)", () => {
-      // Use a fight date so close + a goal already met so kgRemaining ≤ 0.
-      const weights = [
-        { date: "2026-04-17", weightKg: 80 },
-        { date: "2026-05-01", weightKg: 80.5 },
-      ];
+    it("falls back to linear interp from start→goal when plan is missing", () => {
+      // No cutPlanJson → linear interp. 8 weeks, week 3 of 8:
+      // 80 + (73.5 - 80) * (3/8) = 80 - 2.4375 = 77.5625.
+      // currentWeight 77.5 → delta = -0.0625 → score 100.
       const r = computeWeightCut(
-        { weights, startingWeightKg: 80, goalWeightKg: 81, campStartDate: "2026-04-17", fightDate: "2026-07-01" },
-        "2026-05-01",
-        cfg,
+        {
+          weights: [{ date: asOf, weightKg: 77.5 }],
+          startingWeightKg: 80,
+          goalWeightKg: 73.5,
+          campStartDate: "2026-04-24",
+          fightDate: "2026-06-19",
+        },
+        asOf, cfg,
       );
-      expect(r.value).toBe(30);
-    });
-
-    it("smooth ramp 50 → 100 across (0.05%, 0.3%]/wk — no discontinuity at 0+", () => {
-      // 80 → 79.7kg over 14 days = ~0.187%/wk (between the dead-band edge
-      // 0.05 and sustainable-band start 0.3). With goal already met no
-      // on-pace penalty fires. Expected: ≈ 50 + (0.187-0.05)/0.25 * 50 ≈ 77.
-      const weights = [
-        { date: "2026-04-17", weightKg: 80 },
-        { date: "2026-05-01", weightKg: 79.7 },
-      ];
-      const r = computeWeightCut(
-        { weights, startingWeightKg: 80, goalWeightKg: 79.7, campStartDate: "2026-04-17", fightDate: "2026-07-01" },
-        "2026-05-01",
-        cfg,
-      );
-      // Must be strictly above 50 (proves smooth ramp) and below 100 (proves
-      // we're below the sustainable band).
-      expect(r.value).toBeGreaterThan(50);
-      expect(r.value).toBeLessThan(100);
-    });
-
-    it("no discontinuity at rate=0+: rates just above the dead-band give scores near 50, not 60", () => {
-      // Pick a rate just above PLATEAU_BAND (0.05%/wk): 80 → 79.985 over 14 days
-      // = ~0.067%/wk. Old code jumped to 60+ here; new code starts smoothly
-      // from 50.
-      const weights = [
-        { date: "2026-04-17", weightKg: 80 },
-        { date: "2026-05-01", weightKg: 79.985 },
-      ];
-      const r = computeWeightCut(
-        { weights, startingWeightKg: 80, goalWeightKg: 79.985, campStartDate: "2026-04-17", fightDate: "2026-07-01" },
-        "2026-05-01",
-        cfg,
-      );
-      expect(r.value).toBeGreaterThanOrEqual(50);
-      expect(r.value).toBeLessThanOrEqual(58); // smooth, not a 60→jump
-    });
-
-    it("same-day weigh-ins don't blow up the rate (week-floor)", () => {
-      // Two weigh-ins on the same day: 80 → 79.5. Without the floor that's
-      // ∞%/wk. With max(7, days) floor it's 0.5/80/1 * 100 = 0.625%/wk —
-      // well inside the sustainable band.
-      const weights = [
-        { date: "2026-05-01", weightKg: 80 },
-        { date: "2026-05-01", weightKg: 79.5 },
-      ];
-      const r = computeWeightCut(
-        { weights, startingWeightKg: 80, goalWeightKg: 75, campStartDate: "2026-05-01", fightDate: "2026-07-01" },
-        "2026-05-01",
-        cfg,
-      );
-      // 0.625%/wk is inside [0.3, 1.0] sustainable → 100. on-pace penalty
-      // may not fire because daysToFight is large; but value must NOT be
-      // the catastrophic 20 of an unfloored danger-band cut.
-      expect(r.value).toBeGreaterThanOrEqual(60);
+      expect(r.value).toBe(100);
     });
   });
 });

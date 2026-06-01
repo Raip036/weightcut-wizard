@@ -44,7 +44,9 @@ export function useGymSets({ activeSession, updateActiveSession }: UseGymSetsOpt
     // Materialize fallback-library exercises (id like `local-0`) and any other
     // synthetic-id exercise into a real Convex row so set-saving has a valid
     // `Id<"exercises">`. The fallback library fires whenever the user's Convex
-    // `exercises` table is empty.
+    // `exercises` table is empty. `createCustom` is idempotent by name, so
+    // re-adding the same built-in across workouts resolves to ONE stable row
+    // instead of accumulating duplicates with drifting ids.
     let finalExercise = exercise;
     if (!looksLikeConvexId(exercise.id)) {
       try {
@@ -54,6 +56,7 @@ export function useGymSets({ activeSession, updateActiveSession }: UseGymSetsOpt
           muscleGroup: exercise.muscle_group,
           equipment: exercise.equipment ?? undefined,
           isBodyweight: exercise.is_bodyweight,
+          trackingType: exercise.tracking_type ?? undefined,
         });
         finalExercise = { ...exercise, id: insertedId as unknown as string, is_custom: true };
       } catch (err) {
