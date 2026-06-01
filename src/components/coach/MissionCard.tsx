@@ -26,6 +26,20 @@ interface MissionCardProps {
 const COLLAPSED_ITEM_COUNT = 5;
 
 /**
+ * Normalise AI-generated advice so every item reads with identical
+ * indentation: collapse stray whitespace/newlines and strip any leading
+ * list marker (dash, bullet, or "1." / "1)" numbering) the model sometimes
+ * emits for some items but not others.
+ */
+function cleanAdvice(text: string): string {
+  return text
+    .replace(/\s+/g, " ")
+    .replace(/^[\s\-*•]+/, "")
+    .replace(/^\d+[.)]\s*/, "")
+    .trim();
+}
+
+/**
  * Single Training Mission. The card is an accordion item — the header
  * is always visible (discipline pill, title, progress, chevron) and the
  * body (rationale + checklist) appears only when `expanded` is true.
@@ -191,7 +205,7 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
             {/* Rationale */}
             {mission.rationale && (
               <p className="text-note text-muted-foreground leading-snug">
-                {mission.rationale}
+                {cleanAdvice(mission.rationale)}
               </p>
             )}
 
@@ -275,7 +289,7 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
                               : "text-foreground",
                           )}
                         >
-                          {item.text}
+                          {cleanAdvice(item.text)}
                         </p>
                         {(item.technique ||
                           item.drillType ||

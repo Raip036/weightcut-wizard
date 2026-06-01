@@ -19,6 +19,7 @@
  * step on every mutation. Convex's own subscription is already faster
  * and cheaper than disk I/O for this access pattern.
  */
+import { useMemo, useRef } from "react";
 import { usePaginatedQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -99,11 +100,54 @@ export function useGymFeed(gymId: Id<"gyms"> | null): UseGymFeedResult {
   // polaroid stack.
   const loadMoreBounded = () => loadMore(LOAD_MORE_PAGE);
 
+  // Per-postId URL cache — pins the first observed signed Storage URL
+  // for each post so that Convex's per-query URL regeneration (every
+  // refetch after a mutation re-signs Storage URLs) doesn't churn the
+  // <img src>. Without this, every `markPostViewed` mutation would
+  // cause the top card's image to flash black during the browser
+  // re-fetch round-trip. Survives across renders via useRef; never
+  // shrinks (feeds are bounded — typical session sees < 50 posts).
+  const urlCacheRef = useRef<
+    Map<string, { url: string | null; thumbUrl: string | null }>
+  >(new Map());
+
+  const stableResults = useMemo<FeedPost[]>(() => {
+    const cache = urlCacheRef.current;
+    const raw = (results ?? []) as unknown as FeedPost[];
+    return raw.map((p) => {
+      const idStr = String(p.id);
+      const cached = cache.get(idStr);
+      // Prefer the fresh URL if non-null, else fall back to cache.
+      const url = p.url ?? cached?.url ?? null;
+      const thumbUrl = p.thumbUrl ?? cached?.thumbUrl ?? null;
+      if (url) {
+        const prev = cache.get(idStr);
+        // Lock in the first working URL we observe. Once cached, we
+        // keep using it forever — even when Convex re-signs the URL on
+        // the next query refetch. Only update if we never had a URL
+        // before (prev?.url === null / not set).
+        if (!prev || prev.url === null) {
+          cache.set(idStr, { url, thumbUrl });
+        } else if (!prev.thumbUrl && thumbUrl) {
+          // Lazily backfill thumbUrl if it arrives later (server-side
+          // backfill action populates this after the initial post).
+          cache.set(idStr, { ...prev, thumbUrl });
+        }
+      }
+      const pinned = cache.get(idStr);
+      return {
+        ...p,
+        url: pinned?.url ?? url,
+        thumbUrl: pinned?.thumbUrl ?? thumbUrl,
+      } as FeedPost;
+    });
+  }, [results]);
+
   // The query's inferred result type matches FeedPost — but we cast at
   // the boundary to keep the public surface stable if the server adds
   // optional fields later.
   return {
-    results: (results ?? []) as unknown as FeedPost[],
+    results: stableResults,
     status: status as FeedStatus,
     loadMore: loadMoreBounded,
   };

@@ -19,7 +19,7 @@
 import { SECOND_PERSON_DIRECTIVE } from "../_helpers";
 import { PROMPT_INJECTION_GUARD_INSTRUCTION } from "../../_shared/sanitizeUserText";
 
-export const GENERATE_MISSION_PROMPT = `You are FightCamp Wizard's Training Coach for {sport}. You read an athlete's recent session notes and produce a tightly targeted, progressive checklist of 3-8 drills they can run in their next training sessions. Your job is NOT to summarise the technique — it is to fix the SPECIFIC failure the notes describe.
+export const GENERATE_MISSION_PROMPT = `You are FightCamp Wizard's Training Coach for {sport}. You read an athlete's recent session notes and produce a short, straightforward checklist of 3-8 drills they can run in their next training sessions. Each checklist must do BOTH: (1) give them DIFFERENT ways to use the technique in training — varied sparring entries, different setups/grips, and different reactions to train against — and (2) fix the SPECIFIC mistakes their notes describe. Your job is NOT to summarise the technique.
 
 ${SECOND_PERSON_DIRECTIVE}
 
@@ -43,8 +43,11 @@ For the named technique (or the position/situation in the notes), enumerate inte
   - The 1-2 most common failure modes (e.g., "grabbing the wrist before the hip escape clears the cross-face").
 The items in your output must target the SPECIFIC failing component, not the whole technique.
 
-STEP 3 — BUILD THE PROGRESSION.
-Order the 3-8 items as: solo / shadow (1-2) → partner drilling with controlled resistance (2-3) → live / situational sparring (1-3). Bias the distribution toward the stage most relevant to the diagnosis (e.g., mechanics issue → more solo+partner; tactical issue → more positional/live).
+STEP 3 — BUILD A SIMPLE, VARIED CHECKLIST.
+Produce 3-8 items that together do BOTH of these:
+  (a) DIFFERENT WAYS TO USE IT — vary how they apply the technique across items: a different sparring entry, a different setup/grip, a different position to hit it from, or a different reaction to train against. No two items should be the same "way in".
+  (b) FIX THE NOTED MISTAKES — at least one or two items must directly drill the exact thing the notes say went wrong.
+Keep each item simple and straightforward: one concrete drill, one cue. Spread them across solo/shadow → partner → live so they fit real sessions, but prioritise variety-of-use and the noted fix over a rigid progression.
 
 STEP 4 — ANTI-GENERIC GUARDRAILS.
 Forbidden patterns (do NOT produce items like these):
@@ -76,6 +79,7 @@ Prefer terms like: "positional sparring" / "positional rounds", "isolated drilli
 - Each item.drillType (optional): exactly one of "solo" | "partner" | "live" | "shadow".
 - Each item.durationMin (optional): integer 1-60.
 - Omit optional fields rather than emitting null.
+- FORMAT EVERY item.text IDENTICALLY: a single clean imperative sentence on ONE line. No leading dash, bullet, number, or indentation; no line breaks inside the text. Do not prefix some items with labels (e.g. "Round 1:") and not others — keep every item's structure uniform.
 - Return ONLY the JSON object. No prose, no markdown fences.
 
 === EXAMPLE OUTPUT (illustrates the quality bar — do not copy verbatim) ===

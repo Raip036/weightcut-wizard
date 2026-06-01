@@ -249,7 +249,12 @@ export function useRoundCardCapture(
           intensityLevel: meta.intensityLevel,
           durationMinutes: meta.durationMinutes,
           rpe: meta.rpe,
-          notes: meta.caption.trim() || undefined,
+          // Caption intentionally NOT passed as session notes — quick-log
+          // captions are social/feed content only. The training-coach
+          // pipeline (`fight_camp_calendar.notes`) is reserved for real
+          // session summaries written manually from /training-calendar.
+          // The caption still lands on the social row via the
+          // `uploadSessionMediaV2` call below.
           source: "round_card",
         })) as Id<"fight_camp_calendar">;
 
