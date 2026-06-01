@@ -47,6 +47,8 @@ import type * as actions_hydrationInsights from "../actions/hydrationInsights.js
 import type * as actions_lookupIngredient from "../actions/lookupIngredient.js";
 import type * as actions_mealPlanner from "../actions/mealPlanner.js";
 import type * as actions_reconcileAiOutcomes from "../actions/reconcileAiOutcomes.js";
+import type * as actions_recovery_campCompass from "../actions/recovery/campCompass.js";
+import type * as actions_recovery_preSessionBrief from "../actions/recovery/preSessionBrief.js";
 import type * as actions_recoveryCoach from "../actions/recoveryCoach.js";
 import type * as actions_rehydrationProtocol from "../actions/rehydrationProtocol.js";
 import type * as actions_scanBarcode from "../actions/scanBarcode.js";
@@ -103,6 +105,7 @@ import type * as profiles from "../profiles.js";
 import type * as profiles_internal from "../profiles_internal.js";
 import type * as pushFanout from "../pushFanout.js";
 import type * as rate_limits from "../rate_limits.js";
+import type * as recoveryReports from "../recoveryReports.js";
 import type * as routines from "../routines.js";
 import type * as sleep_logs from "../sleep_logs.js";
 import type * as techniques from "../techniques.js";
@@ -160,6 +163,8 @@ declare const fullApi: ApiFromModules<{
   "actions/lookupIngredient": typeof actions_lookupIngredient;
   "actions/mealPlanner": typeof actions_mealPlanner;
   "actions/reconcileAiOutcomes": typeof actions_reconcileAiOutcomes;
+  "actions/recovery/campCompass": typeof actions_recovery_campCompass;
+  "actions/recovery/preSessionBrief": typeof actions_recovery_preSessionBrief;
   "actions/recoveryCoach": typeof actions_recoveryCoach;
   "actions/rehydrationProtocol": typeof actions_rehydrationProtocol;
   "actions/scanBarcode": typeof actions_scanBarcode;
@@ -216,6 +221,7 @@ declare const fullApi: ApiFromModules<{
   profiles_internal: typeof profiles_internal;
   pushFanout: typeof pushFanout;
   rate_limits: typeof rate_limits;
+  recoveryReports: typeof recoveryReports;
   routines: typeof routines;
   sleep_logs: typeof sleep_logs;
   techniques: typeof techniques;

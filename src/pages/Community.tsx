@@ -601,14 +601,27 @@ const CommunityFeedSection = React.memo(function CommunityFeedSection({
         />
       </div>
 
-      {topPost && (
-        <SessionInfoCard
-          post={topPost}
-          engagement={topEngagement}
-          onCommentTap={onOpenComments}
-          onProfileTap={onOpenProfile}
-        />
-      )}
+      {/* Crossfade the session-type card as the deck advances so its content
+          glides between posts instead of snapping. Keyed to the top post id;
+          mode="popLayout" keeps the height stable through the swap. */}
+      <AnimatePresence mode="popLayout" initial={false}>
+        {topPost && (
+          <motion.div
+            key={topPost.id}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.22, ease: "easeOut" }}
+          >
+            <SessionInfoCard
+              post={topPost}
+              engagement={topEngagement}
+              onCommentTap={onOpenComments}
+              onProfileTap={onOpenProfile}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 });

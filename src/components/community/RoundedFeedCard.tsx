@@ -86,8 +86,12 @@ function RoundedFeedCardBase({
   developing = false,
   progress,
 }: RoundedFeedCardProps) {
-  // Top card loads the full-res image; background cards use the 256px thumb.
-  const effectiveSrc = isTop ? post.url : (post.thumbUrl ?? post.url);
+  // Use the SAME source for background and top cards. The stack already
+  // preloads every visible card's full URL, so a background card has already
+  // decoded this exact image — keeping the src stable across promotion means
+  // the newly-promoted top card shows it instantly with no re-decode flash
+  // (the thumb→full swap was the "little refresh flash" after a swipe).
+  const effectiveSrc = post.url ?? post.thumbUrl ?? null;
   const img = useImageReady(effectiveSrc);
   const offsets = STACK_OFFSETS[stackPosition];
   const prefersReducedMotion = useReducedMotion() ?? false;

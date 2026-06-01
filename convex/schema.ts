@@ -429,6 +429,10 @@ export default defineSchema({
     sleepHours: v.optional(v.number()),
     sleepQuality: v.optional(v.string()),
     mobilityDone: v.optional(v.boolean()),
+    // Contact rounds logged for sparring / live grappling sessions —
+    // used by the recovery engine to track contact load. Optional so
+    // existing rows and non-contact sessions still validate.
+    rounds: v.optional(v.number()),
     // Legacy single-media attachment. Kept so existing rows still render.
     // New uploads go into the `session_media` table (multi-attachment).
     mediaStorageId: v.optional(v.id("_storage")),
@@ -943,6 +947,32 @@ export default defineSchema({
     confidenceScore: v.optional(v.number()),
     updatedAt: v.optional(v.number()),
   }).index("by_user_type", ["userId", "insightType"]),
+
+  /**
+   * Weekly recovery report — AI-generated digest of the user's recovery
+   * state across the prior week (or cycle). One row per (userId,
+   * weekStartIso). `by_user_week` supports the upsert/lookup hot path;
+   * `by_user_created` powers the recent-reports list on the recovery page.
+   *
+   * `rawMetrics` is intentionally `v.any()` — it's a debug snapshot of the
+   * inputs that produced the report (shape varies per generation) and is
+   * also used as the source for future audio-summary generation.
+   */
+  recoveryReports: defineTable({
+    userId: v.id("users"),
+    weekStartIso: v.string(),         // YYYY-MM-DD of the Monday this report covers (or the cycle start)
+    verdict: v.string(),               // single-sentence summary
+    breakdown: v.string(),             // "where you broke down" prose
+    nextWeekActions: v.array(v.object({
+      dayIso: v.string(),
+      action: v.string(),
+    })),
+    campArc: v.optional(v.string()),  // present only if user is in a fight camp
+    rawMetrics: v.any(),               // snapshot of inputs for debug + future audio gen
+    createdAt: v.number(),
+  })
+    .index("by_user_week", ["userId", "weekStartIso"])
+    .index("by_user_created", ["userId", "createdAt"]),
 
   // ────────────────────────────────────────────────────────────────────
   // COACH MODE

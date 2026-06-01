@@ -14,6 +14,12 @@ import { api } from "@/../convex/_generated/api";
 import type { Id } from "@/../convex/_generated/dataModel";
 import { TinderMediaSwiper } from "@/components/training/TinderMediaSwiper";
 import type { LightboxItem } from "@/components/training/MediaLightbox";
+import {
+  SESSION_TYPE_CATEGORIES,
+  ALL_SESSION_TYPES,
+  isContactSession,
+} from "@/lib/sessionTypes";
+import { Icon, type IonIconName } from "@/components/ui/Icon";
 
 export interface PendingSessionMedia {
   /** Stable id so React doesn't recycle the wrong tile when one is removed. */
@@ -24,9 +30,26 @@ export interface PendingSessionMedia {
   kind: "photo" | "video";
 }
 
-const SESSION_TYPES = ["BJJ", "Muay Thai", "Boxing", "Wrestling", "Sparring", "Strength", "Run"];
+// Thin alias kept so external callers (TrainingCalendar's quick-pick chips,
+// reset logic) still resolve a default. Sourced from the new combat-sport
+// taxonomy in `@/lib/sessionTypes`.
+const SESSION_TYPES: readonly string[] = ALL_SESSION_TYPES;
 
 export { SESSION_TYPES };
+
+const MRU_KEY = (uid: string) => `recent-session-types:${uid}`;
+
+function readMru(userId: string | null): string[] {
+  if (!userId) return [];
+  try {
+    const raw = localStorage.getItem(MRU_KEY(userId));
+    const parsed = raw ? (JSON.parse(raw) as unknown) : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((t): t is string => typeof t === "string").slice(0, 3);
+  } catch {
+    return [];
+  }
+}
 
 interface FightCampLogFormProps {
   isEditing: boolean;
@@ -52,6 +75,10 @@ interface FightCampLogFormProps {
   runDistanceUnit: "km" | "mi";
   setRunDistanceUnit: (v: string) => void;
   runPace: string;
+  /** Optional contact-round count for contact sessions (sparring / live
+   *  grappling). `null` ⇒ user hasn't set a value yet. Controlled by parent. */
+  rounds: number | null;
+  setRounds: (v: number | null) => void;
   /** Media files queued to upload after the session is created. Capped
    *  client-side at MAX_PENDING_MEDIA so a slip of the finger doesn't
    *  fire 50 uploads. */
@@ -91,6 +118,7 @@ export function FightCampLogForm({
   runTime, setRunTime,
   runDistanceUnit, setRunDistanceUnit,
   runPace,
+  rounds, setRounds,
   pendingMedia,
   onAddMedia,
   onRemoveMedia,
@@ -224,14 +252,50 @@ export function FightCampLogForm({
     if (userId) setCustomTypes(getCustomTypes(userId));
   }, [userId]);
 
-  const allTypes = [...SESSION_TYPES, ...customTypes];
-  const hasLegacyType = sessionType && !allTypes.includes(sessionType);
-  const displayTypes = hasLegacyType ? [...allTypes, sessionType] : allTypes;
+  // Most-recently-used session types (top of the picker). Capped at 3 and
+  // filtered to entries that still exist in the current taxonomy + custom
+  // types, so a deprecated type doesn't get resurfaced indefinitely.
+  const [mru, setMru] = useState<string[]>(() => readMru(userId));
+  useEffect(() => { setMru(readMru(userId)); }, [userId]);
+  // Re-read on storage events so a save from a sibling tab/component
+  // propagates back into the picker.
+  useEffect(() => {
+    if (!userId) return;
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === MRU_KEY(userId)) setMru(readMru(userId));
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [userId]);
+
+  const knownTypes = useMemo(
+    () => new Set<string>([...ALL_SESSION_TYPES, ...customTypes]),
+    [customTypes],
+  );
+  const mruTypes = useMemo(
+    () => mru.filter((t) => knownTypes.has(t)),
+    [mru, knownTypes],
+  );
+
+  // Legacy session_type strings (e.g. saved "BJJ" / "Muay Thai") aren't in the
+  // new taxonomy — keep them visible as their own pill in a "Custom & legacy"
+  // group rather than crashing or silently rewriting the user's row.
+  const isLegacySelection = !!sessionType && !knownTypes.has(sessionType);
+  const selectedIsContact = sessionType ? isContactSession(sessionType) : false;
+
+  // When the user picks a non-contact type, clear any stale rounds value so
+  // the next save doesn't accidentally ship rounds for a `Run`.
+  useEffect(() => {
+    if (!selectedIsContact && rounds !== null) {
+      setRounds(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionType, selectedIsContact]);
 
   const handleAddCustomType = () => {
     const trimmed = newTypeName.trim();
     if (!trimmed || !userId) return;
-    if (allTypes.includes(trimmed)) return;
+    if (knownTypes.has(trimmed)) return;
     const updated = addCustomType(userId, trimmed);
     setCustomTypes(updated);
     setSessionType(trimmed);
@@ -244,7 +308,9 @@ export function FightCampLogForm({
     const updated = removeCustomType(userId, type);
     setCustomTypes(updated);
     if (sessionType === type) {
-      setSessionType(SESSION_TYPES[0]);
+      // Fall back to the first MRU entry that still exists, else first Combat type.
+      const fallbackMru = mruTypes.find((t) => t !== type);
+      setSessionType(fallbackMru ?? SESSION_TYPE_CATEGORIES[0].types[0].id);
     }
   };
 
@@ -256,29 +322,70 @@ export function FightCampLogForm({
 
   return (
     <div className="space-y-4">
-      {/* ── Session Type — horizontal scrolling chip rail ──────── */}
-      <div className="space-y-2">
+      {/* ── Session Type — grouped 4-category picker ─────────────
+          Combat / Conditioning / Skill / Recovery, with a Most-Recently-
+          Used rail on top so power users hit their go-to type in one tap.
+          Custom + unknown-legacy types live in their own group below so
+          imported "BJJ" / "Muay Thai" rows still render and stay pickable. */}
+      <div className="space-y-3">
         <Label className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/60">
           Session type
         </Label>
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x">
-          {displayTypes.map((type) => {
-            const active = sessionType === type;
-            const isCustom = customTypes.includes(type);
-            return (
-              <div key={type} className="relative shrink-0 snap-start">
-                <button
-                  type="button"
-                  onClick={() => { setSessionType(type); triggerHapticSelection(); }}
-                  className={`h-10 px-4 rounded-full text-[13.5px] font-semibold transition-all active:scale-[0.96] ${
-                    active
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-foreground/80 hover:bg-muted/60"
-                  } ${isCustom ? "pr-7" : ""}`}
-                >
-                  {type}
-                </button>
-                {isCustom && (
+
+        {/* MRU rail — hidden when empty so the picker doesn't start with a blank row. */}
+        {mruTypes.length > 0 && (
+          <div className="space-y-1.5">
+            <p className="text-[9.5px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/55 px-0.5">
+              Recent
+            </p>
+            <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x">
+              {mruTypes.map((type) => (
+                <SessionTypePill
+                  key={`mru-${type}`}
+                  type={type}
+                  active={sessionType === type}
+                  onPick={(t) => { setSessionType(t); triggerHapticSelection(); }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* The 4 canonical categories — render every type as an iconified pill. */}
+        {SESSION_TYPE_CATEGORIES.map((cat) => (
+          <div key={cat.label} className="space-y-1.5">
+            <p className="text-[9.5px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/55 px-0.5">
+              {cat.label}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {cat.types.map((t) => (
+                <SessionTypePill
+                  key={t.id}
+                  type={t.id}
+                  iconName={t.icon as IonIconName}
+                  active={sessionType === t.id}
+                  onPick={(picked) => { setSessionType(picked); triggerHapticSelection(); }}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+
+        {/* Custom + legacy group — only shown when populated. */}
+        {(customTypes.length > 0 || isLegacySelection) && (
+          <div className="space-y-1.5">
+            <p className="text-[9.5px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/55 px-0.5">
+              Custom &amp; legacy
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {customTypes.map((type) => (
+                <div key={`custom-${type}`} className="relative">
+                  <SessionTypePill
+                    type={type}
+                    active={sessionType === type}
+                    onPick={(picked) => { setSessionType(picked); triggerHapticSelection(); }}
+                    extraPadRight
+                  />
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); handleRemoveCustomType(type); }}
@@ -287,22 +394,45 @@ export function FightCampLogForm({
                   >
                     <X className="h-3 w-3" strokeWidth={2.4} />
                   </button>
-                )}
-              </div>
-            );
-          })}
-          <button
-            type="button"
-            onClick={() => setIsAddingNew(!isAddingNew)}
-            aria-label="Add custom type"
-            className="shrink-0 snap-start h-10 w-10 rounded-full bg-muted/40 dark:bg-white/[0.06] border border-border/30 flex items-center justify-center active:scale-[0.96] transition-transform"
-          >
-            <Plus className="h-4 w-4 text-foreground/70" strokeWidth={2.4} />
-          </button>
-        </div>
+                </div>
+              ))}
+              {isLegacySelection && (
+                <SessionTypePill
+                  key={`legacy-${sessionType}`}
+                  type={sessionType}
+                  legacy
+                  active
+                  onPick={() => { /* already selected */ }}
+                />
+              )}
+              <button
+                type="button"
+                onClick={() => setIsAddingNew(!isAddingNew)}
+                aria-label="Add custom type"
+                className="h-10 w-10 rounded-full bg-muted/40 dark:bg-white/[0.06] border border-border/30 flex items-center justify-center active:scale-[0.96] transition-transform"
+              >
+                <Plus className="h-4 w-4 text-foreground/70" strokeWidth={2.4} />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* "+" affordance shown standalone when there are no custom types yet. */}
+        {customTypes.length === 0 && !isLegacySelection && (
+          <div className="flex">
+            <button
+              type="button"
+              onClick={() => setIsAddingNew(!isAddingNew)}
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full bg-muted/30 dark:bg-white/[0.04] border border-border/30 text-[12px] font-semibold text-muted-foreground hover:bg-muted/50 active:scale-[0.97] transition"
+            >
+              <Plus className="h-3.5 w-3.5" strokeWidth={2.4} />
+              Add custom type
+            </button>
+          </div>
+        )}
 
         {isAddingNew && (
-          <div className="flex gap-2 mt-2">
+          <div className="flex gap-2 mt-1">
             <Input
               placeholder="e.g. Swimming, Yoga…"
               value={newTypeName}
@@ -383,6 +513,51 @@ export function FightCampLogForm({
             <span>Max</span>
           </div>
         </div>
+
+        {/* Rounds — only for contact sessions (sparring / live grappling).
+            Optional: omit on save if untouched (handled by parent reading null). */}
+        {selectedIsContact && (
+          <div className="flex items-center justify-between px-4 py-3.5">
+            <span
+              className="text-[14px] font-medium text-foreground/85"
+              title="Number of contact rounds (skip if N/A)"
+            >
+              Rounds
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const current = rounds ?? 5;
+                  const next = Math.max(1, current - 1);
+                  setRounds(next);
+                  triggerHapticSelection();
+                }}
+                aria-label="Decrease rounds"
+                className="h-8 w-8 rounded-full bg-muted/40 dark:bg-white/[0.06] border border-border/30 flex items-center justify-center text-foreground/80 active:scale-95 transition-all"
+              >
+                <span className="text-[16px] font-medium leading-none">−</span>
+              </button>
+              <span className="text-[15px] font-bold tabular-nums w-14 text-center">
+                {rounds ?? 5}
+                <span className="text-[11px] font-medium text-muted-foreground/60 ml-0.5">rds</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  const current = rounds ?? 5;
+                  const next = Math.min(20, current + 1);
+                  setRounds(next);
+                  triggerHapticSelection();
+                }}
+                aria-label="Increase rounds"
+                className="h-8 w-8 rounded-full bg-muted/40 dark:bg-white/[0.06] border border-border/30 flex items-center justify-center text-foreground/80 active:scale-95 transition-all"
+              >
+                <span className="text-[14px] font-medium leading-none">+</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Run details (conditional) ─────────────────────────── */}
@@ -715,5 +890,56 @@ export function FightCampLogForm({
             : (isEditing ? "Update session" : pendingMedia.length > 0 ? `Save with ${pendingMedia.length} media` : "Save session")}
       </button>
     </div>
+  );
+}
+
+// ── Session-type pill ──────────────────────────────────────────────────
+// Shared button used by the MRU rail, each category group, and the
+// custom/legacy group. Keeps the visual language identical across rows
+// and centralises the active / icon / legacy handling.
+function SessionTypePill({
+  type,
+  iconName,
+  active,
+  onPick,
+  legacy = false,
+  extraPadRight = false,
+}: {
+  type: string;
+  iconName?: IonIconName;
+  active: boolean;
+  onPick: (type: string) => void;
+  legacy?: boolean;
+  extraPadRight?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onPick(type)}
+      aria-pressed={active}
+      className={`inline-flex items-center gap-1.5 h-10 px-3.5 rounded-full text-[13px] font-semibold transition-all active:scale-[0.96] shrink-0 snap-start ${
+        active
+          ? "bg-primary text-primary-foreground"
+          : "bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-foreground/80 hover:bg-muted/60"
+      } ${extraPadRight ? "pr-7" : ""}`}
+    >
+      {iconName && (
+        <Icon
+          name={iconName}
+          size={14}
+          className={active ? "text-primary-foreground" : "text-foreground/70"}
+        />
+      )}
+      <span className="leading-none">{type}</span>
+      {legacy && (
+        <span
+          className={`text-[9px] font-semibold uppercase tracking-wider rounded-full px-1.5 py-0.5 ${
+            active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted/60 text-muted-foreground/80"
+          }`}
+        >
+          legacy
+        </span>
+      )}
+    </button>
   );
 }

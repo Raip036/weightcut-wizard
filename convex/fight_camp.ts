@@ -498,6 +498,9 @@ export const createCalendarEntry = mutation({
     sleepHours: v.optional(v.number()),
     sleepQuality: v.optional(v.string()),
     mobilityDone: v.optional(v.boolean()),
+    // Contact rounds for sparring / live grappling sessions. Omitted for
+    // non-contact sessions; the recovery engine reads it for contact load.
+    rounds: v.optional(v.number()),
     mediaStorageId: v.optional(v.id("_storage")),
     notes: v.optional(v.string()),
     // Provenance of the row — set by whichever entry surface created it.
@@ -611,6 +614,8 @@ export const updateCalendarEntry = mutation({
     sleepHours: v.optional(v.number()),
     sleepQuality: v.optional(v.string()),
     mobilityDone: v.optional(v.boolean()),
+    // Pass a number to set rounds. Not provided ⇒ field unchanged.
+    rounds: v.optional(v.number()),
     // Pass `null` to remove the existing media (deletes the storage object).
     mediaStorageId: v.optional(v.union(v.id("_storage"), v.null())),
     notes: v.optional(v.string()),

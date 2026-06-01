@@ -5,6 +5,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { getSessionColor, COLOR_PALETTE } from "@/lib/sessionColors";
 import { decodeRunMeta } from "@/lib/runMeta";
 import { triggerHapticSelection } from "@/lib/haptics";
+import { ALL_SESSION_TYPES } from "@/lib/sessionTypes";
+
+// Pre-flatten the set once so the render path is a single Set.has() lookup.
+const KNOWN_SESSION_TYPES = new Set<string>(ALL_SESSION_TYPES);
 
 interface TrainingCalendarRow {
   id: string;
@@ -24,6 +28,7 @@ interface TrainingCalendarRow {
   notes: string | null;
   media_url: string | null;
   created_at: string | null;
+  rounds?: number | null;
 }
 
 interface SessionCardProps {
@@ -164,6 +169,18 @@ export const SessionCard = memo(function SessionCard({
             <p className="text-[14px] font-semibold text-foreground truncate">
               {session.session_type}
             </p>
+            {/* Legacy tag — surfaces old free-form `session_type` strings
+                (e.g. "BJJ", "MMA") that aren't in the new taxonomy. We
+                deliberately do NOT rewrite the row on read; the user re-edit
+                path uses normalizeSessionType when they save next. */}
+            {!KNOWN_SESSION_TYPES.has(session.session_type) && session.session_type !== "Rest" && (
+              <span
+                className="text-[9px] font-semibold uppercase tracking-wider rounded-full px-1.5 py-0.5 bg-muted/60 text-muted-foreground/80 shrink-0"
+                title="Logged with an older session type"
+              >
+                legacy
+              </span>
+            )}
             {hasMedia && <ImageIcon className="w-3 h-3 text-foreground/50 shrink-0" />}
           </div>
           <div className="mt-1 flex items-baseline gap-3 tabular-nums">

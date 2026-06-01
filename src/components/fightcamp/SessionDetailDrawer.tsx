@@ -32,6 +32,7 @@ interface TrainingCalendarRow {
   notes: string | null;
   media_url: string | null;
   created_at: string | null;
+  rounds?: number | null;
 }
 
 interface SessionDetailDrawerProps {

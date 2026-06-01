@@ -5,7 +5,7 @@
 import { logger } from "@/lib/logger";
 import type { SessionRow, AllMetrics, OvertrainingRisk, WellnessCheckIn, PersonalBaseline, LoadConfidence, DailySessionSummary, ThisWeekSummary, LastWeekSummary } from "./types";
 import { clamp, mapRange, groupByDate } from "./helpers";
-import { sessionLoad, dailyLoad, calculateStrain } from "./load";
+import { sessionLoad, dailyLoad, calculateStrain, computeEwmaAcwr, computeFosterMetrics, computeContactLoad } from "./load";
 import { deriveCalibration } from "./calibration";
 import { getLoadZone, computeBalanceMetrics, computeDeficitImpactScore, computeWellnessScore, computeStabilityScore } from "./wellness";
 import { computeEnhancedReadiness, applyRestDayRecovery } from "./readiness";
@@ -16,6 +16,8 @@ import {
   getLatestSleep, getLatestSoreness, getAvgSleep, getRecentSessions,
   computeForecast, computeSleepScore, getAvgSleepLast3,
 } from "./stats";
+import { derivePillars } from "./pillars";
+import { generateActionLine } from "./actionLine";
 
 // ─── Build Daily Loads Array (28 days) ───────────────────────
 function buildDailyLoads(sessions28d: SessionRow[]): { date: string; load: number; sessions: SessionRow[] }[] {
@@ -62,9 +64,9 @@ function computeLoadMetrics(dailyLoads: { date: string; load: number }[]): {
   loadRatio: number;
   loadConfidence: LoadConfidence;
 } {
-  const acuteLoad = dailyLoads.slice(-7).reduce((sum, d) => sum + d.load, 0);
-  const chronicLoad = dailyLoads.reduce((sum, d) => sum + d.load, 0) / 28;
-  const loadRatio = acuteLoad / (chronicLoad + 1);
+  // EWMA-based ACWR (Williams et al. 2017) — weights recent days more heavily
+  // than the older flat 7d sum / 28d mean approach.
+  const { acuteLoad, chronicLoad, loadRatio } = computeEwmaAcwr(dailyLoads);
 
   // Reliability gate: count distinct training days (any non-zero load) across
   // the full 28-day window. ACWR is only meaningful with sustained data.
@@ -103,14 +105,32 @@ function computeAdaptiveOvertrainingScore(
   // and not just one solid session on an otherwise empty week.
   const loadSpikeAllowed = loadConfidence.isReliable && acuteLoad >= MIN_ACUTE_LOAD_FOR_SPIKE_WARNING;
   const { caution, danger } = calibration.loadRatioThresholds;
+  const inPeak = calibration.phase === 'peak';
   if (loadSpikeAllowed) {
     if (loadRatio > danger) {
-      score += 40;
-      factors.push(`Severe acute load spike (ratio ${loadRatio.toFixed(2)} > ${danger})`);
+      if (inPeak) {
+        // Camp peak: load is supposed to spike. Relabel for transparency
+        // but don't penalize — peaking is intentional, not overtraining.
+        factors.push('Camp peak load — expected at this stage');
+      } else {
+        score += 40;
+        factors.push(`Severe acute load spike (ratio ${loadRatio.toFixed(2)} > ${danger})`);
+      }
     } else if (loadRatio > caution) {
-      score += Math.round(mapRange(loadRatio, caution, danger, 15, 40));
-      factors.push(`Elevated acute load (ratio ${loadRatio.toFixed(2)} > ${caution})`);
+      if (inPeak) {
+        factors.push('Camp peak load — expected at this stage');
+      } else {
+        score += Math.round(mapRange(loadRatio, caution, danger, 15, 40));
+        factors.push(`Elevated acute load (ratio ${loadRatio.toFixed(2)} > ${caution})`);
+      }
     }
+  }
+
+  // Taper: load SHOULD be down, but if it's collapsed too far the athlete
+  // risks losing sharpness. Surface as a transparency factor only — no
+  // score contribution (this isn't overtraining, it's the inverse).
+  if (calibration.phase === 'taper' && loadRatio < 0.7) {
+    factors.push('Taper looks too aggressive — keep some intensity');
   }
 
   if (avgRPE7d > calibration.rpeCeiling) {
@@ -188,11 +208,13 @@ export function computeAllMetrics(
   baseline?: PersonalBaseline | null,
   previousDayReadiness?: number | null,
   sleepLogs?: { date: string; hours: number }[],
+  daysToFight?: number | null,
 ): AllMetrics {
   const calibration = deriveCalibration(
     profileFreq ?? null,
     activityLevel ?? null,
     sessions28d,
+    daysToFight ?? null,
   );
 
   const dailyLoadsArr = buildDailyLoads(sessions28d);
@@ -250,6 +272,10 @@ export function computeAllMetrics(
 
   const sleepScore = computeSleepScore(sessions28d, sleepLogs);
   const avgSleepLast3 = getAvgSleepLast3(sessions28d, sleepLogs);
+
+  // Foster overtraining indicators + combat-sports contact-load tracker.
+  const { weeklyMonotony, weeklyStrain } = computeFosterMetrics(dailyLoadsArr);
+  const { contactRoundsLast7d, contactRiskZone } = computeContactLoad(sessions28d);
 
   const enhancedFields: Partial<AllMetrics> = {};
 
@@ -338,6 +364,31 @@ export function computeAllMetrics(
     totalMinutes: _lastWeekMinutes,
   };
 
+  // ─── Display pillars + deterministic action line ──────────────
+  // Pillars are display-derived from the existing readiness breakdown;
+  // they DO NOT re-weight the hero readiness score.
+  const pillars = derivePillars(readiness.breakdown, loadConfidence);
+
+  // Days since the most recent hard session (RPE >= 7, excluding rest/recovery).
+  // Sentinel = 999 if there's no hard session in the 28d window.
+  const _todayDateIso = new Date().toISOString().slice(0, 10);
+  const _hardDates = sessions28d
+    .filter(s => s.rpe >= 7 && s.session_type !== 'Rest' && s.session_type !== 'Recovery')
+    .map(s => s.date)
+    .sort()
+    .reverse();
+  const _lastHardIso = _hardDates[0];
+  const daysSinceLastHardSession = _lastHardIso
+    ? Math.floor((Date.parse(_todayDateIso) - Date.parse(_lastHardIso)) / 86_400_000)
+    : 999;
+
+  const actionLine = generateActionLine({
+    readinessScore: readiness.score,
+    campPhase: calibration.phase ?? 'off-camp',
+    daysSinceLastHardSession,
+    sessionsLast7d,
+  });
+
   logger.info('[PE] allMetrics', {
     strain: todayStrain,
     acuteLoad,
@@ -377,6 +428,12 @@ export function computeAllMetrics(
     calibration,
     sleepScore,
     avgSleepLast3,
+    weeklyMonotony,
+    weeklyStrain,
+    contactRoundsLast7d,
+    contactRiskZone,
+    pillars,
+    actionLine,
     ...enhancedFields,
   };
 }
@@ -386,19 +443,28 @@ export function computeAllMetrics(
 
 export type {
   SessionRow, SleepLog, OvertrainingRisk, DailyStrainEntry, LoadZone, LoadZoneInfo,
-  ForecastResult, AthleteTier, AthleteCalibration, TrendAlerts,
+  ForecastResult, AthleteTier, AthleteCalibration, CampPhase, TrendAlerts,
   ReadinessBreakdown, EnhancedReadinessBreakdown, ReadinessResult,
   WellnessCheckIn, BalanceDirection, BalanceSeverity, BalanceMetric,
-  PersonalBaseline, AllMetrics,
+  PersonalBaseline, AllMetrics, PillarScores,
   DailySessionSummary, ThisWeekSummary, LastWeekSummary,
 } from "./types";
 
 export { clamp, mapRange, getRecentSleepValues, getRecentSorenessValues, zScore } from "./helpers";
-export { sessionLoad, dailyLoad, calculateStrain } from "./load";
-export { deriveCalibration } from "./calibration";
+export {
+  sessionLoad, dailyLoad, calculateStrain,
+  ewmaLoad, computeEwmaAcwr, cnsMultiplier,
+  computeFosterMetrics, computeContactLoad,
+  ACUTE_LAMBDA, CHRONIC_LAMBDA,
+} from "./load";
+export type { ContactRiskZone } from "./load";
+export { deriveCalibration, determineCampPhase, applyCampPhaseToCalibration } from "./calibration";
 export {
   computeBalanceMetrics, computeDeficitImpactScore, computeWellnessScore,
   computeStabilityScore, autoRegressiveSmooth, getLoadZone,
 } from "./wellness";
 export { computeReadiness, computeEnhancedReadiness, applyRestDayRecovery } from "./readiness";
 export { detectTrends, detectEnhancedTrends } from "./trends";
+export { derivePillars } from "./pillars";
+export { generateActionLine } from "./actionLine";
+export type { ActionLineInput } from "./actionLine";

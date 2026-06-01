@@ -1,6 +1,57 @@
-import type { AthleteTier, AthleteCalibration, SessionRow } from "./types";
+import type { AthleteTier, AthleteCalibration, CampPhase, SessionRow } from "./types";
 import { clamp } from "./helpers";
 import { sessionLoad } from "./load";
+
+export type { CampPhase } from "./types";
+
+/**
+ * Map days-to-fight to a camp phase.
+ * - off-camp: > 28 days out (or no fight scheduled)
+ * - build:    15-28 days out
+ * - peak:     8-14 days out  (load is supposed to spike — loosen thresholds)
+ * - taper:    0-7 days out   (load should taper — flag under-loading)
+ */
+export function determineCampPhase(daysToFight: number | null): CampPhase {
+  if (daysToFight == null || daysToFight > 28) return 'off-camp';
+  if (daysToFight > 14) return 'build';
+  if (daysToFight > 7) return 'peak';
+  return 'taper';
+}
+
+/**
+ * Apply camp-phase-specific shifts to the ACWR thresholds in a calibration.
+ * Returns a NEW calibration object (immutable). Also stamps `phase` on the
+ * returned calibration so downstream consumers (e.g. UI relabeling) can
+ * tell which phase the math was tuned for.
+ */
+export function applyCampPhaseToCalibration(
+  calibration: AthleteCalibration,
+  phase: CampPhase,
+): AthleteCalibration {
+  const t = calibration.loadRatioThresholds;
+  switch (phase) {
+    case 'build':
+      return {
+        ...calibration,
+        loadRatioThresholds: { caution: t.caution - 0.05, danger: t.danger - 0.05 },
+        phase,
+      };
+    case 'peak':
+      return {
+        ...calibration,
+        loadRatioThresholds: { caution: t.caution + 0.15, danger: t.danger + 0.10 },
+        phase,
+      };
+    case 'taper':
+      return {
+        ...calibration,
+        loadRatioThresholds: { caution: t.caution + 0.20, danger: t.danger + 0.20 },
+        phase,
+      };
+    default:
+      return { ...calibration, phase };
+  }
+}
 
 const TIER_DEFAULTS: Record<AthleteTier, Omit<AthleteCalibration, 'tier'>> = {
   advanced: {
@@ -50,6 +101,7 @@ export function deriveCalibration(
   profileFreq: number | null,
   activityLevel: string | null,
   sessions28d: SessionRow[],
+  daysToFight: number | null = null,
 ): AthleteCalibration {
   const tier = determineTier(profileFreq, activityLevel);
   const defaults = TIER_DEFAULTS[tier];
@@ -74,5 +126,9 @@ export function deriveCalibration(
     calibration.sessionFrequencyFlagThreshold = Math.ceil(calibration.normalSessionsPerWeek + 2);
   }
 
-  return calibration;
+  // Apply camp-phase shift at the end so the planned-peaking band of an
+  // ACWR spike doesn't trip false Red zone alarms. When `daysToFight` is
+  // null this resolves to 'off-camp' and leaves thresholds untouched.
+  const phase = determineCampPhase(daysToFight);
+  return applyCampPhaseToCalibration(calibration, phase);
 }

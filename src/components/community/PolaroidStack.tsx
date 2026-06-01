@@ -323,7 +323,15 @@ export function PolaroidStack({
           We key on `topPost.id` so the comment input + bar reset cleanly
           when a card is swiped and the next post is promoted to top. */}
       {engagement && topPost && !exitingPost && (
-        <div key={topPost.id} className="mt-3 space-y-2 px-2 flex-shrink-0">
+        // Soft fade-in keyed to the top post so the reactions + comment row
+        // glides in with the promoted card instead of hard-popping.
+        <motion.div
+          key={topPost.id}
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.22, ease: "easeOut" }}
+          className="mt-3 space-y-2 px-2 flex-shrink-0"
+        >
           <EmojiReactionBar
             reactionCounts={topPost.reactionCounts ?? {}}
             viewerReactions={topPost.viewerReactions ?? []}
@@ -339,7 +347,7 @@ export function PolaroidStack({
           <CommentInputBar
             onSubmit={(text) => engagement.onSubmitComment(topPost.id, text)}
           />
-        </div>
+        </motion.div>
       )}
     </div>
   );

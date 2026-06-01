@@ -23,6 +23,11 @@ import { CalendarMonthGrid } from "@/components/fightcamp/CalendarMonthGrid";
 import { SessionCard } from "@/components/fightcamp/SessionCard";
 import { SessionDetailDrawer } from "@/components/fightcamp/SessionDetailDrawer";
 import { FightCampLogForm, SESSION_TYPES } from "@/components/fightcamp/FightCampLogForm";
+import {
+  SESSION_TYPE_CATEGORIES,
+  ALL_SESSION_TYPES,
+  isContactSession,
+} from "@/lib/sessionTypes";
 import { uploadSessionMediaV2 } from "@/lib/uploadSessionMediaV2";
 import type { PendingSessionMedia } from "@/components/fightcamp/FightCampLogForm";
 import { triggerHapticSelection, confirmDelete } from "@/lib/haptics";
@@ -55,6 +60,8 @@ interface TrainingCalendarRow {
   notes: string | null;
   media_url: string | null;
   created_at: string | null;
+  // Contact rounds (optional — sparring / live grappling rows only).
+  rounds?: number | null;
 }
 type TrainingCalendarInsert = Partial<TrainingCalendarRow> & {
   date: string;
@@ -79,6 +86,40 @@ const FRESH_WINDOW_MS = 30 * 1000; // dedupe identical requests inside 30s
 // never seen and would reject with an ArgumentValidationError.
 function looksLikeConvexId(id: string): boolean {
     return typeof id === "string" && /^[a-z0-9]{20,40}$/i.test(id);
+}
+
+// Most-Recently-Used session types per-user. Persisted to localStorage so
+// the picker remembers across reloads. Wrapped in try/catch to survive
+// Safari Private Mode (where setItem throws) without breaking the save.
+const MRU_KEY = (uid: string) => `recent-session-types:${uid}`;
+function readMru(userId: string): string[] {
+    try {
+        const raw = localStorage.getItem(MRU_KEY(userId));
+        const parsed = raw ? (JSON.parse(raw) as unknown) : [];
+        if (!Array.isArray(parsed)) return [];
+        return parsed.filter((t): t is string => typeof t === "string").slice(0, 3);
+    } catch {
+        return [];
+    }
+}
+function pushMru(userId: string, type: string): void {
+    try {
+        const existing = readMru(userId);
+        const next = [type, ...existing.filter((t) => t !== type)].slice(0, 3);
+        localStorage.setItem(MRU_KEY(userId), JSON.stringify(next));
+    } catch {
+        /* swallow private-mode / quota errors */
+    }
+}
+
+// Default-selection helper. Prefer first MRU; fall back to the first
+// Combat-category type (`Sparring`) per the T8 spec.
+function pickDefaultSessionType(userId: string | null): string {
+    if (userId) {
+        const mru = readMru(userId);
+        if (mru.length > 0) return mru[0];
+    }
+    return SESSION_TYPE_CATEGORIES[0].types[0].id;
 }
 
 export default function TrainingCalendar() {
@@ -109,7 +150,7 @@ export default function TrainingCalendar() {
     const [sessionLoggedTrigger, setSessionLoggedTrigger] = useState(0);
 
     // Form State
-    const [sessionType, setSessionType] = useState(SESSION_TYPES[0]);
+    const [sessionType, setSessionType] = useState<string>(() => pickDefaultSessionType(userId));
     const [duration, setDuration] = useState("60");
     const [rpe, setRpe] = useState([5]);
     const [intensityLevel, setIntensityLevel] = useState([3]);
@@ -120,6 +161,9 @@ export default function TrainingCalendar() {
     const [runTime, setRunTime] = useState("");
     const [runDistanceUnit, setRunDistanceUnit] = useState<"km" | "mi">("km");
     const runPace = formatPace(runDistance, runTime);
+    // Optional contact-round count. `null` ⇒ user hasn't set one; we omit
+    // the field on save so the schema's `v.optional(v.number())` stays clean.
+    const [rounds, setRounds] = useState<number | null>(null);
 
     // Edit state
     const [editingSession, setEditingSession] = useState<TrainingCalendarRow | null>(null);
@@ -201,6 +245,7 @@ export default function TrainingCalendar() {
                 notes: r.notes ?? null,
                 media_url: r.mediaUrl ?? null,
                 created_at: r._creationTime ? new Date(r._creationTime).toISOString() : null,
+                rounds: typeof r.rounds === "number" ? r.rounds : null,
             }));
             monthMemCache.set(memKey, { data: rows, fetchedAt: Date.now() });
             localCache.set(uid, monthCacheKey(date), rows);
@@ -294,6 +339,7 @@ export default function TrainingCalendar() {
                 notes: r.notes ?? null,
                 media_url: r.mediaUrl ?? null,
                 created_at: r._creationTime ? new Date(r._creationTime).toISOString() : null,
+                rounds: typeof r.rounds === "number" ? r.rounds : null,
             }));
             recent28dMemCache.set(userId, { data: rows, fetchedAt: Date.now() });
             localCache.set(userId, "training_sessions_28d", rows);
@@ -339,6 +385,18 @@ export default function TrainingCalendar() {
     }, [userId, currentDate, preloadMonth]);
     useEffect(() => { if (userId) setCustomColors(getUserColors(userId)); }, [userId]);
 
+    // Re-pick the default session type once userId resolves — the first
+    // render uses null (Sparring default). Only re-pick if the user hasn't
+    // already touched the picker mid-edit (editingSession is null).
+    useEffect(() => {
+        if (!userId || editingSession || isAddModalOpen) return;
+        const mru = readMru(userId);
+        if (mru.length > 0 && mru[0] !== sessionType) {
+            setSessionType(mru[0]);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [userId]);
+
     // Auto-open Log Session dialog when navigated from Quick Log (deferred to avoid race with QuickLog sheet close)
     useEffect(() => {
         if (searchParams.get("openLogSession") === "true") {
@@ -353,7 +411,7 @@ export default function TrainingCalendar() {
     }, [searchParams, setSearchParams]);
 
     const resetForm = () => {
-        setSessionType(SESSION_TYPES[0]);
+        setSessionType(pickDefaultSessionType(userId));
         setDuration("60");
         setRpe([5]);
         setIntensityLevel([3]);
@@ -363,6 +421,7 @@ export default function TrainingCalendar() {
         setRunDistance("");
         setRunTime("");
         setRunDistanceUnit("km");
+        setRounds(null);
         setEditingSession(null);
         // Revoke any in-flight object URLs so the browser releases the
         // underlying blob memory before we drop the references.
@@ -407,6 +466,13 @@ export default function TrainingCalendar() {
         setIntensityLevel([il]);
         setHasSoreness((session.soreness_level ?? 0) > 0);
         setSorenessLevel([(session.soreness_level ?? 0) > 0 ? session.soreness_level! : 5]);
+        // Preload existing rounds for contact sessions; null otherwise so the
+        // form respects "user hasn't set it" semantics (unchecked on save).
+        setRounds(
+            isContactSession(session.session_type) && typeof session.rounds === "number"
+                ? session.rounds
+                : null,
+        );
         const { meta, notes: cleanNotes } = decodeRunMeta(session.notes);
         setNotes(cleanNotes);
         if (meta) {
@@ -468,6 +534,11 @@ export default function TrainingCalendar() {
               ) || null
             : notes.trim() || null;
 
+        // Rounds is only included for contact sessions, and only when the
+        // user actually set a value (rounds !== null). Mirrors the payload
+        // logic below so the optimistic row matches what the server stores.
+        const contactRounds = isContactSession(sessionType) && rounds != null ? rounds : null;
+
         const optimisticRow: TrainingCalendarRow = {
             // Spread editingSession to preserve any DB-managed fields (created_at, etc.)
             ...(editingSession ?? ({} as TrainingCalendarRow)),
@@ -484,6 +555,7 @@ export default function TrainingCalendar() {
             fatigue_level: null,
             sleep_quality: null,
             mobility_done: null,
+            rounds: contactRounds,
             // Legacy single-media URL stays nullable; the new flow attaches
             // media via `session_media` after the row is created.
             media_url: editingSession?.media_url ?? null,
@@ -550,6 +622,7 @@ export default function TrainingCalendar() {
                     rpe: payload!.rpe,
                     sorenessLevel: payload!.soreness_level ?? undefined,
                     notes: payload!.notes ?? undefined,
+                    ...(isContactSession(sessionType) && rounds != null ? { rounds } : {}),
                 });
             } else {
                 realSessionId = (await createCalendarMut({
@@ -561,7 +634,15 @@ export default function TrainingCalendar() {
                     rpe: payload!.rpe,
                     sorenessLevel: payload!.soreness_level ?? undefined,
                     notes: payload!.notes ?? undefined,
+                    ...(isContactSession(sessionType) && rounds != null ? { rounds } : {}),
                 })) as Id<"fight_camp_calendar">;
+            }
+
+            // Push to MRU now that the server accepted the row. Skipped for
+            // the dedicated "Rest" sentinel (handled by its own flow) so the
+            // picker's recent list stays training-focused.
+            if (sessionType !== "Rest") {
+                pushMru(uid, sessionType);
             }
 
             // Multi-attachment upload pass. Run in parallel because each
@@ -793,6 +874,7 @@ export default function TrainingCalendar() {
             notes: null,
             media_url: null,
             created_at: new Date().toISOString(),
+            rounds: null,
         };
 
         const next = [...sessions, optimisticRow];
@@ -1086,6 +1168,7 @@ export default function TrainingCalendar() {
                                     runTime={runTime} setRunTime={setRunTime}
                                     runDistanceUnit={runDistanceUnit} setRunDistanceUnit={setRunDistanceUnit}
                                     runPace={runPace}
+                                    rounds={rounds} setRounds={setRounds}
                                     pendingMedia={pendingMedia}
                                     onAddMedia={handleAddPendingMedia}
                                     onRemoveMedia={handleRemovePendingMedia}
