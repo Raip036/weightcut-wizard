@@ -28,6 +28,7 @@ export const FEATURE_GATES = {
   AI_WORKOUT_GENERATOR: { minTier: "pro" as const },
   AI_MEAL_PLANNER: { minTier: "pro" as const },
   AI_RECOVERY_COACH: { minTier: "pro" as const },
+  AI_WEIGHT_PROTOCOL: { minTier: "pro" as const },
   AI_FIGHT_CAMP_COACH: { minTier: "pro" as const },
   AI_HYDRATION_INSIGHTS: { minTier: "pro" as const },
   AI_TRAINING_INSIGHTS: { minTier: "pro" as const },

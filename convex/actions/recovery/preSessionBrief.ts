@@ -25,15 +25,18 @@ import { requireUserIdFromAction } from "../_helpers";
 import { enforceFeatureGate } from "../../_shared/featureGates";
 import { parseJSON } from "../../_shared/parseResponse";
 
-// Per-provider model pick. Recovery features get newer OpenRouter models
-// directly (not via the shared OPENROUTER_MODEL_MAP) so other features keep
-// their current routing. Falls back to the canonical Groq model when
-// LLM_PROVIDER is not openrouter.
-//   - Pre-session brief → Claude Haiku 4.5 (fast, short structured output;
-//     ~$0.001/use, ~20×/month/user = $0.02/user/mo).
+// Per-provider model pick. Recovery features get OpenRouter models directly
+// (not via the shared OPENROUTER_MODEL_MAP) so other features keep their
+// current routing. Falls back to the canonical Groq model when LLM_PROVIDER
+// is not openrouter.
+//   - Pre-session brief → DeepSeek V3.5 (strong structured-output, ~5x
+//     cheaper than Haiku 4.5). Latency is slightly higher than Haiku
+//     (~1-2s vs ~500ms); acceptable for this surface since the user is
+//     not blocked waiting.
+//     Verify the exact OpenRouter model ID before deploy.
 const MODEL =
   (typeof process !== "undefined" && process.env?.LLM_PROVIDER?.toLowerCase() === "openrouter")
-    ? "anthropic/claude-haiku-4.5"
+    ? "deepseek/deepseek-chat-v3.5"
     : "llama-3.1-8b-instant";
 const GROQ_TIMEOUT_MS = 12_000;
 

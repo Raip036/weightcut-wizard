@@ -144,3 +144,129 @@ export const RehydrationPlanSchema = z
   });
 
 export type RehydrationPlan = z.infer<typeof RehydrationPlanSchema>;
+
+/* ------------------------------------------------------------------ */
+/* v3 (2026-06-01): Weight Protocol Redesign — FightPlan + Rehydration */
+/* Spec: docs/superpowers/specs/2026-06-01-weight-protocol-redesign-design.md §4.2 */
+/* These schemas validate the raw JSON returned by Claude Opus 4.7;    */
+/* deterministic day numerics are re-applied post-parse.               */
+/* ------------------------------------------------------------------ */
+
+export const FightPlanSchema = z.object({
+  generatedAt: z.number(),
+  campId: z.string(),
+  approach: z.enum(["gradual", "standard", "aggressive"]),
+  cutDepthKg: z.number(),
+  cutDepthPct: z.number(),
+  cutCategory: z.enum(["light", "moderate", "heavy", "extreme"]),
+
+  safetyWarnings: z.array(
+    z.object({
+      severity: z.enum(["info", "warn", "critical"]),
+      code: z.string(),
+      message: z.string(),
+    }),
+  ),
+
+  expectedWeightLossKg: z.object({
+    glycogen: z.number(),
+    water: z.number(),
+    gut: z.number(),
+    fat: z.number(),
+    total: z.number(),
+  }),
+
+  days: z
+    .array(
+      z.object({
+        dayIso: z.string(),
+        dayLabel: z.string(),
+        daysToWeighIn: z.number(),
+        targetWeightKg: z.number().nullable(),
+        carbsGrams: z.number(),
+        carbsCopy: z.string(),
+        waterLitres: z.number(),
+        waterCopy: z.string(),
+        sodiumMg: z.number(),
+        sodiumCopy: z.string(),
+        fibreNote: z.enum([
+          "normal",
+          "reduce",
+          "eliminate",
+          "low_residue_only",
+        ]),
+        fibreCopy: z.string(),
+        trainingRecommendation: z.string(),
+        sleepTargetHours: z.number(),
+        keyAction: z.string(),
+        cautions: z.array(z.string()).max(3),
+      }),
+    )
+    .min(1)
+    .max(14),
+
+  rolling: z.object({
+    peakWaterDay: z.string(),
+    sodiumCliffDay: z.string(),
+    glycogenFloorDay: z.string(),
+  }),
+});
+
+export type FightPlan = z.infer<typeof FightPlanSchema>;
+
+export const RehydrationProtocolSchema = z.object({
+  generatedAt: z.number(),
+  campId: z.string(),
+  weighInWeightKg: z.number(),
+  fightWeightTargetKg: z.number(),
+  weighInToFightGapHours: z.number(),
+
+  orsRecipe: z.object({
+    perLitre: z.array(
+      z.object({
+        ingredient: z.string(),
+        amount: z.number(),
+        unit: z.enum(["g", "mg", "ml"]),
+        role: z.string(),
+        note: z.string(),
+      }),
+    ),
+    totalLitresTarget: z.number(),
+    diyShoppingList: z.array(z.string()),
+    commercialEquivalents: z.array(z.string()),
+  }),
+
+  hours: z.array(
+    z.object({
+      hourOffset: z.number(),
+      label: z.string(),
+      liquidsMl: z.number(),
+      liquidsComposition: z.string(),
+      foodGrams: z.object({
+        carbs: z.number(),
+        protein: z.number(),
+        fat: z.number(),
+        sodium: z.number(),
+      }),
+      foodCopy: z.string(),
+      notes: z.string(),
+      caution: z.string().nullable(),
+    }),
+  ),
+
+  doNots: z.array(z.string()).max(7),
+  feelChecks: z.array(
+    z.object({
+      metric: z.enum([
+        "urine_colour",
+        "weigh_back_kg",
+        "energy_1to10",
+        "headache",
+        "no_cramps",
+      ]),
+      target: z.string(),
+    }),
+  ),
+});
+
+export type RehydrationProtocol = z.infer<typeof RehydrationProtocolSchema>;

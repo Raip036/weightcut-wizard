@@ -277,7 +277,7 @@ export const BottomNav = memo(function BottomNav() {
 
   // Resolve which of the 5 nav slots (0=Home, 1=Nutrition, 2=Gym,
   // 3=Nutrition) the current route maps to. -1 means none → bubble hides.
-  const campSubRoutes = ['/training-calendar', '/fight-camps', '/gym', '/weight-cut', '/training-library'];
+  const campSubRoutes = ['/training-calendar', '/fight-camps', '/gym', '/weight-protocol', '/training-library'];
   const activeIndex = useMemo(() => {
     const mainHit = mainNavItems.findIndex((item) => location.pathname === item.url);
     if (mainHit >= 0) return mainHit;

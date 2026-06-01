@@ -20,12 +20,14 @@ import type * as _shared_math from "../_shared/math.js";
 import type * as _shared_normalizePlanTopLevel from "../_shared/normalizePlanTopLevel.js";
 import type * as _shared_normalizeWeeklyPlan from "../_shared/normalizeWeeklyPlan.js";
 import type * as _shared_parseResponse from "../_shared/parseResponse.js";
+import type * as _shared_protocolResearch from "../_shared/protocolResearch.js";
 import type * as _shared_recoveryContext from "../_shared/recoveryContext.js";
 import type * as _shared_rehydrationMath from "../_shared/rehydrationMath.js";
 import type * as _shared_researchSummary from "../_shared/researchSummary.js";
 import type * as _shared_sanitizeUserText from "../_shared/sanitizeUserText.js";
 import type * as _shared_subscriptionGuard from "../_shared/subscriptionGuard.js";
 import type * as _shared_tier from "../_shared/tier.js";
+import type * as _shared_weightProtocolMath from "../_shared/weightProtocolMath.js";
 import type * as actions__helpers from "../actions/_helpers.js";
 import type * as actions__trainingCoach_completePath from "../actions/_trainingCoach/completePath.js";
 import type * as actions__trainingCoach_evaluatePlateau from "../actions/_trainingCoach/evaluatePlateau.js";
@@ -41,6 +43,8 @@ import type * as actions_fightCampCoach from "../actions/fightCampCoach.js";
 import type * as actions_fightWeekAnalysis from "../actions/fightWeekAnalysis.js";
 import type * as actions_foodSearch from "../actions/foodSearch.js";
 import type * as actions_generateCutPlan from "../actions/generateCutPlan.js";
+import type * as actions_generateFightPlan from "../actions/generateFightPlan.js";
+import type * as actions_generateRehydrationProtocol from "../actions/generateRehydrationProtocol.js";
 import type * as actions_generateTechniqueChains from "../actions/generateTechniqueChains.js";
 import type * as actions_generateWeightPlan from "../actions/generateWeightPlan.js";
 import type * as actions_hydrationInsights from "../actions/hydrationInsights.js";
@@ -50,7 +54,6 @@ import type * as actions_reconcileAiOutcomes from "../actions/reconcileAiOutcome
 import type * as actions_recovery_campCompass from "../actions/recovery/campCompass.js";
 import type * as actions_recovery_preSessionBrief from "../actions/recovery/preSessionBrief.js";
 import type * as actions_recoveryCoach from "../actions/recoveryCoach.js";
-import type * as actions_rehydrationProtocol from "../actions/rehydrationProtocol.js";
 import type * as actions_scanBarcode from "../actions/scanBarcode.js";
 import type * as actions_sendAnnouncementPush from "../actions/sendAnnouncementPush.js";
 import type * as actions_trainingCoachPlanner from "../actions/trainingCoachPlanner.js";
@@ -114,7 +117,9 @@ import type * as training_paths from "../training_paths.js";
 import type * as training_summary_cards from "../training_summary_cards.js";
 import type * as user_coach_settings from "../user_coach_settings.js";
 import type * as user_discipline_xp from "../user_discipline_xp.js";
+import type * as weightProtocols from "../weightProtocols.js";
 import type * as weight_logs from "../weight_logs.js";
+import type * as weight_protocols_internal from "../weight_protocols_internal.js";
 import type * as wellness from "../wellness.js";
 
 import type {
@@ -136,12 +141,14 @@ declare const fullApi: ApiFromModules<{
   "_shared/normalizePlanTopLevel": typeof _shared_normalizePlanTopLevel;
   "_shared/normalizeWeeklyPlan": typeof _shared_normalizeWeeklyPlan;
   "_shared/parseResponse": typeof _shared_parseResponse;
+  "_shared/protocolResearch": typeof _shared_protocolResearch;
   "_shared/recoveryContext": typeof _shared_recoveryContext;
   "_shared/rehydrationMath": typeof _shared_rehydrationMath;
   "_shared/researchSummary": typeof _shared_researchSummary;
   "_shared/sanitizeUserText": typeof _shared_sanitizeUserText;
   "_shared/subscriptionGuard": typeof _shared_subscriptionGuard;
   "_shared/tier": typeof _shared_tier;
+  "_shared/weightProtocolMath": typeof _shared_weightProtocolMath;
   "actions/_helpers": typeof actions__helpers;
   "actions/_trainingCoach/completePath": typeof actions__trainingCoach_completePath;
   "actions/_trainingCoach/evaluatePlateau": typeof actions__trainingCoach_evaluatePlateau;
@@ -157,6 +164,8 @@ declare const fullApi: ApiFromModules<{
   "actions/fightWeekAnalysis": typeof actions_fightWeekAnalysis;
   "actions/foodSearch": typeof actions_foodSearch;
   "actions/generateCutPlan": typeof actions_generateCutPlan;
+  "actions/generateFightPlan": typeof actions_generateFightPlan;
+  "actions/generateRehydrationProtocol": typeof actions_generateRehydrationProtocol;
   "actions/generateTechniqueChains": typeof actions_generateTechniqueChains;
   "actions/generateWeightPlan": typeof actions_generateWeightPlan;
   "actions/hydrationInsights": typeof actions_hydrationInsights;
@@ -166,7 +175,6 @@ declare const fullApi: ApiFromModules<{
   "actions/recovery/campCompass": typeof actions_recovery_campCompass;
   "actions/recovery/preSessionBrief": typeof actions_recovery_preSessionBrief;
   "actions/recoveryCoach": typeof actions_recoveryCoach;
-  "actions/rehydrationProtocol": typeof actions_rehydrationProtocol;
   "actions/scanBarcode": typeof actions_scanBarcode;
   "actions/sendAnnouncementPush": typeof actions_sendAnnouncementPush;
   "actions/trainingCoachPlanner": typeof actions_trainingCoachPlanner;
@@ -230,7 +238,9 @@ declare const fullApi: ApiFromModules<{
   training_summary_cards: typeof training_summary_cards;
   user_coach_settings: typeof user_coach_settings;
   user_discipline_xp: typeof user_discipline_xp;
+  weightProtocols: typeof weightProtocols;
   weight_logs: typeof weight_logs;
+  weight_protocols_internal: typeof weight_protocols_internal;
   wellness: typeof wellness;
 }>;
 

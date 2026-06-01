@@ -30,15 +30,16 @@ import { requireUserIdFromAction } from "../_helpers";
 import { enforceFeatureGate } from "../../_shared/featureGates";
 import { parseJSON } from "../../_shared/parseResponse";
 
-// Per-provider model pick. Recovery features get newer OpenRouter models
-// directly (not via the shared OPENROUTER_MODEL_MAP) so other features keep
-// their current routing. Falls back to the canonical Groq model when
-// LLM_PROVIDER is not openrouter.
-//   - Weekly Sunday narrative report → Claude Sonnet 4.5 (strong reasoning,
-//     low volume justifies the cost; ~$0.025/report vs $0.008 on qwen3).
+// Per-provider model pick. Recovery features get OpenRouter models directly
+// (not via the shared OPENROUTER_MODEL_MAP) so other features keep their
+// current routing. Falls back to the canonical Groq model when LLM_PROVIDER
+// is not openrouter.
+//   - Weekly Sunday narrative report → DeepSeek V3.5 (strong reasoning,
+//     ~30x cheaper than Claude Sonnet 4.5 for narrative+JSON output).
+//     Verify the exact OpenRouter model ID before deploy.
 const MODEL =
   (typeof process !== "undefined" && process.env?.LLM_PROVIDER?.toLowerCase() === "openrouter")
-    ? "anthropic/claude-sonnet-4.5"
+    ? "deepseek/deepseek-chat-v3.5"
     : "openai/gpt-oss-120b";
 const GROQ_TIMEOUT_MS = 30_000;
 const CRON_BATCH_SIZE = 5;

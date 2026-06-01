@@ -974,6 +974,66 @@ export default defineSchema({
     .index("by_user_week", ["userId", "weekStartIso"])
     .index("by_user_created", ["userId", "createdAt"]),
 
+  /**
+   * AI-generated weight-cut protocols per fight camp. Two kinds today:
+   *  - "fight_plan"   : full pre-fight-week cut plan (FightPlan shape)
+   *  - "rehydration"  : post-weigh-in rehydration protocol (RehydrationProtocol shape)
+   *
+   * `payload` is intentionally `v.any()` — the precise shape is enforced by
+   * a Zod schema at write time (see action handler). Storing as `any` lets
+   * us evolve the payload shape without a schema migration.
+   *
+   * `derivedSnapshot` captures the `DerivedInputs` used to generate the
+   * protocol (weight, days-to-fight, recent fluid/sodium, etc.) so we can
+   * audit later and detect drift between current state and generation-time
+   * state on the rehydration page.
+   *
+   * Indexed by (userId, campId, kind) for the latest-protocol upsert hot
+   * path, and by (userId, createdAt) for any "recent protocols" listing.
+   * Spec: docs/superpowers/specs/2026-06-01-weight-protocol-redesign-design.md §4.1.
+   */
+  weight_protocols: defineTable({
+    userId: v.id("users"),
+    campId: v.id("fight_camps"),
+    kind: v.union(v.literal("fight_plan"), v.literal("rehydration")),
+    payload: v.any(),               // FightPlan | RehydrationProtocol — validated by Zod at write time
+    derivedSnapshot: v.any(),       // DerivedInputs at gen time (audit + drift detect)
+    approach: v.optional(v.string()), // 'gradual' | 'standard' | 'aggressive' (fight_plan only)
+    model: v.string(),              // 'anthropic/claude-opus-4-7' | 'openai/gpt-oss-120b'
+    createdAt: v.number(),
+  })
+    .index("by_user_camp_kind", ["userId", "campId", "kind"])
+    .index("by_user_created", ["userId", "createdAt"]),
+
+  /**
+   * Per-(user, camp, metric) feel-check ledger for the rehydration page
+   * checklist. The user ticks off subjective markers (urine colour,
+   * weigh-back, energy, headache, no cramps) as they rehydrate; each tick
+   * inserts a row. `value` is optional — populated when the user logs an
+   * actual measurement alongside the tick (e.g. "76.2" kg weigh-back).
+   *
+   * Indexed by (userId, campId) for the page-load fetch and by
+   * (userId, campId, metric) for per-metric "have I done this one yet?"
+   * lookups in the checklist UI.
+   * Spec: docs/superpowers/specs/2026-06-01-weight-protocol-redesign-design.md §4.3.
+   */
+  protocol_feel_checks: defineTable({
+    userId: v.id("users"),
+    campId: v.id("fight_camps"),
+    metric: v.union(
+      v.literal("urine_colour"),
+      v.literal("weigh_back_kg"),
+      v.literal("energy_1to10"),
+      v.literal("headache"),
+      v.literal("no_cramps"),
+    ),
+    checkedAt: v.number(),
+    // Optional value if the user logged a measurement alongside the check
+    value: v.optional(v.string()),  // e.g. "pale straw" / "76.2" / "yes"
+  })
+    .index("by_user_camp", ["userId", "campId"])
+    .index("by_user_camp_metric", ["userId", "campId", "metric"]),
+
   // ────────────────────────────────────────────────────────────────────
   // COACH MODE
   // ────────────────────────────────────────────────────────────────────

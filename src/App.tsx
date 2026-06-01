@@ -42,7 +42,10 @@ const Camp = lazy(() => import("./pages/Camp"));
 const Goals = lazy(() => import("./pages/Goals"));
 const Nutrition = lazy(() => import("./pages/nutrition/NutritionPage"));
 const WeightTracker = lazy(() => import("./pages/WeightTracker"));
-const WeightCut = lazy(() => import("./pages/WeightCut"));
+// WP-T21: `/weight-protocol` replaces the old `/fight-week` + `/hydration`
+// tabs (formerly aggregated under `/weight-cut`). All three legacy routes
+// now redirect here.
+const WeightProtocol = lazy(() => import("./pages/WeightProtocol"));
 const FightCamps = lazy(() => import("./pages/FightCamps"));
 const FightCampDetail = lazy(() => import("./pages/FightCampDetail"));
 const TrainingCalendar = lazy(() => import("./pages/TrainingCalendar"));
@@ -76,7 +79,7 @@ _idle(() => {
   // Secondary routes — defer to avoid network contention
   setTimeout(() => {
     import("./pages/Goals").catch(() => {});
-    import("./pages/WeightCut").catch(() => {});
+    import("./pages/WeightProtocol").catch(() => {});
     import("./pages/GymTracker").catch(() => {});
     import("./pages/TrainingCalendar").catch(() => {});
     import("./pages/MyGym").catch(() => {});
@@ -231,7 +234,7 @@ const AppLayoutContent = () => {
   // Warm the bottom-nav chunk cache once the protected shell mounts.
   //
   // Every primary destination (Dashboard, Camp, Nutrition, Community,
-  // WeightCut) is `React.lazy`, so the FIRST navigation to each one in a
+  // WeightProtocol) is `React.lazy`, so the FIRST navigation to each one in a
   // session would otherwise trigger Suspense and flash <DashboardSkeleton/>
   // in the middle of the PageTransition animation — which reads as jank
   // even though the motion itself is fine. By kicking off these imports
@@ -259,7 +262,7 @@ const AppLayoutContent = () => {
       import("./pages/Camp").catch(() => {});
       import("./pages/nutrition/NutritionPage").catch(() => {});
       import("./pages/Community").catch(() => {});
-      import("./pages/WeightCut").catch(() => {});
+      import("./pages/WeightProtocol").catch(() => {});
     });
     return () => {
       const cancel = (window as unknown as { cancelIdleCallback?: (h: number) => void }).cancelIdleCallback;
@@ -418,9 +421,13 @@ const App = () => (
                   <Route path="/goals" element={<ErrorBoundary><Suspense fallback={<GoalsSkeleton />}><Goals /></Suspense></ErrorBoundary>} />
                   <Route path="/nutrition" element={<ErrorBoundary><Suspense fallback={<NutritionPageSkeleton />}><Nutrition /></Suspense></ErrorBoundary>} />
                   <Route path="/weight" element={<ErrorBoundary><Suspense fallback={<WeightTrackerSkeleton />}><WeightTracker /></Suspense></ErrorBoundary>} />
-                  <Route path="/weight-cut" element={<ErrorBoundary><Suspense fallback={<DashboardSkeleton />}><WeightCut /></Suspense></ErrorBoundary>} />
-                  <Route path="/hydration" element={<Navigate to="/weight-cut?tab=rehydration" replace />} />
-                  <Route path="/fight-week" element={<Navigate to="/weight-cut" replace />} />
+                  <Route path="/weight-protocol" element={<ErrorBoundary><Suspense fallback={<DashboardSkeleton />}><WeightProtocol /></Suspense></ErrorBoundary>} />
+                  {/* WP-T21: legacy routes — `/fight-week` and `/hydration`
+                      were the two tabs of `/weight-cut`. All three now
+                      collapse into the unified `/weight-protocol` page. */}
+                  <Route path="/fight-week" element={<Navigate to="/weight-protocol" replace />} />
+                  <Route path="/hydration" element={<Navigate to="/weight-protocol" replace />} />
+                  <Route path="/weight-cut" element={<Navigate to="/weight-protocol" replace />} />
                   <Route path="/fight-camps" element={<ErrorBoundary><Suspense fallback={<DashboardSkeleton />}><FightCamps /></Suspense></ErrorBoundary>} />
                   <Route path="/fight-camps/:id" element={<ErrorBoundary><Suspense fallback={<DashboardSkeleton />}><FightCampDetail /></Suspense></ErrorBoundary>} />
                   <Route path="/training-calendar" element={<ErrorBoundary><Suspense fallback={<DashboardSkeleton />}><TrainingCalendar /></Suspense></ErrorBoundary>} />

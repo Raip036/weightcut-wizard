@@ -123,7 +123,7 @@ export const onboardingFlow: TutorialFlow = {
       description:
         "This is where the cut gets real. Water load, sodium taper, the lot. Follow it step by step and you'll walk to the scale calm.",
       position: "center",
-      navigateTo: "/weight-cut",
+      navigateTo: "/weight-protocol",
       condition: (state) => state.goalType === "cutting",
     },
     {
@@ -132,7 +132,7 @@ export const onboardingFlow: TutorialFlow = {
       description:
         "The fight is won in the hours after weigh-in. Sip the plan I lay out, hour by hour, fluid, salt and carbs in order. Don't freelance here.",
       position: "center",
-      navigateTo: "/weight-cut?tab=rehydration",
+      navigateTo: "/weight-protocol",
       condition: (state) => state.goalType === "cutting",
       wizardPose: "point",
     },
