@@ -32,6 +32,17 @@ export const onboardingFlow: TutorialFlow = {
       wizardPose: "point",
     },
     {
+      id: "score-driving-section",
+      title: "What's driving your score",
+      description:
+        "Tap into your ring to see the four sub-scores stacking up to your number. The biggest drags + boosts are listed here — tap one to drill in.",
+      position: "center",
+      route: "/dashboard",
+      spotlight: "fight-form-driving-section",
+      actionEventName: "tutorial:open-fight-form-sheet",
+      wizardPose: "point",
+    },
+    {
       id: "score-labels",
       title: "Four labels, one read",
       description:

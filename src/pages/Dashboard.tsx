@@ -190,6 +190,19 @@ export default function Dashboard() {
       document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, []);
+
+  // Tutorial bridge: a step in the onboarding flow can request the Fight
+  // Form Score sheet open declaratively via `actionEventName`. We listen
+  // for that event here and flip the open state — the tutorial's
+  // spotlight resolver (ResizeObserver + retry-on-measure) picks up the
+  // target inside the sheet once it has mounted + finished its slide-up.
+  useEffect(() => {
+    function handleOpen() {
+      setScoreSheetOpen(true);
+    }
+    window.addEventListener("tutorial:open-fight-form-sheet", handleOpen);
+    return () => window.removeEventListener("tutorial:open-fight-form-sheet", handleOpen);
+  }, []);
   const ffAdherence = useQuery(
     api.fightFormScore.loggedTodayBundle,
     FEATURE_FLAGS.enableFightFormScore ? { date: liveTodayStr } : "skip",

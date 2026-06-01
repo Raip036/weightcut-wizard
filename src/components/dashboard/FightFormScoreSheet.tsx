@@ -635,7 +635,7 @@ function SubScoreCarousel({
   }, [ordered.length]);
 
   return (
-    <div className="mt-6 space-y-2">
+    <div className="mt-6 space-y-2" data-tutorial="fight-form-driving-section">
       <div className="section-header px-1">What's driving your score</div>
       <div
         ref={railRef}

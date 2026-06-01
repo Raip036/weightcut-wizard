@@ -349,41 +349,7 @@ export default function Community() {
         }}
         onCommentRemoved={() => {}}
       />
-
-      {/* Dev-only seeder. Vite strips the entire branch in production
-          builds because `import.meta.env.DEV` resolves to `false` at
-          build time, so the mutation call site never ships. */}
-      {import.meta.env.DEV && <DevSeedButton />}
     </>
-  );
-}
-
-/* ─── Dev seed button ───
- *
- * Tiny floating chip in the bottom-right that calls the dev-only
- * `seedMockFeed` mutation. Wraps the call in a busy flag so repeated
- * taps don't queue redundant inserts while one is in flight. */
-function DevSeedButton() {
-  const seed = useMutation(api.seedMockFeed.seedMockFeed);
-  const [busy, setBusy] = useState(false);
-  return (
-    <button
-      type="button"
-      onClick={async () => {
-        setBusy(true);
-        try {
-          await seed({});
-        } catch (err) {
-          logger.warn("seedMockFeed failed", { err: String(err) });
-        } finally {
-          setBusy(false);
-        }
-      }}
-      className="fixed bottom-24 right-4 z-50 h-10 px-3 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[11px] font-semibold active:scale-95 transition-transform"
-      disabled={busy}
-    >
-      {busy ? "Seeding…" : "Seed mock feed"}
-    </button>
   );
 }
 

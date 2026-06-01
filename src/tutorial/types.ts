@@ -21,6 +21,11 @@ export interface TutorialStep {
   condition?: (state: UserTutorialState) => boolean;  // skip if false
   spotlight?: string;                                  // data-tutorial value of element to spotlight (dims everything else)
   spotlightOffset?: { x?: number; y?: number; width?: number; height?: number; yPercent?: number }; // manual spotlight nudge (yPercent: % of viewport height)
+  /** When set, a window CustomEvent with this name is dispatched when the
+   *  step enters. Used to bridge declarative steps to imperative actions
+   *  (e.g. "open the Fight Form sheet" → "tutorial:open-fight-form-sheet").
+   *  The listener is responsible for any required side-effects + timing. */
+  actionEventName?: string;
   wizardPose?: WizardPose;
   voicePace?: VoicePace;
 }

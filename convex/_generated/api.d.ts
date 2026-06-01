@@ -104,7 +104,6 @@ import type * as profiles_internal from "../profiles_internal.js";
 import type * as pushFanout from "../pushFanout.js";
 import type * as rate_limits from "../rate_limits.js";
 import type * as routines from "../routines.js";
-import type * as seedMockFeed from "../seedMockFeed.js";
 import type * as sleep_logs from "../sleep_logs.js";
 import type * as techniques from "../techniques.js";
 import type * as training_missions from "../training_missions.js";
@@ -218,7 +217,6 @@ declare const fullApi: ApiFromModules<{
   pushFanout: typeof pushFanout;
   rate_limits: typeof rate_limits;
   routines: typeof routines;
-  seedMockFeed: typeof seedMockFeed;
   sleep_logs: typeof sleep_logs;
   techniques: typeof techniques;
   training_missions: typeof training_missions;
