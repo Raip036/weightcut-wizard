@@ -939,8 +939,14 @@ export const listMyMediaLibrary = query({
     const rows = page.page;
 
     // Batch-load all unique sessions in one parallel pass instead of N awaits.
+    // Filter out null/undefined sessionIds — legacy session_media rows can
+    // have an orphaned sessionId after the parent session was deleted.
     const uniqueSessionIds = Array.from(
-      new Set(rows.map((r) => r.sessionId as unknown as string)),
+      new Set(
+        rows
+          .map((r) => r.sessionId as unknown as string | null | undefined)
+          .filter((sid): sid is string => sid != null && sid !== ""),
+      ),
     );
     const sessionDocs = await Promise.all(
       uniqueSessionIds.map((sid) => ctx.db.get(sid as any)),
@@ -992,7 +998,13 @@ export const listMediaDisciplines = query({
       .query("session_media")
       .withIndex("by_user_captured", (q) => q.eq("userId", userId))
       .take(500);
-    const sessionIds = new Set(rows.map((r) => r.sessionId as unknown as string));
+    // Filter out null/undefined sessionIds — orphaned session_media rows
+    // (parent session deleted) would otherwise crash ctx.db.get below.
+    const sessionIds = new Set(
+      rows
+        .map((r) => r.sessionId as unknown as string | null | undefined)
+        .filter((sid): sid is string => sid != null && sid !== ""),
+    );
     const disciplines = new Set<string>();
     for (const sid of sessionIds) {
       const s = await ctx.db.get(sid as any);
