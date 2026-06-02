@@ -17,16 +17,18 @@ import {
   AlertDialogDescription,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
-import { QuickLogDialog } from "@/components/nav/QuickLogDialog";
 import { SettingsPanel } from "@/components/nav/SettingsPanel";
 import { ReviewSheet } from "@/components/community/ReviewSheet";
 import {
   useRoundCardCapture,
-  useFabGesture,
   useRoundCardTooltip,
 } from "@/hooks/useRoundCardCapture";
+import {
+  RadialActionDial,
+  type RadialActionOption,
+} from "@/components/nav/RadialActionDial";
 
 const mainNavItems = [
   { title: "Home", url: "/dashboard", icon: Home },
@@ -77,7 +79,6 @@ export const BottomNav = memo(function BottomNav() {
   const hasUnreadFeedEngagement = (unreadEngagement?.count ?? 0) > 0;
   const { replayTutorial } = useTutorial();
   const goalType = (profile?.goal_type as 'cutting' | 'losing') ?? 'cutting';
-  const [quickLogOpen, setQuickLogOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const [deleteAccountDialogOpen, setDeleteAccountDialogOpen] = useState(false);
@@ -103,20 +104,52 @@ export const BottomNav = memo(function BottomNav() {
   );
   const roundCard = useRoundCardCapture({ smartDefaults: smartDefaults ?? undefined });
   const tooltip = useRoundCardTooltip();
-  const fabGesture = useFabGesture({
-    onTap: () => {
-      // Synchronous tap branch — fires Camera.getPhoto inside the
-      // pointerup handler before any React state propagates. See
-      // `useRoundCardCapture.beginCapture` for the iOS gesture-token
-      // constraint and the matching PostComposer pattern.
-      roundCard.beginCapture();
-      tooltip.dismiss();
-    },
-    onLongPress: () => {
-      setQuickLogOpen(true);
-      tooltip.dismiss();
-    },
-  });
+
+  // ─── Camera FAB gesture wiring ────────────────────────────────────────
+  // Tap fires the training-session capture flow (round-card photo →
+  // ReviewSheet) synchronously inside the pointer handler — iOS WKWebView
+  // requires the gesture token to be live when `Camera.getPhoto` runs (see
+  // `useRoundCardCapture.beginCapture`).
+  //
+  // Long-press is handled inside `RadialActionDial`: it opens a radial
+  // menu with two options (Nutrition / Training). Selecting one fires the
+  // corresponding capture handler, again inside the gesture token where
+  // possible.
+  const dialOptions: RadialActionOption[] = useMemo(
+    () => [
+      { id: "nutrition", label: "Nutrition", iconName: "restaurantOutline", tone: "primary" },
+      { id: "training", label: "Training", iconName: "pulseOutline", tone: "amber" },
+    ],
+    [],
+  );
+
+  const handleTrainingCapture = () => {
+    // Same synchronous entry-point as the previous tap branch — keeps the
+    // iOS gesture-token alive for `Camera.getPhoto`.
+    roundCard.beginCapture();
+    tooltip.dismiss();
+  };
+
+  const handleNutritionCapture = async () => {
+    tooltip.dismiss();
+    // Fire camera synchronously, navigate after the photo resolves. The
+    // Nutrition page detects `aiPhoto` in router state and runs the
+    // analyze flow without re-prompting the camera.
+    const { base64, reason } = await capturePhotoBase64();
+    navigate("/nutrition", { state: { aiPhoto: base64 ?? null, captureFailed: reason ?? null } });
+  };
+
+  const handleDialSelect = (optionId: string) => {
+    if (optionId === "nutrition") {
+      void handleNutritionCapture();
+    } else if (optionId === "training") {
+      handleTrainingCapture();
+    }
+  };
+
+  const handleCameraTap = () => {
+    handleTrainingCapture();
+  };
 
   useEffect(() => {
     setEditedName(userName);
@@ -139,36 +172,6 @@ export const BottomNav = memo(function BottomNav() {
     localStorage.setItem("theme", newTheme);
     document.documentElement.classList.toggle("dark", newTheme === "dark");
     triggerHapticSelection();
-  };
-
-  const handleLogFood = async () => {
-    setQuickLogOpen(false);
-    // Fire the camera FROM THIS TAP — iOS WKWebView requires the gesture
-    // token to be live when `Camera.getPhoto({ source: Camera })` runs, and
-    // any post-navigation `setTimeout` loses it (the plugin then silently
-    // no-ops). The Capacitor plugin grabs the token in its first sync
-    // instruction, so the small `await` for the lazy import is safe.
-    const { base64, reason } = await capturePhotoBase64();
-    // Always open the Nutrition page on the AI tab — even on cancel/deny —
-    // so the user lands somewhere actionable rather than being stranded.
-    // The base64 (if any) rides as router state; NutritionPage detects it
-    // and runs the existing analyze flow with no further camera calls.
-    navigate("/nutrition", { state: { aiPhoto: base64 ?? null, captureFailed: reason ?? null } });
-  };
-
-  const handleLogWeight = () => {
-    setQuickLogOpen(false);
-    navigate("/weight?focusWeightInput=true");
-  };
-
-  const handleLogTraining = () => {
-    setQuickLogOpen(false);
-    navigate("/training-calendar?openLogSession=true");
-  };
-
-  const handleLogGym = () => {
-    setQuickLogOpen(false);
-    navigate("/gym");
   };
 
   const handleSettings = async () => {
@@ -440,24 +443,22 @@ export const BottomNav = memo(function BottomNav() {
           />
         </div>
 
-        {/* Quick-log FAB — blue circle alongside the nav pill.
-            Tap = `roundCard.beginCapture()` fires Camera.getPhoto
-            synchronously in the gesture token, then opens ReviewSheet
-            with smart defaults so a session photo is logged in one tap.
-            Long-press = full QuickLogDialog with all 4 log surfaces. */}
+        {/* Camera FAB — blue circle alongside the nav pill.
+            Tap = training session capture (round-card photo →
+            ReviewSheet). Long-press opens the RadialActionDial with
+            Nutrition + Training options. The dial owns its own gesture
+            detection — we hand it the trigger as children and wire
+            `onTap` / `onSelect` to the same handlers a direct tap or a
+            dial-option select would call. */}
         <div className="pointer-events-auto">
-          <RoundCardFab gestureProps={fabGesture} tooltip={tooltip} />
+          <RoundCardFab
+            options={dialOptions}
+            onTap={handleCameraTap}
+            onSelect={handleDialSelect}
+            tooltip={tooltip}
+          />
         </div>
       </div>
-
-      <QuickLogDialog
-        open={quickLogOpen}
-        onOpenChange={setQuickLogOpen}
-        onLogFood={handleLogFood}
-        onLogWeight={handleLogWeight}
-        onLogTraining={handleLogTraining}
-        onLogGym={handleLogGym}
-      />
 
       {/* Round-card photo-first review sheet — opens after the FAB tap
           captures a photo. The hook owns the state machine; we feed it
@@ -728,39 +729,52 @@ const NavButton = React.forwardRef<HTMLButtonElement, NavButtonProps>(
 );
 
 interface RoundCardFabProps {
-  /** Tap + long-press gesture handlers from `useFabGesture`. Spread
-   *  directly onto the motion.button — they keep the pointer-token
-   *  alive for the synchronous `Camera.getPhoto` invocation. */
-  gestureProps: ReturnType<typeof useFabGesture>;
+  /** Dial options to fan out on long-press. */
+  options: RadialActionOption[];
+  /** Fires on a simple tap (no long-press). */
+  onTap: () => void;
+  /** Fires when the user selects a dial option after a long-press. */
+  onSelect: (optionId: string) => void;
   tooltip: ReturnType<typeof useRoundCardTooltip>;
 }
 
 /**
- * Photo-first FAB block — the raised "+" circle and its one-time
+ * Photo-first FAB block — the raised camera circle and its one-time
  * discoverability popover. Lives as a separate component so `BottomNav`
- * stays under the 500-line project ceiling and the FAB's gesture wiring
- * is testable in isolation.
+ * stays under the 500-line project ceiling.
  *
- * The Popover wraps the FAB itself so the tooltip anchors to the same
- * element the gesture targets. We pass `onOpenAutoFocus` → preventDefault
- * so the popover doesn't steal focus on first render (which would
- * surface the iOS keyboard accessory bar over the bottom-nav).
+ * Tap fires the training-session capture flow. Long-press opens a
+ * radial dial (`RadialActionDial`) with Nutrition + Training options;
+ * the dial owns all gesture detection and visuals for the fan-out.
+ *
+ * The tooltip popover is anchored to the FAB via `PopoverAnchor` (not
+ * `PopoverTrigger asChild`) because the dial owns the trigger button
+ * and renders its own pointer handlers — letting Radix clone props
+ * onto the dial would race against those handlers.
  */
-function RoundCardFab({ gestureProps, tooltip }: RoundCardFabProps) {
+function RoundCardFab({ options, onTap, onSelect, tooltip }: RoundCardFabProps) {
   return (
     <Popover open={tooltip.open} onOpenChange={tooltip.setOpen}>
-      <PopoverTrigger asChild>
-        <motion.button
-          whileTap={{ scale: 0.88 }}
-          transition={{ type: "spring", damping: 18, stiffness: 420 }}
-          {...gestureProps}
-          data-tutorial="nav-quick-log"
-          className="relative z-10 h-[52px] w-[52px] rounded-full bg-primary flex items-center justify-center select-none touch-none"
-          aria-label="Capture session photo (long-press for more options)"
-        >
-          <Camera className="h-[22px] w-[22px] text-primary-foreground" strokeWidth={2.4} />
-        </motion.button>
-      </PopoverTrigger>
+      <PopoverAnchor asChild>
+        <div className="relative z-10">
+          <RadialActionDial
+            options={options}
+            onTap={onTap}
+            onSelect={onSelect}
+            className="block"
+          >
+            <motion.div
+              whileTap={{ scale: 0.88 }}
+              transition={{ type: "spring", damping: 18, stiffness: 420 }}
+              data-tutorial="nav-quick-log"
+              className="h-[52px] w-[52px] rounded-full bg-primary flex items-center justify-center select-none touch-none"
+              aria-hidden
+            >
+              <Camera className="h-[22px] w-[22px] text-primary-foreground" strokeWidth={2.4} />
+            </motion.div>
+          </RadialActionDial>
+        </div>
+      </PopoverAnchor>
       <PopoverContent
         side="top"
         align="end"
@@ -770,7 +784,7 @@ function RoundCardFab({ gestureProps, tooltip }: RoundCardFabProps) {
       >
         <div className="flex items-start gap-2">
           <p className="leading-snug text-foreground">
-            Tap to capture &middot; long-press for more options
+            Tap = training &middot; long-press for nutrition
           </p>
           <button
             type="button"

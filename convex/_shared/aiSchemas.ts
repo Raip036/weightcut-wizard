@@ -214,6 +214,81 @@ export const FightPlanSchema = z.object({
 
 export type FightPlan = z.infer<typeof FightPlanSchema>;
 
+/**
+ * Lenient schema for parsing the raw AI response. Every field the server
+ * overwrites in `mergeFightPlan` is optional here — the AI's job is purely
+ * to provide per-day copy text. Without this, strict `FightPlanSchema`
+ * parsing throws when the LLM (correctly) omits server-authoritative
+ * fields like `generatedAt`, `campId`, `cutDepthKg`, `sleepTargetHours`,
+ * etc. Days array cap is relaxed to 21 so a slightly chatty model
+ * doesn't kill the parse (the merge step indexes by `dayIso` and
+ * silently drops anything not in the skeleton).
+ */
+export const AiFightPlanResponseSchema = z.object({
+  generatedAt: z.number().optional(),
+  campId: z.string().optional(),
+  approach: z.enum(["gradual", "standard", "aggressive"]).optional(),
+  cutDepthKg: z.number().optional(),
+  cutDepthPct: z.number().optional(),
+  cutCategory: z.enum(["light", "moderate", "heavy", "extreme"]).optional(),
+
+  safetyWarnings: z
+    .array(
+      z.object({
+        severity: z.enum(["info", "warn", "critical"]),
+        code: z.string(),
+        message: z.string(),
+      }),
+    )
+    .optional(),
+
+  expectedWeightLossKg: z
+    .object({
+      glycogen: z.number(),
+      water: z.number(),
+      gut: z.number(),
+      fat: z.number(),
+      total: z.number(),
+    })
+    .optional(),
+
+  days: z
+    .array(
+      z.object({
+        dayIso: z.string(),
+        dayLabel: z.string().optional(),
+        daysToWeighIn: z.number().optional(),
+        targetWeightKg: z.number().nullable().optional(),
+        carbsGrams: z.number().optional(),
+        carbsCopy: z.string().optional(),
+        waterLitres: z.number().optional(),
+        waterCopy: z.string().optional(),
+        sodiumMg: z.number().optional(),
+        sodiumCopy: z.string().optional(),
+        fibreNote: z
+          .enum(["normal", "reduce", "eliminate", "low_residue_only"])
+          .optional(),
+        fibreCopy: z.string().optional(),
+        trainingRecommendation: z.string().optional(),
+        sleepTargetHours: z.number().optional(),
+        keyAction: z.string().optional(),
+        cautions: z.array(z.string()).max(3).optional(),
+      }),
+    )
+    .min(0)
+    .max(21),
+
+  rolling: z
+    .object({
+      peakWaterDay: z.string(),
+      sodiumCliffDay: z.string(),
+      glycogenFloorDay: z.string(),
+    })
+    .optional(),
+});
+
+export type AiFightPlanResponse = z.infer<typeof AiFightPlanResponseSchema>;
+
 export const RehydrationProtocolSchema = z.object({
   generatedAt: z.number(),
   campId: z.string(),

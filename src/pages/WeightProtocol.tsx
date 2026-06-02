@@ -372,6 +372,9 @@ export default function WeightProtocol() {
               : "border border-amber-400/30 bg-amber-400/[0.03]"
           }`}
         >
+          {/* Header row: icon + title block + CTA label. Description is
+              lifted out below the row so it spans the full card width
+              instead of being squeezed into a narrow middle column. */}
           <div className="flex items-start gap-3">
             <div
               className={`h-11 w-11 shrink-0 rounded-2xl border flex items-center justify-center ${
@@ -393,11 +396,6 @@ export default function WeightProtocol() {
               <p className="mt-0.5 text-[17px] font-bold leading-tight text-foreground">
                 {isPremium ? "Generate your fight plan" : "Unlock your fight plan"}
               </p>
-              <p className="mt-1 text-[12px] text-muted-foreground leading-snug">
-                {isPremium
-                  ? "We'll tune the cut + rehydration timeline to your weight, training load, and prior camps. Takes 5-15 seconds."
-                  : "AI-tuned fight-week protocol, hour-by-hour rehydration timeline, DIY ORS recipe. All personalised to your body and prior camps."}
-              </p>
             </div>
             <span
               className={`inline-flex items-center gap-1 shrink-0 text-[10px] font-bold uppercase tracking-wider ${
@@ -408,6 +406,13 @@ export default function WeightProtocol() {
               <Icon name="chevronForwardOutline" size={14} />
             </span>
           </div>
+          {/* Description — full card width so the copy spreads
+              horizontally instead of wrapping in a tall narrow column. */}
+          <p className="mt-3 text-[12px] text-muted-foreground leading-snug">
+            {isPremium
+              ? "We'll tune the cut + rehydration timeline to your weight, training load, and prior camps. Takes 5-15 seconds."
+              : "AI-tuned fight-week protocol, hour-by-hour rehydration timeline, DIY ORS recipe. All personalised to your body and prior camps."}
+          </p>
         </button>
       ) : (
         <TodaysActionHero

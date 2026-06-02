@@ -60,6 +60,7 @@ export function QuickAddDialog({
   onCancelAi,
   onDismissTask,
   onToast,
+  initialPendingCaption = false,
 }: QuickAddDialogProps) {
   // ── Mode state machine ─────────────────────────────────────────────
   // The displayed mode is derived from the live AI flow state PLUS a UI
@@ -88,15 +89,24 @@ export function QuickAddDialog({
   // still "manual" on the same render the override flipped to false, so
   // the parent→child sync effect re-set it to true.)
 
+  // Track previous `open` value so we can detect the false → true
+  // transition and seed `pendingCaption` exactly once per open cycle.
+  const prevOpenRef = useRef(open);
+
   // Reset transient UI state whenever the sheet closes so the next open
-  // doesn't briefly flash a stale mode.
+  // doesn't briefly flash a stale mode. Also seed `pendingCaption` from
+  // `initialPendingCaption` on the false → true transition so the parent
+  // can deep-link the sheet straight to the caption step.
   useEffect(() => {
     if (!open) {
       setManualOverride(false);
       setConfirmDismissed(false);
       setPendingCaption(false);
+    } else if (!prevOpenRef.current && initialPendingCaption) {
+      setPendingCaption(true);
     }
-  }, [open]);
+    prevOpenRef.current = open;
+  }, [open, initialPendingCaption]);
 
   // Reset confirm dismissal whenever a fresh analysis lands.
   useEffect(() => {

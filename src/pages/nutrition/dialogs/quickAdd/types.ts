@@ -96,4 +96,13 @@ export interface QuickAddDialogProps {
     description?: string;
     variant?: "default" | "destructive";
   }) => void;
+  /**
+   * If true, the dialog should open directly on the "caption" step
+   * (assuming `aiMeal.photoBase64` is set). Used when the parent has
+   * pre-seeded a captured photo via the bottom-nav radial dial and wants
+   * the user to add an optional text caption before kicking off analysis.
+   * Only respected at the moment `open` transitions false → true; later
+   * toggles are ignored.
+   */
+  initialPendingCaption?: boolean;
 }

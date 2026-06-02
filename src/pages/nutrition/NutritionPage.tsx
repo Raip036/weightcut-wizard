@@ -61,6 +61,7 @@ export default function NutritionPage() {
   // ── UI state ──
   const [isQuickAddSheetOpen, setIsQuickAddSheetOpen] = useState(false);
   const [quickAddTab, setQuickAddTab] = useState<"ai" | "manual">("ai");
+  const [pendingCaptionFromDial, setPendingCaptionFromDial] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const [expandedMealIdeas, setExpandedMealIdeas] = useState<Set<string>>(new Set());
   const [isEditTargetsDialogOpen, setIsEditTargetsDialogOpen] = useState(false);
@@ -160,14 +161,14 @@ export default function NutritionPage() {
   //
   // The photo is captured in BottomNav's click handler (where the iOS
   // user-gesture token is alive) and arrives here via `location.state`.
-  // All we do is open the QuickAdd sheet on the AI tab, seed the captured
-  // base64 into `useAIMealAnalysis`, and kick off the analyze step — which
-  // is a Convex action call, not a camera call, so it doesn't need a
-  // gesture token. The state is cleared via `navigate(..., { state: {} })`
-  // so a refresh / back-nav doesn't accidentally replay the analyze.
+  // We seed the captured base64 into `useAIMealAnalysis` and open the
+  // QuickAdd sheet on the AI tab, parked on the caption step so the user
+  // can add an optional description before analysis fires. The dialog
+  // handles the post-caption analyze internally once the user taps
+  // Continue. State is cleared via `navigate(..., { state: null })` so a
+  // refresh / back-nav can't replay the flow.
   const aiPhotoStateHandledRef = useRef(false);
   const setPhotoBase64 = aiMeal.setPhotoBase64;
-  const handlePhotoAnalyze = aiMeal.handlePhotoAnalyze;
   useEffect(() => {
     const st = (location.state ?? null) as
       | { aiPhoto?: string | null; captureFailed?: string | null }
@@ -185,25 +186,36 @@ export default function NutritionPage() {
     // Always open the AI tab — even on cancel/deny the user lands on the
     // dialog they expected, with "Snap photo" available to retry.
     setQuickAddTab("ai");
-    setIsQuickAddSheetOpen(true);
 
     if (st.aiPhoto) {
       setPhotoBase64(st.aiPhoto);
-      // Defer analyze one microtask so the dialog has mounted; analyze is
-      // a network call (no gesture token needed) so this is safe.
-      queueMicrotask(() => {
-        void handlePhotoAnalyze(st.aiPhoto!);
-      });
-    } else if (st.captureFailed === "denied") {
-      toast({
-        title: "Camera access denied",
-        description: "Enable Camera in Settings → FightCamp Wizard to log meals with a photo.",
-        variant: "destructive",
-      });
+      // Flag the dialog to land on the caption step on its open transition.
+      // MUST be set BEFORE opening the sheet so React batches both updates
+      // and the dialog mounts with the prop already `true` — otherwise the
+      // dialog's open-transition effect sees `false` and skips caption mode.
+      setPendingCaptionFromDial(true);
+      setIsQuickAddSheetOpen(true);
+    } else {
+      setIsQuickAddSheetOpen(true);
+      if (st.captureFailed === "denied") {
+        toast({
+          title: "Camera access denied",
+          description: "Enable Camera in Settings → FightCamp Wizard to log meals with a photo.",
+          variant: "destructive",
+        });
+      }
     }
     // Clear state so it can't replay on refresh / back navigation.
     navigate(location.pathname, { replace: true, state: null });
-  }, [location.state, location.pathname, navigate, setPhotoBase64, handlePhotoAnalyze, toast]);
+  }, [location.state, location.pathname, navigate, setPhotoBase64, toast]);
+
+  // Reset the caption-from-dial flag whenever the sheet closes, so the next
+  // dial-Nutrition open starts from a clean slate.
+  useEffect(() => {
+    if (!isQuickAddSheetOpen && pendingCaptionFromDial) {
+      setPendingCaptionFromDial(false);
+    }
+  }, [isQuickAddSheetOpen, pendingCaptionFromDial]);
 
   const handleAddManualMeal = async () => {
     const validationResult = nutritionLogSchema.safeParse({
@@ -461,6 +473,7 @@ export default function NutritionPage() {
           onCancelAi={cancelAI}
           onDismissTask={dismissTask}
           onToast={toast}
+          initialPendingCaption={pendingCaptionFromDial}
         />
 
         <AiMealPlanDialog

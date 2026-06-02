@@ -51,7 +51,11 @@ import { callGroqRaw } from "../_shared/groq";
 import { requireUserIdFromAction } from "./_helpers";
 import { enforceFeatureGate } from "../_shared/featureGates";
 import { parseJSON } from "../_shared/parseResponse";
-import { FightPlanSchema, type FightPlan } from "../_shared/aiSchemas";
+import {
+  AiFightPlanResponseSchema,
+  type AiFightPlanResponse,
+  type FightPlan,
+} from "../_shared/aiSchemas";
 import {
   computeDerived,
   buildSafetyWarnings,
@@ -199,7 +203,11 @@ async function runCore(
   });
   const rawContent = apiResponse.choices?.[0]?.message?.content ?? "{}";
   const rawJson = parseJSON(rawContent);
-  const validated = FightPlanSchema.parse(rawJson);
+  // Parse with the lenient AI-response schema — every field the merge
+  // step overwrites is optional here, so the AI is free to emit only the
+  // copy fields it was asked for. The strict FightPlanSchema applies to
+  // the merged plan that the merge function returns, not the raw AI JSON.
+  const validated = AiFightPlanResponseSchema.parse(rawJson);
 
   // 5. Merge: skeleton numerics overwrite AI numerics; safety re-injected.
   const merged = mergeFightPlan(
@@ -292,15 +300,17 @@ Numerics will be replaced server-side from the skeleton — focus on copy qualit
  */
 function mergeFightPlan(
   skeleton: FightPlanSkeleton,
-  ai: FightPlan,
+  ai: AiFightPlanResponse,
   safety: SafetyWarning[],
   effectiveApproach: Approach,
   derived: DerivedInputs,
   campId: Id<"fight_camps">,
 ): FightPlan {
-  // Index AI days by dayIso for O(1) lookup during merge.
-  const aiDaysByIso = new Map<string, FightPlan["days"][number]>();
-  for (const d of ai.days) aiDaysByIso.set(d.dayIso, d);
+  // Index AI days by dayIso for O(1) lookup during merge. `ai.days` is
+  // optional on the lenient response schema — fall back to an empty list
+  // so a model that omits the array still yields a valid (copy-empty) plan.
+  const aiDaysByIso = new Map<string, NonNullable<AiFightPlanResponse["days"]>[number]>();
+  for (const d of ai.days ?? []) aiDaysByIso.set(d.dayIso, d);
 
   const mergedDays: FightPlan["days"] = skeleton.days.map((sd) => {
     const ad = aiDaysByIso.get(sd.dayIso) ?? ({} as Partial<FightPlan["days"][number]>);
