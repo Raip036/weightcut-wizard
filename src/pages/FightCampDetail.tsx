@@ -257,7 +257,7 @@ export default function FightCampDetail() {
       </div>
 
       {/* Hero — outcome chip, camp name, date, 3-up stat tiles */}
-      <header className="rounded-xs bg-card/60 border border-border/40 overflow-hidden mb-6">
+      <header className="rounded-xs card-surface overflow-hidden mb-6">
         <div className="px-5 pt-5 pb-4 flex flex-col items-center gap-3">
           <label className="relative cursor-pointer group">
             {camp.profile_pic_url ? (
@@ -417,7 +417,7 @@ function SettingsGroup({ title, children }: { title: string; children: React.Rea
       <h2 className="px-4 mb-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground/80">
         {title}
       </h2>
-      <div className="rounded-xs bg-card/60 backdrop-blur-sm border border-border/40 overflow-hidden divide-y divide-border/30">
+      <div className="rounded-xs card-surface overflow-hidden divide-y divide-border/30">
         {children}
       </div>
     </section>

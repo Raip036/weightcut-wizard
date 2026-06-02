@@ -195,7 +195,7 @@ function WisdomChip({ wisdom }: { wisdom: WisdomState }) {
   return (
     <button
       onClick={() => wisdom.generateTrainingFoodIdeas()}
-      className="group w-full flex items-center gap-2.5 rounded-xs border border-border/40 bg-card/40 px-3 py-2 active:scale-[0.99] transition hover:border-primary/30"
+      className="group w-full flex items-center gap-2.5 rounded-xs card-surface px-3 py-2 active:scale-[0.99] transition hover:border-primary/30"
     >
       <div className="relative shrink-0 h-7 w-7 rounded-full bg-primary/15 ring-1 ring-primary/25 flex items-center justify-center overflow-hidden">
         <img src={wizardLogo} alt="Wizard" className="h-full w-full object-contain p-0.5" />

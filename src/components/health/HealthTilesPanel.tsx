@@ -138,7 +138,7 @@ function HealthTilesErrorFallback({
   return (
     <Card
       className={cn(
-        "rounded-xs border border-border/50 bg-card/60 p-4",
+        "rounded-xs card-surface p-4",
         className,
       )}
     >
@@ -172,7 +172,7 @@ function Tile({ spec }: { spec: TileSpec }): JSX.Element {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.28, ease: "easeOut" }}
     >
-      <Card className="rounded-xs border border-border/50 bg-card/60 p-3 space-y-2">
+      <Card className="rounded-xs card-surface p-3 space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-muted-foreground">
             {spec.icon}
@@ -398,7 +398,7 @@ function LoadingState({ className }: { className?: string }): JSX.Element {
       {Array.from({ length: 4 }).map((_, i) => (
         <Card
           key={i}
-          className="rounded-xs border border-border/50 bg-card/60 p-3 space-y-2"
+          className="rounded-xs card-surface p-3 space-y-2"
         >
           <Skeleton className="h-3 w-16" />
           <Skeleton className="h-7 w-20" />
@@ -421,7 +421,7 @@ function EmptySyncingState({
       transition={{ duration: 0.32, ease: "easeOut" }}
       className={className}
     >
-      <Card className="rounded-xs border border-border/50 bg-card/60 p-4">
+      <Card className="rounded-xs card-surface p-4">
         <div className="flex items-start gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xs border border-border/50 bg-background/60">
             <HeartPulse

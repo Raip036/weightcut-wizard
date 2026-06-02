@@ -375,7 +375,7 @@ export default function CoachOnboarding() {
                 >
                   {/* Logo */}
                   <div
-                    className="rounded-xs border border-border bg-card/60 p-4"
+                    className="rounded-xs card-surface p-4"
                     onFocus={() => setFocusKey("logo")}
                     onClick={() => setFocusKey("logo")}
                   >
@@ -579,7 +579,7 @@ function GymPreviewCard({
     <motion.div
       layout
       transition={{ type: "spring", stiffness: 260, damping: 28 }}
-      className={`mt-4 rounded-xs border bg-card/60 p-3 transition-colors ${
+      className={`mt-4 rounded-xs card-surface p-3 transition-colors ${
         filled ? "border-primary/30" : "border-border/40"
       }`}
     >

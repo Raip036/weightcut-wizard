@@ -609,7 +609,7 @@ function FightWeekDayStack({
         </span>
       </div>
 
-      <ul className="rounded-xs border border-border/40 bg-card/40 divide-y divide-border/30 overflow-hidden">
+      <ul className="rounded-xs card-surface divide-y divide-border/30 overflow-hidden">
         {days.map((d, i) => {
           const isWeighIn = d.dayOffset === 0;
           const isCliff =

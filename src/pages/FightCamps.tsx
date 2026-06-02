@@ -277,7 +277,7 @@ export default function FightCamps() {
             about. New users see the empty-state card instead, which has its
             own onboarding tone. */}
         {!compareMode && !selectMode && camps.length > 0 && (
-          <div className="rounded-xs bg-card/60 border border-border/40 overflow-hidden">
+          <div className="rounded-xs card-surface overflow-hidden">
             <div className="grid grid-cols-3 divide-x divide-border/40">
               <div className="py-4 px-2 text-center">
                 <p className="text-[26px] font-bold tabular-nums tracking-tight">{stats.total}</p>

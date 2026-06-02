@@ -96,7 +96,7 @@ export default function MyGym() {
         )}
 
         {gyms.length === 0 ? (
-          <div className="rounded-xs bg-card/60 border border-border/40 p-6 text-center">
+          <div className="rounded-xs card-surface p-6 text-center">
             <p className="text-[15px] font-semibold mb-1">Join your coach's gym</p>
             <p className="text-[13px] text-muted-foreground leading-snug mb-4">
               Enter the 6-character invite code from your coach.
@@ -169,7 +169,7 @@ function GymCard({
   return (
     <section className="space-y-4">
       {/* Hero — member ID card */}
-      <div className="rounded-xs bg-card/60 border border-border/40 overflow-hidden">
+      <div className="rounded-xs card-surface overflow-hidden">
         <div className="p-5 flex items-center gap-4">
           <GymLogoAvatar logoUrl={gym.gym_logo_url} name={gym.gym_name} size={64} />
           <div className="min-w-0 flex-1">
@@ -210,7 +210,7 @@ function GymCard({
       </div>
 
       {/* Quick actions group */}
-      <div className="rounded-xs bg-card/60 border border-border/40 overflow-hidden divide-y divide-border/30">
+      <div className="rounded-xs card-surface overflow-hidden divide-y divide-border/30">
         <button
           type="button"
           onClick={() => { triggerHaptic(ImpactStyle.Light); onOpenFeed(); }}

@@ -296,7 +296,7 @@ export default function Camp() {
               triggerHaptic(ImpactStyle.Light);
               openPaywall();
             }}
-            className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border border-border/40 bg-card/30 active:bg-card/60 transition-colors"
+            className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl card-surface active:brightness-110 transition-[filter]"
           >
             <span className="flex items-center gap-2 min-w-0">
               <Icon name="sparklesOutline" size={14} className="text-primary shrink-0" />

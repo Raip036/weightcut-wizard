@@ -212,7 +212,7 @@ function HealthSettingsCardInner({
     return (
       <Card
         className={cn(
-          "rounded-xs border border-border/50 bg-card/60 p-4 space-y-2",
+          "rounded-xs card-surface p-4 space-y-2",
           className,
         )}
       >
@@ -234,7 +234,7 @@ function HealthSettingsCardInner({
     <>
       <Card
         className={cn(
-          "rounded-xs border border-border/50 bg-card/60 p-4 space-y-3",
+          "rounded-xs card-surface p-4 space-y-3",
           className,
         )}
       >
@@ -496,7 +496,7 @@ function HealthCardErrorFallback({
   return (
     <Card
       className={cn(
-        "rounded-xs border border-border/50 bg-card/60 p-4 space-y-2",
+        "rounded-xs card-surface p-4 space-y-2",
         className,
       )}
     >

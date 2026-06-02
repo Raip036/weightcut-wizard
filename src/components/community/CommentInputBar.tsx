@@ -33,7 +33,7 @@ export function CommentInputBar({
   };
 
   return (
-    <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-card/30 border border-border/30">
+    <div className="flex items-center gap-2 px-3 py-2 rounded-2xl card-surface">
       <input
         type="text"
         value={text}

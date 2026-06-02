@@ -812,7 +812,7 @@ function ProgressTabContent({
               <button
                 key={id}
                 onClick={() => onExerciseTap(ex)}
-                className="w-full flex items-center gap-3 rounded-xs border border-border/40 bg-card/50 px-3 py-2.5 active:bg-muted/30 transition-colors text-left"
+                className="w-full flex items-center gap-3 rounded-xs card-surface px-3 py-2.5 active:bg-muted/30 transition-colors text-left"
               >
                 <div className="flex-1 min-w-0">
                   <p className="text-[14px] font-semibold truncate text-foreground">{ex.name}</p>

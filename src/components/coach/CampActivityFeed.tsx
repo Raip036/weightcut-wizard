@@ -204,8 +204,8 @@ export function CampActivityFeed({ userId, limit = 7 }: CampActivityFeedProps) {
                 onClick={() => navigate(ev.route)}
                 className={cn(
                   "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl",
-                  "bg-card/40 border border-border/40",
-                  "active:bg-card/60 transition-colors text-left",
+                  "card-surface",
+                  "active:brightness-110 transition-[filter] text-left",
                 )}
               >
                 <Icon name={ICONS[kind]} size={16} className={COLORS[kind]} />

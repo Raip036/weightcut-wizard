@@ -819,7 +819,7 @@ export function WeeklyMilestonesScrubber({
   const showPlateauZone = weeks >= 5;
 
   return (
-    <div className="rounded-xs border border-border/40 bg-card/60 px-4 py-3.5">
+    <div className="rounded-xs card-surface px-4 py-3.5">
       <div className="flex items-baseline justify-between mb-3">
         <p className="text-[10px] uppercase tracking-[0.15em] font-bold text-muted-foreground">
           Projected Path

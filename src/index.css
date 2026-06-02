@@ -562,6 +562,29 @@ All colors MUST be HSL.
     box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.03);
   }
 
+  /* ── Semantic surface tiers (Design System v1) ────────────────────
+     Neutral surfaces encode DEPTH ONLY; colour is reserved for status.
+     Pick a tier by where the element sits in the hierarchy:
+
+       card-surface   → a panel/card sitting on the page background.
+                        neutral-800 (#1E1E1E) + 4% hairline + inset
+                        highlight. This is the BASE tier (defined above).
+       surface-inset  → content recessed INSIDE a card: inputs, wells,
+                        neutral stat sub-tiles, progress/segmented tracks.
+                        neutral-900 (#121212) — darker than its parent so
+                        it reads recessed. No border (the colour step is
+                        the only affordance it needs).
+       card-glow      → the SINGLE featured / active hero per screen.
+                        primary-tinted border + wash (defined below).
+
+     Do NOT use `bg-muted`, `bg-card/N`, `bg-white/N` or `border-border`
+     for neutral surfaces — those are pre-system drift. A visible border
+     should now MEAN something (a brand/func accent), not just outline a
+     box. */
+  .surface-inset {
+    background: rgb(var(--neutral-900));
+  }
+
   .nutrition-dashboard {
     background: rgb(var(--neutral-800));
     border-radius: var(--radius);

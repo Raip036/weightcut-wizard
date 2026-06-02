@@ -246,7 +246,7 @@ export function ConnectAppleHealthSheet({
             {METRIC_ROWS.map((row) => (
               <li
                 key={row.label}
-                className="flex items-start gap-3 rounded-xs border border-border/50 bg-card/40 px-3 py-2.5"
+                className="flex items-start gap-3 rounded-xs card-surface px-3 py-2.5"
               >
                 <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xs bg-background/60">
                   {row.icon}
@@ -311,7 +311,7 @@ export function ConnectAppleHealthSheet({
  */
 function UnavailablePanel(): JSX.Element {
   return (
-    <div className="flex flex-col items-center gap-2 rounded-xs border border-border/50 bg-card/40 px-4 py-8 text-center">
+    <div className="flex flex-col items-center gap-2 rounded-xs card-surface px-4 py-8 text-center">
       <HeartPulse
         className="h-7 w-7 text-muted-foreground/60"
         strokeWidth={1.8}

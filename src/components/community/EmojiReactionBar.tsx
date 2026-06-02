@@ -71,7 +71,7 @@ export function EmojiReactionBar({
   return (
     <div
       ref={containerRef}
-      className="relative flex items-center justify-around gap-1 px-2 py-2.5 rounded-2xl bg-card/30 border border-border/30"
+      className="relative flex items-center justify-around gap-1 px-2 py-2.5 rounded-2xl card-surface"
     >
       {/* Transient burst overlay — each tap spawns an emoji that scales
           up, drifts upward, and fades out. Overlay is pointer-events-none
