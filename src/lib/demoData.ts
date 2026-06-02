@@ -78,19 +78,22 @@ function generateDemoMeals(userId: string, date: string) {
 
 // ── Training sessions (12 sessions across current month) ──
 
+// Two-level model: `session_type` is the PRIMARY discipline (martial art /
+// "S&C" / "Rest"); `session_tag` is the OPTIONAL activity descriptor and may
+// be null. Kept varied so the demo dashboard exercises every renderer.
 const SESSION_TEMPLATES = [
-  { session_type: "BJJ", duration_minutes: 90, rpe: 7, intensity: "moderate", intensity_level: 3, notes: "Worked on guard retention and sweeps from half guard. Drilled the knee shield series." },
-  { session_type: "BJJ", duration_minutes: 75, rpe: 8, intensity: "high", intensity_level: 4, notes: "Positional sparring from mount. Focused on hip escapes and re-guarding." },
-  { session_type: "BJJ", duration_minutes: 60, rpe: 6, intensity: "moderate", intensity_level: 3, notes: "Technique class — single leg takedowns and transitions to back control." },
-  { session_type: "BJJ", duration_minutes: 90, rpe: 7, intensity: "moderate", intensity_level: 3, notes: "No-gi session. Guillotines and darce chokes from front headlock." },
-  { session_type: "Muay Thai", duration_minutes: 60, rpe: 8, intensity: "high", intensity_level: 4, notes: "Padwork combos. Low kicks and teeps. 5 rounds of clinch work." },
-  { session_type: "Muay Thai", duration_minutes: 60, rpe: 7, intensity: "moderate", intensity_level: 3, notes: "Heavy bag rounds focusing on power hooks and body kicks." },
-  { session_type: "Muay Thai", duration_minutes: 45, rpe: 8, intensity: "high", intensity_level: 4, notes: "Technical sparring — light contact, working angles and footwork." },
-  { session_type: "Strength", duration_minutes: 50, rpe: 6, intensity: "moderate", intensity_level: 3, notes: "Squats, deadlifts, pull-ups. Strength endurance focus." },
-  { session_type: "Strength", duration_minutes: 45, rpe: 5, intensity: "low", intensity_level: 2, notes: "Upper body — bench press, rows, shoulder press. Lighter session." },
-  { session_type: "Strength", duration_minutes: 55, rpe: 7, intensity: "moderate", intensity_level: 3, notes: "Full body circuit — kettlebell swings, box jumps, farmer carries." },
-  { session_type: "Sparring", duration_minutes: 45, rpe: 9, intensity: "high", intensity_level: 5, notes: "5 rounds of MMA sparring. Worked on takedown defence and cage work." },
-  { session_type: "Run", duration_minutes: 30, rpe: 5, intensity: "low", intensity_level: 2, notes: "Easy 5km run for active recovery. Kept heart rate zone 2." },
+  { session_type: "BJJ", session_tag: "Drilling", duration_minutes: 90, rpe: 7, intensity: "moderate", intensity_level: 3, notes: "Worked on guard retention and sweeps from half guard. Drilled the knee shield series." },
+  { session_type: "BJJ", session_tag: "Live Grappling", duration_minutes: 75, rpe: 8, intensity: "high", intensity_level: 4, notes: "Positional sparring from mount. Focused on hip escapes and re-guarding." },
+  { session_type: "BJJ", session_tag: "Skill / Technical", duration_minutes: 60, rpe: 6, intensity: "moderate", intensity_level: 3, notes: "Technique class — single leg takedowns and transitions to back control." },
+  { session_type: "BJJ", session_tag: null, duration_minutes: 90, rpe: 7, intensity: "moderate", intensity_level: 3, notes: "No-gi session. Guillotines and darce chokes from front headlock." },
+  { session_type: "Muay Thai", session_tag: "Pad Work", duration_minutes: 60, rpe: 8, intensity: "high", intensity_level: 4, notes: "Padwork combos. Low kicks and teeps. 5 rounds of clinch work." },
+  { session_type: "Muay Thai", session_tag: "Bag Work", duration_minutes: 60, rpe: 7, intensity: "moderate", intensity_level: 3, notes: "Heavy bag rounds focusing on power hooks and body kicks." },
+  { session_type: "Muay Thai", session_tag: "Sparring", duration_minutes: 45, rpe: 8, intensity: "high", intensity_level: 4, notes: "Technical sparring — light contact, working angles and footwork." },
+  { session_type: "S&C", session_tag: "Strength", duration_minutes: 50, rpe: 6, intensity: "moderate", intensity_level: 3, notes: "Squats, deadlifts, pull-ups. Strength endurance focus." },
+  { session_type: "S&C", session_tag: "Strength", duration_minutes: 45, rpe: 5, intensity: "low", intensity_level: 2, notes: "Upper body — bench press, rows, shoulder press. Lighter session." },
+  { session_type: "S&C", session_tag: "Conditioning", duration_minutes: 55, rpe: 7, intensity: "moderate", intensity_level: 3, notes: "Full body circuit — kettlebell swings, box jumps, farmer carries." },
+  { session_type: "MMA", session_tag: "Sparring", duration_minutes: 45, rpe: 9, intensity: "high", intensity_level: 5, notes: "5 rounds of MMA sparring. Worked on takedown defence and cage work." },
+  { session_type: "S&C", session_tag: "Run", duration_minutes: 30, rpe: 5, intensity: "low", intensity_level: 2, notes: "Easy 5km run for active recovery. Kept heart rate zone 2." },
 ];
 
 function generateDemoSessions(userId: string) {

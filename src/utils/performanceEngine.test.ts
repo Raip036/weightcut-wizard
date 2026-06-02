@@ -24,7 +24,7 @@ import {
   type SessionRow,
   type AthleteCalibration,
 } from './performanceEngine';
-import { sportLoadMultiplier } from '@/lib/sessionTypes';
+import { effectiveLoadMultiplier } from '@/lib/sessionTypes';
 
 // Helper to create a session row
 function makeSession(overrides: Partial<SessionRow> = {}): SessionRow {
@@ -76,31 +76,54 @@ describe('mapRange', () => {
 // ─── Session Load ───────────────────────────────────────────
 
 describe('sessionLoad', () => {
-  it('calculates RPE × Minutes × IntensityMultiplier', () => {
-    const s = makeSession({ session_type: 'Bag Work', rpe: 7, duration_minutes: 60, intensity_level: 3 });
-    // 7 × 60 × 1.15 × 1.0 (Bag Work sport multiplier) = 483
+  it('calculates RPE × Minutes × IntensityMultiplier × effectiveLoadMultiplier', () => {
+    // BJJ primary + 'Bag Work' tag → tag multiplier 1.0
+    const s = makeSession({ session_type: 'BJJ', session_tag: 'Bag Work', rpe: 7, duration_minutes: 60, intensity_level: 3 });
+    // 7 × 60 × 1.15 × 1.0 (Bag Work tag multiplier) = 483
     expect(sessionLoad(s)).toBeCloseTo(483, 0);
   });
 
+  it('uses the tag multiplier when a tag is present (Sparring → 1.3)', () => {
+    // BJJ primary + 'Sparring' tag → tag multiplier 1.3
+    const s = makeSession({ session_type: 'BJJ', session_tag: 'Sparring', rpe: 7, duration_minutes: 60, intensity_level: 3 });
+    // 7 × 60 × 1.15 × 1.3 = 627.9
+    expect(sessionLoad(s)).toBeCloseTo(627.9, 0);
+  });
+
+  it('falls back to the martial-art primary default (1.0) when no tag', () => {
+    // BJJ primary, no tag → martial-arts fallback 1.0
+    const s = makeSession({ session_type: 'BJJ', session_tag: null, rpe: 7, duration_minutes: 60, intensity_level: 3 });
+    // 7 × 60 × 1.15 × 1.0 = 483
+    expect(sessionLoad(s)).toBeCloseTo(483, 0);
+  });
+
+  it('falls back to the S&C primary default (0.9) when no tag', () => {
+    // S&C primary, no tag → S&C fallback 0.9
+    const s = makeSession({ session_type: 'S&C', session_tag: null, rpe: 7, duration_minutes: 60, intensity_level: 3 });
+    // 7 × 60 × 1.15 × 0.9 = 434.7
+    expect(sessionLoad(s)).toBeCloseTo(434.7, 0);
+  });
+
   it('returns 0 for Rest sessions', () => {
-    const s = makeSession({ session_type: 'Rest' });
+    const s = makeSession({ session_type: 'Rest', session_tag: null });
     expect(sessionLoad(s)).toBe(0);
   });
 
-  it('returns 0 for Recovery sessions', () => {
-    const s = makeSession({ session_type: 'Recovery' });
+  it('returns 0 for a Rest primary even with a Recovery tag', () => {
+    // 'Recovery' is now a TAG; a recovery day has primary 'Rest'.
+    const s = makeSession({ session_type: 'Rest', session_tag: 'Recovery' });
     expect(sessionLoad(s)).toBe(0);
   });
 
   it('uses legacy intensity when intensity_level is null', () => {
-    const s = makeSession({ session_type: 'Bag Work', intensity_level: null, intensity: 'high', rpe: 5, duration_minutes: 30 });
-    // high → level 5 → multiplier 1.5 → 5 * 30 * 1.5 × 1.0 (Bag Work sport multiplier) = 225
+    const s = makeSession({ session_type: 'BJJ', session_tag: 'Bag Work', intensity_level: null, intensity: 'high', rpe: 5, duration_minutes: 30 });
+    // high → level 5 → multiplier 1.5 → 5 * 30 * 1.5 × 1.0 (Bag Work tag multiplier) = 225
     expect(sessionLoad(s)).toBeCloseTo(225, 0);
   });
 
   it('applies correct multipliers for each intensity level', () => {
-    // Bag Work sport multiplier = 1.0× so expectations remain clean
-    const base = { session_type: 'Bag Work' as const, rpe: 10, duration_minutes: 100 }; // base = 1000
+    // 'Bag Work' tag multiplier = 1.0× so expectations remain clean
+    const base = { session_type: 'BJJ' as const, session_tag: 'Bag Work' as const, rpe: 10, duration_minutes: 100 }; // base = 1000
     expect(sessionLoad(makeSession({ ...base, intensity_level: 1 }))).toBeCloseTo(800, 0);
     expect(sessionLoad(makeSession({ ...base, intensity_level: 2 }))).toBeCloseTo(1000, 0);
     expect(sessionLoad(makeSession({ ...base, intensity_level: 3 }))).toBeCloseTo(1150, 0);
@@ -113,14 +136,14 @@ describe('sessionLoad', () => {
 
 describe('dailyLoad', () => {
   it('sums session loads for a single session', () => {
-    const sessions = [makeSession({ session_type: 'Bag Work', rpe: 7, duration_minutes: 60, intensity_level: 3 })];
+    const sessions = [makeSession({ session_type: 'BJJ', session_tag: 'Bag Work', rpe: 7, duration_minutes: 60, intensity_level: 3 })];
     expect(dailyLoad(sessions)).toBeCloseTo(483, 0);
   });
 
   it('applies CNS multiplier for multiple sessions', () => {
     const sessions = [
-      makeSession({ session_type: 'Bag Work', rpe: 7, duration_minutes: 60, intensity_level: 3 }),
-      makeSession({ session_type: 'Bag Work', rpe: 5, duration_minutes: 30, intensity_level: 2 }),
+      makeSession({ session_type: 'BJJ', session_tag: 'Bag Work', rpe: 7, duration_minutes: 60, intensity_level: 3 }),
+      makeSession({ session_type: 'BJJ', session_tag: 'Bag Work', rpe: 5, duration_minutes: 30, intensity_level: 2 }),
     ];
     // Session 1: 7*60*1.15*1.0 = 483, Session 2: 5*30*1.0*1.0 = 150
     // Total: 633, CNS: 1.15 (two sessions, one high RPE, same-tick created_at < 6h apart)
@@ -592,7 +615,8 @@ describe('computeAllMetrics', () => {
     for (let i = 0; i < 14; i++) {
       sessions.push(makeSession({
         date: dateStr(i),
-        session_type: 'Sparring',
+        session_type: 'BJJ',
+        session_tag: 'Sparring',
         rpe: 9,
         duration_minutes: 90,
         intensity_level: 5,
@@ -600,7 +624,8 @@ describe('computeAllMetrics', () => {
       }));
       sessions.push(makeSession({
         date: dateStr(i),
-        session_type: 'Sparring',
+        session_type: 'BJJ',
+        session_tag: 'Sparring',
         rpe: 8,
         duration_minutes: 60,
         intensity_level: 4,
@@ -846,32 +871,35 @@ describe('computeEwmaAcwr', () => {
   });
 });
 
-// ─── sportLoadMultiplier ────────────────────────────────────
+// ─── effectiveLoadMultiplier ────────────────────────────────
 
-describe('sportLoadMultiplier', () => {
-  it('returns the configured multiplier for known session types', () => {
-    expect(sportLoadMultiplier('Sparring')).toBe(1.30);
-    expect(sportLoadMultiplier('Live Grappling')).toBe(1.30);
-    expect(sportLoadMultiplier('Pad Work')).toBe(1.10);
-    expect(sportLoadMultiplier('Strength')).toBe(1.00);
-    expect(sportLoadMultiplier('Rest')).toBe(0.0);
+describe('effectiveLoadMultiplier', () => {
+  it('uses the tag multiplier when a recognised tag is present', () => {
+    expect(effectiveLoadMultiplier('BJJ', 'Sparring')).toBe(1.30);
+    expect(effectiveLoadMultiplier('BJJ', 'Live Grappling')).toBe(1.30);
+    expect(effectiveLoadMultiplier('Muay Thai', 'Pad Work')).toBe(1.10);
+    expect(effectiveLoadMultiplier('S&C', 'Strength')).toBe(1.00);
   });
 
-  it('returns 1.0 (neutral) for completely unknown types', () => {
-    expect(sportLoadMultiplier('SomeMadeUpSport')).toBe(1.0);
-    expect(sportLoadMultiplier('Totally Unknown Activity')).toBe(1.0);
+  it('falls back to the per-primary default when no tag is given', () => {
+    expect(effectiveLoadMultiplier('BJJ')).toBe(1.0);      // martial art
+    expect(effectiveLoadMultiplier('S&C')).toBe(0.9);      // strength & conditioning
+    expect(effectiveLoadMultiplier('Rest')).toBe(0.0);     // rest
   });
 
-  it('normalizes legacy alias "Cardio" to Conditioning (0.90)', () => {
-    expect(sportLoadMultiplier('Cardio')).toBe(0.90);
+  it('treats an unknown tag as absent and uses the primary fallback', () => {
+    expect(effectiveLoadMultiplier('BJJ', 'SomeMadeUpTag')).toBe(1.0);
+    expect(effectiveLoadMultiplier('S&C', 'Totally Unknown')).toBe(0.9);
   });
 
-  it('normalizes null/undefined to Drilling (0.95)', () => {
-    // sportLoadMultiplier signature requires a string, but normalizeSessionType
-    // returns 'Drilling' for null/undefined inputs.
-    expect(sportLoadMultiplier(null as unknown as string)).toBe(0.95);
-    expect(sportLoadMultiplier(undefined as unknown as string)).toBe(0.95);
-    expect(sportLoadMultiplier('')).toBe(0.95);
+  it('a custom/unknown primary defaults to the martial-arts fallback', () => {
+    expect(effectiveLoadMultiplier('SomeMadeUpSport')).toBe(1.0);
+  });
+
+  it('treats null/undefined/empty primary as a martial-arts default', () => {
+    expect(effectiveLoadMultiplier(null)).toBe(1.0);
+    expect(effectiveLoadMultiplier(undefined)).toBe(1.0);
+    expect(effectiveLoadMultiplier('')).toBe(1.0);
   });
 });
 
@@ -956,11 +984,12 @@ describe('cnsMultiplier', () => {
     expect(cnsMultiplier(sessions)).toBe(1.10);
   });
 
-  it('excludes Rest and Recovery sessions from the count', () => {
+  it('excludes Rest sessions (incl. Recovery-tagged rest days) from the count', () => {
     const sessions = [
       makeSession({ rpe: 8 }),
-      makeSession({ session_type: 'Rest', rpe: 0 }),
-      makeSession({ session_type: 'Recovery', rpe: 0 }),
+      makeSession({ session_type: 'Rest', session_tag: null, rpe: 0 }),
+      // 'Recovery' is a TAG; a recovery day has primary 'Rest'.
+      makeSession({ session_type: 'Rest', session_tag: 'Recovery', rpe: 0 }),
     ];
     // Only one training session → 1.0
     expect(cnsMultiplier(sessions)).toBe(1.0);
@@ -1025,8 +1054,8 @@ describe('computeFosterMetrics', () => {
 describe('computeContactLoad', () => {
   it('returns 0 rounds and low zone with no contact sessions', () => {
     const sessions = [
-      makeSession({ date: dateStr(0), session_type: 'Strength' }),
-      makeSession({ date: dateStr(1), session_type: 'Run' }),
+      makeSession({ date: dateStr(0), session_type: 'S&C', session_tag: 'Strength' }),
+      makeSession({ date: dateStr(1), session_type: 'S&C', session_tag: 'Run' }),
     ];
     const { contactRoundsLast7d, contactRiskZone } = computeContactLoad(sessions);
     expect(contactRoundsLast7d).toBe(0);
@@ -1035,7 +1064,7 @@ describe('computeContactLoad', () => {
 
   it('returns 10 rounds → moderate zone for 1 contact session last 7d', () => {
     const sessions = [
-      { ...makeSession({ date: dateStr(2), session_type: 'Sparring' }), rounds: 10 } as SessionRow,
+      { ...makeSession({ date: dateStr(2), session_type: 'BJJ', session_tag: 'Sparring' }), rounds: 10 } as SessionRow,
     ];
     const { contactRoundsLast7d, contactRiskZone } = computeContactLoad(sessions);
     expect(contactRoundsLast7d).toBe(10);
@@ -1044,7 +1073,7 @@ describe('computeContactLoad', () => {
 
   it('returns 20 rounds → high zone for 1 contact session last 7d', () => {
     const sessions = [
-      { ...makeSession({ date: dateStr(3), session_type: 'Sparring' }), rounds: 20 } as SessionRow,
+      { ...makeSession({ date: dateStr(3), session_type: 'BJJ', session_tag: 'Sparring' }), rounds: 20 } as SessionRow,
     ];
     const { contactRoundsLast7d, contactRiskZone } = computeContactLoad(sessions);
     expect(contactRoundsLast7d).toBe(20);
@@ -1053,8 +1082,8 @@ describe('computeContactLoad', () => {
 
   it('returns critical zone for 30+ rounds last 7d', () => {
     const sessions = [
-      { ...makeSession({ date: dateStr(1), session_type: 'Sparring' }), rounds: 15 } as SessionRow,
-      { ...makeSession({ date: dateStr(3), session_type: 'Live Grappling' }), rounds: 20 } as SessionRow,
+      { ...makeSession({ date: dateStr(1), session_type: 'BJJ', session_tag: 'Sparring' }), rounds: 15 } as SessionRow,
+      { ...makeSession({ date: dateStr(3), session_type: 'BJJ', session_tag: 'Live Grappling' }), rounds: 20 } as SessionRow,
     ];
     const { contactRoundsLast7d, contactRiskZone } = computeContactLoad(sessions);
     expect(contactRoundsLast7d).toBe(35);
@@ -1063,7 +1092,7 @@ describe('computeContactLoad', () => {
 
   it('does NOT count contact sessions outside 7d window', () => {
     const sessions = [
-      { ...makeSession({ date: dateStr(20), session_type: 'Sparring' }), rounds: 25 } as SessionRow,
+      { ...makeSession({ date: dateStr(20), session_type: 'BJJ', session_tag: 'Sparring' }), rounds: 25 } as SessionRow,
     ];
     const { contactRoundsLast7d, contactRiskZone } = computeContactLoad(sessions);
     expect(contactRoundsLast7d).toBe(0);
@@ -1072,18 +1101,18 @@ describe('computeContactLoad', () => {
 
   it('does NOT count non-contact sessions even if they have rounds field', () => {
     const sessions = [
-      { ...makeSession({ date: dateStr(1), session_type: 'Strength' }), rounds: 50 } as SessionRow,
-      { ...makeSession({ date: dateStr(2), session_type: 'Pad Work' }), rounds: 20 } as SessionRow,
+      { ...makeSession({ date: dateStr(1), session_type: 'S&C', session_tag: 'Strength' }), rounds: 50 } as SessionRow,
+      { ...makeSession({ date: dateStr(2), session_type: 'Muay Thai', session_tag: 'Pad Work' }), rounds: 20 } as SessionRow,
     ];
     const { contactRoundsLast7d, contactRiskZone } = computeContactLoad(sessions);
-    // Only sparring/live-grappling count — Strength and Pad Work do not
+    // Only sparring/live-grappling tags count — Strength and Pad Work do not
     expect(contactRoundsLast7d).toBe(0);
     expect(contactRiskZone).toBe('low');
   });
 
   it('treats missing rounds field on contact session as 0', () => {
     const sessions = [
-      makeSession({ date: dateStr(2), session_type: 'Sparring' }), // no `rounds`
+      makeSession({ date: dateStr(2), session_type: 'BJJ', session_tag: 'Sparring' }), // no `rounds`
     ];
     const { contactRoundsLast7d, contactRiskZone } = computeContactLoad(sessions);
     expect(contactRoundsLast7d).toBe(0);

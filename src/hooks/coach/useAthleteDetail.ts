@@ -57,7 +57,7 @@ export interface AthleteDetailData {
   /** 7-day RPE-hours per day, oldest → newest. */
   strain_7d: number[] | null;
   today_macros: { calories: number; protein_g: number; carbs_g: number; fats_g: number } | null;
-  recent_sessions: { date: string; session_type: string; rpe: number; soreness_level: number | null; duration_minutes: number }[] | null;
+  recent_sessions: { date: string; session_type: string; session_tag?: string | null; rpe: number; soreness_level: number | null; duration_minutes: number }[] | null;
   /** Latest fight-form snapshot + sub-score breakdown. `null` until the
    *  athlete has generated at least one score. */
   fight_form: FightFormDetail | null;

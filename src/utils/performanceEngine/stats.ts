@@ -2,6 +2,7 @@ import type { SessionRow, DailyStrainEntry, ForecastResult, AthleteCalibration }
 import { clamp, mapRange, getRecentSleepValues, groupByDate } from "./helpers";
 import { calculateStrain } from "./load";
 import { getLoadZone } from "./wellness";
+import { isRestSession } from "@/lib/sessionTypes";
 
 export function getStrainHistory(
   dailyLoads: { date: string; load: number; sessions: SessionRow[] }[],
@@ -11,7 +12,7 @@ export function getStrainHistory(
     date: d.date,
     strain: calculateStrain(d.load, divisor),
     dailyLoad: d.load,
-    sessionCount: d.sessions.filter(s => s.session_type !== 'Rest').length,
+    sessionCount: d.sessions.filter(s => !isRestSession(s.session_type)).length,
   }));
 }
 
@@ -37,7 +38,7 @@ export function getAvgRPE7d(sessions28d: SessionRow[]): number {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
     const dateStr = d.toISOString().split('T')[0];
-    recent.push(...sessions28d.filter(s => s.date === dateStr && s.session_type !== 'Rest'));
+    recent.push(...sessions28d.filter(s => s.date === dateStr && !isRestSession(s.session_type)));
   }
   if (recent.length === 0) return 0;
   return recent.reduce((sum, s) => sum + s.rpe, 0) / recent.length;
@@ -63,7 +64,7 @@ export function getSessionsLast7d(sessions28d: SessionRow[]): number {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
     const dateStr = d.toISOString().split('T')[0];
-    count += sessions28d.filter(s => s.date === dateStr && s.session_type !== 'Rest').length;
+    count += sessions28d.filter(s => s.date === dateStr && !isRestSession(s.session_type)).length;
   }
   return count;
 }

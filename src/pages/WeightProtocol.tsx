@@ -15,9 +15,13 @@ import { useAction, useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import { useUser } from "@/contexts/UserContext";
 import { useSubscription } from "@/hooks/useSubscription";
+import { Icon } from "@/components/ui/Icon";
 
 import { ProtocolHeader } from "@/components/protocol/ProtocolHeader";
-import { InputsUsedChips } from "@/components/protocol/InputsUsedChips";
+import {
+  InputsUsedChips,
+  type InputStat,
+} from "@/components/protocol/InputsUsedChips";
 import {
   CutApproachSelector,
   type CutApproach,
@@ -34,6 +38,7 @@ import { RehydrationTimelinePlaceholder } from "@/components/protocol/Rehydratio
 import { DoNotCallouts } from "@/components/protocol/DoNotCallouts";
 import {
   FeelChecksList,
+  type FeelCheck,
   type FeelCheckMetric,
 } from "@/components/protocol/FeelChecksList";
 import { ProtocolRegenerateButton } from "@/components/protocol/ProtocolRegenerateButton";
@@ -42,6 +47,7 @@ import { ProtocolSectionDivider } from "@/components/protocol/ProtocolSectionDiv
 import { ProtocolPageSkeleton } from "@/components/protocol/ProtocolPageSkeleton";
 import { NoFightCampEmptyState } from "@/components/protocol/NoFightCampEmptyState";
 import { ProtocolGenerationError } from "@/components/protocol/ProtocolGenerationError";
+import { ProtocolGeneratingOverlay } from "@/components/protocol/ProtocolGeneratingOverlay";
 
 // Lifecycle phase mirrors `TodaysActionHero.ProtocolPhase`. Server is the
 // canonical source — page-level type alias keeps the file readable.
@@ -59,9 +65,8 @@ const FREE_VISIBLE_COUNT = 2;
 // math (phase, daysToWeighIn) lives on the server.
 const DEFAULT_WEIGH_IN_CLOCK = "11:00";
 
-// Feel-check metric → display strings. Lives in-file (rather than in the
-// component) so server-known metrics can be filtered/relabelled without
-// touching FeelChecksList itself.
+// Canonical metric order. Labels / icons / sheet copy now live inside
+// FeelChecksList so the page just passes server values through.
 const FEEL_CHECK_METRICS: ReadonlyArray<FeelCheckMetric> = [
   "urine_colour",
   "weigh_back_kg",
@@ -69,17 +74,10 @@ const FEEL_CHECK_METRICS: ReadonlyArray<FeelCheckMetric> = [
   "headache",
   "no_cramps",
 ];
-const FEEL_CHECK_COPY: Record<FeelCheckMetric, { label: string; target: string }> = {
-  urine_colour: { label: "Urine colour", target: "pale straw" },
-  weigh_back_kg: { label: "Weight rebound on track", target: "+80–100% of cut" },
-  energy_1to10: { label: "Energy ≥ 6 / 10", target: "" },
-  headache: { label: "No headache", target: "" },
-  no_cramps: { label: "No cramps", target: "" },
-};
 
 export default function WeightProtocol() {
   const { userId, profile } = useUser();
-  const { isPremium } = useSubscription();
+  const { isPremium, openPaywall } = useSubscription();
 
   // Single page-level query. Returns `undefined` while loading, `null`
   // when there's no active camp, and the protocol bundle otherwise.
@@ -155,37 +153,104 @@ export default function WeightProtocol() {
   const fpPayload = (fightPlan?.payload as any) ?? null;
   const rhPayload = (rehydration?.payload as any) ?? null;
 
+  // ── Raw derived values from the server (work even pre-generation) ──
+  // The server query computes these from camp + latest weight log + profile
+  // so the page can render the cut-depth header pill and the "Tuned to you"
+  // stat grid the moment a fight camp exists. AI payload values take
+  // precedence when present (they're the canonical engine output); we fall
+  // back to server-derived raw otherwise.
+  const rawCutDepthKg =
+    (protocol.cutDepthKg as number | null | undefined) ?? null;
+  const rawCutDepthPct =
+    (protocol.cutDepthPct as number | null | undefined) ?? null;
+  const rawCurrentWeight =
+    (protocol.currentWeightKg as number | null | undefined) ??
+    profile?.current_weight_kg ??
+    null;
+  const rawTargetWeight =
+    (protocol.targetWeightKg as number | null | undefined) ?? null;
+  const rawGapHours =
+    (protocol.weighInToFightGapHours as number | null | undefined) ?? null;
+
   // ── Header: cut depth / category / countdown ──────────────────────
-  const cutDepthPct = (fpPayload?.cutDepthPct as number | undefined) ?? 0;
+  // Prefer AI payload; fall back to server-derived raw so the pill is
+  // never stuck at 0% before generation.
+  const cutDepthPct =
+    (fpPayload?.cutDepthPct as number | undefined) ?? rawCutDepthPct ?? 0;
   const cutCategory =
     (fpPayload?.cutCategory as
       | "light"
       | "moderate"
       | "heavy"
       | "extreme"
-      | undefined) ?? "moderate";
+      | undefined) ??
+    (rawCutDepthPct == null
+      ? "moderate"
+      : rawCutDepthPct < 2
+        ? "light"
+        : rawCutDepthPct < 4
+          ? "moderate"
+          : rawCutDepthPct < 6
+            ? "heavy"
+            : "extreme");
 
-  // ── Inputs-used chips (Tuned to you) ──────────────────────────────
-  const currentWeight = profile?.current_weight_kg ?? 0;
-  const cutDepthKg = (fpPayload?.cutDepthKg as number | undefined) ?? 0;
-  const targetWeight = currentWeight && cutDepthKg
-    ? currentWeight - cutDepthKg
-    : 0;
+  // ── Inputs-used stats (Tuned to you) ──────────────────────────────
+  // Labeled stat grid replaces the older chip row — see InputsUsedChips
+  // for the visual; this block just builds the data, with each stat
+  // guarded so missing server values render as "—" rather than NaN.
+  const cutDepthKgRaw =
+    (fpPayload?.cutDepthKg as number | undefined) ?? rawCutDepthKg ?? null;
+  const cutDepthPctRaw =
+    (fpPayload?.cutDepthPct as number | undefined) ?? rawCutDepthPct ?? null;
+  const currentWeight = rawCurrentWeight ?? 0;
+  const targetWeight =
+    rawTargetWeight != null
+      ? rawTargetWeight
+      : currentWeight && cutDepthKgRaw != null
+        ? currentWeight - cutDepthKgRaw
+        : null;
   const gapHours =
-    (rhPayload?.weighInToFightGapHours as number | undefined) ?? null;
+    (rhPayload?.weighInToFightGapHours as number | undefined) ??
+    rawGapHours ??
+    null;
 
-  const inputChips = [
+  const inputStats: InputStat[] = [
     {
-      label: `${cutDepthKg ? cutDepthKg.toFixed(1) : "—"}kg cut`,
-      tone: "accent" as const,
+      label: "Cut depth",
+      value:
+        cutDepthKgRaw != null && cutDepthPctRaw != null
+          ? `${cutDepthKgRaw.toFixed(1)} kg (${cutDepthPctRaw.toFixed(1)}%)`
+          : "—",
+      tone: "accent",
+      iconName: "trendingDownOutline",
     },
     {
-      label: `${currentWeight.toFixed(1)}kg → ${targetWeight.toFixed(1)}kg`,
+      label: "Weight",
+      value:
+        currentWeight && targetWeight != null
+          ? `${currentWeight.toFixed(1)} → ${targetWeight.toFixed(1)} kg`
+          : "—",
+      iconName: "scaleOutline",
     },
-    { label: `${gapHours ?? "—"}h weigh-in→fight` },
     {
-      label: `${profile?.sex === "female" ? "Female" : "Male"} · ${profile?.age ?? "—"} yrs`,
+      label: "Weigh-in gap",
+      value: gapHours != null ? `${gapHours} hours` : "—",
+      iconName: "timeOutline",
     },
+    {
+      label: "Body",
+      value: `${profile?.sex === "female" ? "Female" : "Male"} · ${profile?.age ?? "—"} yrs`,
+      iconName: "personOutline",
+    },
+    ...(profile?.height_cm
+      ? [
+          {
+            label: "Height",
+            value: `${profile.height_cm} cm`,
+            iconName: "resizeOutline" as const,
+          },
+        ]
+      : []),
   ];
 
   // ── Today's hero (TodaysActionHero) ───────────────────────────────
@@ -193,6 +258,13 @@ export default function WeightProtocol() {
   const todayDay = days.find((d) => d.dayIso === today) ?? null;
   const tier: "green" | "amber" | "red" =
     cutCategory === "extreme" ? "red" : cutCategory === "heavy" ? "amber" : "green";
+  // The hero swaps based on three states:
+  //   • isRegenerating === true → user manually tapped generate; show the
+  //     wizard loading overlay (gated to manual triggers only)
+  //   • !fpPayload → no plan yet → show the "Generate plan" CTA card
+  //   • otherwise → show today's action hero from the existing plan
+  const isGeneratingProtocol = isRegenerating;
+  const needsGenerateCta = !isRegenerating && !fpPayload;
   const heroHeadline =
     (todayDay?.keyAction as string | undefined) ?? "Loading your plan…";
   const heroBody = (todayDay?.carbsCopy as string | undefined) ?? "";
@@ -253,16 +325,24 @@ export default function WeightProtocol() {
   const currentHourOffset = -1;
 
   // ── Feel-checks ────────────────────────────────────────────────────
-  const feelCheckList = FEEL_CHECK_METRICS.map((metric) => {
+  // Pass server-stored value / tier / aiFeedback straight through — the
+  // component owns the per-metric input UI and copy.
+  const feelCheckList: FeelCheck[] = FEEL_CHECK_METRICS.map((metric) => {
     const server = feelChecks.find((c) => c.metric === metric);
     return {
       metric,
-      label: FEEL_CHECK_COPY[metric].label,
-      target: FEEL_CHECK_COPY[metric].target,
-      done: !!server,
+      value: server?.value,
+      tier: server?.tier as FeelCheck["tier"],
+      aiFeedback: server?.aiFeedback,
       loggedAt: server?.checkedAt,
     };
   });
+  // Feel checks are only meaningful past the cut — show them in the
+  // rehydration window (weigh-in day through fight night).
+  const showFeelChecks =
+    phaseTyped === "weigh-in" ||
+    phaseTyped === "refeed" ||
+    phaseTyped === "pre-fight";
 
   // ── Approach selector lock — too close to weigh-in to change track ─
   const approachLocked = daysToWeighIn <= 2;
@@ -277,15 +357,68 @@ export default function WeightProtocol() {
         weighInDate={null}
       />
 
-      {/* 2. Today's action */}
-      <TodaysActionHero
-        phase={phaseTyped}
-        headline={heroHeadline}
-        body={heroBody}
-        metrics={heroMetrics}
-        tier={tier}
-        breathPulse={phaseTyped === "weigh-in"}
-      />
+      {/* 2. Today's action (or generating overlay when the plan is being
+            (re)generated — replaces only the hero so the rest of the page
+            stays scrollable). */}
+      {isGeneratingProtocol ? (
+        <ProtocolGeneratingOverlay tone={tier} />
+      ) : needsGenerateCta ? (
+        <button
+          type="button"
+          onClick={() => (isPremium ? handleRegenerate() : openPaywall())}
+          className={`w-full text-left card-surface rounded-2xl p-5 active:scale-[0.99] transition ${
+            isPremium
+              ? "border border-primary/30"
+              : "border border-amber-400/30 bg-amber-400/[0.03]"
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <div
+              className={`h-11 w-11 shrink-0 rounded-2xl border flex items-center justify-center ${
+                isPremium
+                  ? "border-primary/30 text-primary"
+                  : "border-amber-400/30 text-amber-400"
+              }`}
+            >
+              <Icon name={isPremium ? "sparklesOutline" : "lockClosedOutline"} size={22} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p
+                className={`text-[10px] font-bold uppercase tracking-[0.14em] ${
+                  isPremium ? "text-primary/80" : "text-amber-400/80"
+                }`}
+              >
+                {isPremium ? "Ready when you are" : "Pro feature"}
+              </p>
+              <p className="mt-0.5 text-[17px] font-bold leading-tight text-foreground">
+                {isPremium ? "Generate your fight plan" : "Unlock your fight plan"}
+              </p>
+              <p className="mt-1 text-[12px] text-muted-foreground leading-snug">
+                {isPremium
+                  ? "We'll tune the cut + rehydration timeline to your weight, training load, and prior camps. Takes 5-15 seconds."
+                  : "AI-tuned fight-week protocol, hour-by-hour rehydration timeline, DIY ORS recipe. All personalised to your body and prior camps."}
+              </p>
+            </div>
+            <span
+              className={`inline-flex items-center gap-1 shrink-0 text-[10px] font-bold uppercase tracking-wider ${
+                isPremium ? "text-primary" : "text-amber-400"
+              }`}
+            >
+              {isPremium ? "Generate" : "Upgrade"}
+              <Icon name="chevronForwardOutline" size={14} />
+            </span>
+          </div>
+        </button>
+      ) : (
+        <TodaysActionHero
+          phase={phaseTyped}
+          headline={heroHeadline}
+          body={heroBody}
+          metrics={heroMetrics}
+          tier={tier}
+          breathPulse={phaseTyped === "weigh-in"}
+        />
+      )}
 
       {/* 3. Safety warnings — highest severity only */}
       {critical && (
@@ -304,7 +437,7 @@ export default function WeightProtocol() {
       )}
 
       {/* 4. Inputs-used chips */}
-      <InputsUsedChips chips={inputChips} />
+      <InputsUsedChips stats={inputStats} />
 
       {/* 5. Cut-approach selector */}
       <CutApproachSelector
@@ -416,8 +549,14 @@ export default function WeightProtocol() {
       {/* 12. Do-not callouts */}
       <DoNotCallouts items={(rhPayload?.doNots as string[] | undefined) ?? []} />
 
-      {/* 13. Feel checks */}
-      <FeelChecksList campId={campId} checks={feelCheckList} />
+      {/* 13. Feel checks — only during the rehydration window */}
+      {showFeelChecks && (
+        <FeelChecksList
+          campId={campId}
+          cutDepthKg={fpPayload?.cutDepthKg}
+          checks={feelCheckList}
+        />
+      )}
 
       {/* Regenerate button + error */}
       <ProtocolRegenerateButton

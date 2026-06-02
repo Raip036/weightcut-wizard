@@ -39,7 +39,7 @@ import { parseJSON } from "../../_shared/parseResponse";
 //     Verify the exact OpenRouter model ID before deploy.
 const MODEL =
   (typeof process !== "undefined" && process.env?.LLM_PROVIDER?.toLowerCase() === "openrouter")
-    ? "deepseek/deepseek-chat-v3.5"
+    ? "deepseek/deepseek-chat"
     : "openai/gpt-oss-120b";
 const GROQ_TIMEOUT_MS = 30_000;
 const CRON_BATCH_SIZE = 5;
@@ -251,6 +251,7 @@ type CompassInputs = {
   sessions: Array<{
     date: string;
     sessionType: string;
+    sessionTag: string | null;
     durationMinutes: number;
     rpe: number;
     intensity: string;
@@ -290,7 +291,7 @@ function buildCompassPrompt(args: CompassInputs): string {
     .slice(-14)
     .map(
       (s) =>
-        `${s.date} | ${s.sessionType} | ${s.durationMinutes}min | RPE ${s.rpe} | ${s.intensity}${
+        `${s.date} | ${s.sessionType}${s.sessionTag ? ` (${s.sessionTag})` : ""} | ${s.durationMinutes}min | RPE ${s.rpe} | ${s.intensity}${
           s.rounds ? ` | ${s.rounds} rounds` : ""
         }`,
     )

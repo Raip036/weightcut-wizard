@@ -82,8 +82,15 @@ export const SessionHistoryList = memo(function SessionHistoryList({ sessions, l
 
             {/* Top row: discipline + date */}
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-foreground">
-                {session.session_type}
+              <span className="flex items-center gap-1.5 min-w-0">
+                <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-foreground truncate">
+                  {session.session_type}
+                </span>
+                {session.session_tag && (
+                  <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-muted/40 text-muted-foreground">
+                    {session.session_tag}
+                  </span>
+                )}
               </span>
               <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/80">
                 <Calendar className="h-3 w-3" />

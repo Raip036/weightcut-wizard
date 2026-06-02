@@ -10,6 +10,7 @@
  */
 import { v } from "convex/values";
 import { internalQuery, internalMutation } from "./_generated/server";
+import { normalizeLegacySession } from "./lib/sessionTypes";
 
 const isoDaysAgo = (days: number) =>
   new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
@@ -272,20 +273,24 @@ export const fetchRecoveryData = internalQuery({
     const todayWellness = wellness.find((w) => w.date === today) ?? null;
 
     return {
-      sessions: sessions.map((s) => ({
-        date: s.date,
-        session_type: s.sessionType,
-        duration_minutes: s.durationMinutes,
-        rpe: s.rpe,
-        intensity: s.intensity,
-        intensity_level: s.intensityLevel ?? null,
-        soreness_level: s.sorenessLevel ?? null,
-        sleep_hours: s.sleepHours ?? null,
-        fatigue_level: s.fatigueLevel ?? null,
-        sleep_quality: s.sleepQuality ?? null,
-        mobility_done: s.mobilityDone ?? null,
-        notes: s.notes ?? null,
-      })),
+      sessions: sessions.map((s) => {
+        const { primary, tag } = normalizeLegacySession(s.sessionType, s.sessionTag);
+        return {
+          date: s.date,
+          session_type: primary,
+          session_tag: tag,
+          duration_minutes: s.durationMinutes,
+          rpe: s.rpe,
+          intensity: s.intensity,
+          intensity_level: s.intensityLevel ?? null,
+          soreness_level: s.sorenessLevel ?? null,
+          sleep_hours: s.sleepHours ?? null,
+          fatigue_level: s.fatigueLevel ?? null,
+          sleep_quality: s.sleepQuality ?? null,
+          mobility_done: s.mobilityDone ?? null,
+          notes: s.notes ?? null,
+        };
+      }),
       wellness7d: wellness.map((w) => ({
         date: w.date,
         hooper_index: w.hooperIndex ?? null,
@@ -476,14 +481,18 @@ export const fetchWizardChatData = internalQuery({
         amount_ml: h.amountMl,
         sodium_mg: h.sodiumMg ?? null,
       })),
-      trainingLogs: trainingLogs.map((t) => ({
-        date: t.date,
-        session_type: t.sessionType,
-        duration_minutes: t.durationMinutes,
-        rpe: t.rpe,
-        soreness_level: t.sorenessLevel ?? null,
-        sleep_hours: t.sleepHours ?? null,
-      })),
+      trainingLogs: trainingLogs.map((t) => {
+        const { primary, tag } = normalizeLegacySession(t.sessionType, t.sessionTag);
+        return {
+          date: t.date,
+          session_type: primary,
+          session_tag: tag,
+          duration_minutes: t.durationMinutes,
+          rpe: t.rpe,
+          soreness_level: t.sorenessLevel ?? null,
+          sleep_hours: t.sleepHours ?? null,
+        };
+      }),
       fightWeekPlan: fightWeekPlan
         ? {
             fight_date: fightWeekPlan.fightDate,
@@ -771,19 +780,23 @@ export const fetchTrainingWeek = internalQuery({
     return {
       weekStart,
       weekEnd,
-      sessions: calendarSessions.map((s) => ({
-        date: s.date,
-        session_type: s.sessionType,
-        intensity: s.intensity,
-        intensity_level: s.intensityLevel ?? null,
-        duration_minutes: s.durationMinutes,
-        rpe: s.rpe,
-        bodyweight: s.bodyweight ?? null,
-        fatigue_level: s.fatigueLevel ?? null,
-        soreness_level: s.sorenessLevel ?? null,
-        sleep_hours: s.sleepHours ?? null,
-        notes: s.notes ?? null,
-      })),
+      sessions: calendarSessions.map((s) => {
+        const { primary, tag } = normalizeLegacySession(s.sessionType, s.sessionTag);
+        return {
+          date: s.date,
+          session_type: primary,
+          session_tag: tag,
+          intensity: s.intensity,
+          intensity_level: s.intensityLevel ?? null,
+          duration_minutes: s.durationMinutes,
+          rpe: s.rpe,
+          bodyweight: s.bodyweight ?? null,
+          fatigue_level: s.fatigueLevel ?? null,
+          soreness_level: s.sorenessLevel ?? null,
+          sleep_hours: s.sleepHours ?? null,
+          notes: s.notes ?? null,
+        };
+      }),
     };
   },
 });

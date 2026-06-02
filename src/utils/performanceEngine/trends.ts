@@ -1,5 +1,6 @@
 import type { SessionRow, TrendAlerts, PersonalBaseline } from "./types";
 import { getRecentSorenessValues, getRecentSleepValues, zScore } from "./helpers";
+import { isRestSession } from "@/lib/sessionTypes";
 
 export function detectTrends(
   sessions28d: SessionRow[],
@@ -44,7 +45,7 @@ export function detectTrends(
   }
 
   const trainingSessions = sessions28d
-    .filter(s => s.session_type !== 'Rest' && s.session_type !== 'Recovery')
+    .filter(s => !isRestSession(s.session_type))
     .sort((a, b) => b.date.localeCompare(a.date) || b.created_at.localeCompare(a.created_at));
 
   if (trainingSessions.length >= 6) {

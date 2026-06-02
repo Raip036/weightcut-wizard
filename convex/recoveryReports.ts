@@ -14,6 +14,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { normalizeLegacySession } from "./lib/sessionTypes";
 
 // ───────────────────────────────────────────────────────────────────────
 // Writes
@@ -210,14 +211,18 @@ export const gatherCampCompassInputs = internalQuery({
     }
 
     return {
-      sessions: sessions.map((s) => ({
-        date: s.date,
-        sessionType: s.sessionType,
-        durationMinutes: s.durationMinutes,
-        rpe: s.rpe,
-        intensity: s.intensity,
-        rounds: s.rounds ?? null,
-      })),
+      sessions: sessions.map((s) => {
+        const { primary, tag } = normalizeLegacySession(s.sessionType, s.sessionTag);
+        return {
+          date: s.date,
+          sessionType: primary,
+          sessionTag: tag,
+          durationMinutes: s.durationMinutes,
+          rpe: s.rpe,
+          intensity: s.intensity,
+          rounds: s.rounds ?? null,
+        };
+      }),
       sleepLogs: sleepLogs.map((l) => ({ date: l.date, hours: l.hours })),
       checkins: wellness.map((c) => ({
         date: c.date,

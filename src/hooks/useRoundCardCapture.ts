@@ -55,7 +55,9 @@ export const ROUND_CARD_FALLBACK_DEFAULTS: ReviewSheetDefaults = {
   // is null in ReviewSheet, so this field is never read in the fallback
   // path — kept here to satisfy the `ReviewSheetDefaults` shape.
   gymLogoUrl: null,
-  sessionType: "Strength",
+  // PRIMARY discipline + optional activity tag (two-level session model).
+  sessionType: "S&C",
+  sessionTag: "Strength",
   durationMinutes: 60,
   intensity: "Steady",
   intensityLevel: 5,
@@ -245,6 +247,7 @@ export function useRoundCardCapture(
         const sessionId = (await createCalendarEntry({
           date: todayIso,
           sessionType: meta.sessionType,
+          sessionTag: meta.sessionTag ?? undefined,
           intensity: meta.intensity,
           intensityLevel: meta.intensityLevel,
           durationMinutes: meta.durationMinutes,

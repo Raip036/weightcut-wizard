@@ -1,7 +1,7 @@
 import { logger } from "@/lib/logger";
 import type { SessionRow } from "./types";
 import { getIntensityMultiplier } from "./helpers";
-import { sportLoadMultiplier, CONTACT_SESSION_TYPES } from "@/lib/sessionTypes";
+import { effectiveLoadMultiplier, isContactSession, isRestSession } from "@/lib/sessionTypes";
 
 // ─── EWMA-based ACWR ─────────────────────────────────────────
 // EWMA decay: λ = 2 / (N + 1). N=7 → λ≈0.286 (acute), N=28 → λ≈0.069 (chronic).
@@ -41,17 +41,18 @@ export function computeEwmaAcwr(dailyLoads: { date: string; load: number }[]): {
 }
 
 // ─── Session Load ────────────────────────────────────────────
-// sessionLoad = RPE × minutes × intensityMultiplier × sportLoadMultiplier.
-// The sport multiplier (from sessionTypes.ts) captures the fact that a
-// 10 min sparring round costs the body more than 10 min of shadowboxing.
+// sessionLoad = RPE × minutes × intensityMultiplier × effectiveLoadMultiplier.
+// The load multiplier (from sessionTypes.ts) is tag-driven: the activity tag
+// wins when present (a sparring round costs the body more than shadowboxing),
+// otherwise it falls back to a per-primary default. Rest primaries return 0.
 export function sessionLoad(session: SessionRow): number {
-  if (session.session_type === 'Rest' || session.session_type === 'Recovery') {
+  if (isRestSession(session.session_type)) {
     return 0;
   }
   return session.rpe
     * session.duration_minutes
     * getIntensityMultiplier(session)
-    * sportLoadMultiplier(session.session_type);
+    * effectiveLoadMultiplier(session.session_type, session.session_tag);
 }
 
 // ─── CNS / Proximity Multiplier ─────────────────────────────
@@ -61,7 +62,7 @@ export function sessionLoad(session: SessionRow): number {
  * between sessions (using created_at timestamps when available).
  */
 export function cnsMultiplier(sessions: SessionRow[]): number {
-  const training = sessions.filter(s => s.session_type !== 'Rest' && s.session_type !== 'Recovery');
+  const training = sessions.filter(s => !isRestSession(s.session_type));
   if (training.length <= 1) return 1.0;
 
   const anyHighRpe = training.some(s => s.rpe >= 7);
@@ -85,7 +86,7 @@ export function cnsMultiplier(sessions: SessionRow[]): number {
 // Sum of session loads × CNS multiplier (which now accounts for
 // session count, intensity, and proximity rather than a flat 10%).
 export function dailyLoad(sessions: SessionRow[]): number {
-  const training = sessions.filter(s => s.session_type !== 'Rest' && s.session_type !== 'Recovery');
+  const training = sessions.filter(s => !isRestSession(s.session_type));
   if (training.length === 0) return 0;
 
   const total = training.reduce((sum, s) => sum + sessionLoad(s), 0);
@@ -158,7 +159,7 @@ export function computeContactLoad(sessions28d: SessionRow[]): {
   const cutoff = sevenDaysAgo.toISOString().slice(0, 10);
 
   const contactRoundsLast7d = sessions28d
-    .filter(s => s.date >= cutoff && CONTACT_SESSION_TYPES.has(s.session_type))
+    .filter(s => s.date >= cutoff && isContactSession(s.session_type, s.session_tag))
     .reduce((sum, s) => sum + ((s as any).rounds ?? 0), 0);
 
   let contactRiskZone: ContactRiskZone;

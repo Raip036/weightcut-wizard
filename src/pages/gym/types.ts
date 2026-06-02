@@ -36,7 +36,10 @@ export interface GymSession {
   id: string;
   user_id: string;
   date: string;
+  /** PRIMARY discipline for this row (gym styles act as custom primaries). */
   session_type: SessionType;
+  /** OPTIONAL activity descriptor returned by migrate-on-read; null when absent. */
+  session_tag?: string | null;
   duration_minutes: number | null;
   notes: string | null;
   perceived_fatigue: number | null;

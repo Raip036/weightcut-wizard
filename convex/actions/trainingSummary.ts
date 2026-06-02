@@ -57,6 +57,7 @@ const LLMOutSchema = z.object({
 interface WeekSession {
   date: string;
   session_type: string;
+  session_tag: string | null;
   intensity: string;
   intensity_level: number | null;
   duration_minutes: number;
@@ -195,7 +196,8 @@ export const run = action({
           maxLength: 800,
           raw: true,
         });
-        return `${s.date} | ${s.session_type} | ${s.duration_minutes}min | Notes: <user_input>${cleanNotes}</user_input>`;
+        const discipline = `${s.session_type}${s.session_tag ? ` (${s.session_tag})` : ""}`;
+        return `${s.date} | ${discipline} | ${s.duration_minutes}min | Notes: <user_input>${cleanNotes}</user_input>`;
       })
       .join("\n");
 

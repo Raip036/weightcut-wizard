@@ -15,6 +15,7 @@ import {
 export const run = action({
   args: {
     session_type: v.string(),
+    sessionTag: v.optional(v.string()),
     fingerprint: v.optional(v.string()),
     session_id: v.optional(v.union(v.string(), v.null())),
     session_date: v.optional(v.union(v.string(), v.null())),
@@ -42,6 +43,9 @@ export const run = action({
     if (!sessionType) {
       throw new Error("session_type is required");
     }
+    const sessionTag = args.sessionTag
+      ? sanitizeUserText(args.sessionTag, { maxLength: 60, raw: true })
+      : "";
     if (args.sessions.length === 0) {
       throw new Error("sessions cannot be empty");
     }
@@ -82,7 +86,9 @@ Output schema (return ONLY this JSON object):
   "pathway": ["string", "string", "string"]
 }`;
 
-    const userText = `Discipline: <user_input>${sessionType}</user_input>
+    const userText = `Discipline: <user_input>${sessionType}</user_input>${
+      sessionTag ? `, focus: <user_input>${sessionTag}</user_input>` : ""
+    }
 
 Recent sessions (latest first, focus your analysis on session [1]):
 ${sessions

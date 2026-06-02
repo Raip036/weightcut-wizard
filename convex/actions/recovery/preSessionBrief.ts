@@ -36,7 +36,7 @@ import { parseJSON } from "../../_shared/parseResponse";
 //     Verify the exact OpenRouter model ID before deploy.
 const MODEL =
   (typeof process !== "undefined" && process.env?.LLM_PROVIDER?.toLowerCase() === "openrouter")
-    ? "deepseek/deepseek-chat-v3.5"
+    ? "deepseek/deepseek-chat"
     : "llama-3.1-8b-instant";
 const GROQ_TIMEOUT_MS = 12_000;
 
@@ -68,6 +68,7 @@ export const generateBrief = action({
   args: {
     plannedSession: v.object({
       sessionType: v.string(),
+      sessionTag: v.optional(v.string()),
       durationMinutes: v.number(),
       scheduledAtMs: v.number(),
     }),
@@ -158,6 +159,7 @@ A "go" means the session is safe to do as planned. "modify" means do it but adju
 interface GreenLightPromptInputs {
   plannedSession: {
     sessionType: string;
+    sessionTag?: string;
     durationMinutes: number;
     scheduledAtMs: number;
   };
@@ -181,7 +183,9 @@ function buildGreenLightPrompt(args: GreenLightPromptInputs): string {
     : "No wellness check-in today.";
 
   return [
-    `Planned session: ${args.plannedSession.sessionType}, ${args.plannedSession.durationMinutes} min, scheduled ${when}.`,
+    `Planned session: ${args.plannedSession.sessionType}${
+      args.plannedSession.sessionTag ? ` (${args.plannedSession.sessionTag})` : ""
+    }, ${args.plannedSession.durationMinutes} min, scheduled ${when}.`,
     "",
     "Body signals:",
     `- ${wellnessLine}`,

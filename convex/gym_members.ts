@@ -7,7 +7,8 @@
  */
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
 import { requireUserId } from "./lib/auth";
 import { assertGymOwner, assertGymMember } from "./gyms";
 
@@ -314,7 +315,80 @@ export const listMyInvites = query({
 });
 
 /**
- * Remove a member from a gym (soft-delete: status = "removed").
+ * Mark every `session_media` post and `feed_comments` row authored by
+ * `userId` inside `gymId` as `authorState: "former_member"`. Used by all
+ * three remove-member paths so a departing user's posts continue to
+ * render in the gym feed (preserving conversation continuity) while
+ * carrying a clear "(former member)" tag on the author overlay.
+ *
+ * Why not hard-delete? Replies, reactions, and references on neighbouring
+ * posts would dangle. Keeping the post + soft-tagging the author is the
+ * least surprising behaviour for the rest of the gym.
+ *
+ * Scope: only rows where `session_media.gymId === gymId` AND
+ * `session_media.userId === userId` are touched — leaving the user in
+ * another gym they belong to is unaffected. Comments are scoped via
+ * their parent post's gymId (resolved per-comment) so a comment the
+ * leaving user wrote on someone else's post in this gym also gets
+ * tagged.
+ *
+ * Cheap: a member's post history in one gym is bounded by the rate
+ * limit (20 posts/day cap) × tenure, well under any per-mutation write
+ * budget on realistic accounts. The `by_user_created` index scopes the
+ * scan to one user.
+ */
+async function tagPostsAndCommentsAsFormerMember(
+  ctx: MutationCtx,
+  gymId: Id<"gyms">,
+  userId: Id<"users">,
+): Promise<{ postsTagged: number; commentsTagged: number }> {
+  // Walk this user's posts via the user-scoped index, then filter to the
+  // gym leaving (vs. a separate `by_gym_user_created` index — overkill
+  // for the size of one user's post history).
+  const userPosts = await ctx.db
+    .query("session_media")
+    .withIndex("by_user_created", (q) => q.eq("userId", userId))
+    .collect();
+  const postsInGym = userPosts.filter((p) => p.gymId === gymId);
+  await Promise.all(
+    postsInGym.map((p) =>
+      ctx.db.patch(p._id, { authorState: "former_member" }),
+    ),
+  );
+
+  // Same for comments — scope by user via `by_user`, then keep only
+  // comments whose parent post lives in this gym. The parent fetch is
+  // bounded by the user's total comment count, which is also small per
+  // gym in practice.
+  const userComments = await ctx.db
+    .query("feed_comments")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .collect();
+  const commentParents = await Promise.all(
+    userComments.map((c) => ctx.db.get(c.postId)),
+  );
+  const commentsInGym = userComments.filter((_c, i) => {
+    const parent = commentParents[i];
+    return parent?.gymId === gymId;
+  });
+  await Promise.all(
+    commentsInGym.map((c) =>
+      ctx.db.patch(c._id, { authorState: "former_member" }),
+    ),
+  );
+
+  return {
+    postsTagged: postsInGym.length,
+    commentsTagged: commentsInGym.length,
+  };
+}
+
+/**
+ * Remove a member from a gym (soft-delete: status = "removed"). The
+ * user's prior posts and comments in this gym are soft-tagged as
+ * `authorState: "former_member"` so the feed shows a "(former member)"
+ * label rather than disappearing the content. Hard-delete is reserved
+ * for full-account deletion (see deleteAccountMutations.ts).
  *
  * Permissions:
  *   - Coach (gym owner): can remove anyone except themselves.
@@ -340,6 +414,7 @@ export const removeMember = mutation({
     }
 
     await ctx.db.patch(memberId, { status: "removed" });
+    await tagPostsAndCommentsAsFormerMember(ctx, member.gymId, member.userId);
   },
 });
 
@@ -360,6 +435,7 @@ export const removeAthleteByUserId = mutation({
       .unique();
     if (!member) throw new Error("Athlete is not in this gym");
     await ctx.db.patch(member._id, { status: "removed" });
+    await tagPostsAndCommentsAsFormerMember(ctx, gymId, athleteUserId);
   },
 });
 
@@ -389,6 +465,7 @@ export const removeAthleteFromMyGyms = mutation({
         .unique();
       if (member && member.status === "active") {
         await ctx.db.patch(member._id, { status: "removed" });
+        await tagPostsAndCommentsAsFormerMember(ctx, gym._id, athleteUserId);
         removed += 1;
       }
     }

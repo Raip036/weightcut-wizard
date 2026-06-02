@@ -163,8 +163,15 @@ export function SessionDetailSheet({ session, open, onOpenChange, onDelete, onUp
             >
               <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${edgeColor}`} />
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-foreground">
-                  {session.session_type}
+                <span className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-foreground truncate">
+                    {session.session_type}
+                  </span>
+                  {session.session_tag && (
+                    <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-muted/50 text-muted-foreground">
+                      {session.session_tag}
+                    </span>
+                  )}
                 </span>
                 <span className="text-[11px] text-muted-foreground/80">
                   {new Date(session.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}

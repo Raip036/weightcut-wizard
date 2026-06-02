@@ -50,9 +50,16 @@ export const gymSetSchema = z.object({
   notes: z.string().max(500, "Notes too long").optional().nullable(),
 });
 
-// Gym session validation schema
+// Gym session validation schema.
+//
+// `session_type` is now the session PRIMARY (a martial art, "S&C", or
+// "Rest", plus user custom martial-art primaries) under the two-level
+// session model — no longer restricted to the old fixed activity list.
+// `session_tag` is the OPTIONAL activity descriptor (Sparring, Drilling,
+// Strength, …); it may be absent.
 export const gymSessionSchema = z.object({
-  session_type: z.enum(["Strength", "Conditioning", "Muay Thai S&C", "Hypertrophy", "Powerlifting", "Circuit", "Custom"]),
+  session_type: z.string().trim().min(1, "Session type is required").max(60, "Session type too long"),
+  session_tag: z.string().trim().min(1).max(60, "Session tag too long").optional().nullable(),
   duration_minutes: z.number().int().positive().max(600, "Duration too long").optional().nullable(),
   notes: z.string().max(2000, "Notes too long").optional().nullable(),
   perceived_fatigue: z.number().int().min(1).max(10).optional().nullable(),

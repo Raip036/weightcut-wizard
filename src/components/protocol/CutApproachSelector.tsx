@@ -12,7 +12,9 @@
 import { useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Icon } from "@/components/ui/Icon";
 import { triggerHapticSelection } from "@/lib/haptics";
+import { ApproachInfoSheet } from "./ApproachInfoSheet";
 
 export type CutApproach = "gradual" | "standard" | "aggressive";
 
@@ -40,6 +42,7 @@ export function CutApproachSelector({
 }: CutApproachSelectorProps) {
   const prefersReduced = useReducedMotion();
   const [tooltipOpen, setTooltipOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
 
   const handleSelect = (next: CutApproach) => {
     if (disabled) return;
@@ -93,9 +96,19 @@ export function CutApproachSelector({
 
   return (
     <section className={className} aria-label="Choose cut approach">
-      <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground/70 font-bold mb-2">
-        Cut approach
-      </p>
+      <div className="flex items-center gap-1.5 mb-2">
+        <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground/70 font-bold">
+          Cut approach
+        </p>
+        <button
+          type="button"
+          onClick={() => setInfoOpen(true)}
+          aria-label="Learn about cut approaches"
+          className="h-5 w-5 -my-1 inline-flex items-center justify-center rounded-full text-muted-foreground/60 active:text-foreground transition-colors"
+        >
+          <Icon name="helpCircleOutline" size={14} />
+        </button>
+      </div>
       {disabled && disabledReason ? (
         <Popover open={tooltipOpen} onOpenChange={setTooltipOpen}>
           <PopoverTrigger asChild>
@@ -124,6 +137,7 @@ export function CutApproachSelector({
       ) : (
         segmented
       )}
+      <ApproachInfoSheet open={infoOpen} onOpenChange={setInfoOpen} />
     </section>
   );
 }

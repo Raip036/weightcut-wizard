@@ -210,17 +210,24 @@ export const CoachingLibrarySheet = memo(function CoachingLibrarySheet({
                 style={{ borderLeft: `3px solid ${color}` }}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span
-                    className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide"
-                    style={{ color }}
-                  >
+                  <div className="flex items-center gap-1.5 min-w-0">
                     <span
-                      className="h-1.5 w-1.5 rounded-full"
-                      style={{ backgroundColor: color }}
-                      aria-hidden
-                    />
-                    {entry.session_type}
-                  </span>
+                      className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide"
+                      style={{ color }}
+                    >
+                      <span
+                        className="h-1.5 w-1.5 rounded-full"
+                        style={{ backgroundColor: color }}
+                        aria-hidden
+                      />
+                      {entry.session_type}
+                    </span>
+                    {entry.session_tag && (
+                      <span className="shrink-0 text-[9px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-muted/40 text-muted-foreground">
+                        {entry.session_tag}
+                      </span>
+                    )}
+                  </div>
                   <span className="text-[11px] text-muted-foreground">{dateLabel}</span>
                 </div>
                 {typeof data.what_you_did === "string" && data.what_you_did && (

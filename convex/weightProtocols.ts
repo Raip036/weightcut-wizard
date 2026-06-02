@@ -91,9 +91,18 @@ export const getCurrentForUser = query({
       .first();
     if (!activeCamp) return null;
 
-    // 2. Both protocol kinds + feel checks in parallel.
-    const [fightPlan, rehydration, feelChecks, fightWeekPlans] =
-      await Promise.all([
+    // 2. Both protocol kinds + feel checks + supporting data in parallel.
+    //    The profile + latest weight log are used to derive raw values
+    //    (cut depth, weigh-in gap) so the "Tuned to you" stat grid + the
+    //    header cut-depth pill render even before the AI plan is generated.
+    const [
+      fightPlan,
+      rehydration,
+      feelChecks,
+      fightWeekPlans,
+      profile,
+      latestWeightLog,
+    ] = await Promise.all([
         ctx.db
           .query("weight_protocols")
           .withIndex("by_user_camp_kind", (q) =>
@@ -125,6 +134,17 @@ export const getCurrentForUser = query({
           .query("fight_week_plans")
           .withIndex("by_user", (q) => q.eq("userId", userId))
           .collect(),
+        // Profile + latest weight log — used for raw stat fallback when
+        // the AI plan hasn't been generated yet.
+        ctx.db
+          .query("profiles")
+          .withIndex("by_user", (q) => q.eq("userId", userId))
+          .unique(),
+        ctx.db
+          .query("weight_logs")
+          .withIndex("by_user_date", (q) => q.eq("userId", userId))
+          .order("desc")
+          .first(),
       ]);
 
     // 3. Resolve weigh-in date.
@@ -180,12 +200,44 @@ export const getCurrentForUser = query({
       phase = "pre-fight";
     }
 
+    // 5. Derived raw values — let the page render the "Tuned to you"
+    //    stat grid + header cut-depth pill BEFORE the AI plan exists.
+    //    Mirrors the resolution order in
+    //    `weight_protocols_internal.gatherInputs → computeDerived`.
+    const currentWeightKg =
+      latestWeightLog?.weightKg ?? profile?.currentWeightKg ?? null;
+    const targetWeightKg =
+      matchedPlan?.targetWeightKg ?? profile?.goalWeightKg ?? null;
+    const cutDepthKg =
+      currentWeightKg != null && targetWeightKg != null
+        ? Math.max(0, currentWeightKg - targetWeightKg)
+        : null;
+    const cutDepthPct =
+      currentWeightKg != null && cutDepthKg != null && currentWeightKg > 0
+        ? (cutDepthKg / currentWeightKg) * 100
+        : null;
+    // Weigh-in clock defaults to 11:00 local (the standard pro weigh-in
+    // window) when the camp doesn't carry an explicit time.
+    const weighInToFightGapHours =
+      Number.isFinite(weighInDateMs) && Number.isFinite(fightDateMs)
+        ? Math.max(
+            0,
+            Math.round((fightDateMs - weighInDateMs) / HOUR_MS),
+          )
+        : null;
+
     return {
       campId: activeCamp._id,
       phase,
       today,
       daysToFight,
       daysToWeighIn,
+      // Raw derived values — present whether or not the AI plan exists.
+      currentWeightKg,
+      targetWeightKg,
+      cutDepthKg,
+      cutDepthPct,
+      weighInToFightGapHours,
       fightPlan: fightPlan
         ? {
             _id: fightPlan._id,
@@ -208,6 +260,8 @@ export const getCurrentForUser = query({
         metric: c.metric,
         checkedAt: c.checkedAt,
         value: c.value,
+        tier: c.tier,
+        aiFeedback: c.aiFeedback,
       })),
     };
   },
@@ -228,6 +282,43 @@ export const getCurrentForUser = query({
  * resolves; surfacing the error lets the page roll the optimistic state
  * back rather than silently swallow.
  */
+/**
+ * Deterministic tier computation from a raw value. Pure helper — keeps the
+ * AI feedback action lean and gives the UI an immediate green/amber/red
+ * indicator while the AI feedback is still in flight.
+ */
+function computeTier(
+  metric: "urine_colour" | "weigh_back_kg" | "energy_1to10" | "headache" | "no_cramps",
+  value: string,
+): "green" | "amber" | "red" {
+  switch (metric) {
+    case "urine_colour": {
+      const n = parseInt(value, 10);
+      if (Number.isNaN(n)) return "amber";
+      if (n <= 3) return "green";
+      if (n <= 5) return "amber";
+      return "red";
+    }
+    case "energy_1to10": {
+      const n = parseInt(value, 10);
+      if (Number.isNaN(n)) return "amber";
+      if (n >= 7) return "green";
+      if (n >= 5) return "amber";
+      return "red";
+    }
+    case "headache":
+      return value === "no" ? "green" : value === "mild" ? "amber" : "red";
+    case "no_cramps":
+      return value === "none" ? "green" : "amber";
+    case "weigh_back_kg":
+      // Without knowing the target, default amber; UI can layer tier
+      // based on comparison to cut depth.
+      return "amber";
+    default:
+      return "amber";
+  }
+}
+
 export const recordFeelCheck = mutation({
   args: {
     campId: v.id("fight_camps"),
@@ -238,6 +329,8 @@ export const recordFeelCheck = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("NOT_AUTHENTICATED");
 
+    const tier = value ? computeTier(metric, value) : undefined;
+
     const existing = await ctx.db
       .query("protocol_feel_checks")
       .withIndex("by_user_camp_metric", (q) =>
@@ -246,7 +339,14 @@ export const recordFeelCheck = mutation({
       .unique();
 
     if (existing) {
-      await ctx.db.patch(existing._id, { checkedAt: Date.now(), value });
+      // Clear stale AI feedback on value change — the new value invalidates
+      // the prior advice.
+      await ctx.db.patch(existing._id, {
+        checkedAt: Date.now(),
+        value,
+        tier,
+        aiFeedback: undefined,
+      });
       return existing._id;
     }
     return await ctx.db.insert("protocol_feel_checks", {
@@ -255,7 +355,31 @@ export const recordFeelCheck = mutation({
       metric,
       checkedAt: Date.now(),
       value,
+      tier,
     });
+  },
+});
+
+/**
+ * Internal mutation used by the AI feedback action to write the
+ * generated 1-line response back to the row.
+ */
+export const setFeelCheckFeedback = mutation({
+  args: {
+    campId: v.id("fight_camps"),
+    metric: feelCheckMetric,
+    aiFeedback: v.string(),
+  },
+  handler: async (ctx, { campId, metric, aiFeedback }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return;
+    const existing = await ctx.db
+      .query("protocol_feel_checks")
+      .withIndex("by_user_camp_metric", (q) =>
+        q.eq("userId", userId).eq("campId", campId).eq("metric", metric),
+      )
+      .unique();
+    if (existing) await ctx.db.patch(existing._id, { aiFeedback });
   },
 });
 

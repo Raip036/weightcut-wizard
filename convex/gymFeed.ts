@@ -302,6 +302,10 @@ export const listFeed = query({
             avatarUrl: author?.avatarUrl ?? null,
             streakDays: author?.streakDays ?? 0,
           },
+          // Soft-tag: "former_member" when the author has left/been removed
+          // from this gym. Absent = treat as active. Drives the
+          // "(former member)" badge in `RoundedFeedCard.tsx`.
+          authorState: m.authorState ?? "active",
           session: session
             ? {
                 id: session._id,
@@ -656,6 +660,10 @@ export const listProfilePosts = query({
           caption: m.caption ?? null,
           visibility: m.visibility ?? "gym",
           author,
+          // Soft-tag mirroring `listFeed` — the profile grid for an
+          // athlete who left the gym still surfaces their old posts to
+          // peers, tagged accordingly.
+          authorState: m.authorState ?? "active",
           session: session
             ? {
                 id: session._id,

@@ -22,10 +22,9 @@ import { TrainingSummarySection } from "@/components/fightcamp/TrainingSummarySe
 import { CalendarMonthGrid } from "@/components/fightcamp/CalendarMonthGrid";
 import { SessionCard } from "@/components/fightcamp/SessionCard";
 import { SessionDetailDrawer } from "@/components/fightcamp/SessionDetailDrawer";
-import { FightCampLogForm, SESSION_TYPES } from "@/components/fightcamp/FightCampLogForm";
+import { FightCampLogForm } from "@/components/fightcamp/FightCampLogForm";
 import {
-  SESSION_TYPE_CATEGORIES,
-  ALL_SESSION_TYPES,
+  MARTIAL_ARTS,
   isContactSession,
 } from "@/lib/sessionTypes";
 import { uploadSessionMediaV2 } from "@/lib/uploadSessionMediaV2";
@@ -46,7 +45,10 @@ interface TrainingCalendarRow {
   id: string;
   user_id: string;
   date: string;
+  // PRIMARY discipline (martial art / "S&C" / "Rest").
   session_type: string;
+  // OPTIONAL activity tag (Sparring, Drilling, Strength, …). null ⇒ none.
+  session_tag: string | null;
   duration_minutes: number;
   rpe: number;
   intensity: string;
@@ -113,13 +115,14 @@ function pushMru(userId: string, type: string): void {
 }
 
 // Default-selection helper. Prefer first MRU; fall back to the first
-// Combat-category type (`Sparring`) per the T8 spec.
+// built-in martial-art primary. Under the two-level model the default
+// selection is a PRIMARY discipline (the optional activity tag stays unset).
 function pickDefaultSessionType(userId: string | null): string {
     if (userId) {
         const mru = readMru(userId);
         if (mru.length > 0) return mru[0];
     }
-    return SESSION_TYPE_CATEGORIES[0].types[0].id;
+    return MARTIAL_ARTS[0];
 }
 
 export default function TrainingCalendar() {
@@ -151,6 +154,8 @@ export default function TrainingCalendar() {
 
     // Form State
     const [sessionType, setSessionType] = useState<string>(() => pickDefaultSessionType(userId));
+    // Optional activity tag for the primary above. null ⇒ no tag.
+    const [sessionTag, setSessionTag] = useState<string | null>(null);
     const [duration, setDuration] = useState("60");
     const [rpe, setRpe] = useState([5]);
     const [intensityLevel, setIntensityLevel] = useState([3]);
@@ -232,6 +237,7 @@ export default function TrainingCalendar() {
                 user_id: r.userId,
                 date: r.date,
                 session_type: r.sessionType,
+                session_tag: r.sessionTag ?? null,
                 duration_minutes: r.durationMinutes,
                 rpe: r.rpe,
                 intensity: r.intensity,
@@ -326,6 +332,7 @@ export default function TrainingCalendar() {
                 user_id: r.userId,
                 date: r.date,
                 session_type: r.sessionType,
+                session_tag: r.sessionTag ?? null,
                 duration_minutes: r.durationMinutes,
                 rpe: r.rpe,
                 intensity: r.intensity,
@@ -412,6 +419,7 @@ export default function TrainingCalendar() {
 
     const resetForm = () => {
         setSessionType(pickDefaultSessionType(userId));
+        setSessionTag(null);
         setDuration("60");
         setRpe([5]);
         setIntensityLevel([3]);
@@ -460,6 +468,7 @@ export default function TrainingCalendar() {
 
         setEditingSession(session);
         setSessionType(session.session_type);
+        setSessionTag(session.session_tag ?? null);
         setDuration(String(session.duration_minutes));
         setRpe([session.rpe]);
         const il = session.intensity_level ?? (session.intensity === 'high' ? 5 : session.intensity === 'moderate' ? 3 : 1);
@@ -469,7 +478,7 @@ export default function TrainingCalendar() {
         // Preload existing rounds for contact sessions; null otherwise so the
         // form respects "user hasn't set it" semantics (unchecked on save).
         setRounds(
-            isContactSession(session.session_type) && typeof session.rounds === "number"
+            isContactSession(session.session_type, session.session_tag) && typeof session.rounds === "number"
                 ? session.rounds
                 : null,
         );
@@ -525,9 +534,14 @@ export default function TrainingCalendar() {
         const previousMonthSessions = sessions;
         const previousMem = monthMemCache.get(memMonthKey);
 
+        // Normalise the optional tag: empty string ⇒ null so we never ship
+        // a blank tag to the backend.
+        const tagToSave = sessionTag && sessionTag.trim() ? sessionTag : null;
+
         // Build optimistic row using existing media url (we'll replace with the
-        // uploaded URL once it lands; UI shows the preview meanwhile)
-        const baseNotes = sessionType === "Run"
+        // uploaded URL once it lands; UI shows the preview meanwhile).
+        // Run-meta is keyed on the "Run" activity TAG under the two-level model.
+        const baseNotes = tagToSave === "Run"
             ? encodeRunMeta(
                 { distance: runDistance, unit: runDistanceUnit, time: runTime, pace: runPace },
                 notes.trim()
@@ -537,7 +551,7 @@ export default function TrainingCalendar() {
         // Rounds is only included for contact sessions, and only when the
         // user actually set a value (rounds !== null). Mirrors the payload
         // logic below so the optimistic row matches what the server stores.
-        const contactRounds = isContactSession(sessionType) && rounds != null ? rounds : null;
+        const contactRounds = isContactSession(sessionType, tagToSave) && rounds != null ? rounds : null;
 
         const optimisticRow: TrainingCalendarRow = {
             // Spread editingSession to preserve any DB-managed fields (created_at, etc.)
@@ -546,6 +560,7 @@ export default function TrainingCalendar() {
             user_id: uid,
             date: dateStr,
             session_type: sessionType,
+            session_tag: tagToSave,
             duration_minutes: parseInt(duration) || 0,
             rpe: rpe[0],
             intensity: intensityMap[intensityLevel[0]] || 'moderate',
@@ -595,6 +610,7 @@ export default function TrainingCalendar() {
                 user_id: uid,
                 date: dateStr,
                 session_type: sessionType,
+                session_tag: tagToSave,
                 duration_minutes: parseInt(duration) || 0,
                 rpe: rpe[0],
                 intensity: intensityMap[intensityLevel[0]] || 'moderate',
@@ -616,25 +632,30 @@ export default function TrainingCalendar() {
                 await updateCalendarMut({
                     id: realSessionId,
                     sessionType: payload!.session_type,
+                    // Backend accepts a string to set/replace; omit (undefined)
+                    // leaves the stored tag unchanged. The validator rejects
+                    // null, so a cleared tag maps to "no change" here.
+                    sessionTag: tagToSave ?? undefined,
                     intensity: payload!.intensity,
                     intensityLevel: payload!.intensity_level ?? undefined,
                     durationMinutes: payload!.duration_minutes,
                     rpe: payload!.rpe,
                     sorenessLevel: payload!.soreness_level ?? undefined,
                     notes: payload!.notes ?? undefined,
-                    ...(isContactSession(sessionType) && rounds != null ? { rounds } : {}),
+                    ...(isContactSession(sessionType, tagToSave) && rounds != null ? { rounds } : {}),
                 });
             } else {
                 realSessionId = (await createCalendarMut({
                     date: payload!.date,
                     sessionType: payload!.session_type,
+                    sessionTag: tagToSave ?? undefined,
                     intensity: payload!.intensity,
                     intensityLevel: payload!.intensity_level ?? undefined,
                     durationMinutes: payload!.duration_minutes,
                     rpe: payload!.rpe,
                     sorenessLevel: payload!.soreness_level ?? undefined,
                     notes: payload!.notes ?? undefined,
-                    ...(isContactSession(sessionType) && rounds != null ? { rounds } : {}),
+                    ...(isContactSession(sessionType, tagToSave) && rounds != null ? { rounds } : {}),
                 })) as Id<"fight_camp_calendar">;
             }
 
@@ -861,6 +882,7 @@ export default function TrainingCalendar() {
             user_id: uid,
             date: dateStr,
             session_type: "Rest",
+            session_tag: null,
             duration_minutes: 0,
             rpe: 0,
             intensity: "low",
@@ -1158,6 +1180,7 @@ export default function TrainingCalendar() {
                                     isEditing={!!editingSession}
                                     userId={userId}
                                     sessionType={sessionType} setSessionType={setSessionType}
+                                    sessionTag={sessionTag} setSessionTag={setSessionTag}
                                     duration={duration} setDuration={setDuration}
                                     rpe={rpe} setRpe={setRpe}
                                     intensityLevel={intensityLevel} setIntensityLevel={setIntensityLevel}

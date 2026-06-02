@@ -301,7 +301,11 @@ export default defineSchema({
   gym_sessions: defineTable({
     userId: v.id("users"),
     date: v.string(),
+    // PRIMARY category: a martial art, "S&C", or "Rest".
     sessionType: v.string(),
+    // Optional activity tag (Sparring, Strength, …). Drives load + contact
+    // tracking; absent for older rows (resolved via migrate-on-read).
+    sessionTag: v.optional(v.string()),
     status: v.string(),
     durationMinutes: v.optional(v.number()),
     perceivedFatigue: v.optional(v.number()),
@@ -418,7 +422,14 @@ export default defineSchema({
   fight_camp_calendar: defineTable({
     userId: v.id("users"),
     date: v.string(),
+    // PRIMARY category the session belongs to: a martial art (BJJ, Boxing,
+    // …), "S&C", or "Rest". The training calendar + AI coach key off this.
     sessionType: v.string(),
+    // Optional activity tag describing WHAT the session was (Sparring, Live
+    // Grappling, Drilling, Strength, Run, …). Drives the training-load model
+    // and contact/round tracking. Absent for legacy rows — `normalizeLegacySession`
+    // (convex/lib/sessionTypes.ts) infers it from sessionType on read.
+    sessionTag: v.optional(v.string()),
     intensity: v.string(),
     intensityLevel: v.optional(v.number()),
     durationMinutes: v.number(),
@@ -526,6 +537,17 @@ export default defineSchema({
     // owner OR a gym admin via the moderation flow. Hard-delete still
     // available via the existing cron path.
     deletedAt: v.optional(v.number()),
+    // Author membership state at read time. Stamped to "former_member"
+    // when the user leaves (or is removed from) the gym this post lives
+    // in — preserves the post in the feed for conversation continuity
+    // while signalling to viewers that the author is no longer in the
+    // gym. Absent / "active" both render as a normal post; the
+    // frontend tags posts with `"former_member"` as such. Optional so
+    // existing rows pass schema validation without a migration.
+    authorState: v.optional(v.union(
+      v.literal("active"),
+      v.literal("former_member"),
+    )),
   })
     .index("by_session", ["sessionId"])
     .index("by_user_captured", ["userId", "capturedAt"])
@@ -583,6 +605,15 @@ export default defineSchema({
     body: v.string(),
     // Soft-delete hook for moderation v2. Unused in v1 — delete is hard.
     deletedAt: v.optional(v.number()),
+    // Author membership state at read time. Stamped to "former_member"
+    // when the commenter leaves (or is removed from) the post's gym so
+    // the comment thread can show a "(former member)" tag without a
+    // gym-membership cross-join at render time. Mirrors the same field
+    // on `session_media`. Optional so existing rows pass validation.
+    authorState: v.optional(v.union(
+      v.literal("active"),
+      v.literal("former_member"),
+    )),
   })
     .index("by_post", ["postId"])
     .index("by_owner_created", ["postOwnerId"])
@@ -1028,8 +1059,19 @@ export default defineSchema({
       v.literal("no_cramps"),
     ),
     checkedAt: v.number(),
-    // Optional value if the user logged a measurement alongside the check
-    value: v.optional(v.string()),  // e.g. "pale straw" / "76.2" / "yes"
+    // Optional value the user logged alongside the check.
+    // urine_colour:    "1".."8" (Armstrong chart)
+    // weigh_back_kg:   kg as string (e.g. "76.2")
+    // energy_1to10:    "1".."10"
+    // headache:        "no" | "mild" | "severe"
+    // no_cramps:       "none" | "calf" | "thigh" | "back" | "other"
+    value: v.optional(v.string()),
+    // Derived tier (computed at write time from value + targets).
+    // green = on target; amber = watch; red = abort/escalate.
+    tier: v.optional(v.union(v.literal("green"), v.literal("amber"), v.literal("red"))),
+    // AI-generated 1-line actionable response. Cached server-side so the
+    // client doesn't re-fire on every render.
+    aiFeedback: v.optional(v.string()),
   })
     .index("by_user_camp", ["userId", "campId"])
     .index("by_user_camp_metric", ["userId", "campId", "metric"]),

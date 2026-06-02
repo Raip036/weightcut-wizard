@@ -177,6 +177,10 @@ export const listComments = query({
             displayName: profile?.displayName ?? "Athlete",
             avatarUrl,
           },
+          // Soft-tag — "former_member" when the commenter has left this
+          // gym. Drives a "(former member)" inline label in the comments
+          // sheet without a per-render gym-membership cross-join.
+          authorState: c.authorState ?? "active",
           // Pre-computed for the client so long-press shows / hides Delete
           // correctly without a second round-trip.
           canDelete: c.userId === userId || post.userId === userId,
@@ -245,6 +249,7 @@ export const listLatestComments = query({
             displayName: profile?.displayName ?? "Athlete",
             avatarUrl,
           },
+          authorState: c.authorState ?? "active",
           canDelete: c.userId === userId || post.userId === userId,
         };
       }),

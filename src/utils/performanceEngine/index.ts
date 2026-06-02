@@ -18,6 +18,7 @@ import {
 } from "./stats";
 import { derivePillars } from "./pillars";
 import { generateActionLine } from "./actionLine";
+import { isRestSession } from "@/lib/sessionTypes";
 
 // ─── Build Daily Loads Array (28 days) ───────────────────────
 function buildDailyLoads(sessions28d: SessionRow[]): { date: string; load: number; sessions: SessionRow[] }[] {
@@ -333,7 +334,7 @@ export function computeAllMetrics(
   const _lastWeekEndIso = _toIso(_lastSunday);
 
   for (const s of sessions28d) {
-    if (s.session_type === "Rest") continue; // exclude rest from training totals
+    if (isRestSession(s.session_type)) continue; // exclude rest from training totals
     const date = s.date;
     // This calendar week
     if (date >= _weekStartIso && date <= _todayIso) {
@@ -342,6 +343,7 @@ export function computeAllMetrics(
       if (_sessionsByDate[date]) {
         _sessionsByDate[date].push({
           sessionType: s.session_type,
+          sessionTag: s.session_tag ?? null,
           durationMinutes: s.duration_minutes ?? 0,
           rpe: s.rpe ?? 0,
         });
@@ -373,7 +375,7 @@ export function computeAllMetrics(
   // Sentinel = 999 if there's no hard session in the 28d window.
   const _todayDateIso = new Date().toISOString().slice(0, 10);
   const _hardDates = sessions28d
-    .filter(s => s.rpe >= 7 && s.session_type !== 'Rest' && s.session_type !== 'Recovery')
+    .filter(s => s.rpe >= 7 && !isRestSession(s.session_type))
     .map(s => s.date)
     .sort()
     .reverse();

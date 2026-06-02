@@ -65,6 +65,9 @@ export function SessionInfoCard({
 
   const TypeIcon = SESSION_TYPE_ICON[post.session?.sessionType?.toLowerCase() ?? ""] ?? Swords;
   const typeLabel = formatSessionType(post.session?.sessionType);
+  // OPTIONAL activity descriptor (Sparring, Strength, …). Lands on the
+  // session via migrate-on-read; read defensively so the type stays additive.
+  const sessionTag = (post.session as { sessionTag?: string | null } | null | undefined)?.sessionTag;
 
   // Instagram-style inline preview: latest 2 comments under the engagement
   // row. Only this card (the top of the polaroid stack) is mounted, so we
@@ -90,6 +93,11 @@ export function SessionInfoCard({
           <TypeIcon className="h-3.5 w-3.5" strokeWidth={2.2} />
           {typeLabel}
         </span>
+        {sessionTag && (
+          <span className="h-7 rounded-full px-2.5 text-[11px] font-medium bg-muted/40 text-muted-foreground inline-flex items-center">
+            {sessionTag}
+          </span>
+        )}
         {post.session && (
           <span className="text-[11px] text-muted-foreground tabular-nums">
             {post.session.durationMinutes} min · RPE {post.session.rpe}

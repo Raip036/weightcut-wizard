@@ -9,6 +9,7 @@ import { convex } from "@/integrations/convex/client";
 import { api } from "@/../convex/_generated/api";
 import { AIPersistence } from "@/lib/aiPersistence";
 import { logger } from "@/lib/logger";
+import { isRestSession } from "@/lib/sessionTypes";
 import type { PersonalBaseline } from "./performanceEngine";
 
 const BASELINE_CACHE_KEY = 'personal_baseline';
@@ -93,7 +94,7 @@ export async function computeAndStoreBaseline(userId: string, tdee?: number | nu
 
     const loadByDay = new Map<string, number>();
     for (const s of sessions as Array<any>) {
-      if (s.sessionType === 'Rest' || s.sessionType === 'Recovery') continue;
+      if (isRestSession(s.sessionType)) continue;
       const intensityLevel = s.intensityLevel ?? (s.intensity === 'low' ? 1 : s.intensity === 'high' ? 5 : 3);
       const multipliers: Record<number, number> = { 1: 0.8, 2: 1.0, 3: 1.15, 4: 1.3, 5: 1.5 };
       const load = (s.rpe ?? 5) * (s.durationMinutes ?? 0) * (multipliers[intensityLevel] ?? 1.0);

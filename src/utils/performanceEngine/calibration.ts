@@ -1,6 +1,7 @@
 import type { AthleteTier, AthleteCalibration, CampPhase, SessionRow } from "./types";
 import { clamp } from "./helpers";
 import { sessionLoad } from "./load";
+import { isRestSession } from "@/lib/sessionTypes";
 
 export type { CampPhase } from "./types";
 
@@ -107,7 +108,7 @@ export function deriveCalibration(
   const defaults = TIER_DEFAULTS[tier];
   const calibration: AthleteCalibration = { tier, ...defaults };
 
-  const trainingSessions = sessions28d.filter(s => s.session_type !== 'Rest' && s.session_type !== 'Recovery');
+  const trainingSessions = sessions28d.filter(s => !isRestSession(s.session_type));
   const uniqueTrainingDays = new Set(trainingSessions.map(s => s.date)).size;
 
   if (uniqueTrainingDays >= 7) {

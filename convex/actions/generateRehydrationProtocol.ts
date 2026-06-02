@@ -79,7 +79,7 @@ function deepseekOrFallback(): string {
       ? "openrouter"
       : "groq";
   return provider === "openrouter"
-    ? "deepseek/deepseek-chat-v3.5"
+    ? "deepseek/deepseek-chat"
     : "openai/gpt-oss-120b";
 }
 

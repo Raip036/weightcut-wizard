@@ -220,6 +220,11 @@ export function TinderMediaSwiper({
                   {items[index].sessionType}
                 </span>
               )}
+              {items[index]?.sessionTag && (
+                <span className="text-[10px] uppercase tracking-wider font-medium bg-white/10 backdrop-blur-md px-2 py-0.5 rounded-full">
+                  {items[index].sessionTag}
+                </span>
+              )}
               {items[index]?.capturedAt && (
                 <span className="text-[12px] tabular-nums">
                   {safeDate(items[index].capturedAt!)}

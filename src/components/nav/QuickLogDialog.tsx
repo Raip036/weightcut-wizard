@@ -5,13 +5,15 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Input } from "@/components/ui/input";
 import { triggerHaptic, celebrateSuccess, triggerHapticSelection } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
-import { useConvex, useMutation } from "convex/react";
+import { useConvex, useMutation, useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import type { Id } from "@/../convex/_generated/dataModel";
 import { useUser } from "@/contexts/UserContext";
 import { useToast } from "@/hooks/use-toast";
 import { logger } from "@/lib/logger";
 import { uploadSessionMediaV2 } from "@/lib/uploadSessionMediaV2";
+import { MARTIAL_ARTS, SANDC, REST, tagsForPrimary } from "@/lib/sessionTypes";
+import { getCustomTypes } from "@/lib/customSessionTypes";
 
 interface QuickLogDialogProps {
   open: boolean;
@@ -24,7 +26,9 @@ interface QuickLogDialogProps {
 
 type Mode = "menu" | "weight" | "training";
 
-const SESSION_TYPES = ["BJJ", "Muay Thai", "Boxing", "Wrestling", "Sparring", "Strength", "Run"] as const;
+// PRIMARY disciplines under the two-level session model: martial arts +
+// S&C + Rest. User custom martial-art primaries are merged in at render.
+const SESSION_TYPES: readonly string[] = [...MARTIAL_ARTS, SANDC, REST];
 const DURATION_PRESETS = [30, 60, 90] as const;
 
 // Maps a "feel" label → intensityLevel (1-5) and a sensible RPE (1-10).
@@ -49,6 +53,13 @@ export function QuickLogDialog({ open, onOpenChange, onLogFood, onLogWeight, onL
   const createTrainingMut = useMutation(api.fight_camp.createCalendarEntry);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Smart defaults supply a sensible default activity tag for the quick
+  // log. Cheap reactive query; gated on a real signed-in user.
+  const smartDefaults = useQuery(
+    api.fight_camp.getSmartDefaults,
+    userId && userId !== "pending" ? {} : "skip",
+  );
+
   const [mode, setMode] = useState<Mode>("menu");
   // Weight panel state
   const [quickWeight, setQuickWeight] = useState("");
@@ -63,6 +74,8 @@ export function QuickLogDialog({ open, onOpenChange, onLogFood, onLogWeight, onL
     try { return localStorage.getItem(RECENT_SESSION_KEY) || SESSION_TYPES[0]; } catch { return SESSION_TYPES[0]; }
   });
   const [selectedDuration, setSelectedDuration] = useState<number>(60);
+  // Optional activity tag (Sparring, Drilling, Strength, …). null ⇒ none.
+  const [selectedSessionTag, setSelectedSessionTag] = useState<string | null>(null);
   const [selectedIntensityIdx, setSelectedIntensityIdx] = useState<number>(1); // Steady
   const [savingTraining, setSavingTraining] = useState(false);
   // Optional selfie attached to the quick-logged training session. The file
@@ -155,14 +168,44 @@ export function QuickLogDialog({ open, onOpenChange, onLogFood, onLogWeight, onL
     setTrainingPhoto(null);
   };
 
-  // Promote the user's most-recently-logged session type to the top of the
-  // chip grid so it's the natural one-tap default after first use.
+  // PRIMARY chip list — built-in disciplines plus the user's custom
+  // martial-art primaries, with the most-recently-logged primary hoisted
+  // to the front so it's the natural one-tap default after first use.
   const orderedSessionTypes = useMemo(() => {
-    let recent = SESSION_TYPES[0] as string;
-    try { recent = localStorage.getItem(RECENT_SESSION_KEY) || SESSION_TYPES[0]; } catch { /* swallow */ }
-    if (!SESSION_TYPES.includes(recent as any)) return [...SESSION_TYPES];
-    return [recent, ...SESSION_TYPES.filter((t) => t !== recent)];
-  }, [open]); // re-read on each open
+    const customs = userId ? getCustomTypes(userId) : [];
+    const base = [...SESSION_TYPES, ...customs.filter((c) => !SESSION_TYPES.includes(c))];
+    let recent = base[0];
+    try { recent = localStorage.getItem(RECENT_SESSION_KEY) || base[0]; } catch { /* swallow */ }
+    if (!base.includes(recent)) return base;
+    return [recent, ...base.filter((t) => t !== recent)];
+  }, [open, userId]); // re-read on each open
+
+  // Optional activity tags offered for the currently-selected primary.
+  const tagOptions = useMemo(
+    () => tagsForPrimary(selectedSessionType),
+    [selectedSessionType],
+  );
+
+  // Seed the default tag from smart defaults when the sheet opens, but
+  // only if it's valid for the selected primary.
+  useEffect(() => {
+    if (!open) return;
+    const fallback = smartDefaults?.sessionTag ?? null;
+    setSelectedSessionTag(
+      fallback && tagsForPrimary(selectedSessionType).some((t) => t.id === fallback)
+        ? fallback
+        : null,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, smartDefaults?.sessionTag]);
+
+  // Drop a tag that no longer applies when the user switches primary.
+  useEffect(() => {
+    if (selectedSessionTag && !tagOptions.some((t) => t.id === selectedSessionTag)) {
+      setSelectedSessionTag(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSessionType]);
 
   const handleQuickWeight = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -202,6 +245,7 @@ export function QuickLogDialog({ open, onOpenChange, onLogFood, onLogWeight, onL
       const sessionId = (await createTrainingMut({
         date: today,
         sessionType: selectedSessionType,
+        sessionTag: selectedSessionTag ?? undefined,
         intensity: intensityPreset.intensity,
         intensityLevel: intensityPreset.level,
         durationMinutes: selectedDuration,
@@ -382,6 +426,49 @@ export function QuickLogDialog({ open, onOpenChange, onLogFood, onLogWeight, onL
                 );
               })}
             </div>
+
+            {/* Optional activity tag — secondary, smaller chips below the
+                primary grid. "None" leaves the session tag-less. Hidden
+                when the selected primary offers no tags. */}
+            {tagOptions.length > 0 && (
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/60 mb-1.5 px-1">
+                  Activity <span className="text-muted-foreground/40 normal-case tracking-normal">· optional</span>
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedSessionTag(null); triggerHapticSelection(); }}
+                    aria-pressed={!selectedSessionTag}
+                    className={`h-8 px-3 rounded-full text-[12px] font-semibold active:scale-[0.96] transition-all ${
+                      !selectedSessionTag
+                        ? "bg-primary/15 text-primary border border-primary/40"
+                        : "bg-muted/30 dark:bg-white/[0.04] border border-border/30 text-muted-foreground"
+                    }`}
+                  >
+                    None
+                  </button>
+                  {tagOptions.map((t) => {
+                    const active = selectedSessionTag === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => { setSelectedSessionTag(t.id); triggerHapticSelection(); }}
+                        aria-pressed={active}
+                        className={`h-8 px-3 rounded-full text-[12px] font-semibold active:scale-[0.96] transition-all ${
+                          active
+                            ? "bg-primary/15 text-primary border border-primary/40"
+                            : "bg-muted/30 dark:bg-white/[0.04] border border-border/30 text-muted-foreground"
+                        }`}
+                      >
+                        {t.id}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Duration row */}
             <div>

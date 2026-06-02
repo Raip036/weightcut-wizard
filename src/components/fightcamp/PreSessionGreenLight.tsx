@@ -50,7 +50,10 @@ interface GreenLightResult {
 }
 
 interface UpcomingSession {
+  /** PRIMARY discipline (martial art / "S&C" / "Rest"). */
   sessionType: string;
+  /** OPTIONAL activity tag (Sparring, Drilling, Run…); may be null. */
+  sessionTag: string | null;
   durationMinutes: number;
   // No time-of-day in schema — best-available timestamp is Date.now()
   // (the row's _creationTime would also work but Date.now lets the
@@ -341,7 +344,10 @@ export function PreSessionGreenLight({
     const row = todayRows.find(isUpcomingRow);
     if (!row) return null;
     return {
+      // Reference the planned session by its PRIMARY discipline.
       sessionType: row.sessionType,
+      // Optional activity tag — drives the action's load/contact reasoning.
+      sessionTag: (row as { sessionTag?: string | null }).sessionTag ?? null,
       // Pass the planned duration even if it's zero — the action's
       // `durationMinutes` validator accepts any number and the prompt
       // tolerates "0 min" (model still calls verdict on body signals).
@@ -401,7 +407,11 @@ export function PreSessionGreenLight({
           durationMinutes: upcoming.durationMinutes,
           scheduledAtMs: upcoming.scheduledAtMs,
         },
-      })) as GreenLightResult;
+        // Optional activity tag — backend action accepts `sessionTag`
+        // (owned by the recovery-action agent) to scale its verdict to
+        // the actual activity (sparring vs. drilling vs. run).
+        ...(upcoming.sessionTag ? { sessionTag: upcoming.sessionTag } : {}),
+      } as Parameters<typeof generateBrief>[0])) as GreenLightResult;
 
       const stamped: GreenLightResult = {
         ...fresh,

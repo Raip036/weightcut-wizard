@@ -19,6 +19,7 @@ function sessionToClient(row: Doc<"gym_sessions">) {
     user_id: row.userId,
     date: row.date,
     session_type: row.sessionType,
+    session_tag: row.sessionTag ?? null,
     status: row.status,
     duration_minutes: row.durationMinutes,
     perceived_fatigue: row.perceivedFatigue,
@@ -146,6 +147,7 @@ export const createSession = mutation({
   args: {
     date: v.string(),
     sessionType: v.string(),
+    sessionTag: v.optional(v.string()),
     status: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -154,6 +156,7 @@ export const createSession = mutation({
       userId,
       date: args.date,
       sessionType: args.sessionType,
+      sessionTag: args.sessionTag,
       status: args.status ?? "in_progress",
       updatedAt: Date.now(),
     });

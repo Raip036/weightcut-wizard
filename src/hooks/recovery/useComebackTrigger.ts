@@ -23,6 +23,7 @@ import { getISOWeek, getISOWeekYear } from "date-fns";
 import { toast } from "@/hooks/use-toast";
 import { ToastAction, type ToastActionElement } from "@/components/ui/toast";
 import { AIPersistence } from "@/lib/aiPersistence";
+import { isRestSession } from "@/lib/sessionTypes";
 import { logger } from "@/lib/logger";
 
 export interface ComebackWindow {
@@ -182,10 +183,11 @@ export function computeProtocolsCompleted({
   const checkins = (checkinRows ?? []).filter((r) => dates.has(r.date)).length;
   const checkinPts = Math.min(2, checkins);
 
-  // Rest days logged in the window — uses session_type === "Rest" (the
-  // same convention performanceEngine uses internally).
+  // Rest days logged in the window. A recovery day now has PRIMARY 'Rest'
+  // (Recovery is a tag under the Rest primary), so we detect rest via the
+  // primary classifier rather than `=== 'Recovery'`.
   const restDays = sessions28d.filter(
-    (s) => dates.has(s.date) && s.session_type === "Rest",
+    (s) => dates.has(s.date) && isRestSession(s.session_type),
   ).length;
 
   // Sleep entries with ≥7h in the window, capped at 2.
