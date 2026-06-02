@@ -45,7 +45,10 @@ type Tile = {
   kind: "photo" | "video";
   caption: string | null;
   capturedAt: string;
+  /** PRIMARY discipline (martial art / "S&C" / "Rest"). */
   sessionType: string | null;
+  /** OPTIONAL activity descriptor (Sparring, Strength, …); null when absent. */
+  sessionTag?: string | null;
   sessionDate: string;
 };
 
@@ -139,6 +142,7 @@ export default function TrainingLibrary() {
         caption: t.caption,
         capturedAt: t.capturedAt,
         sessionType: t.sessionType,
+        sessionTag: t.sessionTag ?? null,
       })),
     [tiles],
   );
@@ -297,8 +301,8 @@ export default function TrainingLibrary() {
                           <p className="text-[9px] font-semibold uppercase tracking-wider text-white/90 truncate">
                             {t.sessionType ?? "Session"}
                           </p>
-                          <p className="text-[9px] text-white/70 tabular-nums">
-                            {dayLabel(t.capturedAt)}
+                          <p className="text-[9px] text-white/70 tabular-nums truncate">
+                            {t.sessionTag ? `${t.sessionTag} · ` : ""}{dayLabel(t.capturedAt)}
                           </p>
                         </div>
                         {/* Per-tile delete. Stops propagation so tapping

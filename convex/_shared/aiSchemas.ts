@@ -90,6 +90,54 @@ export const CutPlanSchema = z.object({
 export type CutPlan = z.infer<typeof CutPlanSchema>;
 export type WeekPhase = z.infer<typeof WeekPhaseSchema>;
 
+// ───────────────────────────────────────────────────────────────────────
+// Permissive schema for the *AI call only*.
+//
+// By design the plan generators ask the model for the NARRATIVE (heroLine,
+// dailyFocus, phases, personalNote…) and compute the NUMBERS server-side —
+// the prompt literally tells the model "never invent calories or macros".
+// The full pipeline (`normaliseWeeklyPlan` + `normalisePlanTopLevel`) then
+// backfills every number from the deterministic facts, tapers targetWeight,
+// trims over-long strings, synthesises missing phases / personalNote, and
+// caps array lengths. So validating the raw LLM output against the STRICT
+// `CutPlanSchema` only manufactures failures (e.g. the model omits the
+// server-computed `targetWeight`/`calories`/macros → "Required", or a
+// heroLine runs a few chars long) and needlessly drops to the deterministic
+// fallback, discarding the model's narrative.
+//
+// This schema only checks that the model returned roughly the right SHAPE
+// (a non-empty `weeklyPlan` array of card-ish objects). Everything else is
+// optional and the normalisers enforce the real constraints downstream.
+const WeeklyEntryAiSchema = z
+  .object({
+    week: z.number().optional(),
+    targetWeight: z.number().optional(),
+    calories: z.number().optional(),
+    protein_g: z.number().optional(),
+    carbs_g: z.number().optional(),
+    fats_g: z.number().optional(),
+    phase: z.string().optional(),
+    heroLine: z.string().optional(),
+    keyMetric: z.string().optional(),
+    dailyFocus: z.array(z.string()).optional(),
+    risk: z.string().optional(),
+    recovery: z.string().optional(),
+  })
+  .passthrough();
+
+export const CutPlanAiSchema = z
+  .object({
+    weeklyPlan: z.array(WeeklyEntryAiSchema).min(1),
+    phases: z.any().optional(),
+    personalNote: z.string().optional(),
+    toughestWeek: z.any().optional(),
+    summary: z.string().optional(),
+    safetyNotes: z.string().optional(),
+    keyPrinciples: z.any().optional(),
+    fightWeek: z.any().optional(),
+  })
+  .passthrough();
+
 const HourlyStepSchema = z.object({
   hour: z.number().int().min(1).max(48),
   phase: z.string().max(80),
@@ -144,3 +192,208 @@ export const RehydrationPlanSchema = z
   });
 
 export type RehydrationPlan = z.infer<typeof RehydrationPlanSchema>;
+
+/* ------------------------------------------------------------------ */
+/* v3 (2026-06-01): Weight Protocol Redesign — FightPlan + Rehydration */
+/* Spec: docs/superpowers/specs/2026-06-01-weight-protocol-redesign-design.md §4.2 */
+/* These schemas validate the raw JSON returned by Claude Opus 4.7;    */
+/* deterministic day numerics are re-applied post-parse.               */
+/* ------------------------------------------------------------------ */
+
+export const FightPlanSchema = z.object({
+  generatedAt: z.number(),
+  campId: z.string(),
+  approach: z.enum(["gradual", "standard", "aggressive"]),
+  cutDepthKg: z.number(),
+  cutDepthPct: z.number(),
+  cutCategory: z.enum(["light", "moderate", "heavy", "extreme"]),
+
+  safetyWarnings: z.array(
+    z.object({
+      severity: z.enum(["info", "warn", "critical"]),
+      code: z.string(),
+      message: z.string(),
+    }),
+  ),
+
+  expectedWeightLossKg: z.object({
+    glycogen: z.number(),
+    water: z.number(),
+    gut: z.number(),
+    fat: z.number(),
+    total: z.number(),
+  }),
+
+  days: z
+    .array(
+      z.object({
+        dayIso: z.string(),
+        dayLabel: z.string(),
+        daysToWeighIn: z.number(),
+        targetWeightKg: z.number().nullable(),
+        carbsGrams: z.number(),
+        carbsCopy: z.string(),
+        waterLitres: z.number(),
+        waterCopy: z.string(),
+        sodiumMg: z.number(),
+        sodiumCopy: z.string(),
+        fibreNote: z.enum([
+          "normal",
+          "reduce",
+          "eliminate",
+          "low_residue_only",
+        ]),
+        fibreCopy: z.string(),
+        trainingRecommendation: z.string(),
+        sleepTargetHours: z.number(),
+        keyAction: z.string(),
+        cautions: z.array(z.string()).max(3),
+      }),
+    )
+    .min(1)
+    .max(14),
+
+  rolling: z.object({
+    peakWaterDay: z.string(),
+    sodiumCliffDay: z.string(),
+    glycogenFloorDay: z.string(),
+  }),
+});
+
+export type FightPlan = z.infer<typeof FightPlanSchema>;
+
+/**
+ * Lenient schema for parsing the raw AI response. Every field the server
+ * overwrites in `mergeFightPlan` is optional here — the AI's job is purely
+ * to provide per-day copy text. Without this, strict `FightPlanSchema`
+ * parsing throws when the LLM (correctly) omits server-authoritative
+ * fields like `generatedAt`, `campId`, `cutDepthKg`, `sleepTargetHours`,
+ * etc. Days array cap is relaxed to 21 so a slightly chatty model
+ * doesn't kill the parse (the merge step indexes by `dayIso` and
+ * silently drops anything not in the skeleton).
+ */
+export const AiFightPlanResponseSchema = z.object({
+  generatedAt: z.number().optional(),
+  campId: z.string().optional(),
+  approach: z.enum(["gradual", "standard", "aggressive"]).optional(),
+  cutDepthKg: z.number().optional(),
+  cutDepthPct: z.number().optional(),
+  cutCategory: z.enum(["light", "moderate", "heavy", "extreme"]).optional(),
+
+  safetyWarnings: z
+    .array(
+      z.object({
+        severity: z.enum(["info", "warn", "critical"]),
+        code: z.string(),
+        message: z.string(),
+      }),
+    )
+    .optional(),
+
+  expectedWeightLossKg: z
+    .object({
+      glycogen: z.number(),
+      water: z.number(),
+      gut: z.number(),
+      fat: z.number(),
+      total: z.number(),
+    })
+    .optional(),
+
+  days: z
+    .array(
+      z.object({
+        // Optional, consistent with every sibling field: the prompt only
+        // asks the model for copy ("numerics replaced server-side") and
+        // never requests dayIso, so models omit it. The merge step matches
+        // copy to skeleton days by position (iso is a best-effort key).
+        dayIso: z.string().optional(),
+        dayLabel: z.string().optional(),
+        daysToWeighIn: z.number().optional(),
+        targetWeightKg: z.number().nullable().optional(),
+        carbsGrams: z.number().optional(),
+        carbsCopy: z.string().optional(),
+        waterLitres: z.number().optional(),
+        waterCopy: z.string().optional(),
+        sodiumMg: z.number().optional(),
+        sodiumCopy: z.string().optional(),
+        fibreNote: z
+          .enum(["normal", "reduce", "eliminate", "low_residue_only"])
+          .optional(),
+        fibreCopy: z.string().optional(),
+        trainingRecommendation: z.string().optional(),
+        sleepTargetHours: z.number().optional(),
+        keyAction: z.string().optional(),
+        cautions: z.array(z.string()).max(3).optional(),
+      }),
+    )
+    .min(0)
+    .max(21),
+
+  rolling: z
+    .object({
+      peakWaterDay: z.string(),
+      sodiumCliffDay: z.string(),
+      glycogenFloorDay: z.string(),
+    })
+    .optional(),
+});
+
+export type AiFightPlanResponse = z.infer<typeof AiFightPlanResponseSchema>;
+
+export const RehydrationProtocolSchema = z.object({
+  generatedAt: z.number(),
+  campId: z.string(),
+  weighInWeightKg: z.number(),
+  fightWeightTargetKg: z.number(),
+  weighInToFightGapHours: z.number(),
+
+  orsRecipe: z.object({
+    perLitre: z.array(
+      z.object({
+        ingredient: z.string(),
+        amount: z.number(),
+        unit: z.enum(["g", "mg", "ml"]),
+        role: z.string(),
+        note: z.string(),
+      }),
+    ),
+    totalLitresTarget: z.number(),
+    diyShoppingList: z.array(z.string()),
+    commercialEquivalents: z.array(z.string()),
+  }),
+
+  hours: z.array(
+    z.object({
+      hourOffset: z.number(),
+      label: z.string(),
+      liquidsMl: z.number(),
+      liquidsComposition: z.string(),
+      foodGrams: z.object({
+        carbs: z.number(),
+        protein: z.number(),
+        fat: z.number(),
+        sodium: z.number(),
+      }),
+      foodCopy: z.string(),
+      notes: z.string(),
+      caution: z.string().nullable(),
+    }),
+  ),
+
+  doNots: z.array(z.string()).max(7),
+  feelChecks: z.array(
+    z.object({
+      metric: z.enum([
+        "urine_colour",
+        "weigh_back_kg",
+        "energy_1to10",
+        "headache",
+        "no_cramps",
+      ]),
+      target: z.string(),
+    }),
+  ),
+});
+
+export type RehydrationProtocol = z.infer<typeof RehydrationProtocolSchema>;

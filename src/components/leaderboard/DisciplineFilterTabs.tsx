@@ -1,3 +1,4 @@
+import { motion, useReducedMotion } from "motion/react";
 import { ImpactStyle } from "@capacitor/haptics";
 import { triggerHaptic } from "@/lib/haptics";
 
@@ -20,6 +21,7 @@ export function DisciplineFilterTabs({
   value: DisciplineFilter;
   onChange: (next: DisciplineFilter) => void;
 }) {
+  const prefersReducedMotion = useReducedMotion();
   return (
     <div
       role="tablist"
@@ -40,13 +42,26 @@ export function DisciplineFilterTabs({
                 onChange(d);
               }
             }}
-            className={`whitespace-nowrap rounded-full px-3 py-1 text-xs ${
+            className={`relative whitespace-nowrap rounded-full px-3 py-1 text-xs ${
               active
-                ? "bg-primary text-primary-foreground"
+                ? "text-primary-foreground"
                 : "bg-card/40 text-muted-foreground hover:bg-card/70"
             }`}
           >
-            {d}
+            {/* Animated pill underlay slides between active tabs */}
+            {active && (
+              <motion.span
+                layoutId="discipline-tab-underline"
+                className="absolute inset-0 -z-[1] rounded-full bg-primary"
+                transition={
+                  prefersReducedMotion
+                    ? { duration: 0 }
+                    : { type: "spring", stiffness: 380, damping: 32 }
+                }
+                aria-hidden
+              />
+            )}
+            <span className="relative">{d}</span>
           </button>
         );
       })}

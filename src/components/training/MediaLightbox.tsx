@@ -34,7 +34,10 @@ export interface LightboxItem {
   kind: "photo" | "video";
   caption?: string | null;
   capturedAt?: string;
+  /** PRIMARY discipline (martial art / "S&C" / "Rest"). */
   sessionType?: string | null;
+  /** OPTIONAL activity descriptor (Sparring, Strength, …); null when absent. */
+  sessionTag?: string | null;
 }
 
 interface Props {
@@ -339,6 +342,11 @@ export function MediaLightbox({
           {active.sessionType && (
             <span className="text-[10px] uppercase tracking-wider font-semibold bg-white/15 backdrop-blur-md px-2 py-0.5 rounded-full">
               {active.sessionType}
+            </span>
+          )}
+          {active.sessionTag && (
+            <span className="text-[10px] uppercase tracking-wider font-medium bg-white/10 backdrop-blur-md px-2 py-0.5 rounded-full">
+              {active.sessionTag}
             </span>
           )}
           {active.capturedAt && (

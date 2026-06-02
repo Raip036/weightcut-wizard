@@ -25,8 +25,8 @@
  *    in this codebase is `fight_camp_calendar`.
  */
 import { v } from "convex/values";
-import { query } from "./_generated/server";
-import { optionalUserId } from "./lib/auth";
+import { mutation, query } from "./_generated/server";
+import { optionalUserId, requireUserId } from "./lib/auth";
 
 export type ActivityEventKind =
   | "workout"
@@ -71,6 +71,15 @@ export const getRecent = query({
 
     // Clamp to a sane range; default 7 per the component contract.
     const lim = Math.min(20, Math.max(1, limit ?? 7));
+
+    // Watermark: events at or before `clearedAt` were dismissed by the user
+    // via "Clear" and are hidden. Defaults to 0 (show everything) when the
+    // user has never cleared. The underlying logs are untouched.
+    const cleared = await ctx.db
+      .query("camp_activity_state")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique();
+    const clearedAt = cleared?.clearedAt ?? 0;
 
     // Fan-out the most-recent `lim` rows from each surface in parallel.
     // `by_user_date` orders by (userId, date, _creationTime); .order("desc")
@@ -147,8 +156,14 @@ export const getRecent = query({
       })),
       ...missions.map((m): ActivityEvent => ({
         kind: "mission",
-        title: "Mission completed",
-        value: m.title,
+        // The mission NAME is the meaningful content, so it goes in `title`
+        // (the wrap-capable left column) — not the right-side `value` slot,
+        // which is reserved for short metrics (RPE, kg, h). A long name in
+        // `value` (rendered `shrink-0`) used to squeeze the title/time column
+        // and overflow the row. The green trophy icon already signals
+        // "completed", so no extra value label is needed.
+        title: m.title,
+        value: null,
         // `completedAt` is the user-meaningful moment; fall back to the
         // row's creation time if a historical row predates the field.
         timestamp: m.completedAt ?? m._creationTime,
@@ -170,8 +185,34 @@ export const getRecent = query({
       })),
     ];
 
-    // Newest first, then trim to the requested cap.
-    events.sort((a, b) => b.timestamp - a.timestamp);
-    return events.slice(0, lim);
+    // Drop anything the user has cleared, newest first, then trim to cap.
+    return events
+      .filter((e) => e.timestamp > clearedAt)
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, lim);
+  },
+});
+
+/**
+ * "Clear recent activity" — sets the per-user watermark to now so the feed
+ * stops showing everything logged up to this point. Non-destructive: it
+ * never deletes weight / sleep / workout / mission / reaction rows, which
+ * remain on their own surfaces. Activity logged afterwards reappears.
+ */
+export const clearActivity = mutation({
+  args: {},
+  handler: async (ctx): Promise<{ clearedAt: number }> => {
+    const userId = await requireUserId(ctx);
+    const now = Date.now();
+    const existing = await ctx.db
+      .query("camp_activity_state")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique();
+    if (existing) {
+      await ctx.db.patch(existing._id, { clearedAt: now });
+    } else {
+      await ctx.db.insert("camp_activity_state", { userId, clearedAt: now });
+    }
+    return { clearedAt: now };
   },
 });

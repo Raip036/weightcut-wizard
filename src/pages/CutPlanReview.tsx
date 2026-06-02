@@ -5,23 +5,23 @@
  * (the previous bespoke wall-of-text version was replaced 2026-05-18).
  *
  * The plan source is `localStorage.wcw_cut_plan`, written by Onboarding
- * after a successful AI generation. The shape matches the server's
- * `CutPlanSchema` v2 (weeklyPlan with phase/heroLine/keyMetric/
- * dailyFocus, plus phases[], personalNote, toughestWeek, fightWeek).
+ * after a successful AI generation.
+ *
+ * Closing via the top-right X commits the post-onboarding flags and routes
+ * to the dashboard — it takes over what the dedicated "Continue to
+ * Dashboard" CTA used to do. That CTA and the "Save to Gallery" button were
+ * removed (they clashed) in favour of this single close action.
  */
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { TrendingDown, Download, X } from "lucide-react";
+import { TrendingDown, X } from "lucide-react";
 import { triggerHaptic } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
-import { ShareCardDialog } from "@/components/share/ShareCardDialog";
-import { CutPlanCard } from "@/components/share/cards/CutPlanCard";
 import { InlinePlanDisplay } from "@/components/onboarding/InlinePlanDisplay";
 
 export default function CutPlanReview() {
   const navigate = useNavigate();
-  const [shareOpen, setShareOpen] = useState(false);
 
   const planData = useMemo(() => {
     try {
@@ -48,18 +48,6 @@ export default function CutPlanReview() {
   }
 
   const isWeightLoss = planData?.planType === "weight_loss";
-  const currentWeight =
-    planData.currentWeight ?? planData.weeklyPlan?.[0]?.targetWeight ?? 0;
-  const goalWeight =
-    planData.goalWeight ??
-    planData.weeklyPlan?.[planData.weeklyPlan.length - 1]?.targetWeight ??
-    0;
-  const targetDate = planData.targetDate || "";
-  const shareTitle = isWeightLoss ? "My Weight Loss Plan" : "My Weight Cut Plan";
-  const shareCardTitle = isWeightLoss ? "Weight Loss Plan" : "Weight Cut Plan";
-  const shareCardText = isWeightLoss
-    ? "Check out my personalised weight loss plan from FightCamp Wizard"
-    : "Check out my personalised weight cut plan from FightCamp Wizard";
 
   const handleContinue = () => {
     triggerHaptic(ImpactStyle.Medium);
@@ -71,62 +59,28 @@ export default function CutPlanReview() {
   return (
     <div className="min-h-screen bg-background text-foreground safe-area-inset-top safe-area-inset-bottom">
       <div className="max-w-lg mx-auto px-4 pt-6 relative">
-        {/* Close button — sticks at top-right above the timeline. */}
+        {/* Close button — commits the plan-seen flags and routes to the
+            dashboard. Takes over the old "Continue to Dashboard" action so
+            there's a single, unambiguous way off this screen. */}
         <button
           type="button"
-          onClick={() => {
-            triggerHaptic(ImpactStyle.Light);
-            if (window.history.length > 1) navigate(-1);
-            else navigate("/dashboard", { replace: true });
-          }}
-          aria-label="Close cut plan"
+          onClick={handleContinue}
+          aria-label="Close cut plan and continue to dashboard"
           className="absolute top-4 right-3 h-9 w-9 rounded-full flex items-center justify-center text-muted-foreground/70 bg-muted/40 dark:bg-white/[0.06] border border-border/30 active:text-foreground active:bg-muted/60 transition-colors z-30"
         >
           <X className="h-4 w-4" strokeWidth={2.4} />
         </button>
 
         {/* Reuse the onboarding plan timeline — same component, same data
-            shape. Its built-in sticky CTA fires `handleContinue` which
-            sets the post-onboarding flags and routes to /dashboard. */}
+            shape. Its sticky CTA is hidden here (`showContinue={false}`); the
+            close X above handles routing. */}
         <InlinePlanDisplay
           plan={planData}
           planType={isWeightLoss ? "weight_loss" : "cut"}
           onContinue={handleContinue}
+          showContinue={false}
         />
-
-        {/* Secondary "Save to Gallery" share button — anchored above the
-            sticky CTA via extra bottom padding inherited from
-            InlinePlanDisplay's `pb-24`. */}
-        <div className="-mt-16 mb-20">
-          <Button
-            onClick={() => setShareOpen(true)}
-            variant="outline"
-            className="w-full h-10 text-sm"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Save to Gallery
-          </Button>
-        </div>
       </div>
-
-      <ShareCardDialog
-        open={shareOpen}
-        onOpenChange={setShareOpen}
-        title={shareCardTitle}
-        shareTitle={shareTitle}
-        shareText={shareCardText}
-      >
-        {({ cardRef, aspect }) => (
-          <CutPlanCard
-            ref={cardRef}
-            plan={planData}
-            currentWeight={currentWeight}
-            goalWeight={goalWeight}
-            targetDate={targetDate}
-            aspect={aspect}
-          />
-        )}
-      </ShareCardDialog>
     </div>
   );
 }

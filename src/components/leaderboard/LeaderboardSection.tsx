@@ -9,6 +9,7 @@ import {
 import { PodiumHero } from "./PodiumHero";
 import { RankedList } from "./RankedList";
 import { MyRankFooter } from "./MyRankFooter";
+import { useUser } from "@/contexts/UserContext";
 
 const FILTER_TO_DISCIPLINE: Record<DisciplineFilter, string | undefined> = {
   All: undefined,
@@ -18,6 +19,7 @@ const FILTER_TO_DISCIPLINE: Record<DisciplineFilter, string | undefined> = {
   Wrestling: "Wrestling",
   Sparring: "Sparring",
   Strength: "Strength",
+  Run: "Run",
 };
 
 function SkeletonRow() {
@@ -34,10 +36,17 @@ export function LeaderboardSection({
   onRowClick?: (userId: string) => void;
 }) {
   const [filter, setFilter] = useState<DisciplineFilter>("All");
+  const { userId } = useUser();
   const data = useQuery(api.gymLeaderboard.weekly, {
     gymId,
     discipline: FILTER_TO_DISCIPLINE[filter],
   });
+  // Snapshot scope is gym+filter so the deltas reflect "movement under the
+  // currently filtered view" rather than mixing across disciplines.
+  const snapshotScope = `${gymId}:${filter}`;
+  // Coaches view the gym but don't compete; only highlight a viewer when the
+  // viewer is an athlete with a real userId.
+  const viewerUserId = viewer === "athlete" ? userId : null;
 
   // Loading state
   if (data === undefined) {
@@ -93,14 +102,23 @@ export function LeaderboardSection({
     <section className="space-y-3">
       <DisciplineFilterTabs value={filter} onChange={setFilter} />
       {showPodium ? (
-        <PodiumHero podium={podium} />
+        <PodiumHero
+          podium={podium}
+          viewerUserId={viewerUserId}
+          disciplineLabel={filter}
+        />
       ) : (
         // Aspirational empty podium — silhouette of #2 / #1 / #3 slots with
         // an invite CTA. Reads as "the trophy is waiting for you and your
         // teammates" rather than a dead "need N more fighters" line.
         <PlaceholderPodium viewer={viewer} />
       )}
-      <RankedList ranks={ranks} onRowClick={onRowClick} />
+      <RankedList
+        ranks={ranks}
+        onRowClick={onRowClick}
+        snapshotScope={snapshotScope}
+        viewerUserId={viewerUserId}
+      />
       {viewer === "athlete" && myRank ? (
         <MyRankFooter myRank={myRank} podium={podium} />
       ) : null}

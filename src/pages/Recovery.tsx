@@ -20,6 +20,8 @@ interface TrainingCalendarRow {
     user_id: string;
     date: string;
     session_type: string;
+    /** Optional activity tag (Sparring, Drilling, Run…). Drives load + contact. */
+    session_tag: string | null;
     duration_minutes: number;
     rpe: number;
     intensity: string;
@@ -52,6 +54,7 @@ export default function Recovery() {
             user_id: r.userId,
             date: r.date,
             session_type: r.sessionType,
+            session_tag: r.sessionTag ?? null,
             duration_minutes: r.durationMinutes,
             rpe: r.rpe,
             intensity: r.intensity,

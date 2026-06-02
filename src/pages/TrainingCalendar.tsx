@@ -3,7 +3,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, subMonths, addMonths, subDays, startOfWeek, isToday as isDateToday, isYesterday as isDateYesterday, getISOWeek } from "date-fns";
 import { ChevronLeft, ChevronRight, Plus, BookOpen, Images, CalendarDays } from "lucide-react";
 import { motion } from "motion/react";
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger, SheetHeader } from "@/components/ui/sheet";
+import { useKeyboardAware } from "@/hooks/useKeyboardAware";
 import { WizardCharacter } from "@/tutorial/WizardCharacter";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { useMutation, useQuery } from "convex/react";
@@ -15,14 +16,17 @@ import { useToast } from "@/hooks/use-toast";
 import { useSafeAsync } from "@/hooks/useSafeAsync";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Icon } from "@/components/ui/Icon";
 
 import { TrainingSummarySection } from "@/components/fightcamp/TrainingSummarySection";
 import { CalendarMonthGrid } from "@/components/fightcamp/CalendarMonthGrid";
 import { SessionCard } from "@/components/fightcamp/SessionCard";
 import { SessionDetailDrawer } from "@/components/fightcamp/SessionDetailDrawer";
-import { FightCampLogForm, SESSION_TYPES } from "@/components/fightcamp/FightCampLogForm";
+import { FightCampLogForm } from "@/components/fightcamp/FightCampLogForm";
+import {
+  MARTIAL_ARTS,
+  isContactSession,
+} from "@/lib/sessionTypes";
 import { uploadSessionMediaV2 } from "@/lib/uploadSessionMediaV2";
 import type { PendingSessionMedia } from "@/components/fightcamp/FightCampLogForm";
 import { triggerHapticSelection, confirmDelete } from "@/lib/haptics";
@@ -41,7 +45,10 @@ interface TrainingCalendarRow {
   id: string;
   user_id: string;
   date: string;
+  // PRIMARY discipline (martial art / "S&C" / "Rest").
   session_type: string;
+  // OPTIONAL activity tag (Sparring, Drilling, Strength, …). null ⇒ none.
+  session_tag: string | null;
   duration_minutes: number;
   rpe: number;
   intensity: string;
@@ -55,6 +62,8 @@ interface TrainingCalendarRow {
   notes: string | null;
   media_url: string | null;
   created_at: string | null;
+  // Contact rounds (optional — sparring / live grappling rows only).
+  rounds?: number | null;
 }
 type TrainingCalendarInsert = Partial<TrainingCalendarRow> & {
   date: string;
@@ -81,12 +90,48 @@ function looksLikeConvexId(id: string): boolean {
     return typeof id === "string" && /^[a-z0-9]{20,40}$/i.test(id);
 }
 
+// Most-Recently-Used session types per-user. Persisted to localStorage so
+// the picker remembers across reloads. Wrapped in try/catch to survive
+// Safari Private Mode (where setItem throws) without breaking the save.
+const MRU_KEY = (uid: string) => `recent-session-types:${uid}`;
+function readMru(userId: string): string[] {
+    try {
+        const raw = localStorage.getItem(MRU_KEY(userId));
+        const parsed = raw ? (JSON.parse(raw) as unknown) : [];
+        if (!Array.isArray(parsed)) return [];
+        return parsed.filter((t): t is string => typeof t === "string").slice(0, 3);
+    } catch {
+        return [];
+    }
+}
+function pushMru(userId: string, type: string): void {
+    try {
+        const existing = readMru(userId);
+        const next = [type, ...existing.filter((t) => t !== type)].slice(0, 3);
+        localStorage.setItem(MRU_KEY(userId), JSON.stringify(next));
+    } catch {
+        /* swallow private-mode / quota errors */
+    }
+}
+
+// Default-selection helper. Prefer first MRU; fall back to the first
+// built-in martial-art primary. Under the two-level model the default
+// selection is a PRIMARY discipline (the optional activity tag stays unset).
+function pickDefaultSessionType(userId: string | null): string {
+    if (userId) {
+        const mru = readMru(userId);
+        if (mru.length > 0) return mru[0];
+    }
+    return MARTIAL_ARTS[0];
+}
+
 export default function TrainingCalendar() {
     const { userId, profile } = useUser();
     void profile;
     const navigate = useNavigate();
     const { toast } = useToast();
     const { safeAsync, isMounted } = useSafeAsync();
+    const { keyboardHeight } = useKeyboardAware();
     const [searchParams, setSearchParams] = useSearchParams();
     const createCalendarMut = useMutation(api.fight_camp.createCalendarEntry);
     const updateCalendarMut = useMutation(api.fight_camp.updateCalendarEntry);
@@ -109,7 +154,9 @@ export default function TrainingCalendar() {
     const [sessionLoggedTrigger, setSessionLoggedTrigger] = useState(0);
 
     // Form State
-    const [sessionType, setSessionType] = useState(SESSION_TYPES[0]);
+    const [sessionType, setSessionType] = useState<string>(() => pickDefaultSessionType(userId));
+    // Optional activity tag for the primary above. null ⇒ no tag.
+    const [sessionTag, setSessionTag] = useState<string | null>(null);
     const [duration, setDuration] = useState("60");
     const [rpe, setRpe] = useState([5]);
     const [intensityLevel, setIntensityLevel] = useState([3]);
@@ -120,6 +167,9 @@ export default function TrainingCalendar() {
     const [runTime, setRunTime] = useState("");
     const [runDistanceUnit, setRunDistanceUnit] = useState<"km" | "mi">("km");
     const runPace = formatPace(runDistance, runTime);
+    // Optional contact-round count. `null` ⇒ user hasn't set one; we omit
+    // the field on save so the schema's `v.optional(v.number())` stays clean.
+    const [rounds, setRounds] = useState<number | null>(null);
 
     // Edit state
     const [editingSession, setEditingSession] = useState<TrainingCalendarRow | null>(null);
@@ -188,6 +238,7 @@ export default function TrainingCalendar() {
                 user_id: r.userId,
                 date: r.date,
                 session_type: r.sessionType,
+                session_tag: r.sessionTag ?? null,
                 duration_minutes: r.durationMinutes,
                 rpe: r.rpe,
                 intensity: r.intensity,
@@ -201,6 +252,7 @@ export default function TrainingCalendar() {
                 notes: r.notes ?? null,
                 media_url: r.mediaUrl ?? null,
                 created_at: r._creationTime ? new Date(r._creationTime).toISOString() : null,
+                rounds: typeof r.rounds === "number" ? r.rounds : null,
             }));
             monthMemCache.set(memKey, { data: rows, fetchedAt: Date.now() });
             localCache.set(uid, monthCacheKey(date), rows);
@@ -281,6 +333,7 @@ export default function TrainingCalendar() {
                 user_id: r.userId,
                 date: r.date,
                 session_type: r.sessionType,
+                session_tag: r.sessionTag ?? null,
                 duration_minutes: r.durationMinutes,
                 rpe: r.rpe,
                 intensity: r.intensity,
@@ -294,6 +347,7 @@ export default function TrainingCalendar() {
                 notes: r.notes ?? null,
                 media_url: r.mediaUrl ?? null,
                 created_at: r._creationTime ? new Date(r._creationTime).toISOString() : null,
+                rounds: typeof r.rounds === "number" ? r.rounds : null,
             }));
             recent28dMemCache.set(userId, { data: rows, fetchedAt: Date.now() });
             localCache.set(userId, "training_sessions_28d", rows);
@@ -339,6 +393,18 @@ export default function TrainingCalendar() {
     }, [userId, currentDate, preloadMonth]);
     useEffect(() => { if (userId) setCustomColors(getUserColors(userId)); }, [userId]);
 
+    // Re-pick the default session type once userId resolves — the first
+    // render uses null (Sparring default). Only re-pick if the user hasn't
+    // already touched the picker mid-edit (editingSession is null).
+    useEffect(() => {
+        if (!userId || editingSession || isAddModalOpen) return;
+        const mru = readMru(userId);
+        if (mru.length > 0 && mru[0] !== sessionType) {
+            setSessionType(mru[0]);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [userId]);
+
     // Auto-open Log Session dialog when navigated from Quick Log (deferred to avoid race with QuickLog sheet close)
     useEffect(() => {
         if (searchParams.get("openLogSession") === "true") {
@@ -353,7 +419,8 @@ export default function TrainingCalendar() {
     }, [searchParams, setSearchParams]);
 
     const resetForm = () => {
-        setSessionType(SESSION_TYPES[0]);
+        setSessionType(pickDefaultSessionType(userId));
+        setSessionTag(null);
         setDuration("60");
         setRpe([5]);
         setIntensityLevel([3]);
@@ -363,6 +430,7 @@ export default function TrainingCalendar() {
         setRunDistance("");
         setRunTime("");
         setRunDistanceUnit("km");
+        setRounds(null);
         setEditingSession(null);
         // Revoke any in-flight object URLs so the browser releases the
         // underlying blob memory before we drop the references.
@@ -401,12 +469,20 @@ export default function TrainingCalendar() {
 
         setEditingSession(session);
         setSessionType(session.session_type);
+        setSessionTag(session.session_tag ?? null);
         setDuration(String(session.duration_minutes));
         setRpe([session.rpe]);
         const il = session.intensity_level ?? (session.intensity === 'high' ? 5 : session.intensity === 'moderate' ? 3 : 1);
         setIntensityLevel([il]);
         setHasSoreness((session.soreness_level ?? 0) > 0);
         setSorenessLevel([(session.soreness_level ?? 0) > 0 ? session.soreness_level! : 5]);
+        // Preload existing rounds for contact sessions; null otherwise so the
+        // form respects "user hasn't set it" semantics (unchecked on save).
+        setRounds(
+            isContactSession(session.session_type, session.session_tag) && typeof session.rounds === "number"
+                ? session.rounds
+                : null,
+        );
         const { meta, notes: cleanNotes } = decodeRunMeta(session.notes);
         setNotes(cleanNotes);
         if (meta) {
@@ -459,14 +535,24 @@ export default function TrainingCalendar() {
         const previousMonthSessions = sessions;
         const previousMem = monthMemCache.get(memMonthKey);
 
+        // Normalise the optional tag: empty string ⇒ null so we never ship
+        // a blank tag to the backend.
+        const tagToSave = sessionTag && sessionTag.trim() ? sessionTag : null;
+
         // Build optimistic row using existing media url (we'll replace with the
-        // uploaded URL once it lands; UI shows the preview meanwhile)
-        const baseNotes = sessionType === "Run"
+        // uploaded URL once it lands; UI shows the preview meanwhile).
+        // Run-meta is keyed on the "Run" activity TAG under the two-level model.
+        const baseNotes = tagToSave === "Run"
             ? encodeRunMeta(
                 { distance: runDistance, unit: runDistanceUnit, time: runTime, pace: runPace },
                 notes.trim()
               ) || null
             : notes.trim() || null;
+
+        // Rounds is only included for contact sessions, and only when the
+        // user actually set a value (rounds !== null). Mirrors the payload
+        // logic below so the optimistic row matches what the server stores.
+        const contactRounds = isContactSession(sessionType, tagToSave) && rounds != null ? rounds : null;
 
         const optimisticRow: TrainingCalendarRow = {
             // Spread editingSession to preserve any DB-managed fields (created_at, etc.)
@@ -475,6 +561,7 @@ export default function TrainingCalendar() {
             user_id: uid,
             date: dateStr,
             session_type: sessionType,
+            session_tag: tagToSave,
             duration_minutes: parseInt(duration) || 0,
             rpe: rpe[0],
             intensity: intensityMap[intensityLevel[0]] || 'moderate',
@@ -484,6 +571,7 @@ export default function TrainingCalendar() {
             fatigue_level: null,
             sleep_quality: null,
             mobility_done: null,
+            rounds: contactRounds,
             // Legacy single-media URL stays nullable; the new flow attaches
             // media via `session_media` after the row is created.
             media_url: editingSession?.media_url ?? null,
@@ -523,6 +611,7 @@ export default function TrainingCalendar() {
                 user_id: uid,
                 date: dateStr,
                 session_type: sessionType,
+                session_tag: tagToSave,
                 duration_minutes: parseInt(duration) || 0,
                 rpe: rpe[0],
                 intensity: intensityMap[intensityLevel[0]] || 'moderate',
@@ -544,24 +633,38 @@ export default function TrainingCalendar() {
                 await updateCalendarMut({
                     id: realSessionId,
                     sessionType: payload!.session_type,
+                    // Backend accepts a string to set/replace; omit (undefined)
+                    // leaves the stored tag unchanged. The validator rejects
+                    // null, so a cleared tag maps to "no change" here.
+                    sessionTag: tagToSave ?? undefined,
                     intensity: payload!.intensity,
                     intensityLevel: payload!.intensity_level ?? undefined,
                     durationMinutes: payload!.duration_minutes,
                     rpe: payload!.rpe,
                     sorenessLevel: payload!.soreness_level ?? undefined,
                     notes: payload!.notes ?? undefined,
+                    ...(isContactSession(sessionType, tagToSave) && rounds != null ? { rounds } : {}),
                 });
             } else {
                 realSessionId = (await createCalendarMut({
                     date: payload!.date,
                     sessionType: payload!.session_type,
+                    sessionTag: tagToSave ?? undefined,
                     intensity: payload!.intensity,
                     intensityLevel: payload!.intensity_level ?? undefined,
                     durationMinutes: payload!.duration_minutes,
                     rpe: payload!.rpe,
                     sorenessLevel: payload!.soreness_level ?? undefined,
                     notes: payload!.notes ?? undefined,
+                    ...(isContactSession(sessionType, tagToSave) && rounds != null ? { rounds } : {}),
                 })) as Id<"fight_camp_calendar">;
+            }
+
+            // Push to MRU now that the server accepted the row. Skipped for
+            // the dedicated "Rest" sentinel (handled by its own flow) so the
+            // picker's recent list stays training-focused.
+            if (sessionType !== "Rest") {
+                pushMru(uid, sessionType);
             }
 
             // Multi-attachment upload pass. Run in parallel because each
@@ -780,6 +883,7 @@ export default function TrainingCalendar() {
             user_id: uid,
             date: dateStr,
             session_type: "Rest",
+            session_tag: null,
             duration_minutes: 0,
             rpe: 0,
             intensity: "low",
@@ -793,6 +897,7 @@ export default function TrainingCalendar() {
             notes: null,
             media_url: null,
             created_at: new Date().toISOString(),
+            rounds: null,
         };
 
         const next = [...sessions, optimisticRow];
@@ -1045,11 +1150,11 @@ export default function TrainingCalendar() {
                 </div>
 
                 {/* Big primary "Log a session" button */}
-                <Dialog open={isAddModalOpen} onOpenChange={(open) => {
+                <Sheet open={isAddModalOpen} onOpenChange={(open) => {
                     setIsAddModalOpen(open);
                     if (!open) resetForm();
                 }}>
-                    <DialogTrigger asChild>
+                    <SheetTrigger asChild>
                         <button
                             onClick={openLogModal}
                             className="w-full h-12 rounded-xs bg-primary text-primary-foreground font-bold text-[14px] flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
@@ -1057,25 +1162,26 @@ export default function TrainingCalendar() {
                             <Plus className="h-4 w-4" strokeWidth={2.6} />
                             Log a session
                         </button>
-                    </DialogTrigger>
-                    <DialogContent
-                                className="w-[calc(100vw-1.5rem)] max-w-[420px] max-h-[calc(100dvh-3rem)] flex flex-col rounded-[28px] p-0 border-0 bg-card/95 backdrop-blur-xl gap-0 overflow-hidden"
-                            >
-                                <div className="px-5 pt-5 pb-3 shrink-0">
-                                    <DialogHeader>
-                                        <DialogTitle className="text-[17px] font-semibold tracking-tight text-center">
-                                            {editingSession ? 'Edit session' : 'Log session'}
-                                        </DialogTitle>
-                                    </DialogHeader>
-                                </div>
-                                <div
-                                    className="px-5 overflow-y-auto flex-1 min-h-0 [-webkit-overflow-scrolling:touch]"
-                                    style={{ paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}
-                                >
+                    </SheetTrigger>
+                    <SheetContent
+                        side="bottom"
+                        className="p-0 max-h-[92vh] flex flex-col bg-card/95 backdrop-blur-xl"
+                        style={{ paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${keyboardHeight}px)` }}
+                    >
+                        <div className="flex justify-center pt-2 pb-1 shrink-0">
+                            <div className="w-10 h-1 rounded-full bg-muted-foreground/25" aria-hidden />
+                        </div>
+                        <SheetHeader className="px-5 pb-3 shrink-0">
+                            <SheetTitle className="text-[17px] font-semibold tracking-tight text-center">
+                                {editingSession ? 'Edit session' : 'Log session'}
+                            </SheetTitle>
+                        </SheetHeader>
+                        <div className="px-5 overflow-y-auto flex-1 min-h-0 [-webkit-overflow-scrolling:touch]">
                                 <FightCampLogForm
                                     isEditing={!!editingSession}
                                     userId={userId}
                                     sessionType={sessionType} setSessionType={setSessionType}
+                                    sessionTag={sessionTag} setSessionTag={setSessionTag}
                                     duration={duration} setDuration={setDuration}
                                     rpe={rpe} setRpe={setRpe}
                                     intensityLevel={intensityLevel} setIntensityLevel={setIntensityLevel}
@@ -1086,6 +1192,7 @@ export default function TrainingCalendar() {
                                     runTime={runTime} setRunTime={setRunTime}
                                     runDistanceUnit={runDistanceUnit} setRunDistanceUnit={setRunDistanceUnit}
                                     runPace={runPace}
+                                    rounds={rounds} setRounds={setRounds}
                                     pendingMedia={pendingMedia}
                                     onAddMedia={handleAddPendingMedia}
                                     onRemoveMedia={handleRemovePendingMedia}
@@ -1099,9 +1206,9 @@ export default function TrainingCalendar() {
                                     saving={isSaving}
                                     canSave={!!userId}
                                 />
-                                </div>
-                            </DialogContent>
-                        </Dialog>
+                        </div>
+                    </SheetContent>
+                </Sheet>
 
                 {/* Rest-day toggle — secondary outline CTA sitting below the
                     primary "Log a session" button. Hidden when a real session

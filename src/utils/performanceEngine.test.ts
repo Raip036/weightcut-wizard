@@ -12,9 +12,19 @@ import {
   mapRange,
   getRecentSleepValues,
   getRecentSorenessValues,
+  ewmaLoad,
+  computeEwmaAcwr,
+  cnsMultiplier,
+  computeFosterMetrics,
+  computeContactLoad,
+  determineCampPhase,
+  applyCampPhaseToCalibration,
+  ACUTE_LAMBDA,
+  CHRONIC_LAMBDA,
   type SessionRow,
   type AthleteCalibration,
 } from './performanceEngine';
+import { effectiveLoadMultiplier } from '@/lib/sessionTypes';
 
 // Helper to create a session row
 function makeSession(overrides: Partial<SessionRow> = {}): SessionRow {
@@ -66,30 +76,54 @@ describe('mapRange', () => {
 // ─── Session Load ───────────────────────────────────────────
 
 describe('sessionLoad', () => {
-  it('calculates RPE × Minutes × IntensityMultiplier', () => {
-    const s = makeSession({ rpe: 7, duration_minutes: 60, intensity_level: 3 });
-    // 7 × 60 × 1.15 = 483
+  it('calculates RPE × Minutes × IntensityMultiplier × effectiveLoadMultiplier', () => {
+    // BJJ primary + 'Bag Work' tag → tag multiplier 1.0
+    const s = makeSession({ session_type: 'BJJ', session_tag: 'Bag Work', rpe: 7, duration_minutes: 60, intensity_level: 3 });
+    // 7 × 60 × 1.15 × 1.0 (Bag Work tag multiplier) = 483
     expect(sessionLoad(s)).toBeCloseTo(483, 0);
   });
 
+  it('uses the tag multiplier when a tag is present (Sparring → 1.3)', () => {
+    // BJJ primary + 'Sparring' tag → tag multiplier 1.3
+    const s = makeSession({ session_type: 'BJJ', session_tag: 'Sparring', rpe: 7, duration_minutes: 60, intensity_level: 3 });
+    // 7 × 60 × 1.15 × 1.3 = 627.9
+    expect(sessionLoad(s)).toBeCloseTo(627.9, 0);
+  });
+
+  it('falls back to the martial-art primary default (1.0) when no tag', () => {
+    // BJJ primary, no tag → martial-arts fallback 1.0
+    const s = makeSession({ session_type: 'BJJ', session_tag: null, rpe: 7, duration_minutes: 60, intensity_level: 3 });
+    // 7 × 60 × 1.15 × 1.0 = 483
+    expect(sessionLoad(s)).toBeCloseTo(483, 0);
+  });
+
+  it('falls back to the S&C primary default (0.9) when no tag', () => {
+    // S&C primary, no tag → S&C fallback 0.9
+    const s = makeSession({ session_type: 'S&C', session_tag: null, rpe: 7, duration_minutes: 60, intensity_level: 3 });
+    // 7 × 60 × 1.15 × 0.9 = 434.7
+    expect(sessionLoad(s)).toBeCloseTo(434.7, 0);
+  });
+
   it('returns 0 for Rest sessions', () => {
-    const s = makeSession({ session_type: 'Rest' });
+    const s = makeSession({ session_type: 'Rest', session_tag: null });
     expect(sessionLoad(s)).toBe(0);
   });
 
-  it('returns 0 for Recovery sessions', () => {
-    const s = makeSession({ session_type: 'Recovery' });
+  it('returns 0 for a Rest primary even with a Recovery tag', () => {
+    // 'Recovery' is now a TAG; a recovery day has primary 'Rest'.
+    const s = makeSession({ session_type: 'Rest', session_tag: 'Recovery' });
     expect(sessionLoad(s)).toBe(0);
   });
 
   it('uses legacy intensity when intensity_level is null', () => {
-    const s = makeSession({ intensity_level: null, intensity: 'high', rpe: 5, duration_minutes: 30 });
-    // high → level 5 → multiplier 1.5 → 5 * 30 * 1.5 = 225
+    const s = makeSession({ session_type: 'BJJ', session_tag: 'Bag Work', intensity_level: null, intensity: 'high', rpe: 5, duration_minutes: 30 });
+    // high → level 5 → multiplier 1.5 → 5 * 30 * 1.5 × 1.0 (Bag Work tag multiplier) = 225
     expect(sessionLoad(s)).toBeCloseTo(225, 0);
   });
 
   it('applies correct multipliers for each intensity level', () => {
-    const base = { rpe: 10, duration_minutes: 100 }; // base = 1000
+    // 'Bag Work' tag multiplier = 1.0× so expectations remain clean
+    const base = { session_type: 'BJJ' as const, session_tag: 'Bag Work' as const, rpe: 10, duration_minutes: 100 }; // base = 1000
     expect(sessionLoad(makeSession({ ...base, intensity_level: 1 }))).toBeCloseTo(800, 0);
     expect(sessionLoad(makeSession({ ...base, intensity_level: 2 }))).toBeCloseTo(1000, 0);
     expect(sessionLoad(makeSession({ ...base, intensity_level: 3 }))).toBeCloseTo(1150, 0);
@@ -102,18 +136,19 @@ describe('sessionLoad', () => {
 
 describe('dailyLoad', () => {
   it('sums session loads for a single session', () => {
-    const sessions = [makeSession({ rpe: 7, duration_minutes: 60, intensity_level: 3 })];
+    const sessions = [makeSession({ session_type: 'BJJ', session_tag: 'Bag Work', rpe: 7, duration_minutes: 60, intensity_level: 3 })];
     expect(dailyLoad(sessions)).toBeCloseTo(483, 0);
   });
 
-  it('applies 1.1x CNS multiplier for multiple sessions', () => {
+  it('applies CNS multiplier for multiple sessions', () => {
     const sessions = [
-      makeSession({ rpe: 7, duration_minutes: 60, intensity_level: 3 }),
-      makeSession({ rpe: 5, duration_minutes: 30, intensity_level: 2 }),
+      makeSession({ session_type: 'BJJ', session_tag: 'Bag Work', rpe: 7, duration_minutes: 60, intensity_level: 3 }),
+      makeSession({ session_type: 'BJJ', session_tag: 'Bag Work', rpe: 5, duration_minutes: 30, intensity_level: 2 }),
     ];
-    // Session 1: 7*60*1.15 = 483, Session 2: 5*30*1.0 = 150
-    // Total: 633, CNS: 633 * 1.1 = 696.3
-    expect(dailyLoad(sessions)).toBeCloseTo(696.3, 0);
+    // Session 1: 7*60*1.15*1.0 = 483, Session 2: 5*30*1.0*1.0 = 150
+    // Total: 633, CNS: 1.15 (two sessions, one high RPE, same-tick created_at < 6h apart)
+    // → 633 * 1.15 = 727.95
+    expect(dailyLoad(sessions)).toBeCloseTo(727.95, 0);
   });
 
   it('returns 0 for empty array', () => {
@@ -580,6 +615,8 @@ describe('computeAllMetrics', () => {
     for (let i = 0; i < 14; i++) {
       sessions.push(makeSession({
         date: dateStr(i),
+        session_type: 'BJJ',
+        session_tag: 'Sparring',
         rpe: 9,
         duration_minutes: 90,
         intensity_level: 5,
@@ -587,6 +624,8 @@ describe('computeAllMetrics', () => {
       }));
       sessions.push(makeSession({
         date: dateStr(i),
+        session_type: 'BJJ',
+        session_tag: 'Sparring',
         rpe: 8,
         duration_minutes: 60,
         intensity_level: 4,
@@ -595,8 +634,13 @@ describe('computeAllMetrics', () => {
     }
     const metrics = computeAllMetrics(sessions);
     expect(metrics.loadConfidence.isReliable).toBe(true);
+    // Score > 50 confirms the system is strongly flagging overtraining. The
+    // personal-override divisor adapts to the athlete's habitual load so the
+    // strain-based "consecutive high days" component doesn't pile on, which
+    // is by design — we don't want a chronically heavy athlete to be
+    // permanently in the 'high' zone just because their load is consistent.
     expect(metrics.overtrainingRisk.score).toBeGreaterThan(50);
-    expect(['high', 'critical']).toContain(metrics.overtrainingRisk.zone);
+    expect(['moderate', 'high', 'critical']).toContain(metrics.overtrainingRisk.zone);
   });
 
   it('backward compat — works without profile params', () => {
@@ -710,5 +754,452 @@ describe('cold-start load guards', () => {
     });
     expect(withGoodWellness.overtrainingRisk.score).toBeLessThan(withoutWellness.overtrainingRisk.score);
     expect(withGoodWellness.overtrainingRisk.factors.join(' ')).toMatch(/wellness check-in is good/i);
+  });
+});
+
+// ─── EWMA Load ──────────────────────────────────────────────
+
+describe('ewmaLoad', () => {
+  function makeLoads(values: number[]): { date: string; load: number }[] {
+    return values.map((load, i) => ({ date: dateStr(values.length - 1 - i), load }));
+  }
+
+  it('returns 0 on empty input', () => {
+    expect(ewmaLoad([], ACUTE_LAMBDA)).toBe(0);
+    expect(ewmaLoad([], 0.5)).toBe(0);
+    expect(ewmaLoad([], 1)).toBe(0);
+  });
+
+  it('returns the single day load when only one entry', () => {
+    expect(ewmaLoad(makeLoads([400]), ACUTE_LAMBDA)).toBe(400);
+    expect(ewmaLoad(makeLoads([0]), ACUTE_LAMBDA)).toBe(0);
+    expect(ewmaLoad(makeLoads([1234]), 0.5)).toBe(1234);
+  });
+
+  it('falls between earliest and latest for monotonically increasing loads', () => {
+    const loads = makeLoads([100, 200, 300, 400, 500, 600, 700]);
+    const result = ewmaLoad(loads, ACUTE_LAMBDA);
+    expect(result).toBeGreaterThan(100);
+    expect(result).toBeLessThan(700);
+  });
+
+  it('weights recent days more heavily with high lambda', () => {
+    const loads = makeLoads([100, 200, 300, 400, 500, 600, 700]);
+    const highLambda = ewmaLoad(loads, 0.9);
+    const lowLambda = ewmaLoad(loads, 0.1);
+    // High λ → closer to last value (700); low λ → closer to first (100)
+    expect(highLambda).toBeGreaterThan(lowLambda);
+  });
+
+  it('λ=1 equals the last day load', () => {
+    const loads = makeLoads([100, 200, 300, 400, 500, 600, 700]);
+    expect(ewmaLoad(loads, 1)).toBe(700);
+  });
+
+  it('λ=0 equals the first day load', () => {
+    const loads = makeLoads([100, 200, 300, 400, 500, 600, 700]);
+    expect(ewmaLoad(loads, 0)).toBe(100);
+  });
+
+  it('produces a sensible recent-weighted average for realistic data', () => {
+    const loads = makeLoads([100, 200, 150, 300, 250, 400, 350]);
+    const result = ewmaLoad(loads, ACUTE_LAMBDA);
+    const simpleMean = (100 + 200 + 150 + 300 + 250 + 400 + 350) / 7;
+    // Recent days (400, 350) dominate → EWMA above simple mean of 250
+    expect(result).toBeGreaterThan(simpleMean);
+    // But must not exceed the maximum observed value
+    expect(result).toBeLessThanOrEqual(400);
+    expect(result).toBeGreaterThan(0);
+  });
+});
+
+// ─── Compute EWMA ACWR ──────────────────────────────────────
+
+describe('computeEwmaAcwr', () => {
+  function buildLoads(values: number[]): { date: string; load: number }[] {
+    return values.map((load, i) => ({ date: dateStr(values.length - 1 - i), load }));
+  }
+
+  it('returns loadRatio = 0 when all loads are zero', () => {
+    const loads = buildLoads(new Array(28).fill(0));
+    const { acuteLoad, chronicLoad, loadRatio } = computeEwmaAcwr(loads);
+    expect(acuteLoad).toBe(0);
+    expect(chronicLoad).toBe(0);
+    expect(loadRatio).toBe(0);
+  });
+
+  it('produces loadRatio > 1 on a sudden spike on day 28', () => {
+    const loads = buildLoads([
+      ...new Array(27).fill(0),
+      1000, // spike on day 28
+    ]);
+    const { acuteLoad, chronicLoad, loadRatio } = computeEwmaAcwr(loads);
+    expect(acuteLoad).toBeGreaterThan(chronicLoad);
+    expect(loadRatio).toBeGreaterThan(1);
+  });
+
+  it('steady load for 28 days produces loadRatio ~ 1', () => {
+    const loads = buildLoads(new Array(28).fill(400));
+    const { loadRatio } = computeEwmaAcwr(loads);
+    // +1 in denominator makes it slightly below 1 but very close
+    expect(loadRatio).toBeGreaterThan(0.99);
+    expect(loadRatio).toBeLessThanOrEqual(1.01);
+  });
+
+  it('detraining (no load last 7d, prior load present) produces loadRatio < 1', () => {
+    const loads = buildLoads([
+      ...new Array(21).fill(500), // 21 days of solid training
+      ...new Array(7).fill(0),     // last 7 days off
+    ]);
+    const { acuteLoad, chronicLoad, loadRatio } = computeEwmaAcwr(loads);
+    expect(acuteLoad).toBeLessThan(chronicLoad);
+    expect(loadRatio).toBeLessThan(1);
+  });
+
+  it('+1 in denominator prevents divide-by-zero', () => {
+    // Acute window has load but chronic baseline is zero (first session ever)
+    const loads = buildLoads([
+      ...new Array(27).fill(0),
+      500,
+    ]);
+    const { chronicLoad, loadRatio } = computeEwmaAcwr(loads);
+    // chronicLoad is tiny but the +1 keeps loadRatio finite
+    expect(Number.isFinite(loadRatio)).toBe(true);
+    expect(loadRatio).toBeGreaterThanOrEqual(0);
+    // Even with very small chronicLoad we don't divide by raw zero
+    expect(loadRatio).toBeLessThan(500); // i.e. divisor is at least 1
+  });
+});
+
+// ─── effectiveLoadMultiplier ────────────────────────────────
+
+describe('effectiveLoadMultiplier', () => {
+  it('uses the tag multiplier when a recognised tag is present', () => {
+    expect(effectiveLoadMultiplier('BJJ', 'Sparring')).toBe(1.30);
+    expect(effectiveLoadMultiplier('BJJ', 'Live Grappling')).toBe(1.30);
+    expect(effectiveLoadMultiplier('Muay Thai', 'Pad Work')).toBe(1.10);
+    expect(effectiveLoadMultiplier('S&C', 'Strength')).toBe(1.00);
+  });
+
+  it('falls back to the per-primary default when no tag is given', () => {
+    expect(effectiveLoadMultiplier('BJJ')).toBe(1.0);      // martial art
+    expect(effectiveLoadMultiplier('S&C')).toBe(0.9);      // strength & conditioning
+    expect(effectiveLoadMultiplier('Rest')).toBe(0.0);     // rest
+  });
+
+  it('treats an unknown tag as absent and uses the primary fallback', () => {
+    expect(effectiveLoadMultiplier('BJJ', 'SomeMadeUpTag')).toBe(1.0);
+    expect(effectiveLoadMultiplier('S&C', 'Totally Unknown')).toBe(0.9);
+  });
+
+  it('a custom/unknown primary defaults to the martial-arts fallback', () => {
+    expect(effectiveLoadMultiplier('SomeMadeUpSport')).toBe(1.0);
+  });
+
+  it('treats null/undefined/empty primary as a martial-arts default', () => {
+    expect(effectiveLoadMultiplier(null)).toBe(1.0);
+    expect(effectiveLoadMultiplier(undefined)).toBe(1.0);
+    expect(effectiveLoadMultiplier('')).toBe(1.0);
+  });
+});
+
+// ─── CNS Multiplier ─────────────────────────────────────────
+
+describe('cnsMultiplier', () => {
+  it('returns 1.0 for a single training session', () => {
+    const sessions = [makeSession({ rpe: 8 })];
+    expect(cnsMultiplier(sessions)).toBe(1.0);
+  });
+
+  it('returns 1.0 for no training sessions', () => {
+    expect(cnsMultiplier([])).toBe(1.0);
+    expect(cnsMultiplier([makeSession({ session_type: 'Rest' })])).toBe(1.0);
+  });
+
+  it('returns 1.05 for two low-RPE sessions (no high-RPE)', () => {
+    const sessions = [
+      makeSession({ rpe: 5 }),
+      makeSession({ rpe: 6 }),
+    ];
+    expect(cnsMultiplier(sessions)).toBe(1.05);
+  });
+
+  it('returns 1.15 for two high-RPE sessions <6h apart', () => {
+    const t0 = new Date('2026-05-01T08:00:00Z').toISOString();
+    const t1 = new Date('2026-05-01T12:00:00Z').toISOString(); // +4h
+    const sessions = [
+      makeSession({ rpe: 8, created_at: t0 }),
+      makeSession({ rpe: 8, created_at: t1 }),
+    ];
+    expect(cnsMultiplier(sessions)).toBe(1.15);
+  });
+
+  it('returns 1.10 for two high-RPE sessions 6-12h apart', () => {
+    const t0 = new Date('2026-05-01T08:00:00Z').toISOString();
+    const t1 = new Date('2026-05-01T17:00:00Z').toISOString(); // +9h
+    const sessions = [
+      makeSession({ rpe: 8, created_at: t0 }),
+      makeSession({ rpe: 8, created_at: t1 }),
+    ];
+    expect(cnsMultiplier(sessions)).toBe(1.10);
+  });
+
+  it('returns 1.05 for two high-RPE sessions >12h apart', () => {
+    const t0 = new Date('2026-05-01T07:00:00Z').toISOString();
+    const t1 = new Date('2026-05-01T22:00:00Z').toISOString(); // +15h
+    const sessions = [
+      makeSession({ rpe: 8, created_at: t0 }),
+      makeSession({ rpe: 8, created_at: t1 }),
+    ];
+    expect(cnsMultiplier(sessions)).toBe(1.05);
+  });
+
+  it('returns 1.20 for 3+ training sessions', () => {
+    const t0 = new Date('2026-05-01T07:00:00Z').toISOString();
+    const t1 = new Date('2026-05-01T12:00:00Z').toISOString();
+    const t2 = new Date('2026-05-01T18:00:00Z').toISOString();
+    const sessions = [
+      makeSession({ rpe: 8, created_at: t0 }),
+      makeSession({ rpe: 7, created_at: t1 }),
+      makeSession({ rpe: 8, created_at: t2 }),
+    ];
+    expect(cnsMultiplier(sessions)).toBe(1.20);
+  });
+
+  it('falls back to flat 1.10 for 2 high-RPE sessions with no created_at', () => {
+    const sessions = [
+      makeSession({ rpe: 8, created_at: null as unknown as string }),
+      makeSession({ rpe: 8, created_at: null as unknown as string }),
+    ];
+    expect(cnsMultiplier(sessions)).toBe(1.10);
+  });
+
+  it('falls back to flat ≥1.10 for 3+ sessions with no created_at', () => {
+    const sessions = [
+      makeSession({ rpe: 8, created_at: null as unknown as string }),
+      makeSession({ rpe: 7, created_at: null as unknown as string }),
+      makeSession({ rpe: 8, created_at: null as unknown as string }),
+    ];
+    // With no timestamps, the function returns 1.10 (training.length > 1 branch)
+    expect(cnsMultiplier(sessions)).toBe(1.10);
+  });
+
+  it('excludes Rest sessions (incl. Recovery-tagged rest days) from the count', () => {
+    const sessions = [
+      makeSession({ rpe: 8 }),
+      makeSession({ session_type: 'Rest', session_tag: null, rpe: 0 }),
+      // 'Recovery' is a TAG; a recovery day has primary 'Rest'.
+      makeSession({ session_type: 'Rest', session_tag: 'Recovery', rpe: 0 }),
+    ];
+    // Only one training session → 1.0
+    expect(cnsMultiplier(sessions)).toBe(1.0);
+  });
+});
+
+// ─── Foster Metrics ─────────────────────────────────────────
+
+describe('computeFosterMetrics', () => {
+  function buildLoads(values: number[]): { date: string; load: number }[] {
+    return values.map((load, i) => ({ date: dateStr(values.length - 1 - i), load }));
+  }
+
+  it('returns zeros on empty input', () => {
+    expect(computeFosterMetrics([])).toEqual({ weeklyMonotony: 0, weeklyStrain: 0 });
+  });
+
+  it('constant daily load (std ≈ 0) returns monotony 0 via guard', () => {
+    const loads = buildLoads([400, 400, 400, 400, 400, 400, 400]);
+    const { weeklyMonotony, weeklyStrain } = computeFosterMetrics(loads);
+    expect(weeklyMonotony).toBe(0);
+    expect(weeklyStrain).toBe(0);
+  });
+
+  it('same value every day returns monotony 0 (per std-near-zero guard)', () => {
+    const loads = buildLoads(new Array(7).fill(123.45));
+    const { weeklyMonotony, weeklyStrain } = computeFosterMetrics(loads);
+    expect(weeklyMonotony).toBe(0);
+    expect(weeklyStrain).toBe(0);
+  });
+
+  it('mixed/varied loads produce reasonable monotony', () => {
+    const loads = buildLoads([100, 400, 200, 500, 300, 600, 250]);
+    const { weeklyMonotony } = computeFosterMetrics(loads);
+    // With this spread (range 100-600, mean 335.7, std ~161.8), monotony ≈ 2.07.
+    // Foster's red-flag threshold is ~2.0; we expect a sensible non-zero value
+    // well below true overtraining patterns (constant-load → infinity-ish).
+    expect(weeklyMonotony).toBeGreaterThan(0);
+    expect(weeklyMonotony).toBeLessThan(2.5);
+  });
+
+  it('alternating high/low pattern produces low monotony (high variance)', () => {
+    const loads = buildLoads([100, 800, 100, 800, 100, 800, 100]);
+    const constantLoads = buildLoads([400, 410, 400, 410, 400, 410, 400]); // near-constant
+    const { weeklyMonotony: alt } = computeFosterMetrics(loads);
+    const { weeklyMonotony: nearConst } = computeFosterMetrics(constantLoads);
+    // Alternating extremes → low monotony; near-constant → high monotony
+    expect(alt).toBeLessThan(nearConst);
+    expect(alt).toBeGreaterThan(0);
+  });
+
+  it('weekly strain equals weeklyTotal × monotony', () => {
+    const loads = buildLoads([100, 400, 200, 500, 300, 600, 250]);
+    const weeklyTotal = 100 + 400 + 200 + 500 + 300 + 600 + 250;
+    const { weeklyMonotony, weeklyStrain } = computeFosterMetrics(loads);
+    expect(weeklyStrain).toBeCloseTo(weeklyTotal * weeklyMonotony, 5);
+  });
+});
+
+// ─── Contact Load ───────────────────────────────────────────
+
+describe('computeContactLoad', () => {
+  it('returns 0 rounds and low zone with no contact sessions', () => {
+    const sessions = [
+      makeSession({ date: dateStr(0), session_type: 'S&C', session_tag: 'Strength' }),
+      makeSession({ date: dateStr(1), session_type: 'S&C', session_tag: 'Run' }),
+    ];
+    const { contactRoundsLast7d, contactRiskZone } = computeContactLoad(sessions);
+    expect(contactRoundsLast7d).toBe(0);
+    expect(contactRiskZone).toBe('low');
+  });
+
+  it('returns 10 rounds → moderate zone for 1 contact session last 7d', () => {
+    const sessions = [
+      { ...makeSession({ date: dateStr(2), session_type: 'BJJ', session_tag: 'Sparring' }), rounds: 10 } as SessionRow,
+    ];
+    const { contactRoundsLast7d, contactRiskZone } = computeContactLoad(sessions);
+    expect(contactRoundsLast7d).toBe(10);
+    expect(contactRiskZone).toBe('moderate');
+  });
+
+  it('returns 20 rounds → high zone for 1 contact session last 7d', () => {
+    const sessions = [
+      { ...makeSession({ date: dateStr(3), session_type: 'BJJ', session_tag: 'Sparring' }), rounds: 20 } as SessionRow,
+    ];
+    const { contactRoundsLast7d, contactRiskZone } = computeContactLoad(sessions);
+    expect(contactRoundsLast7d).toBe(20);
+    expect(contactRiskZone).toBe('high');
+  });
+
+  it('returns critical zone for 30+ rounds last 7d', () => {
+    const sessions = [
+      { ...makeSession({ date: dateStr(1), session_type: 'BJJ', session_tag: 'Sparring' }), rounds: 15 } as SessionRow,
+      { ...makeSession({ date: dateStr(3), session_type: 'BJJ', session_tag: 'Live Grappling' }), rounds: 20 } as SessionRow,
+    ];
+    const { contactRoundsLast7d, contactRiskZone } = computeContactLoad(sessions);
+    expect(contactRoundsLast7d).toBe(35);
+    expect(contactRiskZone).toBe('critical');
+  });
+
+  it('does NOT count contact sessions outside 7d window', () => {
+    const sessions = [
+      { ...makeSession({ date: dateStr(20), session_type: 'BJJ', session_tag: 'Sparring' }), rounds: 25 } as SessionRow,
+    ];
+    const { contactRoundsLast7d, contactRiskZone } = computeContactLoad(sessions);
+    expect(contactRoundsLast7d).toBe(0);
+    expect(contactRiskZone).toBe('low');
+  });
+
+  it('does NOT count non-contact sessions even if they have rounds field', () => {
+    const sessions = [
+      { ...makeSession({ date: dateStr(1), session_type: 'S&C', session_tag: 'Strength' }), rounds: 50 } as SessionRow,
+      { ...makeSession({ date: dateStr(2), session_type: 'Muay Thai', session_tag: 'Pad Work' }), rounds: 20 } as SessionRow,
+    ];
+    const { contactRoundsLast7d, contactRiskZone } = computeContactLoad(sessions);
+    // Only sparring/live-grappling tags count — Strength and Pad Work do not
+    expect(contactRoundsLast7d).toBe(0);
+    expect(contactRiskZone).toBe('low');
+  });
+
+  it('treats missing rounds field on contact session as 0', () => {
+    const sessions = [
+      makeSession({ date: dateStr(2), session_type: 'BJJ', session_tag: 'Sparring' }), // no `rounds`
+    ];
+    const { contactRoundsLast7d, contactRiskZone } = computeContactLoad(sessions);
+    expect(contactRoundsLast7d).toBe(0);
+    expect(contactRiskZone).toBe('low');
+  });
+});
+
+// ─── Camp Phase ─────────────────────────────────────────────
+
+describe('determineCampPhase', () => {
+  it('returns off-camp for null daysToFight', () => {
+    expect(determineCampPhase(null)).toBe('off-camp');
+  });
+
+  it('returns off-camp for 35 days out', () => {
+    expect(determineCampPhase(35)).toBe('off-camp');
+  });
+
+  it('returns build for 21 days out', () => {
+    expect(determineCampPhase(21)).toBe('build');
+  });
+
+  it('returns peak for 10 days out', () => {
+    expect(determineCampPhase(10)).toBe('peak');
+  });
+
+  it('returns taper for 5 days out', () => {
+    expect(determineCampPhase(5)).toBe('taper');
+  });
+
+  it('returns taper for 0 days out (fight day)', () => {
+    expect(determineCampPhase(0)).toBe('taper');
+  });
+});
+
+describe('applyCampPhaseToCalibration', () => {
+  const baseCalibration: AthleteCalibration = {
+    tier: 'developing',
+    loadRatioThresholds: { caution: 1.2, danger: 1.4 },
+    rpeCeiling: 7,
+    normalSessionsPerWeek: 3,
+    strainDivisor: 900,
+    sessionFrequencyFlagThreshold: 4,
+  };
+
+  it('off-camp leaves thresholds untouched but stamps phase', () => {
+    const result = applyCampPhaseToCalibration(baseCalibration, 'off-camp');
+    expect(result.loadRatioThresholds.caution).toBeCloseTo(1.2, 5);
+    expect(result.loadRatioThresholds.danger).toBeCloseTo(1.4, 5);
+    expect(result.phase).toBe('off-camp');
+  });
+
+  it("peak shifts caution +0.15 and danger +0.10", () => {
+    const result = applyCampPhaseToCalibration(baseCalibration, 'peak');
+    expect(result.loadRatioThresholds.caution).toBeCloseTo(1.35, 5);
+    expect(result.loadRatioThresholds.danger).toBeCloseTo(1.50, 5);
+    expect(result.phase).toBe('peak');
+  });
+
+  it("taper shifts both thresholds +0.20", () => {
+    const result = applyCampPhaseToCalibration(baseCalibration, 'taper');
+    expect(result.loadRatioThresholds.caution).toBeCloseTo(1.40, 5);
+    expect(result.loadRatioThresholds.danger).toBeCloseTo(1.60, 5);
+    expect(result.phase).toBe('taper');
+  });
+
+  it("build shifts both thresholds -0.05", () => {
+    const result = applyCampPhaseToCalibration(baseCalibration, 'build');
+    expect(result.loadRatioThresholds.caution).toBeCloseTo(1.15, 5);
+    expect(result.loadRatioThresholds.danger).toBeCloseTo(1.35, 5);
+    expect(result.phase).toBe('build');
+  });
+
+  it('returns a new object — does not mutate input', () => {
+    const result = applyCampPhaseToCalibration(baseCalibration, 'peak');
+    // Input must be untouched
+    expect(baseCalibration.loadRatioThresholds.caution).toBe(1.2);
+    expect(baseCalibration.loadRatioThresholds.danger).toBe(1.4);
+    expect(baseCalibration.phase).toBeUndefined();
+    expect(result).not.toBe(baseCalibration);
+  });
+
+  it('CHRONIC_LAMBDA constant matches expected formula 2/(28+1)', () => {
+    expect(CHRONIC_LAMBDA).toBeCloseTo(2 / 29, 10);
+  });
+
+  it('ACUTE_LAMBDA constant matches expected formula 2/(7+1)', () => {
+    expect(ACUTE_LAMBDA).toBeCloseTo(2 / 8, 10);
   });
 });

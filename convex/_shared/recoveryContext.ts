@@ -62,7 +62,9 @@ function fmt(n: number | null | undefined, digits = 1): string {
 function describeSession(s: SessionRow): string {
   const parts: string[] = [];
   parts.push(s.date);
-  parts.push(s.session_type ?? "session");
+  parts.push(
+    `${s.session_type ?? "session"}${s.session_tag ? ` (${s.session_tag})` : ""}`,
+  );
   if (s.duration_minutes != null) parts.push(`${s.duration_minutes}min`);
   if (s.rpe != null) parts.push(`rpe${s.rpe}`);
   if (s.soreness_level != null) parts.push(`sore${s.soreness_level}`);

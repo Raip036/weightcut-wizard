@@ -1,11 +1,10 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Plus, X, Check, Mic, MicOff, Loader2, Camera, ImagePlus, Play } from "lucide-react";
+import { X, Mic, MicOff, Loader2, Camera, ImagePlus, Play, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { getCustomTypes, addCustomType, removeCustomType } from "@/lib/customSessionTypes";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { triggerHapticSelection } from "@/lib/haptics";
 import { useToast } from "@/hooks/use-toast";
@@ -14,6 +13,17 @@ import { api } from "@/../convex/_generated/api";
 import type { Id } from "@/../convex/_generated/dataModel";
 import { TinderMediaSwiper } from "@/components/training/TinderMediaSwiper";
 import type { LightboxItem } from "@/components/training/MediaLightbox";
+import {
+  MARTIAL_ARTS,
+  SANDC,
+  REST,
+  tagsForPrimary,
+  sessionCategory,
+  isContactSession,
+  type SessionTagDef,
+} from "@/lib/sessionTypes";
+import { getSessionColor } from "@/lib/sessionColors";
+import { SessionTypePickerSheet } from "@/components/fightcamp/SessionTypePickerSheet";
 
 export interface PendingSessionMedia {
   /** Stable id so React doesn't recycle the wrong tile when one is removed. */
@@ -24,15 +34,22 @@ export interface PendingSessionMedia {
   kind: "photo" | "video";
 }
 
-const SESSION_TYPES = ["BJJ", "Muay Thai", "Boxing", "Wrestling", "Sparring", "Strength", "Run"];
+// Thin alias kept so external callers still resolve a default. Under the
+// two-level model this is the PRIMARY list (martial arts + S&C + Rest);
+// custom martial-art primaries are merged in at render time per-user.
+const SESSION_TYPES: readonly string[] = [...MARTIAL_ARTS, SANDC, REST];
 
 export { SESSION_TYPES };
 
 interface FightCampLogFormProps {
   isEditing: boolean;
   userId: string | null;
+  /** PRIMARY discipline (a martial art, "S&C", or "Rest"). Required. */
   sessionType: string;
   setSessionType: (v: string) => void;
+  /** OPTIONAL activity tag (Sparring, Drilling, Strength, …). `null` ⇒ none. */
+  sessionTag: string | null;
+  setSessionTag: (v: string | null) => void;
   duration: string;
   setDuration: (v: string) => void;
   rpe: number[];
@@ -52,6 +69,10 @@ interface FightCampLogFormProps {
   runDistanceUnit: "km" | "mi";
   setRunDistanceUnit: (v: string) => void;
   runPace: string;
+  /** Optional contact-round count for contact sessions (sparring / live
+   *  grappling). `null` ⇒ user hasn't set a value yet. Controlled by parent. */
+  rounds: number | null;
+  setRounds: (v: number | null) => void;
   /** Media files queued to upload after the session is created. Capped
    *  client-side at MAX_PENDING_MEDIA so a slip of the finger doesn't
    *  fire 50 uploads. */
@@ -74,13 +95,11 @@ interface FightCampLogFormProps {
 
 const MAX_PENDING_MEDIA = 10;
 
-const INPUT_CLASS =
-  "h-11 rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/30 text-[15px] text-foreground placeholder:text-muted-foreground/50 px-4 focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all";
-
 export function FightCampLogForm({
   isEditing,
   userId,
   sessionType, setSessionType,
+  sessionTag, setSessionTag,
   duration, setDuration,
   rpe, setRpe,
   intensityLevel, setIntensityLevel,
@@ -91,6 +110,7 @@ export function FightCampLogForm({
   runTime, setRunTime,
   runDistanceUnit, setRunDistanceUnit,
   runPace,
+  rounds, setRounds,
   pendingMedia,
   onAddMedia,
   onRemoveMedia,
@@ -100,9 +120,7 @@ export function FightCampLogForm({
   saving = false,
   canSave = true,
 }: FightCampLogFormProps) {
-  const [customTypes, setCustomTypes] = useState<string[]>([]);
-  const [isAddingNew, setIsAddingNew] = useState(false);
-  const [newTypeName, setNewTypeName] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
   const { toast } = useToast();
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
@@ -220,33 +238,33 @@ export function FightCampLogForm({
     onError: handleVoiceError,
   });
 
+  // Tags offered for the currently-selected primary. Drives the
+  // incompatible-tag cleanup effect below + the Run-details / Rounds gating.
+  const tagOptions = useMemo<SessionTagDef[]>(
+    () => (sessionType ? tagsForPrimary(sessionType) : []),
+    [sessionType],
+  );
+  const primaryKind = sessionCategory(sessionType);
+  const selectedIsContact = isContactSession(sessionType, sessionTag);
+
+  // When the chosen tag no longer applies to the selected primary's
+  // category (e.g. the user switched from a martial art to S&C), drop it
+  // so we never ship a "Sparring" tag on an "S&C" primary.
   useEffect(() => {
-    if (userId) setCustomTypes(getCustomTypes(userId));
-  }, [userId]);
-
-  const allTypes = [...SESSION_TYPES, ...customTypes];
-  const hasLegacyType = sessionType && !allTypes.includes(sessionType);
-  const displayTypes = hasLegacyType ? [...allTypes, sessionType] : allTypes;
-
-  const handleAddCustomType = () => {
-    const trimmed = newTypeName.trim();
-    if (!trimmed || !userId) return;
-    if (allTypes.includes(trimmed)) return;
-    const updated = addCustomType(userId, trimmed);
-    setCustomTypes(updated);
-    setSessionType(trimmed);
-    setNewTypeName("");
-    setIsAddingNew(false);
-  };
-
-  const handleRemoveCustomType = (type: string) => {
-    if (!userId) return;
-    const updated = removeCustomType(userId, type);
-    setCustomTypes(updated);
-    if (sessionType === type) {
-      setSessionType(SESSION_TYPES[0]);
+    if (sessionTag && !tagOptions.some((t) => t.id === sessionTag)) {
+      setSessionTag(null);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [primaryKind]);
+
+  // When the active tag isn't a contact tag, clear any stale rounds value
+  // so the next save doesn't accidentally ship rounds for a `Run`.
+  useEffect(() => {
+    if (!selectedIsContact && rounds !== null) {
+      setRounds(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionType, sessionTag, selectedIsContact]);
 
   const adjustDuration = (delta: number) => {
     const next = Math.max(0, (parseInt(duration) || 0) + delta);
@@ -256,73 +274,52 @@ export function FightCampLogForm({
 
   return (
     <div className="space-y-4">
-      {/* ── Session Type — horizontal scrolling chip rail ──────── */}
+      {/* ── Session type — collapsed summary row → focused picker sheet ─
+          Both levels (primary discipline + optional activity tag) live
+          behind one tap so the form body stays compact instead of stacking
+          two pill grids. The summary shows "Discipline · Activity". */}
       <div className="space-y-2">
         <Label className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/60">
           Session type
         </Label>
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x">
-          {displayTypes.map((type) => {
-            const active = sessionType === type;
-            const isCustom = customTypes.includes(type);
-            return (
-              <div key={type} className="relative shrink-0 snap-start">
-                <button
-                  type="button"
-                  onClick={() => { setSessionType(type); triggerHapticSelection(); }}
-                  className={`h-10 px-4 rounded-full text-[13.5px] font-semibold transition-all active:scale-[0.96] ${
-                    active
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-foreground/80 hover:bg-muted/60"
-                  } ${isCustom ? "pr-7" : ""}`}
-                >
-                  {type}
-                </button>
-                {isCustom && (
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); handleRemoveCustomType(type); }}
-                    aria-label={`Remove ${type}`}
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-background/40 flex items-center justify-center text-muted-foreground/60 active:text-destructive transition-colors"
-                  >
-                    <X className="h-3 w-3" strokeWidth={2.4} />
-                  </button>
+        <button
+          type="button"
+          onClick={() => { triggerHapticSelection(); setPickerOpen(true); }}
+          className="w-full flex items-center justify-between gap-3 h-12 px-4 rounded-xs bg-muted/40 dark:bg-white/[0.06] border border-border/30 active:scale-[0.99] transition-transform"
+        >
+          <span className="flex items-center gap-2.5 min-w-0">
+            {sessionType ? (
+              <>
+                <span
+                  className="h-2.5 w-2.5 rounded-full shrink-0"
+                  style={{ backgroundColor: getSessionColor(sessionType) }}
+                />
+                <span className="text-[15px] font-semibold text-foreground truncate">
+                  {sessionType}
+                </span>
+                {sessionTag && (
+                  <span className="text-[12px] font-medium text-muted-foreground truncate">
+                    · {sessionTag}
+                  </span>
                 )}
-              </div>
-            );
-          })}
-          <button
-            type="button"
-            onClick={() => setIsAddingNew(!isAddingNew)}
-            aria-label="Add custom type"
-            className="shrink-0 snap-start h-10 w-10 rounded-full bg-muted/40 dark:bg-white/[0.06] border border-border/30 flex items-center justify-center active:scale-[0.96] transition-transform"
-          >
-            <Plus className="h-4 w-4 text-foreground/70" strokeWidth={2.4} />
-          </button>
-        </div>
-
-        {isAddingNew && (
-          <div className="flex gap-2 mt-2">
-            <Input
-              placeholder="e.g. Swimming, Yoga…"
-              value={newTypeName}
-              onChange={(e) => setNewTypeName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") handleAddCustomType(); }}
-              className={`${INPUT_CLASS} flex-1`}
-              autoFocus
-            />
-            <button
-              type="button"
-              onClick={handleAddCustomType}
-              disabled={!newTypeName.trim()}
-              aria-label="Confirm new type"
-              className="h-11 w-11 rounded-xs bg-primary/15 hover:bg-primary/25 text-primary flex items-center justify-center shrink-0 active:scale-[0.96] transition-transform disabled:opacity-40"
-            >
-              <Check className="h-4 w-4" strokeWidth={2.6} />
-            </button>
-          </div>
-        )}
+              </>
+            ) : (
+              <span className="text-[15px] text-muted-foreground/60">Select session type</span>
+            )}
+          </span>
+          <ChevronRight className="h-4 w-4 text-muted-foreground/50 shrink-0" strokeWidth={2.2} />
+        </button>
       </div>
+
+      <SessionTypePickerSheet
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        userId={userId}
+        sessionType={sessionType}
+        setSessionType={setSessionType}
+        sessionTag={sessionTag}
+        setSessionTag={setSessionTag}
+      />
 
       {/* ── Training metrics — single grouped card ────────────── */}
       <div className="card-surface rounded-xs divide-y divide-border/15 overflow-hidden">
@@ -383,10 +380,55 @@ export function FightCampLogForm({
             <span>Max</span>
           </div>
         </div>
+
+        {/* Rounds — only for contact sessions (sparring / live grappling).
+            Optional: omit on save if untouched (handled by parent reading null). */}
+        {selectedIsContact && (
+          <div className="flex items-center justify-between px-4 py-3.5">
+            <span
+              className="text-[14px] font-medium text-foreground/85"
+              title="Number of contact rounds (skip if N/A)"
+            >
+              Rounds
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const current = rounds ?? 5;
+                  const next = Math.max(1, current - 1);
+                  setRounds(next);
+                  triggerHapticSelection();
+                }}
+                aria-label="Decrease rounds"
+                className="h-8 w-8 rounded-full bg-muted/40 dark:bg-white/[0.06] border border-border/30 flex items-center justify-center text-foreground/80 active:scale-95 transition-all"
+              >
+                <span className="text-[16px] font-medium leading-none">−</span>
+              </button>
+              <span className="text-[15px] font-bold tabular-nums w-14 text-center">
+                {rounds ?? 5}
+                <span className="text-[11px] font-medium text-muted-foreground/60 ml-0.5">rds</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  const current = rounds ?? 5;
+                  const next = Math.min(20, current + 1);
+                  setRounds(next);
+                  triggerHapticSelection();
+                }}
+                aria-label="Increase rounds"
+                className="h-8 w-8 rounded-full bg-muted/40 dark:bg-white/[0.06] border border-border/30 flex items-center justify-center text-foreground/80 active:scale-95 transition-all"
+              >
+                <span className="text-[14px] font-medium leading-none">+</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* ── Run details (conditional) ─────────────────────────── */}
-      {sessionType === "Run" && (
+      {/* ── Run details (conditional) — shown for the "Run" activity tag ─ */}
+      {sessionTag === "Run" && (
         <div className="card-surface rounded-xs divide-y divide-border/15 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3.5">
             <span className="text-[14px] font-medium text-foreground/85">Distance</span>

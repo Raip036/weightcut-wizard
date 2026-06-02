@@ -287,6 +287,59 @@ export const getLatestForSport = internalQuery({
 });
 
 /**
+ * Recent mission history for a (user, sport), newest first, with each
+ * mission's items projected down to {text, completed}. Feeds the generator's
+ * "PRIOR MISSIONS" prompt block so a new mission PROGRESSES the work instead
+ * of re-issuing drills the athlete already completed (improvement #2).
+ */
+export const getRecentMissionHistory = internalQuery({
+  args: { userId: v.id("users"), sport: v.string(), limit: v.number() },
+  handler: async (
+    ctx,
+    { userId, sport, limit },
+  ): Promise<
+    Array<{
+      title: string;
+      rationale: string;
+      status: string;
+      createdAt: number;
+      items: Array<{ text: string; completed: boolean }>;
+    }>
+  > => {
+    const missions = await ctx.db
+      .query("training_missions")
+      .withIndex("by_user_sport_status", (q) =>
+        q.eq("userId", userId).eq("sport", sport),
+      )
+      .collect();
+    if (missions.length === 0) return [];
+
+    missions.sort((a, b) => b.createdAt - a.createdAt);
+    const recent = missions.slice(0, Math.max(0, limit));
+
+    return await Promise.all(
+      recent.map(async (m) => {
+        const items = await ctx.db
+          .query("training_mission_items")
+          .withIndex("by_mission_position", (q) => q.eq("missionId", m._id))
+          .collect();
+        items.sort((a, b) => a.position - b.position);
+        return {
+          title: m.title,
+          rationale: m.rationale,
+          status: m.status,
+          createdAt: m.createdAt,
+          items: items.map((it) => ({
+            text: it.text,
+            completed: it.completed,
+          })),
+        };
+      }),
+    );
+  },
+});
+
+/**
  * Atomic persist: marks any predecessor active mission as `completed`,
  * then inserts the new mission row plus all items at strict positions
  * 0..N-1. Returns the new mission id.

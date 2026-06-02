@@ -26,13 +26,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowRight, Dumbbell } from "lucide-react";
+import { ArrowRight, ChevronDown, Check, Dumbbell } from "lucide-react";
 import wizardMascot from "@/assets/wizard-tutorial.png";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useUser } from "@/contexts/UserContext";
-import { useMyGyms } from "@/hooks/coach/useMyGyms";
+import { useMyGyms, type MyGymRow } from "@/hooks/coach/useMyGyms";
 import { useGymFeed, type FeedPost } from "@/hooks/community/useGymFeed";
 import { usePolaroidStack } from "@/hooks/community/usePolaroidStack";
 import { GymHeader } from "@/components/community/GymHeader";
@@ -45,15 +45,74 @@ import { CommentsSheet } from "@/components/gym-feed/CommentsSheet";
 import { useFeedEngagement } from "@/hooks/useFeedEngagement";
 import { logger } from "@/lib/logger";
 import { useTutorial } from "@/tutorial/useTutorial";
+import { AnnouncementsSection } from "@/components/coach/AnnouncementsSection";
+import { LeaderboardSection } from "@/components/leaderboard/LeaderboardSection";
+import { GymLogoAvatar } from "@/components/coach/GymLogoAvatar";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { triggerHaptic } from "@/lib/haptics";
+import { ImpactStyle } from "@capacitor/haptics";
 
 export default function Community() {
   const navigate = useNavigate();
   const { userId } = useUser();
   const { gyms, loading: gymsLoading } = useMyGyms(userId);
 
-  // Single-gym world in v1; pick the first active membership.
-  const primaryGym = gyms[0] ?? null;
+  // Active-gym selection. Multi-gym athletes can pick which gym scopes
+  // the feed / announcements / leaderboard via the header switcher; the
+  // selection persists per-user in localStorage so a refresh keeps them
+  // on the same gym they last opened.
+  const activeGymStorageKey = userId ? `community-active-gym:${userId}` : null;
+  const [activeGymId, setActiveGymId] = useState<string | null>(() => {
+    if (typeof window === "undefined" || !activeGymStorageKey) return null;
+    return window.localStorage.getItem(activeGymStorageKey);
+  });
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+
+  // Resolve the active gym row from the membership list. Falls back to
+  // the first gym when the stored id is stale (e.g. user left that gym
+  // on another device) or has never been set.
+  const activeGym: MyGymRow | null = useMemo(() => {
+    if (gyms.length === 0) return null;
+    if (activeGymId) {
+      const match = gyms.find((g) => g.gym_id === activeGymId);
+      if (match) return match;
+    }
+    return gyms[0];
+  }, [gyms, activeGymId]);
+
+  // If the resolved gym doesn't match the stored id (stale or unset),
+  // reconcile localStorage so a future read returns a valid id without
+  // re-running the membership filter.
+  useEffect(() => {
+    if (!activeGymStorageKey || !activeGym) return;
+    if (activeGym.gym_id !== activeGymId) {
+      window.localStorage.setItem(activeGymStorageKey, activeGym.gym_id);
+      setActiveGymId(activeGym.gym_id);
+    }
+  }, [activeGym, activeGymId, activeGymStorageKey]);
+
+  const handleSelectGym = useCallback(
+    (gym: MyGymRow) => {
+      triggerHaptic(ImpactStyle.Light);
+      if (activeGymStorageKey) {
+        window.localStorage.setItem(activeGymStorageKey, gym.gym_id);
+      }
+      setActiveGymId(gym.gym_id);
+      setSwitcherOpen(false);
+    },
+    [activeGymStorageKey],
+  );
+
+  // Aliased back to the previous variable names so the rest of the page
+  // (feed gating, sheets, branch logic) keeps reading the same identifiers.
+  const primaryGym = activeGym;
   const gymId = (primaryGym?.gym_id ?? null) as Id<"gyms"> | null;
+  const isMultiGym = gyms.length > 1;
 
   // Feed query — gated on `gymId` so we don't burn a round-trip on the
   // pre-resolution render.
@@ -224,16 +283,44 @@ export default function Community() {
         <h1 className="text-title font-semibold leading-tight">Community</h1>
       </header>
 
+        {/* Announcements — coach broadcasts + fight offers across every
+            gym the user belongs to. Scoped here (not to the active gym)
+            because announcements are user-level: a fight offer from any
+            coach should always surface. Renders nothing when empty. */}
+        {gyms.length > 0 && (
+          <div className="px-5 pb-2">
+            <AnnouncementsSection gymIds={gyms.map((g) => g.gym_id)} />
+          </div>
+        )}
+
         {primaryGym && (
-          <GymHeader
-            gymId={primaryGym.gym_id as Id<"gyms">}
-            gymName={primaryGym.gym_name}
-            logoUrl={primaryGym.gym_logo_url}
-            memberCount={null}
-            onInviteClick={() => navigate("/my-gym")}
-            onActivityClick={() => setActivityOpen(true)}
-            onProfileOpen={() => setProfileSheetOpen(true)}
-          />
+          <>
+            <GymHeader
+              gymId={primaryGym.gym_id as Id<"gyms">}
+              gymName={primaryGym.gym_name}
+              logoUrl={primaryGym.gym_logo_url}
+              memberCount={null}
+              onInviteClick={() => navigate("/my-gym")}
+              onActivityClick={() => setActivityOpen(true)}
+              onProfileOpen={() => setProfileSheetOpen(true)}
+            />
+            {/* Switcher affordance — shown only when the user belongs to
+                multiple gyms. Sits as a discreet pill under the header so
+                the header tap still opens the gym profile sheet (with
+                share-data + leave-gym surfaces), and the pill provides a
+                separate path to swap between gyms. */}
+            {isMultiGym && (
+              <button
+                type="button"
+                onClick={() => setSwitcherOpen(true)}
+                className="mx-5 mb-2 inline-flex items-center gap-1 rounded-full bg-muted/40 border border-border/40 px-2.5 py-1 text-[11px] font-medium text-muted-foreground active:scale-[0.98] transition-transform"
+                aria-label="Switch gym"
+              >
+                Switch gym
+                <ChevronDown className="h-3 w-3" />
+              </button>
+            )}
+          </>
         )}
 
         {/* Content area — branches on member-count threshold + load state.
@@ -320,6 +407,17 @@ export default function Community() {
               );
             })()}
           </AnimatePresence>
+
+          {/* Inline weekly leaderboard for the active gym. Sits below
+              the feed deck so the user still gets a podium / ranked-list
+              snapshot without having to navigate over to MyGym. Mounted
+              only once gymId is resolved so we don't fire an empty query
+              during the first paint. */}
+          {gymId && (
+            <section className="mt-8">
+              <LeaderboardSection gymId={gymId} viewer="athlete" />
+            </section>
+          )}
         </main>
       </motion.div>
 
@@ -349,7 +447,89 @@ export default function Community() {
         }}
         onCommentRemoved={() => {}}
       />
+
+      {/* Gym switcher sheet — multi-gym athletes pick which gym scopes
+          the feed / leaderboard / profile sheet. Selection persists via
+          localStorage so a reload keeps them on the last-active gym. */}
+      <GymSwitcherSheet
+        open={switcherOpen}
+        onOpenChange={setSwitcherOpen}
+        gyms={gyms}
+        activeGymId={primaryGym?.gym_id ?? null}
+        onSelect={handleSelectGym}
+      />
     </>
+  );
+}
+
+/* ─── Gym switcher sheet ───
+ *
+ * Bottom sheet listing every gym the viewer belongs to. Each row is a
+ * full-width button (logo + name + member count subtitle). The active
+ * gym is marked with a check and a faint background so the viewer can
+ * see which selection is current at a glance. Mounted at the page root
+ * so its animation lifecycle is independent of the feed below.
+ */
+function GymSwitcherSheet({
+  open,
+  onOpenChange,
+  gyms,
+  activeGymId,
+  onSelect,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  gyms: MyGymRow[];
+  activeGymId: string | null;
+  onSelect: (gym: MyGymRow) => void;
+}) {
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="bottom"
+        className="rounded-t-2xl border-border/40 bg-background"
+      >
+        <SheetHeader className="text-left">
+          <SheetTitle className="text-[17px]">Switch gym</SheetTitle>
+        </SheetHeader>
+        <div className="mt-3 space-y-1.5">
+          {gyms.map((gym) => {
+            const isActive = gym.gym_id === activeGymId;
+            return (
+              <button
+                key={gym.member_id}
+                type="button"
+                onClick={() => onSelect(gym)}
+                className={`w-full min-h-[60px] flex items-center gap-3 px-3 py-2.5 rounded-xs text-left active:scale-[0.99] transition-all ${
+                  isActive
+                    ? "bg-primary/10 border border-primary/30"
+                    : "bg-card/60 border border-border/40 active:bg-muted/40"
+                }`}
+              >
+                <GymLogoAvatar
+                  logoUrl={gym.gym_logo_url}
+                  name={gym.gym_name}
+                  size={40}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[15px] font-semibold leading-tight truncate">
+                    {gym.gym_name}
+                  </p>
+                  {gym.gym_location && (
+                    <p className="text-[12px] text-muted-foreground mt-0.5 truncate">
+                      {gym.gym_location}
+                    </p>
+                  )}
+                </div>
+                {isActive && (
+                  <Check className="h-4 w-4 text-primary shrink-0" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -601,14 +781,27 @@ const CommunityFeedSection = React.memo(function CommunityFeedSection({
         />
       </div>
 
-      {topPost && (
-        <SessionInfoCard
-          post={topPost}
-          engagement={topEngagement}
-          onCommentTap={onOpenComments}
-          onProfileTap={onOpenProfile}
-        />
-      )}
+      {/* Crossfade the session-type card as the deck advances so its content
+          glides between posts instead of snapping. Keyed to the top post id;
+          mode="popLayout" keeps the height stable through the swap. */}
+      <AnimatePresence mode="popLayout" initial={false}>
+        {topPost && (
+          <motion.div
+            key={topPost.id}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.22, ease: "easeOut" }}
+          >
+            <SessionInfoCard
+              post={topPost}
+              engagement={topEngagement}
+              onCommentTap={onOpenComments}
+              onProfileTap={onOpenProfile}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 });

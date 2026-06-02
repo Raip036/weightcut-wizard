@@ -10,7 +10,8 @@ import { query, mutation, internalQuery } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Id } from "./_generated/dataModel";
 import { requireUserId } from "./lib/auth";
-import { api, internal } from "./_generated/api";
+import { internal } from "./_generated/api";
+import { normalizeLegacySession } from "./lib/sessionTypes";
 
 // ───────────────────────────────────────────────────────────────────────
 // Smart-defaults constants
@@ -34,25 +35,6 @@ const FALLBACK_SESSION_TYPE = "Strength";
 const FALLBACK_DURATION_MINUTES = 60;
 const RECENT_HISTORY_TAKE = 200;
 const SAME_TYPE_SAMPLE_SIZE = 5;
-
-/**
- * Given a YYYY-MM-DD date, return the YYYY-MM-DD of the Monday of that ISO
- * week. Used by the auto-summary scheduler so a session-save against any
- * day in the week pins the same `weekStart` key the training_summaries
- * table is indexed on (see `getSummaryForWeek` / `upsertSummary`).
- *
- * Built in UTC so the result doesn't drift when the server runs in a
- * non-UTC zone — the date string itself carries no TZ, so we treat it as
- * a calendar date and never let `new Date()` re-interpret it locally.
- */
-function computeWeekStart(dateIso: string): string {
-  const [y, m, d] = dateIso.split("-").map(Number);
-  const dt = new Date(Date.UTC(y, (m ?? 1) - 1, d ?? 1));
-  // getUTCDay: Sun=0..Sat=6. Shift so Mon=0..Sun=6, then subtract.
-  const dow = (dt.getUTCDay() + 6) % 7;
-  dt.setUTCDate(dt.getUTCDate() - dow);
-  return dt.toISOString().slice(0, 10);
-}
 
 // ───────────────────────────────────────────────────────────────────────
 // Validation helpers
@@ -318,10 +300,18 @@ export const listCalendar = query({
     );
     const urlByIndex = new Map<number, string | null>();
     mediaRowIndexes.forEach((i, k) => urlByIndex.set(i, resolvedUrls[k]));
-    return rows.map((r, i) => ({
-      ...r,
-      mediaUrl: urlByIndex.get(i) ?? null,
-    }));
+    return rows.map((r, i) => {
+      // Migrate-on-read: legacy rows stored an activity string in sessionType.
+      // Split into {primary, tag} so every consumer sees the new two-level
+      // shape (sessionType = primary, sessionTag = optional activity).
+      const norm = normalizeLegacySession(r.sessionType, r.sessionTag);
+      return {
+        ...r,
+        sessionType: norm.primary,
+        sessionTag: norm.tag ?? undefined,
+        mediaUrl: urlByIndex.get(i) ?? null,
+      };
+    });
   },
 });
 
@@ -351,6 +341,7 @@ export const getSmartDefaults = query({
     gymName: v.union(v.string(), v.null()),
     gymLogoUrl: v.union(v.string(), v.null()),
     sessionType: v.string(),
+    sessionTag: v.union(v.string(), v.null()),
     durationMinutes: v.number(),
     intensity: v.string(),
     intensityLevel: v.number(),
@@ -364,6 +355,7 @@ export const getSmartDefaults = query({
         gymName: null,
         gymLogoUrl: null,
         sessionType: FALLBACK_SESSION_TYPE,
+        sessionTag: null,
         durationMinutes: FALLBACK_DURATION_MINUTES,
         intensity: STEADY_PRESET.intensity,
         intensityLevel: STEADY_PRESET.intensityLevel,
@@ -407,9 +399,11 @@ export const getSmartDefaults = query({
       )
       .first();
 
-    let sessionType: string;
+    let rawType: string;
+    let rawTag: string | null | undefined;
     if (todayRow) {
-      sessionType = todayRow.sessionType;
+      rawType = todayRow.sessionType;
+      rawTag = todayRow.sessionTag;
     } else {
       // Most-recent logged session by date (descending). Bounded scan;
       // typical users log < 1k sessions and we only need the newest.
@@ -418,8 +412,15 @@ export const getSmartDefaults = query({
         .withIndex("by_user_date", (q) => q.eq("userId", userId))
         .order("desc")
         .first();
-      sessionType = mostRecent?.sessionType ?? FALLBACK_SESSION_TYPE;
+      rawType = mostRecent?.sessionType ?? FALLBACK_SESSION_TYPE;
+      rawTag = mostRecent?.sessionTag;
     }
+    // Split into the two-level shape so the ReviewSheet prefills the primary
+    // chip + optional tag chip.
+    const { primary: sessionType, tag: sessionTag } = normalizeLegacySession(
+      rawType,
+      rawTag,
+    );
 
     // 3. Duration — mean of the last 5 same-type entries, rounded to the
     //    nearest 5 minutes. Falls back to 60 when there's no history.
@@ -431,7 +432,11 @@ export const getSmartDefaults = query({
       .order("desc")
       .take(RECENT_HISTORY_TAKE);
     const sameType = recent
-      .filter((r) => r.sessionType === sessionType)
+      .filter(
+        (r) =>
+          normalizeLegacySession(r.sessionType, r.sessionTag).primary ===
+          sessionType,
+      )
       .slice(0, SAME_TYPE_SAMPLE_SIZE);
 
     let durationMinutes: number = FALLBACK_DURATION_MINUTES;
@@ -449,6 +454,7 @@ export const getSmartDefaults = query({
       gymName,
       gymLogoUrl,
       sessionType,
+      sessionTag: sessionTag ?? null,
       durationMinutes,
       intensity: STEADY_PRESET.intensity,
       intensityLevel: STEADY_PRESET.intensityLevel,
@@ -487,7 +493,10 @@ export const getMediaUrl = query({
 export const createCalendarEntry = mutation({
   args: {
     date: v.string(),
+    // PRIMARY category (martial art / "S&C" / "Rest").
     sessionType: v.string(),
+    // Optional activity tag (Sparring, Strength, …).
+    sessionTag: v.optional(v.string()),
     intensity: v.string(),
     intensityLevel: v.optional(v.number()),
     durationMinutes: v.number(),
@@ -498,6 +507,9 @@ export const createCalendarEntry = mutation({
     sleepHours: v.optional(v.number()),
     sleepQuality: v.optional(v.string()),
     mobilityDone: v.optional(v.boolean()),
+    // Contact rounds for sparring / live grappling sessions. Omitted for
+    // non-contact sessions; the recovery engine reads it for contact load.
+    rounds: v.optional(v.number()),
     mediaStorageId: v.optional(v.id("_storage")),
     notes: v.optional(v.string()),
     // Provenance of the row — set by whichever entry surface created it.
@@ -527,8 +539,8 @@ export const createCalendarEntry = mutation({
     if (args.notes && args.notes.trim().length > 0) {
       await ctx.scheduler.runAfter(
         2_000,
-        api.actions.trainingCoachPlanner.run,
-        { trigger: "sessionSave", sessionId },
+        internal.actions.trainingCoachPlanner._runInternal,
+        { userId, trigger: "sessionSave", sessionId },
       );
       // Training Missions (Trigger A — see
       // docs/superpowers/specs/2026-05-21-training-missions-design.md).
@@ -543,25 +555,6 @@ export const createCalendarEntry = mutation({
         );
       } catch (err) {
         console.warn("missions schedule failed", err);
-      }
-      // Auto-summary (opt-in via user_coach_settings.autoSummary). Wrapped
-      // so a not-yet-seeded settings row or a missing/disabled
-      // trainingSummary action can't break the session save.
-      try {
-        const cs = await ctx.runQuery(
-          internal.user_coach_settings.getCoachSettings,
-          { userId },
-        );
-        if (cs?.autoSummary) {
-          const weekStart = computeWeekStart(args.date);
-          await ctx.scheduler.runAfter(
-            500,
-            api.actions.trainingSummary.run,
-            { weekStart },
-          );
-        }
-      } catch (err) {
-        console.warn("autoSummary schedule failed", err);
       }
       // Discipline XP — +10 for logging a session with notes. Initial
       // creation only; `updateCalendarEntry` deliberately does NOT award
@@ -601,6 +594,9 @@ export const updateCalendarEntry = mutation({
   args: {
     id: v.id("fight_camp_calendar"),
     sessionType: v.optional(v.string()),
+    // Pass a string to set/replace the activity tag, `null` to clear it,
+    // or omit to leave unchanged.
+    sessionTag: v.optional(v.union(v.string(), v.null())),
     intensity: v.optional(v.string()),
     intensityLevel: v.optional(v.number()),
     durationMinutes: v.optional(v.number()),
@@ -611,11 +607,13 @@ export const updateCalendarEntry = mutation({
     sleepHours: v.optional(v.number()),
     sleepQuality: v.optional(v.string()),
     mobilityDone: v.optional(v.boolean()),
+    // Pass a number to set rounds. Not provided ⇒ field unchanged.
+    rounds: v.optional(v.number()),
     // Pass `null` to remove the existing media (deletes the storage object).
     mediaStorageId: v.optional(v.union(v.id("_storage"), v.null())),
     notes: v.optional(v.string()),
   },
-  handler: async (ctx, { id, mediaStorageId, ...rest }) => {
+  handler: async (ctx, { id, mediaStorageId, sessionTag, ...rest }) => {
     const userId = await requireUserId(ctx);
     const row = await ctx.db.get(id);
     if (!row) throw new Error("Entry not found");
@@ -624,6 +622,11 @@ export const updateCalendarEntry = mutation({
     const patch: Record<string, unknown> = {};
     for (const [k, val] of Object.entries(rest)) {
       if (val !== undefined) patch[k] = val;
+    }
+    // Activity tag: a string sets it, `null` clears it (stored as absent so
+    // the optional schema field validates), `undefined` leaves it unchanged.
+    if (sessionTag !== undefined) {
+      patch.sessionTag = sessionTag ?? undefined;
     }
 
     // Handle media replacement / removal: delete the previous storage object
@@ -646,8 +649,8 @@ export const updateCalendarEntry = mutation({
     if (typeof rest.notes === "string" && rest.notes.trim().length > 0) {
       await ctx.scheduler.runAfter(
         2_000,
-        api.actions.trainingCoachPlanner.run,
-        { trigger: "sessionSave", sessionId: id },
+        internal.actions.trainingCoachPlanner._runInternal,
+        { userId, trigger: "sessionSave", sessionId: id },
       );
     }
 
@@ -670,34 +673,6 @@ export const updateCalendarEntry = mutation({
         );
       } catch (err) {
         console.warn("missions schedule failed", err);
-      }
-    }
-
-    // Auto-summary (opt-in via user_coach_settings.autoSummary). Only fire
-    // when the notes field *actually changed* on this patch — re-running
-    // the summarizer on every unrelated field edit (rpe, sleep, etc.)
-    // would burn LLM tokens for nothing. We also require non-empty
-    // trimmed notes so clearing-to-empty doesn't trigger a stale rerun.
-    const notesChanged =
-      typeof rest.notes === "string" &&
-      rest.notes !== row.notes &&
-      rest.notes.trim().length > 0;
-    if (notesChanged) {
-      try {
-        const cs = await ctx.runQuery(
-          internal.user_coach_settings.getCoachSettings,
-          { userId },
-        );
-        if (cs?.autoSummary) {
-          const weekStart = computeWeekStart(row.date);
-          await ctx.scheduler.runAfter(
-            500,
-            api.actions.trainingSummary.run,
-            { weekStart },
-          );
-        }
-      } catch (err) {
-        console.warn("autoSummary schedule failed", err);
       }
     }
 
@@ -934,8 +909,14 @@ export const listMyMediaLibrary = query({
     const rows = page.page;
 
     // Batch-load all unique sessions in one parallel pass instead of N awaits.
+    // Filter out null/undefined sessionIds — legacy session_media rows can
+    // have an orphaned sessionId after the parent session was deleted.
     const uniqueSessionIds = Array.from(
-      new Set(rows.map((r) => r.sessionId as unknown as string)),
+      new Set(
+        rows
+          .map((r) => r.sessionId as unknown as string | null | undefined)
+          .filter((sid): sid is string => sid != null && sid !== ""),
+      ),
     );
     const sessionDocs = await Promise.all(
       uniqueSessionIds.map((sid) => ctx.db.get(sid as any)),
@@ -949,6 +930,9 @@ export const listMyMediaLibrary = query({
     const results = await Promise.all(
       rows.map(async (r) => {
         const s = sessions.get(r.sessionId as unknown as string);
+        const norm = s
+          ? normalizeLegacySession(s.sessionType as string, s.sessionTag as string | undefined)
+          : null;
         return {
           id: r._id,
           sessionId: r.sessionId,
@@ -956,7 +940,8 @@ export const listMyMediaLibrary = query({
           capturedAt: r.capturedAt,
           caption: r.caption ?? null,
           url: r.storageId ? await ctx.storage.getUrl(r.storageId) : null,
-          sessionType: (s?.sessionType as string) ?? null,
+          sessionType: norm?.primary ?? null,
+          sessionTag: norm?.tag ?? null,
           sessionDate: (s?.date as string) ?? r.capturedAt,
           sessionNotes: (s?.notes as string | undefined) ?? null,
         };
@@ -987,12 +972,23 @@ export const listMediaDisciplines = query({
       .query("session_media")
       .withIndex("by_user_captured", (q) => q.eq("userId", userId))
       .take(500);
-    const sessionIds = new Set(rows.map((r) => r.sessionId as unknown as string));
+    // Filter out null/undefined sessionIds — orphaned session_media rows
+    // (parent session deleted) would otherwise crash ctx.db.get below.
+    const sessionIds = new Set(
+      rows
+        .map((r) => r.sessionId as unknown as string | null | undefined)
+        .filter((sid): sid is string => sid != null && sid !== ""),
+    );
     const disciplines = new Set<string>();
     for (const sid of sessionIds) {
       const s = await ctx.db.get(sid as any);
       if (s && (s as any).sessionType) {
-        disciplines.add((s as any).sessionType as string);
+        // Group the filter chips by PRIMARY discipline.
+        const norm = normalizeLegacySession(
+          (s as any).sessionType as string,
+          (s as any).sessionTag as string | undefined,
+        );
+        disciplines.add(norm.primary);
       }
     }
     return Array.from(disciplines).sort();
@@ -1209,7 +1205,7 @@ export const listNotesSince = internalQuery({
     return rows
       .filter(
         (r) =>
-          r.sessionType === sport &&
+          normalizeLegacySession(r.sessionType, r.sessionTag).primary === sport &&
           r._creationTime >= since &&
           typeof r.notes === "string" &&
           r.notes.trim().length > 0,
@@ -1241,10 +1237,11 @@ export const listSessionPairsWithNotesSince = internalQuery({
     for (const r of rows) {
       if (typeof r.notes !== "string" || r.notes.trim().length === 0) continue;
       if (!r.sessionType) continue;
-      const key = `${r.userId}::${r.sessionType}`;
+      const sport = normalizeLegacySession(r.sessionType, r.sessionTag).primary;
+      const key = `${r.userId}::${sport}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      pairs.push({ userId: r.userId, sport: r.sessionType });
+      pairs.push({ userId: r.userId, sport });
     }
     return pairs;
   },

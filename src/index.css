@@ -843,6 +843,30 @@ All colors MUST be HSL.
     animation: scorePulse 600ms ease-out;
   }
 
+  /* T12: Warning shimmer — single amber gradient sweep used on the readiness
+     tier badge when day-over-day score drops by > 15. Runs once on mount. */
+  @keyframes warning-shimmer {
+    0%   { background-position: -150% 0; opacity: 0.4; }
+    50%  { opacity: 1; }
+    100% { background-position: 250% 0; opacity: 0.4; }
+  }
+  .animate-warning-shimmer {
+    background-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      hsl(var(--func-warning-yellow, 45 100% 55%) / 0.0) 30%,
+      hsl(var(--func-warning-yellow, 45 100% 55%) / 0.45) 50%,
+      hsl(var(--func-warning-yellow, 45 100% 55%) / 0.0) 70%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    background-repeat: no-repeat;
+    animation: warning-shimmer 1.2s cubic-bezier(0.4, 0, 0.2, 1) 1 forwards;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-warning-shimmer { animation: none; }
+  }
+
 }
 
 @layer utilities {

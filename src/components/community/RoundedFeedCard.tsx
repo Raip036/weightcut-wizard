@@ -86,8 +86,12 @@ function RoundedFeedCardBase({
   developing = false,
   progress,
 }: RoundedFeedCardProps) {
-  // Top card loads the full-res image; background cards use the 256px thumb.
-  const effectiveSrc = isTop ? post.url : (post.thumbUrl ?? post.url);
+  // Use the SAME source for background and top cards. The stack already
+  // preloads every visible card's full URL, so a background card has already
+  // decoded this exact image — keeping the src stable across promotion means
+  // the newly-promoted top card shows it instantly with no re-decode flash
+  // (the thumb→full swap was the "little refresh flash" after a swipe).
+  const effectiveSrc = post.url ?? post.thumbUrl ?? null;
   const img = useImageReady(effectiveSrc);
   const offsets = STACK_OFFSETS[stackPosition];
   const prefersReducedMotion = useReducedMotion() ?? false;
@@ -136,6 +140,11 @@ function RoundedFeedCardBase({
 
   const streakDays = post.author.streakDays ?? 0;
   const showStreak = streakDays >= 7;
+  // Author has left/been removed from this gym. The post stays in the
+  // feed so the conversation remains continuous, but the avatar is
+  // greyscaled + dimmed and a small "(former member)" label sits next
+  // to the display name so viewers know the author is no longer here.
+  const isFormerMember = post.authorState === "former_member";
 
   // Shared metadata fade-in (author overlay + caption). Mirrors the
   // PolaroidCard caption-strip timing for cross-variant develop parity.
@@ -255,11 +264,11 @@ function RoundedFeedCardBase({
               <img
                 src={post.author.avatarUrl}
                 alt=""
-                className={`h-7 w-7 rounded-full object-cover ${streakRingClass(streakDays)}`}
+                className={`h-7 w-7 rounded-full object-cover ${streakRingClass(streakDays)} ${isFormerMember ? "opacity-60 grayscale" : ""}`}
               />
             ) : (
               <div
-                className={`h-7 w-7 rounded-full bg-white/20 flex items-center justify-center text-[12px] font-bold text-white ${streakRingClass(streakDays)}`}
+                className={`h-7 w-7 rounded-full bg-white/20 flex items-center justify-center text-[12px] font-bold text-white ${streakRingClass(streakDays)} ${isFormerMember ? "opacity-60 grayscale" : ""}`}
               >
                 {post.author.displayName.slice(0, 1).toUpperCase()}
               </div>
@@ -268,7 +277,15 @@ function RoundedFeedCardBase({
               <span className="text-[13px] font-semibold text-white drop-shadow-sm">
                 {post.author.displayName}
               </span>
-              {showStreak && (
+              {isFormerMember && (
+                <span
+                  className="text-[10px] font-medium text-white/70 italic"
+                  title="No longer a member of this gym"
+                >
+                  (former member)
+                </span>
+              )}
+              {showStreak && !isFormerMember && (
                 <span
                   aria-label={`${streakDays}-day streak`}
                   title={`${streakDays}-day streak`}
@@ -319,6 +336,7 @@ function areEqual(prev: RoundedFeedCardProps, next: RoundedFeedCardProps): boole
     prev.post.author.displayName === next.post.author.displayName &&
     prev.post.author.avatarUrl === next.post.author.avatarUrl &&
     (prev.post.author.streakDays ?? 0) === (next.post.author.streakDays ?? 0) &&
+    (prev.post.authorState ?? "active") === (next.post.authorState ?? "active") &&
     prev.developing === next.developing &&
     prev.progress === next.progress
   );

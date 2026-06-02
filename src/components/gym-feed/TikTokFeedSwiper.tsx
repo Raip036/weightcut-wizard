@@ -43,7 +43,10 @@ export interface FeedPostItem {
   session: {
     id: string;
     date: string;
+    /** PRIMARY discipline (martial art / "S&C" / "Rest"). */
     sessionType: string;
+    /** OPTIONAL activity descriptor (Sparring, Strength, …); null when absent. */
+    sessionTag?: string | null;
     rpe: number;
     durationMinutes: number;
   } | null;
@@ -586,6 +589,11 @@ const FeedPanel = forwardRef<HTMLDivElement, FeedPanelProps>(function FeedPanel(
           {sessionLabel && (
             <p className="text-[13px] text-white/85 mt-1.5">
               {sessionLabel}
+              {post.session?.sessionTag && (
+                <span className="ml-1.5 align-middle text-[10px] uppercase tracking-wider font-medium bg-white/15 backdrop-blur-md px-1.5 py-0.5 rounded-full">
+                  {post.session.sessionTag}
+                </span>
+              )}
               {post.session?.date && (
                 <span className="text-white/55"> · {safeSessionDate(post.session.date)}</span>
               )}

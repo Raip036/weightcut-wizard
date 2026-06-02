@@ -5,12 +5,15 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { getSessionColor, COLOR_PALETTE } from "@/lib/sessionColors";
 import { decodeRunMeta } from "@/lib/runMeta";
 import { triggerHapticSelection } from "@/lib/haptics";
+import { isUncategorizedPrimary, isContactSession } from "@/lib/sessionTypes";
 
 interface TrainingCalendarRow {
   id: string;
   user_id: string;
   date: string;
   session_type: string;
+  /** Optional activity tag (Sparring, Drilling, Run…). Drives load + contact. */
+  session_tag?: string | null;
   duration_minutes: number;
   rpe: number;
   intensity: string;
@@ -24,6 +27,7 @@ interface TrainingCalendarRow {
   notes: string | null;
   media_url: string | null;
   created_at: string | null;
+  rounds?: number | null;
 }
 
 interface SessionCardProps {
@@ -50,8 +54,12 @@ export const SessionCard = memo(function SessionCard({
 }: SessionCardProps) {
   const [expanded, setExpanded] = useState(false);
   const isRest = session.session_type === "Rest";
-  const isRun = session.session_type === "Run";
+  // "Run" is a TAG now, not a primary — run-detection keys off session_tag.
+  const isRun = session.session_tag === "Run";
   const sessionColor = getSessionColor(session.session_type, customColors);
+  // Rows that landed in the generic catch-all bucket on migrate-on-read.
+  const isLegacy = isUncategorizedPrimary(session.session_type);
+  const hasTag = !!session.session_tag;
   const intensityDisplay =
     session.intensity_level ?? (session.intensity === "high" ? 5 : session.intensity === "moderate" ? 3 : 1);
   const { meta: runMeta, notes: cleanNotes } = useMemo(
@@ -80,7 +88,11 @@ export const SessionCard = memo(function SessionCard({
     : [
         { label: "Duration", value: session.duration_minutes, sub: "min" },
         { label: "RPE", value: session.rpe, sub: "/10" },
-        { label: "Intensity", value: intensityDisplay, sub: "/5" },
+        // Contact sessions (tag-driven) surface round count over intensity
+        // when rounds were logged; otherwise fall back to intensity.
+        isContactSession(session.session_type, session.session_tag) && (session.rounds ?? 0) > 0
+          ? { label: "Rounds", value: session.rounds!, sub: "" }
+          : { label: "Intensity", value: intensityDisplay, sub: "/5" },
       ];
 
   const handleToggle = () => {
@@ -164,6 +176,28 @@ export const SessionCard = memo(function SessionCard({
             <p className="text-[14px] font-semibold text-foreground truncate">
               {session.session_type}
             </p>
+            {/* Activity tag — small secondary chip surfacing WHAT the session
+                was (Sparring, Drilling, Run…) under its primary discipline. */}
+            {hasTag && (
+              <span
+                className="text-[9px] font-semibold uppercase tracking-wider rounded-full px-1.5 py-0.5 bg-muted/40 ring-1 ring-white/[0.06] text-foreground/70 shrink-0"
+                title="Session activity"
+              >
+                {session.session_tag}
+              </span>
+            )}
+            {/* Legacy chip — rows that landed in the generic "Martial Arts"
+                catch-all bucket on migrate-on-read (their specific art
+                couldn't be inferred). We deliberately do NOT rewrite the row
+                on read; the user re-edit path re-categorises on next save. */}
+            {isLegacy && (
+              <span
+                className="text-[9px] font-semibold uppercase tracking-wider rounded-full px-1.5 py-0.5 bg-muted/60 text-muted-foreground/80 shrink-0"
+                title="Logged with an older session type"
+              >
+                legacy
+              </span>
+            )}
             {hasMedia && <ImageIcon className="w-3 h-3 text-foreground/50 shrink-0" />}
           </div>
           <div className="mt-1 flex items-baseline gap-3 tabular-nums">

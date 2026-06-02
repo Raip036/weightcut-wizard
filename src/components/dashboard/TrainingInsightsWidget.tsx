@@ -20,6 +20,8 @@ interface SessionRow {
   id: string;
   date: string;
   session_type: string;
+  /** Optional activity tag (Sparring, Strength, …); may be null. */
+  session_tag: string | null;
   notes: string | null;
   rpe: number | null;
   intensity: string | null;
@@ -90,6 +92,7 @@ async function fetchRecentSessions(_userId: string): Promise<SessionRow[]> {
       id: r._id,
       date: r.date,
       session_type: r.sessionType,
+      session_tag: r.sessionTag ?? null,
       notes: r.notes,
       rpe: r.rpe ?? null,
       intensity: r.intensity ?? null,
@@ -124,6 +127,10 @@ async function callTrainingInsights(
     const latest = sessions[0];
     const body = await convex.action(api.actions.trainingInsights.run, {
       session_type: sessionType,
+      // Optional activity tag from the most recent session in this discipline.
+      // Grouping + caching remain keyed on the primary `session_type`; the tag
+      // is passed through so the coach can tailor advice to the activity.
+      sessionTag: latest?.session_tag ?? null,
       fingerprint: latest?.id ?? "",
       session_id: latest?.id ?? null,
       session_date: latest?.date ?? null,

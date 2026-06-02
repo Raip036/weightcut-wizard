@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { format, startOfWeek, endOfWeek } from "date-fns";
-import { Loader2, ChevronDown, Trash2, CheckCircle, X, Dumbbell, Activity, Crown, RotateCw } from "lucide-react";
+import { Loader2, ChevronDown, Trash2, CheckCircle, X, Dumbbell, Activity, RotateCw, BookOpen } from "lucide-react";
 import { useConvex, useMutation, useQuery } from "convex/react";
 import { useAIAction } from "@/hooks/useAIAction";
 import { api } from "@/../convex/_generated/api";
@@ -12,13 +12,13 @@ import { logger } from "@/lib/logger";
 import { localCache } from "@/lib/localCache";
 import { useAITask } from "@/contexts/AITaskContext";
 import { AICompactOverlay } from "@/components/AICompactOverlay";
-import { Switch } from "@/components/ui/switch";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { FlashcardDeck, type FlashcardRow } from "./FlashcardDeck";
+import { WeeklyRecap, type RecapDebrief } from "./WeeklyRecap";
+import { TechniqueLog } from "./TechniqueLog";
 import { WeeklyTimeline } from "./WeeklyTimeline";
 
-// ─── New shape (retention flashcards) ──────────────────────────────────────
-type FlashcardSummary = {
+// ─── New shape (weekly recap debrief) ──────────────────────────────────────
+type RecapSummary = {
     weekHeadline: string;
     stats: {
         sessionsLogged: number;
@@ -27,13 +27,7 @@ type FlashcardSummary = {
         avgRpe?: number;
         avgSleepHours?: number;
     };
-    cards: Array<{
-        sport: string;
-        front: string;
-        back: string;
-        cue?: string;
-        sourceSessionDate?: string;
-    }>;
+    debrief: RecapDebrief;
 };
 
 // ─── Legacy shape (kept only so older saved rows render the chip path) ────
@@ -81,35 +75,10 @@ function computeFingerprint(sessions: SessionRow[]): string {
         .join("|");
 }
 
-type LegacySportSection = NonNullable<TrainingSummary["sportSections"]>[number];
-
-function mergeSummaries(existing: TrainingSummary, incoming: TrainingSummary): TrainingSummary {
-    const merged = new Map<string, LegacySportSection>();
-    for (const section of existing.sportSections || []) {
-        merged.set(section.sport, { ...section, techniques: [...section.techniques] });
-    }
-    for (const section of incoming.sportSections || []) {
-        const prev = merged.get(section.sport);
-        if (prev) {
-            const existingNames = new Set(prev.techniques.map(t => t.name));
-            const newTechniques = section.techniques.filter(t => !existingNames.has(t.name));
-            prev.techniques.push(...newTechniques);
-            prev.sessions_count = section.sessions_count;
-        } else {
-            merged.set(section.sport, { ...section, techniques: [...section.techniques] });
-        }
-    }
-    return {
-        sportSections: Array.from(merged.values()),
-        weekOverview: incoming.weekOverview || existing.weekOverview,
-    };
-}
-
-
 export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrigger, customColors }: TrainingSummarySectionProps) {
-    // `customColors` was used by the old per-sport rendering. The new
-    // flashcard UI pulls discipline tints from `coachColors` instead. Keep
-    // the prop in the surface for now so callers don't have to change.
+    // `customColors` was used by the old per-sport rendering. The recap UI
+    // pulls discipline tints from `disciplineToken` instead. Keep the prop in
+    // the surface for now so callers don't have to change.
     void customColors;
     const { toast } = useToast();
     const { openPaywall, handlePaywallError } = useSubscription();
@@ -118,10 +87,6 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
     const trainingSummaryAction = useAIAction(api.actions.trainingSummary.run, "AI_TRAINING_SUMMARY");
     const upsertSummaryMut = useMutation(api.fight_camp.upsertSummary);
     const deleteSummaryMut = useMutation(api.fight_camp.deleteSummary);
-    const coachSettings = useQuery(api.user_coach_settings.getMyCoachSettings);
-    const setAutoSummaryMut = useMutation(api.user_coach_settings.setAutoSummary);
-    const autoSummaryOn = coachSettings?.autoSummary === true;
-    const settingsLoading = coachSettings === undefined;
     const summariesRaw = useQuery(api.fight_camp.listAllSummaries, userId ? { limit: 20 } : "skip");
     // Live-reactive subscription to training_summaries. The Convex client caches identically.
     const savedSummaries = useMemo<SavedSummaryRow[]>(() => (
@@ -135,8 +100,6 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
             updated_at: r.updatedAt ? new Date(r.updatedAt).toISOString() : "",
         }))
     ), [summariesRaw]);
-    const setSavedSummaries = (_v: any) => { /* no-op — Convex subscription drives this */ };
-    void setSavedSummaries;
     const [weekSessions, setWeekSessions] = useState<SessionRow[]>([]);
     const [selectedWeekStart, setSelectedWeekStart] = useState<string>(
         format(startOfWeek(selectedDate, { weekStartsOn: 1 }), "yyyy-MM-dd")
@@ -157,6 +120,7 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
       }
     }, [tasks, dismissTask]);
     const [isSummaryOpen, setIsSummaryOpen] = useState(true);
+    const [isTechniqueLogOpen, setIsTechniqueLogOpen] = useState(false);
     const abortRef = useRef<AbortController | null>(null);
 
     const calendarWeekStart = format(startOfWeek(selectedDate, { weekStartsOn: 1 }), "yyyy-MM-dd");
@@ -228,6 +192,13 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
         [weekSessions]
     );
 
+    // Past weeks that have a saved summary — drives the timeline chips. DESC
+    // (newest first) to match WeeklyTimeline's contract.
+    const summarisedWeeks = useMemo(
+        () => savedSummaries.map(s => s.week_start).sort((a, b) => b.localeCompare(a)),
+        [savedSummaries]
+    );
+
     // Change detection — only for the current calendar week
     const buttonState: ButtonState = useMemo(() => {
         if (sessionsWithNotes.length === 0) return "hidden";
@@ -240,27 +211,6 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
     const handleCancel = () => {
         abortRef.current?.abort();
         setIsLoading(false);
-    };
-
-    const handleToggleAutoSummary = async (next: boolean) => {
-        if (settingsLoading) return;
-        // Free-tier guard: don't even call the mutation when enabling without Pro.
-        if (next && coachSettings && !coachSettings.isPro) {
-            openPaywall();
-            return;
-        }
-        try {
-            await setAutoSummaryMut({ enabled: next });
-        } catch (error: any) {
-            // Backend throws PRO_FEATURE_REQUIRED:AUTO_SUMMARY for non-Pro enables.
-            if (await handlePaywallError(error)) return;
-            logger.error("Error updating auto-summary setting", error);
-            toast({
-                title: "Couldn't update setting",
-                description: "Please try again.",
-                variant: "destructive",
-            });
-        }
     };
 
     const handleGenerateOrUpdate = async () => {
@@ -277,11 +227,11 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
         const taskId = addTask({
             id: `training-summary-${Date.now()}`,
             type: "training-summary",
-            label: "Generating Summary",
+            label: "Generating Recap",
             steps: [
                 { icon: Dumbbell, label: "Reviewing sessions" },
                 { icon: Activity, label: "Analyzing performance" },
-                { icon: CheckCircle, label: "Writing summary" },
+                { icon: CheckCircle, label: "Writing recap" },
             ],
             returnPath: window.location.pathname,
         });
@@ -293,9 +243,9 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
             // If no new sessions, nothing to do (shouldn't happen since fingerprint would match)
             if (sessionsToSend.length === 0) { setIsLoading(false); return; }
 
-            // Convex trainingSummary action only takes a weekStart. The
-            // session payload is server-side; we keep `sessionsToSend` to
-            // guard the fingerprint logic above.
+            // The trainingSummary action only takes a weekStart. The session
+            // payload is server-side; we keep `sessionsToSend` to guard the
+            // fingerprint logic above.
             void sessionsToSend;
             let data: any;
             try {
@@ -307,46 +257,41 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
             }
             if (controller.signal.aborted) return;
             const summaryData = data;
-            if (!summaryData) throw new Error("No summary returned");
-            // Accept either the new flashcards shape OR the legacy shape — the
-            // action *should* now return the new shape, but if a sibling
-            // deploy hasn't rolled out the rest still works.
+            if (!summaryData) throw new Error("No recap returned");
             const dataRec = summaryData as Record<string, unknown>;
-            const isNewShape = Array.isArray(dataRec.cards) && typeof dataRec.weekHeadline === "string";
-            const isLegacyShape = Array.isArray(dataRec.sportSections) && typeof dataRec.weekOverview === "string";
-            if (!isNewShape && !isLegacyShape) {
-                throw new Error("AI returned malformed summary — please retry.");
+            const isNewShape =
+                typeof dataRec.weekHeadline === "string" &&
+                !!dataRec.debrief &&
+                typeof dataRec.debrief === "object";
+            if (!isNewShape) {
+                throw new Error("AI returned malformed recap — please retry.");
             }
 
             const fingerprint = computeFingerprint(weekSessions);
             const allSessionIds = sessionsWithNotes.map(s => s.id);
 
             // Upsert via Convex — handler is idempotent on (userId, weekStart).
-            // Only merge legacy-with-legacy. The new shape isn't list-additive
-            // (cards live in their own table) so we just persist the latest.
-            const existingRec = (selectedSummary?.summary_data ?? {}) as Record<string, unknown>;
-            const mergedData = (isLegacyShape && selectedSummary && Array.isArray(existingRec.sportSections))
-                ? mergeSummaries(selectedSummary.summary_data as TrainingSummary, summaryData as TrainingSummary)
-                : summaryData;
+            // The new shape isn't list-additive (techniques live in their own
+            // table, written server-side), so we just persist the latest.
             await upsertSummaryMut({
                 weekStart: calendarWeekStart,
                 sessionIds: allSessionIds,
                 notesFingerprint: fingerprint,
-                summaryData: mergedData,
+                summaryData,
             });
 
-            // Bust cache and refresh immediately so summary appears live
+            // Bust cache and refresh immediately so the recap appears live
             localCache.remove(userId, "training_summaries");
             await fetchAllSummaries();
             setIsSummaryOpen(true);
             completeTask(taskId, summaryData);
         } catch (error: any) {
             if (error?.name === 'AbortError' || controller.signal.aborted) return;
-            logger.error("Error generating training summary", error);
-            failTask(taskId, error?.message || "Could not generate your training summary");
+            logger.error("Error generating training recap", error);
+            failTask(taskId, error?.message || "Could not generate your weekly recap");
             toast({
-                title: "Error generating summary",
-                description: "Could not generate your training summary. Please try again.",
+                title: "Error generating recap",
+                description: "Could not generate your weekly recap. Please try again.",
                 variant: "destructive",
             });
         } finally {
@@ -369,66 +314,26 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
 
     const summaryToDisplay = selectedSummary?.summary_data ?? null;
     // ── Shape detection ──────────────────────────────────────────────────
-    // NEW SHAPE  → has a `cards: []` field AND a `weekHeadline` string.
-    // LEGACY     → has `sportSections: []` + `weekOverview`. Show a tiny
-    //              "Legacy summary" chip with a regenerate tap.
+    // NEW SHAPE  → `weekHeadline` string + `stats` object + `debrief` object.
+    // LEGACY     → `sportSections` + `weekOverview`. Show a tiny "Legacy
+    //              summary" chip with a regenerate tap.
     const summaryAsRecord = (summaryToDisplay ?? {}) as Record<string, unknown>;
     const isNewSummaryShape = !!(summaryToDisplay
-        && Array.isArray(summaryAsRecord.cards)
         && typeof summaryAsRecord.weekHeadline === "string"
         && summaryAsRecord.stats
-        && typeof summaryAsRecord.stats === "object");
+        && typeof summaryAsRecord.stats === "object"
+        && summaryAsRecord.debrief
+        && typeof summaryAsRecord.debrief === "object");
     const isLegacySummaryShape = !isNewSummaryShape && !!(summaryToDisplay
         && Array.isArray(summaryAsRecord.sportSections)
         && typeof summaryAsRecord.weekOverview === "string");
 
-    const newSummary: FlashcardSummary | null = isNewSummaryShape ? (summaryToDisplay as FlashcardSummary) : null;
-
-    // Hooks (Convex queries + sheet state) MUST be unconditionally called.
-    // The new card APIs are generated by Convex from a sibling-agent's
-    // `convex/training_summary_cards.ts`. The generated api.d.ts may not
-    // be regenerated yet — guard each `useQuery` with a "skip" arg until
-    // the api ref resolves so we don't blow up at runtime. The single
-    // `eslint-disable-next-line` keeps the codebase's existing lint rules
-    // satisfied while we straddle deploys.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const cardApis = (api as any).training_summary_cards as undefined | Record<string, unknown>;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const fallbackRef = (api as any).fight_camp.listAllSummaries;
-
-    const summarisedWeeksRaw = useQuery(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (cardApis?.listSummarisedWeeks as any) ?? fallbackRef,
-        cardApis ? {} : "skip"
-    ) as string[] | undefined;
-    const summarisedWeeks = useMemo(() => summarisedWeeksRaw ?? [], [summarisedWeeksRaw]);
-
-    const cardsForWeekRaw = useQuery(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (cardApis?.getCardsForWeek as any) ?? fallbackRef,
-        cardApis && userId && selectedWeekStart ? { weekStart: selectedWeekStart } : "skip"
-    ) as FlashcardRow[] | undefined;
-    const cardsForCurrentWeek = useMemo(() => cardsForWeekRaw ?? [], [cardsForWeekRaw]);
-
-    const dueCardsRaw = useQuery(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (cardApis?.getDueToday as any) ?? fallbackRef,
-        cardApis && userId ? {} : "skip"
-    ) as FlashcardRow[] | undefined;
-    const dueCards = useMemo(() => dueCardsRaw ?? [], [dueCardsRaw]);
-
-    const [isDueSheetOpen, setIsDueSheetOpen] = useState(false);
+    const newSummary: RecapSummary | null = isNewSummaryShape ? (summaryToDisplay as RecapSummary) : null;
 
     // Nothing to show if there's no summary for this week and no notes to summarise
     if (sessionsWithNotes.length === 0 && !selectedSummary) {
         return null;
     }
-
-    // The browsing week defaults to whatever week the calendar is on. If the
-    // user picks a chip from the timeline, we move there. When the timeline
-    // is still loading or empty we just stick with `selectedWeekStart`
-    // (already keyed to the calendar week via the earlier useEffect).
-    const showPastWeek = selectedWeekStart !== calendarWeekStart;
 
     return (
         <div className="mt-6 space-y-4">
@@ -437,48 +342,14 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                     isOpen={true}
                     isGenerating={true}
                     steps={aiTrainingTask.steps}
-                    startedAt={aiTrainingTask.startedAt}                    title={aiTrainingTask.label}
+                    startedAt={aiTrainingTask.startedAt}
+                    title={aiTrainingTask.label}
                     onCancel={() => { abortRef.current?.abort(); dismissTask(aiTrainingTask.id); setIsLoading(false); }}
                 />
             )}
 
-            {/* Auto-generate toggle — Pro-only; sits above the manual button */}
+            {/* Manual generate / update control — the single entry point. */}
             {buttonState !== "hidden" && (
-                <div className="w-full p-4 rounded-xs card-surface border border-border/50 flex items-center gap-3 min-h-[44px]">
-                    <div className="flex-1 min-w-0">
-                        <label
-                            htmlFor="auto-summary-toggle"
-                            className="text-body-sm font-semibold text-foreground cursor-pointer block"
-                        >
-                            Auto-generate summaries
-                        </label>
-                        <p className="text-note text-muted-foreground mt-0.5">
-                            Generated automatically after each session you log with notes.
-                        </p>
-                    </div>
-                    {coachSettings && !coachSettings.isPro && (
-                        <span className="inline-flex items-center gap-0.5 text-primary/70 pointer-events-none flex-shrink-0">
-                            <Crown className="h-3 w-3" />
-                            <span className="text-[10px] font-medium uppercase tracking-wider">Pro</span>
-                        </span>
-                    )}
-                    <Switch
-                        id="auto-summary-toggle"
-                        checked={autoSummaryOn}
-                        disabled={settingsLoading}
-                        onCheckedChange={handleToggleAutoSummary}
-                        aria-label="Auto-generate training summaries"
-                    />
-                </div>
-            )}
-
-            {/* The legacy Generate / Update button has been removed —
-                auto-summary toggle is the single entry point. The "Refresh
-                now" link below (when toggle ON + isGenerating/up-to-date)
-                provides the manual fallback for the current week. */}
-
-            {/* Auto-summary is ON: show a subtle "Refresh now" link as a manual fallback. */}
-            {buttonState !== "hidden" && autoSummaryOn && (
                 <div className="flex items-center justify-center min-h-[44px]">
                     {isGenerating ? (
                         <div className="flex items-center gap-2">
@@ -500,9 +371,10 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                     ) : (
                         <button
                             onClick={handleGenerateOrUpdate}
-                            className="text-note font-medium text-primary hover:text-primary/80 transition-colors px-2 py-2 rounded-xs"
+                            className="inline-flex items-center gap-1.5 text-body-sm font-semibold text-primary hover:text-primary/80 transition-colors px-3 py-2 rounded-xs min-h-[44px]"
                         >
-                            Refresh now
+                            <RotateCw className="h-4 w-4" />
+                            {buttonState === "generate" ? "Generate weekly recap" : "Update recap"}
                         </button>
                     )}
                 </div>
@@ -514,7 +386,7 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                     <div className="flex items-center justify-between w-full">
                         <button onClick={() => setIsSummaryOpen(!isSummaryOpen)} className="flex items-center gap-2">
                             <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground/70 transition-transform ${isSummaryOpen ? "" : "-rotate-90"}`} />
-                            <span className="text-[13px] font-semibold text-foreground">Week Summary</span>
+                            <span className="text-[13px] font-semibold text-foreground">Week Recap</span>
                         </button>
                         {selectedSummary && (
                             <button onClick={() => handleDeleteSummary(selectedSummary.id)}
@@ -525,16 +397,14 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                         )}
                     </div>
 
-                    {/* Legacy summaries — small chip + regenerate tap. We
-                        intentionally don't render the old technique cards
-                        anymore so the surface stays focused on retention. */}
+                    {/* Legacy summaries — small chip + regenerate tap. */}
                     {isSummaryOpen && isLegacySummaryShape && (
                         <div className="card-surface rounded-xs border border-border/60 px-4 py-3 flex items-center gap-3">
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted/30 border border-border/50 text-[10px] uppercase tracking-wider font-bold text-muted-foreground flex-shrink-0">
                                 Legacy summary
                             </span>
                             <p className="text-note text-muted-foreground flex-1 min-w-0">
-                                Older format. Regenerate to switch to flashcards.
+                                Older format. Regenerate to switch to the new recap.
                             </p>
                             <button
                                 onClick={handleGenerateOrUpdate}
@@ -547,7 +417,7 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                         </div>
                     )}
 
-                    {/* New shape — stats strip, headline, deck, due chip, timeline */}
+                    {/* New shape — stats strip, recap debrief, timeline */}
                     {isSummaryOpen && isNewSummaryShape && newSummary && (
                         <div className="space-y-4">
                             {/* Stats strip */}
@@ -567,33 +437,8 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                                 />
                             </div>
 
-                            {/* Week headline */}
-                            {newSummary.weekHeadline && (
-                                <p className="text-body-sm font-semibold leading-snug text-foreground">
-                                    {(newSummary.weekHeadline || '').replace(/—/g, ' - ').replace(/–/g, '-')}
-                                </p>
-                            )}
-
-                            {/* Flashcard deck — cards born in the selected week */}
-                            {cardsForCurrentWeek.length > 0 ? (
-                                <FlashcardDeck cards={cardsForCurrentWeek} readOnly={showPastWeek} />
-                            ) : cardsForWeekRaw === undefined ? (
-                                <div className="flex items-center justify-center min-h-[100px] text-note text-muted-foreground">
-                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                    Loading cards…
-                                </div>
-                            ) : null}
-
-                            {/* Due today — opens a Sheet with a fresh deck */}
-                            {dueCards.length > 0 && (
-                                <button
-                                    type="button"
-                                    onClick={() => setIsDueSheetOpen(true)}
-                                    className="w-full min-h-[44px] inline-flex items-center justify-center gap-1.5 rounded-full bg-primary/10 border border-primary/25 px-4 py-2 text-note font-bold text-primary hover:bg-primary/15 transition-colors"
-                                >
-                                    {dueCards.length} card{dueCards.length === 1 ? "" : "s"} due from earlier weeks
-                                </button>
-                            )}
+                            {/* Recap debrief — headline, takeaways, watch-out */}
+                            <WeeklyRecap headline={newSummary.weekHeadline} debrief={newSummary.debrief} />
 
                             {/* Weekly timeline — past-week chips */}
                             {summarisedWeeks.length > 0 && (
@@ -613,24 +458,26 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                 </div>
             )}
 
-            {/* Due-today review queue — full FlashcardDeck inside a Sheet */}
-            <Sheet open={isDueSheetOpen} onOpenChange={setIsDueSheetOpen}>
+            {/* Technique log — all-time, searchable library of logged techniques */}
+            <button
+                type="button"
+                onClick={() => setIsTechniqueLogOpen(true)}
+                className="w-full min-h-[44px] inline-flex items-center justify-center gap-1.5 rounded-full bg-muted/30 border border-border/50 px-4 py-2 text-note font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            >
+                <BookOpen className="h-3.5 w-3.5" />
+                View technique log
+            </button>
+
+            <Sheet open={isTechniqueLogOpen} onOpenChange={setIsTechniqueLogOpen}>
                 <SheetContent side="bottom" className="rounded-t-3xl max-h-[92vh] overflow-y-auto">
                     <SheetHeader>
-                        <SheetTitle>Due today</SheetTitle>
+                        <SheetTitle>Technique log</SheetTitle>
                     </SheetHeader>
                     <div className="mt-4">
-                        {dueCards.length > 0 ? (
-                            <FlashcardDeck cards={dueCards} />
-                        ) : (
-                            <p className="text-note text-muted-foreground text-center py-8">
-                                Nothing left for today. Nice work.
-                            </p>
-                        )}
+                        <TechniqueLog />
                     </div>
                 </SheetContent>
             </Sheet>
-
         </div>
     );
 }

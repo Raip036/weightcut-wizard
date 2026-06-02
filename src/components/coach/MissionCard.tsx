@@ -174,7 +174,7 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
                 Lv {xpLevel}
               </span>
             </div>
-            <p className="text-body-sm font-semibold text-foreground leading-tight truncate">
+            <p className="text-body-sm font-semibold text-foreground leading-snug break-words">
               {mission.title}
             </p>
           </div>

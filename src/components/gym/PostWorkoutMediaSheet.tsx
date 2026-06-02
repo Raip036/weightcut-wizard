@@ -25,15 +25,19 @@ import type { Id } from "@/../convex/_generated/dataModel";
 interface PostWorkoutMediaSheetProps {
   /** Convex `fight_camp_calendar` row id created by `finishSession`. */
   sessionId: Id<"fight_camp_calendar"> | null;
-  /** Display name of the just-completed session type (e.g. "BJJ"), used
-   *  in the prompt copy so the user knows what they're attaching to. */
+  /** PRIMARY discipline of the just-completed session (e.g. "BJJ" / "S&C"),
+   *  used in the prompt copy so the user knows what they're attaching to. */
   sessionType?: string;
+  /** OPTIONAL activity descriptor (Sparring, Strength, …); shown as a small
+   *  secondary chip in the prompt when present. */
+  sessionTag?: string | null;
   onClose: () => void;
 }
 
 export function PostWorkoutMediaSheet({
   sessionId,
   sessionType,
+  sessionTag,
   onClose,
 }: PostWorkoutMediaSheetProps) {
   const { toast } = useToast();
@@ -77,6 +81,11 @@ export function PostWorkoutMediaSheet({
           <SheetTitle className="flex items-center gap-2">
             <ImageIcon className="h-4 w-4" />
             Add a photo or video?
+            {sessionTag && (
+              <span className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-muted/50 text-muted-foreground">
+                {sessionTag}
+              </span>
+            )}
           </SheetTitle>
           <p className="text-[13px] text-muted-foreground">
             Share your{sessionType ? ` ${sessionType.toLowerCase()}` : ""} session with the gym feed.

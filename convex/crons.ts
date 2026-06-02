@@ -58,4 +58,21 @@ crons.hourly(
   internal.actions.trainingMissions.sweep.run,
 );
 
+// ──────────────────────────────────────────────────────────────────────
+// Camp Compass — Sunday 20:00 UTC weekly recovery report.
+//
+// Flagship Pro feature (spec §7.1). Iterates every currently-Pro user
+// and generates the report for the week-just-ended. The fan-out caps
+// concurrency at 5 to stay inside Groq's rate limit; per-user errors
+// are logged but don't fail the whole cron. The action itself is
+// idempotent — re-running the cron upserts by (userId, weekStartIso)
+// so a manual re-run after a partial Groq outage simply patches the
+// rows that already succeeded.
+// ──────────────────────────────────────────────────────────────────────
+crons.weekly(
+  "camp-compass-sunday",
+  { dayOfWeek: "sunday", hourUTC: 20, minuteUTC: 0 },
+  internal.actions.recovery.campCompass.runWeeklyForAllProUsers,
+);
+
 export default crons;

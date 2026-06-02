@@ -73,7 +73,11 @@ export async function requireUserIdFromAction(
 export async function loadAthleteSnapshot(
   ctx: ActionCtx,
   userId: Id<"users">,
-): Promise<{ snapshot: AthleteSnapshot; block: string; profile: SnapshotProfile }> {
+): Promise<{
+  snapshot: AthleteSnapshot;
+  block: string;
+  profile: SnapshotProfile;
+}> {
   const data = await ctx.runQuery(internal.actions_internal.fetchSnapshotData, {
     userId,
   });
@@ -104,7 +108,7 @@ export async function loadAthleteSnapshot(
   };
 }
 
-export function logDecision(
+export async function logDecision(
   ctx: ActionCtx,
   args: {
     userId: Id<"users">;
@@ -114,9 +118,14 @@ export function logDecision(
     predictionFacts?: Record<string, number>;
     model?: string;
   },
-) {
-  // Fire-and-forget; swallow errors so logging never blocks responses.
-  void ctx
-    .runMutation(internal.ai_decisions.recordDecision, args)
-    .catch((e) => console.error("[logDecision] failed:", e));
+): Promise<void> {
+  // Awaited so the action never returns with an in-flight mutation (Convex
+  // flags that as a dangling promise). Errors are still swallowed here so
+  // audit logging can never block or fail a response — call sites should
+  // still `await logDecision(...)` so the await resolves before return.
+  try {
+    await ctx.runMutation(internal.ai_decisions.recordDecision, args);
+  } catch (e) {
+    console.error("[logDecision] failed:", e);
+  }
 }

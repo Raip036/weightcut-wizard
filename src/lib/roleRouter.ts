@@ -14,6 +14,7 @@ const FIGHTER_PREFIXES = [
   "/weight",
   "/weight-cut",
   "/weight-plan",
+  "/weight-protocol",
   "/training",
   "/training-calendar",
   "/recovery",

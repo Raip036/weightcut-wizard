@@ -82,6 +82,31 @@ export const logWeight = mutation({
     } catch (err) {
       console.warn("fight-form recompute schedule failed", err);
     }
+
+    // WP-T8: Schedule weight-protocol drift-detector (60s debounce). Only
+    // fires if the user has an active (non-completed) fight camp; otherwise
+    // we skip scheduling entirely. The 60s delay gives the user time to fix
+    // a typo before the regen kicks in. Multiple rapid logs may pile up
+    // scheduled calls — that's fine, `maybeRegen` is idempotent.
+    // If multiple active fight camps exist (the data model doesn't enforce
+    // uniqueness), `.first()` deterministically picks one.
+    try {
+      const activeCamp = await ctx.db
+        .query("fight_camps")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .filter((q) => q.neq(q.field("isCompleted"), true))
+        .first();
+      if (activeCamp) {
+        await ctx.scheduler.runAfter(
+          60_000, // 60s debounce
+          internal.weight_protocols_internal.maybeRegen,
+          { userId, campId: activeCamp._id },
+        );
+      }
+    } catch (err) {
+      console.warn("weight-protocol maybeRegen schedule failed", err);
+    }
+
     return resultId;
   },
 });

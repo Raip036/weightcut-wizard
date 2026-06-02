@@ -87,6 +87,12 @@ export default defineSchema({
     // optional so existing rows pass validation without a migration.
     trialStartedAt: v.optional(v.number()),
     trialEndsAt: v.optional(v.number()),
+    // Epoch ms the one-time "Welcome to Pro" cutscene was shown for this
+    // account. Server-authoritative so the celebration fires exactly once per
+    // genuine upgrade — never on restore, a returning device, or a reinstall.
+    // Reset to null by the RC EXPIRATION webhook so a real re-subscribe after
+    // a lapse re-arms it.
+    welcomeProShownAt: v.optional(v.number()),
     // Legacy gem/ad columns — the gem system was ripped out, but
     // existing prod rows still carry these fields. Keep them as
     // `v.optional` so schema validation passes during the deploy
@@ -301,7 +307,11 @@ export default defineSchema({
   gym_sessions: defineTable({
     userId: v.id("users"),
     date: v.string(),
+    // PRIMARY category: a martial art, "S&C", or "Rest".
     sessionType: v.string(),
+    // Optional activity tag (Sparring, Strength, …). Drives load + contact
+    // tracking; absent for older rows (resolved via migrate-on-read).
+    sessionTag: v.optional(v.string()),
     status: v.string(),
     durationMinutes: v.optional(v.number()),
     perceivedFatigue: v.optional(v.number()),
@@ -418,7 +428,14 @@ export default defineSchema({
   fight_camp_calendar: defineTable({
     userId: v.id("users"),
     date: v.string(),
+    // PRIMARY category the session belongs to: a martial art (BJJ, Boxing,
+    // …), "S&C", or "Rest". The training calendar + AI coach key off this.
     sessionType: v.string(),
+    // Optional activity tag describing WHAT the session was (Sparring, Live
+    // Grappling, Drilling, Strength, Run, …). Drives the training-load model
+    // and contact/round tracking. Absent for legacy rows — `normalizeLegacySession`
+    // (convex/lib/sessionTypes.ts) infers it from sessionType on read.
+    sessionTag: v.optional(v.string()),
     intensity: v.string(),
     intensityLevel: v.optional(v.number()),
     durationMinutes: v.number(),
@@ -429,6 +446,10 @@ export default defineSchema({
     sleepHours: v.optional(v.number()),
     sleepQuality: v.optional(v.string()),
     mobilityDone: v.optional(v.boolean()),
+    // Contact rounds logged for sparring / live grappling sessions —
+    // used by the recovery engine to track contact load. Optional so
+    // existing rows and non-contact sessions still validate.
+    rounds: v.optional(v.number()),
     // Legacy single-media attachment. Kept so existing rows still render.
     // New uploads go into the `session_media` table (multi-attachment).
     mediaStorageId: v.optional(v.id("_storage")),
@@ -522,6 +543,17 @@ export default defineSchema({
     // owner OR a gym admin via the moderation flow. Hard-delete still
     // available via the existing cron path.
     deletedAt: v.optional(v.number()),
+    // Author membership state at read time. Stamped to "former_member"
+    // when the user leaves (or is removed from) the gym this post lives
+    // in — preserves the post in the feed for conversation continuity
+    // while signalling to viewers that the author is no longer in the
+    // gym. Absent / "active" both render as a normal post; the
+    // frontend tags posts with `"former_member"` as such. Optional so
+    // existing rows pass schema validation without a migration.
+    authorState: v.optional(v.union(
+      v.literal("active"),
+      v.literal("former_member"),
+    )),
   })
     .index("by_session", ["sessionId"])
     .index("by_user_captured", ["userId", "capturedAt"])
@@ -579,6 +611,15 @@ export default defineSchema({
     body: v.string(),
     // Soft-delete hook for moderation v2. Unused in v1 — delete is hard.
     deletedAt: v.optional(v.number()),
+    // Author membership state at read time. Stamped to "former_member"
+    // when the commenter leaves (or is removed from) the post's gym so
+    // the comment thread can show a "(former member)" tag without a
+    // gym-membership cross-join at render time. Mirrors the same field
+    // on `session_media`. Optional so existing rows pass validation.
+    authorState: v.optional(v.union(
+      v.literal("active"),
+      v.literal("former_member"),
+    )),
   })
     .index("by_post", ["postId"])
     .index("by_owner_created", ["postOwnerId"])
@@ -793,13 +834,26 @@ export default defineSchema({
     completedAt: v.optional(v.number()),
   }).index("by_mission_position", ["missionId", "position"]),
 
+  // Per-user watermark for the Camp "Recent activity" feed. That feed is
+  // aggregated READ-ONLY from logging surfaces (weight, sleep, workouts,
+  // completed missions, reactions), so "clearing" it must NOT delete those
+  // rows — instead we record a `clearedAt` timestamp and the feed hides any
+  // event at or before it. New activity logged after a clear still surfaces.
+  camp_activity_state: defineTable({
+    userId: v.id("users"),
+    clearedAt: v.number(), // unix ms; feed hides events with timestamp <= this
+  }).index("by_user", ["userId"]),
+
   // Per-user opt-in toggles for AI coach features driven from the
-  // Training Calendar. Currently just an auto-summary switch; future
-  // toggles (auto-RPE, auto-tag, etc.) can be added inline as optional
-  // fields without a schema bump.
+  // Training Calendar.
+  //
+  // `autoSummary` is DEPRECATED: weekly recaps are now manual-only, so no
+  // code reads or writes this field. It's kept as an optional column (rather
+  // than dropped) so existing rows still validate; the table is retained for
+  // future per-user coach toggles.
   user_coach_settings: defineTable({
     userId: v.id("users"),
-    autoSummary: v.boolean(),
+    autoSummary: v.optional(v.boolean()),
     updatedAt: v.number(),
   }).index("by_user", ["userId"]),
 
@@ -817,30 +871,27 @@ export default defineSchema({
     .index("by_user_sport", ["userId", "sport"])
     .index("by_user", ["userId"]),
 
-  // Weekly retention flashcards distilled from session notes.
-  // Spaced-repetition state lives inline (Leitner doubling) so the schema
-  // stays simple. `cardKey` dedups identical fronts across regenerations
-  // so re-running a week's summary doesn't reset learned cards. See
-  // `docs/superpowers/specs/2026-05-21-training-summary-flashcards.md`.
-  training_summary_cards: defineTable({
+  // All-time technique log distilled from weekly recaps. Replaces the
+  // flashcard SR table. Dedup/merge keyed on (userId, techniqueNormalized)
+  // so a technique drilled across multiple weeks accumulates rather than
+  // duplicating. See docs/superpowers/specs/2026-06-02-training-recap-redesign-design.md
+  training_techniques: defineTable({
     userId: v.id("users"),
-    sport: v.string(),
-    weekStart: v.string(),
-    cardKey: v.string(),
-    front: v.string(),
-    back: v.string(),
+    discipline: v.string(),
+    technique: v.string(),
+    techniqueNormalized: v.string(),
     cue: v.optional(v.string()),
+    detail: v.string(),
     sourceSessionDate: v.optional(v.string()),
-    intervalDays: v.number(),
-    dueAt: v.number(),
-    reviews: v.number(),
-    lapses: v.number(),
-    lastReviewedAt: v.optional(v.number()),
+    timesLogged: v.number(),
+    firstSeenWeek: v.string(),
+    lastSeenWeek: v.string(),
     createdAt: v.number(),
+    updatedAt: v.number(),
   })
-    .index("by_user_due", ["userId", "dueAt"])
-    .index("by_user_card_key", ["userId", "cardKey"])
-    .index("by_user_week", ["userId", "weekStart"]),
+    .index("by_user", ["userId"])
+    .index("by_user_discipline", ["userId", "discipline"])
+    .index("by_user_norm", ["userId", "techniqueNormalized"]),
 
   // ────────────────────────────────────────────────────────────────────
   // SKILL TREE
@@ -943,6 +994,103 @@ export default defineSchema({
     confidenceScore: v.optional(v.number()),
     updatedAt: v.optional(v.number()),
   }).index("by_user_type", ["userId", "insightType"]),
+
+  /**
+   * Weekly recovery report — AI-generated digest of the user's recovery
+   * state across the prior week (or cycle). One row per (userId,
+   * weekStartIso). `by_user_week` supports the upsert/lookup hot path;
+   * `by_user_created` powers the recent-reports list on the recovery page.
+   *
+   * `rawMetrics` is intentionally `v.any()` — it's a debug snapshot of the
+   * inputs that produced the report (shape varies per generation) and is
+   * also used as the source for future audio-summary generation.
+   */
+  recoveryReports: defineTable({
+    userId: v.id("users"),
+    weekStartIso: v.string(),         // YYYY-MM-DD of the Monday this report covers (or the cycle start)
+    verdict: v.string(),               // single-sentence summary
+    breakdown: v.string(),             // "where you broke down" prose
+    nextWeekActions: v.array(v.object({
+      dayIso: v.string(),
+      action: v.string(),
+    })),
+    campArc: v.optional(v.string()),  // present only if user is in a fight camp
+    rawMetrics: v.any(),               // snapshot of inputs for debug + future audio gen
+    createdAt: v.number(),
+  })
+    .index("by_user_week", ["userId", "weekStartIso"])
+    .index("by_user_created", ["userId", "createdAt"]),
+
+  /**
+   * AI-generated weight-cut protocols per fight camp. Two kinds today:
+   *  - "fight_plan"   : full pre-fight-week cut plan (FightPlan shape)
+   *  - "rehydration"  : post-weigh-in rehydration protocol (RehydrationProtocol shape)
+   *
+   * `payload` is intentionally `v.any()` — the precise shape is enforced by
+   * a Zod schema at write time (see action handler). Storing as `any` lets
+   * us evolve the payload shape without a schema migration.
+   *
+   * `derivedSnapshot` captures the `DerivedInputs` used to generate the
+   * protocol (weight, days-to-fight, recent fluid/sodium, etc.) so we can
+   * audit later and detect drift between current state and generation-time
+   * state on the rehydration page.
+   *
+   * Indexed by (userId, campId, kind) for the latest-protocol upsert hot
+   * path, and by (userId, createdAt) for any "recent protocols" listing.
+   * Spec: docs/superpowers/specs/2026-06-01-weight-protocol-redesign-design.md §4.1.
+   */
+  weight_protocols: defineTable({
+    userId: v.id("users"),
+    campId: v.id("fight_camps"),
+    kind: v.union(v.literal("fight_plan"), v.literal("rehydration")),
+    payload: v.any(),               // FightPlan | RehydrationProtocol — validated by Zod at write time
+    derivedSnapshot: v.any(),       // DerivedInputs at gen time (audit + drift detect)
+    approach: v.optional(v.string()), // 'gradual' | 'standard' | 'aggressive' (fight_plan only)
+    model: v.string(),              // 'anthropic/claude-opus-4-7' | 'openai/gpt-oss-120b'
+    createdAt: v.number(),
+  })
+    .index("by_user_camp_kind", ["userId", "campId", "kind"])
+    .index("by_user_created", ["userId", "createdAt"]),
+
+  /**
+   * Per-(user, camp, metric) feel-check ledger for the rehydration page
+   * checklist. The user ticks off subjective markers (urine colour,
+   * weigh-back, energy, headache, no cramps) as they rehydrate; each tick
+   * inserts a row. `value` is optional — populated when the user logs an
+   * actual measurement alongside the tick (e.g. "76.2" kg weigh-back).
+   *
+   * Indexed by (userId, campId) for the page-load fetch and by
+   * (userId, campId, metric) for per-metric "have I done this one yet?"
+   * lookups in the checklist UI.
+   * Spec: docs/superpowers/specs/2026-06-01-weight-protocol-redesign-design.md §4.3.
+   */
+  protocol_feel_checks: defineTable({
+    userId: v.id("users"),
+    campId: v.id("fight_camps"),
+    metric: v.union(
+      v.literal("urine_colour"),
+      v.literal("weigh_back_kg"),
+      v.literal("energy_1to10"),
+      v.literal("headache"),
+      v.literal("no_cramps"),
+    ),
+    checkedAt: v.number(),
+    // Optional value the user logged alongside the check.
+    // urine_colour:    "1".."8" (Armstrong chart)
+    // weigh_back_kg:   kg as string (e.g. "76.2")
+    // energy_1to10:    "1".."10"
+    // headache:        "no" | "mild" | "severe"
+    // no_cramps:       "none" | "calf" | "thigh" | "back" | "other"
+    value: v.optional(v.string()),
+    // Derived tier (computed at write time from value + targets).
+    // green = on target; amber = watch; red = abort/escalate.
+    tier: v.optional(v.union(v.literal("green"), v.literal("amber"), v.literal("red"))),
+    // AI-generated 1-line actionable response. Cached server-side so the
+    // client doesn't re-fire on every render.
+    aiFeedback: v.optional(v.string()),
+  })
+    .index("by_user_camp", ["userId", "campId"])
+    .index("by_user_camp_metric", ["userId", "campId", "metric"]),
 
   // ────────────────────────────────────────────────────────────────────
   // COACH MODE

@@ -14,6 +14,7 @@ import {
   Moon, Brain, Gauge, Utensils, Loader2,
 } from "lucide-react";
 import { InlinePlanDisplay } from "@/components/onboarding/InlinePlanDisplay";
+import { WizardPlanForgeOverlay } from "@/components/onboarding/WizardPlanForgeOverlay";
 import { profileSchema } from "@/lib/validation";
 import { celebrateSuccess, triggerHaptic, triggerHapticSelection } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
@@ -1981,12 +1982,12 @@ export default function Onboarding() {
           <StepLayout step={15} title="Here's your plan." subtitle="Review the snapshot, then tap Generate to lock it in."
             footer={
               generatedPlan ? null : generatingPlan ? (
-                <div className="w-full flex justify-center">
-                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-xs text-primary">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    Generating your plan…
-                  </div>
-                </div>
+                <WizardPlanForgeOverlay
+                  currentWeightKg={parseFloat(formData.current_weight_kg)}
+                  goalWeightKg={parseFloat(formData.goal_weight_kg)}
+                  targetDate={formData.target_date}
+                  weeks={parseInt(formData.target_weeks) || undefined}
+                />
               ) : (
                 <Button onClick={goNext} disabled={loading}
                   className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Generate plan</Button>
@@ -2187,12 +2188,12 @@ export default function Onboarding() {
             <StepLayout step={15} title={`Your projected ${vocab.campNoun.toLowerCase()}`} subtitle="Review before we generate your plan."
               footer={
                 generatedPlan ? null : generatingPlan ? (
-                  <div className="w-full flex justify-center">
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-xs text-primary">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      Generating your plan…
-                    </div>
-                  </div>
+                  <WizardPlanForgeOverlay
+                    isFighter
+                    currentWeightKg={parseFloat(formData.current_weight_kg)}
+                    goalWeightKg={parseFloat(formData.fight_week_target_kg || formData.goal_weight_kg)}
+                    targetDate={formData.target_date}
+                  />
                 ) : (
                   <Button onClick={goNext} disabled={loading || !validInputs}
                     className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">

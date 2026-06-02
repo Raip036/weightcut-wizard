@@ -17,8 +17,9 @@
 "use node";
 
 import { v } from "convex/values";
-import { action, internalAction } from "../_generated/server";
+import { action, internalAction, type ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import { requireUserIdFromAction } from "./_helpers";
 import { enforceFeatureGate } from "../_shared/featureGates";
 import {
@@ -32,37 +33,74 @@ import {
 } from "./_trainingCoach/evaluatePlateau";
 import { proposeFollowUps } from "./_trainingCoach/completePath";
 
+// Shared arg validators for the public + internal entry points.
+const plannerArgs = {
+  trigger: v.union(
+    v.literal("sessionSave"),
+    v.literal("manualRefresh"),
+    v.literal("goalCreated"),
+    v.literal("coachPushed"),
+    v.literal("stepFeedback"),
+  ),
+  sessionId: v.optional(v.id("fight_camp_calendar")),
+  pathId: v.optional(v.id("training_paths")),
+  feedbackPathId: v.optional(v.id("training_paths")),
+};
+
+type PlannerArgs = {
+  trigger:
+    | "sessionSave"
+    | "manualRefresh"
+    | "goalCreated"
+    | "coachPushed"
+    | "stepFeedback";
+  sessionId?: Id<"fight_camp_calendar">;
+  pathId?: Id<"training_paths">;
+  feedbackPathId?: Id<"training_paths">;
+};
+
 export const run = action({
-  args: {
-    trigger: v.union(
-      v.literal("sessionSave"),
-      v.literal("manualRefresh"),
-      v.literal("goalCreated"),
-      v.literal("coachPushed"),
-      v.literal("stepFeedback"),
-    ),
-    sessionId: v.optional(v.id("fight_camp_calendar")),
-    pathId: v.optional(v.id("training_paths")),
-    feedbackPathId: v.optional(v.id("training_paths")),
-  },
+  args: plannerArgs,
   handler: async (ctx, args): Promise<void> => {
     const userId = await requireUserIdFromAction(ctx);
-    await enforceFeatureGate(ctx, userId, "AI_TRAINING_COACH_PATHS");
-
-    if (args.trigger === "sessionSave" && args.sessionId) {
-      await handleSessionSave(ctx, args.sessionId);
-    } else if (args.trigger === "manualRefresh") {
-      await handleManualRefresh(ctx, userId);
-    } else if (
-      (args.trigger === "goalCreated" || args.trigger === "coachPushed") &&
-      args.pathId
-    ) {
-      await handleGenerateForPath(ctx, args.pathId);
-    } else if (args.trigger === "stepFeedback" && args.feedbackPathId) {
-      await handleFeedbackPlateau(ctx, args.feedbackPathId);
-    }
+    await runPlanner(ctx, userId, args);
   },
 });
+
+/**
+ * Internal variant for scheduled (background) invocation. Scheduled Convex
+ * functions run WITHOUT the scheduling context's auth identity, so the
+ * mutations in fight_camp.ts / training_paths.ts that fire this planner must
+ * pass the resolved userId explicitly. Routing those triggers through the
+ * public `run` was the cause of the "Not authenticated" crash.
+ */
+export const _runInternal = internalAction({
+  args: { userId: v.id("users"), ...plannerArgs },
+  handler: async (ctx, { userId, ...args }): Promise<void> => {
+    await runPlanner(ctx, userId, args);
+  },
+});
+
+async function runPlanner(
+  ctx: ActionCtx,
+  userId: Id<"users">,
+  args: PlannerArgs,
+): Promise<void> {
+  await enforceFeatureGate(ctx, userId, "AI_TRAINING_COACH_PATHS");
+
+  if (args.trigger === "sessionSave" && args.sessionId) {
+    await handleSessionSave(ctx, args.sessionId);
+  } else if (args.trigger === "manualRefresh") {
+    await handleManualRefresh(ctx, userId);
+  } else if (
+    (args.trigger === "goalCreated" || args.trigger === "coachPushed") &&
+    args.pathId
+  ) {
+    await handleGenerateForPath(ctx, args.pathId);
+  } else if (args.trigger === "stepFeedback" && args.feedbackPathId) {
+    await handleFeedbackPlateau(ctx, args.feedbackPathId);
+  }
+}
 
 async function handleSessionSave(
   ctx: { runQuery: any; runMutation: any; scheduler: any },
@@ -117,18 +155,15 @@ async function handleManualRefresh(
   });
   if (!recent) return;
   const candidates = await extractCandidates({ notes: recent });
-  await ctx.runMutation(
-    internal.training_paths.upsertProposalsFromCandidates,
-    {
-      userId,
-      sessionDate: new Date().toISOString().slice(0, 10),
-      candidates: candidates.map((c) => ({
-        technique: c.technique,
-        techniqueNormalized: normalizeTechnique(c.technique),
-        sport: c.sport,
-      })),
-    },
-  );
+  await ctx.runMutation(internal.training_paths.upsertProposalsFromCandidates, {
+    userId,
+    sessionDate: new Date().toISOString().slice(0, 10),
+    candidates: candidates.map((c) => ({
+      technique: c.technique,
+      techniqueNormalized: normalizeTechnique(c.technique),
+      sport: c.sport,
+    })),
+  });
 }
 
 async function handleGenerateForPath(
@@ -200,10 +235,10 @@ export const _evaluatePlateauForPath = internalAction({
       { pathId },
     );
     if (remedialCount >= 2) {
-      await ctx.runMutation(
-        internal.training_paths.markPrerequisiteBanner,
-        { pathId, reason: "third plateau" },
-      );
+      await ctx.runMutation(internal.training_paths.markPrerequisiteBanner, {
+        pathId,
+        reason: "third plateau",
+      });
       return;
     }
     const result = await evaluatePlateau({

@@ -199,8 +199,15 @@ export const SessionHistoryCalendar = memo(function SessionHistoryCalendar({
                   className="w-full card-surface rounded-xs border border-border/50 p-3.5 text-left active:scale-[0.98] transition-transform"
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <span className="px-2.5 py-1 rounded-full bg-primary/12 text-primary text-xs font-semibold">
-                      {session.session_type}
+                    <span className="flex items-center gap-1.5 min-w-0">
+                      <span className="px-2.5 py-1 rounded-full bg-primary/12 text-primary text-xs font-semibold">
+                        {session.session_type}
+                      </span>
+                      {session.session_tag && (
+                        <span className="shrink-0 text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted/40 text-muted-foreground">
+                          {session.session_tag}
+                        </span>
+                      )}
                     </span>
                     {session.duration_minutes != null && session.duration_minutes > 0 && (
                       <span className="text-[11px] tabular-nums text-muted-foreground">

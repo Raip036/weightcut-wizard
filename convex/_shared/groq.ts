@@ -59,9 +59,12 @@ function getProvider(): LlmProvider {
  *     12B model (vs 8B) — smarter AND cheaper output.
  *
  *   Vision (was llama-4-scout @ $0.080/$0.300):
- *     → google/gemini-2.0-flash-001 @ $0.100/$0.400
+ *     → google/gemini-2.5-flash-lite @ $0.100/$0.400
  *     Significantly stronger on meal-photo identification; +25% in,
  *     +33% out — modest cost lift for a real quality jump.
+ *     (gemini-2.0-flash-001 was previously routed here but OpenRouter
+ *     dropped the endpoint; 2.5-flash-lite has identical pricing and
+ *     stronger vision quality.)
  *
  * Models not in this map pass through unchanged (lets per-action
  * overrides like deepseek-v3.2 in weightTrackerAnalysis hit OpenRouter
@@ -70,7 +73,7 @@ function getProvider(): LlmProvider {
 const OPENROUTER_MODEL_MAP: Record<string, string> = {
   "llama-3.1-8b-instant": "mistralai/mistral-nemo",
   "openai/gpt-oss-120b": "qwen/qwen3-235b-a22b-2507",
-  "meta-llama/llama-4-scout-17b-16e-instruct": "google/gemini-2.0-flash-001",
+  "meta-llama/llama-4-scout-17b-16e-instruct": "google/gemini-2.5-flash-lite",
 };
 
 function resolveModel(model: string, provider: LlmProvider): string {
@@ -236,6 +239,11 @@ export async function callGroqText(opts: GroqCallOptions): Promise<string> {
   const { content, filtered } = extractContent(data);
   if (!content) {
     if (filtered) throw new GroqError("Content was filtered for safety", "AI_FILTERED");
+    // Distinguish a truncated/empty completion (model burned the whole
+    // token budget on reasoning) from a genuine empty response — so logs
+    // and any retry logic can tell "raise max_tokens" apart from "filtered".
+    if (data?.choices?.[0]?.finish_reason === "length")
+      throw new GroqError("AI response was truncated (raise max_tokens)", "AI_UNKNOWN");
     throw new GroqError("No response from Groq API", "AI_UNKNOWN");
   }
   return content;

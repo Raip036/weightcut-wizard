@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { triggerHaptic } from "@/lib/haptics";
 import { PolaroidCard } from "@/components/community/PolaroidCard";
+import { tagsForPrimary } from "@/lib/sessionTypes";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 /* ── Public API ─────────────────────────────────────────────────── */
@@ -30,6 +31,9 @@ export interface ReviewSheetDefaults {
   // need it (denormalised by the feed pipeline).
   gymLogoUrl: string | null;
   sessionType: string;
+  /** Optional activity tag (Sparring, Drilling, …). Optional so callers
+   *  that pre-date the two-level model still satisfy the shape. */
+  sessionTag?: string | null;
   durationMinutes: number;
   intensity: string;
   intensityLevel: number;
@@ -38,6 +42,8 @@ export interface ReviewSheetDefaults {
 
 export interface ReviewMeta {
   sessionType: string;
+  /** Optional activity tag selected in the sheet. null ⇒ none. */
+  sessionTag: string | null;
   durationMinutes: number;
   intensity: string;
   intensityLevel: number;
@@ -96,6 +102,9 @@ export function ReviewSheet({
   // Intensity is tracked by index so a single source drives the four
   // derived fields (label / level / intensity / rpe).
   const [sessionType, setSessionType] = useState<string>(defaults.sessionType);
+  const [sessionTag, setSessionTag] = useState<string | null>(
+    defaults.sessionTag ?? null,
+  );
   const [durationMinutes, setDurationMinutes] = useState<number>(
     defaults.durationMinutes,
   );
@@ -110,6 +119,7 @@ export function ReviewSheet({
   useEffect(() => {
     if (!open) return;
     setSessionType(defaults.sessionType);
+    setSessionTag(defaults.sessionTag ?? null);
     setDurationMinutes(defaults.durationMinutes);
     setIntensityIdx(initialIntensityIdx(defaults));
     setCaption("");
@@ -162,6 +172,7 @@ export function ReviewSheet({
     const intensity = INTENSITY_PRESETS[intensityIdx];
     return {
       sessionType,
+      sessionTag,
       durationMinutes,
       intensity: intensity.intensity,
       intensityLevel: intensity.level,
@@ -169,7 +180,7 @@ export function ReviewSheet({
       caption: caption.trim(),
       gymId: defaults.gymId,
     };
-  }, [sessionType, durationMinutes, intensityIdx, caption, defaults.gymId]);
+  }, [sessionType, sessionTag, durationMinutes, intensityIdx, caption, defaults.gymId]);
 
   const submit = useCallback(
     async (kind: ReviewDecision["kind"]) => {
@@ -204,6 +215,17 @@ export function ReviewSheet({
 
   const activeIntensityLabel = INTENSITY_PRESETS[intensityIdx]?.label ?? "Steady";
   const gymLabel = defaults.gymName ?? "No gym set";
+
+  // Optional activity-tag options for the chosen primary. When the user
+  // switches primary to a category the current tag doesn't belong to, drop
+  // the tag so we never post a mismatched pair (e.g. "Sparring" on "S&C").
+  const tagOptions = useMemo(() => tagsForPrimary(sessionType), [sessionType]);
+  useEffect(() => {
+    if (sessionTag && !tagOptions.some((t) => t.id === sessionTag)) {
+      setSessionTag(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionType]);
 
   return (
     <Sheet
@@ -316,6 +338,27 @@ export function ReviewSheet({
                 />
               )}
             />
+            {tagOptions.length > 0 && (
+              <ChipPopover
+                label={sessionTag ?? "No tag"}
+                ariaLabel="Activity tag"
+                secondary
+                disabled={submitting}
+                renderContent={(close) => (
+                  <ChipList
+                    options={[
+                      { value: "", label: "None" },
+                      ...tagOptions.map((t) => ({ value: t.id, label: t.id })),
+                    ]}
+                    selected={sessionTag ?? ""}
+                    onSelect={(value) => {
+                      setSessionTag(value ? value : null);
+                      close();
+                    }}
+                  />
+                )}
+              />
+            )}
             <ChipPopover
               label={`${durationMinutes} min`}
               ariaLabel="Duration"
@@ -426,6 +469,9 @@ interface ChipPopoverProps {
   label: string;
   ariaLabel: string;
   disabled?: boolean;
+  /** Lighter treatment for the optional activity-tag chip so the two
+   *  session levels read as visually distinct. */
+  secondary?: boolean;
   renderContent: (close: () => void) => React.ReactNode;
 }
 
@@ -435,6 +481,7 @@ function ChipPopover({
   label,
   ariaLabel,
   disabled,
+  secondary = false,
   renderContent,
 }: ChipPopoverProps): JSX.Element {
   const [open, setOpen] = useState(false);
@@ -454,10 +501,11 @@ function ChipPopover({
           aria-label={ariaLabel}
           disabled={disabled}
           className={cn(
-            "h-10 pl-4 pr-3 rounded-full text-[13px] font-semibold text-foreground/90",
-            "bg-primary/10 dark:bg-primary/15 border border-primary/30",
-            "flex items-center gap-1.5 active:scale-[0.97] transition-all",
+            "rounded-full font-semibold flex items-center gap-1.5 active:scale-[0.97] transition-all",
             "disabled:opacity-50 disabled:active:scale-100",
+            secondary
+              ? "h-9 pl-3.5 pr-2.5 text-[12px] text-muted-foreground bg-muted/40 dark:bg-white/[0.05] border border-border/40"
+              : "h-10 pl-4 pr-3 text-[13px] text-foreground/90 bg-primary/10 dark:bg-primary/15 border border-primary/30",
           )}
         >
           <span>{label}</span>

@@ -15,7 +15,7 @@ import {
 } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
-import { api, internal } from "./_generated/api";
+import { internal } from "./_generated/api";
 import { requireUserId } from "./lib/auth";
 import { effectiveTier } from "./_shared/tier";
 
@@ -115,10 +115,11 @@ export const acceptPathProposal = mutation({
     await ctx.db.patch(proposalId, { status: "accepted" });
     await ctx.scheduler.runAfter(
       0,
-      // Public action — accessed via `api` so internal `run` calls work even
-      // though it's user-callable too (e.g. manualRefresh from the widget).
-      api.actions.trainingCoachPlanner.run,
-      { trigger: "goalCreated", pathId },
+      // Internal variant: scheduled functions have no auth identity, so the
+      // resolved userId must be passed explicitly (public `run` would throw
+      // "Not authenticated" here).
+      internal.actions.trainingCoachPlanner._runInternal,
+      { userId, trigger: "goalCreated", pathId },
     );
     return pathId;
   },
@@ -149,10 +150,11 @@ export const createGoalPath = mutation({
     });
     await ctx.scheduler.runAfter(
       0,
-      // Public action — accessed via `api` so internal `run` calls work even
-      // though it's user-callable too (e.g. manualRefresh from the widget).
-      api.actions.trainingCoachPlanner.run,
-      { trigger: "goalCreated", pathId },
+      // Internal variant: scheduled functions have no auth identity, so the
+      // resolved userId must be passed explicitly (public `run` would throw
+      // "Not authenticated" here).
+      internal.actions.trainingCoachPlanner._runInternal,
+      { userId, trigger: "goalCreated", pathId },
     );
     return pathId;
   },
@@ -181,10 +183,11 @@ export const prescribePath = mutation({
     });
     await ctx.scheduler.runAfter(
       0,
-      // Public action — accessed via `api` so internal `run` calls work even
-      // though it's user-callable too (e.g. manualRefresh from the widget).
-      api.actions.trainingCoachPlanner.run,
-      { trigger: "coachPushed", pathId },
+      // Internal variant: scheduled functions have no auth identity. This
+      // path is prescribed BY a coach FOR an athlete, so the target userId is
+      // the athlete (athleteId), not the calling coach.
+      internal.actions.trainingCoachPlanner._runInternal,
+      { userId: athleteId, trigger: "coachPushed", pathId },
     );
     return pathId;
   },
@@ -680,8 +683,9 @@ export const submitStepFeedback = mutation({
     if (feedback === "off") {
       await ctx.scheduler.runAfter(
         0,
-        api.actions.trainingCoachPlanner.run,
-        { trigger: "stepFeedback", feedbackPathId: step.pathId },
+        // Internal variant — scheduled, so no auth identity; pass userId.
+        internal.actions.trainingCoachPlanner._runInternal,
+        { userId, trigger: "stepFeedback", feedbackPathId: step.pathId },
       );
     }
   },

@@ -293,7 +293,7 @@ ${snap.block}`;
       planType: "weight_loss" as const,
     };
 
-    logDecision(ctx, {
+    await logDecision(ctx, {
       userId,
       feature: "weight-tracker-analysis",
       inputSnapshot: {

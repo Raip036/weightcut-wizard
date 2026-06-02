@@ -55,6 +55,17 @@ export interface FeedPost {
      */
     streakDays?: number;
   };
+  /**
+   * Author's membership state in this post's gym at read time.
+   *  - `"active"` (default): normal rendering.
+   *  - `"former_member"`: the author has left or been removed from the
+   *    gym; renderers tag the author overlay with a "(former member)"
+   *    label and may dim the avatar. Stamped by `removeMember` /
+   *    `removeAthleteByUserId` / `removeAthleteFromMyGyms` in
+   *    `convex/gym_members.ts` so the feed shows a clear "no longer
+   *    here" signal without dropping the post from the timeline.
+   */
+  authorState?: "active" | "former_member";
   session: {
     id: Id<"training_sessions">;
     date: string;

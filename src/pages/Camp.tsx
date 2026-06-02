@@ -48,10 +48,10 @@ const sections: CampSection[] = [
     primary: true,
   },
   {
-    title: "Weight Cut",
-    description: "Manage your cut and rehydration strategy for fight week",
-    url: "/weight-cut",
-    icon: "waterOutline",
+    title: "Weight Protocol",
+    description: "Fight-week cut plan and hour-by-hour rehydration timeline",
+    url: "/weight-protocol",
+    icon: "scaleOutline",
     fighterOnly: true,
     primary: true,
   },
@@ -107,7 +107,13 @@ function derivePhase(daysLeft: number): {
 export default function Camp() {
   const navigate = useNavigate();
   const { profile, userId, loadCutPlan } = useUser();
-  const { openPaywall } = useSubscription();
+  const { openPaywall, checkFeatureAccess, isSubscriptionResolved } =
+    useSubscription();
+
+  // Recovery is a Pro feature. Only treat a user as locked once the
+  // subscription state has resolved, so paid users never flash the lock.
+  const recoveryLocked =
+    isSubscriptionResolved && !checkFeatureAccess("RECOVERY");
   const goalType = (profile?.goal_type as "cutting" | "losing") ?? "cutting";
   const fighter = isFighter(goalType);
 
@@ -310,7 +316,7 @@ export default function Camp() {
 
       {/* ── Bento grid of navigation tiles ─────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 auto-rows-[6rem]">
-        {tiles.map((tile, i) => {
+        {tiles.map((tile) => {
           const isHero = tile.size === "hero";
           const isMedium = tile.size === "medium";
 
@@ -336,17 +342,36 @@ export default function Camp() {
               ? "text-[16px] leading-tight tracking-tight"
               : "text-[14px] leading-tight tracking-tight";
 
+          // Recovery is Pro-gated: free users get the paywall + a PRO chip
+          // instead of navigating into the (now locked) Recovery page.
+          const isLockedTile = tile.url === "/recovery" && recoveryLocked;
+
           return (
             <button
               key={tile.url}
               type="button"
-              onClick={() => goTo(tile.url)}
+              onClick={() => {
+                if (isLockedTile) {
+                  triggerHaptic(ImpactStyle.Light);
+                  openPaywall();
+                  return;
+                }
+                goTo(tile.url);
+              }}
               className={`${spanClass} ${surfaceClass} rounded-2xl p-4 text-left card-press flex flex-col`}
             >
               <div
                 aria-hidden
                 className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.04] to-transparent"
               />
+
+              {/* PRO chip — flags the tile as gated for free users. */}
+              {isLockedTile && (
+                <span className="absolute top-2.5 right-2.5 z-10 inline-flex items-center gap-0.5 rounded-full border border-primary/30 bg-primary/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.08em] text-primary">
+                  <Icon name="lockClosed" size={9} />
+                  Pro
+                </span>
+              )}
 
               <div className="relative flex-1 flex flex-col">
                 <div className="flex-1">
@@ -369,7 +394,7 @@ export default function Camp() {
               </div>
 
               <Icon
-                name="chevronForwardOutline"
+                name={isLockedTile ? "lockClosedOutline" : "chevronForwardOutline"}
                 size={14}
                 className="absolute bottom-3 right-3 text-muted-foreground/40"
               />

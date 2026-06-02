@@ -158,13 +158,21 @@ export function useAIMealAnalysis(params: UseAIMealAnalysisParams) {
     return null;
   }, [toast]);
 
-  const handlePhotoAnalyze = useCallback(async (base64?: string) => {
+  // `description` is an optional free-text caption from the user — the
+  // QuickAddDialog caption step passes it through so the vision model can
+  // use it as authoritative hints for portions, brand, or hidden ingredients
+  // the camera can't see. Falls back to `aiMealDescription` state for older
+  // callers that don't pass it explicitly. Empty/whitespace = no hint sent.
+  const handlePhotoAnalyze = useCallback(async (base64?: string, description?: string) => {
     const imageData = base64 || photoBase64;
     if (!imageData) {
       toast({ title: "No photo", description: "Take a photo first", variant: "destructive" });
       return;
     }
     if (!hasMealAccess) { openPaywall(); return; }
+
+    const captionRaw = description ?? aiMealDescription;
+    const caption = captionRaw?.trim() || undefined;
 
     aiAbortRef.current?.abort();
     const controller = createAIAbortController();
@@ -194,7 +202,7 @@ export function useAIMealAnalysis(params: UseAIMealAnalysisParams) {
       try {
         data = await analyzeMealAction({
           imageBase64: imageData,
-          mealDescription: aiMealDescription.trim() || undefined,
+          mealDescription: caption,
           persist: false,
         });
       } catch (err: any) {

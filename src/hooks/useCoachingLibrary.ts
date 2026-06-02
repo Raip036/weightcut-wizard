@@ -11,7 +11,10 @@ import { useCallback, useEffect, useState } from "react";
 export interface CoachingLibraryEntry {
   id: string;
   user_id: string;
+  /** PRIMARY discipline (martial art / "S&C" / "Rest") this insight is for. */
   session_type: string;
+  /** OPTIONAL activity descriptor (Sparring, Strength, …); null when absent. */
+  session_tag?: string | null;
   session_id: string | null;
   session_date: string | null;
   fingerprint: string;

@@ -5,13 +5,25 @@
  * lonely "Recent activity" heading. Each row is tappable and navigates to
  * the canonical surface for that event kind.
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { Icon, type IonIconName } from "@/components/ui/Icon";
+import { triggerHapticSelection } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
+
+// Persist the collapsed state across navigations/remounts so the section
+// stays the way the user left it.
+const COLLAPSE_KEY = "campActivityCollapsed";
+function readCollapsed(): boolean {
+  try {
+    return localStorage.getItem(COLLAPSE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 
 export type CampActivityFeedProps = {
   /** When null the underlying Convex query is skipped (component returns null). */
@@ -88,6 +100,35 @@ export function CampActivityFeed({ userId, limit = 7 }: CampActivityFeedProps) {
     api.campActivityFeed.getRecent,
     userId ? { limit } : "skip",
   );
+  const clearActivity = useMutation(api.campActivityFeed.clearActivity);
+
+  const [collapsed, setCollapsed] = useState<boolean>(readCollapsed);
+  const [confirmingClear, setConfirmingClear] = useState(false);
+
+  const toggleCollapsed = () => {
+    triggerHapticSelection();
+    setConfirmingClear(false);
+    setCollapsed((c) => {
+      const next = !c;
+      try {
+        localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
+      } catch {
+        /* private mode / storage disabled — non-fatal */
+      }
+      return next;
+    });
+  };
+
+  const handleClear = async () => {
+    triggerHapticSelection();
+    setConfirmingClear(false);
+    try {
+      // Reactive: the query re-runs and the section empties out (→ null).
+      await clearActivity({});
+    } catch (err) {
+      console.warn("CampActivityFeed: clear failed", err);
+    }
+  };
 
   // Hide the section entirely while loading or when there's nothing to
   // show — a heading with no rows underneath reads as a broken state.
@@ -99,9 +140,60 @@ export function CampActivityFeed({ userId, limit = 7 }: CampActivityFeedProps) {
 
   return (
     <section className="space-y-2" aria-label="Recent activity">
-      <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground/80 font-semibold">
-        Recent activity
-      </p>
+      <div className="flex items-center justify-between gap-2">
+        {/* Tap the heading to collapse/expand the feed. */}
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          aria-expanded={!collapsed}
+          className="flex items-center gap-1.5 py-0.5 active:opacity-70 transition-opacity"
+        >
+          <span className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground/80 font-semibold">
+            Recent activity
+          </span>
+          <Icon
+            name="chevronDownOutline"
+            size={13}
+            className={cn(
+              "text-muted-foreground/60 transition-transform",
+              collapsed && "-rotate-90",
+            )}
+          />
+        </button>
+
+        {/* Clear — two-step inline confirm to avoid accidental taps. */}
+        {confirmingClear ? (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setConfirmingClear(false)}
+              className="text-[11px] font-semibold text-muted-foreground/70 active:text-foreground transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleClear}
+              className="text-[11px] font-semibold text-rose-400 active:text-rose-300 transition-colors"
+            >
+              Clear all
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              triggerHapticSelection();
+              setConfirmingClear(true);
+            }}
+            className="text-[11px] font-semibold text-muted-foreground/60 active:text-foreground transition-colors"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+
+      {!collapsed && (
       <ul className="space-y-1.5">
         {visibleEvents.map((ev, i) => {
           const kind = ev.kind as EventKind;
@@ -118,7 +210,10 @@ export function CampActivityFeed({ userId, limit = 7 }: CampActivityFeedProps) {
               >
                 <Icon name={ICONS[kind]} size={16} className={COLORS[kind]} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{ev.title}</p>
+                  {/* Wrap to at most 2 lines instead of single-line truncate,
+                      so long titles (e.g. mission names) stay readable without
+                      blowing out the row or pushing the time label around. */}
+                  <p className="text-sm font-medium leading-snug line-clamp-2 break-words">{ev.title}</p>
                   <p className="text-[11px] text-muted-foreground tabular-nums">
                     {timeAgo(ev.timestamp)}
                   </p>
@@ -133,6 +228,7 @@ export function CampActivityFeed({ userId, limit = 7 }: CampActivityFeedProps) {
           );
         })}
       </ul>
+      )}
     </section>
   );
 }

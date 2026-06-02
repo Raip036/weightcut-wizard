@@ -1,8 +1,16 @@
 /** Training load math for recovery coach. Pure TS, no env deps. */
 
+import {
+  effectiveLoadMultiplier,
+  isContactSession,
+  sessionCategory,
+  REST,
+} from "../lib/sessionTypes";
+
 export interface SessionRow {
   date: string;
   session_type: string | null;
+  session_tag?: string | null;
   duration_minutes: number | null;
   rpe: number | null;
   intensity: string | null;
@@ -40,16 +48,29 @@ function intensityMultiplier(s: SessionRow): number {
 }
 
 function isTraining(s: SessionRow): boolean {
-  const t = (s.session_type || "").toLowerCase();
-  return t !== "rest" && t !== "recovery";
+  // A "Rest" primary contributes no load. The session-tag multiplier
+  // (e.g. a Recovery / Mobility tag) scales everything else down.
+  return sessionCategory(s.session_type) !== "Rest";
 }
 
 export function sessionLoad(s: SessionRow): number {
   if (!isTraining(s)) return 0;
   const rpe = s.rpe ?? 0;
   const dur = s.duration_minutes ?? 0;
-  return rpe * dur * intensityMultiplier(s);
+  // Tag-aware load: the activity tag (Sparring, Strength, Run…) drives the
+  // bulk of the load via `effectiveLoadMultiplier`; intensity scales it.
+  const tagMult = effectiveLoadMultiplier(s.session_type, s.session_tag);
+  return rpe * dur * intensityMultiplier(s) * tagMult;
 }
+
+/** Whether a logged session involved hard contact (sparring / live grappling). */
+export function sessionIsContact(s: SessionRow): boolean {
+  return isContactSession(s.session_type, s.session_tag);
+}
+
+// Re-export so callers reading SessionRows can categorise without a second
+// import of the backend mirror.
+export { REST };
 
 export function dailyLoadByDate(sessions: SessionRow[]): Map<string, number> {
   const byDate = new Map<string, SessionRow[]>();

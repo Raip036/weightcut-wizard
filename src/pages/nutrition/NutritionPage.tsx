@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { CheckCircle } from "lucide-react";
+import { CheckCircle, Sparkles, ChevronRight } from "lucide-react";
 import { ProGate } from "@/components/subscription/ProGate";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -39,6 +39,7 @@ import { FavoritesSheet } from "./dialogs/FavoritesSheet";
 
 const FoodSearchDialog = lazy(() => import("@/components/nutrition/FoodSearchDialog").then((m) => ({ default: m.FoodSearchDialog })));
 const DietAnalysisCard = lazy(() => import("@/components/nutrition/DietAnalysisCard").then((m) => ({ default: m.DietAnalysisCard })));
+const WizardDietScrollOverlay = lazy(() => import("@/components/nutrition/WizardDietScrollOverlay").then((m) => ({ default: m.WizardDietScrollOverlay })));
 
 export default function NutritionPage() {
   const { toast } = useToast();
@@ -61,6 +62,7 @@ export default function NutritionPage() {
   // ── UI state ──
   const [isQuickAddSheetOpen, setIsQuickAddSheetOpen] = useState(false);
   const [quickAddTab, setQuickAddTab] = useState<"ai" | "manual">("ai");
+  const [pendingCaptionFromDial, setPendingCaptionFromDial] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const [expandedMealIdeas, setExpandedMealIdeas] = useState<Set<string>>(new Set());
   const [isEditTargetsDialogOpen, setIsEditTargetsDialogOpen] = useState(false);
@@ -68,6 +70,9 @@ export default function NutritionPage() {
   const [showMealSuccess, setShowMealSuccess] = useState(false);
   const [isFoodSearchOpen, setIsFoodSearchOpen] = useState(false);
   const [foodSearchMealType, setFoodSearchMealType] = useState<string>("snack");
+  // Seeds the food-search input when a user taps "+ Add" on a diet-analysis
+  // suggestion, so the suggested food is searched immediately.
+  const [foodSearchInitialQuery, setFoodSearchInitialQuery] = useState<string | undefined>(undefined);
   const [manualMeal, setManualMeal] = useState<ManualMealForm>({
     meal_name: "", calories: "", protein_g: "", carbs_g: "", fats_g: "",
     meal_type: "breakfast", portion_size: "", recipe_notes: "", ingredients: [],
@@ -160,14 +165,14 @@ export default function NutritionPage() {
   //
   // The photo is captured in BottomNav's click handler (where the iOS
   // user-gesture token is alive) and arrives here via `location.state`.
-  // All we do is open the QuickAdd sheet on the AI tab, seed the captured
-  // base64 into `useAIMealAnalysis`, and kick off the analyze step — which
-  // is a Convex action call, not a camera call, so it doesn't need a
-  // gesture token. The state is cleared via `navigate(..., { state: {} })`
-  // so a refresh / back-nav doesn't accidentally replay the analyze.
+  // We seed the captured base64 into `useAIMealAnalysis` and open the
+  // QuickAdd sheet on the AI tab, parked on the caption step so the user
+  // can add an optional description before analysis fires. The dialog
+  // handles the post-caption analyze internally once the user taps
+  // Continue. State is cleared via `navigate(..., { state: null })` so a
+  // refresh / back-nav can't replay the flow.
   const aiPhotoStateHandledRef = useRef(false);
   const setPhotoBase64 = aiMeal.setPhotoBase64;
-  const handlePhotoAnalyze = aiMeal.handlePhotoAnalyze;
   useEffect(() => {
     const st = (location.state ?? null) as
       | { aiPhoto?: string | null; captureFailed?: string | null }
@@ -185,25 +190,36 @@ export default function NutritionPage() {
     // Always open the AI tab — even on cancel/deny the user lands on the
     // dialog they expected, with "Snap photo" available to retry.
     setQuickAddTab("ai");
-    setIsQuickAddSheetOpen(true);
 
     if (st.aiPhoto) {
       setPhotoBase64(st.aiPhoto);
-      // Defer analyze one microtask so the dialog has mounted; analyze is
-      // a network call (no gesture token needed) so this is safe.
-      queueMicrotask(() => {
-        void handlePhotoAnalyze(st.aiPhoto!);
-      });
-    } else if (st.captureFailed === "denied") {
-      toast({
-        title: "Camera access denied",
-        description: "Enable Camera in Settings → FightCamp Wizard to log meals with a photo.",
-        variant: "destructive",
-      });
+      // Flag the dialog to land on the caption step on its open transition.
+      // MUST be set BEFORE opening the sheet so React batches both updates
+      // and the dialog mounts with the prop already `true` — otherwise the
+      // dialog's open-transition effect sees `false` and skips caption mode.
+      setPendingCaptionFromDial(true);
+      setIsQuickAddSheetOpen(true);
+    } else {
+      setIsQuickAddSheetOpen(true);
+      if (st.captureFailed === "denied") {
+        toast({
+          title: "Camera access denied",
+          description: "Enable Camera in Settings → FightCamp Wizard to log meals with a photo.",
+          variant: "destructive",
+        });
+      }
     }
     // Clear state so it can't replay on refresh / back navigation.
     navigate(location.pathname, { replace: true, state: null });
-  }, [location.state, location.pathname, navigate, setPhotoBase64, handlePhotoAnalyze, toast]);
+  }, [location.state, location.pathname, navigate, setPhotoBase64, toast]);
+
+  // Reset the caption-from-dial flag whenever the sheet closes, so the next
+  // dial-Nutrition open starts from a clean slate.
+  useEffect(() => {
+    if (!isQuickAddSheetOpen && pendingCaptionFromDial) {
+      setPendingCaptionFromDial(false);
+    }
+  }, [isQuickAddSheetOpen, pendingCaptionFromDial]);
 
   const handleAddManualMeal = async () => {
     const validationResult = nutritionLogSchema.safeParse({
@@ -260,6 +276,14 @@ export default function NutritionPage() {
   };
 
   const openFoodSearch = useCallback(() => {
+    setFoodSearchInitialQuery(undefined);
+    setFoodSearchMealType(inferDefaultMealType());
+    setIsFoodSearchOpen(true);
+  }, []);
+
+  // "+ Add" from a diet-analysis suggestion → open food search prefilled.
+  const handleAddSuggestedFood = useCallback((food: string) => {
+    setFoodSearchInitialQuery(food);
     setFoodSearchMealType(inferDefaultMealType());
     setIsFoodSearchOpen(true);
   }, []);
@@ -303,6 +327,38 @@ export default function NutritionPage() {
     const effectiveMealType = (typeof food?.meal_type === "string" && food.meal_type) || foodSearchMealType;
     mealOps.handleFoodSearchSelected(food, effectiveMealType);
   }, [mealOps.handleFoodSearchSelected, foodSearchMealType]);
+
+  // Barcode scan → log the food STRAIGHT AWAY (no detour through the manual
+  // Add-a-meal sheet). The scanner already lets the user confirm/adjust the
+  // portion + macros before pressing "Log food", so we commit immediately via
+  // the same direct-insert path the food search uses. Meal type defaults to
+  // time-of-day since the scanner is a global action, not section-scoped.
+  const handleBarcodeLogged = useCallback((food: {
+    meal_name: string;
+    calories: number;
+    protein_g: number;
+    carbs_g: number;
+    fats_g: number;
+    serving_size: string;
+  }) => {
+    const hour = new Date().getHours();
+    const mealType = hour < 10 ? "breakfast" : hour < 15 ? "lunch" : hour < 21 ? "dinner" : "snack";
+    const grams = parseInt(food.serving_size, 10);
+    mealOps.handleFoodSearchSelected(
+      {
+        meal_name: food.meal_name,
+        calories: food.calories,
+        protein_g: food.protein_g,
+        carbs_g: food.carbs_g,
+        fats_g: food.fats_g,
+        serving_size: food.serving_size,
+        portion_size: food.serving_size,
+        food_id: null,
+        grams: Number.isFinite(grams) ? grams : null,
+      },
+      mealType,
+    );
+  }, [mealOps.handleFoodSearchSelected]);
 
   const handleSheetOpenChange = useCallback((open: boolean) => {
     setIsQuickAddSheetOpen(open);
@@ -377,7 +433,7 @@ export default function NutritionPage() {
           mealsLoading={nutritionData.mealsLoading}
           meals={meals}
           quickActions={quickActions}
-          aiMealHandlers={{ handleBarcodeScanned: aiMeal.handleBarcodeScanned }}
+          aiMealHandlers={{ handleBarcodeScanned: handleBarcodeLogged }}
           generatingPlan={mealPlan.generatingPlan}
           savingAllMeals={mealOps.savingAllMeals}
           onDeleteMeal={handleDeleteMeal}
@@ -408,19 +464,40 @@ export default function NutritionPage() {
                 onDismiss={handleDietAnalysisDismiss}
                 onRefresh={() => dietAnalysisHook.handleAnalyseDiet(true)}
                 refreshing={nutritionData.dietAnalysisLoading}
+                onAddFood={handleAddSuggestedFood}
               />
             </Suspense>
-          ) : meals.length > 0 && (
+          ) : nutritionData.dietAnalysisLoading ? (
+            // First-run analysis: the wizard pores over a glowing recipe
+            // scroll right here in the card slot, then becomes the result.
+            <Suspense fallback={null}>
+              <WizardDietScrollOverlay
+                onCancel={() => {
+                  cancelAI();
+                  if (aiTask) dismissTask(aiTask.id);
+                }}
+              />
+            </Suspense>
+          ) : meals.length > 0 ? (
             <ProGate feature="AI_DIET_ANALYSIS" className="w-full">
               <button
                 onClick={() => dietAnalysisHook.handleAnalyseDiet()}
                 disabled={nutritionData.dietAnalysisLoading}
-                className="card-surface w-full p-3.5 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform rounded-xs"
+                className="card-surface w-full p-4 flex items-center gap-3 active:scale-[0.98] transition-transform rounded-2xl text-left"
               >
-                <span className="text-sm font-medium text-foreground">Analyse Diet</span>
+                <span className="h-10 w-10 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span className="block text-[14px] font-semibold text-foreground">Analyse my day</span>
+                  <span className="block text-[12px] text-muted-foreground/80 leading-snug">
+                    Your protein g/kg and micronutrient gaps for today
+                  </span>
+                </span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground/50 shrink-0" />
               </button>
             </ProGate>
-          )}
+          ) : null}
         </div>
 
         <MealIdeasSection
@@ -439,9 +516,13 @@ export default function NutritionPage() {
         <Suspense fallback={null}>
           <FoodSearchDialog
             open={isFoodSearchOpen}
-            onOpenChange={setIsFoodSearchOpen}
+            onOpenChange={(open) => {
+              setIsFoodSearchOpen(open);
+              if (!open) setFoodSearchInitialQuery(undefined);
+            }}
             onFoodSelected={handleFoodSearchSelected}
             mealType={foodSearchMealType}
+            initialQuery={foodSearchInitialQuery}
           />
         </Suspense>
 
@@ -461,6 +542,7 @@ export default function NutritionPage() {
           onCancelAi={cancelAI}
           onDismissTask={dismissTask}
           onToast={toast}
+          initialPendingCaption={pendingCaptionFromDial}
         />
 
         <AiMealPlanDialog

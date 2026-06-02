@@ -9,6 +9,9 @@ export interface SessionRow {
   id: string;
   date: string;
   session_type: string;
+  /** Optional activity tag (Sparring, Strength, Run…). Drives training load
+   *  and contact tracking. May be null/absent for primary-only rows. */
+  session_tag?: string | null;
   duration_minutes: number;
   rpe: number;
   intensity: string; // legacy 'low' | 'moderate' | 'high'
@@ -54,6 +57,8 @@ export interface ForecastResult {
 
 export type AthleteTier = 'beginner' | 'developing' | 'intermediate' | 'advanced';
 
+export type CampPhase = 'off-camp' | 'build' | 'peak' | 'taper';
+
 export interface AthleteCalibration {
   tier: AthleteTier;
   loadRatioThresholds: { caution: number; danger: number };
@@ -61,6 +66,7 @@ export interface AthleteCalibration {
   normalSessionsPerWeek: number;
   strainDivisor: number;
   sessionFrequencyFlagThreshold: number;
+  phase?: CampPhase;
 }
 
 export interface TrendAlerts {
@@ -173,6 +179,8 @@ export interface LoadConfidence {
  */
 export interface DailySessionSummary {
   sessionType: string;
+  /** Optional activity tag for the session (may be null/absent). */
+  sessionTag?: string | null;
   durationMinutes: number;
   rpe: number;
 }
@@ -203,6 +211,22 @@ export interface LastWeekSummary {
   totalMinutes: number;
 }
 
+/**
+ * Three display-only pillar scores derived from the existing 9-factor
+ * readiness breakdown. The hero readiness score remains the source of
+ * truth — these are summary views surfaced in the redesigned Recovery UI.
+ *
+ * Nulling rules:
+ * - body: null when wellnessScore is missing (Tier 1 — no check-in yet)
+ * - load: null when loadConfidence is unreliable (<14 training days in 28d)
+ * - recovery: always a number (degrades gracefully from sleep/recovery)
+ */
+export interface PillarScores {
+  recovery: number | null;
+  body: number | null;
+  load: number | null;
+}
+
 export interface AllMetrics {
   strain: number;           // Today's 0-21 strain
   dailyLoad: number;        // Today's raw load
@@ -231,6 +255,12 @@ export interface AllMetrics {
   calibration: AthleteCalibration;
   sleepScore: number;
   avgSleepLast3: number;
+  // Foster overtraining indicators (last 7d).
+  weeklyMonotony: number;
+  weeklyStrain: number;
+  // Combat-sports contact-load tracker (rolling 7d).
+  contactRoundsLast7d: number;
+  contactRiskZone: 'low' | 'moderate' | 'high' | 'critical';
   // Enhanced fields (populated when wellness data available)
   balanceMetrics?: BalanceMetric[];
   deficitImpactScore?: number;
@@ -238,4 +268,8 @@ export interface AllMetrics {
   hooperIndex?: number;
   hooperComponents?: { sleep: number; stress: number; fatigue: number; soreness: number };
   stabilityScore?: number;
+  // Display-only summary pillars derived from `readiness.breakdown`.
+  pillars: PillarScores;
+  // Deterministic hero action-line copy (replaces verdict tag).
+  actionLine: string;
 }

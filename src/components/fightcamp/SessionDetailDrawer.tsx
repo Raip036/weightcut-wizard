@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { getSessionColor } from "@/lib/sessionColors";
+import { isContactSession } from "@/lib/sessionTypes";
 import { triggerHapticSelection } from "@/lib/haptics";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
@@ -19,6 +20,8 @@ interface TrainingCalendarRow {
   user_id: string;
   date: string;
   session_type: string;
+  /** Optional activity tag (Sparring, Drilling, Run…). */
+  session_tag?: string | null;
   duration_minutes: number;
   rpe: number;
   intensity: string;
@@ -32,6 +35,7 @@ interface TrainingCalendarRow {
   notes: string | null;
   media_url: string | null;
   created_at: string | null;
+  rounds?: number | null;
 }
 
 interface SessionDetailDrawerProps {
@@ -89,7 +93,8 @@ export function SessionDetailDrawer({
   const [uploading, setUploading] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
-  const isRun = session?.session_type === "Run";
+  // "Run" is a TAG now, not a primary.
+  const isRun = session?.session_tag === "Run";
   const { meta: runMeta, notes: cleanNotes } = useMemo(
     () => isRun && session ? decodeRunMeta(session.notes) : { meta: null, notes: session?.notes ?? "" },
     [isRun, session?.notes]
@@ -196,6 +201,14 @@ export function SessionDetailDrawer({
             <div className="flex items-center gap-3">
               <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: sessionColor }} />
               <DialogTitle className="text-2xl font-bold">{session.session_type}</DialogTitle>
+              {session.session_tag && (
+                <span
+                  className="text-[10px] font-semibold uppercase tracking-wider rounded-full px-2 py-0.5 bg-muted/40 ring-1 ring-white/[0.06] text-foreground/70 flex-shrink-0"
+                  title="Session activity"
+                >
+                  {session.session_tag}
+                </span>
+              )}
             </div>
             <p className="text-sm text-muted-foreground mt-1 text-left">
               {format(parseISO(session.date), "EEEE, MMMM do yyyy")}
@@ -349,6 +362,9 @@ export function SessionDetailDrawer({
                     <MetricChip label="Duration" value={`${session.duration_minutes}m`} color={sessionColor} />
                     <MetricChip label="RPE" value={`${session.rpe}/10`} />
                     <MetricChip label="Intensity" value={`${intensityDisplay}/5`} />
+                    {isContactSession(session.session_type, session.session_tag) && (session.rounds ?? 0) > 0 && (
+                      <MetricChip label="Rounds" value={`${session.rounds}`} />
+                    )}
                   </>
                 )}
                 {(session.soreness_level ?? 0) > 0 && <MetricChip label="Soreness" value={`${session.soreness_level}/10`} />}

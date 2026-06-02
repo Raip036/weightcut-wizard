@@ -1,14 +1,26 @@
+// Keyed by PRIMARY category (martial art / "S&C" / "Rest"). The legacy
+// activity keys (Sparring, Strength, …) are kept so historical rows that
+// haven't been re-categorised still resolve a colour during migrate-on-read.
 export const DEFAULT_SPORT_COLORS: Record<string, string> = {
+  // Martial-art primaries
   BJJ: "#3b82f6",
   "Muay Thai": "#ef4444",
   Boxing: "#f97316",
   Wrestling: "#f59e0b",
+  MMA: "#a855f7",
+  Judo: "#14b8a6",
+  Kickboxing: "#e11d48",
+  Karate: "#facc15",
+  "Martial Arts": "#fb923c",
+  // Other primaries
+  "S&C": "#22c55e",
+  Rest: "#60a5fa",
+  // Legacy activity keys (pre-migration fallbacks)
   Sparring: "#fb923c",
   Strength: "#22c55e",
   Conditioning: "#10b981",
   Run: "#06b6d4",
   Recovery: "#8b5cf6",
-  Rest: "#60a5fa",
   Other: "#6b7280",
 };
 

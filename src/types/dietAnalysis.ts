@@ -48,6 +48,34 @@ export interface VitaminRounder {
   reason: string;
 }
 
+/**
+ * Today's protein adequacy by bodyweight (g/kg) — computed deterministically
+ * server-side (not by the LLM) so the numbers are always correct.
+ */
+export interface ProteinVerdict {
+  actualG: number;
+  targetG: number;
+  /** Actual grams per kg bodyweight today. */
+  gPerKg: number;
+  /** The g/kg target used (≈2.0 for a combat athlete in a cut). */
+  targetGPerKg: number;
+  /** max(0, targetG − actualG). */
+  shortfallG: number;
+  verdict: "low" | "on_track" | "high";
+}
+
+/**
+ * 7-day macro trend pulled from the athlete snapshot — moves the analysis
+ * beyond a single day so adequacy reads as a pattern, not a one-off.
+ */
+export interface WeeklyTrend {
+  proteinAvgG: number | null;
+  proteinAvgGPerKg: number | null;
+  calorieAvgKcal: number | null;
+  /** Short coach line summarising the week. */
+  note: string;
+}
+
 export interface DietAnalysisResult {
   summary: string;
   mealBreakdown?: MealNutrientBreakdown[];
@@ -58,4 +86,8 @@ export interface DietAnalysisResult {
   mealAdditions?: MealAddition[];
   /** Foods that broadly cover multiple vitamin/mineral gaps in one shot. */
   vitaminRounders?: VitaminRounder[];
+  /** Today's protein g/kg verdict (computed server-side). */
+  proteinVerdict?: ProteinVerdict;
+  /** 7-day macro trend from the athlete snapshot. */
+  weeklyTrend?: WeeklyTrend;
 }

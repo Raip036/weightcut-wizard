@@ -72,6 +72,7 @@ function toClientShape(
       : null,
     subscription_updated_at: row.subscriptionUpdatedAt,
     revenuecat_customer_id: row.revenuecatCustomerId,
+    welcome_pro_shown_at: row.welcomeProShownAt,
     updated_at: row.updatedAt,
     is_premium:
       row.subscriptionTier !== "free" &&
@@ -101,6 +102,29 @@ export const getMine = query({
       ? await ctx.storage.getUrl(row.avatarStorageId)
       : null;
     return toClientShape(row, avatarUrl);
+  },
+});
+
+/**
+ * One-time "Welcome to Pro" cutscene gate (compare-and-set).
+ *
+ * Sets `welcomeProShownAt` to now ONLY if it's currently unset, and reports
+ * whether THIS call was the one that set it. The client plays the cutscene
+ * only when `firstTime` is true, so it fires exactly once per genuine upgrade
+ * — never on restore, a returning device, or a reinstall (those already carry
+ * the timestamp), and the server is the authoritative "have we celebrated?"
+ * across devices. The RC EXPIRATION webhook clears it so a real re-subscribe
+ * after a lapse re-arms exactly once.
+ */
+export const markWelcomeProShown = mutation({
+  args: {},
+  handler: async (ctx): Promise<{ firstTime: boolean }> => {
+    const userId = await requireUserId(ctx);
+    const row = await findByUser(ctx, userId);
+    if (!row) return { firstTime: false };
+    if (row.welcomeProShownAt != null) return { firstTime: false };
+    await ctx.db.patch(row._id, { welcomeProShownAt: Date.now() });
+    return { firstTime: true };
   },
 });
 
@@ -694,6 +718,9 @@ export const updateSubscriptionFromRevenueCat = internalMutation({
       case "EXPIRATION":
         patch.subscriptionTier = "free";
         patch.subscriptionExpiresAt = undefined;
+        // Re-arm the one-time Pro welcome so a genuine re-subscribe after this
+        // lapse celebrates again (a new purchase, not a restore).
+        patch.welcomeProShownAt = undefined;
         break;
       case "CANCELLATION":
         // User cancelled but keeps access until expiry — DO NOT change
