@@ -3,7 +3,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, subMonths, addMonths, subDays, startOfWeek, isToday as isDateToday, isYesterday as isDateYesterday, getISOWeek } from "date-fns";
 import { ChevronLeft, ChevronRight, Plus, BookOpen, Images, CalendarDays } from "lucide-react";
 import { motion } from "motion/react";
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger, SheetHeader } from "@/components/ui/sheet";
+import { useKeyboardAware } from "@/hooks/useKeyboardAware";
 import { WizardCharacter } from "@/tutorial/WizardCharacter";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { useMutation, useQuery } from "convex/react";
@@ -15,7 +16,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useSafeAsync } from "@/hooks/useSafeAsync";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Icon } from "@/components/ui/Icon";
 
 import { TrainingSummarySection } from "@/components/fightcamp/TrainingSummarySection";
@@ -131,6 +131,7 @@ export default function TrainingCalendar() {
     const navigate = useNavigate();
     const { toast } = useToast();
     const { safeAsync, isMounted } = useSafeAsync();
+    const { keyboardHeight } = useKeyboardAware();
     const [searchParams, setSearchParams] = useSearchParams();
     const createCalendarMut = useMutation(api.fight_camp.createCalendarEntry);
     const updateCalendarMut = useMutation(api.fight_camp.updateCalendarEntry);
@@ -1149,11 +1150,11 @@ export default function TrainingCalendar() {
                 </div>
 
                 {/* Big primary "Log a session" button */}
-                <Dialog open={isAddModalOpen} onOpenChange={(open) => {
+                <Sheet open={isAddModalOpen} onOpenChange={(open) => {
                     setIsAddModalOpen(open);
                     if (!open) resetForm();
                 }}>
-                    <DialogTrigger asChild>
+                    <SheetTrigger asChild>
                         <button
                             onClick={openLogModal}
                             className="w-full h-12 rounded-xs bg-primary text-primary-foreground font-bold text-[14px] flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
@@ -1161,21 +1162,21 @@ export default function TrainingCalendar() {
                             <Plus className="h-4 w-4" strokeWidth={2.6} />
                             Log a session
                         </button>
-                    </DialogTrigger>
-                    <DialogContent
-                                className="w-[calc(100vw-1.5rem)] max-w-[420px] max-h-[calc(100dvh-3rem)] flex flex-col rounded-[28px] p-0 border-0 bg-card/95 backdrop-blur-xl gap-0 overflow-hidden"
-                            >
-                                <div className="px-5 pt-5 pb-3 shrink-0">
-                                    <DialogHeader>
-                                        <DialogTitle className="text-[17px] font-semibold tracking-tight text-center">
-                                            {editingSession ? 'Edit session' : 'Log session'}
-                                        </DialogTitle>
-                                    </DialogHeader>
-                                </div>
-                                <div
-                                    className="px-5 overflow-y-auto flex-1 min-h-0 [-webkit-overflow-scrolling:touch]"
-                                    style={{ paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}
-                                >
+                    </SheetTrigger>
+                    <SheetContent
+                        side="bottom"
+                        className="p-0 max-h-[92vh] flex flex-col bg-card/95 backdrop-blur-xl"
+                        style={{ paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${keyboardHeight}px)` }}
+                    >
+                        <div className="flex justify-center pt-2 pb-1 shrink-0">
+                            <div className="w-10 h-1 rounded-full bg-muted-foreground/25" aria-hidden />
+                        </div>
+                        <SheetHeader className="px-5 pb-3 shrink-0">
+                            <SheetTitle className="text-[17px] font-semibold tracking-tight text-center">
+                                {editingSession ? 'Edit session' : 'Log session'}
+                            </SheetTitle>
+                        </SheetHeader>
+                        <div className="px-5 overflow-y-auto flex-1 min-h-0 [-webkit-overflow-scrolling:touch]">
                                 <FightCampLogForm
                                     isEditing={!!editingSession}
                                     userId={userId}
@@ -1205,9 +1206,9 @@ export default function TrainingCalendar() {
                                     saving={isSaving}
                                     canSave={!!userId}
                                 />
-                                </div>
-                            </DialogContent>
-                        </Dialog>
+                        </div>
+                    </SheetContent>
+                </Sheet>
 
                 {/* Rest-day toggle — secondary outline CTA sitting below the
                     primary "Log a session" button. Hidden when a real session

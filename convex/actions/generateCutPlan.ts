@@ -168,7 +168,7 @@ ${snap.block}`;
       weeklyLossTarget: `${((args.currentWeight - finalTarget) / weekCount).toFixed(2)} kg/week`,
     };
 
-    logDecision(ctx, {
+    await logDecision(ctx, {
       userId,
       feature: "generate-cut-plan",
       inputSnapshot: { ...args, bmr, maintenanceCal, targetCal, primaryStruggle },

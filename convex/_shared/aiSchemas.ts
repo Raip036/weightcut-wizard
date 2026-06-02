@@ -255,7 +255,11 @@ export const AiFightPlanResponseSchema = z.object({
   days: z
     .array(
       z.object({
-        dayIso: z.string(),
+        // Optional, consistent with every sibling field: the prompt only
+        // asks the model for copy ("numerics replaced server-side") and
+        // never requests dayIso, so models omit it. The merge step matches
+        // copy to skeleton days by position (iso is a best-effort key).
+        dayIso: z.string().optional(),
         dayLabel: z.string().optional(),
         daysToWeighIn: z.number().optional(),
         targetWeightKg: z.number().nullable().optional(),

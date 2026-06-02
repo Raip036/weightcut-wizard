@@ -10,7 +10,7 @@ import { query, mutation, internalQuery } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Id } from "./_generated/dataModel";
 import { requireUserId } from "./lib/auth";
-import { api, internal } from "./_generated/api";
+import { internal } from "./_generated/api";
 import { normalizeLegacySession } from "./lib/sessionTypes";
 
 // ───────────────────────────────────────────────────────────────────────
@@ -35,25 +35,6 @@ const FALLBACK_SESSION_TYPE = "Strength";
 const FALLBACK_DURATION_MINUTES = 60;
 const RECENT_HISTORY_TAKE = 200;
 const SAME_TYPE_SAMPLE_SIZE = 5;
-
-/**
- * Given a YYYY-MM-DD date, return the YYYY-MM-DD of the Monday of that ISO
- * week. Used by the auto-summary scheduler so a session-save against any
- * day in the week pins the same `weekStart` key the training_summaries
- * table is indexed on (see `getSummaryForWeek` / `upsertSummary`).
- *
- * Built in UTC so the result doesn't drift when the server runs in a
- * non-UTC zone — the date string itself carries no TZ, so we treat it as
- * a calendar date and never let `new Date()` re-interpret it locally.
- */
-function computeWeekStart(dateIso: string): string {
-  const [y, m, d] = dateIso.split("-").map(Number);
-  const dt = new Date(Date.UTC(y, (m ?? 1) - 1, d ?? 1));
-  // getUTCDay: Sun=0..Sat=6. Shift so Mon=0..Sun=6, then subtract.
-  const dow = (dt.getUTCDay() + 6) % 7;
-  dt.setUTCDate(dt.getUTCDate() - dow);
-  return dt.toISOString().slice(0, 10);
-}
 
 // ───────────────────────────────────────────────────────────────────────
 // Validation helpers
@@ -558,8 +539,8 @@ export const createCalendarEntry = mutation({
     if (args.notes && args.notes.trim().length > 0) {
       await ctx.scheduler.runAfter(
         2_000,
-        api.actions.trainingCoachPlanner.run,
-        { trigger: "sessionSave", sessionId },
+        internal.actions.trainingCoachPlanner._runInternal,
+        { userId, trigger: "sessionSave", sessionId },
       );
       // Training Missions (Trigger A — see
       // docs/superpowers/specs/2026-05-21-training-missions-design.md).
@@ -574,25 +555,6 @@ export const createCalendarEntry = mutation({
         );
       } catch (err) {
         console.warn("missions schedule failed", err);
-      }
-      // Auto-summary (opt-in via user_coach_settings.autoSummary). Wrapped
-      // so a not-yet-seeded settings row or a missing/disabled
-      // trainingSummary action can't break the session save.
-      try {
-        const cs = await ctx.runQuery(
-          internal.user_coach_settings.getCoachSettings,
-          { userId },
-        );
-        if (cs?.autoSummary) {
-          const weekStart = computeWeekStart(args.date);
-          await ctx.scheduler.runAfter(
-            500,
-            api.actions.trainingSummary.run,
-            { weekStart },
-          );
-        }
-      } catch (err) {
-        console.warn("autoSummary schedule failed", err);
       }
       // Discipline XP — +10 for logging a session with notes. Initial
       // creation only; `updateCalendarEntry` deliberately does NOT award
@@ -687,8 +649,8 @@ export const updateCalendarEntry = mutation({
     if (typeof rest.notes === "string" && rest.notes.trim().length > 0) {
       await ctx.scheduler.runAfter(
         2_000,
-        api.actions.trainingCoachPlanner.run,
-        { trigger: "sessionSave", sessionId: id },
+        internal.actions.trainingCoachPlanner._runInternal,
+        { userId, trigger: "sessionSave", sessionId: id },
       );
     }
 
@@ -711,34 +673,6 @@ export const updateCalendarEntry = mutation({
         );
       } catch (err) {
         console.warn("missions schedule failed", err);
-      }
-    }
-
-    // Auto-summary (opt-in via user_coach_settings.autoSummary). Only fire
-    // when the notes field *actually changed* on this patch — re-running
-    // the summarizer on every unrelated field edit (rpe, sleep, etc.)
-    // would burn LLM tokens for nothing. We also require non-empty
-    // trimmed notes so clearing-to-empty doesn't trigger a stale rerun.
-    const notesChanged =
-      typeof rest.notes === "string" &&
-      rest.notes !== row.notes &&
-      rest.notes.trim().length > 0;
-    if (notesChanged) {
-      try {
-        const cs = await ctx.runQuery(
-          internal.user_coach_settings.getCoachSettings,
-          { userId },
-        );
-        if (cs?.autoSummary) {
-          const weekStart = computeWeekStart(row.date);
-          await ctx.scheduler.runAfter(
-            500,
-            api.actions.trainingSummary.run,
-            { weekStart },
-          );
-        }
-      } catch (err) {
-        console.warn("autoSummary schedule failed", err);
       }
     }
 

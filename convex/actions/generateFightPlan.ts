@@ -306,14 +306,30 @@ function mergeFightPlan(
   derived: DerivedInputs,
   campId: Id<"fight_camps">,
 ): FightPlan {
-  // Index AI days by dayIso for O(1) lookup during merge. `ai.days` is
-  // optional on the lenient response schema — fall back to an empty list
-  // so a model that omits the array still yields a valid (copy-empty) plan.
+  // Match AI copy to skeleton days. `ai.days` is optional on the lenient
+  // response schema — fall back to an empty list so a model that omits the
+  // array still yields a valid (copy-empty) plan.
+  //
+  // Resolution is iso-first, index-fallback: prefer an exact dayIso match
+  // (handles a model that reorders days but echoes the key), otherwise fall
+  // back to positional index. Skeleton.days and ai.days are produced in the
+  // same dtw-descending order, so index i lines up when the model omits or
+  // garbles dayIso — which is the common case, since the prompt never asks
+  // for dayIso. Only non-empty iso strings are indexed (skeleton dayIso can
+  // itself be "" when weighInIso is unset, so iso alone is unreliable).
+  const aiDays = ai.days ?? [];
   const aiDaysByIso = new Map<string, NonNullable<AiFightPlanResponse["days"]>[number]>();
-  for (const d of ai.days ?? []) aiDaysByIso.set(d.dayIso, d);
+  for (const d of aiDays) {
+    if (typeof d.dayIso === "string" && d.dayIso.length > 0) {
+      aiDaysByIso.set(d.dayIso, d);
+    }
+  }
 
-  const mergedDays: FightPlan["days"] = skeleton.days.map((sd) => {
-    const ad = aiDaysByIso.get(sd.dayIso) ?? ({} as Partial<FightPlan["days"][number]>);
+  const mergedDays: FightPlan["days"] = skeleton.days.map((sd, i) => {
+    const ad =
+      (sd.dayIso ? aiDaysByIso.get(sd.dayIso) : undefined) ??
+      aiDays[i] ??
+      ({} as Partial<FightPlan["days"][number]>);
     return {
       // Numerics from skeleton (authoritative).
       dayIso: sd.dayIso,

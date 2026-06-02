@@ -33,6 +33,10 @@ interface AiTaskBannerProps {
 export function AiTaskBanner({ aiTask, photoAnalyzing, photoBase64, onCancel, onDismiss, suppressMealAnalysis }: AiTaskBannerProps) {
   if (!aiTask) return null;
   if (suppressMealAnalysis && aiTask.type === "meal-analysis") return null;
+  // Diet analysis renders its own inline wizard-scroll animation in the
+  // diet-analysis card slot (WizardDietScrollOverlay), so the sticky top
+  // banner stays out of its way.
+  if (aiTask.type === "diet-analysis") return null;
   const handleCancel = () => { onCancel(); onDismiss(aiTask.id); };
 
   return (

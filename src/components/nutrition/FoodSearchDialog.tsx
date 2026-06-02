@@ -37,6 +37,9 @@ interface FoodSearchDialogProps {
     meal_type?: string;
   }) => void;
   mealType?: string;
+  /** Pre-seeds the search box when the dialog opens (e.g. a diet-analysis
+   *  "+ Add" tap), so the suggested food is searched immediately. */
+  initialQuery?: string;
 }
 
 const SERVING_PRESETS = [50, 100, 150, 200, 250];
@@ -230,7 +233,7 @@ function ResultRow({
   );
 }
 
-export function FoodSearchDialog({ open, onOpenChange, onFoodSelected, mealType }: FoodSearchDialogProps) {
+export function FoodSearchDialog({ open, onOpenChange, onFoodSelected, mealType, initialQuery }: FoodSearchDialogProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<FoodSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -246,6 +249,13 @@ export function FoodSearchDialog({ open, onOpenChange, onFoodSelected, mealType 
   useEffect(() => {
     if (open) setChosenMealType(normalizeMealType(mealType));
   }, [open, mealType]);
+
+  // Seed the search box from `initialQuery` on open (diet-analysis "+ Add").
+  // The reset effect below clears `query` on close, so this re-seeds cleanly
+  // each time the dialog is reopened with a new suggestion.
+  useEffect(() => {
+    if (open && initialQuery) setQuery(initialQuery);
+  }, [open, initialQuery]);
 
   useEffect(() => {
     if (!open) return;

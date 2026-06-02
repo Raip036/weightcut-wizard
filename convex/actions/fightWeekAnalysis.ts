@@ -261,7 +261,7 @@ Days to comment on: ${projection.timeline.map((d) => d.day).join(", ")}.`;
       medicalRedFlags,
     };
 
-    logDecision(ctx, {
+    await logDecision(ctx, {
       userId,
       feature: "fight-week-analysis",
       inputSnapshot: {

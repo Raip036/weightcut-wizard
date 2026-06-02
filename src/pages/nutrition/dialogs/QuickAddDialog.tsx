@@ -33,12 +33,13 @@ import { SnapPhotoHero } from "./quickAdd/SnapPhotoHero";
 import { DescribeRow } from "./quickAdd/DescribeRow";
 import { CaptionStep } from "./quickAdd/CaptionStep";
 import { ScanOverlay } from "./quickAdd/ScanOverlay";
+import { WizardCookingOverlay } from "./quickAdd/WizardCookingOverlay";
 import { WizardConfirmCard } from "./quickAdd/WizardConfirmCard";
 import { MacrosEditor } from "./quickAdd/MacrosEditor";
 import { ManualLogPanel } from "./quickAdd/ManualLogPanel";
 import type { QuickAddDialogProps } from "./quickAdd/types";
 
-type SheetMode = "ai-input" | "caption" | "scanning" | "confirm" | "macros" | "manual";
+type SheetMode = "ai-input" | "caption" | "scanning" | "thinking" | "confirm" | "macros" | "manual";
 
 export function QuickAddDialog({
   open,
@@ -118,7 +119,14 @@ export function QuickAddDialog({
   // ── Mode derivation ────────────────────────────────────────────────
   const mode: SheetMode = useMemo(() => {
     if (manualOverride) return "manual";
-    if (aiMeal.aiAnalyzing || aiMeal.photoAnalyzing) return "scanning";
+    // Photo-driven analysis (or any analysis with a photo present) shows the
+    // camera-style scan overlay. Text-only analysis routes to the new
+    // "thinking" overlay so we don't pretend to scan an image that doesn't
+    // exist.
+    if (aiMeal.photoAnalyzing || (aiMeal.aiAnalyzing && aiMeal.photoBase64)) {
+      return "scanning";
+    }
+    if (aiMeal.aiAnalyzing && !aiMeal.photoBase64) return "thinking";
     if (
       aiMeal.aiAnalysisComplete &&
       aiMeal.aiLineItems.length > 0 &&
@@ -188,6 +196,18 @@ export function QuickAddDialog({
       aiMeal.overrideTotals.protein_g ??
       aiMeal.aiLineItems.reduce((s, i) => s + i.protein_g, 0),
     [aiMeal.overrideTotals.protein_g, aiMeal.aiLineItems],
+  );
+  const detectedCarbs = useMemo(
+    () =>
+      aiMeal.overrideTotals.carbs_g ??
+      aiMeal.aiLineItems.reduce((s, i) => s + i.carbs_g, 0),
+    [aiMeal.overrideTotals.carbs_g, aiMeal.aiLineItems],
+  );
+  const detectedFat = useMemo(
+    () =>
+      aiMeal.overrideTotals.fats_g ??
+      aiMeal.aiLineItems.reduce((s, i) => s + i.fats_g, 0),
+    [aiMeal.overrideTotals.fats_g, aiMeal.aiLineItems],
   );
 
   // ── Handlers ──────────────────────────────────────────────────────
@@ -423,6 +443,14 @@ export function QuickAddDialog({
               </motion.div>
             )}
 
+            {mode === "thinking" && (
+              <WizardCookingOverlay
+                key="thinking"
+                description={aiMeal.aiMealDescription}
+                onCancel={onCancelAi}
+              />
+            )}
+
             {mode === "confirm" && (
               <motion.div
                 key="confirm"
@@ -436,6 +464,8 @@ export function QuickAddDialog({
                   detectedName={detectedName}
                   kcal={detectedKcal}
                   proteinG={detectedProtein}
+                  carbsG={detectedCarbs}
+                  fatG={detectedFat}
                   onConfirm={handleLooksRight}
                   onReject={handleNotQuite}
                 />

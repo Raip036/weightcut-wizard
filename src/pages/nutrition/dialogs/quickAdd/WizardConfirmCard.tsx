@@ -8,6 +8,10 @@ interface WizardConfirmCardProps {
   kcal?: number | null;
   /** Optional rough protein headline (grams). */
   proteinG?: number | null;
+  /** Optional carbs headline (grams). */
+  carbsG?: number | null;
+  /** Optional fat headline (grams). */
+  fatG?: number | null;
   onConfirm: () => void;
   onReject: () => void;
 }
@@ -23,21 +27,30 @@ export function WizardConfirmCard({
   detectedName,
   kcal,
   proteinG,
+  carbsG,
+  fatG,
   onConfirm,
   onReject,
 }: WizardConfirmCardProps) {
   const prefersReduced = useReducedMotion();
 
-  const subline = (() => {
-    const bits: string[] = [];
-    if (typeof kcal === "number" && Number.isFinite(kcal)) {
-      bits.push(`~${Math.round(kcal)} kcal`);
-    }
-    if (typeof proteinG === "number" && Number.isFinite(proteinG) && proteinG > 0) {
-      bits.push(`${Math.round(proteinG)}g protein`);
-    }
-    return bits.join(" · ");
-  })();
+  const num = (n?: number | null) =>
+    typeof n === "number" && Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
+  const hasMacros = typeof kcal === "number" && Number.isFinite(kcal);
+  // Four headline boxes. Calories stays foreground-white as the hero; the
+  // three macros take their canonical func-token colours (protein blue,
+  // carbs orange, fat purple) to match the dashboard rings.
+  const macros: Array<{
+    label: string;
+    value: number;
+    unit: string;
+    color?: string;
+  }> = [
+    { label: "Cals", value: num(kcal), unit: "" },
+    { label: "Protein", value: num(proteinG), unit: "g", color: "rgb(var(--func-protein-blue))" },
+    { label: "Carbs", value: num(carbsG), unit: "g", color: "rgb(var(--func-carbs-orange))" },
+    { label: "Fat", value: num(fatG), unit: "g", color: "rgb(var(--func-fats-purple))" },
+  ];
 
   return (
     <motion.div
@@ -73,8 +86,30 @@ export function WizardConfirmCard({
       <p className="mt-1.5 text-[18px] font-bold tracking-tight text-foreground leading-tight">
         {detectedName || "your meal"}
       </p>
-      {subline && (
-        <p className="mt-1 text-[12px] text-muted-foreground/80 tabular-nums">{subline}</p>
+      {hasMacros && (
+        <div className="mt-3.5 grid grid-cols-4 gap-1.5 w-full">
+          {macros.map((m) => (
+            <div
+              key={m.label}
+              className="rounded-xl border border-border/40 bg-card/50 px-1 py-2 flex flex-col items-center justify-center"
+            >
+              <span
+                className="text-[18px] font-extrabold tabular-nums leading-none"
+                style={m.color ? { color: m.color } : undefined}
+              >
+                {m.value}
+                {m.unit && (
+                  <span className="text-[11px] font-bold align-baseline">
+                    {m.unit}
+                  </span>
+                )}
+              </span>
+              <span className="mt-1 text-[9px] uppercase tracking-wide font-semibold text-muted-foreground/70">
+                {m.label}
+              </span>
+            </div>
+          ))}
+        </div>
       )}
       <div className="mt-5 grid grid-cols-2 gap-2 w-full">
         <button

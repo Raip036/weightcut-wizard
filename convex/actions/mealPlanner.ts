@@ -237,7 +237,7 @@ ${snap.block}`;
       mealPlanData.totalCalories = totals.p * 4 + totals.c * 4 + totals.f * 9;
     }
 
-    logDecision(ctx, {
+    await logDecision(ctx, {
       userId,
       feature: "meal-planner",
       inputSnapshot: { currentWeight, goalWeight, tdee, daysToGoal },

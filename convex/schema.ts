@@ -828,13 +828,26 @@ export default defineSchema({
     completedAt: v.optional(v.number()),
   }).index("by_mission_position", ["missionId", "position"]),
 
+  // Per-user watermark for the Camp "Recent activity" feed. That feed is
+  // aggregated READ-ONLY from logging surfaces (weight, sleep, workouts,
+  // completed missions, reactions), so "clearing" it must NOT delete those
+  // rows — instead we record a `clearedAt` timestamp and the feed hides any
+  // event at or before it. New activity logged after a clear still surfaces.
+  camp_activity_state: defineTable({
+    userId: v.id("users"),
+    clearedAt: v.number(), // unix ms; feed hides events with timestamp <= this
+  }).index("by_user", ["userId"]),
+
   // Per-user opt-in toggles for AI coach features driven from the
-  // Training Calendar. Currently just an auto-summary switch; future
-  // toggles (auto-RPE, auto-tag, etc.) can be added inline as optional
-  // fields without a schema bump.
+  // Training Calendar.
+  //
+  // `autoSummary` is DEPRECATED: weekly recaps are now manual-only, so no
+  // code reads or writes this field. It's kept as an optional column (rather
+  // than dropped) so existing rows still validate; the table is retained for
+  // future per-user coach toggles.
   user_coach_settings: defineTable({
     userId: v.id("users"),
-    autoSummary: v.boolean(),
+    autoSummary: v.optional(v.boolean()),
     updatedAt: v.number(),
   }).index("by_user", ["userId"]),
 
@@ -852,30 +865,27 @@ export default defineSchema({
     .index("by_user_sport", ["userId", "sport"])
     .index("by_user", ["userId"]),
 
-  // Weekly retention flashcards distilled from session notes.
-  // Spaced-repetition state lives inline (Leitner doubling) so the schema
-  // stays simple. `cardKey` dedups identical fronts across regenerations
-  // so re-running a week's summary doesn't reset learned cards. See
-  // `docs/superpowers/specs/2026-05-21-training-summary-flashcards.md`.
-  training_summary_cards: defineTable({
+  // All-time technique log distilled from weekly recaps. Replaces the
+  // flashcard SR table. Dedup/merge keyed on (userId, techniqueNormalized)
+  // so a technique drilled across multiple weeks accumulates rather than
+  // duplicating. See docs/superpowers/specs/2026-06-02-training-recap-redesign-design.md
+  training_techniques: defineTable({
     userId: v.id("users"),
-    sport: v.string(),
-    weekStart: v.string(),
-    cardKey: v.string(),
-    front: v.string(),
-    back: v.string(),
+    discipline: v.string(),
+    technique: v.string(),
+    techniqueNormalized: v.string(),
     cue: v.optional(v.string()),
+    detail: v.string(),
     sourceSessionDate: v.optional(v.string()),
-    intervalDays: v.number(),
-    dueAt: v.number(),
-    reviews: v.number(),
-    lapses: v.number(),
-    lastReviewedAt: v.optional(v.number()),
+    timesLogged: v.number(),
+    firstSeenWeek: v.string(),
+    lastSeenWeek: v.string(),
     createdAt: v.number(),
+    updatedAt: v.number(),
   })
-    .index("by_user_due", ["userId", "dueAt"])
-    .index("by_user_card_key", ["userId", "cardKey"])
-    .index("by_user_week", ["userId", "weekStart"]),
+    .index("by_user", ["userId"])
+    .index("by_user_discipline", ["userId", "discipline"])
+    .index("by_user_norm", ["userId", "techniqueNormalized"]),
 
   // ────────────────────────────────────────────────────────────────────
   // SKILL TREE

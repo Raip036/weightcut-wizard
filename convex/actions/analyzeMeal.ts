@@ -167,7 +167,13 @@ Combine the visual evidence and the description. If they conflict, trust the des
           { role: "user", content: visionUserContent },
         ],
         temperature: 0.1,
-        max_tokens: 900,
+        // Busy plates with a per-item bbox + portion/cooking/additions fields
+        // blow past a tight budget and truncate mid-JSON. 1500 gives headroom.
+        max_tokens: 1500,
+        // Force structured JSON output — gemini-2.5-flash-lite (the
+        // OpenRouter target) otherwise emits reasoning prose before the
+        // object, which `parseJSON` can't always recover.
+        response_format: { type: "json_object" },
       });
       const visionObservation = parseJSON(visionContent);
 
@@ -203,7 +209,10 @@ Return ONLY the JSON object.`;
           { role: "user", content: reasoningUser },
         ],
         temperature: 0,
-        max_tokens: 1200,
+        // gpt-oss-120b (Groq) and qwen3-235b (OpenRouter) spend reasoning
+        // tokens from this same budget, so a full items[] array easily
+        // truncated at 1200. 3000 covers a ~10-item meal with macros + bbox.
+        max_tokens: 3000,
         reasoning_effort: "low",
         response_format: { type: "json_object" },
       });
@@ -227,7 +236,8 @@ Parse quantities precisely (e.g. "4 chicken breasts" = 4x). Per-item totals refl
           },
         ],
         temperature: 0.1,
-        max_tokens: 800,
+        // Headroom so a multi-item text meal doesn't truncate mid-JSON.
+        max_tokens: 1500,
         response_format: { type: "json_object" },
       });
       nutritionData = parseJSON(content);

@@ -587,7 +587,7 @@ export const BarcodeScanner = ({ onFoodScanned, disabled, className, label }: Ba
                       setIsOpen(false);
                     }}
                   >
-                    Add to meal · {live.calories} kcal
+                    Log food · {live.calories} kcal
                   </Button>
                   <Button
                     variant="ghost"

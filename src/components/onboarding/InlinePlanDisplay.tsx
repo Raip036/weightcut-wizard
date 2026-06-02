@@ -103,6 +103,9 @@ interface InlinePlanDisplayProps {
   plan: any;
   planType: "cut" | "weight_loss";
   onContinue: () => void;
+  /** Show the sticky "Continue to Dashboard" CTA. Default true (onboarding).
+   *  The standalone review screen hides it and routes via its own close X. */
+  showContinue?: boolean;
 }
 
 // ─── Macro colors (mirrors src/components/nutrition/MacroPieChart) ───
@@ -652,6 +655,7 @@ export function InlinePlanDisplay({
   plan,
   planType,
   onContinue,
+  showContinue = true,
 }: InlinePlanDisplayProps): JSX.Element {
   const planData = plan as PlanData;
   const isWeightLoss = planType === "weight_loss";
@@ -837,15 +841,18 @@ export function InlinePlanDisplay({
       </p>
 
       {/* STICKY CTA — `bottom-safe-keyboard` rides this above the iOS
-          keyboard (inner pb stays for safe-area padding). */}
-      <div className="fixed bottom-0 bottom-safe-keyboard inset-x-0 z-30 px-4 pt-2 pb-[max(env(safe-area-inset-bottom),12px)] bg-background/85 backdrop-blur-md border-t border-border/30">
-        <Button
-          onClick={onContinue}
-          className="w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 active:scale-[0.98] transition-transform"
-        >
-          Continue to Dashboard
-        </Button>
-      </div>
+          keyboard (inner pb stays for safe-area padding). Hidden on the
+          standalone review screen, where the close X handles the routing. */}
+      {showContinue && (
+        <div className="fixed bottom-0 bottom-safe-keyboard inset-x-0 z-30 px-4 pt-2 pb-[max(env(safe-area-inset-bottom),12px)] bg-background/85 backdrop-blur-md border-t border-border/30">
+          <Button
+            onClick={onContinue}
+            className="w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 active:scale-[0.98] transition-transform"
+          >
+            Continue to Dashboard
+          </Button>
+        </div>
+      )}
     </motion.div>
   );
 }

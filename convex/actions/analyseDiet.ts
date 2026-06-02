@@ -142,7 +142,82 @@ Address me directly ("you", "your") in every string field — summary, gap reaso
     });
     const raw = parseJSON<Record<string, any>>(content);
     const analysisData = normaliseAnalysis(raw);
-    return { analysisData };
+
+    // ── Deterministic numbers (computed here, NOT by the LLM, so they're
+    //    always arithmetically correct) ──────────────────────────────────
+    // Protein g/kg target for a combat athlete in a cut. ISSN: 1.2–2.2 g/kg
+    // in a deficit, up to ~3.1 when aggressively cutting; 2.0 is a solid
+    // muscle-sparing default.
+    const TARGET_G_PER_KG = 2.0;
+    const bodyKg =
+      Number(profile?.current_weight_kg) || snap.snapshot.currentWeight || null;
+    const todayProteinG = Math.round(
+      meals.reduce(
+        (s: number, m: { protein_g?: number }) => s + (Number(m.protein_g) || 0),
+        0,
+      ),
+    );
+
+    let proteinVerdict:
+      | {
+          actualG: number;
+          targetG: number;
+          gPerKg: number;
+          targetGPerKg: number;
+          shortfallG: number;
+          verdict: "low" | "on_track" | "high";
+        }
+      | undefined;
+    if (bodyKg && bodyKg > 0) {
+      const targetG = Math.round(bodyKg * TARGET_G_PER_KG);
+      const gPerKg = +(todayProteinG / bodyKg).toFixed(2);
+      const verdict =
+        gPerKg < 1.6 ? "low" : gPerKg > 2.6 ? "high" : "on_track";
+      proteinVerdict = {
+        actualG: todayProteinG,
+        targetG,
+        gPerKg,
+        targetGPerKg: TARGET_G_PER_KG,
+        shortfallG: Math.max(0, targetG - todayProteinG),
+        verdict,
+      };
+    }
+
+    const pAvg = snap.snapshot.proteinAvg7d ?? null;
+    const cAvg = snap.snapshot.calorieAvg7d ?? null;
+    let weeklyTrend:
+      | {
+          proteinAvgG: number | null;
+          proteinAvgGPerKg: number | null;
+          calorieAvgKcal: number | null;
+          note: string;
+        }
+      | undefined;
+    if (pAvg != null || cAvg != null) {
+      const pAvgGPerKg =
+        bodyKg && bodyKg > 0 && pAvg != null ? +(pAvg / bodyKg).toFixed(2) : null;
+      let note = "";
+      if (pAvgGPerKg != null) {
+        note =
+          pAvgGPerKg < 1.6
+            ? `Your protein has averaged ${pAvgGPerKg} g/kg this week — below the ~2.0 g/kg that protects muscle in a cut.`
+            : pAvgGPerKg > 2.6
+              ? `You're averaging ${pAvgGPerKg} g/kg protein this week — plenty to hold muscle while cutting.`
+              : `Your 7-day protein is on track at ${pAvgGPerKg} g/kg.`;
+      } else if (pAvg != null) {
+        note = `You're averaging ${pAvg}g protein a day this week.`;
+      } else if (cAvg != null) {
+        note = `You're averaging ${cAvg} kcal a day this week.`;
+      }
+      weeklyTrend = {
+        proteinAvgG: pAvg,
+        proteinAvgGPerKg: pAvgGPerKg,
+        calorieAvgKcal: cAvg,
+        note,
+      };
+    }
+
+    return { analysisData: { ...analysisData, proteinVerdict, weeklyTrend } };
   },
 });
 
