@@ -7,6 +7,7 @@ import { Icon, type IonIconName } from "@/components/ui/Icon";
 import { cn } from "@/lib/utils";
 import { triggerHaptic, triggerHapticSuccess } from "@/lib/haptics";
 import { springs } from "@/lib/motion";
+import { useSubscription } from "@/hooks/useSubscription";
 
 export type Adherence = {
   weight: boolean;
@@ -93,6 +94,15 @@ function CompletionConfetti({ fireKey }: { fireKey: number }) {
 
 export default function TodayStrip({ adherence, mealsLoggedToday }: Props) {
   const prefersReduced = useReducedMotion();
+  const { checkFeatureAccess, isSubscriptionResolved } = useSubscription();
+
+  // The wellness check-in survey is free (it feeds the free user's
+  // fight-form score), but the Recovery dashboard at /recovery is Pro.
+  // So free users must never be deep-linked into /recovery — only treat
+  // the user as free once subscription state has resolved, so paid users
+  // aren't briefly redirected.
+  const wellnessIsFree =
+    isSubscriptionResolved && !checkFeatureAccess("RECOVERY");
 
   const logged: Record<PillKey, boolean> = {
     weight:   adherence.weight,
@@ -199,25 +209,28 @@ export default function TodayStrip({ adherence, mealsLoggedToday }: Props) {
       <div className="flex items-stretch gap-1.5 w-full">
         {PILLS.map(({ key, label, href, icon, iconDone }) => {
           const isLogged = logged[key];
-          // Send users straight into the dedicated full-screen check-in
-          // when wellness isn't done yet; once logged, route back to the
-          // recovery dashboard so they can review their stats.
+          // The wellness survey is FREE — route into the full-screen check-in
+          // when it's not done yet. Once logged, the "review" target is the
+          // Pro Recovery dashboard, so free users go to /dashboard instead of
+          // a locked page; Pro users get the dashboard as before.
           const finalHref =
-            key === "wellness" && !isLogged ? "/recovery/check-in" : href;
-          return (
-            <Link
-              key={key}
-              to={finalHref}
-              onClick={() => { void triggerHaptic(ImpactStyle.Light); }}
-              className={cn(
-                "card-press relative flex-1 min-h-[52px] rounded-md flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 transition-colors",
-                isLogged
-                  ? "border border-func-recovery-green/40 bg-func-recovery-green/12 text-func-recovery-green"
-                  : "border border-border/60 text-muted-foreground active:bg-muted/40",
-              )}
-              style={{ boxShadow: isLogged ? DONE_GLOW : undefined }}
-              aria-label={`${label}${isLogged ? " logged" : " not logged"}`}
-            >
+            key === "wellness"
+              ? !isLogged
+                ? "/recovery/check-in"
+                : wellnessIsFree
+                  ? "/dashboard"
+                  : href
+              : href;
+
+          const pillClassName = cn(
+            "card-press relative flex-1 min-h-[52px] rounded-md flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 transition-colors",
+            isLogged
+              ? "border border-func-recovery-green/40 bg-func-recovery-green/12 text-func-recovery-green"
+              : "border border-border/60 text-muted-foreground active:bg-muted/40",
+          );
+
+          const pillInner = (
+            <>
               {/* Completed check badge — pops in when the section is logged. */}
               <AnimatePresence initial={false}>
                 {isLogged && (
@@ -257,6 +270,19 @@ export default function TodayStrip({ adherence, mealsLoggedToday }: Props) {
               >
                 {label}
               </span>
+            </>
+          );
+
+          return (
+            <Link
+              key={key}
+              to={finalHref}
+              onClick={() => { void triggerHaptic(ImpactStyle.Light); }}
+              className={pillClassName}
+              style={{ boxShadow: isLogged ? DONE_GLOW : undefined }}
+              aria-label={`${label}${isLogged ? " logged" : " not logged"}`}
+            >
+              {pillInner}
             </Link>
           );
         })}

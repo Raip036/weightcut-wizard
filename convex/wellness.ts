@@ -8,6 +8,7 @@ import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { requireUserId } from "./lib/auth";
+import { requireFeatureGate } from "./_shared/featureGates";
 
 // ───────────────────────────────────────────────────────────────────────
 // daily_wellness_checkins
@@ -93,6 +94,9 @@ export const upsertCheckin = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
+    // The daily wellness survey is FREE for everyone — it feeds the
+    // fight-form-score ring (recomputed below), which free users keep. Only
+    // the Pro Recovery dashboard + AI coaching extras are gated.
     const existing = await ctx.db
       .query("daily_wellness_checkins")
       .withIndex("by_user_date", (q) =>
@@ -156,6 +160,7 @@ export const upsertBaseline = mutation({
   },
   handler: async (ctx, { baselineDate, data }) => {
     const userId = await requireUserId(ctx);
+    await requireFeatureGate(ctx, userId, "RECOVERY");
     const normalized = snakeToCamelKeys(data ?? {});
     const existing = await ctx.db
       .query("personal_baselines")
@@ -210,6 +215,7 @@ export const upsertInsight = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
+    await requireFeatureGate(ctx, userId, "RECOVERY");
     const existing = await ctx.db
       .query("user_insights")
       .withIndex("by_user_type", (q) =>
@@ -261,6 +267,7 @@ export const appendMessage = mutation({
   },
   handler: async (ctx, { role, content }) => {
     const userId = await requireUserId(ctx);
+    await requireFeatureGate(ctx, userId, "RECOVERY");
     return await ctx.db.insert("chat_messages", { userId, role, content });
   },
 });
@@ -269,6 +276,7 @@ export const clearMessages = mutation({
   args: {},
   handler: async (ctx) => {
     const userId = await requireUserId(ctx);
+    await requireFeatureGate(ctx, userId, "RECOVERY");
     const all = await ctx.db
       .query("chat_messages")
       .withIndex("by_user", (q) => q.eq("userId", userId))

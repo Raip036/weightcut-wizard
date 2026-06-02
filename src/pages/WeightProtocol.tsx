@@ -366,42 +366,24 @@ export default function WeightProtocol() {
         <button
           type="button"
           onClick={() => (isPremium ? handleRegenerate() : openPaywall())}
-          className={`w-full text-left card-surface rounded-2xl p-5 active:scale-[0.99] transition ${
-            isPremium
-              ? "border border-primary/30"
-              : "border border-amber-400/30 bg-amber-400/[0.03]"
-          }`}
+          className="w-full text-left card-surface rounded-2xl p-5 active:scale-[0.99] transition border border-primary/30 bg-primary/[0.04]"
         >
           {/* Header row: icon + title block + CTA label. Description is
               lifted out below the row so it spans the full card width
               instead of being squeezed into a narrow middle column. */}
           <div className="flex items-start gap-3">
-            <div
-              className={`h-11 w-11 shrink-0 rounded-2xl border flex items-center justify-center ${
-                isPremium
-                  ? "border-primary/30 text-primary"
-                  : "border-amber-400/30 text-amber-400"
-              }`}
-            >
+            <div className="h-11 w-11 shrink-0 rounded-2xl border flex items-center justify-center border-primary/30 bg-primary/10 text-primary">
               <Icon name={isPremium ? "sparklesOutline" : "lockClosedOutline"} size={22} />
             </div>
             <div className="flex-1 min-w-0">
-              <p
-                className={`text-[10px] font-bold uppercase tracking-[0.14em] ${
-                  isPremium ? "text-primary/80" : "text-amber-400/80"
-                }`}
-              >
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary/80">
                 {isPremium ? "Ready when you are" : "Pro feature"}
               </p>
               <p className="mt-0.5 text-[17px] font-bold leading-tight text-foreground">
                 {isPremium ? "Generate your fight plan" : "Unlock your fight plan"}
               </p>
             </div>
-            <span
-              className={`inline-flex items-center gap-1 shrink-0 text-[10px] font-bold uppercase tracking-wider ${
-                isPremium ? "text-primary" : "text-amber-400"
-              }`}
-            >
+            <span className="inline-flex items-center gap-1 shrink-0 rounded-full bg-primary text-primary-foreground px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider">
               {isPremium ? "Generate" : "Upgrade"}
               <Icon name="chevronForwardOutline" size={14} />
             </span>

@@ -87,6 +87,12 @@ export default defineSchema({
     // optional so existing rows pass validation without a migration.
     trialStartedAt: v.optional(v.number()),
     trialEndsAt: v.optional(v.number()),
+    // Epoch ms the one-time "Welcome to Pro" cutscene was shown for this
+    // account. Server-authoritative so the celebration fires exactly once per
+    // genuine upgrade — never on restore, a returning device, or a reinstall.
+    // Reset to null by the RC EXPIRATION webhook so a real re-subscribe after
+    // a lapse re-arms it.
+    welcomeProShownAt: v.optional(v.number()),
     // Legacy gem/ad columns — the gem system was ripped out, but
     // existing prod rows still carry these fields. Keep them as
     // `v.optional` so schema validation passes during the deploy

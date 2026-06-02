@@ -36,6 +36,9 @@ export const FEATURE_GATES = {
   AI_LOOKUP_INGREDIENT: { minTier: "pro" as const },
   AI_BARCODE_ANALYSIS: { minTier: "pro" as const },
   AI_DIET_ANALYSIS: { minTier: "pro" as const },
+  // Feature-area gate (non-AI): the whole Recovery surface — wellness
+  // check-ins, readiness, recovery dashboard + coaching — is Pro-only.
+  RECOVERY: { minTier: "pro" as const },
   // Future expansion examples (kept commented for now):
   // ADVANCED_LEADERBOARDS: { minTier: "pro" as const },
   // EXPORT_DATA: { minTier: "pro" as const },

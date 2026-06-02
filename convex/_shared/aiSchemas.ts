@@ -90,6 +90,54 @@ export const CutPlanSchema = z.object({
 export type CutPlan = z.infer<typeof CutPlanSchema>;
 export type WeekPhase = z.infer<typeof WeekPhaseSchema>;
 
+// ───────────────────────────────────────────────────────────────────────
+// Permissive schema for the *AI call only*.
+//
+// By design the plan generators ask the model for the NARRATIVE (heroLine,
+// dailyFocus, phases, personalNote…) and compute the NUMBERS server-side —
+// the prompt literally tells the model "never invent calories or macros".
+// The full pipeline (`normaliseWeeklyPlan` + `normalisePlanTopLevel`) then
+// backfills every number from the deterministic facts, tapers targetWeight,
+// trims over-long strings, synthesises missing phases / personalNote, and
+// caps array lengths. So validating the raw LLM output against the STRICT
+// `CutPlanSchema` only manufactures failures (e.g. the model omits the
+// server-computed `targetWeight`/`calories`/macros → "Required", or a
+// heroLine runs a few chars long) and needlessly drops to the deterministic
+// fallback, discarding the model's narrative.
+//
+// This schema only checks that the model returned roughly the right SHAPE
+// (a non-empty `weeklyPlan` array of card-ish objects). Everything else is
+// optional and the normalisers enforce the real constraints downstream.
+const WeeklyEntryAiSchema = z
+  .object({
+    week: z.number().optional(),
+    targetWeight: z.number().optional(),
+    calories: z.number().optional(),
+    protein_g: z.number().optional(),
+    carbs_g: z.number().optional(),
+    fats_g: z.number().optional(),
+    phase: z.string().optional(),
+    heroLine: z.string().optional(),
+    keyMetric: z.string().optional(),
+    dailyFocus: z.array(z.string()).optional(),
+    risk: z.string().optional(),
+    recovery: z.string().optional(),
+  })
+  .passthrough();
+
+export const CutPlanAiSchema = z
+  .object({
+    weeklyPlan: z.array(WeeklyEntryAiSchema).min(1),
+    phases: z.any().optional(),
+    personalNote: z.string().optional(),
+    toughestWeek: z.any().optional(),
+    summary: z.string().optional(),
+    safetyNotes: z.string().optional(),
+    keyPrinciples: z.any().optional(),
+    fightWeek: z.any().optional(),
+  })
+  .passthrough();
+
 const HourlyStepSchema = z.object({
   hour: z.number().int().min(1).max(48),
   phase: z.string().max(80),

@@ -5,8 +5,8 @@
 // what's coming without giving away the plan.
 //
 // Visual / motion notes:
-//   - Amber-tinted chrome — matches the wider "Pro-gated" cue used in
-//     CampCompassCard's locked state (`border-amber-400/30 bg-amber-400/[0.03]`).
+//   - Wizard-blue (primary) chrome — leans on the app's `primary` token
+//     to telegraph the "Pro-gated" cue (`border-primary/30 bg-primary/[0.04]`).
 //   - Day list is rendered for real then CSS-blurred to 3px and marked
 //     `aria-hidden` so screen readers don't dictate scrambled copy. The
 //     blur ramps from 0 → 3px over 600ms on mount — feels like the card
@@ -55,11 +55,11 @@ export function LockedDayCard({
       initial={prefersReduced ? false : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: "spring", damping: 24, stiffness: 240 }}
-      className={`relative card-surface rounded-2xl border border-amber-400/30 bg-amber-400/[0.03] overflow-hidden ${className}`}
+      className={`relative card-surface rounded-2xl border border-primary/30 bg-primary/[0.04] overflow-hidden ${className}`}
     >
       {/* Lock affordance, top-right corner — same icon CampCompassCard
           uses for its locked state. */}
-      <div className="absolute top-3 right-3 text-amber-400/80">
+      <div className="absolute top-3 right-3 text-primary/80">
         <Icon
           name="lockClosedOutline"
           size={14}
@@ -70,7 +70,7 @@ export function LockedDayCard({
       <div className="p-4 pt-4 space-y-3">
         {/* Section tracker — same 10px uppercase pattern as the rest of
             the protocol page. */}
-        <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-amber-400/80">
+        <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary/80">
           {lockedCount} days · Pro
         </div>
 
@@ -109,7 +109,7 @@ export function LockedDayCard({
         <button
           type="button"
           onClick={handleUpgrade}
-          className="mt-2 w-full min-h-[44px] rounded-xl bg-primary text-primary-foreground px-4 py-2.5 text-[13px] font-semibold inline-flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+          className="mt-2 w-full min-h-[44px] rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/25 px-4 py-2.5 text-[13px] font-semibold inline-flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
         >
           <Icon name="lockClosedOutline" size={14} />
           <span>

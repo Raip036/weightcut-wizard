@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import { useUser } from "@/contexts/UserContext";
+import { useSubscription } from "@/hooks/useSubscription";
 import { WellnessCheckIn } from "@/components/fightcamp/WellnessCheckIn";
 import { Icon } from "@/components/ui/Icon";
 import { celebrateSuccess } from "@/lib/haptics";
@@ -16,6 +17,12 @@ import { celebrateSuccess } from "@/lib/haptics";
 export default function RecoveryCheckIn() {
   const navigate = useNavigate();
   const { userId } = useUser();
+  const { checkFeatureAccess, isSubscriptionResolved } = useSubscription();
+  // The wellness survey is free (it feeds the fight-form-score ring), but the
+  // Recovery dashboard is Pro — so after a FREE user finishes, send them to
+  // /dashboard rather than onto the locked /recovery screen.
+  const isFreeUser = isSubscriptionResolved && !checkFeatureAccess("RECOVERY");
+  const afterCheckInRoute = isFreeUser ? "/dashboard" : "/recovery";
 
   // Local-date "YYYY-MM-DD" — matches the dashboard's TodayStrip / wellness
   // upsert convention so the row read here is the row written below.
@@ -34,8 +41,9 @@ export default function RecoveryCheckIn() {
   // to the dashboard. The mutation is idempotent (upsert), so this is a
   // UX nicety rather than a data-integrity requirement.
   useEffect(() => {
-    if (alreadyCheckedIn) navigate("/recovery", { replace: true });
-  }, [alreadyCheckedIn, navigate]);
+    if (alreadyCheckedIn && isSubscriptionResolved)
+      navigate(afterCheckInRoute, { replace: true });
+  }, [alreadyCheckedIn, isSubscriptionResolved, afterCheckInRoute, navigate]);
 
   if (!userId) return <Navigate to="/" replace />;
 
@@ -47,7 +55,7 @@ export default function RecoveryCheckIn() {
   const handleSubmit = () => {
     celebrateSuccess();
     // Brief delay so the success haptic registers before the route flip.
-    setTimeout(() => navigate("/recovery", { replace: true }), 250);
+    setTimeout(() => navigate(afterCheckInRoute, { replace: true }), 250);
   };
 
   return (

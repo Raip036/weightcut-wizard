@@ -15,6 +15,8 @@ import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { WizardBackgroundProvider } from "@/contexts/WizardBackgroundContext";
 import { AITaskProvider } from "@/contexts/AITaskContext";
 import { PaywallOverlay } from "@/components/subscription/PaywallOverlay";
+import { WelcomeProOverlay } from "@/components/subscription/WelcomeProOverlay";
+import { ProRouteGate } from "@/components/subscription/ProRouteGate";
 import { GlobalLoadingOverlay } from "@/components/GlobalLoadingOverlay";
 import { PageTransition } from "@/components/PageTransition";
 import { NavigationDirectionProvider } from "@/hooks/useNavigationDirection";
@@ -336,6 +338,7 @@ const App = () => (
             <Toaster />
             <Sonner />
             <PaywallOverlay />
+            <WelcomeProOverlay />
             <GlobalLoadingOverlay />
             <BrowserRouter
               future={{
@@ -433,7 +436,7 @@ const App = () => (
                   <Route path="/training-calendar" element={<ErrorBoundary><Suspense fallback={<DashboardSkeleton />}><TrainingCalendar /></Suspense></ErrorBoundary>} />
                   <Route path="/training-library" element={<ErrorBoundary><Suspense fallback={<DashboardSkeleton />}><TrainingLibrary /></Suspense></ErrorBoundary>} />
                   <Route path="/fight-camp-calendar" element={<Navigate to="/training-calendar" replace />} />
-                  <Route path="/recovery" element={<ErrorBoundary><Suspense fallback={<DashboardSkeleton />}><Recovery /></Suspense></ErrorBoundary>} />
+                  <Route path="/recovery" element={<ErrorBoundary><Suspense fallback={<DashboardSkeleton />}><ProRouteGate feature="RECOVERY"><Recovery /></ProRouteGate></Suspense></ErrorBoundary>} />
                   <Route path="/sleep" element={<ErrorBoundary><Suspense fallback={<DashboardSkeleton />}><Sleep /></Suspense></ErrorBoundary>} />
                   {/* Skill Tree temporarily hidden from UI */}
                   <Route path="/gym" element={<ErrorBoundary><Suspense fallback={<DashboardSkeleton />}><GymTracker /></Suspense></ErrorBoundary>} />

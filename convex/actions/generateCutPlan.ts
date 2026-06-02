@@ -4,7 +4,7 @@
 import { v } from "convex/values";
 import { action } from "../_generated/server";
 import { callGroqWithRetry } from "../_shared/groq";
-import { CutPlanSchema, type WeekPhase } from "../_shared/aiSchemas";
+import { CutPlanAiSchema, type WeekPhase } from "../_shared/aiSchemas";
 import { mifflinStJeor, requiredDeficit, macroSplit } from "../_shared/math";
 import { normaliseWeeklyPlan } from "../_shared/normalizeWeeklyPlan";
 import { normalisePlanTopLevel } from "../_shared/normalizePlanTopLevel";
@@ -104,7 +104,18 @@ ${snap.block}`;
         temperature: 0.4,
         max_tokens: 4096,
         response_format: { type: "json_object" },
-        schema: CutPlanSchema,
+        // Speed: gpt-oss-120b defaults to heavy hidden reasoning. The plan's
+        // numbers are computed server-side, so the model is only writing the
+        // narrative cards — "low" reasoning keeps that quality while cutting
+        // latency sharply. Fail fast (1 retry, 12s) to the deterministic
+        // fallback below instead of stalling on a slow/failed call.
+        reasoning_effort: "low",
+        timeoutMs: 12000,
+        maxRetries: 1,
+        // Permissive: the model returns narrative only; numbers + value
+        // limits are enforced by normaliseWeeklyPlan / normalisePlanTopLevel
+        // below. Strict validation here just forces needless fallbacks.
+        schema: CutPlanAiSchema,
       });
     } catch (err) {
       console.warn(
@@ -395,12 +406,16 @@ function buildFightWeekBundle(opts: {
   // Bodyweight-scaled lookups. Heavier athletes deplete deeper and
   // load more sodium because absolute volumes need bigger ranges to
   // shift the same percentage of body water.
-  const carbFloor = bw >= 85 ? 0.5 : 1.0;
   const sodiumLoadMgKg = bw >= 85 ? 70 : 55;
 
+  // Carbs hold near normal through day -7/-6, then drop SHARP at day -5 to a
+  // ~0.6 g/kg depletion floor (≈50 g for an 80 kg athlete), held through day
+  // -3, with the final cut on -2/-1. The sharp depletion empties glycogen so
+  // the water cut lands clean. Scales with bodyweight by design.
+  const CARB_FLOOR_G_PER_KG = 0.6;
   const carbsGPerKg: Record<number, number> = {
-    [-7]: 2.5, [-6]: 2.0, [-5]: 1.5, [-4]: carbFloor,
-    [-3]: carbFloor, [-2]: 0.3, [-1]: 0.1, 0: 0,
+    [-7]: 2.5, [-6]: 2.5, [-5]: CARB_FLOOR_G_PER_KG, [-4]: CARB_FLOOR_G_PER_KG,
+    [-3]: CARB_FLOOR_G_PER_KG, [-2]: 0.3, [-1]: 0.1, 0: 0,
   };
   const sodiumMgPerKg: Record<number, number> = {
     [-7]: sodiumLoadMgKg, [-6]: sodiumLoadMgKg, [-5]: sodiumLoadMgKg, [-4]: sodiumLoadMgKg,
@@ -435,8 +450,8 @@ function buildFightWeekBundle(opts: {
 
     let notes = "";
     let flag: FightWeekDay["flag"];
-    if (offset <= -6) notes = "Deplete carbs gradually. Light technical work only.";
-    else if (offset === -5) notes = `Water load begins. Sip ${fluidLiters} L across the day.`;
+    if (offset <= -6) notes = "Carbs stay near normal. Train as usual, your last full-carb days.";
+    else if (offset === -5) notes = `Carbs cut sharp to the floor. Water load begins, sip ${fluidLiters} L across the day.`;
     else if (offset === -4) notes = "Hold the water volume. Carbs at the floor.";
     else if (offset === -3) notes = "Carbs at floor. Fluids begin tapering.";
     else if (offset === -2) {
@@ -475,7 +490,7 @@ function buildFightWeekBundle(opts: {
   // Derive backward-compat flat strings from the day array so the
   // existing CutPlanCard share card keeps rendering without changes.
   const dMinus7 = days.find((d) => d.dayOffset === -7);
-  const dMinus1 = days.find((d) => d.dayOffset === -1);
+  const dMinus5 = days.find((d) => d.dayOffset === -5);
   const peakWater = days.reduce(
     (m, d) => (d.fluidLiters > (m?.fluidLiters ?? -1) ? d : m),
     days[0],
@@ -484,7 +499,7 @@ function buildFightWeekBundle(opts: {
   const peakFluidL = peakWater?.fluidLiters ?? 0;
 
   const block = {
-    lowCarb: `Carbs taper from ${dMinus7?.carbsGrams ?? Math.round(2.5 * bw)} g down to ${dMinus1?.carbsGrams ?? Math.round(0.1 * bw)} g by day -1. Glycogen empties so the water cut lands clean.`,
+    lowCarb: `Carbs hold near ${dMinus7?.carbsGrams ?? Math.round(2.5 * bw)} g, then cut sharp to ~${dMinus5?.carbsGrams ?? Math.round(0.6 * bw)} g from day -5 and stay at the floor to day -1. Glycogen empties so the water cut lands clean.`,
     sodium: `Sodium ${sodiumLoadG} g/day days -7 to -4, then under 500 mg from day -2. The body sheds water on the cliff.`,
     waterLoading: `Peak ${peakFluidL} L around day ${peakWater?.dayOffset ?? -5}. Halve to ${Math.round((peakFluidL / 2) * 10) / 10} L by day -3. Sips on day -1. Nothing weigh-in morning.`,
     nutrition: `Post weigh-in: 1.0 g/kg/hr carbs (rice, banana) plus sodium 1.5 g per L fluid for the first 2 hours. Then 0.5 g/kg/hr until refed.`,

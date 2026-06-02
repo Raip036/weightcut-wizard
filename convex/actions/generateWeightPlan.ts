@@ -5,7 +5,7 @@
 import { v } from "convex/values";
 import { action } from "../_generated/server";
 import { callGroqWithRetry } from "../_shared/groq";
-import { CutPlanSchema, type WeekPhase } from "../_shared/aiSchemas";
+import { CutPlanAiSchema, type WeekPhase } from "../_shared/aiSchemas";
 import { mifflinStJeor, requiredDeficit, macroSplit } from "../_shared/math";
 import { normaliseWeeklyPlan } from "../_shared/normalizeWeeklyPlan";
 import { normalisePlanTopLevel } from "../_shared/normalizePlanTopLevel";
@@ -109,7 +109,18 @@ ${snap.block}`;
         temperature: 0.4,
         max_tokens: 4096,
         response_format: { type: "json_object" },
-        schema: CutPlanSchema,
+        // Speed: gpt-oss-120b defaults to heavy hidden reasoning. The plan's
+        // numbers are computed server-side, so the model is only writing the
+        // narrative cards — "low" reasoning keeps that quality while cutting
+        // latency sharply. Fail fast (1 retry, 12s) to the deterministic
+        // fallback below instead of stalling on a slow/failed call.
+        reasoning_effort: "low",
+        timeoutMs: 12000,
+        maxRetries: 1,
+        // Permissive: the model returns narrative only; numbers + value
+        // limits are enforced by normaliseWeeklyPlan / normalisePlanTopLevel
+        // below. Strict validation here just forces needless fallbacks.
+        schema: CutPlanAiSchema,
       });
     } catch (err) {
       console.warn(

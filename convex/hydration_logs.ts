@@ -8,6 +8,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { requireUserId } from "./lib/auth";
+import { requireFeatureGate } from "./_shared/featureGates";
 import type { Doc } from "./_generated/dataModel";
 
 function toClient(row: Doc<"hydration_logs">) {
@@ -74,6 +75,7 @@ export const logHydration = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
+    await requireFeatureGate(ctx, userId, "RECOVERY");
     if (args.merge) {
       const existing = await ctx.db
         .query("hydration_logs")
@@ -110,6 +112,7 @@ export const deleteLog = mutation({
   args: { id: v.id("hydration_logs") },
   handler: async (ctx, { id }) => {
     const userId = await requireUserId(ctx);
+    await requireFeatureGate(ctx, userId, "RECOVERY");
     const row = await ctx.db.get(id);
     if (!row) return;
     if (row.userId !== userId) throw new Error("Not authorized");

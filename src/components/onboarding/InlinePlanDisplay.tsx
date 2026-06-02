@@ -566,7 +566,19 @@ function FightWeekDayStack({
   safetyFlag?: string;
   target?: number;
 }) {
+  const prefersReduced = useReducedMotion();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
   if (!days || days.length === 0) return null;
+
+  // Bar widths are proportional to the protocol's peak carb day, so the
+  // sharp drop at day -5 reads as a visible cliff in the bar lengths.
+  const maxCarbs = Math.max(1, ...days.map((d) => d.carbsGrams));
+
   return (
     <div className="mt-3">
       <div className="flex items-baseline justify-between mb-2 px-1">
@@ -589,61 +601,105 @@ function FightWeekDayStack({
         </div>
       )}
 
+      {/* Legend — the carb bar is the hero, so name it once. */}
+      <div className="flex items-center gap-1.5 px-1 mb-1.5">
+        <span className="h-2 w-2 rounded-full bg-func-carbs-orange/70" />
+        <span className="text-[9px] uppercase tracking-wider text-muted-foreground/70">
+          Carbs per day (g) — watch the day -5 drop
+        </span>
+      </div>
+
       <ul className="rounded-xs border border-border/40 bg-card/40 divide-y divide-border/30 overflow-hidden">
-        {days.map((d) => (
-          <li
-            key={d.dayOffset}
-            className="px-3 py-2.5 flex items-start gap-3"
-          >
-            <div className="shrink-0 w-12 tabular-nums">
-              <div className="text-[14px] font-bold text-foreground/90 leading-none">
-                {d.dayOffset === 0 ? "0" : d.dayOffset}
-              </div>
-              <div className="text-[9px] uppercase tracking-wider text-muted-foreground mt-1">
-                {d.weekday || "—"}
-              </div>
-            </div>
-            <div className="flex-1 min-w-0">
-              {d.dayOffset === 0 ? (
-                <div>
-                  <p className="text-[13px] font-semibold text-foreground/90">
-                    Weigh-in, then refuel
-                  </p>
-                  {refeed && (
-                    <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
-                      {refeed.carbsGPerKgFirstHr} g/kg/hr carbs for 2 hr, then {refeed.carbsGPerKgPhase2} g/kg/hr. Sodium {refeed.sodiumGPerLiterFluid} g per L fluid.
-                    </p>
-                  )}
+        {days.map((d, i) => {
+          const isWeighIn = d.dayOffset === 0;
+          const isCliff =
+            d.flag === "sodium-cliff" || d.flag === "fluid-cliff";
+          // Min 5% so a non-zero day is always visibly present.
+          const barPct = isWeighIn
+            ? 0
+            : Math.max(
+                d.carbsGrams > 0 ? 5 : 0,
+                (d.carbsGrams / maxCarbs) * 100,
+              );
+          return (
+            <li
+              key={d.dayOffset}
+              className={`px-3 py-2.5 flex items-start gap-3 ${
+                isCliff ? "border-l-2 border-l-amber-500/50" : ""
+              }`}
+            >
+              {/* Day number */}
+              <div className="shrink-0 w-10 tabular-nums pt-0.5">
+                <div className="text-[15px] font-bold text-foreground/90 leading-none">
+                  {isWeighIn ? "0" : d.dayOffset}
                 </div>
-              ) : (
-                <>
-                  <div className="flex flex-wrap gap-1.5">
-                    <FightWeekChip
-                      label="carbs"
-                      value={`${d.carbsGrams}g`}
-                      tone="carbs"
-                    />
-                    <FightWeekChip
-                      label="Na"
-                      value={d.sodiumGrams < 0.5 ? "cliff" : `${d.sodiumGrams}g`}
-                      tone={d.flag === "sodium-cliff" ? "warn" : "muted"}
-                    />
-                    <FightWeekChip
-                      label="H₂O"
-                      value={d.fluidLiters < 0.5 ? "sips" : `${d.fluidLiters}L`}
-                      tone={d.flag === "fluid-cliff" ? "warn" : "hydration"}
-                    />
-                  </div>
-                  {d.notes && (
-                    <p className="text-[11px] text-muted-foreground leading-snug mt-1.5">
-                      {cleanText(d.notes)}
+                <div className="text-[9px] uppercase tracking-wider text-muted-foreground mt-1">
+                  {d.weekday || "—"}
+                </div>
+              </div>
+
+              <div className="flex-1 min-w-0">
+                {isWeighIn ? (
+                  <div className="pt-0.5">
+                    <p className="text-[13px] font-semibold text-foreground/90">
+                      Weigh-in, then refuel
                     </p>
-                  )}
-                </>
-              )}
-            </div>
-          </li>
-        ))}
+                    {refeed && (
+                      <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
+                        {refeed.carbsGPerKgFirstHr} g/kg/hr carbs for 2 hr, then {refeed.carbsGPerKgPhase2} g/kg/hr. Sodium {refeed.sodiumGPerLiterFluid} g per L fluid.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    {/* Carb taper bar — width shrinks down the list. */}
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex-1 h-[18px] rounded-full bg-muted/20 overflow-hidden">
+                        <div
+                          className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-func-carbs-orange/45 to-func-carbs-orange/85"
+                          style={{
+                            width:
+                              prefersReduced || mounted ? `${barPct}%` : "0%",
+                            transition: prefersReduced
+                              ? "none"
+                              : "width 700ms cubic-bezier(0.22,1,0.36,1)",
+                            transitionDelay: prefersReduced
+                              ? "0ms"
+                              : `${i * 55}ms`,
+                          }}
+                        />
+                      </div>
+                      <span className="shrink-0 w-11 text-right text-[14px] font-bold tabular-nums text-func-carbs-orange/90 leading-none">
+                        {d.carbsGrams}
+                        <span className="text-[10px] font-semibold text-func-carbs-orange/60">g</span>
+                      </span>
+                    </div>
+
+                    {/* Sodium + water as secondary chips. */}
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                      <FightWeekChip
+                        label="Na"
+                        value={d.sodiumGrams < 0.5 ? "cliff" : `${d.sodiumGrams}g`}
+                        tone={d.flag === "sodium-cliff" ? "warn" : "muted"}
+                      />
+                      <FightWeekChip
+                        label="H₂O"
+                        value={d.fluidLiters < 0.5 ? "sips" : `${d.fluidLiters}L`}
+                        tone={d.flag === "fluid-cliff" ? "warn" : "hydration"}
+                      />
+                    </div>
+
+                    {d.notes && (
+                      <p className="text-[11px] text-muted-foreground leading-snug mt-1.5">
+                        {cleanText(d.notes)}
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

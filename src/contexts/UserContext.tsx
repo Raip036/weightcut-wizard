@@ -42,6 +42,8 @@ export interface ProfileData {
   subscription_tier?: string;
   subscription_expires_at?: string | null;
   trial_ends_at?: number | string | null;
+  /** Epoch ms the one-time "Welcome to Pro" cutscene was shown (server CAS). */
+  welcome_pro_shown_at?: number | null;
   cut_plan_json?: any;
   [key: string]: any;
 }

@@ -31,6 +31,9 @@ interface MorningCheckInPromptProps {
   className?: string;
 }
 
+// The morning wellness check-in is FREE — it feeds the fight-form-score ring
+// that free users keep. No Pro gate here; only the Recovery dashboard + AI
+// coaching extras are gated.
 export function MorningCheckInPrompt(
   props: MorningCheckInPromptProps,
 ): JSX.Element {

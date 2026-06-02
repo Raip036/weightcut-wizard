@@ -16,7 +16,7 @@
  * counterpart) so the upfront gating UX and the server enforcement agree.
  */
 
-import type { ActionCtx } from "../_generated/server";
+import type { ActionCtx, QueryCtx, MutationCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { effectiveTier, meetsTier, type Tier } from "./tier";
@@ -44,6 +44,9 @@ export const FEATURE_GATES = {
   AI_LOOKUP_INGREDIENT: { minTier: "pro" as const },
   AI_BARCODE_ANALYSIS: { minTier: "pro" as const },
   AI_DIET_ANALYSIS: { minTier: "pro" as const },
+  // Feature-area gate (non-AI): the whole Recovery surface — wellness
+  // check-ins, readiness, recovery dashboard + coaching — is Pro-only.
+  RECOVERY: { minTier: "pro" as const },
   // Future expansion examples (kept commented for now):
   // ADVANCED_LEADERBOARDS: { minTier: "pro" as const },
   // EXPORT_DATA: { minTier: "pro" as const },
@@ -75,4 +78,27 @@ export async function enforceFeatureGate(
     throw new Error(`PRO_FEATURE_REQUIRED:${featureKey}`);
   }
   return { tier };
+}
+
+/**
+ * Query/mutation-context counterpart to `enforceFeatureGate`. Reads the
+ * profile directly via `ctx.db` (mutations/queries don't have `ctx.runQuery`)
+ * and throws the same `PRO_FEATURE_REQUIRED:<KEY>` contract when the user's
+ * effective tier doesn't satisfy the feature's `minTier`.
+ *
+ * Call right after resolving `userId` and before any DB write.
+ */
+export async function requireFeatureGate(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">,
+  featureKey: FeatureKey,
+): Promise<void> {
+  const profile = await ctx.db
+    .query("profiles")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .unique();
+  const tier = effectiveTier(profile);
+  if (!meetsTier(tier, FEATURE_GATES[featureKey].minTier)) {
+    throw new Error(`PRO_FEATURE_REQUIRED:${featureKey}`);
+  }
 }

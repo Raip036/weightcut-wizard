@@ -7,7 +7,7 @@ import {
   isPremiumFromCustomerInfo,
   getCustomerInfo,
 } from "@/lib/purchases";
-import { useAction } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { logger } from "@/lib/logger";
 import type { Tier } from "@/lib/featureGates";
@@ -107,6 +107,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const { profile, refreshProfile } = useProfile();
   const { userId } = useAuth();
   const activatePremium = useAction(api.actions.activatePremium.run);
+  const markWelcomeProShown = useMutation(api.profiles.markWelcomeProShown);
   const [isPaywallOpen, setIsPaywallOpen] = useState(false);
   const [showWelcomePro, setShowWelcomePro] = useState(false);
   // `false` until profile has resolved at least once (undefined = loading, null/obj = resolved)
@@ -157,19 +158,38 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   const wasPremiumRef = useRef(isPremium);
 
-  // Show welcome dialog when user becomes premium
+  // Fire the one-time "Welcome to Pro" cutscene on a GENUINE upgrade only.
+  // Guards, in order:
+  //  1. Wait for the profile to resolve — the cold-start undefined→loaded
+  //     flip must NOT be mistaken for a free→pro upgrade.
+  //  2. Require a free→pro edge within this session.
+  //  3. The server flag `welcome_pro_shown_at` is the source of truth for
+  //     "already celebrated" — restores, returning devices and reinstalls
+  //     already carry it, so they never replay.
+  //  4. A server compare-and-set (`markWelcomeProShown`) decides who actually
+  //     shows it, so concurrent devices can't double-fire.
+  // A cancelled / backed-out purchase never flips the DB tier, so `isPremium`
+  // never goes true and this never runs.
   useEffect(() => {
-    if (isPremium) {
-      if (!wasPremiumRef.current && userId) {
-        const welcomeKey = `wcw_welcome_pro_shown_${userId}`;
-        if (!localStorage.getItem(welcomeKey)) {
-          setShowWelcomePro(true);
-          localStorage.setItem(welcomeKey, "true");
-        }
-      }
-    }
+    if (!isSubscriptionResolved) return;
+    const wasPremium = wasPremiumRef.current;
     wasPremiumRef.current = isPremium;
-  }, [isPremium, userId]);
+    if (!isPremium || wasPremium || !userId) return;
+    if (profileRef.current?.welcome_pro_shown_at != null) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await markWelcomeProShown({});
+        if (!cancelled && res?.firstTime) setShowWelcomePro(true);
+      } catch (err) {
+        // Non-fatal: skip the celebration rather than risk firing it wrongly.
+        logger.warn("markWelcomeProShown failed", { err });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isPremium, isSubscriptionResolved, userId, markWelcomeProShown]);
 
   // Initialize RevenueCat when userId becomes available
   useEffect(() => {
