@@ -1,101 +1,44 @@
-import { useEffect, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Icon, type IonIconName } from "@/components/ui/Icon";
-import { motion, LayoutGroup } from "motion/react";
+/**
+ * QuickAddDialog — "Add a meal" bottom sheet.
+ *
+ * Rewritten to be AI-first: snap photo as the hero, describe + voice as the
+ * secondary path, and a small "log manually →" corner link that swaps the
+ * sheet body to the manual sub-panel. The sheet's body is a state machine
+ * with six modes:
+ *
+ *   "ai-input"  → camera hero + describe + voice + "log manually" link
+ *   "caption"   → captured photo preview + optional caption textarea
+ *   "scanning"  → Apple-style scan overlay with corner brackets + scan line
+ *   "confirm"   → wizard "I think this is…" confirmation (fades in post-scan)
+ *   "macros"    → existing macro editor + ingredient list + Save
+ *   "manual"    → ManualLogPanel sub-panel
+ *
+ * All existing functionality is preserved — meal-time selection, photo
+ * capture, voice transcription, AI analysis, macro editing, Atwater
+ * cascade, save. Manual-form fields previously baked into this dialog now
+ * live in `ManualLogPanel` (built by a parallel agent).
+ */
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { ProGate } from "@/components/subscription/ProGate";
+import { Icon } from "@/components/ui/Icon";
 import { triggerHapticSelection } from "@/lib/haptics";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
+import { useKeyboardAware } from "@/hooks/useKeyboardAware";
 import { useScrollIntoViewOnFocus } from "@/hooks/useScrollIntoViewOnFocus";
-import { AICompactOverlay } from "@/components/AICompactOverlay";
-import { MealPhotoScanOverlay } from "@/components/nutrition/MealPhotoScanOverlay";
-import type { ManualMealForm } from "@/pages/nutrition/types";
-import { AiIngredientList, type AiIngredientItem } from "./AiIngredientList";
+import { MealTypeSelector, type MealType } from "./quickAdd/MealTypeSelector";
+import { SnapPhotoHero } from "./quickAdd/SnapPhotoHero";
+import { DescribeRow } from "./quickAdd/DescribeRow";
+import { CaptionStep } from "./quickAdd/CaptionStep";
+import { ScanOverlay } from "./quickAdd/ScanOverlay";
+import { WizardConfirmCard } from "./quickAdd/WizardConfirmCard";
+import { MacrosEditor } from "./quickAdd/MacrosEditor";
+import { ManualLogPanel } from "./quickAdd/ManualLogPanel";
+import type { QuickAddDialogProps } from "./quickAdd/types";
 
-interface MacroOverrides {
-  calories?: number;
-  protein_g?: number;
-  carbs_g?: number;
-  fats_g?: number;
-}
-
-interface AiMealShape {
-  aiMealDescription: string;
-  setAiMealDescription: React.Dispatch<React.SetStateAction<string>>;
-  aiAnalyzing: boolean;
-  aiLineItems: Array<{ name: string; quantity: string; calories: number; protein_g: number; carbs_g: number; fats_g: number; bbox?: { x: number; y: number; w: number; h: number } }>;
-  setAiLineItems: React.Dispatch<React.SetStateAction<any[]>>;
-  aiAnalysisComplete: boolean;
-  setAiAnalysisComplete: React.Dispatch<React.SetStateAction<boolean>>;
-  photoBase64: string | null;
-  setPhotoBase64: React.Dispatch<React.SetStateAction<string | null>>;
-  photoAnalyzing: boolean;
-  capturePhoto: () => Promise<string | null | undefined>;
-  handlePhotoAnalyze: () => void;
-  handleAiAnalyzeMeal: () => void;
-  handleSaveAiMeal: () => void;
-  overrideTotals: MacroOverrides;
-  setOverrideTotals: React.Dispatch<React.SetStateAction<MacroOverrides>>;
-  barcodeBaseMacros: any;
-  setBarcodeBaseMacros: React.Dispatch<React.SetStateAction<any>>;
-  servingMultiplier: number;
-  setServingMultiplier: React.Dispatch<React.SetStateAction<number>>;
-  newIngredient: { name: string; grams: string };
-  setNewIngredient: React.Dispatch<React.SetStateAction<{ name: string; grams: string }>>;
-  lookingUpIngredient: boolean;
-  setLookingUpIngredient: React.Dispatch<React.SetStateAction<boolean>>;
-  lookupIngredientNutrition: (name: string) => Promise<any>;
-  setManualNutritionDialog: React.Dispatch<React.SetStateAction<any>>;
-  ingredientLookupError: string | null;
-  setIngredientLookupError: React.Dispatch<React.SetStateAction<string | null>>;
-}
-
-interface AiTaskShape {
-  id: string;
-  label: string;
-  steps: any[];
-  startedAt: number;
-}
-
-interface QuickAddDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  quickAddTab: "ai" | "manual";
-  setQuickAddTab: (tab: "ai" | "manual") => void;
-  manualMeal: ManualMealForm;
-  setManualMeal: React.Dispatch<React.SetStateAction<ManualMealForm>>;
-  aiMeal: AiMealShape;
-  macroCalc: {
-    handleCalorieChange: (value: string, setter: React.Dispatch<React.SetStateAction<ManualMealForm>>) => void;
-  };
-  savingAllMeals: boolean;
-  /**
-   * Single-meal save lock. Disables both the manual "Add to log" CTA and the
-   * AI tab's "Done" button while a `createMealWithItems` mutation is in
-   * flight, so spam taps on slow networks can't fire multiple inserts.
-   * Server-side idempotency in the Convex mutation backs this up — if a tap
-   * does slip through (e.g. before the disabled state propagates), the
-   * duplicate collapses onto the first save's mealId server-side.
-   */
-  savingMeal: boolean;
-  onAddManualMeal: () => void;
-  aiTask: AiTaskShape | null;
-  onCancelAi: () => void;
-  onDismissTask: (id: string) => void;
-  onToast: (args: { title: string; description?: string; variant?: "default" | "destructive" }) => void;
-}
-
-const MEAL_TYPES = [
-  { value: "breakfast", label: "Breakfast" },
-  { value: "lunch", label: "Lunch" },
-  { value: "dinner", label: "Dinner" },
-  { value: "snack", label: "Snack" },
-] as const;
-
-const INPUT_CLASS =
-  "h-11 rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/30 text-[15px] text-foreground placeholder:text-muted-foreground/50 px-4 focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all";
+type SheetMode = "ai-input" | "caption" | "scanning" | "confirm" | "macros" | "manual";
 
 export function QuickAddDialog({
   open,
@@ -105,812 +48,480 @@ export function QuickAddDialog({
   manualMeal,
   setManualMeal,
   aiMeal,
-  macroCalc,
-  savingAllMeals,
   savingMeal,
-  onAddManualMeal,
+  // The following three props remain in the QuickAddDialog public API for
+  // backwards compatibility with NutritionPage's call site, but the
+  // AI-first rewrite no longer needs them here — manual logging is fully
+  // owned by ManualLogPanel which calls Convex actions directly.
+  onAddManualMeal: _onAddManualMeal,
+  savingAllMeals: _savingAllMeals,
+  macroCalc: _macroCalc,
   aiTask,
   onCancelAi,
   onDismissTask,
   onToast,
 }: QuickAddDialogProps) {
-  const [hasSeenAiPlaceholder, setHasSeenAiPlaceholder] = useState(() => {
-    try { return localStorage.getItem("wcw_ai_meal_placeholder_seen") === "1"; } catch { return false; }
-  });
-  // Which macro tile is currently in inline-edit mode (null when none).
-  // Lets the user tap a tile to override the AI's headline value — e.g.
-  // when they know the actual serving was bigger than the photo suggests.
-  const [editingMacro, setEditingMacro] = useState<null | "calories" | "protein_g" | "carbs_g" | "fats_g">(null);
-  const [editingDraft, setEditingDraft] = useState("");
-  useEffect(() => {
-    if (!aiMeal.aiAnalysisComplete) {
-      setEditingMacro(null);
-    }
-  }, [aiMeal.aiAnalysisComplete]);
-  useEffect(() => {
-    if (open && quickAddTab === "ai" && !hasSeenAiPlaceholder) {
-      setHasSeenAiPlaceholder(true);
-      try { localStorage.setItem("wcw_ai_meal_placeholder_seen", "1"); } catch { /* swallow */ }
-    }
-  }, [open, quickAddTab, hasSeenAiPlaceholder]);
+  // ── Mode state machine ─────────────────────────────────────────────
+  // The displayed mode is derived from the live AI flow state PLUS a UI
+  // override (the user tapping "log manually" or "not quite"). We compute
+  // a default mode and let local UI flags route around it.
+  const [manualOverride, setManualOverride] = useState<boolean>(quickAddTab === "manual");
+  const [confirmDismissed, setConfirmDismissed] = useState(false);
+  // When the user has just snapped a photo we route through the "caption"
+  // step instead of dropping them back into ai-input. Flag clears when the
+  // user proceeds to scanning, retakes back to ai-input, or the sheet closes.
+  const [pendingCaption, setPendingCaption] = useState(false);
 
+  // Keep the parent's quickAddTab in sync when the user toggles via the
+  // corner link or back link. Parent uses this for analytics + reset.
+  useEffect(() => {
+    if (manualOverride && quickAddTab !== "manual") setQuickAddTab("manual");
+    if (!manualOverride && quickAddTab !== "ai") setQuickAddTab("ai");
+  }, [manualOverride, quickAddTab, setQuickAddTab]);
+
+  // Parent-driven tab changes are seeded once at mount via the useState
+  // initializer above. We intentionally do NOT mirror `quickAddTab` back
+  // into `manualOverride` here — Effect 1 above already pushes the local
+  // override out to the parent, and a reverse-direction effect would race
+  // against the just-flipped local state. (Tapping "Use AI instead" used
+  // to flicker back to manual because the parent's `quickAddTab` prop was
+  // still "manual" on the same render the override flipped to false, so
+  // the parent→child sync effect re-set it to true.)
+
+  // Reset transient UI state whenever the sheet closes so the next open
+  // doesn't briefly flash a stale mode.
+  useEffect(() => {
+    if (!open) {
+      setManualOverride(false);
+      setConfirmDismissed(false);
+      setPendingCaption(false);
+    }
+  }, [open]);
+
+  // Reset confirm dismissal whenever a fresh analysis lands.
+  useEffect(() => {
+    if (aiMeal.aiAnalysisComplete && aiMeal.aiLineItems.length > 0) {
+      setConfirmDismissed(false);
+    }
+  }, [aiMeal.aiAnalysisComplete, aiMeal.aiLineItems.length]);
+
+  // ── Mode derivation ────────────────────────────────────────────────
+  const mode: SheetMode = useMemo(() => {
+    if (manualOverride) return "manual";
+    if (aiMeal.aiAnalyzing || aiMeal.photoAnalyzing) return "scanning";
+    if (
+      aiMeal.aiAnalysisComplete &&
+      aiMeal.aiLineItems.length > 0 &&
+      !confirmDismissed
+    ) {
+      return "confirm";
+    }
+    if (aiMeal.aiAnalysisComplete && aiMeal.aiLineItems.length > 0) {
+      return "macros";
+    }
+    // Fresh-captured photo waiting for an optional caption before scan.
+    if (pendingCaption && aiMeal.photoBase64) return "caption";
+    return "ai-input";
+  }, [
+    manualOverride,
+    aiMeal.aiAnalyzing,
+    aiMeal.photoAnalyzing,
+    aiMeal.aiAnalysisComplete,
+    aiMeal.aiLineItems.length,
+    confirmDismissed,
+    pendingCaption,
+    aiMeal.photoBase64,
+  ]);
+
+  // ── Voice + text input ────────────────────────────────────────────
   const handleInputFocus = useScrollIntoViewOnFocus();
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const { isListening, isSupported: voiceSupported, startListening, stopListening, interimText } = useSpeechRecognition({
-    onTranscript: (text: string) => aiMeal.setAiMealDescription((prev) => (prev ? prev + " " + text : text)),
-    onError: (error: string) => onToast({ title: "Voice Input", description: error, variant: "destructive" }),
+  const {
+    isListening,
+    isSupported: voiceSupported,
+    startListening,
+    stopListening,
+    interimText,
+  } = useSpeechRecognition({
+    onTranscript: (text: string) =>
+      aiMeal.setAiMealDescription((prev) => (prev ? prev + " " + text : text)),
+    onError: (error: string) =>
+      onToast({ title: "Voice Input", description: error, variant: "destructive" }),
   });
 
-  const summedAiCalories = aiMeal.aiLineItems.reduce((s, i) => s + i.calories, 0);
-  const summedAiProtein = aiMeal.aiLineItems.reduce((s, i) => s + i.protein_g, 0);
-  const summedAiCarbs = aiMeal.aiLineItems.reduce((s, i) => s + i.carbs_g, 0);
-  const summedAiFats = aiMeal.aiLineItems.reduce((s, i) => s + i.fats_g, 0);
-  // Displayed values respect any inline-edited override; raw sums feed
-  // the save flow only when the user hasn't overridden that macro.
-  const totalAiLineItemCalories = aiMeal.overrideTotals.calories ?? summedAiCalories;
-  const totalAiProtein = aiMeal.overrideTotals.protein_g ?? summedAiProtein;
-  const totalAiCarbs = aiMeal.overrideTotals.carbs_g ?? summedAiCarbs;
-  const totalAiFats = aiMeal.overrideTotals.fats_g ?? summedAiFats;
+  // ── Keyboard padding ──────────────────────────────────────────────
+  const { keyboardHeight } = useKeyboardAware();
 
-  const beginEditMacro = (
-    key: "calories" | "protein_g" | "carbs_g" | "fats_g",
-    currentValue: number,
-  ) => {
+  // ── Computed display values for the wizard confirm card ────────────
+  const detectedName = useMemo(() => {
+    if (manualMeal.meal_name?.trim()) return manualMeal.meal_name.trim();
+    if (aiMeal.aiLineItems.length > 0) {
+      const names = aiMeal.aiLineItems
+        .map((i) => i.name?.trim())
+        .filter((n): n is string => !!n);
+      if (names.length === 1) return names[0];
+      if (names.length === 2) return `${names[0]} & ${names[1]}`;
+      if (names.length > 2) return `${names[0]} + ${names.length - 1} more`;
+    }
+    return "";
+  }, [manualMeal.meal_name, aiMeal.aiLineItems]);
+
+  const detectedKcal = useMemo(
+    () =>
+      aiMeal.overrideTotals.calories ??
+      aiMeal.aiLineItems.reduce((s, i) => s + i.calories, 0),
+    [aiMeal.overrideTotals.calories, aiMeal.aiLineItems],
+  );
+  const detectedProtein = useMemo(
+    () =>
+      aiMeal.overrideTotals.protein_g ??
+      aiMeal.aiLineItems.reduce((s, i) => s + i.protein_g, 0),
+    [aiMeal.overrideTotals.protein_g, aiMeal.aiLineItems],
+  );
+
+  // ── Handlers ──────────────────────────────────────────────────────
+  const handleAnalyze = () => {
+    if (isListening) stopListening();
+    if (aiMeal.photoBase64) aiMeal.handlePhotoAnalyze();
+    else aiMeal.handleAiAnalyzeMeal();
+  };
+
+  const handleVoiceToggle = () => {
+    if (isListening) stopListening();
+    else startListening();
+  };
+
+  const handleManualSwap = () => {
     triggerHapticSelection();
-    setEditingMacro(key);
-    setEditingDraft(String(Math.round(currentValue)));
+    setManualOverride(true);
   };
-  const commitEditMacro = () => {
-    if (!editingMacro) return;
-    const trimmed = editingDraft.trim();
-    aiMeal.setOverrideTotals((prev) => {
-      const next = { ...prev };
-      if (trimmed === "") {
-        // Empty input clears just this macro's override; siblings stay.
-        delete next[editingMacro!];
-        return next;
-      }
-      const n = parseFloat(trimmed);
-      if (!Number.isFinite(n) || n < 0) return prev;
-      const rounded = Math.round(n * 10) / 10;
-      next[editingMacro!] = rounded;
 
-      // Keep calories and macros in lockstep using Atwater factors
-      // (protein 4, carbs 4, fat 9 kcal/g). Bumping a macro recomputes
-      // the calorie headline; bumping calories scales the macros
-      // proportionally so their Atwater sum lands on the new number.
-      const currentProtein = next.protein_g ?? summedAiProtein;
-      const currentCarbs = next.carbs_g ?? summedAiCarbs;
-      const currentFats = next.fats_g ?? summedAiFats;
+  const handleBackToAi = () => {
+    triggerHapticSelection();
+    setManualOverride(false);
+  };
 
-      if (editingMacro === "calories") {
-        const atwater = 4 * currentProtein + 4 * currentCarbs + 9 * currentFats;
-        if (atwater > 0) {
-          const ratio = rounded / atwater;
-          next.protein_g = Math.round(currentProtein * ratio * 10) / 10;
-          next.carbs_g = Math.round(currentCarbs * ratio * 10) / 10;
-          next.fats_g = Math.round(currentFats * ratio * 10) / 10;
-        }
-      } else {
-        next.calories = Math.round(4 * currentProtein + 4 * currentCarbs + 9 * currentFats);
-      }
-      return next;
+  const handleNotQuite = () => {
+    triggerHapticSelection();
+    // Reopen the describe input prefilled with the detected name so the
+    // user can correct it. Wipes the in-flight detection so the next
+    // "Analyze" tap fires a clean re-analysis.
+    aiMeal.setAiMealDescription(detectedName);
+    aiMeal.setAiAnalysisComplete(false);
+    aiMeal.setAiLineItems([]);
+    aiMeal.setOverrideTotals({});
+    setConfirmDismissed(false);
+    // Focus the input after the next render so the user lands ready to type.
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
     });
-    setEditingMacro(null);
-    setEditingDraft("");
   };
 
-  const handleAddIngredient = async () => {
-    if (!aiMeal.newIngredient.name.trim() || !aiMeal.newIngredient.grams) {
-      onToast({ title: "Missing Information", description: "Please enter ingredient name and grams", variant: "destructive" });
-      return;
-    }
-    const ingredientName = aiMeal.newIngredient.name.trim();
-    const grams = parseFloat(aiMeal.newIngredient.grams);
-    if (isNaN(grams) || grams <= 0) {
-      onToast({ title: "Invalid Amount", description: "Please enter a valid number of grams", variant: "destructive" });
-      return;
-    }
-    aiMeal.setLookingUpIngredient(true);
-    aiMeal.setIngredientLookupError(null);
-    try {
-      const nutritionData = await aiMeal.lookupIngredientNutrition(ingredientName);
-      if (nutritionData) {
-        const newIngredients = [
-          ...manualMeal.ingredients,
-          {
-            name: ingredientName,
-            grams,
-            calories_per_100g: nutritionData.calories_per_100g,
-            protein_per_100g: nutritionData.protein_per_100g,
-            carbs_per_100g: nutritionData.carbs_per_100g,
-            fats_per_100g: nutritionData.fats_per_100g,
-            source: nutritionData.source,
-          },
-        ];
-        const tc = newIngredients.reduce((s, i) => s + (i.calories_per_100g || 0) * i.grams / 100, 0);
-        const tp = newIngredients.reduce((s, i) => s + (i.protein_per_100g || 0) * i.grams / 100, 0);
-        const tcarb = newIngredients.reduce((s, i) => s + (i.carbs_per_100g || 0) * i.grams / 100, 0);
-        const tf = newIngredients.reduce((s, i) => s + (i.fats_per_100g || 0) * i.grams / 100, 0);
-        setManualMeal({
-          ...manualMeal,
-          ingredients: newIngredients,
-          calories: Math.round(tc).toString(),
-          protein_g: tp > 0 ? (Math.round(tp * 10) / 10).toString() : "",
-          carbs_g: tcarb > 0 ? (Math.round(tcarb * 10) / 10).toString() : "",
-          fats_g: tf > 0 ? (Math.round(tf * 10) / 10).toString() : "",
-        });
-        aiMeal.setNewIngredient({ name: "", grams: "" });
-      } else {
-        aiMeal.setManualNutritionDialog({
-          open: true,
-          ingredientName,
-          grams,
-          calories_per_100g: "",
-          protein_per_100g: "",
-          carbs_per_100g: "",
-          fats_per_100g: "",
-        });
-      }
-    } catch {
-      aiMeal.setManualNutritionDialog({
-        open: true,
-        ingredientName,
-        grams,
-        calories_per_100g: "",
-        protein_per_100g: "",
-        carbs_per_100g: "",
-        fats_per_100g: "",
-      });
-    } finally {
-      aiMeal.setLookingUpIngredient(false);
-    }
+  const handleLooksRight = () => {
+    triggerHapticSelection();
+    setConfirmDismissed(true);
   };
 
-  const handleBarcodeServingSet = (next: number, grams?: number) => {
-    const base = aiMeal.barcodeBaseMacros!;
-    aiMeal.setServingMultiplier(next);
-    const gramTotal = grams ?? Math.round(next * base.serving_weight_g);
-    setManualMeal((prev) => ({
-      ...prev,
-      calories: Math.round(base.calories * next).toString(),
-      protein_g: (Math.round(base.protein_g * next * 10) / 10).toString(),
-      carbs_g: (Math.round(base.carbs_g * next * 10) / 10).toString(),
-      fats_g: (Math.round(base.fats_g * next * 10) / 10).toString(),
-      portion_size: `${gramTotal}g`,
-    }));
-  };
+  const canAnalyze = !aiMeal.aiAnalyzing && (
+    !!aiMeal.photoBase64 || aiMeal.aiMealDescription.trim().length > 0
+  );
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className={`!left-3 !translate-x-0 w-[calc(100vw-1.5rem)] max-w-[420px] max-h-[calc(100vh-var(--keyboard-inset,0px)-4rem)] overflow-y-auto overflow-x-hidden rounded-[28px] p-0 border-0 bg-card/95 backdrop-blur-xl gap-0 grid-cols-[minmax(0,1fr)] ${aiTask ? "[&>button]:hidden" : ""}`}
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="bottom"
+        hideClose
+        className="p-0 max-h-[92vh] flex flex-col"
+        style={{
+          paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${keyboardHeight}px)`,
+        }}
       >
-        {aiTask && (
-          aiMeal.photoAnalyzing && aiMeal.photoBase64 ? (
-            <MealPhotoScanOverlay
-              isOpen={true}
-              isGenerating={true}
-              photoBase64={aiMeal.photoBase64}
-              steps={aiTask.steps}
-              startedAt={aiTask.startedAt}
-              title={aiTask.label}
-              lineItems={aiMeal.aiLineItems}
-              onCancel={() => { onCancelAi(); onDismissTask(aiTask.id); }}
-            />
-          ) : (
-            <AICompactOverlay
-              isOpen={true}
-              isGenerating={true}
-              steps={aiTask.steps}
-              startedAt={aiTask.startedAt}
-              title={aiTask.label}
-              onCancel={() => { onCancelAi(); onDismissTask(aiTask.id); }}
-            />
-          )
-        )}
+        <VisuallyHidden>
+          <SheetTitle>Add a meal</SheetTitle>
+        </VisuallyHidden>
 
-        {/* ── Header ─────────────────────────────────────────────── */}
-        <div className="px-5 pt-5 pb-3">
-          <DialogHeader>
-            <DialogTitle className="text-[17px] font-semibold tracking-tight text-center">
-              Add a meal
-            </DialogTitle>
-          </DialogHeader>
+        {/* ── Drag handle ──────────────────────────────────────────── */}
+        <div className="flex justify-center pt-2 pb-1 shrink-0">
+          <div
+            className="w-10 h-1 rounded-full bg-muted-foreground/25"
+            aria-hidden
+          />
         </div>
 
-        {/* ── Mode segmented pill (AI / Manual) ──────────────────── */}
-        <div className="px-5">
-          <LayoutGroup id="add-meal-tab">
-            <div role="tablist" className="relative flex bg-muted/40 dark:bg-white/[0.06] rounded-xs p-1 border border-border/30">
-              {(["ai", "manual"] as const).map((tab) => {
-                const active = quickAddTab === tab;
-                return (
-                  <button
-                    key={tab}
-                    type="button"
-                    role="tab"
-                    aria-selected={active}
-                    onClick={() => { if (!active) { setQuickAddTab(tab); triggerHapticSelection(); } }}
-                    className="relative flex-1 h-10 rounded-xs text-[14px] font-semibold active:scale-[0.98] transition-transform"
-                  >
-                    {active && (
-                      <motion.div
-                        layoutId="add-meal-tab-pill"
-                        className="absolute inset-0 rounded-xs bg-background ring-1 ring-border/30"
-                        transition={{ type: "spring", damping: 28, stiffness: 380 }}
-                      />
-                    )}
-                    <motion.span
-                      className="relative z-10 inline-flex items-center gap-1.5"
-                      animate={{ color: active ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))" }}
-                      transition={{ duration: 0.18 }}
-                    >
-                      {tab === "ai" ? (
-                        <motion.span
-                          animate={active ? { scale: [1, 1.18, 1], rotate: [0, 8, 0] } : { scale: 1, rotate: 0 }}
-                          transition={active ? { duration: 2.4, ease: "easeInOut", repeat: Infinity } : { duration: 0.18 }}
-                          className="inline-flex"
-                        >
-                          <Icon name="sparklesOutline" size={14} />
-                        </motion.span>
-                      ) : (
-                        <Icon name="createOutline" size={14} />
-                      )}
-                      {tab === "ai" ? "AI" : "Manual"}
-                    </motion.span>
-                  </button>
-                );
-              })}
-            </div>
-          </LayoutGroup>
+        {/* ── Header ───────────────────────────────────────────────── */}
+        <div className="flex items-center justify-between px-5 pt-1 pb-3 shrink-0">
+          <h2 className="text-[19px] font-bold tracking-tight text-foreground">
+            Add a meal
+          </h2>
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            aria-label="Close"
+            className="h-9 w-9 -mr-1 rounded-full bg-muted/40 flex items-center justify-center text-muted-foreground active:bg-muted/60 transition-colors"
+          >
+            <Icon name="closeOutline" size={16} />
+          </button>
         </div>
 
-        {/* ── Meal-type chooser (small chip row) ─────────────────── */}
-        {/* Hidden in the AI tab once analysis completes — the result panel
-            shows its own meal-type cap and the compose chrome would be
-            redundant clutter behind the macro card. */}
-        {!(quickAddTab === "ai" && aiMeal.aiAnalysisComplete && aiMeal.aiLineItems.length > 0) && (
-          <div className="px-5 pt-3">
-            <p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/60 mb-1.5">
-              Log to
-            </p>
-            <div className="grid grid-cols-4 gap-1.5">
-              {MEAL_TYPES.map((t, i) => {
-                const active = manualMeal.meal_type === t.value;
-                return (
-                  <motion.button
-                    key={t.value}
-                    type="button"
-                    onClick={() => setManualMeal((prev) => ({ ...prev, meal_type: t.value }))}
-                    aria-pressed={active}
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.04, duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
-                    className={`h-8 rounded-xs text-[12px] font-semibold transition-colors ${
-                      active
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted/40 text-muted-foreground/80 active:bg-muted/60"
-                    }`}
-                  >
-                    {t.label}
-                  </motion.button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ── AI tab ─────────────────────────────────────────────── */}
-        {quickAddTab === "ai" && (
-          <div className="px-5 pt-4 pb-5 space-y-3">
-            {/* Primary photo CTA — promoted to a full-width hero with a
-                glow border + gradient wash so the photo-first flow feels
-                like the headline AI feature. "Describe" stays available
-                as a smaller secondary affordance below. */}
-            {!aiMeal.photoBase64 && !aiMeal.aiAnalysisComplete && (
-              <div className="space-y-2">
-                <motion.button
-                  type="button"
-                  onClick={async () => { triggerHapticSelection(); await aiMeal.capturePhoto(); }}
-                  disabled={aiMeal.aiAnalyzing}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.05, duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
-                  className="relative w-full min-h-[112px] py-3 rounded-xs card-surface card-glow flex flex-col items-center justify-center gap-2 overflow-hidden active:scale-[0.98] transition-transform disabled:opacity-40"
-                >
-                  <div
-                    aria-hidden
-                    className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.14] via-primary/[0.05] to-transparent"
-                  />
-                  <motion.span
-                    aria-hidden
-                    animate={{ scale: [1, 1.08, 1] }}
-                    transition={{ duration: 2.6, ease: "easeInOut", repeat: Infinity }}
-                    className="relative inline-flex text-primary"
-                  >
-                    <Icon name="cameraOutline" size={28} />
-                  </motion.span>
-                  <div className="relative text-center">
-                    <p className="text-[15px] font-semibold text-foreground leading-tight">Snap a photo</p>
-                    <p className="text-[11px] text-muted-foreground/70 leading-snug mt-0.5">
-                      Our AI reads the plate
-                    </p>
-                  </div>
-                </motion.button>
-                <motion.button
-                  type="button"
-                  onClick={() => { triggerHapticSelection(); const ta = document.querySelector<HTMLTextAreaElement>("#ai-meal-description"); if (ta) ta.focus(); }}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.12, duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
-                  className="w-full h-11 rounded-xs bg-muted/40 flex items-center justify-center gap-2 active:scale-[0.98] active:bg-muted/55 transition-all text-muted-foreground"
-                >
-                  <Icon name="createOutline" size={14} />
-                  <span className="text-[13px] font-semibold text-foreground/85">Describe instead</span>
-                </motion.button>
-              </div>
-            )}
-
-            {/* Photo preview — hero card. Suppressed while the scan overlay
-                is active, otherwise the same image renders twice on screen
-                (the overlay holds an animated copy with corner brackets).
-                Returns automatically once `photoAnalyzing` flips back to
-                false so the user has a static thumbnail post-scan. */}
-            {aiMeal.photoBase64 && !aiMeal.photoAnalyzing && !aiMeal.aiAnalysisComplete && (
-              <div className="relative rounded-xs overflow-hidden">
-                <img
-                  src={`data:image/jpeg;base64,${aiMeal.photoBase64}`}
-                  alt="Meal"
-                  className="w-full h-44 object-cover"
-                />
-                <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/40 via-transparent to-transparent" />
-                <button
-                  type="button"
-                  onClick={() => aiMeal.setPhotoBase64(null)}
-                  className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/55 flex items-center justify-center backdrop-blur active:scale-95 transition-transform"
-                >
-                  <Icon name="closeOutline" size={14} className="text-white" />
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => { await aiMeal.capturePhoto(); }}
-                  disabled={aiMeal.aiAnalyzing}
-                  className="absolute bottom-2 right-2 h-8 px-2.5 rounded-full bg-black/55 flex items-center gap-1 backdrop-blur text-white text-[11px] font-semibold active:scale-95 transition-transform"
-                >
-                  <Icon name="cameraOutline" size={12} /> Retake
-                </button>
-              </div>
-            )}
-
-            {/* Describe + analyze cluster — hidden once analysis lands so
-                the result panel becomes the sole focus of the dialog. */}
-            {!aiMeal.aiAnalysisComplete && (
-              <>
-            {/* Describe textarea */}
-            <Textarea
-              id="ai-meal-description"
-              placeholder={
-                isListening
-                  ? "Listening…"
-                  : aiMeal.photoBase64
-                  ? "Add details (optional) — e.g. 1 cup brown rice"
-                  : hasSeenAiPlaceholder
-                  ? "What did you eat?"
-                  : "e.g. bread with nutella, banana"
-              }
-              value={aiMeal.aiMealDescription}
-              onChange={(e) => aiMeal.setAiMealDescription(e.target.value)}
-              disabled={aiMeal.aiAnalyzing}
-              className={`text-[15px] min-h-[88px] resize-none rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/30 py-3 px-4 placeholder:text-muted-foreground/50 ${isListening ? "ring-2 ring-func-danger-red/40" : ""}`}
-              rows={3}
-              onFocus={handleInputFocus}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey && !aiMeal.aiAnalyzing) {
-                  e.preventDefault();
-                  if (aiMeal.photoBase64) aiMeal.handlePhotoAnalyze();
-                  else aiMeal.handleAiAnalyzeMeal();
-                }
-              }}
-            />
-            {isListening && interimText && (
-              <p className="text-[12px] text-muted-foreground/70 italic px-1">{interimText}</p>
-            )}
-
-            {/* Voice + analyze button */}
-            <div className="flex gap-2">
-              {voiceSupported && (
-                <button
-                  type="button"
-                  onClick={() => { triggerHapticSelection(); if (isListening) stopListening(); else startListening(); }}
-                  disabled={aiMeal.aiAnalyzing}
-                  className={`flex items-center justify-center gap-1.5 px-3.5 h-12 rounded-xs text-[14px] font-semibold transition-all ${
-                    isListening
-                      ? "bg-func-danger-red/15 text-func-danger-red animate-pulse"
-                      : "bg-muted/40 text-muted-foreground active:bg-muted/60"
-                  }`}
-                >
-                  <Icon name={isListening ? "micOffOutline" : "micOutline"} size={16} />
-                  {isListening ? "Stop" : "Voice"}
-                </button>
-              )}
-              <ProGate feature="AI_MEAL_ANALYSIS" className="flex-1">
-                <Button
-                  type="button"
-                  onClick={() => {
-                    if (isListening) stopListening();
-                    if (aiMeal.photoBase64) aiMeal.handlePhotoAnalyze();
-                    else aiMeal.handleAiAnalyzeMeal();
-                  }}
-                  disabled={aiMeal.aiAnalyzing || (!aiMeal.photoBase64 && !aiMeal.aiMealDescription.trim())}
-                  className="w-full h-12 rounded-xs text-[15px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40"
-                >
-                  {aiMeal.aiAnalyzing ? (
-                    <span className="inline-flex items-center gap-2">
-                      <Icon name="syncOutline" size={16} className="animate-spin" />
-                      Analyzing…
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5">
-                      <Icon name="sparklesOutline" size={16} />
-                      {aiMeal.photoBase64 ? "Analyze photo" : "Analyze"}
-                    </span>
-                  )}
-                </Button>
-              </ProGate>
-            </div>
-              </>
-            )}
-
-            {/* AI result — photo + macro card + editable food list */}
-            {aiMeal.aiAnalysisComplete && aiMeal.aiLineItems.length > 0 && (
-              <div className="space-y-3 animate-fade-in pt-1">
-                {/* Photo renders clean — detected foods live in the
-                    editable list below so the image isn't overdrawn. */}
-                {aiMeal.photoBase64 && (
-                  <div className="relative w-full rounded-xs overflow-hidden">
-                    <img
-                      src={`data:image/jpeg;base64,${aiMeal.photoBase64}`}
-                      alt="Meal"
-                      className="block w-full h-44 object-cover"
-                    />
-                    <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/25 via-transparent to-transparent" />
-                  </div>
-                )}
-
-                {/* Meal-type chip row + AI-generated name (editable) */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-center gap-1.5">
-                    {MEAL_TYPES.map((t) => {
-                      const active = manualMeal.meal_type === t.value;
-                      return (
-                        <button
-                          key={t.value}
-                          type="button"
-                          onClick={() => {
-                            triggerHapticSelection();
-                            setManualMeal((prev) => ({ ...prev, meal_type: t.value }));
-                          }}
-                          aria-pressed={active}
-                          className={`h-7 px-3 rounded-full text-[11px] font-semibold tracking-tight transition-colors ${
-                            active
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-muted/40 text-muted-foreground/80 active:bg-muted/60"
-                          }`}
-                        >
-                          {t.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <Input
-                    value={manualMeal.meal_name}
-                    onChange={(e) => setManualMeal((prev) => ({ ...prev, meal_name: e.target.value }))}
-                    placeholder="Name this meal"
-                    onFocus={handleInputFocus}
-                    className="h-12 rounded-xs bg-transparent border-0 text-[18px] font-semibold tracking-tight text-foreground placeholder:text-muted-foreground/40 px-0 focus-visible:ring-0"
-                  />
-                </div>
-
-                {/* 2×2 macro grid — each card carries its own macro tint
-                    (orange for calories+carbs, blue for protein, purple for
-                    fats) so the cards are visible without a uniform blue
-                    wash. Icons render flat against the card surface (no
-                    circular backdrop) and use solid Ionicons so they read
-                    clearly at 16-18px. Inline-edit + Atwater cascade unchanged. */}
-                <div className="grid grid-cols-2 gap-2">
-                  {([
-                    { key: "calories" as const, label: "Calories", value: Math.round(totalAiLineItemCalories), unit: "",  iconName: "flame" as IonIconName,    color: "rgb(var(--func-carbs-orange))" },
-                    { key: "carbs_g" as const,  label: "Carbs",    value: Math.round(totalAiCarbs),           unit: "g", iconName: "pizza" as IonIconName,    color: "rgb(var(--func-carbs-orange))" },
-                    { key: "protein_g" as const,label: "Protein",  value: Math.round(totalAiProtein),         unit: "g", iconName: "fish" as IonIconName,     color: "rgb(var(--func-protein-blue))" },
-                    { key: "fats_g" as const,   label: "Fats",     value: Math.round(totalAiFats),            unit: "g", iconName: "water" as IonIconName,    color: "rgb(var(--func-fats-purple))"  },
-                  ]).map((m) => {
-                    const isEditing = editingMacro === m.key;
-                    const isOverridden = aiMeal.overrideTotals[m.key] !== undefined;
-                    return (
-                      <div
-                        key={m.label}
-                        className={`card-surface relative rounded-xs px-3 py-3 flex items-center gap-2.5 text-left transition-transform ${
-                          isEditing ? "ring-2 ring-primary/40" : "active:scale-[0.98]"
-                        }`}
-                        onClick={() => { if (!isEditing) beginEditMacro(m.key, m.value); }}
-                        role="button"
-                        tabIndex={0}
-                      >
-                        <span className="flex-shrink-0 inline-flex" style={{ color: m.color }}>
-                          <Icon name={m.iconName} size={20} />
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-semibold text-muted-foreground/70 leading-none">
-                            {m.label}
-                            {isOverridden && !isEditing && (
-                              <span className="ml-1 text-foreground/70">·&nbsp;edited</span>
-                            )}
-                          </p>
-                          {isEditing ? (
-                            <input
-                              autoFocus
-                              type="number"
-                              inputMode="decimal"
-                              value={editingDraft}
-                              onChange={(e) => setEditingDraft(e.target.value)}
-                              onBlur={commitEditMacro}
-                              onFocus={handleInputFocus}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") { e.preventDefault(); (e.currentTarget as HTMLInputElement).blur(); }
-                                if (e.key === "Escape") { setEditingMacro(null); setEditingDraft(""); }
-                              }}
-                              onClick={(e) => e.stopPropagation()}
-                              className="w-full bg-transparent border-0 outline-none text-[15px] font-bold tabular-nums leading-none mt-1 p-0 focus:ring-0"
-                              aria-label={`Edit ${m.label}`}
-                            />
-                          ) : (
-                            <p className="text-[15px] font-bold tabular-nums text-foreground leading-none mt-1">
-                              {m.value}<span className="text-[11px] font-semibold text-muted-foreground/60">{m.unit}</span>
-                            </p>
-                          )}
-                        </div>
-                        <Icon
-                          name="pencilOutline"
-                          size={11}
-                          className="flex-shrink-0 text-muted-foreground/40"
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Editable detected-foods list — always visible.
-                    Mutating any row recomputes the macro totals above and
-                    clears any stale tile overrides so the headline
-                    numbers stay truthful to the (now user-edited) list. */}
-                <AiIngredientList
-                  items={aiMeal.aiLineItems as AiIngredientItem[]}
-                  onChange={(next) => {
-                    aiMeal.setAiLineItems(next);
-                    aiMeal.setOverrideTotals({});
-                  }}
-                />
-
-                {/* Save action */}
-                <button
-                  onClick={aiMeal.handleSaveAiMeal}
-                  disabled={aiMeal.aiLineItems.length === 0 || savingMeal}
-                  className="w-full h-12 rounded-xs text-[15px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40"
-                >
-                  {savingMeal ? (
-                    <span className="inline-flex items-center gap-2">
-                      <Icon name="syncOutline" size={16} className="animate-spin" />
-                      Adding…
-                    </span>
-                  ) : (
-                    "Save meal"
-                  )}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── Manual tab ─────────────────────────────────────────── */}
-        {quickAddTab === "manual" && (
-          <div className="px-5 pt-4 pb-5 space-y-2.5">
-            <Input
-              placeholder="Meal name"
-              value={manualMeal.meal_name}
-              onChange={(e) => setManualMeal({ ...manualMeal, meal_name: e.target.value })}
-              onFocus={handleInputFocus}
-              className={INPUT_CLASS}
-              autoFocus
-            />
-
-            {aiMeal.barcodeBaseMacros && (
-              <div className="rounded-xs bg-muted/30 p-3.5 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/60">Serving</p>
-                  <span className="text-[12px] text-muted-foreground/80 font-medium">{aiMeal.barcodeBaseMacros.serving_size}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[14px] text-foreground/85 flex-1">Amount</span>
-                  <div className="flex items-center gap-1">
-                    <Input
-                      type="number"
-                      min="1"
-                      step="1"
-                      value={Math.round(aiMeal.servingMultiplier * aiMeal.barcodeBaseMacros.serving_weight_g)}
-                      onChange={(e) => {
-                        const grams = parseFloat(e.target.value);
-                        if (!isNaN(grams) && grams > 0) {
-                          const m = grams / aiMeal.barcodeBaseMacros!.serving_weight_g;
-                          handleBarcodeServingSet(Math.round(m * 10) / 10, Math.round(grams));
-                        }
-                      }}
-                      onFocus={handleInputFocus}
-                      className="w-16 text-[14px] text-right h-9 rounded-xs"
-                    />
-                    <span className="text-[14px] text-muted-foreground">g</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[14px] text-foreground/85 flex-1">Servings</span>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => handleBarcodeServingSet(Math.max(0.5, Math.round((aiMeal.servingMultiplier - 0.5) * 10) / 10))}
-                      disabled={aiMeal.servingMultiplier <= 0.5}
-                      className="h-7 w-7 rounded-full bg-muted/60 flex items-center justify-center text-[16px] font-medium active:bg-muted/80 transition-colors disabled:opacity-40"
-                    >
-                      −
-                    </button>
-                    <span className="text-[14px] font-bold w-9 text-center tabular-nums">
-                      {aiMeal.servingMultiplier}×
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleBarcodeServingSet(Math.min(10, Math.round((aiMeal.servingMultiplier + 0.5) * 10) / 10))}
-                      className="h-7 w-7 rounded-full bg-muted/60 flex items-center justify-center text-[14px] font-medium active:bg-muted/80 transition-colors"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 pt-2 border-t border-border/20 text-[13px]">
-                  <span className="font-bold text-primary">{manualMeal.calories} kcal</span>
-                  <span className="text-blue-500">{manualMeal.protein_g}P</span>
-                  <span className="text-func-carbs-orange">{manualMeal.carbs_g}C</span>
-                  <span className="text-func-fats-purple">{manualMeal.fats_g}F</span>
-                </div>
-              </div>
-            )}
-
-            <Input
-              type="number"
-              inputMode="numeric"
-              placeholder="Calories"
-              value={manualMeal.calories}
-              onChange={(e) => macroCalc.handleCalorieChange(e.target.value, setManualMeal)}
-              onFocus={handleInputFocus}
-              className={INPUT_CLASS}
-            />
-
-            <div className="grid grid-cols-3 gap-2">
-              <Input
-                type="number"
-                inputMode="decimal"
-                step="0.1"
-                placeholder="Protein"
-                value={manualMeal.protein_g}
-                onChange={(e) => setManualMeal({ ...manualMeal, protein_g: e.target.value })}
-                onFocus={handleInputFocus}
-                className={INPUT_CLASS}
-              />
-              <Input
-                type="number"
-                inputMode="decimal"
-                step="0.1"
-                placeholder="Carbs"
-                value={manualMeal.carbs_g}
-                onChange={(e) => setManualMeal({ ...manualMeal, carbs_g: e.target.value })}
-                onFocus={handleInputFocus}
-                className={INPUT_CLASS}
-              />
-              <Input
-                type="number"
-                inputMode="decimal"
-                step="0.1"
-                placeholder="Fats"
-                value={manualMeal.fats_g}
-                onChange={(e) => setManualMeal({ ...manualMeal, fats_g: e.target.value })}
-                onFocus={handleInputFocus}
-                className={INPUT_CLASS}
-              />
-            </div>
-
-            <p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/60 pt-1">
-              Ingredients (optional)
-            </p>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Ingredient"
-                value={aiMeal.newIngredient.name}
-                onChange={(e) => aiMeal.setNewIngredient({ ...aiMeal.newIngredient, name: e.target.value })}
-                onFocus={handleInputFocus}
-                className={`${INPUT_CLASS} flex-1`}
-              />
-              <Input
-                type="number"
-                inputMode="numeric"
-                placeholder="g"
-                value={aiMeal.newIngredient.grams}
-                onChange={(e) => aiMeal.setNewIngredient({ ...aiMeal.newIngredient, grams: e.target.value })}
-                onFocus={handleInputFocus}
-                className={`${INPUT_CLASS} w-16 px-2 text-center`}
-              />
-              <Button
-                type="button"
-                onClick={handleAddIngredient}
-                disabled={aiMeal.lookingUpIngredient || !aiMeal.newIngredient.name.trim() || !aiMeal.newIngredient.grams}
-                className="shrink-0 h-11 w-11 rounded-xs bg-primary/15 hover:bg-primary/25 text-primary p-0"
+        {/* ── Body ─────────────────────────────────────────────────── */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+          <AnimatePresence mode="wait">
+            {mode === "ai-input" && (
+              <motion.div
+                key="ai-input"
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.2 }}
+                className="px-5 pt-1 pb-5 space-y-4"
               >
-                {aiMeal.lookingUpIngredient ? <Icon name="syncOutline" size={16} className="animate-spin" /> : <Icon name="addOutline" size={16} />}
-              </Button>
-            </div>
-            {aiMeal.ingredientLookupError && (
-              <p className="text-[12px] text-destructive">{aiMeal.ingredientLookupError}</p>
-            )}
-            {manualMeal.ingredients.length > 0 && (
-              <div className="rounded-xs bg-muted/30 divide-y divide-border/15 overflow-hidden">
-                {manualMeal.ingredients.map((ingredient, idx) => {
-                  const cal = ingredient.calories_per_100g !== undefined
-                    ? Math.round(ingredient.calories_per_100g * ingredient.grams / 100)
-                    : null;
-                  return (
-                    <div key={idx} className="flex items-center gap-2 px-3 py-2 text-[13px]">
-                      <span className="flex-1 truncate text-foreground">{ingredient.name}</span>
-                      <span className="text-muted-foreground/70 shrink-0 tabular-nums">{ingredient.grams}g</span>
-                      {cal !== null && (
-                        <span className="text-muted-foreground/70 shrink-0 tabular-nums">{cal}kcal</span>
-                      )}
-                      <button
-                        type="button"
-                        className="h-6 w-6 shrink-0 flex items-center justify-center rounded-full text-muted-foreground active:text-destructive"
-                        onClick={() => {
-                          const updated = [...manualMeal.ingredients];
-                          updated.splice(idx, 1);
-                          setManualMeal({ ...manualMeal, ingredients: updated });
-                        }}
-                      >
-                        <Icon name="closeOutline" size={12} />
-                      </button>
-                    </div>
-                  );
-                })}
-                {manualMeal.ingredients.some((ing) => ing.calories_per_100g !== undefined) && (
-                  <div className="flex justify-between px-3 py-1.5 text-[12px] text-muted-foreground bg-muted/40">
-                    <span>Total</span>
-                    <span className="tabular-nums">{manualMeal.ingredients.reduce((s, i) => s + i.grams, 0)}g</span>
-                  </div>
+                <MealTypeSelector
+                  value={manualMeal.meal_type}
+                  onChange={(v: MealType) =>
+                    setManualMeal((prev) => ({ ...prev, meal_type: v }))
+                  }
+                />
+
+                {/* If the user has a photo already captured, render it as a
+                    preview with retake/remove controls; otherwise show the
+                    full Snap-photo hero tile. */}
+                {aiMeal.photoBase64 ? (
+                  <PhotoPreview
+                    photoBase64={aiMeal.photoBase64}
+                    onClear={() => aiMeal.setPhotoBase64(null)}
+                    onRetake={async () => {
+                      const result = await aiMeal.capturePhoto();
+                      if (result) setPendingCaption(true);
+                    }}
+                    disabled={aiMeal.aiAnalyzing}
+                  />
+                ) : (
+                  <SnapPhotoHero
+                    onTap={async () => {
+                      const result = await aiMeal.capturePhoto();
+                      if (result) setPendingCaption(true);
+                    }}
+                    disabled={aiMeal.aiAnalyzing}
+                  />
                 )}
-              </div>
+
+                <DescribeRow
+                  ref={inputRef}
+                  value={aiMeal.aiMealDescription}
+                  onChange={aiMeal.setAiMealDescription}
+                  onSubmit={handleAnalyze}
+                  disabled={aiMeal.aiAnalyzing}
+                  voiceSupported={voiceSupported}
+                  isListening={isListening}
+                  interimText={interimText}
+                  onMicTap={handleVoiceToggle}
+                  onFocus={handleInputFocus}
+                  placeholder={
+                    aiMeal.photoBase64
+                      ? "Add details (optional) — e.g. 1 cup brown rice"
+                      : "What did you eat?"
+                  }
+                />
+
+                <ProGate feature="AI_MEAL_ANALYSIS">
+                  <button
+                    type="button"
+                    onClick={handleAnalyze}
+                    disabled={!canAnalyze}
+                    className="w-full h-12 rounded-2xl text-[15px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40"
+                  >
+                    {aiMeal.aiAnalyzing ? (
+                      <span className="inline-flex items-center gap-2">
+                        <Icon name="syncOutline" size={16} className="animate-spin" />
+                        Analyzing…
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5">
+                        Analyze
+                        <Icon name="arrowForwardOutline" size={16} />
+                      </span>
+                    )}
+                  </button>
+                </ProGate>
+
+                {/* Small "Or log manually →" link. Mid-bottom, low-emphasis
+                    so it doesn't compete with Analyze. */}
+                <div className="flex justify-center pt-1">
+                  <button
+                    type="button"
+                    onClick={handleManualSwap}
+                    className="inline-flex items-center gap-1 text-[12px] font-semibold text-primary/80 active:text-primary px-2 py-1 rounded-md transition-colors"
+                  >
+                    Or log manually
+                    <Icon name="arrowForwardOutline" size={11} />
+                  </button>
+                </div>
+              </motion.div>
             )}
 
-            <button
-              onClick={onAddManualMeal}
-              disabled={savingAllMeals || savingMeal}
-              className="w-full h-12 mt-1 rounded-xs text-[15px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40"
-            >
-              {savingAllMeals || savingMeal ? (
-                <span className="inline-flex items-center gap-2">
-                  <Icon name="syncOutline" size={16} className="animate-spin" />
-                  Adding…
-                </span>
-              ) : (
-                "Add to log"
-              )}
-            </button>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
+            {mode === "caption" && aiMeal.photoBase64 && (
+              <CaptionStep
+                key="caption"
+                imageBase64={aiMeal.photoBase64}
+                imagePreviewUrl={`data:image/jpeg;base64,${aiMeal.photoBase64}`}
+                description={aiMeal.aiMealDescription}
+                onDescriptionChange={aiMeal.setAiMealDescription}
+                onAnalyze={(description) => {
+                  // Caption value is already mirrored into aiMealDescription via
+                  // onDescriptionChange — handlePhotoAnalyze reads from there.
+                  // Setting it again here is defensive (covers any race where the
+                  // textarea's last keystroke hasn't flushed yet).
+                  aiMeal.setAiMealDescription(description);
+                  setPendingCaption(false);
+                  aiMeal.handlePhotoAnalyze();
+                }}
+                onRetake={async () => {
+                  // Drop the current photo and re-fire the camera. If the user
+                  // cancels the second capture we land back in ai-input.
+                  aiMeal.setPhotoBase64(null);
+                  setPendingCaption(false);
+                  const result = await aiMeal.capturePhoto();
+                  if (result) setPendingCaption(true);
+                }}
+                onToast={onToast}
+              />
+            )}
+
+            {mode === "scanning" && (
+              <motion.div
+                key="scanning"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18 }}
+                className="px-5 pt-1 pb-5 space-y-4"
+              >
+                <ScanOverlay photoBase64={aiMeal.photoBase64} />
+                {aiTask && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onCancelAi();
+                      onDismissTask(aiTask.id);
+                    }}
+                    className="w-full h-11 rounded-2xl bg-muted/40 text-muted-foreground text-[13px] font-semibold active:bg-muted/60 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </motion.div>
+            )}
+
+            {mode === "confirm" && (
+              <motion.div
+                key="confirm"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.22 }}
+                className="px-5 pt-1 pb-5"
+              >
+                <WizardConfirmCard
+                  detectedName={detectedName}
+                  kcal={detectedKcal}
+                  proteinG={detectedProtein}
+                  onConfirm={handleLooksRight}
+                  onReject={handleNotQuite}
+                />
+              </motion.div>
+            )}
+
+            {mode === "macros" && (
+              <motion.div
+                key="macros"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.22 }}
+                className="px-5 pt-1 pb-5"
+              >
+                <MacrosEditor
+                  manualMeal={manualMeal}
+                  setManualMeal={setManualMeal}
+                  aiLineItems={aiMeal.aiLineItems}
+                  setAiLineItems={aiMeal.setAiLineItems}
+                  overrideTotals={aiMeal.overrideTotals}
+                  setOverrideTotals={aiMeal.setOverrideTotals}
+                  photoBase64={aiMeal.photoBase64}
+                  savingMeal={savingMeal}
+                  onSave={aiMeal.handleSaveAiMeal}
+                />
+              </motion.div>
+            )}
+
+            {mode === "manual" && (
+              <motion.div
+                key="manual"
+                initial={{ opacity: 0, x: 8 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -8 }}
+                transition={{ duration: 0.22 }}
+              >
+                <ManualLogPanel
+                  mealTime={(manualMeal.meal_type as MealType) ?? "breakfast"}
+                  onClose={() => onOpenChange(false)}
+                  onBackToAi={handleBackToAi}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
+
+// ── PhotoPreview ─────────────────────────────────────────────────────
+// Used in the ai-input mode when the user already snapped a photo but
+// hasn't analyzed yet. Provides retake + clear controls.
+function PhotoPreview({
+  photoBase64,
+  onClear,
+  onRetake,
+  disabled,
+}: {
+  photoBase64: string;
+  onClear: () => void;
+  onRetake: () => void | Promise<void>;
+  disabled?: boolean;
+}) {
+  const prefersReduced = useReducedMotion();
+  return (
+    <motion.div
+      initial={prefersReduced ? false : { opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.22 }}
+      className="relative rounded-2xl overflow-hidden"
+    >
+      <img
+        src={`data:image/jpeg;base64,${photoBase64}`}
+        alt="Captured meal"
+        className="w-full h-44 object-cover"
+      />
+      <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+      <button
+        type="button"
+        onClick={onClear}
+        aria-label="Remove photo"
+        className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/55 flex items-center justify-center backdrop-blur active:scale-95 transition-transform"
+      >
+        <Icon name="closeOutline" size={14} className="text-white" />
+      </button>
+      <button
+        type="button"
+        onClick={() => onRetake()}
+        disabled={disabled}
+        className="absolute bottom-2 right-2 h-8 px-2.5 rounded-full bg-black/55 flex items-center gap-1 backdrop-blur text-white text-[11px] font-semibold active:scale-95 transition-transform disabled:opacity-40"
+      >
+        <Icon name="cameraOutline" size={12} /> Retake
+      </button>
+    </motion.div>
+  );
+}
+
