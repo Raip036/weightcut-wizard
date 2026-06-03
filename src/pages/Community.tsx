@@ -355,7 +355,11 @@ export default function Community() {
                     key="loading"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
+                    // Near-instant exit so `mode="wait"` hands off to the feed
+                    // the moment posts arrive — otherwise the spinner's fade-out
+                    // inserts a ~180ms dead gap before the polaroid drop-in can
+                    // even mount. The enter fade stays soft via `transition`.
+                    exit={{ opacity: 0, transition: { duration: 0.05 } }}
                     transition={{ duration: 0.18 }}
                     className="mt-10 flex items-center justify-center min-h-[280px]"
                   >
@@ -414,7 +418,7 @@ export default function Community() {
               only once gymId is resolved so we don't fire an empty query
               during the first paint. */}
           {gymId && (
-            <section className="mt-8">
+            <section className="mt-8" data-tutorial="community-leaderboard">
               <LeaderboardSection gymId={gymId} viewer="athlete" />
             </section>
           )}
@@ -765,7 +769,7 @@ const CommunityFeedSection = React.memo(function CommunityFeedSection({
           card sit ~24px apart (space-y-6), which the y-shifted backgrounds
           can paint into. 56px gives the deck enough reserved space below
           while staying compact on small viewports. */}
-      <div className="mt-4 mb-14">
+      <div className="mt-4 mb-14" data-tutorial="community-photo-stack">
         <PolaroidStack
           posts={posts}
           status={status}
