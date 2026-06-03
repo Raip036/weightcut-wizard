@@ -753,6 +753,13 @@ interface RoundCardFabProps {
  * onto the dial would race against those handlers.
  */
 function RoundCardFab({ options, onTap, onSelect, tooltip }: RoundCardFabProps) {
+  const [quickLogPulse, setQuickLogPulse] = useState(false);
+  useEffect(() => {
+    const onPulse = () => setQuickLogPulse(true);
+    window.addEventListener("tutorial:pulse-quick-log", onPulse);
+    return () => window.removeEventListener("tutorial:pulse-quick-log", onPulse);
+  }, []);
+
   return (
     <Popover open={tooltip.open} onOpenChange={tooltip.setOpen}>
       <PopoverAnchor asChild>
@@ -767,10 +774,16 @@ function RoundCardFab({ options, onTap, onSelect, tooltip }: RoundCardFabProps) 
               whileTap={{ scale: 0.88 }}
               transition={{ type: "spring", damping: 18, stiffness: 420 }}
               data-tutorial="nav-quick-log"
-              className="h-[52px] w-[52px] rounded-full bg-primary flex items-center justify-center select-none touch-none"
+              className="relative h-[52px] w-[52px] rounded-full bg-primary flex items-center justify-center select-none touch-none"
               aria-hidden
             >
-              <Camera className="h-[22px] w-[22px] text-primary-foreground" strokeWidth={2.4} />
+              {quickLogPulse && (
+                <>
+                  <span className="absolute inset-0 rounded-full animate-ping bg-primary/50 pointer-events-none" style={{ animationDuration: "1.2s" }} />
+                  <span className="absolute inset-0 rounded-full animate-ping bg-primary/25 pointer-events-none" style={{ animationDuration: "1.2s", animationDelay: "0.4s" }} />
+                </>
+              )}
+              <Camera className="h-[22px] w-[22px] text-primary-foreground relative" strokeWidth={2.4} />
             </motion.div>
           </RadialActionDial>
         </div>

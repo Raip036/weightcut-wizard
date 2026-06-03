@@ -140,7 +140,7 @@ export default function TodayStrip({ adherence, mealsLoggedToday }: Props) {
   }, [confettiKey]);
 
   return (
-    <div className="card-surface card-glow relative rounded-2xl px-3 pt-3 pb-4 space-y-2.5">
+    <div className="card-surface card-glow relative rounded-2xl px-3 pt-3 pb-4 space-y-2.5" data-tutorial="today-strip">
       <AnimatePresence>
         {confettiKey > 0 && <CompletionConfetti fireKey={confettiKey} />}
       </AnimatePresence>
@@ -275,10 +275,17 @@ export default function TodayStrip({ adherence, mealsLoggedToday }: Props) {
             </>
           );
 
+          const tutorialAttr: Partial<Record<PillKey, string>> = {
+            weight: "today-weight",
+            sleep: "today-sleep",
+            wellness: "today-wellness",
+          };
+
           return (
             <Link
               key={key}
               to={finalHref}
+              data-tutorial={tutorialAttr[key]}
               onClick={() => { void triggerHaptic(ImpactStyle.Light); }}
               className={pillClassName}
               style={{ boxShadow: isLogged ? DONE_GLOW : undefined }}

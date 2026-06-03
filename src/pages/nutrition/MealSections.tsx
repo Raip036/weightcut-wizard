@@ -66,6 +66,7 @@ export function MealSections({
       <div className="flex items-stretch gap-2">
         <button
           onClick={() => { triggerHapticSelection(); onOpenQuickAdd(); }}
+          data-tutorial="nutrition-quick-add"
           className="flex-1 h-12 rounded-xs bg-primary text-primary-foreground font-bold text-[14px] flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
         >
           <Camera className="h-4 w-4" strokeWidth={2.4} />

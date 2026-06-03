@@ -39,6 +39,7 @@ export function FloatingWizardChat() {
   const { hasAccess } = useFeatureAccess("AI_WIZARD_CHAT");
   const prefersReduced = useReducedMotion();
   const [open, setOpen] = useState(false);
+  const [tutorialPulse, setTutorialPulse] = useState(false);
   const [input, setInput] = useState("");
   const [inputFocused, setInputFocused] = useState(false);
   /* Captured FAB centre at the moment of open — used as the
@@ -58,6 +59,18 @@ export function FloatingWizardChat() {
     moved: false,
   });
   const posRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  // Tutorial event listeners — pulse the orb or open the panel.
+  useEffect(() => {
+    const onPulse = () => setTutorialPulse(true);
+    const onOpen = () => setOpen(true);
+    window.addEventListener("tutorial:pulse-wizard-chat", onPulse);
+    window.addEventListener("tutorial:open-wizard-chat", onOpen);
+    return () => {
+      window.removeEventListener("tutorial:pulse-wizard-chat", onPulse);
+      window.removeEventListener("tutorial:open-wizard-chat", onOpen);
+    };
+  }, []);
 
   // Initialize + restore position (runs on mount AND when chat closes)
   useEffect(() => {
@@ -224,7 +237,13 @@ export function FloatingWizardChat() {
         aria-label="Open AI Wizard"
         aria-hidden={open}
       >
-        <span className={`inline-flex ${prefersReduced ? "" : "active:scale-[0.92] transition-transform duration-100"}`}>
+        <span className={`relative inline-flex ${prefersReduced ? "" : "active:scale-[0.92] transition-transform duration-100"}`}>
+          {tutorialPulse && !prefersReduced && (
+            <>
+              <span className="absolute inset-0 rounded-full animate-ping bg-primary/40 pointer-events-none" style={{ animationDuration: "1.2s" }} />
+              <span className="absolute inset-0 rounded-full animate-ping bg-primary/20 pointer-events-none" style={{ animationDuration: "1.2s", animationDelay: "0.4s" }} />
+            </>
+          )}
           <Orb size={FAB_SIZE} state="idle" />
         </span>
       </button>

@@ -1,5 +1,6 @@
 import UIKit
 import Capacitor
+import Clarity
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -7,6 +8,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // Microsoft Clarity — session recordings + heatmaps.
+        // Project ID is taken from the Clarity dashboard (Settings → Overview);
+        // confirm it matches the value there. Use .verbose while wiring this up
+        // so init issues show in the Xcode console, then drop to .none for release.
+        let clarityConfig = ClarityConfig(projectId: "x1dc358ewu", logLevel: .verbose)
+        ClaritySDK.initialize(config: clarityConfig)
         return true
     }
 

@@ -77,6 +77,7 @@ export const DashboardHeader = memo(function DashboardHeader({
       <header className="relative flex items-center justify-between gap-3 pt-1">
         <button
           onClick={onAvatarClick}
+          data-tutorial="profile-avatar"
           className="active:opacity-70 transition-opacity"
           aria-label="Edit profile"
         >

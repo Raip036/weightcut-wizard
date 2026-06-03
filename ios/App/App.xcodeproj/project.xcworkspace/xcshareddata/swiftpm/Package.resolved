@@ -1,5 +1,5 @@
 {
-  "originHash" : "6f2da0e49b1a7d834af1ab983367aa855de0f303521679b6a9cfcd2a04b5e100",
+  "originHash" : "6b2b268c67a681713893aaada83035bb633b62f1b389aa4a887ef0432296e2b4",
   "pins" : [
     {
       "identity" : "capacitor-swift-pm",
@@ -8,6 +8,15 @@
       "state" : {
         "revision" : "1f324fe7bdbdc8c5cc28bea48a231545a8c2e823",
         "version" : "8.1.0"
+      }
+    },
+    {
+      "identity" : "clarity-apps",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/microsoft/clarity-apps",
+      "state" : {
+        "revision" : "67b10c29f4246517d99b0966d10aff9a6eb04555",
+        "version" : "3.5.2"
       }
     },
     {

@@ -173,6 +173,7 @@ function WisdomChip({ wisdom }: { wisdom: WisdomState }) {
   return (
     <button
       onClick={() => wisdom.generateTrainingFoodIdeas()}
+      data-tutorial="nutrition-wisdom-chip"
       className="card-surface rounded-xs w-full px-4 py-3 text-left active:scale-[0.99] transition"
     >
       <div className="flex items-center gap-3">

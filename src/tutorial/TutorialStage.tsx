@@ -1,4 +1,4 @@
-import { Component, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import React, { Component, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import { X } from "lucide-react";
@@ -64,7 +64,7 @@ function StageInner({
   const [spotlightRect, setSpotlightRect] = useState<DOMRect | null>(null);
   const prevSectionRef = useRef<string | null>(null);
   const successFiredRef = useRef(false);
-  const lastSpotGeomRef = useRef<{ cx: number; cy: number; r: number } | null>(null);
+  const lastSpotGeomRef = useRef<{ cx: number; cy: number; r: number; w?: number; h?: number } | null>(null);
 
   const isLastStep = currentStepIndex === totalSteps - 1;
 
@@ -189,7 +189,9 @@ function StageInner({
           and the scrim rect crossfades its opacity between 0.55 and 0.88. */}
       {(() => {
         const hasSpotlight = !!currentStep?.spotlight;
-        const circleOpen = hasSpotlight && !!spotlightRect;
+        const isRect = currentStep?.spotlightShape === "rect";
+        const spotPad = currentStep?.spotlightPadding ?? SPOTLIGHT_PADDING;
+        const cutoutOpen = hasSpotlight && !!spotlightRect;
         const cx = spotlightRect
           ? spotlightRect.left + spotlightRect.width / 2 + (currentStep?.spotlightOffset?.x ?? 0)
           : (lastSpotGeomRef.current?.cx ?? 0);
@@ -197,9 +199,15 @@ function StageInner({
           ? spotlightRect.top + spotlightRect.height / 2 + (currentStep?.spotlightOffset?.y ?? 0)
           : (lastSpotGeomRef.current?.cy ?? 0);
         const r = spotlightRect
-          ? Math.max(spotlightRect.width, spotlightRect.height) / 2 + SPOTLIGHT_PADDING
+          ? Math.max(spotlightRect.width, spotlightRect.height) / 2 + spotPad
           : (lastSpotGeomRef.current?.r ?? 100);
-        if (spotlightRect) lastSpotGeomRef.current = { cx, cy, r };
+        const rectW = spotlightRect
+          ? spotlightRect.width + 2 * spotPad
+          : (lastSpotGeomRef.current?.w ?? 200);
+        const rectH = spotlightRect
+          ? spotlightRect.height + 2 * spotPad
+          : (lastSpotGeomRef.current?.h ?? 80);
+        if (spotlightRect) lastSpotGeomRef.current = { cx, cy, r, w: rectW, h: rectH };
         return (
           <motion.div
             className="absolute inset-0 pointer-events-none"
@@ -217,17 +225,29 @@ function StageInner({
                   <rect x="-9999" y="-9999" width="19999" height="19999" fill="white" />
                   <motion.g
                     style={{ transformOrigin: `${cx}px ${cy}px` }}
-                    animate={{ scale: circleOpen ? 1 : 0 }}
-                    transition={circleOpen
+                    animate={{ scale: cutoutOpen ? 1 : 0 }}
+                    transition={cutoutOpen
                       ? { delay: 0.2, duration: 0.5, ease: [0.34, 1.56, 0.64, 1] }
                       : { duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
                   >
-                    <circle cx={cx} cy={cy} r={Math.max(r, 1)} fill="black" />
+                    {isRect ? (
+                      <rect
+                        x={cx - rectW / 2}
+                        y={cy - rectH / 2}
+                        width={Math.max(rectW, 1)}
+                        height={Math.max(rectH, 1)}
+                        rx={14}
+                        ry={14}
+                        fill="black"
+                      />
+                    ) : (
+                      <circle cx={cx} cy={cy} r={Math.max(r, 1)} fill="black" />
+                    )}
                   </motion.g>
                 </mask>
               </defs>
               <motion.g
-                animate={{ opacity: circleOpen ? 0.88 : 0.55 }}
+                animate={{ opacity: cutoutOpen ? 0.88 : 0.55 }}
                 transition={{ duration: 0.3 }}
               >
                 <rect x="-9999" y="-9999" width="19999" height="19999" fill="rgb(5, 8, 20)" mask="url(#wcw-spotlight-mask)" />
@@ -266,80 +286,86 @@ function StageInner({
       )}
 
       {/* LayoutGroup scopes the wizard's layoutId so it animates smoothly
-          between spotlight (above bubble) and default (below bubble) positions
-          rather than snapping. The hop animation lives on a nested div to
-          compose independently of the layout position tween. */}
-      <LayoutGroup id="tutorial-bottom">
-        <div
-          className="absolute left-4 flex flex-col items-start gap-3"
-          /* Bottom offset = safe-area + nav row (~64px) + breathing room (36px)
-             so the speech bubble's bottom edge sits well above the Back/Next
-             buttons rather than crowding them. */
-          style={{ bottom: "calc(env(safe-area-inset-bottom) + 100px)", pointerEvents: "auto" }}
-        >
-          {currentStep.spotlight ? (
-            /* Spotlight: wizard on top so bubble sits lower, clear of ring. */
-            <>
-              <motion.div
-                layoutId="wcw-wizard"
-                layout
-                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              >
-                <motion.div
-                  key={`hop-${currentStep.id}`}
-                  animate={{ y: [0, -10, 0], scaleY: [1, 0.94, 1] }}
-                  transition={{ duration: 0.28, ease: "easeOut" }}
-                >
-                  <WizardCharacter pose={currentStep.wizardPose ?? "idle"} />
-                </motion.div>
-              </motion.div>
+          between spotlight (above bubble) and default (below bubble) positions.
+          wizardAnchor="top"  → column just below the status bar.
+          wizardAboveSpotlight → bottom computed from spotlightRect so the
+                                 column sits just above the spotlit element.
+          wizardSide="right"  → right-anchored instead of left. */}
+      {(() => {
+        const isRight = currentStep.wizardSide === "right";
+        // wizardFirst = wizard on top, bubble below. Default for spotlight/top-anchor
+        // steps unless bubbleFirst overrides it.
+        const wizardFirst =
+          (!!currentStep.spotlight || currentStep.wizardAnchor === "top") &&
+          !currentStep.bubbleFirst;
+        const tailSide = wizardFirst
+          ? isRight ? ("top-right" as const) : ("top-left" as const)
+          : isRight ? ("bottom-right" as const) : ("bottom-left" as const);
 
-              <AnimatePresence mode="wait">
-                <SpeechBubble
-                  key={currentStep.id}
-                  revealKey={currentStep.id}
-                  headline={currentStep.title}
-                  body={currentStep.description}
-                  pace={currentStep.voicePace}
-                  forceComplete={forceComplete}
-                  onTypingComplete={() => setBubbleComplete(true)}
-                  tailSide="top-left"
-                />
-              </AnimatePresence>
-            </>
-          ) : (
-            /* Default: bubble on top, wizard below. */
-            <>
-              <AnimatePresence mode="wait">
-                <SpeechBubble
-                  key={currentStep.id}
-                  revealKey={currentStep.id}
-                  headline={currentStep.title}
-                  body={currentStep.description}
-                  pace={currentStep.voicePace}
-                  forceComplete={forceComplete}
-                  onTypingComplete={() => setBubbleComplete(true)}
-                />
-              </AnimatePresence>
+        const colStyle: React.CSSProperties = (() => {
+          if (currentStep.wizardAnchor === "top") {
+            return { top: "calc(env(safe-area-inset-top) + 56px)", pointerEvents: "auto" };
+          }
+          if (currentStep.wizardAboveSpotlight && spotlightRect) {
+            // Sit just above the spotlit element.
+            const fromBottom = window.innerHeight - spotlightRect.top + 20;
+            // Clamp so the ~240px tall column always fits on screen.
+            const maxBottom = window.innerHeight - 260;
+            return { bottom: `${Math.min(fromBottom, maxBottom)}px`, pointerEvents: "auto" };
+          }
+          return {
+            bottom: currentStep.wizardBottomOffset ?? "calc(env(safe-area-inset-bottom) + 100px)",
+            pointerEvents: "auto",
+          };
+        })();
 
-              <motion.div
-                layoutId="wcw-wizard"
-                layout
-                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              >
-                <motion.div
-                  key={`hop-${currentStep.id}`}
-                  animate={{ y: [0, -10, 0], scaleY: [1, 0.94, 1] }}
-                  transition={{ duration: 0.28, ease: "easeOut" }}
-                >
-                  <WizardCharacter pose={currentStep.wizardPose ?? "idle"} />
-                </motion.div>
-              </motion.div>
-            </>
-          )}
+        const colClass = isRight
+          ? "absolute right-4 flex flex-col items-end gap-3"
+          : "absolute left-4 flex flex-col items-start gap-3";
 
-        </div>
-      </LayoutGroup>
+        const WizardNode = (
+          <motion.div
+            layoutId="wcw-wizard"
+            layout
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          >
+            <motion.div
+              key={`hop-${currentStep.id}`}
+              animate={{ y: [0, -10, 0], scaleY: [1, 0.94, 1] }}
+              transition={{ duration: 0.28, ease: "easeOut" }}
+            >
+              <WizardCharacter pose={currentStep.wizardPose ?? "idle"} />
+            </motion.div>
+          </motion.div>
+        );
+
+        const BubbleNode = (
+          <AnimatePresence mode="wait">
+            <SpeechBubble
+              key={currentStep.id}
+              revealKey={currentStep.id}
+              headline={currentStep.title}
+              body={currentStep.description}
+              pace={currentStep.voicePace}
+              forceComplete={forceComplete}
+              onTypingComplete={() => setBubbleComplete(true)}
+              tailSide={tailSide}
+            />
+          </AnimatePresence>
+        );
+
+        return (
+          <LayoutGroup id="tutorial-bottom">
+            <div className={colClass} style={colStyle}>
+              {wizardFirst ? (
+                <>{WizardNode}{BubbleNode}</>
+              ) : (
+                <>{BubbleNode}{WizardNode}</>
+              )}
+            </div>
+          </LayoutGroup>
+        );
+      })()}
 
       {/* Tutorial nav — its OWN absolute container outside the
           left-anchored speech-bubble column. `inset-x-0 flex
@@ -349,7 +375,7 @@ function StageInner({
           different left positions on different steps). */}
       <div
         className="absolute inset-x-0 flex justify-center px-4"
-        style={{ bottom: "calc(env(safe-area-inset-bottom) + 16px)", pointerEvents: "auto" }}
+        style={{ bottom: currentStep.navBottomOffset ?? "calc(env(safe-area-inset-bottom) + 16px)", pointerEvents: "auto" }}
       >
         <TutorialNav
           isFirstStep={isFirstStep}

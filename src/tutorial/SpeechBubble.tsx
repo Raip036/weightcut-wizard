@@ -27,7 +27,7 @@ interface SpeechBubbleProps {
    *   - "left":                    tail on left side → mascot to the left
    * Matches the tutorial's bottom-left convention by default.
    */
-  tailSide?: "bottom-left" | "bottom-right" | "left" | "top-left";
+  tailSide?: "bottom-left" | "bottom-right" | "left" | "top-left" | "top-right";
   /** Reduces max-width for steps that share screen space with a spotlight. */
   compact?: boolean;
 }
@@ -77,6 +77,13 @@ export function SpeechBubble({
           path: "M0 14 L20 14 L8 0 Z",
           transformOrigin: "10px 14px",
           bubbleOrigin: "10% 0%",
+        };
+      case "top-right":
+        return {
+          className: "-top-3 right-6",
+          path: "M0 14 L20 14 L12 0 Z",
+          transformOrigin: "10px 14px",
+          bubbleOrigin: "90% 0%",
         };
       case "bottom-left":
       default:
@@ -156,7 +163,7 @@ export function SpeechBubble({
         className={`absolute ${tail.className}`}
         width={tailSide === "left" ? 14 : 20}
         height={tailSide === "left" ? 20 : 14}
-        viewBox={tailSide === "left" ? "0 0 14 20" : "0 0 20 14"}
+        viewBox={tailSide === "left" ? "0 0 14 20" : tailSide === "top-right" ? "0 0 20 14" : "0 0 20 14"}
         aria-hidden
         initial={prefersReduced ? { opacity: 0 } : { scale: 0, opacity: 0 }}
         animate={prefersReduced ? { opacity: 1 } : { scale: 1, opacity: 1 }}
