@@ -119,23 +119,65 @@ describe("computeFightFormScore", () => {
     });
   });
 
-  describe("Nutrition weight = 0 across all phases", () => {
-    it("changing nutritionAdherence inputs does not move the composite score", () => {
+  describe("Nutrition now contributes to the composite", () => {
+    it("nutritionAdherence carries a non-zero weight when meals are logged", () => {
+      const r = computeFightFormScore(baseInputs(), ScoringConfigV1);
+      expect(r.subScores.nutritionAdherence.weight).toBeGreaterThan(0);
+    });
+
+    it("severely off-target eating lowers the composite vs on-target", () => {
       const onTarget = computeFightFormScore(baseInputs(), ScoringConfigV1);
-      // Severely off-target meals (1000 kcal under 2500 target). With
-      // nutrition weight pinned to 0, this must not budge the composite.
       const badMeals = Array.from({ length: 7 }, (_, i) => {
         const d = new Date("2026-05-01"); d.setDate(d.getDate() - i);
-        return { date: d.toISOString().slice(0, 10), calories: 1500, proteinG: 60 };
+        return { date: d.toISOString().slice(0, 10), calories: 1200, proteinG: 50 };
       });
-      const offTarget = computeFightFormScore(
-        baseInputs({ meals: badMeals }),
+      const offTarget = computeFightFormScore(baseInputs({ meals: badMeals }), ScoringConfigV1);
+      expect(offTarget.rawScore).toBeLessThan(onTarget.rawScore);
+    });
+  });
+
+  describe("label-cap on low data confidence", () => {
+    it("caps the label at 'sharpening' and sets state 'stale' when confidence is low", () => {
+      // Only the sleep pillar present, logged 8 days ago (within horizon 9 so
+      // still present) → low completeness drags dataConfidence below 0.5.
+      const staleSleep = Array.from({ length: 4 }, (_, i) => {
+        const d = new Date("2026-04-23"); d.setDate(d.getDate() - i);
+        return { date: d.toISOString().slice(0, 10), hours: 8 };
+      });
+      const r = computeFightFormScore(
+        baseInputs({ sessions: [], weights: [], hooperByDate: [], meals: [], sleepHours: staleSleep }),
         ScoringConfigV1,
       );
-      expect(offTarget.score).toBe(onTarget.score);
-      expect(offTarget.rawScore).toBe(onTarget.rawScore);
-      // Subscore weight is held at 0 even when data is present.
-      expect(offTarget.subScores.nutritionAdherence.weight).toBe(0);
+      expect(r.dataConfidence).toBeLessThan(0.5);
+      expect(r.state).toBe("stale");
+      expect(r.label).not.toBe("sharp");
+    });
+
+    it("does not cap the label when confidence is healthy", () => {
+      const r = computeFightFormScore(baseInputs(), ScoringConfigV1);
+      expect(r.state).toBe("ok");
+    });
+  });
+
+  describe("ceiling latching integration (anti-gaming)", () => {
+    it("keeps the sleep_debt cap when the user stops logging sleep after tripping it", () => {
+      // sleep_debt fired yesterday; today the user logged nothing new for sleep
+      // (sleepHours ends 6 days ago → stale, beyond grace 2), so the live
+      // sleepDebt7d is 0 and the rule wouldn't fire — but latching holds it.
+      const staleSleep = Array.from({ length: 3 }, (_, i) => {
+        const d = new Date("2026-04-25"); d.setDate(d.getDate() - i);
+        return { date: d.toISOString().slice(0, 10), hours: 8 };
+      });
+      const r = computeFightFormScore(
+        baseInputs({
+          date: "2026-05-01",
+          sleepHours: staleSleep,
+          priorCeilings: [{ date: "2026-04-30", ruleId: "sleep_debt", cap: 65 }],
+        }),
+        ScoringConfigV1,
+      );
+      expect(r.appliedCeiling?.ruleId).toBe("sleep_debt");
+      expect(r.rawScore).toBeLessThanOrEqual(65);
     });
   });
 
@@ -149,12 +191,171 @@ describe("computeFightFormScore", () => {
       expect(r.score).toBe(0);
     });
 
-    it("returns state:'ok' on the day of the fight (daysToFight = 0)", () => {
+    it("does not return state:'paused' on the day of the fight (daysToFight = 0)", () => {
+      // The base fixture's data is 45 days old when date = fight day, so
+      // dataConfidence will be low → state is 'stale', not 'ok'. The key
+      // guard here is that fight-day is still active (not 'paused').
       const r = computeFightFormScore(
         baseInputs({ date: "2026-06-15", fightDate: "2026-06-15" }),
         ScoringConfigV1,
       );
-      expect(r.state).toBe("ok");
+      expect(r.state).not.toBe("paused");
+    });
+  });
+
+  describe("confidence + staleness output fields", () => {
+    it("populates dataConfidence, dataAgeDays, activePillars, totalPillars", () => {
+      const r = computeFightFormScore(baseInputs(), ScoringConfigV1);
+      expect(r.dataConfidence).toBeGreaterThan(0);
+      expect(r.dataConfidence).toBeLessThanOrEqual(1);
+      expect(r.dataAgeDays).toBe(0); // base fixture logs everything up to `date`
+      expect(r.activePillars).toBeGreaterThanOrEqual(3);
+      expect(r.totalPillars).toBeGreaterThanOrEqual(3);
+    });
+
+    it("populates per-pillar completeness for contributing pillars", () => {
+      const r = computeFightFormScore(baseInputs(), ScoringConfigV1);
+      expect(r.subScores.sleep.completeness).toBe(1); // logged on `date`
+    });
+
+    it("eases a stale pillar's contribution toward neutral but does not erase it", () => {
+      // Sleep logged strong (8h) but 8 days ago → past grace(2), below horizon(9).
+      const staleSleep = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date("2026-04-23"); d.setDate(d.getDate() - i); // ends 8 days before 2026-05-01
+        return { date: d.toISOString().slice(0, 10), hours: 8 };
+      });
+      const fresh = computeFightFormScore(baseInputs(), ScoringConfigV1);
+      const stale = computeFightFormScore(baseInputs({ sleepHours: staleSleep }), ScoringConfigV1);
+      expect(stale.subScores.sleep.weight).toBeGreaterThan(0);
+      expect(stale.subScores.sleep.value).toBeLessThan(fresh.subScores.sleep.value);
+      expect(stale.subScores.sleep.value).toBeGreaterThan(50); // eased toward, not past, neutral
+      expect(stale.subScores.sleep.completeness).toBeLessThan(1);
+      expect(stale.dataAgeDays).toBeGreaterThanOrEqual(8);
+    });
+
+    it("does not decay within the grace window (fresh fixture unchanged)", () => {
+      const r = computeFightFormScore(baseInputs(), ScoringConfigV1);
+      expect(r.subScores.sleep.value).toBeGreaterThanOrEqual(99); // 8h logged today → ~100
+    });
+
+    it("drops a pillar once it is stale beyond its horizon (uniform across pillars)", () => {
+      // Sleep last logged ~12 days before `date` (horizon is 9) → excluded.
+      const ancientSleep = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date("2026-04-19"); d.setDate(d.getDate() - i); // latest 2026-04-19, 12d before 05-01
+        return { date: d.toISOString().slice(0, 10), hours: 8 };
+      });
+      const r = computeFightFormScore(baseInputs({ sleepHours: ancientSleep }), ScoringConfigV1);
+      expect(r.subScores.sleep.weight).toBe(0);
+      expect(r.subScores.sleep.completeness).toBe(0);
+    });
+  });
+
+  describe("formMomentum output field", () => {
+    it("is 0 for a user without enough history (priorRawScores empty)", () => {
+      const r = computeFightFormScore(baseInputs(), ScoringConfigV1);
+      expect(r.formMomentum).toBe(0);
+    });
+  });
+
+  describe("form momentum integration", () => {
+    const strongPriors = Array.from({ length: 6 }, (_, i) => {
+      const d = new Date("2026-04-30"); d.setDate(d.getDate() - i);
+      return { date: d.toISOString().slice(0, 10), rawScore: 92 };
+    });
+
+    it("awards a bonus to a sustained, fully-logged strong user", () => {
+      const withHistory = computeFightFormScore(baseInputs({ priorRawScores: strongPriors }), ScoringConfigV1);
+      expect(withHistory.formMomentum).toBeGreaterThan(0);
+    });
+
+    it("does not let momentum override a safety ceiling", () => {
+      const shortSleep = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date("2026-05-01"); d.setDate(d.getDate() - i);
+        return { date: d.toISOString().slice(0, 10), hours: 3 }; // heavy sleep debt
+      });
+      const r = computeFightFormScore(
+        baseInputs({ sleepHours: shortSleep, priorRawScores: strongPriors }),
+        ScoringConfigV1,
+      );
+      // The sleep_debt ceiling MUST fire here (~35h debt over 7 nights at 3h).
+      // Asserting it fired makes this a hard proof that momentum cannot lift the
+      // score past the cap — not a vacuous pass if the ceiling stopped firing.
+      expect(r.appliedCeiling).not.toBeNull();
+      expect(r.appliedCeiling!.ruleId).toBe("sleep_debt");
+      expect(r.rawScore).toBeLessThanOrEqual(r.appliedCeiling!.cap);
+    });
+  });
+
+  describe("marked skip pauses staleness decay", () => {
+    it("a recent skip keeps a pillar's value from decaying", () => {
+      const staleSleep = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date("2026-04-23"); d.setDate(d.getDate() - i);
+        return { date: d.toISOString().slice(0, 10), hours: 8 };
+      });
+      const decayed = computeFightFormScore(baseInputs({ sleepHours: staleSleep }), ScoringConfigV1);
+      const withSkip = computeFightFormScore(
+        baseInputs({ sleepHours: staleSleep, markedSkips: [{ date: "2026-04-30", pillar: "sleep" }] }),
+        ScoringConfigV1,
+      );
+      expect(withSkip.subScores.sleep.value).toBeGreaterThan(decayed.subScores.sleep.value);
+      expect(withSkip.subScores.sleep.value).toBeGreaterThanOrEqual(99);
+    });
+  });
+
+  describe("a marked skip cannot release a latched safety ceiling (anti-gaming)", () => {
+    it("holds the sleep_debt cap even when sleep is marked skipped", () => {
+      // sleep_debt fired yesterday (priorCeilings). Real sleep is stale (last
+      // real log 6 days before `date`, beyond grace). A skip yesterday must NOT
+      // make the pillar look 'fresh' to the latch — the cap must stay applied.
+      const staleSleep = Array.from({ length: 3 }, (_, i) => {
+        const d = new Date("2026-04-25"); d.setDate(d.getDate() - i);
+        return { date: d.toISOString().slice(0, 10), hours: 8 };
+      });
+      const r = computeFightFormScore(
+        baseInputs({
+          date: "2026-05-01",
+          sleepHours: staleSleep,
+          markedSkips: [{ date: "2026-04-30", pillar: "sleep" }],
+          priorCeilings: [{ date: "2026-04-30", ruleId: "sleep_debt", cap: 65 }],
+        }),
+        ScoringConfigV1,
+      );
+      expect(r.appliedCeiling?.ruleId).toBe("sleep_debt");
+      expect(r.rawScore).toBeLessThanOrEqual(65);
+    });
+  });
+
+  describe("backfill corrects today's score (no historical rewrite)", () => {
+    it("a late-logged past sleep night re-enters the window and improves freshness", () => {
+      const before = computeFightFormScore(
+        baseInputs({
+          date: "2026-05-01",
+          sleepHours: [
+            { date: "2026-04-25", hours: 8 },
+            { date: "2026-04-26", hours: 8 },
+          ],
+        }),
+        ScoringConfigV1,
+      );
+      const after = computeFightFormScore(
+        baseInputs({
+          date: "2026-05-01",
+          sleepHours: [
+            { date: "2026-04-25", hours: 8 },
+            { date: "2026-04-26", hours: 8 },
+            { date: "2026-04-30", hours: 8 },
+            { date: "2026-05-01", hours: 8 },
+          ],
+        }),
+        ScoringConfigV1,
+      );
+      // Before backfill: only 2 stale nights → sleep below its cold-start gate,
+      // excluded (weight 0). After backfilling two recent nights: sleep is fresh,
+      // present, and fully complete. Backfill corrects today's reading.
+      expect(before.subScores.sleep.weight).toBe(0);
+      expect(before.subScores.sleep.completeness ?? 0).toBe(0);
+      expect(after.subScores.sleep.weight).toBeGreaterThan(0);
+      expect(after.subScores.sleep.completeness).toBe(1);
     });
   });
 });

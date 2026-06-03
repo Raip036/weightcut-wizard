@@ -10,6 +10,7 @@ import { FightFormRing } from "@/components/dashboard/FightFormRing";
 import { FightFormInsightStrip } from "@/components/dashboard/FightFormInsightStrip";
 import { FightFormDeltaBanner } from "@/components/dashboard/FightFormDeltaBanner";
 import TodayStrip from "@/components/dashboard/TodayStrip";
+import CompletenessMeter from "@/components/dashboard/CompletenessMeter";
 import { FightFormScoreSheet } from "@/components/dashboard/FightFormScoreSheet";
 // Lazy-load recharts wrapper so the ~100KB charts bundle defers until first paint.
 const DashboardWeightChart = lazy(() => import("@/components/charts/DashboardWeightChart"));
@@ -46,6 +47,7 @@ import { ProfileSheet } from "@/components/dashboard/ProfileSheet";
 import NewAnnouncementWidget from "@/components/dashboard/NewAnnouncementWidget";
 import { GymInvitesBanner } from "@/components/dashboard/GymInvitesBanner";
 import { NextCampFlow } from "@/components/fightcamp/NextCampFlow";
+import { CatchUpSheet } from "@/components/dashboard/CatchUpSheet";
 import { isFighter } from "@/lib/goalType";
 
 // Module-level dedupe so re-mounts within the session don't re-fire identical
@@ -126,6 +128,28 @@ function SubScoreTrendProbe({
   return null;
 }
 
+// Probe for weeklyCompleteness — isolated so a missing server function
+// (pre `npx convex dev`) can't crash the Dashboard via the outer ErrorBoundary.
+// Once deployed, the probe writes real data into parent state and the
+// CompletenessMeter renders. Until then it stays undefined → meter renders nothing.
+function WeeklyCompletenessProbe({
+  enabled,
+  onResult,
+}: {
+  enabled: boolean;
+  onResult: (value: import("@/components/dashboard/CompletenessMeter").WeeklyDay[] | null | undefined) => void;
+}) {
+  const res = useQuery(
+    api.fightFormScore.weeklyCompleteness,
+    enabled ? {} : "skip",
+  );
+  useEffect(() => {
+    if (res === undefined) return; // still loading
+    onResult(res);
+  }, [res, onResult]);
+  return null;
+}
+
 export default function Dashboard() {
   const { userName, currentWeight, userId, profile, loadCutPlan } = useUser();
   const { avatarUrl } = useProfile();
@@ -154,6 +178,7 @@ export default function Dashboard() {
   const [scoreSheetOpen, setScoreSheetOpen] = useState(false);
   const [nextCampOpen, setNextCampOpen] = useState(false);
   const [profileSheetOpen, setProfileSheetOpen] = useState(false);
+  const [catchUpOpen, setCatchUpOpen] = useState(false);
   // Active camp drives the post-fight "wrap up + start next camp" banner.
   // Skip the query while userId is unresolved to avoid an extra round trip.
   const activeCamp = useQuery(api.fight_camp.getActiveCamp, userId ? {} : "skip");
@@ -193,6 +218,34 @@ export default function Dashboard() {
       document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, []);
+
+  // Compute yesterday's date string from liveTodayStr (local date math).
+  // Uses the same approach as the app-wide date utilities: parse the local
+  // ISO string, subtract one day, reformat. Declared here so catchUpOpen
+  // effect below can close over it.
+  const yesterday = (() => {
+    const d = new Date(liveTodayStr + "T00:00:00");
+    d.setDate(d.getDate() - 1);
+    // Format from LOCAL parts — `toISOString()` would shift to UTC and yield
+    // two-days-ago for UTC+ users (e.g. BST). Matches the app's local-date convention.
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  })();
+
+  // "Yesterday in 10 seconds" catch-up sheet. Fires once per calendar day
+  // (keyed on liveTodayStr so it re-arms at local midnight), skipped when
+  // the user has already dismissed it for yesterday. Gated on userId so it
+  // only fires after auth resolves.
+  useEffect(() => {
+    if (!userId) return;
+    const today = liveTodayStr;
+    const lastOpen = localStorage.getItem("catchup_last_open");
+    const dismissed = localStorage.getItem("catchup_dismissed_" + yesterday);
+    if (lastOpen !== today && !dismissed) {
+      setCatchUpOpen(true);
+    }
+    localStorage.setItem("catchup_last_open", today);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   // Tutorial bridge: a step in the onboarding flow can request the Fight
   // Form Score sheet open declaratively via `actionEventName`. We listen
@@ -241,7 +294,19 @@ export default function Dashboard() {
     api.fightFormScore.getRecentScores,
     FEATURE_FLAGS.enableFightFormScore ? { days: 14 } : "skip",
   );
+  // weeklyCompleteness is fetched via WeeklyCompletenessProbe (wrapped in its
+  // own ErrorBoundary below) so a missing server function can't crash the page.
+  const [weeklyCompletenessData, setWeeklyCompletenessData] = useState<
+    import("@/components/dashboard/CompletenessMeter").WeeklyDay[] | null | undefined
+  >(undefined);
+  const handleWeeklyCompleteness = useCallback(
+    (value: import("@/components/dashboard/CompletenessMeter").WeeklyDay[] | null | undefined) => {
+      setWeeklyCompletenessData(value);
+    },
+    [],
+  );
   const ffRecompute = useMutation(api.fightFormScore.recomputeNow);
+  const markRestDayMutation = useMutation(api.fight_camp.createCalendarEntry);
   // One-shot Sharp crossing celebration. Fires once per calendar date when
   // the user transitions from below 80 to 80+; expires automatically after
   // the animation runs so it doesn't loop on re-renders.
@@ -815,6 +880,10 @@ export default function Dashboard() {
       topDriver: null,
       topLimiter: null,
       algorithmVersion: "1.0.0",
+      dataConfidence: 0,
+      dataAgeDays: 0,
+      activePillars: 0,
+      totalPillars: 0,
     };
     const startingWeight = weightLogs.length > 0 ? parseFloat(weightLogs[0].weight_kg) : currentWeightValue;
     const goalWeight = profile?.goal_weight_kg ?? 0;
@@ -891,6 +960,12 @@ export default function Dashboard() {
             onResult={setSubScoreTrend}
           />
         </ErrorBoundary>
+        <ErrorBoundary fallback={null} silent>
+          <WeeklyCompletenessProbe
+            enabled={FEATURE_FLAGS.enableFightFormScore}
+            onResult={handleWeeklyCompleteness}
+          />
+        </ErrorBoundary>
         <div className="dashboard-zoom dashboard-enter-stagger space-y-5 px-5 py-3 sm:p-5 md:p-6 w-full max-w-7xl mx-auto">
           {/* Top row — three columns at the same 40px height:
               [Profile avatar] [Dashboard title] [Days-left tab].
@@ -962,6 +1037,10 @@ export default function Dashboard() {
                 phase={ffScore.phase}
                 celebrateSharp={celebrateSharp}
                 ritualDaysCount={ritualDaysTotal}
+                dataConfidence={ffScore.dataConfidence}
+                dataAgeDays={ffScore.dataAgeDays}
+                activePillars={ffScore.activePillars}
+                totalPillars={ffScore.totalPillars}
                 onTap={() =>
                   ffScore.state === "no_camp"
                     ? navigate("/goals")
@@ -1023,14 +1102,35 @@ export default function Dashboard() {
                   </div>
                 );
               })()}
-            {ffScore.state === "ok" && (
-              <FightFormDeltaBanner
-                delta={ffDelta?.delta ?? null}
-                topDriver={ffScore.topDriver}
-                topLimiter={ffScore.topLimiter}
-                onTap={() => setScoreSheetOpen(true)}
-              />
-            )}
+            {(ffScore.state === "ok" || ffScore.state === "stale") && (() => {
+              const SUBSCORE_HUMAN_DASH: Record<string, string> = {
+                trainingLoad: "training load",
+                sleep: "sleep",
+                weightCut: "weight cut",
+                wellness: "wellness",
+                nutritionAdherence: "nutrition",
+                recovery: "recovery",
+              };
+              const ffHeld =
+                ffScoreData &&
+                (ffScoreData.state === "stale" || (ffScoreData.dataAgeDays ?? 0) >= 2) &&
+                ffScoreData.topLimiter
+                  ? {
+                      pillarLabel: SUBSCORE_HUMAN_DASH[ffScoreData.topLimiter] ?? ffScoreData.topLimiter,
+                      score: ffScoreData.displayedScore,
+                      sinceLabel: undefined,
+                    }
+                  : null;
+              return (
+                <FightFormDeltaBanner
+                  delta={ffDelta?.delta ?? null}
+                  topDriver={ffScore.topDriver}
+                  topLimiter={ffScore.topLimiter}
+                  held={ffHeld}
+                  onTap={() => setScoreSheetOpen(true)}
+                />
+              );
+            })()}
             {ffScore.campAge && (
               <p className="text-micro text-muted-foreground/80 mt-2">
                 {ffScore.campAge.weeksAhead === 0
@@ -1045,7 +1145,21 @@ export default function Dashboard() {
           {userId && <GymInvitesBanner />}
           {userId && <NewAnnouncementWidget userId={userId} />}
 
-          <TodayStrip adherence={adherence} mealsLoggedToday={todayCalories > 0} />
+          <CompletenessMeter days={weeklyCompletenessData ?? undefined} />
+
+          <TodayStrip
+            adherence={adherence}
+            mealsLoggedToday={todayCalories > 0}
+            onMarkRestDay={async () => {
+              await markRestDayMutation({
+                date: liveTodayStr,
+                sessionType: "Rest",
+                intensity: "Rest",
+                durationMinutes: 0,
+                rpe: 0,
+              });
+            }}
+          />
 
           <div className="pt-3 flex items-baseline justify-between">
             <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/80">Your Stats</p>
@@ -1158,6 +1272,9 @@ export default function Dashboard() {
           trend={ffTrend ?? null}
           yesterdaySubScores={yesterdaySubScores}
           subScoreTrend={subScoreTrend}
+          state={ffScore.state}
+          activePillars={ffScore.activePillars}
+          totalPillars={ffScore.totalPillars}
           loggedToday={{
             // Map adherence (which uses `wellnessCheckin`) → the sheet's
             // canonical shape (`wellness`). Meals is sourced from the
@@ -1183,6 +1300,20 @@ export default function Dashboard() {
           onOpenChange={setNextCampOpen}
           activeCamp={activeCamp ?? null}
         />
+
+        <ErrorBoundary fallback={null} silent>
+          <CatchUpSheet
+            targetDate={yesterday}
+            open={catchUpOpen}
+            onOpenChange={(o) => {
+              if (!o) {
+                localStorage.setItem("catchup_dismissed_" + yesterday, "1");
+              }
+              setCatchUpOpen(o);
+            }}
+            onEmpty={() => setCatchUpOpen(false)}
+          />
+        </ErrorBoundary>
       </ErrorBoundary>
     );
   }
@@ -1609,6 +1740,20 @@ export default function Dashboard() {
         onOpenChange={setQuestionnaireOpen}
         onComplete={() => { sessionStorage.setItem(`wcw_questionnaire_dismissed_${todayStr}`, '1'); setWisdomSheetOpen(true); }}
       />
+
+      <ErrorBoundary fallback={null} silent>
+        <CatchUpSheet
+          targetDate={yesterday}
+          open={catchUpOpen}
+          onOpenChange={(o) => {
+            if (!o) {
+              localStorage.setItem("catchup_dismissed_" + yesterday, "1");
+            }
+            setCatchUpOpen(o);
+          }}
+          onEmpty={() => setCatchUpOpen(false)}
+        />
+      </ErrorBoundary>
 
     </ErrorBoundary>
   );

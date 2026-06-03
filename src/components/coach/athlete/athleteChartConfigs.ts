@@ -11,6 +11,7 @@ import type {
   FightFormDetail,
 } from "@/hooks/coach/useAthleteDetail";
 import type { ChartCardTone } from "./AthleteChartCard";
+import { isScoredState } from "@/lib/fightFormState";
 
 export interface ChartCardConfig {
   label: string;
@@ -87,9 +88,9 @@ export function deriveAthleteMetrics(
   const sessionCount = (data.recent_sessions ?? []).length;
 
   const readiness =
-    data.fight_form?.state === "ok" ? data.fight_form.score : null;
+    isScoredState(data.fight_form?.state) ? data.fight_form!.score : null;
   const readinessSeries = (data.fight_form_trend ?? [])
-    .filter((t) => t.state === "ok")
+    .filter((t) => isScoredState(t.state))
     .map((t) => t.score);
   const readinessAvg = readinessSeries.length
     ? Math.round(

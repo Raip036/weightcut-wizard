@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import type { FightFormState } from "@/scoring/types";
+import { isScoredState } from "@/lib/fightFormState";
 
 type Point = {
   date: string;
@@ -23,7 +24,7 @@ const Y_MAX = 100;
 
 function buildPath(points: Point[]): { d: string; lastX: number; lastY: number } {
   if (points.length === 0) return { d: "", lastX: 0, lastY: 0 };
-  const okPoints = points.filter((p) => p.state === "ok");
+  const okPoints = points.filter((p) => isScoredState(p.state));
   const series = okPoints.length > 0 ? okPoints : points;
   const n = series.length;
 

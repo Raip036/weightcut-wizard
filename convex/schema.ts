@@ -388,21 +388,28 @@ export default defineSchema({
     rawScore: v.number(),
     displayedScore: v.number(),
     label: v.union(v.literal("sharp"), v.literal("sharpening"), v.literal("off_pace"), v.literal("at_risk")),
-    state: v.union(v.literal("ok"), v.literal("calibrating"), v.literal("no_camp"), v.literal("paused")),
+    state: v.union(v.literal("ok"), v.literal("calibrating"), v.literal("no_camp"), v.literal("paused"), v.literal("stale")),
     phase: v.optional(v.union(v.literal("build"), v.literal("peak"), v.literal("fightWeek"))),
     subScores: v.object({
-      trainingLoad:        v.object({ value: v.number(), weight: v.number(), reason: v.string() }),
-      sleep:               v.object({ value: v.number(), weight: v.number(), reason: v.string() }),
-      weightCut:           v.object({ value: v.number(), weight: v.number(), reason: v.string(), meta: v.optional(v.record(v.string(), v.union(v.number(), v.string()))) }),
-      wellness:            v.object({ value: v.number(), weight: v.number(), reason: v.string() }),
-      nutritionAdherence:  v.object({ value: v.number(), weight: v.number(), reason: v.string() }),
+      trainingLoad:        v.object({ value: v.number(), weight: v.number(), reason: v.string(), completeness: v.optional(v.number()) }),
+      sleep:               v.object({ value: v.number(), weight: v.number(), reason: v.string(), completeness: v.optional(v.number()) }),
+      weightCut:           v.object({ value: v.number(), weight: v.number(), reason: v.string(), completeness: v.optional(v.number()), meta: v.optional(v.record(v.string(), v.union(v.number(), v.string()))) }),
+      wellness:            v.object({ value: v.number(), weight: v.number(), reason: v.string(), completeness: v.optional(v.number()) }),
+      nutritionAdherence:  v.object({ value: v.number(), weight: v.number(), reason: v.string(), completeness: v.optional(v.number()) }),
       // Optional so historical rows written before the recovery sub-score
       // was added still pass schema validation on read. New writes from
       // the calculator always include it (currently weight 0 — not yet
       // factored into the displayed score).
-      recovery:            v.optional(v.object({ value: v.number(), weight: v.number(), reason: v.string() })),
+      recovery:            v.optional(v.object({ value: v.number(), weight: v.number(), reason: v.string(), completeness: v.optional(v.number()) })),
     }),
     appliedCeiling: v.optional(v.object({ ruleId: v.string(), cap: v.number() })),
+    // Plan 1/1b engine outputs. Optional so historical rows (written before
+    // these existed) still validate on read; new writes always include them.
+    dataConfidence: v.optional(v.number()),
+    dataAgeDays: v.optional(v.number()),
+    activePillars: v.optional(v.number()),
+    totalPillars: v.optional(v.number()),
+    formMomentum: v.optional(v.number()),
     campAge: v.optional(v.object({ weeksAhead: v.number() })),
     topDriver: v.string(),
     topLimiter: v.string(),
@@ -1390,6 +1397,23 @@ export default defineSchema({
     sampleCount: v.number(),
     updatedAt: v.number(),
   }).index("by_user_metric", ["userId", "metric"]),
+
+  // Intentional non-logging. A row means "the user deliberately skipped this
+  // pillar on this date" — distinct from a silent missing log. The engine
+  // treats a skip as recency for that pillar (pauses staleness decay) and the
+  // catch-up sheet won't nag about it. Training rest is recorded separately as
+  // a fight_camp_calendar `sessionType:"Rest"` row, so it is NOT a pillar here.
+  marked_skips: defineTable({
+    userId: v.id("users"),
+    date: v.string(),
+    pillar: v.union(
+      v.literal("sleep"),
+      v.literal("weight"),
+      v.literal("nutrition"),
+      v.literal("wellness"),
+    ),
+  }).index("by_user_date", ["userId", "date"])
+    .index("by_user_date_pillar", ["userId", "date", "pillar"]),
 });
 
 /*

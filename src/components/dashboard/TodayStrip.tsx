@@ -19,6 +19,8 @@ export type Adherence = {
 type Props = {
   adherence: Adherence;
   mealsLoggedToday: boolean;
+  /** Marks today as a rest day (writes a Rest calendar entry). Absent → control hidden. */
+  onMarkRestDay?: () => void | Promise<void>;
 };
 
 type PillKey = "weight" | "training" | "sleep" | "wellness" | "meals";
@@ -92,9 +94,10 @@ function CompletionConfetti({ fireKey }: { fireKey: number }) {
   );
 }
 
-export default function TodayStrip({ adherence, mealsLoggedToday }: Props) {
+export default function TodayStrip({ adherence, mealsLoggedToday, onMarkRestDay }: Props) {
   const prefersReduced = useReducedMotion();
   const { checkFeatureAccess, isSubscriptionResolved } = useSubscription();
+  const [restPending, setRestPending] = useState(false);
 
   // The wellness check-in survey is free (it feeds the free user's
   // fight-form score), but the Recovery dashboard at /recovery is Pro.
@@ -201,6 +204,42 @@ export default function TodayStrip({ adherence, mealsLoggedToday }: Props) {
                 />
               )}
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Rest-day shortcut — visible only when training is not yet logged
+          and the parent has wired the mutation handler. */}
+      <AnimatePresence initial={false}>
+        {onMarkRestDay && !logged.training && (
+          <motion.div
+            key="rest-day-row"
+            initial={prefersReduced ? false : { opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={springs.gentle}
+            className="flex justify-center"
+          >
+            <button
+              type="button"
+              disabled={restPending}
+              aria-label="Mark today as a rest day"
+              onClick={async () => {
+                void triggerHaptic(ImpactStyle.Light);
+                setRestPending(true);
+                try {
+                  await onMarkRestDay();
+                } finally {
+                  setRestPending(false);
+                }
+              }}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-md text-muted-foreground/70 hover:text-muted-foreground active:text-muted-foreground/50 transition-colors disabled:opacity-50"
+            >
+              <Icon name={restPending ? "refreshOutline" : "moonOutline"} size={13} className={restPending ? "animate-spin" : ""} />
+              <span className="text-[11px] tracking-[0.12em] font-medium">
+                {restPending ? "Saving…" : "Mark today as a rest day"}
+              </span>
+            </button>
           </motion.div>
         )}
       </AnimatePresence>

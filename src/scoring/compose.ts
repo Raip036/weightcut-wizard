@@ -1,4 +1,4 @@
-import type { FightFormScore, ScoringConfig, ScoringInputs, ScoringInputSources, SubScoreKey } from "./types";
+import type { FightFormScore, FightFormState, ScoringConfig, ScoringInputs, ScoringInputSources, SubScore, SubScoreKey } from "./types";
 import { computeTrainingLoad } from "./subScores/trainingLoad";
 import { computeSleep } from "./subScores/sleep";
 import { computeWeightCut } from "./subScores/weightCut";
@@ -6,8 +6,11 @@ import { computeWellness } from "./subScores/wellness";
 import { computeNutritionAdherence } from "./subScores/nutritionAdherence";
 import { computeRecovery } from "./subScores/recovery";
 import { resolvePhase, weightsForPhase } from "./phaseWeights";
-import { applyCeilings } from "./ceilings";
+import { applyCeilings, latchCeilings } from "./ceilings";
 import { computeCampAge } from "./campAge";
+import { lastLogDates, lastRealLogDates, staleDaysFor, decayFactor } from "./staleness";
+import { completenessFor, rollUpConfidence } from "./confidence";
+import { computeFormMomentum } from "./consistency";
 
 function countDistinctDaysOfData(inputs: ScoringInputs): number {
   const days = new Set<string>();
@@ -177,7 +180,9 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
       score: 0, rawScore: 0, label: "off_pace", state: "paused", phase: null,
       campAge: null, subScores: emptySubScores(), topDriver: "weightCut",
       topLimiter: "weightCut", appliedCeiling: null, algorithmVersion: cfg.version,
-      recoveryConfidence: 0, inputSources,
+      recoveryConfidence: 0, dataConfidence: 0, dataAgeDays: 0, activePillars: 0, totalPillars: 0,
+      formMomentum: 0,
+      inputSources,
     };
   }
   if (!inputs.fightDate || !inputs.campStartDate) {
@@ -185,7 +190,9 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
       score: 0, rawScore: 0, label: "off_pace", state: "no_camp", phase: null,
       campAge: null, subScores: emptySubScores(), topDriver: "weightCut",
       topLimiter: "weightCut", appliedCeiling: null, algorithmVersion: cfg.version,
-      recoveryConfidence: 0, inputSources,
+      recoveryConfidence: 0, dataConfidence: 0, dataAgeDays: 0, activePillars: 0, totalPillars: 0,
+      formMomentum: 0,
+      inputSources,
     };
   }
 
@@ -200,7 +207,9 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
       score: 0, rawScore: 0, label: "off_pace", state: "paused", phase: null,
       campAge: null, subScores: emptySubScores(), topDriver: "weightCut",
       topLimiter: "weightCut", appliedCeiling: null, algorithmVersion: cfg.version,
-      recoveryConfidence: 0, inputSources,
+      recoveryConfidence: 0, dataConfidence: 0, dataAgeDays: 0, activePillars: 0, totalPillars: 0,
+      formMomentum: 0,
+      inputSources,
     };
   }
 
@@ -210,79 +219,123 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
       score: 0, rawScore: 0, label: "off_pace", state: "calibrating", phase: null,
       campAge: null, subScores: emptySubScores(), topDriver: "weightCut",
       topLimiter: "weightCut", appliedCeiling: null, algorithmVersion: cfg.version,
-      recoveryConfidence: 0, inputSources,
+      recoveryConfidence: 0, dataConfidence: 0, dataAgeDays: 0, activePillars: 0, totalPillars: 0,
+      formMomentum: 0,
+      inputSources,
     };
   }
 
   const phase = resolvePhase(inputs.date, inputs.fightDate, cfg);
   const weights = weightsForPhase(phase, cfg);
 
-  const trainingLoad = computeTrainingLoad(inputs.sessions, inputs.date, cfg, inputs.restDays ?? []);
-  const sleep = computeSleep(inputs.sleepHours, inputs.date, cfg, inputs.assumedSleepDates);
-  const weightCut = computeWeightCut(
-    {
-      weights: inputs.weights,
-      startingWeightKg: inputs.startingWeightKg,
-      goalWeightKg: inputs.goalWeightKg,
-      campStartDate: inputs.campStartDate,
-      fightDate: inputs.fightDate,
-      // Passed through as `unknown` from the scoring inputs; the sub-score
-      // does its own structural validation on `weeklyPlan[]`.
-      cutPlanJson: inputs.cutPlanJson as never,
-    },
-    inputs.date, cfg,
-  );
-  const wellness = computeWellness(inputs.hooperByDate, inputs.date, cfg);
-  const nutritionAdherence = computeNutritionAdherence(inputs.meals, inputs.targets, inputs.date, cfg);
+  const lastDates = lastLogDates(inputs);
+  // Real log dates (excluding markedSkips) are used for the sub-score window
+  // so that skips pause staleness without shifting the computation window.
+  const realDates = lastRealLogDates(inputs);
+  const neutral = cfg.staleness.neutral;
 
-  // Fix #1 — capture "no data" signal from each sub-score BEFORE compose.ts
-  // overrides their `weight` with the phase weight. Sub-scores returning
-  // `value: 50, weight: 0` use that as a sentinel for "missing data, skip
-  // me." We then assign the phase weight only when the sub-score had data;
-  // otherwise we keep weight:0 and the redistributor excludes it from the
-  // composite denominator.
-  const subScoreHasData = {
-    trainingLoad: !/^(Cold start)/.test(trainingLoad.reason),
-    sleep: !/^(No sleep logs|Only \d+ night)/.test(sleep.reason),
-    weightCut: !/^(No weight logs yet|Camp data incomplete|No cut plan or weight data yet)/.test(weightCut.reason),
-    wellness: wellness.reason !== "No wellness check-ins in 7 days",
-    nutritionAdherence: !/^(Only \d+|No calorie)/.test(nutritionAdherence.reason),
+  // Compute a date-windowed pillar's raw sub-score AS OF a given date. Reading
+  // a pillar at its last-logged date (rather than always at `inputs.date`)
+  // lets a pillar that stopped being logged be read at its last-known state
+  // and then decayed toward neutral over its full staleness horizon — instead
+  // of vanishing the instant its data leaves the sub-score's own short window.
+  const computeWindowedPillar = (
+    key: Exclude<SubScoreKey, "recovery">,
+    asOf: string,
+  ): { value: number; reason: string; meta?: SubScore["meta"] } => {
+    switch (key) {
+      case "trainingLoad":
+        return computeTrainingLoad(inputs.sessions, asOf, cfg, inputs.restDays ?? []);
+      case "sleep":
+        return computeSleep(inputs.sleepHours, asOf, cfg, inputs.assumedSleepDates);
+      case "weightCut":
+        return computeWeightCut(
+          {
+            weights: inputs.weights,
+            startingWeightKg: inputs.startingWeightKg,
+            goalWeightKg: inputs.goalWeightKg,
+            campStartDate: inputs.campStartDate,
+            fightDate: inputs.fightDate,
+            cutPlanJson: inputs.cutPlanJson as never,
+          },
+          asOf, cfg,
+        );
+      case "wellness":
+        return computeWellness(inputs.hooperByDate, asOf, cfg);
+      case "nutritionAdherence":
+        return computeNutritionAdherence(inputs.meals, inputs.targets, asOf, cfg);
+      default: {
+        const _exhaustive: never = key;
+        return _exhaustive;
+      }
+    }
   };
+
+  // A pillar's own cold-start sentinel, read off its reason string (the
+  // sub-scores signal "no usable data" via these reason prefixes).
+  const hasDataFor = (key: SubScoreKey, reason: string): boolean => {
+    switch (key) {
+      case "trainingLoad": return !/^(Cold start)/.test(reason);
+      case "sleep": return !/^(No sleep logs|Only \d+ night)/.test(reason);
+      case "weightCut": return !/^(No weight logs yet|Camp data incomplete|No cut plan or weight data yet)/.test(reason);
+      case "wellness": return reason !== "No wellness check-ins in 7 days";
+      case "nutritionAdherence": return !/^(Only \d+|No calorie)/.test(reason);
+      case "recovery": return false; // recovery presence is signal-based, handled below
+    }
+  };
+
+  // Recovery is signal-based (no date window): computed once at today.
   const recovery = computeRecovery(
     inputs.healthSignals ?? null,
     inputs.selfReportRecovery ?? null,
     cfg,
   );
-
-  // When HealthKit signals are present and contribute (confidence > 0),
-  // hand the wellness slot's weight over to recovery. Recovery already
-  // folds the self-report soreness/energy back in, so we don't double-count.
-  // When healthSignals is null/missing OR every signal is absent, wellness
-  // keeps its weight and recovery stays at 0 — the composite is byte-for-byte
-  // identical to the pre-HealthKit engine.
   const recoveryHasSignal = (inputs.healthSignals ?? null) !== null && recovery.confidence > 0;
   const wellnessWeight = recoveryHasSignal ? 0 : weights.wellness;
   const recoveryWeight = recoveryHasSignal ? weights.wellness : 0;
 
+  // Build a windowed pillar: read it at its last-log date, gate presence on
+  // cold-start AND staleness horizon, then ease the value toward neutral by
+  // the decay factor. Past the horizon (or never logged) → weight 0 (excluded).
+  const buildWindowedPillar = (key: Exclude<SubScoreKey, "recovery">, phaseWeight: number): SubScore => {
+    const pCfg = cfg.staleness.byPillar[key];
+    // Use the real (non-skip) date for sub-score computation so the window
+    // reflects actual data; use lastDates (includes skips) for staleness so
+    // a marked skip pauses decay without fabricating data.
+    const asOf = realDates[key] ?? inputs.date;
+    const sub = computeWindowedPillar(key, asOf);
+    const hasData = hasDataFor(key, sub.reason);
+    const sd = staleDaysFor(lastDates[key], inputs.date);
+    const beyondHorizon = sd !== null && sd >= pCfg.horizonDays;
+    const present = hasData && lastDates[key] !== null && !beyondHorizon;
+    const weight = present ? phaseWeight : 0;
+    const d = sd === null ? 0 : decayFactor(sd, pCfg);
+    const value = weight > 0 ? sub.value * (1 - d) + neutral * d : sub.value;
+    return {
+      value,
+      weight,
+      reason: sub.reason,
+      meta: sub.meta,
+      completeness: weight > 0 ? completenessFor(sd, pCfg) : 0,
+    };
+  };
+
   const subScores: FightFormScore["subScores"] = {
-    trainingLoad: { ...trainingLoad, weight: subScoreHasData.trainingLoad ? weights.trainingLoad : 0 },
-    sleep: { ...sleep, weight: subScoreHasData.sleep ? weights.sleep : 0 },
-    weightCut: { ...weightCut, weight: subScoreHasData.weightCut ? weights.weightCut : 0 },
-    wellness: { ...wellness, weight: subScoreHasData.wellness ? wellnessWeight : 0 },
-    nutritionAdherence: { ...nutritionAdherence, weight: subScoreHasData.nutritionAdherence ? weights.nutritionAdherence : 0 },
+    trainingLoad: buildWindowedPillar("trainingLoad", weights.trainingLoad),
+    sleep: buildWindowedPillar("sleep", weights.sleep),
+    weightCut: buildWindowedPillar("weightCut", weights.weightCut),
+    wellness: buildWindowedPillar("wellness", wellnessWeight),
+    nutritionAdherence: buildWindowedPillar("nutritionAdherence", weights.nutritionAdherence),
     recovery: {
       value: recovery.value,
       weight: recoveryWeight,
       reason: recovery.reason,
+      // Recovery signals are today's HealthKit snapshot — treat as fresh.
+      completeness: recoveryWeight > 0 ? 1 : 0,
     },
   };
 
-  // Fix #1 — composite redistribution on missing data.
-  // Sub-scores that lack data return `weight: 0` (trainingLoad < 3 sessions,
-  // sleep < 3 nights, nutrition < 3 logged days, wellness no Hooper, recovery
-  // no HealthKit). Including them in the denominator would silently bottom
-  // out the composite even when other sub-scores are healthy. Divide only by
-  // the sum of weights for sub-scores that actually contributed.
+  // Composite redistribution on missing data: divide only by present weights.
   const subScoreList = Object.values(subScores);
   const present = subScoreList.filter((s) => s.weight > 0);
   const totalPresentWeight = present.reduce((a, s) => a + s.weight, 0);
@@ -290,7 +343,35 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
     ? present.reduce((a, s) => a + s.value * s.weight, 0) / Math.max(1e-9, totalPresentWeight)
     : 50; // every sub-score absent — neutral placeholder; ceilings still run.
 
-  const ceil = applyCeilings(rawScore, {
+  // Confidence + staleness summary fields.
+  const dataConfidence = rollUpConfidence(
+    (Object.keys(subScores) as SubScoreKey[]).map((k) => ({
+      weight: subScores[k].weight,
+      completeness: subScores[k].completeness ?? 0,
+    })),
+  );
+  const activePillars = present.length;
+  // Pillars eligible this phase (recovery takes the wellness slot 1:1, so the
+  // count is invariant whether or not HealthKit signals are present).
+  const phaseKeys = (Object.keys(weights) as SubScoreKey[]).filter((k) => weights[k] > 0);
+  const totalPillars = phaseKeys.length;
+  const dataAgeDays = (Object.keys(subScores) as SubScoreKey[])
+    .filter((k) => subScores[k].weight > 0)
+    .reduce((max, k) => Math.max(max, staleDaysFor(lastDates[k], inputs.date) ?? 0), 0);
+
+  // Consistency reward — added to the raw composite BEFORE ceilings so safety
+  // caps and latching still override it. Rewards sustained all-pillar strength.
+  const formMomentum = computeFormMomentum({
+    priorRawScores: inputs.priorRawScores,
+    rawScore,
+    activePillars,
+    totalPillars,
+    dataConfidence,
+    cfg,
+  });
+  const boostedRaw = Math.min(100, rawScore + formMomentum);
+
+  const ceil = applyCeilings(boostedRaw, {
     weightCutDangerousDays: consecutiveDangerousDays(inputs.weights, inputs.startingWeightKg, inputs.campStartDate, cfg),
     sleepDebt7d: sleepDebt7d(inputs.sleepHours, inputs.date, cfg),
     acwr: computeAcwr(inputs.sessions, inputs.date, cfg),
@@ -299,8 +380,26 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
     latestHooper: latestHooper(inputs.hooperByDate, inputs.date),
   }, cfg);
 
-  const displayed = emaSmooth(ceil.score, inputs.priorRawScores, cfg.smoothing.emaDays);
+  // Anti-gaming: latch a recently-fired ceiling that live signals no longer
+  // trigger when the governing pillar is stale (escape-by-not-logging).
+  const latched = latchCeilings(ceil, {
+    asOfDate: inputs.date,
+    priorCeilings: inputs.priorCeilings ?? [],
+    staleDaysByRule: {
+      // realDates (skip-excluded): a marked skip must NOT release a safety cap — only real recovered data can.
+      sleep_debt: staleDaysFor(realDates.sleep, inputs.date),
+      weight_cut_dangerous: staleDaysFor(realDates.weightCut, inputs.date),
+      training_spike: staleDaysFor(realDates.trainingLoad, inputs.date),
+    },
+  }, cfg);
+
+  const displayed = emaSmooth(latched.score, inputs.priorRawScores, cfg.smoothing.emaDays);
   const finalScore = Math.round(Math.max(0, Math.min(100, displayed)));
+
+  const lowConfidence = dataConfidence < cfg.confidence.labelCapThreshold;
+  let label = pickLabel(finalScore, cfg);
+  if (lowConfidence && label === "sharp") label = "sharpening";
+  const state: FightFormState = lowConfidence ? "stale" : "ok";
 
   const contributions = (Object.keys(subScores) as SubScoreKey[]).map((k) => ({
     key: k, contribution: subScores[k].value * subScores[k].weight,
@@ -311,9 +410,9 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
 
   return {
     score: finalScore,
-    rawScore: Math.round(ceil.score),
-    label: pickLabel(finalScore, cfg),
-    state: "ok",
+    rawScore: Math.round(latched.score),
+    label,
+    state,
     phase,
     campAge: computeCampAge({
       campStartDate: inputs.campStartDate,
@@ -326,9 +425,14 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
     subScores,
     topDriver,
     topLimiter,
-    appliedCeiling: ceil.applied,
+    appliedCeiling: latched.applied,
     algorithmVersion: cfg.version,
     recoveryConfidence: recovery.confidence,
+    dataConfidence,
+    dataAgeDays,
+    activePillars,
+    totalPillars,
+    formMomentum,
     inputSources,
   };
 }

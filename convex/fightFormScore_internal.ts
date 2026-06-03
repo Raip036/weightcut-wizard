@@ -228,6 +228,26 @@ export const fetchScoringInputs = internalQuery({
       )
       .collect();
 
+    // Prior ceilings for latching: any fired safety cap within the latch
+    // cooldown window before the target date. The engine holds such a cap
+    // when its governing pillar is stale (anti-gaming), and releases it only
+    // when fresh data clears the rule. Row `date` IS the fired date.
+    const ceilLookback = new Date(end);
+    ceilLookback.setUTCDate(ceilLookback.getUTCDate() - CURRENT_CONFIG.confidence.ceilingCooldownDays);
+    const ceilStart = ceilLookback.toISOString().slice(0, 10);
+    const priorBeforeToday = new Date(end);
+    priorBeforeToday.setUTCDate(priorBeforeToday.getUTCDate() - 1);
+    const ceilEnd = priorBeforeToday.toISOString().slice(0, 10);
+    const priorCeilingRows = await ctx.db
+      .query("fight_form_scores")
+      .withIndex("by_user_date", (q) =>
+        q.eq("userId", userId).gte("date", ceilStart).lte("date", ceilEnd),
+      )
+      .collect();
+    const priorCeilings = priorCeilingRows
+      .filter((r) => r.appliedCeiling != null)
+      .map((r) => ({ date: r.date, ruleId: r.appliedCeiling!.ruleId, cap: r.appliedCeiling!.cap }));
+
     // HealthKit precedence: per-date overrides for sleep hours + body
     // mass. When `daily_health_summary` has a usable value for a given
     // date, it WINS over the matching manual `sleep_logs` / `weight_logs`
@@ -340,6 +360,22 @@ export const fetchScoringInputs = internalQuery({
       .filter((c) => (c.sessionType ?? "").toLowerCase() === "rest")
       .map((c) => c.date);
 
+    // Marked skips within the lookback window. Map user-facing pillar names to
+    // the engine's SubScoreKey so a skip pauses the right pillar's staleness.
+    const skipRows = await ctx.db
+      .query("marked_skips")
+      .withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", lookbackStartIso))
+      .collect();
+    const SKIP_PILLAR_TO_KEY: Record<string, "sleep" | "weightCut" | "nutritionAdherence" | "wellness"> = {
+      sleep: "sleep",
+      weight: "weightCut",
+      nutrition: "nutritionAdherence",
+      wellness: "wellness",
+    };
+    const markedSkips = skipRows
+      .map((r) => ({ date: r.date, pillar: SKIP_PILLAR_TO_KEY[r.pillar] }))
+      .filter((s): s is { date: string; pillar: "sleep" | "weightCut" | "nutritionAdherence" | "wellness" } => s.pillar != null);
+
     return {
       date,
       profile,
@@ -357,6 +393,8 @@ export const fetchScoringInputs = internalQuery({
         .map((w) => ({ date: w.date, hooper: w.hooperIndex! })),
       meals: Array.from(mealsByDay.values()),
       priorRawScores: priorRaw.map((p) => ({ date: p.date, rawScore: p.rawScore })),
+      priorCeilings,
+      markedSkips,
       healthSignals,
       selfReportRecovery,
     };
@@ -388,6 +426,11 @@ export const upsertScore = internalMutation({
       phase: score.phase ?? undefined,
       subScores: score.subScores,
       appliedCeiling: score.appliedCeiling ?? undefined,
+      dataConfidence: score.dataConfidence,
+      dataAgeDays: score.dataAgeDays,
+      activePillars: score.activePillars,
+      totalPillars: score.totalPillars,
+      formMomentum: score.formMomentum,
       campAge: score.campAge ?? undefined,
       topDriver: score.topDriver,
       topLimiter: score.topLimiter,

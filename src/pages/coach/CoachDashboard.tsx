@@ -42,6 +42,7 @@ import {
   buildAlerts,
   trainingHoursThisWeek,
 } from "@/components/coach/dashboard/athleteRowHelpers";
+import { isScoredState } from "@/lib/fightFormState";
 import { EmptyDashboardState } from "@/components/coach/dashboard/EmptyDashboardState";
 import { registerPullRefresh } from "@/lib/pullRefreshRegistry";
 import ErrorBoundary from "@/components/ErrorBoundary";
@@ -55,7 +56,7 @@ function daysUntil(iso: string | null): number | null {
 }
 
 function readinessScore(a: AthleteOverviewRow): number | null {
-  if (a.fight_form && a.fight_form.state === "ok") return a.fight_form.score;
+  if (a.fight_form && isScoredState(a.fight_form.state)) return a.fight_form.score;
   return null;
 }
 
