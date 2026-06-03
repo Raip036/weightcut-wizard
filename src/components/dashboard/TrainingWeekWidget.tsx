@@ -318,8 +318,16 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
         className="card-surface card-glow p-3.5 rounded-2xl overflow-hidden cursor-pointer active:scale-[0.98] transition-all duration-200 aspect-square flex flex-col min-w-0 w-full"
         onClick={() => { triggerHapticSelection(); navigate("/training-calendar?openLogSession=true"); }}
       >
-        {/* Header: ring + stats */}
-        <div className="flex items-center gap-2.5">
+        {/* Title top-left, expand chevron top-right — matches the WEIGHT card */}
+        <div className="flex items-start justify-between">
+          <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
+            TRAINING
+          </span>
+          <Icon name="chevronForwardOutline" size={14} className="text-muted-foreground/40" />
+        </div>
+
+        {/* Ring + stats */}
+        <div className="flex items-center gap-2.5 mt-2">
           <div className="relative w-11 h-11 flex-shrink-0">
             <AnimatedRing
               progress={ringProgress}
@@ -333,9 +341,6 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
             </div>
           </div>
           <div className="flex-1 min-w-0">
-            {/* Design System v1: eyebrow labels render in Inter Regular
-                (not bold). Matches the WEIGHT label on the sibling card. */}
-            <div className="text-[10px] font-normal uppercase tracking-[0.08em] text-muted-foreground">Training</div>
             <div className="flex items-baseline gap-1 mt-0.5">
               <span className="display-number text-lg font-bold tabular-nums">
                 {Math.round(animatedTotal)}
@@ -359,7 +364,6 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
               )
             )}
           </div>
-          <Icon name="chevronForwardOutline" size={14} className="text-muted-foreground/30 flex-shrink-0" />
         </div>
 
         {/* Week bar chart — fills remaining space. Each session renders as

@@ -73,7 +73,7 @@ export const DashboardHeader = memo(function DashboardHeader({
     (typeof kgRemaining === "number" && kgRemaining > 0) || !!weighInLabel;
 
   return (
-    <>
+    <div className="pb-1.5">
       <header className="relative flex items-center justify-between gap-3 pt-1">
         <button
           onClick={onAvatarClick}
@@ -159,9 +159,10 @@ export const DashboardHeader = memo(function DashboardHeader({
         )}
       </header>
 
-      {/* Date — small caps Inter Light, with breathing room from the
-          top row above. */}
-      <div className="pt-1">
+      {/* Date — small caps Inter Light. Hugs the avatar row above (tight
+          mt) so it reads as a unit; the wrapper's pb-1.5 + the parent
+          space-y gap give it breathing room from the ring below. */}
+      <div className="mt-2.5 pl-0.5">
         <p className="text-micro uppercase tracking-[0.15em] font-light text-muted-foreground/70">
           {new Date().toLocaleDateString("en-US", {
             weekday: "long",
@@ -170,7 +171,7 @@ export const DashboardHeader = memo(function DashboardHeader({
           })}
         </p>
       </div>
-    </>
+    </div>
   );
 });
 

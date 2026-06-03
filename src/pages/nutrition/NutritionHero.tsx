@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
-import { format, subDays, isToday, isYesterday } from "date-fns";
-import { Loader2, ChevronRight, Sparkles } from "lucide-react";
+import { format, subDays, addDays, isToday, isYesterday } from "date-fns";
+import { Loader2, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { motion } from "motion/react";
 import wizardLogo from "@/assets/wizard-logo.webp";
 import { MacroPieChart } from "@/components/nutrition/MacroPieChart";
@@ -101,6 +101,16 @@ function DateStrip({
   const todayStr = format(today, "yyyy-MM-dd");
   const isOnToday = selectedDate === todayStr;
 
+  // Week-at-a-time navigation. Parse the selected day, shift ±7, and clamp
+  // the forward direction so we never navigate into the future.
+  const goWeek = (dir: -1 | 1) => {
+    triggerHapticSelection();
+    const base = new Date(`${selectedDate}T00:00:00`);
+    const shifted = dir === 1 ? addDays(base, 7) : subDays(base, 7);
+    const next = shifted > today ? today : shifted;
+    setSelectedDate(format(next, "yyyy-MM-dd"));
+  };
+
   // Auto-scroll the active day into view. Animates whenever selectedDate
   // changes — including the "Today →" pill tap, which now visually
   // slides the strip rather than just changing the highlight.
@@ -121,14 +131,23 @@ function DateStrip({
 
   return (
     <div className="relative">
-      <div
-        ref={scrollRef}
-        className={
-          "flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scroll-smooth " +
-          "[-webkit-overflow-scrolling:touch] [touch-action:pan-x] " +
-          "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        }
-      >
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => goWeek(-1)}
+          aria-label="Previous week"
+          className="flex-shrink-0 flex items-center justify-center h-[64px] w-7 rounded-xs text-muted-foreground/70 active:text-foreground active:bg-muted/40 transition-colors [-webkit-tap-highlight-color:transparent]"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+        <div
+          ref={scrollRef}
+          className={
+            "flex-1 flex gap-1.5 overflow-x-auto pb-1 px-1 scroll-smooth " +
+            "[-webkit-overflow-scrolling:touch] [touch-action:pan-x] " +
+            "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          }
+        >
         {days.map((d) => {
           const ds = format(d, "yyyy-MM-dd");
           const active = ds === selectedDate;
@@ -169,6 +188,16 @@ function DateStrip({
             </motion.button>
           );
         })}
+        </div>
+        <button
+          type="button"
+          onClick={() => goWeek(1)}
+          disabled={isOnToday}
+          aria-label="Next week"
+          className="flex-shrink-0 flex items-center justify-center h-[64px] w-7 rounded-xs text-muted-foreground/70 active:text-foreground active:bg-muted/40 transition-colors disabled:opacity-25 disabled:pointer-events-none [-webkit-tap-highlight-color:transparent]"
+        >
+          <ChevronRight className="h-5 w-5" />
+        </button>
       </div>
       {/* Jump-to-today affordance — tiny chip top-right when off-today */}
       {!isOnToday && (

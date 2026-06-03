@@ -23,6 +23,7 @@ interface RingProps {
     glow?: boolean;
 }
 
+// Full-circle progress ring — used by the three macro indicators.
 const Ring = ({ pct, color, size, strokeWidth, children, trackOpacity = 0.18, glow = true }: RingProps) => {
     const r = (size - strokeWidth) / 2;
     const c = 2 * Math.PI * r;
@@ -46,31 +47,29 @@ const Ring = ({ pct, color, size, strokeWidth, children, trackOpacity = 0.18, gl
     );
 };
 
-interface MacroCardProps {
+interface MacroRingItemProps {
     label: string;
     value: number;
     goal: number;
     color: string;
 }
 
-const MacroCard = ({ label, value, goal, color }: MacroCardProps) => {
+// Macro indicator — just the ring + label, NO card background. The three
+// sit in a bare row under the calorie card.
+const MacroRingItem = ({ label, value, goal, color }: MacroRingItemProps) => {
     const pct = goal > 0 ? (value / goal) * 100 : 0;
     const left = Math.max(0, goal - value);
     return (
-        // `aspect-square` locks each macro tile to a 1:1 ratio so Protein /
-        // Carbs / Fat read as a clean trio of square chips. Padding and the
-        // ring size are tuned so the content still fits comfortably inside
-        // the square at typical phone widths (~110px) without crowding.
-        <div className="card-surface rounded-xs p-2.5 aspect-square flex flex-col items-center justify-center gap-1.5">
-            <Ring pct={pct} color={color} size={56} strokeWidth={7}>
-                <span className="text-[14px] font-bold tabular-nums" style={{ color }}>
+        <div className="flex flex-col items-center justify-center gap-2">
+            <Ring pct={pct} color={color} size={64} strokeWidth={7}>
+                <span className="text-[15px] font-bold tabular-nums" style={{ color }}>
                     {Math.round(value)}
                     <span className="text-[9px] font-semibold ml-0.5" style={{ color }}>g</span>
                 </span>
             </Ring>
             <div className="text-center">
                 <p className="text-[12px] font-semibold text-foreground leading-none">{label}</p>
-                <p className="text-[10px] tabular-nums text-muted-foreground/60 mt-0.5">
+                <p className="text-[10px] tabular-nums text-muted-foreground/60 mt-1">
                     {goal > 0 ? `${Math.round(left)}g left` : "—"}
                 </p>
             </div>
@@ -91,48 +90,73 @@ export const MacroPieChart = memo(function MacroPieChart({
 }: MacroPieChartProps) {
     const isOver = calories > calorieTarget;
     const calPct = calorieTarget > 0 ? (calories / calorieTarget) * 100 : 0;
+    const clamped = Math.min(Math.max(calPct, 0), 100);
     const calColor = isOver ? "hsl(var(--destructive))" : "hsl(var(--primary))";
+
+    // Semicircle gauge geometry. The arc sweeps 180° across the top of the
+    // viewBox; `pathLength={100}` lets us drive the fill as a simple
+    // percentage via strokeDasharray.
+    const ARC = "M6 60 A54 54 0 0 1 114 60";
 
     return (
         <div className="space-y-5">
-            {/* Calorie card — wide rectangle, big kcal number on left, ring on right */}
-            <div className="card-surface rounded-xs px-6 py-5 flex items-center gap-5">
-                <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                        <p className="text-[10px] uppercase tracking-[0.15em] font-semibold text-muted-foreground/60">
-                            Calories
-                        </p>
-                        {onEditTargets && (
-                            <button
-                                onClick={(e) => { e.stopPropagation(); onEditTargets(); }}
-                                className="flex items-center gap-1 text-[10px] text-muted-foreground/50 hover:text-primary transition-colors"
-                            >
-                                <Settings className="h-3 w-3" />
-                            </button>
-                        )}
+            {/* Calorie card — semicircle gauge centered, settings top-right */}
+            <div className="relative card-surface rounded-xs px-6 pt-5 pb-6">
+                {onEditTargets && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onEditTargets(); }}
+                        className="absolute top-3 right-3 z-10 flex items-center justify-center text-muted-foreground/50 hover:text-primary transition-colors"
+                        aria-label="Edit calorie targets"
+                    >
+                        <Settings className="h-4 w-4" />
+                    </button>
+                )}
+
+                <p className="text-center text-[10px] uppercase tracking-[0.15em] font-semibold text-muted-foreground/60">
+                    Calories
+                </p>
+
+                <div className="relative mx-auto mt-2 w-full max-w-[240px]">
+                    <svg viewBox="0 0 120 68" className="w-full block">
+                        <path
+                            d={ARC}
+                            fill="none"
+                            stroke="hsl(var(--border) / 0.18)"
+                            strokeWidth={10}
+                            strokeLinecap="round"
+                        />
+                        <path
+                            d={ARC}
+                            fill="none"
+                            stroke={calColor}
+                            strokeWidth={10}
+                            strokeLinecap="round"
+                            pathLength={100}
+                            strokeDasharray={`${clamped} 100`}
+                            className="transition-all duration-700 ease-out"
+                            style={{ filter: `drop-shadow(0 0 5px ${calColor}55)` }}
+                        />
+                    </svg>
+                    {/* Center readout — sits in the bowl of the gauge */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pb-0.5">
+                        <span className="text-[34px] font-bold tabular-nums leading-none tracking-tight text-foreground">
+                            {Math.round(calories)}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground/60 mt-1.5 tabular-nums font-medium">
+                            {calorieTarget > 0
+                                ? `of ${calorieTarget.toLocaleString()} kcal`
+                                : "kcal today"}
+                        </span>
                     </div>
-                    <p className="text-[36px] font-bold tabular-nums leading-none tracking-tight mt-2 text-foreground">
-                        {Math.round(calories)}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground/60 mt-2 tabular-nums font-medium">
-                        {calorieTarget > 0
-                            ? `of ${calorieTarget.toLocaleString()} kcal`
-                            : "kcal today"}
-                    </p>
                 </div>
-                <Ring pct={calPct} color={calColor} size={88} strokeWidth={10}>
-                    <span className="text-[18px] font-bold tabular-nums tracking-tight" style={{ color: calColor }}>
-                        {Math.round(Math.min(calPct, 999))}%
-                    </span>
-                </Ring>
             </div>
 
-            {/* Macro grid — 3 cards, each with its own ring; backgrounds neutral, only numbers tinted */}
+            {/* Macro rings — bare rings, no card backgrounds */}
             <div className="grid grid-cols-3 gap-3">
                 {/* Design System v1 FUNCTIONAL palette */}
-                <MacroCard label="Protein" value={protein} goal={proteinGoal ?? 0} color="#2A5BDD" />
-                <MacroCard label="Carbs" value={carbs} goal={carbsGoal ?? 0} color="#F08439" />
-                <MacroCard label="Fat" value={fats} goal={fatsGoal ?? 0} color="#7B31EA" />
+                <MacroRingItem label="Protein" value={protein} goal={proteinGoal ?? 0} color="#2A5BDD" />
+                <MacroRingItem label="Carbs" value={carbs} goal={carbsGoal ?? 0} color="#F08439" />
+                <MacroRingItem label="Fat" value={fats} goal={fatsGoal ?? 0} color="#7B31EA" />
             </div>
         </div>
     );

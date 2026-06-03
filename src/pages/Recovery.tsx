@@ -147,8 +147,15 @@ export default function Recovery() {
                     </div>
                     <div className="flex flex-wrap gap-2">
                         <button
-                            onClick={() => { triggerHapticSelection(); navigate("/training-calendar"); }}
+                            onClick={() => { triggerHapticSelection(); navigate("/recovery/check-in"); }}
                             className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-2 text-[12px] font-bold text-primary-foreground active:scale-[0.97] transition"
+                        >
+                            <Icon name="sparklesOutline" size={14} />
+                            Daily check-in
+                        </button>
+                        <button
+                            onClick={() => { triggerHapticSelection(); navigate("/training-calendar"); }}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-border/40 px-3.5 py-2 text-[12px] font-semibold text-foreground active:scale-[0.97] transition"
                         >
                             <Icon name="pulseOutline" size={14} />
                             Log a session

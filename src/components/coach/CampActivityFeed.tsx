@@ -14,16 +14,9 @@ import { Icon, type IonIconName } from "@/components/ui/Icon";
 import { triggerHapticSelection } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 
-// Persist the collapsed state across navigations/remounts so the section
-// stays the way the user left it.
-const COLLAPSE_KEY = "campActivityCollapsed";
-function readCollapsed(): boolean {
-  try {
-    return localStorage.getItem(COLLAPSE_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
+// Number of activities always shown; the rest sit behind a "Show more"
+// dropdown so the section stays compact by default.
+const PREVIEW_COUNT = 4;
 
 export type CampActivityFeedProps = {
   /** When null the underlying Convex query is skipped (component returns null). */
@@ -102,21 +95,13 @@ export function CampActivityFeed({ userId, limit = 7 }: CampActivityFeedProps) {
   );
   const clearActivity = useMutation(api.campActivityFeed.clearActivity);
 
-  const [collapsed, setCollapsed] = useState<boolean>(readCollapsed);
+  const [expanded, setExpanded] = useState(false);
   const [confirmingClear, setConfirmingClear] = useState(false);
 
-  const toggleCollapsed = () => {
+  const toggleExpanded = () => {
     triggerHapticSelection();
     setConfirmingClear(false);
-    setCollapsed((c) => {
-      const next = !c;
-      try {
-        localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
-      } catch {
-        /* private mode / storage disabled — non-fatal */
-      }
-      return next;
-    });
+    setExpanded((v) => !v);
   };
 
   const handleClear = async () => {
@@ -141,25 +126,9 @@ export function CampActivityFeed({ userId, limit = 7 }: CampActivityFeedProps) {
   return (
     <section className="space-y-2" aria-label="Recent activity">
       <div className="flex items-center justify-between gap-2">
-        {/* Tap the heading to collapse/expand the feed. */}
-        <button
-          type="button"
-          onClick={toggleCollapsed}
-          aria-expanded={!collapsed}
-          className="flex items-center gap-1.5 py-0.5 active:opacity-70 transition-opacity"
-        >
-          <span className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground/80 font-semibold">
-            Recent activity
-          </span>
-          <Icon
-            name="chevronDownOutline"
-            size={13}
-            className={cn(
-              "text-muted-foreground/60 transition-transform",
-              collapsed && "-rotate-90",
-            )}
-          />
-        </button>
+        <span className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground/80 font-semibold py-0.5">
+          Recent activity
+        </span>
 
         {/* Clear — two-step inline confirm to avoid accidental taps. */}
         {confirmingClear ? (
@@ -193,9 +162,8 @@ export function CampActivityFeed({ userId, limit = 7 }: CampActivityFeedProps) {
         )}
       </div>
 
-      {!collapsed && (
       <ul className="space-y-1.5">
-        {visibleEvents.map((ev, i) => {
+        {(expanded ? visibleEvents : visibleEvents.slice(0, PREVIEW_COUNT)).map((ev, i) => {
           const kind = ev.kind as EventKind;
           return (
             <li key={`${ev.timestamp}-${i}`}>
@@ -228,6 +196,24 @@ export function CampActivityFeed({ userId, limit = 7 }: CampActivityFeedProps) {
           );
         })}
       </ul>
+
+      {visibleEvents.length > PREVIEW_COUNT && (
+        <button
+          type="button"
+          onClick={toggleExpanded}
+          aria-expanded={expanded}
+          className="w-full flex items-center justify-center gap-1 py-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/70 active:text-foreground transition-colors"
+        >
+          {expanded ? "Show less" : `Show ${visibleEvents.length - PREVIEW_COUNT} more`}
+          <Icon
+            name="chevronDownOutline"
+            size={13}
+            className={cn(
+              "text-muted-foreground/60 transition-transform",
+              expanded && "rotate-180",
+            )}
+          />
+        </button>
       )}
     </section>
   );

@@ -118,11 +118,7 @@ export function EmojiReactionBar({
               fireBurst(emoji, e.currentTarget);
               onReact(key);
             }}
-            className={`relative flex items-center justify-center w-10 h-10 rounded-full transition-colors ${
-              active
-                ? "ring-2 ring-primary/60 bg-primary/10"
-                : "active:bg-card/40"
-            }`}
+            className="relative flex items-center justify-center w-10 h-10 rounded-full transition-colors [-webkit-tap-highlight-color:transparent]"
             aria-label={`React with ${emoji}`}
             aria-pressed={active}
           >

@@ -49,10 +49,12 @@ export function CommentInputBar({
         type="button"
         onClick={send}
         disabled={!text.trim() || submitting}
-        className="h-8 w-8 rounded-full flex items-center justify-center bg-primary text-primary-foreground active:scale-95 transition-transform disabled:opacity-40 disabled:active:scale-100"
+        className={`h-8 w-8 flex items-center justify-center text-white active:scale-95 transition-all [-webkit-tap-highlight-color:transparent] ${
+          !text.trim() || submitting ? "opacity-30" : "opacity-100"
+        }`}
         aria-label="Send comment"
       >
-        <Icon name="arrowUpOutline" size={14} />
+        <Icon name="paperPlane" size={18} />
       </button>
     </div>
   );

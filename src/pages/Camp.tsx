@@ -10,6 +10,7 @@ import { ImpactStyle } from "@capacitor/haptics";
 import { MissionStack } from "@/components/coach/MissionStack";
 import { XpSummaryCard } from "@/components/coach/XpSummaryCard";
 import { CampHeroCard } from "@/components/coach/CampHeroCard";
+import { CampProgressPanel } from "@/components/coach/CampProgressPanel";
 import { CampActivityFeed } from "@/components/coach/CampActivityFeed";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -62,8 +63,6 @@ const sections: CampSection[] = [
     icon: "bookOutline",
     utility: true,
   },
-  { title: "Sleep",     description: "", url: "/sleep",     icon: "moonOutline" },
-  { title: "Recovery",  description: "", url: "/recovery",  icon: "heartOutline" },
 ];
 
 // Tile size class — controls layout span + icon/typography scale per bento slot.
@@ -116,6 +115,14 @@ export default function Camp() {
     isSubscriptionResolved && !checkFeatureAccess("RECOVERY");
   const goalType = (profile?.goal_type as "cutting" | "losing") ?? "cutting";
   const fighter = isFighter(goalType);
+
+  // Display unit + goal weight for the camp progression trajectory chart.
+  const weightUnit =
+    (typeof window !== "undefined" &&
+      (localStorage.getItem("wcw_weight_unit") as "kg" | "lb")) ||
+    "kg";
+  const goalWeightKg =
+    profile?.fight_week_target_kg ?? profile?.goal_weight_kg ?? 0;
 
   const activeCamp = useQuery(
     api.fight_camp.getActiveCamp,
@@ -207,6 +214,34 @@ export default function Camp() {
     return { totalDays, elapsed, daysLeft, pct, fightLabel };
   })();
 
+  // Progression source for the phase timeline + weight-vs-plan trajectory.
+  // Prefer a real active camp; otherwise fall back to a fighter's weigh-in
+  // date + cut-plan length so the panel still renders for users who haven't
+  // created a formal fight-camp record yet.
+  const progressSource = (() => {
+    if (campProgress && activeCamp) {
+      return {
+        startMs: activeCamp._creationTime,
+        fightMs: new Date(activeCamp.fightDate).getTime(),
+        daysLeft: campProgress.daysLeft,
+        pct: campProgress.pct,
+      };
+    }
+    const targetDate = profile?.target_date;
+    if (fighter && targetDate && goalWeightKg > 0) {
+      const fightMs = new Date(targetDate).getTime();
+      const nowMs = Date.now();
+      if (isNaN(fightMs) || fightMs <= nowMs) return null;
+      const weeks = cutPlanSummary?.totalWeeks ?? 8;
+      const startMs = fightMs - weeks * 7 * 86_400_000;
+      const total = Math.max(1, fightMs - startMs);
+      const daysLeft = Math.max(0, Math.round((fightMs - nowMs) / 86_400_000));
+      const pct = Math.min(1, Math.max(0, (nowMs - startMs) / total));
+      return { startMs, fightMs, daysLeft, pct };
+    }
+    return null;
+  })();
+
   // ── Bento layout selection ────────────────────────────────────────────
   // Pick the hero tile based on user state: active-camp fighters get the
   // Training Calendar as their headline action; everyone else gets the Gym
@@ -230,7 +265,10 @@ export default function Camp() {
     return result;
   }, [visible, activeCamp]);
 
-  const phase = campProgress ? derivePhase(campProgress.daysLeft) : null;
+  // Phase drives both the hero card and the progression panel; derive it from
+  // the broader progressSource so the panel still gets a phase when the user
+  // has a weigh-in date but no formal camp record.
+  const phase = progressSource ? derivePhase(progressSource.daysLeft) : null;
 
   // Tap handler with haptic feedback. Centralised so the bento + cut-plan
   // tiles share the same interaction language.
@@ -260,6 +298,21 @@ export default function Camp() {
           campProgress={campProgress}
           phase={phase}
           onTap={() => goTo("/fight-camps")}
+        />
+      )}
+
+      {/* ── Camp progression — phase timeline + weight-vs-plan trajectory.
+          Renders for any user with a progression window (active camp OR a
+          weigh-in date + goal weight), not just formal camp records. ─────── */}
+      {progressSource && phase && goalWeightKg > 0 && (
+        <CampProgressPanel
+          campStartMs={progressSource.startMs}
+          fightMs={progressSource.fightMs}
+          daysLeft={progressSource.daysLeft}
+          pct={progressSource.pct}
+          goalWeightKg={goalWeightKg}
+          unit={weightUnit}
+          phaseText={phase.text}
         />
       )}
 
@@ -296,13 +349,15 @@ export default function Camp() {
               triggerHaptic(ImpactStyle.Light);
               openPaywall();
             }}
-            className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl card-surface active:brightness-110 transition-[filter]"
+            className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border border-primary/30 bg-primary/10 active:brightness-110 transition-[filter]"
           >
             <span className="flex items-center gap-2 min-w-0">
-              <Icon name="sparklesOutline" size={14} className="text-primary shrink-0" />
-              <span className="text-body-sm text-foreground truncate">Pro: Unlock training missions</span>
+              <Icon name="lockClosed" size={14} className="text-primary shrink-0" />
+              <span className="text-body-sm text-foreground truncate">Unlock training missions</span>
             </span>
-            <Icon name="arrowForwardOutline" size={12} className="text-muted-foreground" />
+            <span className="inline-flex items-center gap-0.5 rounded-full border border-primary/40 bg-primary/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-primary shrink-0">
+              Pro
+            </span>
           </button>
         ) : (
           <>
@@ -320,12 +375,13 @@ export default function Camp() {
           const isHero = tile.size === "hero";
           const isMedium = tile.size === "medium";
 
-          // Layout spans. Hero is 2x2; medium tiles are 1x2 (taller); small
-          // tiles are a single cell.
+          // Layout spans. Hero is a full-width single-row banner (icon beside
+          // title, like the "View full plan" card) so it stays compact; medium
+          // tiles are 1x2 (taller); small tiles are a single cell.
           const spanClass = isHero
-            ? "col-span-2 row-span-2"
+            ? "col-span-2 row-span-1"
             : isMedium
-              ? "col-span-1 row-span-2"
+              ? "col-span-1 row-span-1"
               : "col-span-1 row-span-1";
 
           // Per-size surface styling. Every tile carries the primary-tinted
@@ -335,9 +391,12 @@ export default function Camp() {
           const surfaceClass =
             "relative card-surface border border-primary/20 overflow-hidden";
 
-          const iconSize = isHero ? 56 : isMedium ? 40 : 32;
+          // Uniform leading-icon size across every tile — matches the
+          // "View full plan" card's icon (26) so the Camp page reads as a
+          // single consistent icon set rather than three tiers of scale.
+          const iconSize = 26;
           const titleClass = isHero
-            ? "text-[20px] leading-tight tracking-tight"
+            ? "text-[17px] leading-tight tracking-tight"
             : isMedium
               ? "text-[16px] leading-tight tracking-tight"
               : "text-[14px] leading-tight tracking-tight";
@@ -358,7 +417,9 @@ export default function Camp() {
                 }
                 goTo(tile.url);
               }}
-              className={`${spanClass} ${surfaceClass} rounded-2xl p-4 text-left card-press flex flex-col`}
+              className={`${spanClass} ${surfaceClass} rounded-2xl p-4 text-left card-press flex ${
+                isHero ? "flex-row items-center gap-3.5" : "flex-col"
+              }`}
             >
               <div
                 aria-hidden
@@ -373,31 +434,55 @@ export default function Camp() {
                 </span>
               )}
 
-              <div className="relative flex-1 flex flex-col">
-                <div className="flex-1">
+              {isHero ? (
+                /* Horizontal banner — icon beside title, like "View full plan",
+                   so the hero stays a compact single-row tile. */
+                <>
                   <Icon
                     name={tile.icon}
                     size={iconSize}
-                    className="text-primary/90"
+                    className="relative text-primary/90 flex-shrink-0"
                   />
-                </div>
-                <div className="mt-2">
-                  <p className={`font-semibold text-foreground ${titleClass}`}>
-                    {tile.title}
-                  </p>
-                  {isHero && tile.description && (
-                    <p className="text-note text-muted-foreground leading-snug mt-1 truncate">
-                      {tile.description}
+                  <div className="relative flex-1 min-w-0">
+                    <p className={`font-semibold text-foreground ${titleClass}`}>
+                      {tile.title}
                     </p>
-                  )}
-                </div>
-              </div>
+                    {tile.description && (
+                      <p className="text-[11px] text-muted-foreground leading-snug mt-0.5 line-clamp-2">
+                        {tile.description}
+                      </p>
+                    )}
+                  </div>
+                  <Icon
+                    name={isLockedTile ? "lockClosedOutline" : "chevronForwardOutline"}
+                    size={16}
+                    className="relative text-muted-foreground/40 flex-shrink-0"
+                  />
+                </>
+              ) : (
+                <>
+                  <div className="relative flex-1 flex flex-col">
+                    <div className="flex-1">
+                      <Icon
+                        name={tile.icon}
+                        size={iconSize}
+                        className="text-primary/90"
+                      />
+                    </div>
+                    <div className="mt-2">
+                      <p className={`font-semibold text-foreground ${titleClass}`}>
+                        {tile.title}
+                      </p>
+                    </div>
+                  </div>
 
-              <Icon
-                name={isLockedTile ? "lockClosedOutline" : "chevronForwardOutline"}
-                size={14}
-                className="absolute bottom-3 right-3 text-muted-foreground/40"
-              />
+                  <Icon
+                    name={isLockedTile ? "lockClosedOutline" : "chevronForwardOutline"}
+                    size={14}
+                    className="absolute bottom-3 right-3 text-muted-foreground/40"
+                  />
+                </>
+              )}
             </button>
           );
         })}

@@ -13,8 +13,11 @@ import TodayStrip from "@/components/dashboard/TodayStrip";
 import { FightFormScoreSheet } from "@/components/dashboard/FightFormScoreSheet";
 // Lazy-load recharts wrapper so the ~100KB charts bundle defers until first paint.
 const DashboardWeightChart = lazy(() => import("@/components/charts/DashboardWeightChart"));
+import Sparkline from "@/components/charts/Sparkline";
 import { Icon } from "@/components/ui/Icon";
 import { TrainingWeekWidget, preloadTrainingWeek } from "@/components/dashboard/TrainingWeekWidget";
+import { SleepCard } from "@/components/dashboard/SleepCard";
+import { ReadinessCard } from "@/components/dashboard/ReadinessCard";
 import { WeightProgressRing } from "@/components/dashboard/WeightProgressRing";
 import { StreakBadge } from "@/components/dashboard/StreakBadge";
 import { CutPaceForecast, type PlanData } from "@/components/dashboard/CutPaceForecast";
@@ -1048,7 +1051,7 @@ export default function Dashboard() {
             <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/80">Your Stats</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 items-stretch">
+          <div className="grid grid-cols-2 gap-3 items-stretch">
             {/* Weight metric card — Design System v1 Metric Card layout
                 (Figma node 67:725). Eyebrow → big bold value → smaller
                 chart → date + trend at the bottom. The kg/lb toggle
@@ -1062,9 +1065,12 @@ export default function Dashboard() {
               onClick={() => { triggerHapticSelection(); navigate('/weight'); }}
               className="card-surface card-glow rounded-2xl p-3 aspect-square flex flex-col text-left card-press min-w-0 w-full overflow-hidden"
             >
-              <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
-                WEIGHT
-              </span>
+              <div className="flex items-start justify-between w-full">
+                <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
+                  WEIGHT
+                </span>
+                <Icon name="chevronForwardOutline" size={14} className="text-muted-foreground/40" />
+              </div>
 
               <div className="mt-2 flex items-baseline gap-1.5">
                 <span className="font-display font-bold text-[40px] leading-none text-foreground tabular-nums">
@@ -1078,12 +1084,10 @@ export default function Dashboard() {
               </div>
 
               <div className="flex-1 min-h-0 mt-2">
-                {chartData.length > 0 ? (
-                  <Suspense fallback={<div className="h-full w-full bg-neutral-700/40 rounded-xs" />}>
-                    <DashboardWeightChart data={chartData} weightUnit={weightUnit} />
-                  </Suspense>
+                {chartData.length >= 2 ? (
+                  <Sparkline data={chartData.map((d) => d.weight)} className="h-full w-full" />
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-center">
+                  <div className="flex flex-col items-center justify-end h-full text-center pb-0.5">
                     <Icon name="trendingDownOutline" size={20} className="text-muted-foreground/40 mb-1" />
                     <p className="text-note text-muted-foreground">No data yet</p>
                   </div>
@@ -1112,11 +1116,12 @@ export default function Dashboard() {
                       </div>
                     );
                   })()}
-                  <Icon name="chevronForwardOutline" size={14} className="text-muted-foreground/40" />
                 </div>
               </div>
             </button>
             {userId && <TrainingWeekWidget userId={userId} compact />}
+            {userId && <SleepCard userId={userId} />}
+            {userId && <ReadinessCard userId={userId} />}
           </div>
 
           {/* CAMP STATUS — forward-looking guidance. Hidden unless the user
