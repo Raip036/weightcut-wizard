@@ -186,8 +186,8 @@ export const MealCard = memo(function MealCard({ meal, onDelete, onFavorite, isF
                   </button>
                 )}
               </div>
-              {/* Calorie readout + expand chevron — every element shares the
-                  same right edge so the column reads as cleanly aligned. */}
+              {/* Calorie readout — vertically centred between the action
+                  cluster above and the expand chevron below. */}
               <div className="flex flex-col items-end leading-none">
                 <span className="text-[18px] font-bold tabular-nums text-foreground leading-none">
                   {meal.calories}
@@ -195,13 +195,15 @@ export const MealCard = memo(function MealCard({ meal, onDelete, onFavorite, isF
                 <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/60 mt-0.5">
                   kcal
                 </p>
-                {hasDetails && (
-                  <ChevronDown
-                    className={`h-3.5 w-3.5 text-muted-foreground/40 mt-1 transition-transform ${expanded ? "rotate-180" : ""}`}
-                    aria-hidden="true"
-                  />
-                )}
               </div>
+
+              {/* Expand chevron — anchored at the bottom of the rail. */}
+              {hasDetails && (
+                <ChevronDown
+                  className={`h-3.5 w-3.5 text-muted-foreground/40 transition-transform ${expanded ? "rotate-180" : ""}`}
+                  aria-hidden="true"
+                />
+              )}
             </div>
           </div>
         </div>

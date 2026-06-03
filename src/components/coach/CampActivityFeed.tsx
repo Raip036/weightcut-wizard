@@ -162,7 +162,7 @@ export function CampActivityFeed({ userId, limit = 7 }: CampActivityFeedProps) {
         )}
       </div>
 
-      <ul className="space-y-1.5">
+      <ul className="divide-y divide-border/40">
         {(expanded ? visibleEvents : visibleEvents.slice(0, PREVIEW_COUNT)).map((ev, i) => {
           const kind = ev.kind as EventKind;
           return (
@@ -171,9 +171,8 @@ export function CampActivityFeed({ userId, limit = 7 }: CampActivityFeedProps) {
                 type="button"
                 onClick={() => navigate(ev.route)}
                 className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl",
-                  "card-surface",
-                  "active:brightness-110 transition-[filter] text-left",
+                  "w-full flex items-center gap-3 px-1 py-3",
+                  "active:opacity-70 transition-opacity text-left",
                 )}
               >
                 <Icon name={ICONS[kind]} size={16} className={COLORS[kind]} />

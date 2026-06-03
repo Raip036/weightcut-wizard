@@ -281,7 +281,7 @@ export default function Camp() {
     // PageTransition drives a single page-level fade; tiles render statically
     // so we don't compose a per-tile cascade on top of it. A faster, simpler
     // entrance than the previous staggered framer-motion sequence.
-    <div className="dashboard-enter-stagger space-y-4 px-5 pt-3 pb-36 sm:px-5 sm:pt-5 md:px-6 md:pt-6 w-full max-w-2xl mx-auto">
+    <div className="dashboard-enter-stagger space-y-4 px-5 pt-3 pb-20 sm:px-5 sm:pt-5 md:px-6 md:pt-6 md:pb-8 w-full max-w-2xl mx-auto">
       {/* Page header */}
       <header className="pt-1">
         <p className="text-micro uppercase tracking-[0.15em] text-muted-foreground/70 font-bold">Your</p>
@@ -327,6 +327,7 @@ export default function Camp() {
       {cutPlanSummary && (
         <button
           type="button"
+          data-tutorial="camp-full-plan"
           onClick={() =>
             goTo(cutPlanSummary.planType === "weight_loss" ? "/weight-plan" : "/cut-plan")
           }
@@ -412,10 +413,16 @@ export default function Camp() {
           // instead of navigating into the (now locked) Recovery page.
           const isLockedTile = tile.url === "/recovery" && recoveryLocked;
 
+          const tileTutorialAttr: Record<string, string> = {
+            "/gym": "camp-gym-tracker",
+            "/training-calendar": "camp-training-calendar",
+          };
+
           return (
             <button
               key={tile.url}
               type="button"
+              data-tutorial={tileTutorialAttr[tile.url]}
               onClick={() => {
                 if (isLockedTile) {
                   triggerHaptic(ImpactStyle.Light);
@@ -498,7 +505,9 @@ export default function Camp() {
       {/* ── Recent activity — last few events across logging surfaces.
           Component renders null when empty, so the page degrades cleanly. */}
       <ErrorBoundary silent fallback={<></>}>
-        <CampActivityFeed userId={userId} limit={7} />
+        <div data-tutorial="camp-recent-activity">
+          <CampActivityFeed userId={userId} limit={7} />
+        </div>
       </ErrorBoundary>
     </div>
   );

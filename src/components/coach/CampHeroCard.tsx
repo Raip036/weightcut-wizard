@@ -138,9 +138,15 @@ export const CampHeroCard = memo(function CampHeroCard({
         </p>
       </button>
 
-      {/* Ring row — discipline level rings flank the big fight-progress ring. */}
-      <div className="mt-4 flex items-center justify-center gap-4">
-        {left && <DisciplineRing row={left} />}
+      {/* Ring row — the big fight-progress ring stays page-centred; the
+          discipline level rings are absolutely pinned to either edge so a
+          single side ring never shifts the main ring off-centre. */}
+      <div className="relative mt-4 flex items-center justify-center">
+        {left && (
+          <div className="absolute inset-y-0 left-0 flex items-center">
+            <DisciplineRing row={left} />
+          </div>
+        )}
 
         {/* Main fight-progress ring — phase-tinted via `phase.text` →
             `currentColor`. Grows from 0 on mount. Taps through to camp. */}
@@ -189,7 +195,11 @@ export const CampHeroCard = memo(function CampHeroCard({
           </div>
         </button>
 
-        {right && <DisciplineRing row={right} />}
+        {right && (
+          <div className="absolute inset-y-0 right-0 flex items-center">
+            <DisciplineRing row={right} />
+          </div>
+        )}
       </div>
 
       {/* Fight date + day-of-camp — taps through to the fight-camps surface. */}

@@ -327,7 +327,7 @@ export default function Community() {
             Wrapped in AnimatePresence so the swap between the feed and
             the "all caught up" empty state cross-fades smoothly when the
             user swipes the last polaroid (or when posts refill). */}
-        <main className="px-5 pb-32 pt-2">
+        <main className="px-5 pb-20 md:pb-8 pt-2">
           <AnimatePresence mode="wait" initial={false}>
             {(() => {
               const branch =

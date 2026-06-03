@@ -71,7 +71,7 @@ export default function CutPlanReview() {
           type="button"
           onClick={handleContinue}
           aria-label="Close cut plan and continue to dashboard"
-          className="absolute top-4 right-3 h-9 w-9 rounded-full flex items-center justify-center text-muted-foreground/70 bg-muted/40 dark:bg-white/[0.06] border border-border/30 active:text-foreground active:bg-muted/60 transition-colors z-30"
+          className="absolute top-4 right-3 h-9 w-9 flex items-center justify-center text-muted-foreground/70 active:text-foreground transition-colors z-30"
         >
           <X className="h-4 w-4" strokeWidth={2.4} />
         </button>
