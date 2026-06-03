@@ -288,10 +288,9 @@ export default function Camp() {
         <h1 className="text-title font-semibold leading-tight">Camp</h1>
       </header>
 
-      {/* ── XP summary — top disciplines at a glance ──────────────────── */}
-      {userId && <XpSummaryCard />}
-
-      {/* ── Active camp hero ───────────────────────────────────────────── */}
+      {/* ── Active camp hero — the headline camp details, first on the page
+          for fighters with an active camp (name → days-left → progress ring →
+          fight date → day-of-camp). ──────────────────────────────────────── */}
       {activeCamp && !activeCamp.isCompleted && campProgress && phase && (
         <CampHeroCard
           campName={activeCamp.name}
@@ -300,6 +299,9 @@ export default function Camp() {
           onTap={() => goTo("/fight-camps")}
         />
       )}
+
+      {/* ── XP summary ("Your level") — sits below the camp details ─────── */}
+      {userId && <XpSummaryCard />}
 
       {/* ── Camp progression — phase timeline + weight-vs-plan trajectory.
           Renders for any user with a progression window (active camp OR a

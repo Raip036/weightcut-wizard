@@ -1,10 +1,9 @@
 import { Suspense, lazy } from "react";
-import { Camera, Search, RotateCcw, ScanLine, Sparkles } from "lucide-react";
+import { Camera, Search, RotateCcw, ScanLine } from "lucide-react";
 import { motion } from "motion/react";
 import { MealCard } from "@/components/nutrition/MealCard";
 import { MealCardSkeleton } from "@/components/ui/skeleton-loader";
 import { triggerHapticSelection } from "@/lib/haptics";
-import wizardFoodImage from "@/assets/wizard_food.png";
 import type { Meal } from "@/pages/nutrition/types";
 
 const BarcodeScanner = lazy(() =>
@@ -105,10 +104,11 @@ export function MealSections({
         )}
       </div>
 
-      {/* Meals heading + count */}
-      <div className="flex items-end justify-between px-1 pt-1">
-        <h3 className="text-[18px] font-semibold tracking-tight text-foreground">
-          Meals
+      {/* Meals heading + count — section label matches the home page
+          "Your Stats" style; extra top padding separates it from the CTA row. */}
+      <div className="flex items-end justify-between px-1 pt-4">
+        <h3 className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/80">
+          Your Meals
         </h3>
         {visibleMeals.length > 0 && (
           <span className="text-[11px] tabular-nums text-muted-foreground/60 pb-0.5">
@@ -149,100 +149,10 @@ export function MealSections({
       ) : mealsLoading ? (
         <MealCardSkeleton />
       ) : isEmpty ? (
-        <WizardEmptyState
-          hasLastMeal={!!quickActions.lastMeal}
-          hasFavorites={!!onOpenFavorites}
-          onRepeatYesterday={() => {
-            triggerHapticSelection();
-            quickActions.copyPreviousDay?.();
-          }}
-          onAddFavorite={() => { triggerHapticSelection(); onOpenFavorites?.(); }}
-          onSnap={() => { triggerHapticSelection(); onOpenQuickAdd(); }}
-        />
+        <div className="card-surface rounded-xs py-10 flex items-center justify-center">
+          <p className="text-[14px] font-medium text-muted-foreground">No meals logged yet</p>
+        </div>
       ) : null}
     </div>
-  );
-}
-
-// ── Wizard-led empty state ─────────────────────────────────────────────
-// Shown when the day has no logged meals. Wizard mascot waves + a
-// question prompt + 3 quick-tap action chips. Replaces the bland
-// "No meals yet — tap below to log one." placeholder.
-function WizardEmptyState({
-  hasLastMeal,
-  hasFavorites,
-  onRepeatYesterday,
-  onAddFavorite,
-  onSnap,
-}: {
-  hasLastMeal: boolean;
-  hasFavorites: boolean;
-  onRepeatYesterday: () => void;
-  onAddFavorite: () => void;
-  onSnap: () => void;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: "easeOut" }}
-      className="relative overflow-hidden rounded-xs card-surface p-4"
-    >
-      {/* Wizard + headline */}
-      <div className="flex items-start gap-3 mb-3">
-        <div className="relative shrink-0 h-16 w-16">
-          <motion.img
-            src={wizardFoodImage}
-            alt=""
-            className="h-full w-full object-contain pointer-events-none select-none"
-            draggable={false}
-            /* Gentle bob — matches the FAB motion vocabulary
-               (3.2s y: 0 → -6 → 0). */
-            animate={{ y: [0, -6, 0] }}
-            transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
-          />
-        </div>
-        <div className="min-w-0 flex-1 pt-1.5">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary/80">
-            Coach
-          </p>
-          <h4 className="mt-0.5 text-[17px] font-bold leading-tight">
-            What did you eat?
-          </h4>
-          <p className="mt-1 text-[12px] text-muted-foreground leading-snug">
-            Pick the fastest way to log it.
-          </p>
-        </div>
-      </div>
-
-      {/* Quick-tap chips */}
-      <div className="flex flex-wrap gap-2">
-        {hasLastMeal && (
-          <button
-            onClick={onRepeatYesterday}
-            className="inline-flex items-center gap-1.5 rounded-full bg-muted/40 border border-border/40 px-3 py-1.5 text-[12px] font-semibold text-foreground hover:bg-muted/60 active:scale-[0.97] transition"
-          >
-            <RotateCcw className="h-3.5 w-3.5 text-func-warning-yellow" strokeWidth={2.4} />
-            Repeat yesterday
-          </button>
-        )}
-        {hasFavorites && (
-          <button
-            onClick={onAddFavorite}
-            className="inline-flex items-center gap-1.5 rounded-full bg-muted/40 border border-border/40 px-3 py-1.5 text-[12px] font-semibold text-foreground hover:bg-muted/60 active:scale-[0.97] transition"
-          >
-            <Sparkles className="h-3.5 w-3.5 text-primary" strokeWidth={2.4} />
-            Add favorite
-          </button>
-        )}
-        <button
-          onClick={onSnap}
-          className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-[12px] font-bold text-primary-foreground active:scale-[0.97] transition"
-        >
-          <Camera className="h-3.5 w-3.5" strokeWidth={2.4} />
-          Snap a photo
-        </button>
-      </div>
-    </motion.div>
   );
 }

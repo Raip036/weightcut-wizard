@@ -1,5 +1,6 @@
-import { memo, type ReactNode } from "react";
+import { memo, useEffect, useState, type ReactNode } from "react";
 import { Settings } from "lucide-react";
+import { AnimatedNumber } from "@/components/motion";
 
 interface MacroPieChartProps {
     calories: number;
@@ -21,14 +22,17 @@ interface RingProps {
     strokeWidth: number;
     children: ReactNode;
     glow?: boolean;
+    mounted?: boolean;
 }
 
 // Full-circle progress ring — used by the three macro indicators.
-const Ring = ({ pct, color, size, strokeWidth, children, trackOpacity = 0.18, glow = true }: RingProps) => {
+const Ring = ({ pct, color, size, strokeWidth, children, trackOpacity = 0.18, glow = true, mounted = true }: RingProps) => {
     const r = (size - strokeWidth) / 2;
     const c = 2 * Math.PI * r;
     const clamped = Math.min(Math.max(pct, 0), 100);
-    const offset = c - (clamped / 100) * c;
+    // Gate on mount so the arc grows from 0 → real value via the CSS transition.
+    const shownPct = mounted ? clamped : 0;
+    const offset = c - (shownPct / 100) * c;
     return (
         <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
             <svg viewBox={`0 0 ${size} ${size}`} className="w-full h-full -rotate-90">
@@ -52,18 +56,19 @@ interface MacroRingItemProps {
     value: number;
     goal: number;
     color: string;
+    mounted?: boolean;
 }
 
 // Macro indicator — just the ring + label, NO card background. The three
 // sit in a bare row under the calorie card.
-const MacroRingItem = ({ label, value, goal, color }: MacroRingItemProps) => {
+const MacroRingItem = ({ label, value, goal, color, mounted }: MacroRingItemProps) => {
     const pct = goal > 0 ? (value / goal) * 100 : 0;
     const left = Math.max(0, goal - value);
     return (
         <div className="flex flex-col items-center justify-center gap-2">
-            <Ring pct={pct} color={color} size={64} strokeWidth={7}>
+            <Ring pct={pct} color={color} size={64} strokeWidth={7} mounted={mounted}>
                 <span className="text-[15px] font-bold tabular-nums" style={{ color }}>
-                    {Math.round(value)}
+                    <AnimatedNumber value={value} className="text-[15px] font-bold tabular-nums" />
                     <span className="text-[9px] font-semibold ml-0.5" style={{ color }}>g</span>
                 </span>
             </Ring>
@@ -93,55 +98,79 @@ export const MacroPieChart = memo(function MacroPieChart({
     const clamped = Math.min(Math.max(calPct, 0), 100);
     const calColor = isOver ? "hsl(var(--destructive))" : "hsl(var(--primary))";
 
+    // On-load progress animation: every arc grows from 0 → real value once
+    // mounted, riding the existing `transition-all duration-700 ease-out`.
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => {
+        const id = requestAnimationFrame(() => setMounted(true));
+        return () => cancelAnimationFrame(id);
+    }, []);
+
     // Semicircle gauge geometry. The arc sweeps 180° across the top of the
     // viewBox; `pathLength={100}` lets us drive the fill as a simple
     // percentage via strokeDasharray.
     const ARC = "M6 60 A54 54 0 0 1 114 60";
 
     return (
-        <div className="space-y-5">
-            {/* Calorie card — semicircle gauge centered, settings top-right */}
-            <div className="relative card-surface rounded-xs px-6 pt-5 pb-6">
-                {onEditTargets && (
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onEditTargets(); }}
-                        className="absolute top-3 right-3 z-10 flex items-center justify-center text-muted-foreground/50 hover:text-primary transition-colors"
-                        aria-label="Edit calorie targets"
-                    >
-                        <Settings className="h-4 w-4" />
-                    </button>
-                )}
-
-                <p className="text-center text-[10px] uppercase tracking-[0.15em] font-semibold text-muted-foreground/60">
-                    Calories
-                </p>
+        <div className="space-y-2">
+            {/* Calorie gauge — no card background; semicircle with Edit target top-right.
+                No horizontal padding on this block so the "Edit target" button's right
+                edge aligns flush with the right edge of the macro ring cards below. */}
+            <div className="relative pt-1 pb-1">
+                <div className="relative">
+                    <p className="text-center text-[13px] uppercase tracking-[0.16em] font-bold text-foreground/80">
+                        Calories
+                    </p>
+                    {onEditTargets && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onEditTargets(); }}
+                            className="absolute right-0 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 rounded-full bg-muted/40 border border-border/40 px-2.5 py-1 text-[11px] font-semibold text-foreground/80 hover:bg-muted/60 active:scale-[0.97] transition"
+                            aria-label="Edit calorie targets"
+                        >
+                            <Settings className="h-3 w-3" />
+                            Edit target
+                        </button>
+                    )}
+                </div>
 
                 <div className="relative mx-auto mt-2 w-full max-w-[240px]">
                     <svg viewBox="0 0 120 68" className="w-full block">
+                        <defs>
+                            <linearGradient id="calorie-arc-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" stopColor={calColor} stopOpacity={0.65} />
+                                <stop offset="100%" stopColor={calColor} stopOpacity={1} />
+                            </linearGradient>
+                        </defs>
                         <path
                             d={ARC}
                             fill="none"
                             stroke="hsl(var(--border) / 0.18)"
-                            strokeWidth={10}
+                            strokeWidth={8}
                             strokeLinecap="round"
                         />
                         <path
                             d={ARC}
                             fill="none"
-                            stroke={calColor}
-                            strokeWidth={10}
+                            stroke="url(#calorie-arc-grad)"
+                            strokeWidth={8}
                             strokeLinecap="round"
                             pathLength={100}
-                            strokeDasharray={`${clamped} 100`}
+                            strokeDasharray={`${mounted ? clamped : 0} 100`}
                             className="transition-all duration-700 ease-out"
-                            style={{ filter: `drop-shadow(0 0 5px ${calColor}55)` }}
+                            style={{ filter: `drop-shadow(0 0 4px ${calColor}66) drop-shadow(0 0 10px ${calColor}44)` }}
                         />
                     </svg>
-                    {/* Center readout — sits in the bowl of the gauge */}
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pb-0.5">
-                        <span className="text-[34px] font-bold tabular-nums leading-none tracking-tight text-foreground">
-                            {Math.round(calories)}
-                        </span>
+                    {/* Center readout — pushed lower so it sits centered in
+                        the empty bowl of the gauge rather than up at the top. */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-end pb-1">
+                        {/* Faint radial backlight behind the number; sits below
+                            the readout so the digits stay crisp. */}
+                        <div
+                            className="pointer-events-none absolute inset-0 -z-10"
+                            style={{ background: `radial-gradient(circle, ${calColor}22 0%, transparent 70%)` }}
+                            aria-hidden="true"
+                        />
+                        <AnimatedNumber value={calories} className="text-[52px] font-bold tabular-nums leading-none tracking-tight text-foreground" />
                         <span className="text-[11px] text-muted-foreground/60 mt-1.5 tabular-nums font-medium">
                             {calorieTarget > 0
                                 ? `of ${calorieTarget.toLocaleString()} kcal`
@@ -152,11 +181,11 @@ export const MacroPieChart = memo(function MacroPieChart({
             </div>
 
             {/* Macro rings — bare rings, no card backgrounds */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-3 mt-1">
                 {/* Design System v1 FUNCTIONAL palette */}
-                <MacroRingItem label="Protein" value={protein} goal={proteinGoal ?? 0} color="#2A5BDD" />
-                <MacroRingItem label="Carbs" value={carbs} goal={carbsGoal ?? 0} color="#F08439" />
-                <MacroRingItem label="Fat" value={fats} goal={fatsGoal ?? 0} color="#7B31EA" />
+                <MacroRingItem label="Protein" value={protein} goal={proteinGoal ?? 0} color="#2A5BDD" mounted={mounted} />
+                <MacroRingItem label="Carbs" value={carbs} goal={carbsGoal ?? 0} color="#F08439" mounted={mounted} />
+                <MacroRingItem label="Fat" value={fats} goal={fatsGoal ?? 0} color="#7B31EA" mounted={mounted} />
             </div>
         </div>
     );

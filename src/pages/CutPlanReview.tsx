@@ -52,8 +52,13 @@ export default function CutPlanReview() {
   const handleContinue = () => {
     triggerHaptic(ImpactStyle.Medium);
     localStorage.setItem("wcw_cut_plan_seen", "true");
-    localStorage.setItem("wcw_onboarding_just_completed", "true");
-    navigate("/dashboard", { replace: true });
+    // Return to wherever the user opened the plan from (e.g. the "Your Camp"
+    // page) rather than forcing a route to /dashboard. Previously this set
+    // `wcw_onboarding_just_completed` and navigated to /dashboard, which made
+    // the dashboard auto-replay the onboarding tutorial every time the plan
+    // was closed. Both have been removed — closing the plan is now a plain
+    // "go back" with no side effects on the tutorial flow.
+    navigate(-1);
   };
 
   return (

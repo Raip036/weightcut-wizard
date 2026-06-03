@@ -1,4 +1,5 @@
-import { memo } from "react";
+import { memo, useEffect, useState } from "react";
+import { AnimatedNumber } from "@/components/motion";
 
 /**
  * Camp progress info — matches CampActiveCampHero's existing shape so the
@@ -33,12 +34,19 @@ interface CampHeroCardProps {
 }
 
 // SVG ring geometry. viewBox is a 0-100 square; the visual ring is
-// scaled by the wrapper's width/height (92px). Stroke-width 8 inside a
-// 100-unit box reads as ~7.4px at 92px — matches the spec.
+// scaled by the wrapper's width/height. Stroke-width 7 inside a 100-unit
+// box reads as a clean focal ring at 128px.
 const RING_VIEWBOX = 100;
-const RING_RADIUS = 42;
+const RING_RADIUS = 44;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
+/**
+ * Camp hero — the headline block at the very top of the Camp page for
+ * fighters with an active camp. Centred vertical stack: camp name (Sora) →
+ * days-left → percentage progress ring → fight date → day-of-camp. On mount
+ * the ring grows from 0 and every number counts up, matching the nutrition
+ * page's load animation language.
+ */
 export const CampHeroCard = memo(function CampHeroCard({
   campName,
   campProgress,
@@ -50,7 +58,15 @@ export const CampHeroCard = memo(function CampHeroCard({
   // don't paint a backwards-rotating arc.
   const clampedPct = Math.max(0, Math.min(1, pct));
   const pctDisplay = Math.round(clampedPct * 100);
-  const dashOffset = RING_CIRCUMFERENCE * (1 - clampedPct);
+
+  // Mount-gate the arc so it grows from empty → target on load, riding the
+  // CSS transition below (same pattern as the nutrition rings).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+  const dashOffset = RING_CIRCUMFERENCE * (1 - (mounted ? clampedPct : 0));
 
   const ariaLabel =
     `${campName} — Day ${elapsed} of ${totalDays}, ` +
@@ -61,19 +77,31 @@ export const CampHeroCard = memo(function CampHeroCard({
       type="button"
       onClick={onTap}
       aria-label={ariaLabel}
-      className="w-full text-left rounded-2xl card-surface card-press p-4 flex items-center gap-4 overflow-hidden"
+      className="w-full text-center flex flex-col items-center active:scale-[0.99] transition"
     >
-      {/* Left column — circular progress ring. Wrapper carries `phase.text`
-          so `currentColor` inside the SVG resolves to the phase-tinted color
-          (red/amber/blue). The track sits at 0.15 opacity of the same color
-          so the ring reads as a single unified hue. */}
+      {/* Camp name — Sora display face, centred directly under the page title. */}
+      <p className="font-display text-[24px] font-bold leading-tight tracking-tight text-foreground">
+        {campName}
+      </p>
+
+      {/* Days-left headline */}
+      <p className="mt-1 text-[13px] uppercase tracking-[0.14em] font-semibold text-muted-foreground">
+        <AnimatedNumber
+          value={daysLeft}
+          className="text-foreground font-bold tabular-nums"
+        />{" "}
+        days left
+      </p>
+
+      {/* Percentage progress ring — phase-tinted via `phase.text` →
+          `currentColor`. Grows from 0 on mount. */}
       <div
-        className={`relative shrink-0 ${phase.text}`}
-        style={{ width: 92, height: 92 }}
+        className={`relative mt-4 ${phase.text}`}
+        style={{ width: 128, height: 128 }}
       >
         <svg
-          width={92}
-          height={92}
+          width={128}
+          height={128}
           viewBox={`0 0 ${RING_VIEWBOX} ${RING_VIEWBOX}`}
           className="-rotate-90"
         >
@@ -83,7 +111,7 @@ export const CampHeroCard = memo(function CampHeroCard({
             r={RING_RADIUS}
             stroke="currentColor"
             strokeOpacity={0.15}
-            strokeWidth={8}
+            strokeWidth={7}
             fill="none"
           />
           <circle
@@ -91,45 +119,39 @@ export const CampHeroCard = memo(function CampHeroCard({
             cy={RING_VIEWBOX / 2}
             r={RING_RADIUS}
             stroke="currentColor"
-            strokeWidth={8}
+            strokeWidth={7}
             fill="none"
             strokeLinecap="round"
             strokeDasharray={RING_CIRCUMFERENCE}
             strokeDashoffset={dashOffset}
-            className="transition-[stroke-dashoffset] duration-500"
+            className="transition-all duration-700 ease-out"
+            style={{ filter: "drop-shadow(0 0 5px currentColor)" }}
           />
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="display-number text-foreground text-[22px] leading-none">
-            {pctDisplay}%
-          </span>
+          <AnimatedNumber
+            value={pctDisplay}
+            format={(n) => `${Math.round(n)}%`}
+            className="display-number text-foreground text-[30px] leading-none tabular-nums"
+          />
         </div>
       </div>
 
-      {/* Right column — name + phase pill, days-left headline, fight date,
-          and day-of progress. Min-width-0 + truncate on the name row so a
-          long camp name doesn't push the phase pill off-card. */}
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2 min-w-0">
-          <p className="text-[19px] font-bold tracking-tight leading-tight truncate min-w-0">
-            {campName}
-          </p>
-        </div>
-        <div className="mt-2 flex items-baseline gap-1.5">
-          <span className="display-number text-[28px] leading-none tabular-nums text-foreground">
-            {daysLeft}
-          </span>
-          <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-semibold">
-            days left
-          </span>
-        </div>
-        <p className="mt-1 text-[12px] text-muted-foreground">
-          Fight: <span className="text-foreground/90 font-semibold">{fightLabel}</span>
-        </p>
-        <p className="mt-0.5 text-[12px] text-muted-foreground tabular-nums">
-          Day {elapsed} of {totalDays}
-        </p>
-      </div>
+      {/* Fight date */}
+      <p className="mt-4 text-[13px] text-muted-foreground">
+        Fight:{" "}
+        <span className="text-foreground/90 font-semibold">{fightLabel}</span>
+      </p>
+
+      {/* Day-of-camp */}
+      <p className="mt-1 text-[13px] text-muted-foreground tabular-nums">
+        Day{" "}
+        <AnimatedNumber
+          value={elapsed}
+          className="text-foreground/90 font-semibold tabular-nums"
+        />{" "}
+        of {totalDays}
+      </p>
     </button>
   );
 });
