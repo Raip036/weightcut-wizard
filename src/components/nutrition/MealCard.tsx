@@ -1,4 +1,4 @@
-import { Trash2, Star, Flame, Zap, Wheat, Droplet, X, ChevronDown } from "lucide-react";
+import { Trash2, Star, Zap, Wheat, Droplet, X, ChevronDown } from "lucide-react";
 import { useState, useRef, memo } from "react";
 import { coerceMealName } from "@/lib/mealName";
 import { motion, AnimatePresence, useMotionValue, useReducedMotion } from "motion/react";
@@ -128,13 +128,10 @@ export const MealCard = memo(function MealCard({ meal, onDelete, onFavorite, isF
           <div className="flex-1 min-w-0 flex gap-3">
             <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
               <div className="min-w-0">
-                <div className="flex items-start gap-1.5 min-w-0">
+                <div className="min-w-0">
                   <span className="text-[15px] font-semibold leading-snug text-foreground">
                     {coerceMealName(meal.meal_name, meal.meal_type)}
                   </span>
-                  {isFavorited && (
-                    <Star className="h-3.5 w-3.5 fill-func-warning-yellow text-func-warning-yellow shrink-0" />
-                  )}
                 </div>
                 {mealTypeLabel && (
                   <p className="text-[10.5px] font-medium uppercase tracking-[0.08em] text-muted-foreground/60 mt-0.5">
@@ -164,9 +161,10 @@ export const MealCard = memo(function MealCard({ meal, onDelete, onFavorite, isF
 
             {/* Right rail — star/delete actions above big kcal */}
             <div className="flex flex-col items-end justify-between py-0.5 flex-shrink-0">
-              {/* Action cluster — nudged up so the star/X sit level with the
-                  top line of the meal name. */}
-              <div className="flex items-center gap-1 -mt-1">
+              {/* Action cluster — right-aligned; `-mr-1.5` offsets the icon
+                  buttons' internal padding so the X lines up flush with the
+                  calorie column below. `-mt-1` keeps it level with the name. */}
+              <div className="flex items-center gap-1 -mt-1 -mr-1.5">
                 {onFavorite && (
                   <button
                     onClick={(e) => { e.stopPropagation(); triggerHapticSelection(); onFavorite?.(); }}
@@ -188,19 +186,18 @@ export const MealCard = memo(function MealCard({ meal, onDelete, onFavorite, isF
                   </button>
                 )}
               </div>
-              <div className="text-right leading-none mt-0.5">
-                <div className="flex items-baseline justify-end gap-1">
-                  <Flame className="h-3 w-3 text-func-carbs-orange" strokeWidth={2.4} />
-                  <span className="text-[18px] font-bold tabular-nums text-foreground leading-none">
-                    {meal.calories}
-                  </span>
-                </div>
+              {/* Calorie readout + expand chevron — every element shares the
+                  same right edge so the column reads as cleanly aligned. */}
+              <div className="flex flex-col items-end leading-none">
+                <span className="text-[18px] font-bold tabular-nums text-foreground leading-none">
+                  {meal.calories}
+                </span>
                 <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/60 mt-0.5">
                   kcal
                 </p>
                 {hasDetails && (
                   <ChevronDown
-                    className={`h-3.5 w-3.5 text-muted-foreground/40 ml-auto mt-1 transition-transform ${expanded ? "rotate-180" : ""}`}
+                    className={`h-3.5 w-3.5 text-muted-foreground/40 mt-1 transition-transform ${expanded ? "rotate-180" : ""}`}
                     aria-hidden="true"
                   />
                 )}

@@ -79,8 +79,9 @@ export function useQuickMealActions({ meals, selectedDate, saveMealToDb }: UseQu
       if (userId) localCache.set(userId, FAVORITES_KEY, updated);
       return updated;
     });
-    toast({ title: "Saved to favorites", description: meal.meal_name });
-  }, [userId, toast]);
+    // No toast — favoriting is reflected inline by the filled star on the
+    // meal card, so a top-of-screen notification is redundant/noisy.
+  }, [userId]);
 
   const removeFavorite = useCallback((mealName: string) => {
     setFavorites((prev) => {
@@ -97,11 +98,10 @@ export function useQuickMealActions({ meals, selectedDate, saveMealToDb }: UseQu
   const toggleFavorite = useCallback((meal: Meal) => {
     if (isFavorited(meal)) {
       removeFavorite(meal.meal_name);
-      toast({ title: "Removed from favorites", description: meal.meal_name });
     } else {
       addFavorite(meal);
     }
-  }, [isFavorited, removeFavorite, addFavorite, toast]);
+  }, [isFavorited, removeFavorite, addFavorite]);
 
   const logFavorite = useCallback(async (template: MealTemplate, mealType?: string) => {
     const resolvedType = mealType || template.meal_type;
