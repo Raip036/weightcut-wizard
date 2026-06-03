@@ -142,7 +142,14 @@ function DotStrip({
 }) {
   return (
     <div className="mt-2 px-1">
-      <div className="flex items-center justify-between">
+      <div className="relative flex items-center justify-between">
+        {/* Connecting track — a thin line through the dot centres so the
+            week stations read as one continuous timeline. Sits behind the
+            dots (the dots carry `relative z-10`). */}
+        <div
+          className="absolute left-1 right-1 top-[8px] h-0.5 bg-muted-foreground/20"
+          aria-hidden="true"
+        />
         {checkpoints.map((c) => {
           const isFocus = focusedWeek === c.week;
           const dotClass = (() => {
@@ -170,7 +177,7 @@ function DotStrip({
                 triggerHapticSelection();
                 onSelect(c.week);
               }}
-              className="flex flex-col items-center gap-1 py-1 px-0.5 -mx-0.5 active:scale-95 transition-transform"
+              className="relative z-10 flex flex-col items-center gap-1 py-1 px-0.5 -mx-0.5 active:scale-95 transition-transform"
               aria-label={`Week ${c.week} ${c.status}`}
               aria-pressed={isFocus}
             >

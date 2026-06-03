@@ -17,6 +17,16 @@ const EDGE_MARGIN = 16;
 const SNAP_SPRING = "transform 0.35s cubic-bezier(0.25, 1, 0.5, 1)";
 const FAB_POS_KEY = "wcw_fab_position";
 
+/* Starter prompts shown under the coach's opening message before the user
+   has said anything. Tapping one sends it straight away so first-time users
+   aren't staring at a blank composer. */
+const STARTER_PROMPTS = [
+  "How's my weight cut tracking?",
+  "Plan my meals for today",
+  "How do I make weight safely?",
+  "What should I train this week?",
+];
+
 function loadSavedPosition(): { x: number; y: number } | null {
   try {
     const raw = localStorage.getItem(FAB_POS_KEY);
@@ -159,6 +169,17 @@ export function FloatingWizardChat() {
     triggerHapticSuccess();
   };
 
+  const handleSuggestion = async (prompt: string) => {
+    if (isLoading) return;
+    triggerHapticSelection();
+    await sendMessage(prompt);
+    triggerHapticSuccess();
+  };
+
+  // Show starter chips only on a fresh conversation — i.e. before the user
+  // has sent anything (the coach's greeting is the sole message).
+  const showStarters = !isLoading && !messages.some((m) => m.role === "user");
+
   // Orb state mirrors chat lifecycle: thinking while streaming, listening when
   // the composer is focused, otherwise idle.
   const orbState: "idle" | "listening" | "thinking" = isLoading
@@ -239,7 +260,7 @@ export function FloatingWizardChat() {
                 : { type: "spring", stiffness: 380, damping: 32, mass: 0.7 }}
             >
               <div
-                className="w-full flex flex-col pointer-events-auto rounded-t-[28px] border border-white/10 bg-card/55 backdrop-blur-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_-12px_40px_rgba(0,0,0,0.45)]"
+                className="w-full flex flex-col pointer-events-auto rounded-t-[28px] border border-white/10 bg-card/80 backdrop-blur-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_-12px_40px_rgba(0,0,0,0.45)]"
                 style={{ height: "85dvh" }}
               >
                 {/* Drag handle */}
@@ -347,6 +368,24 @@ export function FloatingWizardChat() {
                           <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/70 animate-[typing_1.2s_ease-in-out_0.3s_infinite]" />
                         </div>
                       </div>
+                    </div>
+                  )}
+
+                  {/* Starter suggestions — quick-fill prompts beneath the
+                      coach's greeting. Aligned with the assistant bubbles
+                      (left, offset past the orb gutter). */}
+                  {showStarters && (
+                    <div className="mt-3 ml-9 flex flex-col items-start gap-2 animate-fade-in">
+                      {STARTER_PROMPTS.map((prompt) => (
+                        <button
+                          key={prompt}
+                          type="button"
+                          onClick={() => handleSuggestion(prompt)}
+                          className="text-left text-[14px] leading-snug px-3.5 py-2 rounded-2xl border border-primary/30 bg-primary/10 text-foreground active:scale-[0.97] active:bg-primary/20 transition-all"
+                        >
+                          {prompt}
+                        </button>
+                      ))}
                     </div>
                   )}
                 </div>

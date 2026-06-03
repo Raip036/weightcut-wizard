@@ -1051,7 +1051,7 @@ export default function Dashboard() {
             <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/80">Your Stats</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 items-stretch">
+          <div className="grid grid-cols-2 gap-3 items-stretch -mt-2">
             {/* Weight metric card — Design System v1 Metric Card layout
                 (Figma node 67:725). Eyebrow → big bold value → smaller
                 chart → date + trend at the bottom. The kg/lb toggle
@@ -1127,15 +1127,17 @@ export default function Dashboard() {
           {/* CAMP STATUS — forward-looking guidance. Hidden unless the user
               has an active camp with a weigh-in date set. */}
           {activeCamp && !activeCamp.isCompleted && profile?.target_date && (
-            <DashboardCampStatusSection
-              weightLogs={weightLogs}
-              currentWeight={currentWeightValue}
-              goalWeight={profile.fight_week_target_kg ?? profile.goal_weight_kg ?? 0}
-              targetDate={profile.target_date}
-              phase={ffScore.phase}
-              daysUntilFight={daysUntilTarget || null}
-              plan={profile?.cut_plan_json as PlanData | null | undefined}
-            />
+            <div data-tutorial="camp-status">
+              <DashboardCampStatusSection
+                weightLogs={weightLogs}
+                currentWeight={currentWeightValue}
+                goalWeight={profile.fight_week_target_kg ?? profile.goal_weight_kg ?? 0}
+                targetDate={profile.target_date}
+                phase={ffScore.phase}
+                daysUntilFight={daysUntilTarget || null}
+                plan={profile?.cut_plan_json as PlanData | null | undefined}
+              />
+            </div>
           )}
         </div>
 

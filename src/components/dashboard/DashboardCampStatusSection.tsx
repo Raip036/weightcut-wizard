@@ -26,7 +26,7 @@ export const DashboardCampStatusSection = memo(function DashboardCampStatusSecti
       <div className="pt-3 flex items-baseline justify-between">
         <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/80">Camp Status</p>
       </div>
-      <div className="space-y-2">
+      <div className="space-y-2 -mt-2">
         <CutPaceForecast
           weightLogs={weightLogs}
           currentWeight={currentWeight ?? 0}
