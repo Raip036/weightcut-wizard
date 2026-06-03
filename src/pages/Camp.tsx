@@ -281,7 +281,7 @@ export default function Camp() {
     // PageTransition drives a single page-level fade; tiles render statically
     // so we don't compose a per-tile cascade on top of it. A faster, simpler
     // entrance than the previous staggered framer-motion sequence.
-    <div className="dashboard-enter-stagger space-y-4 px-5 pt-3 pb-20 sm:px-5 sm:pt-5 md:px-6 md:pt-6 md:pb-8 w-full max-w-2xl mx-auto">
+    <div className="dashboard-enter-stagger space-y-4 px-5 pt-3 pb-3 sm:px-5 sm:pt-5 md:px-6 md:pt-6 md:pb-4 w-full max-w-2xl mx-auto">
       {/* Page header */}
       <header className="pt-1">
         <p className="text-micro uppercase tracking-[0.15em] text-muted-foreground/70 font-bold">Your</p>
@@ -308,23 +308,24 @@ export default function Camp() {
         <XpSummaryCard />
       )}
 
-      {/* ── Camp progression — phase timeline + weight-vs-plan trajectory.
-          Renders for any user with a progression window (active camp OR a
-          weigh-in date + goal weight), not just formal camp records. ─────── */}
-      {progressSource && phase && goalWeightKg > 0 && (
-        <CampProgressPanel
-          campStartMs={progressSource.startMs}
-          fightMs={progressSource.fightMs}
-          daysLeft={progressSource.daysLeft}
-          pct={progressSource.pct}
-          goalWeightKg={goalWeightKg}
-          unit={weightUnit}
-          phaseText={phase.text}
-        />
-      )}
+      {/* ── Camp plan area — progression panel + view-full-plan button.
+          Wrapped in a single sentinel so the tutorial can spotlight both. */}
+      <div data-tutorial="camp-plan-area" className="flex flex-col gap-3">
+        {/* Phase timeline + weight-vs-plan trajectory */}
+        {progressSource && phase && goalWeightKg > 0 && (
+          <CampProgressPanel
+            campStartMs={progressSource.startMs}
+            fightMs={progressSource.fightMs}
+            daysLeft={progressSource.daysLeft}
+            pct={progressSource.pct}
+            goalWeightKg={goalWeightKg}
+            unit={weightUnit}
+            phaseText={phase.text}
+          />
+        )}
 
-      {/* ── Your plan — quick link to the canonical timeline ───────────── */}
-      {cutPlanSummary && (
+        {/* Quick link to the canonical plan timeline */}
+        {cutPlanSummary && (
         <button
           type="button"
           data-tutorial="camp-full-plan"
@@ -345,7 +346,8 @@ export default function Camp() {
           </div>
           <Icon name="chevronForwardOutline" size={16} className="relative text-muted-foreground/40 flex-shrink-0" />
         </button>
-      )}
+        )}
+      </div>
 
       {/* ── Training Missions — compact upsell for non-Pro zero-missions,
           full MissionStack (+heading) for Pro or anyone with active missions. */}
@@ -416,6 +418,7 @@ export default function Camp() {
           const tileTutorialAttr: Record<string, string> = {
             "/gym": "camp-gym-tracker",
             "/training-calendar": "camp-training-calendar",
+            "/weight-protocol": "camp-weight-protocol",
           };
 
           return (

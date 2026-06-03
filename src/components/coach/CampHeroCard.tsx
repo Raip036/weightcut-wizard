@@ -141,7 +141,7 @@ export const CampHeroCard = memo(function CampHeroCard({
       {/* Ring row — the big fight-progress ring stays page-centred; the
           discipline level rings are absolutely pinned to either edge so a
           single side ring never shifts the main ring off-centre. */}
-      <div className="relative mt-4 flex items-center justify-center">
+      <div className="relative mt-4 flex items-center justify-center px-[68px]">
         {left && (
           <div className="absolute inset-y-0 left-0 flex items-center">
             <DisciplineRing row={left} />
