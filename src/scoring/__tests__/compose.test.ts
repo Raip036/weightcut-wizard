@@ -286,6 +286,45 @@ describe("computeFightFormScore", () => {
     });
   });
 
+  describe("marked skip pauses staleness decay", () => {
+    it("a recent skip keeps a pillar's value from decaying", () => {
+      const staleSleep = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date("2026-04-23"); d.setDate(d.getDate() - i);
+        return { date: d.toISOString().slice(0, 10), hours: 8 };
+      });
+      const decayed = computeFightFormScore(baseInputs({ sleepHours: staleSleep }), ScoringConfigV1);
+      const withSkip = computeFightFormScore(
+        baseInputs({ sleepHours: staleSleep, markedSkips: [{ date: "2026-04-30", pillar: "sleep" }] }),
+        ScoringConfigV1,
+      );
+      expect(withSkip.subScores.sleep.value).toBeGreaterThan(decayed.subScores.sleep.value);
+      expect(withSkip.subScores.sleep.value).toBeGreaterThanOrEqual(99);
+    });
+  });
+
+  describe("a marked skip cannot release a latched safety ceiling (anti-gaming)", () => {
+    it("holds the sleep_debt cap even when sleep is marked skipped", () => {
+      // sleep_debt fired yesterday (priorCeilings). Real sleep is stale (last
+      // real log 6 days before `date`, beyond grace). A skip yesterday must NOT
+      // make the pillar look 'fresh' to the latch — the cap must stay applied.
+      const staleSleep = Array.from({ length: 3 }, (_, i) => {
+        const d = new Date("2026-04-25"); d.setDate(d.getDate() - i);
+        return { date: d.toISOString().slice(0, 10), hours: 8 };
+      });
+      const r = computeFightFormScore(
+        baseInputs({
+          date: "2026-05-01",
+          sleepHours: staleSleep,
+          markedSkips: [{ date: "2026-04-30", pillar: "sleep" }],
+          priorCeilings: [{ date: "2026-04-30", ruleId: "sleep_debt", cap: 65 }],
+        }),
+        ScoringConfigV1,
+      );
+      expect(r.appliedCeiling?.ruleId).toBe("sleep_debt");
+      expect(r.rawScore).toBeLessThanOrEqual(65);
+    });
+  });
+
   describe("backfill corrects today's score (no historical rewrite)", () => {
     it("a late-logged past sleep night re-enters the window and improves freshness", () => {
       const before = computeFightFormScore(

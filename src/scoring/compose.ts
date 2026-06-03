@@ -8,7 +8,7 @@ import { computeRecovery } from "./subScores/recovery";
 import { resolvePhase, weightsForPhase } from "./phaseWeights";
 import { applyCeilings, latchCeilings } from "./ceilings";
 import { computeCampAge } from "./campAge";
-import { lastLogDates, staleDaysFor, decayFactor } from "./staleness";
+import { lastLogDates, lastRealLogDates, staleDaysFor, decayFactor } from "./staleness";
 import { completenessFor, rollUpConfidence } from "./confidence";
 import { computeFormMomentum } from "./consistency";
 
@@ -229,6 +229,9 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
   const weights = weightsForPhase(phase, cfg);
 
   const lastDates = lastLogDates(inputs);
+  // Real log dates (excluding markedSkips) are used for the sub-score window
+  // so that skips pause staleness without shifting the computation window.
+  const realDates = lastRealLogDates(inputs);
   const neutral = cfg.staleness.neutral;
 
   // Compute a date-windowed pillar's raw sub-score AS OF a given date. Reading
@@ -296,7 +299,10 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
   // the decay factor. Past the horizon (or never logged) → weight 0 (excluded).
   const buildWindowedPillar = (key: Exclude<SubScoreKey, "recovery">, phaseWeight: number): SubScore => {
     const pCfg = cfg.staleness.byPillar[key];
-    const asOf = lastDates[key] ?? inputs.date;
+    // Use the real (non-skip) date for sub-score computation so the window
+    // reflects actual data; use lastDates (includes skips) for staleness so
+    // a marked skip pauses decay without fabricating data.
+    const asOf = realDates[key] ?? inputs.date;
     const sub = computeWindowedPillar(key, asOf);
     const hasData = hasDataFor(key, sub.reason);
     const sd = staleDaysFor(lastDates[key], inputs.date);
@@ -380,9 +386,10 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
     asOfDate: inputs.date,
     priorCeilings: inputs.priorCeilings ?? [],
     staleDaysByRule: {
-      sleep_debt: staleDaysFor(lastDates.sleep, inputs.date),
-      weight_cut_dangerous: staleDaysFor(lastDates.weightCut, inputs.date),
-      training_spike: staleDaysFor(lastDates.trainingLoad, inputs.date),
+      // realDates (skip-excluded): a marked skip must NOT release a safety cap — only real recovered data can.
+      sleep_debt: staleDaysFor(realDates.sleep, inputs.date),
+      weight_cut_dangerous: staleDaysFor(realDates.weightCut, inputs.date),
+      training_spike: staleDaysFor(realDates.trainingLoad, inputs.date),
     },
   }, cfg);
 

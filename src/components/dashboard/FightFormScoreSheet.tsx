@@ -71,6 +71,10 @@ type Props = {
   subScoreTrend?: Record<string, TrendPoint[]>;
   loggedToday?: LoggedTodayMap;
   calibration?: { current: number; needed: number };
+  // Confidence transparency props (Task 5 / Plan 4)
+  state?: string;
+  activePillars?: number;
+  totalPillars?: number;
 };
 
 const CEILING_LABEL: Record<string, string> = {
@@ -460,6 +464,9 @@ export function FightFormScoreSheet(p: Props) {
             subScores={p.subScores}
             yesterdaySubScores={p.yesterdaySubScores}
             subScoreTrend={p.subScoreTrend}
+            activePillars={p.activePillars}
+            totalPillars={p.totalPillars}
+            state={p.state}
             onTap={(key) => {
               triggerHapticSelection();
               setExpandedKey(key);
@@ -578,6 +585,9 @@ interface SubScoreCarouselProps {
   subScores: Record<string, SubScore>;
   yesterdaySubScores?: Record<string, number>;
   subScoreTrend?: Record<string, TrendPoint[]>;
+  activePillars?: number;
+  totalPillars?: number;
+  state?: string;
   onTap: (key: string) => void;
   onNavigate: (route: string) => void;
 }
@@ -586,6 +596,9 @@ function SubScoreCarousel({
   subScores,
   yesterdaySubScores,
   subScoreTrend,
+  activePillars,
+  totalPillars,
+  state,
   onTap,
   onNavigate,
 }: SubScoreCarouselProps) {
@@ -634,8 +647,35 @@ function SubScoreCarousel({
     return () => el.removeEventListener("scroll", onScroll);
   }, [ordered.length]);
 
+  // Show the confidence band when we have both counts AND either some pillars
+  // are excluded or the score is based on stale data.
+  const showConfidenceBand =
+    activePillars != null &&
+    totalPillars != null &&
+    totalPillars > 0 &&
+    (activePillars < totalPillars || state === "stale");
+  const fillPct = showConfidenceBand
+    ? Math.round((activePillars! / totalPillars!) * 100)
+    : 0;
+
   return (
     <div className="mt-6 space-y-2" data-tutorial="fight-form-driving-section">
+      {showConfidenceBand && (
+        <div className="mb-3 rounded-xs border border-border/40 bg-muted/15 p-2.5 space-y-1.5">
+          <p className="text-[12px] font-semibold text-foreground/90 leading-snug">
+            Based on {activePillars} of {totalPillars} signals
+          </p>
+          <div className="h-1 w-full rounded-full bg-muted/40 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-func-recovery-green"
+              style={{ width: `${fillPct}%` }}
+            />
+          </div>
+          <p className="text-[11px] text-muted-foreground leading-snug">
+            Pillars you haven't logged aren't counting toward today's number — your score isn't penalised, it's just based on less.
+          </p>
+        </div>
+      )}
       <div className="section-header px-1">What's driving your score</div>
       <div
         ref={railRef}
@@ -649,6 +689,7 @@ function SubScoreCarousel({
               <SubScorePlaceholderCard
                 key={key}
                 subKey={key}
+                reason={sub.reason}
                 onNavigate={onNavigate}
               />
             );
@@ -851,6 +892,7 @@ function SubScoreCard({
 
 interface SubScorePlaceholderCardProps {
   subKey: string;
+  reason?: string;
   onNavigate: (route: string) => void;
 }
 
@@ -859,12 +901,24 @@ interface SubScorePlaceholderCardProps {
  * (no data logged yet). Muted, dashed-border CTA that routes the user
  * straight to the relevant logging page instead of opening the
  * drill-down dialog.
+ *
+ * When the engine provides a `reason` string, it is shown as a small
+ * muted hint beneath "Log to unlock" so the user understands why the
+ * pillar is excluded (e.g. partial-logging message from the engine).
+ * We intentionally surface the raw reason only — we do not invent
+ * per-pillar last-log dates, which are not available on this row.
  */
 function SubScorePlaceholderCard({
   subKey,
+  reason,
   onNavigate,
 }: SubScorePlaceholderCardProps) {
   const route = SUBSCORE_LOG_ROUTE[subKey] ?? "/";
+  // Only surface the engine reason if it's non-empty and short enough
+  // to display inline (keeps the card height stable for long strings).
+  const hintText = reason && reason.trim().length > 0 && reason.trim().length <= 120
+    ? reason.trim()
+    : null;
   return (
     <button
       type="button"
@@ -885,6 +939,11 @@ function SubScorePlaceholderCard({
       <div className="mt-3 text-body-sm font-semibold text-foreground/90">
         Log to unlock
       </div>
+      {hintText && (
+        <div className="mt-1.5 text-[10px] text-muted-foreground leading-snug line-clamp-2">
+          {hintText}
+        </div>
+      )}
       <div className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-primary">
         <span>Tap to log</span>
         <Icon name="arrowForwardOutline" size={12} className="shrink-0" />

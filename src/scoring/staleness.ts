@@ -15,6 +15,31 @@ function maxDate(dates: string[]): string | null {
 
 /** Most recent log date per pillar (null when the pillar has no data). */
 export function lastLogDates(inputs: ScoringInputs): Record<SubScoreKey, string | null> {
+  const skipsFor = (key: SubScoreKey): string[] =>
+    (inputs.markedSkips ?? []).filter((s) => s.pillar === key).map((s) => s.date);
+  return {
+    trainingLoad: maxDate([
+      ...inputs.sessions.map((s) => s.date),
+      ...((inputs.restDays ?? []) as string[]),
+      ...skipsFor("trainingLoad"),
+    ]),
+    sleep: maxDate([...inputs.sleepHours.map((s) => s.date), ...skipsFor("sleep")]),
+    weightCut: maxDate([...inputs.weights.map((w) => w.date), ...skipsFor("weightCut")]),
+    wellness: maxDate([...inputs.hooperByDate.map((h) => h.date), ...skipsFor("wellness")]),
+    nutritionAdherence: maxDate([...inputs.meals.map((m) => m.date), ...skipsFor("nutritionAdherence")]),
+    // recovery has no log-date array; its freshness is governed by
+    // recoveryConfidence, handled in confidence.ts. Treat as "today" when it
+    // contributes so it doesn't drag dataAgeDays.
+    recovery: inputs.healthSignals ? inputs.date : null,
+  };
+}
+
+/**
+ * Most recent REAL log date per pillar, excluding markedSkips. Used by
+ * compose.ts to determine the `asOf` date when computing a windowed
+ * sub-score — skips pause staleness but don't move the sub-score window.
+ */
+export function lastRealLogDates(inputs: ScoringInputs): Record<SubScoreKey, string | null> {
   return {
     trainingLoad: maxDate([
       ...inputs.sessions.map((s) => s.date),
@@ -24,9 +49,6 @@ export function lastLogDates(inputs: ScoringInputs): Record<SubScoreKey, string 
     weightCut: maxDate(inputs.weights.map((w) => w.date)),
     wellness: maxDate(inputs.hooperByDate.map((h) => h.date)),
     nutritionAdherence: maxDate(inputs.meals.map((m) => m.date)),
-    // recovery has no log-date array; its freshness is governed by
-    // recoveryConfidence, handled in confidence.ts. Treat as "today" when it
-    // contributes so it doesn't drag dataAgeDays.
     recovery: inputs.healthSignals ? inputs.date : null,
   };
 }

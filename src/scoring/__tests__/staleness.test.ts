@@ -35,6 +35,22 @@ describe("lastLogDates", () => {
     const last = lastLogDates(inputs);
     expect(last.trainingLoad).toBe("2026-05-08");
   });
+
+  it("treats a marked skip as recency for its pillar (pauses staleness)", () => {
+    const inputs = emptyInputs();
+    inputs.sleepHours = [{ date: "2026-05-03", hours: 8 }];
+    inputs.markedSkips = [{ date: "2026-05-09", pillar: "sleep" }];
+    const last = lastLogDates(inputs);
+    expect(last.sleep).toBe("2026-05-09");
+  });
+
+  it("ignores a skip for a different pillar", () => {
+    const inputs = emptyInputs();
+    inputs.sleepHours = [{ date: "2026-05-03", hours: 8 }];
+    inputs.markedSkips = [{ date: "2026-05-09", pillar: "weightCut" }];
+    const last = lastLogDates(inputs);
+    expect(last.sleep).toBe("2026-05-03");
+  });
 });
 
 describe("staleDaysFor", () => {

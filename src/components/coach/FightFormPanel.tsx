@@ -7,6 +7,7 @@
  * to message the athlete and roughly what about.
  */
 import type { FightFormDetail, FightFormSubKey } from "@/hooks/coach/useAthleteDetail";
+import { isScoredState } from "@/lib/fightFormState";
 
 const LABEL_DISPLAY: Record<FightFormDetail["label"], string> = {
   sharp: "Sharp",
@@ -70,7 +71,7 @@ function MiniRing({
   const radius = (size - 10) / 2;
   const circumference = 2 * Math.PI * radius;
   const progress =
-    state === "ok" ? Math.max(0, Math.min(1, score / 100)) : 0;
+    isScoredState(state) ? Math.max(0, Math.min(1, score / 100)) : 0;
   const dash = circumference * progress;
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
@@ -92,13 +93,13 @@ function MiniRing({
           strokeLinecap="round"
           strokeDasharray={`${dash} ${circumference}`}
           className={`transition-all duration-500 ${
-            state === "ok" ? LABEL_RING[label] : "stroke-muted-foreground/40"
+            isScoredState(state) ? LABEL_RING[label] : "stroke-muted-foreground/40"
           }`}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-[28px] font-semibold tabular-nums leading-none">
-          {state === "ok" ? score : "—"}
+          {isScoredState(state) ? score : "—"}
         </span>
       </div>
     </div>
@@ -112,7 +113,7 @@ function TrendLine({
   trend: { date: string; score: number; state: string }[];
   height?: number;
 }) {
-  const points = trend.filter((t) => t.state === "ok");
+  const points = trend.filter((t) => isScoredState(t.state));
   if (points.length < 2) {
     return (
       <p className="text-[11px] text-muted-foreground/70">
@@ -209,14 +210,14 @@ export function FightFormPanel({ fightForm, trend }: Props) {
             <p
               className={`text-[22px] font-semibold leading-tight ${LABEL_COLOR[label]}`}
             >
-              {state === "ok" ? LABEL_DISPLAY[label] : "Calibrating"}
+              {isScoredState(state) ? LABEL_DISPLAY[label] : "Calibrating"}
             </p>
             <div className="mt-2 w-full overflow-hidden">
               <TrendLine trend={trend ?? []} />
             </div>
           </div>
         </div>
-        {state === "ok" && (
+        {isScoredState(state) && (
           <div className="mt-3 pt-3 border-t border-border/40">
             <CoachAction label={label} />
           </div>
@@ -224,7 +225,7 @@ export function FightFormPanel({ fightForm, trend }: Props) {
       </div>
 
       {/* What's working */}
-      {state === "ok" && strengths.length > 0 && (
+      {isScoredState(state) && strengths.length > 0 && (
         <div className="card-surface rounded-xs border border-border p-3">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold mb-2">
             Doing well
@@ -252,7 +253,7 @@ export function FightFormPanel({ fightForm, trend }: Props) {
       )}
 
       {/* What needs work */}
-      {state === "ok" && weaknesses.length > 0 && (
+      {isScoredState(state) && weaknesses.length > 0 && (
         <div className="card-surface rounded-xs border border-border p-3">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold mb-2">
             Needs work

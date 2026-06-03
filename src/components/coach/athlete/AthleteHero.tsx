@@ -16,6 +16,7 @@ import { memo, useMemo } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { AthleteAvatar } from "@/components/coach/AthleteAvatar";
 import type { FightFormDetail } from "@/hooks/coach/useAthleteDetail";
+import { isScoredState } from "@/lib/fightFormState";
 
 const RING_STROKE: Record<FightFormDetail["label"], string> = {
   sharp: "hsl(var(--func-recovery-green))",
@@ -133,14 +134,14 @@ export const AthleteHero = memo(function AthleteHero({
   const days = useMemo(() => daysUntil(targetDate), [targetDate]);
 
   const ringStroke =
-    fightForm && fightForm.state === "ok"
+    fightForm && isScoredState(fightForm.state)
       ? RING_STROKE[fightForm.label]
       : "hsl(var(--muted-foreground) / 0.6)";
   const ringProgress =
-    fightForm && fightForm.state === "ok" ? fightForm.score / 100 : 0;
+    fightForm && isScoredState(fightForm.state) ? fightForm.score / 100 : 0;
 
   const alertReadiness =
-    fightForm && fightForm.state === "ok" && fightForm.score < 40;
+    fightForm && isScoredState(fightForm.state) && fightForm.score < 40;
   const alertCountdown = days != null && days >= 0 && days < 3;
   const showAlert = alertReadiness || alertCountdown;
   const pulseRing = showAlert;

@@ -160,6 +160,13 @@ export type ScoringInputs = {
    * relax the cold-start gate and enrich the reason string.
    */
   restDays?: ReadonlyArray<string>;
+  /**
+   * Dates the user explicitly marked as skipped, per pillar (sleep/weight/
+   * nutrition/wellness). A skip counts as recency for that pillar — staleness
+   * decay is paused (the gap is intentional, not forgotten) — but it does not
+   * fabricate a value. Optional; absent in legacy callers.
+   */
+  markedSkips?: ReadonlyArray<{ date: string; pillar: SubScoreKey }>;
   sleepHours: Array<{ date: string; hours: number }>;
   // Dates for which `sleepHours` contains a server-injected default (because
   // the user logged training that day but never entered sleep). Used by

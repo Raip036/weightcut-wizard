@@ -2,11 +2,12 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { cn } from "@/lib/utils";
 import { FightFormRingAtmosphere } from "./FightFormRingAtmosphere";
+import { isScoredState, isStaleState } from "@/lib/fightFormState";
 
 type Props = {
   score: number;
   label: "sharp" | "sharpening" | "off_pace" | "at_risk";
-  state: "ok" | "calibrating" | "no_camp" | "paused";
+  state: "ok" | "calibrating" | "no_camp" | "paused" | "stale";
   calibratingDays?: { current: number; needed: number };
   // Used to render the ghost arc beyond the cap when a soft ceiling fires —
   // the displayed `score` is the clamped value, while `rawScore` is what the
@@ -27,6 +28,14 @@ type Props = {
   ritualDaysCount?: number;
   onTap?: () => void;
   size?: number;
+  // Data foundation transparency fields.
+  // dataConfidence: fraction of pillars with fresh data (0..1).
+  // dataAgeDays: how many days since the most recent contributing log.
+  // activePillars/totalPillars: drives the confidence track split.
+  dataConfidence?: number;
+  dataAgeDays?: number;
+  activePillars?: number;
+  totalPillars?: number;
 };
 
 const LABEL_COPY = {
@@ -140,11 +149,15 @@ export function FightFormRing({
   ritualDaysCount,
   onTap,
   size = 220,
+  dataConfidence: _dataConfidence,
+  dataAgeDays,
+  activePillars,
+  totalPillars,
 }: Props) {
   const radius = (size - 20) / 2;
   const circumference = 2 * Math.PI * radius;
   const baseProgress =
-    state === "ok"
+    isScoredState(state)
       ? Math.max(0, Math.min(1, score / 100))
       : state === "calibrating" && calibratingDays
         ? Math.max(0, Math.min(1, calibratingDays.current / calibratingDays.needed))
@@ -157,11 +170,11 @@ export function FightFormRing({
   // at its final position immediately rather than animating with the arc
   // during the brief 1.5s unlock.
   const rawProgress =
-    state === "ok" && appliedCeiling != null && rawScore != null
+    isScoredState(state) && appliedCeiling != null && rawScore != null
       ? Math.max(baseProgress, Math.min(1, rawScore / 100))
       : baseProgress;
   const ghostLen = (rawProgress - baseProgress) * circumference;
-  const showGhost = state === "ok" && appliedCeiling != null && ghostLen > 0.5;
+  const showGhost = isScoredState(state) && appliedCeiling != null && ghostLen > 0.5;
 
   // Lock marker position at the cap boundary on the ring's perimeter. SVG
   // is `-rotate-90` so progress 0 is at 12 o'clock and grows clockwise.
@@ -176,29 +189,37 @@ export function FightFormRing({
     ? Math.max(0.18, Math.min(1, calibratingDays.current / calibratingDays.needed))
     : 1;
 
-  const showHalo = state === "ok" || isCalib;
-  // Show the orbital swarm at every "ok" score now (not gated to >= 80).
+  // Staleness: either explicitly state="stale" or score data is 2+ days old.
+  const stale = isStaleState(state) || (dataAgeDays ?? 0) >= 2;
+
+  const showHalo = isScoredState(state) || isCalib;
+  // Show the orbital swarm at every scored/calibrating state.
   // Density scales with the label so weaker form gets a thinner field
   // instead of a sudden cut-off. During calibration, density scales with
   // calibProgress so the field literally builds toward unlock.
-  const showParticles = state === "ok" || isCalib;
+  // When stale, reduce to off_pace density regardless of actual label.
+  const showParticles = isScoredState(state) || isCalib;
   const particleCount =
-    state === "ok"
-      ? PARTICLE_COUNT_BY_LABEL[label]
+    isScoredState(state)
+      ? stale
+        ? PARTICLE_COUNT_BY_LABEL["off_pace"]
+        : PARTICLE_COUNT_BY_LABEL[label]
       : isCalib
         ? Math.round(CALIB_PARTICLE_MIN + (CALIB_PARTICLE_MAX - CALIB_PARTICLE_MIN) * calibProgress)
         : 0;
   const labelRgb =
-    state === "ok"
+    isScoredState(state)
       ? LABEL_RGB[label]
       : isCalib
         ? CALIB_RGB
         : "148, 163, 184"; // slate-400 fallback
   const haloDuration =
-    state === "ok" ? HALO_DURATION[label] : isCalib ? CALIB_HALO_DURATION : "10s";
+    isScoredState(state) ? HALO_DURATION[label] : isCalib ? CALIB_HALO_DURATION : "10s";
   const haloPeak =
-    state === "ok"
-      ? HALO_PEAK[label]
+    isScoredState(state)
+      ? stale
+        ? HALO_PEAK["off_pace"]
+        : HALO_PEAK[label]
       : isCalib
         ? CALIB_HALO_PEAK_MAX * calibProgress
         : 0.1;
@@ -232,7 +253,7 @@ export function FightFormRing({
   useLayoutEffect(() => {
     const prev = prevStateRef.current;
     prevStateRef.current = state;
-    if (prev !== "calibrating" || state !== "ok") return;
+    if (prev !== "calibrating" || !isScoredState(state)) return;
 
     setUnlocking(true);
     setUnlockProgress(0);
@@ -294,11 +315,11 @@ export function FightFormRing({
     ? Math.max(0, calibratingDays.needed - calibratingDays.current)
     : 0;
 
-  // Apply the unlock progress only to the ok-state score arc + number so the
-  // calibrating-phase arc isn't accidentally scaled when state===ok arrives.
-  const progress = unlocking && state === "ok" ? baseProgress * unlockProgress : baseProgress;
+  // Apply the unlock progress only to scored-state score arc + number so the
+  // calibrating-phase arc isn't accidentally scaled when state===ok/stale arrives.
+  const progress = unlocking && isScoredState(state) ? baseProgress * unlockProgress : baseProgress;
   const dash = circumference * progress;
-  const displayedScore = unlocking && state === "ok" ? Math.round(score * unlockProgress) : score;
+  const displayedScore = unlocking && isScoredState(state) ? Math.round(score * unlockProgress) : score;
 
   // Score-arc resume — paint the cached dash length on first paint after a
   // remount, then swap to the live `dash` on the next frame. The existing
@@ -331,8 +352,8 @@ export function FightFormRing({
   // hero ring stays clean during the bulk of camp; Peak adds a dashed orbit;
   // Fight Week pulses a faint colored outline so the user sees the weeks-to-
   // fight transition in the dashboard itself, not buried in copy.
-  const showPhasePeak = state === "ok" && phase === "peak";
-  const showPhaseFightWeek = state === "ok" && phase === "fightWeek";
+  const showPhasePeak = isScoredState(state) && phase === "peak";
+  const showPhaseFightWeek = isScoredState(state) && phase === "fightWeek";
   const phaseRadius = radius + 5;
 
   return (
@@ -392,16 +413,76 @@ export function FightFormRing({
           />
         )}
 
-        {/* Track — breathes slowly while calibrating to signal active scanning */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke={showCalibSweep ? "hsl(var(--muted-foreground))" : "hsl(var(--muted))"}
-          strokeWidth={10}
-          fill="none"
-          className={showCalibSweep ? "ff-ring-calib-track" : undefined}
-        />
+        {/* Track — breathes slowly while calibrating to signal active scanning.
+            In scored states with a partial pillar fraction, the track is split:
+            solid for active fraction, dashed/faded for missing fraction.
+            Only rendered as a split when scored (ok/stale) and f < 1.
+            Calibrating state uses the original single track + comet. */}
+        {isScoredState(state) && (() => {
+          const f = (totalPillars && totalPillars > 0)
+            ? Math.min(1, (activePillars ?? totalPillars) / totalPillars)
+            : 1;
+          const showSplit = f < 1;
+          if (!showSplit) {
+            return (
+              <circle
+                cx={size / 2}
+                cy={size / 2}
+                r={radius}
+                stroke="hsl(var(--muted))"
+                strokeWidth={10}
+                fill="none"
+              />
+            );
+          }
+          // Split track: solid segment for active fraction, dashed faded for missing.
+          const activeLen = f * circumference;
+          const missingLen = (1 - f) * circumference;
+          // Build a "2 on / 4 off" dash pattern that spans ONLY the missing
+          // fraction, then a full-circumference gap so the repeat never wraps
+          // back into the solid zone. (A bare "2 4" tiles the whole circle.)
+          const dashCount = Math.max(1, Math.floor(missingLen / 6));
+          const missingDashArray = `${Array.from({ length: dashCount }, () => "2 4").join(" ")} 0 ${circumference}`;
+          return (
+            <>
+              {/* Solid segment — active pillar fraction */}
+              <circle
+                cx={size / 2}
+                cy={size / 2}
+                r={radius}
+                stroke="hsl(var(--muted))"
+                strokeWidth={10}
+                fill="none"
+                strokeLinecap="butt"
+                strokeDasharray={`${activeLen} ${circumference}`}
+              />
+              {/* Dashed faded segment — missing pillar fraction */}
+              <circle
+                cx={size / 2}
+                cy={size / 2}
+                r={radius}
+                stroke="hsl(var(--muted-foreground) / 0.25)"
+                strokeWidth={10}
+                fill="none"
+                strokeLinecap="butt"
+                strokeDasharray={missingDashArray}
+                strokeDashoffset={`${-activeLen}`}
+              />
+            </>
+          );
+        })()}
+        {/* Track for calibrating/other states */}
+        {!isScoredState(state) && (
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            stroke={showCalibSweep ? "hsl(var(--muted-foreground))" : "hsl(var(--muted))"}
+            strokeWidth={10}
+            fill="none"
+            className={showCalibSweep ? "ff-ring-calib-track" : undefined}
+          />
+        )}
         {/* Ghost arc — what the user WOULD have scored without the cap.
             Rendered first so the score arc + lock paint on top of it. */}
         {showGhost && (
@@ -420,7 +501,8 @@ export function FightFormRing({
         )}
         {/* Score arc — `renderedDash` resumes from the module-cached value
             on remount, then the duration-700 transition smoothly tweens
-            to the live `dash` on the next frame. */}
+            to the live `dash` on the next frame.
+            When stale, override stroke to a muted slate-blended color. */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -429,9 +511,13 @@ export function FightFormRing({
           fill="none"
           strokeLinecap="round"
           strokeDasharray={`${renderedDash} ${circumference}`}
+          {...(stale
+            ? { stroke: "rgba(148,163,184,0.85)" }
+            : {}
+          )}
           className={cn(
             "transition-all duration-700",
-            state === "ok" ? LABEL_STROKE[label] : "stroke-muted-foreground/40",
+            isScoredState(state) && !stale ? LABEL_STROKE[label] : !isScoredState(state) ? "stroke-muted-foreground/40" : undefined,
           )}
         />
         {/* Calibrating comet — four stacked arcs share the same rotation so
@@ -523,17 +609,30 @@ export function FightFormRing({
 
       {/* Center content */}
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        {state === "ok" && (
+        {isScoredState(state) && (
           <>
-            <span className="display-number text-5xl">{displayedScore}</span>
+            <span
+              className={cn(
+                "display-number text-5xl",
+                stale && "opacity-60",
+              )}
+            >
+              {displayedScore}
+            </span>
             <span
               className={cn(
                 "section-header mt-1",
                 unlocking && unlockProgress < 0.4 && "opacity-0",
+                stale && "opacity-60",
               )}
             >
               {LABEL_COPY[label]}
             </span>
+            {(dataAgeDays ?? 0) >= 2 && (
+              <span className="text-[10px] text-muted-foreground mt-0.5">
+                as of {dataAgeDays}d ago
+              </span>
+            )}
           </>
         )}
         {state === "calibrating" && (

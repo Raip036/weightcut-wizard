@@ -1397,6 +1397,23 @@ export default defineSchema({
     sampleCount: v.number(),
     updatedAt: v.number(),
   }).index("by_user_metric", ["userId", "metric"]),
+
+  // Intentional non-logging. A row means "the user deliberately skipped this
+  // pillar on this date" — distinct from a silent missing log. The engine
+  // treats a skip as recency for that pillar (pauses staleness decay) and the
+  // catch-up sheet won't nag about it. Training rest is recorded separately as
+  // a fight_camp_calendar `sessionType:"Rest"` row, so it is NOT a pillar here.
+  marked_skips: defineTable({
+    userId: v.id("users"),
+    date: v.string(),
+    pillar: v.union(
+      v.literal("sleep"),
+      v.literal("weight"),
+      v.literal("nutrition"),
+      v.literal("wellness"),
+    ),
+  }).index("by_user_date", ["userId", "date"])
+    .index("by_user_date_pillar", ["userId", "date", "pillar"]),
 });
 
 /*

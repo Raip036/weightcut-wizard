@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { convexTest } from "convex-test";
 import schema from "../schema";
-import { internal } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 
 async function seedUser(t: ReturnType<typeof convexTest>): Promise<Id<"users">> {
@@ -157,5 +157,37 @@ describe("ceiling latching runs end-to-end through recompute", () => {
     expect(row).not.toBeNull();
     expect(row!.appliedCeiling?.ruleId).toBe("sleep_debt");
     expect(row!.rawScore).toBeLessThanOrEqual(65);
+  });
+});
+
+describe("getToday exposes confidence/staleness fields", () => {
+  it("returns dataConfidence, dataAgeDays, activePillars, totalPillars, formMomentum and per-pillar completeness", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+    const asUser = t.withIdentity({ subject: userId });
+    await t.run(async (ctx) => {
+      await ctx.db.insert("fight_form_scores", {
+        userId, date: "2026-05-15", rawScore: 70, displayedScore: 70,
+        label: "sharpening", state: "stale", phase: "build",
+        subScores: {
+          trainingLoad: { value: 80, weight: 0.2, reason: "ok", completeness: 0.5 },
+          sleep: { value: 90, weight: 0.2, reason: "ok", completeness: 1 },
+          weightCut: { value: 75, weight: 0.25, reason: "ok", completeness: 0.8 },
+          wellness: { value: 60, weight: 0.2, reason: "ok", completeness: 0.4 },
+          nutritionAdherence: { value: 100, weight: 0.15, reason: "ok", completeness: 1 },
+        },
+        appliedCeiling: undefined, topDriver: "sleep", topLimiter: "wellness",
+        algorithmVersion: "1.0.0", computedAt: Date.now(),
+        dataConfidence: 0.62, dataAgeDays: 3, activePillars: 5, totalPillars: 5, formMomentum: 0,
+      } as any);
+    });
+    const r = (await asUser.query(api.fightFormScore.getToday, { date: "2026-05-15" }))!;
+    expect(r.state).toBe("stale");
+    expect(r.dataConfidence).toBeCloseTo(0.62, 5);
+    expect(r.dataAgeDays).toBe(3);
+    expect(r.activePillars).toBe(5);
+    expect(r.totalPillars).toBe(5);
+    expect(r.formMomentum).toBe(0);
+    expect(r.subScores!.sleep.completeness).toBe(1);
   });
 });

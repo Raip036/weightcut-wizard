@@ -360,6 +360,22 @@ export const fetchScoringInputs = internalQuery({
       .filter((c) => (c.sessionType ?? "").toLowerCase() === "rest")
       .map((c) => c.date);
 
+    // Marked skips within the lookback window. Map user-facing pillar names to
+    // the engine's SubScoreKey so a skip pauses the right pillar's staleness.
+    const skipRows = await ctx.db
+      .query("marked_skips")
+      .withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", lookbackStartIso))
+      .collect();
+    const SKIP_PILLAR_TO_KEY: Record<string, "sleep" | "weightCut" | "nutritionAdherence" | "wellness"> = {
+      sleep: "sleep",
+      weight: "weightCut",
+      nutrition: "nutritionAdherence",
+      wellness: "wellness",
+    };
+    const markedSkips = skipRows
+      .map((r) => ({ date: r.date, pillar: SKIP_PILLAR_TO_KEY[r.pillar] }))
+      .filter((s): s is { date: string; pillar: "sleep" | "weightCut" | "nutritionAdherence" | "wellness" } => s.pillar != null);
+
     return {
       date,
       profile,
@@ -378,6 +394,7 @@ export const fetchScoringInputs = internalQuery({
       meals: Array.from(mealsByDay.values()),
       priorRawScores: priorRaw.map((p) => ({ date: p.date, rawScore: p.rawScore })),
       priorCeilings,
+      markedSkips,
       healthSignals,
       selfReportRecovery,
     };

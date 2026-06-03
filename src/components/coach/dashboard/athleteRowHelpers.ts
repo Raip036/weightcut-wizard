@@ -7,6 +7,7 @@ import type {
   AthleteOverviewRow,
   FightFormLabel,
 } from "@/hooks/coach/useCoachData";
+import { isScoredState } from "@/lib/fightFormState";
 
 export type Severity = "ok" | "warn" | "alert";
 
@@ -55,7 +56,7 @@ export function trainingHoursThisWeek(a: AthleteOverviewRow): number {
  * exists yet so the row can fall back to the calibration label.
  */
 export function deriveReadiness(a: AthleteOverviewRow): number | null {
-  if (a.fight_form && a.fight_form.state === "ok") return a.fight_form.score;
+  if (a.fight_form && isScoredState(a.fight_form.state)) return a.fight_form.score;
   return null;
 }
 
@@ -80,7 +81,7 @@ export function buildAlerts(a: AthleteOverviewRow): AthleteAlert[] {
   if (wDays != null && wDays >= 3) {
     alerts.push({ tone: "alert", label: `No weight ${wDays}d` });
   }
-  if (a.fight_form && a.fight_form.state === "ok") {
+  if (a.fight_form && isScoredState(a.fight_form.state)) {
     if (a.fight_form.label === "at_risk") {
       alerts.push({ tone: "alert", label: "At risk" });
     } else if (a.fight_form.label === "off_pace") {

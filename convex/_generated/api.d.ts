@@ -103,6 +103,7 @@ import type * as lib_leaderboardAggregation from "../lib/leaderboardAggregation.
 import type * as lib_revenuecat from "../lib/revenuecat.js";
 import type * as lib_sessionTypes from "../lib/sessionTypes.js";
 import type * as lib_xp from "../lib/xp.js";
+import type * as markedSkips from "../markedSkips.js";
 import type * as meal_plans from "../meal_plans.js";
 import type * as meals from "../meals.js";
 import type * as migrations from "../migrations.js";
@@ -225,6 +226,7 @@ declare const fullApi: ApiFromModules<{
   "lib/revenuecat": typeof lib_revenuecat;
   "lib/sessionTypes": typeof lib_sessionTypes;
   "lib/xp": typeof lib_xp;
+  markedSkips: typeof markedSkips;
   meal_plans: typeof meal_plans;
   meals: typeof meals;
   migrations: typeof migrations;
