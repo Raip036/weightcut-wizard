@@ -300,8 +300,13 @@ export default function Camp() {
         />
       )}
 
-      {/* ── XP summary ("Your level") — sits below the camp details ─────── */}
-      {userId && <XpSummaryCard />}
+      {/* ── XP summary ("Your level") — only when there is NO active-camp
+          hero. When the hero IS shown, the discipline level rings flank its
+          main fight-progress ring instead, so this standalone card would be
+          redundant. ──────────────────────────────────────────────────────── */}
+      {userId && !(activeCamp && !activeCamp.isCompleted && campProgress && phase) && (
+        <XpSummaryCard />
+      )}
 
       {/* ── Camp progression — phase timeline + weight-vs-plan trajectory.
           Renders for any user with a progression window (active camp OR a
