@@ -228,6 +228,26 @@ export const fetchScoringInputs = internalQuery({
       )
       .collect();
 
+    // Prior ceilings for latching: any fired safety cap within the latch
+    // cooldown window before the target date. The engine holds such a cap
+    // when its governing pillar is stale (anti-gaming), and releases it only
+    // when fresh data clears the rule. Row `date` IS the fired date.
+    const ceilLookback = new Date(end);
+    ceilLookback.setUTCDate(ceilLookback.getUTCDate() - CURRENT_CONFIG.confidence.ceilingCooldownDays);
+    const ceilStart = ceilLookback.toISOString().slice(0, 10);
+    const priorBeforeToday = new Date(end);
+    priorBeforeToday.setUTCDate(priorBeforeToday.getUTCDate() - 1);
+    const ceilEnd = priorBeforeToday.toISOString().slice(0, 10);
+    const priorCeilingRows = await ctx.db
+      .query("fight_form_scores")
+      .withIndex("by_user_date", (q) =>
+        q.eq("userId", userId).gte("date", ceilStart).lte("date", ceilEnd),
+      )
+      .collect();
+    const priorCeilings = priorCeilingRows
+      .filter((r) => r.appliedCeiling != null)
+      .map((r) => ({ date: r.date, ruleId: r.appliedCeiling!.ruleId, cap: r.appliedCeiling!.cap }));
+
     // HealthKit precedence: per-date overrides for sleep hours + body
     // mass. When `daily_health_summary` has a usable value for a given
     // date, it WINS over the matching manual `sleep_logs` / `weight_logs`
@@ -357,6 +377,7 @@ export const fetchScoringInputs = internalQuery({
         .map((w) => ({ date: w.date, hooper: w.hooperIndex! })),
       meals: Array.from(mealsByDay.values()),
       priorRawScores: priorRaw.map((p) => ({ date: p.date, rawScore: p.rawScore })),
+      priorCeilings,
       healthSignals,
       selfReportRecovery,
     };
@@ -388,6 +409,11 @@ export const upsertScore = internalMutation({
       phase: score.phase ?? undefined,
       subScores: score.subScores,
       appliedCeiling: score.appliedCeiling ?? undefined,
+      dataConfidence: score.dataConfidence,
+      dataAgeDays: score.dataAgeDays,
+      activePillars: score.activePillars,
+      totalPillars: score.totalPillars,
+      formMomentum: score.formMomentum,
       campAge: score.campAge ?? undefined,
       topDriver: score.topDriver,
       topLimiter: score.topLimiter,

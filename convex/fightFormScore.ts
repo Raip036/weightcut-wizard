@@ -525,6 +525,9 @@ export const recomputeForUserDate = internalAction({
         proteinG: inputs.profile?.aiRecommendedProteinG ?? null,
       },
       priorRawScores: inputs.priorRawScores,
+      // Recently-applied ceilings, used by the engine to latch a fired safety
+      // cap while its governing pillar is stale (anti-gaming).
+      priorCeilings: inputs.priorCeilings,
       // HealthKit-derived signals (HRV, RHR, sleep, wrist temp, VO2max)
       // assembled by `fetchScoringInputs`; drives the `recovery` sub-score.
       healthSignals: inputs.healthSignals,
