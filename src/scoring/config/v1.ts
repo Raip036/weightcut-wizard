@@ -8,10 +8,12 @@ export const ScoringConfigV1: ScoringConfig = {
   // entire `wellness` weight onto `recovery` (which already folds soreness
   // / energy back in via `selfReportRecovery`). This keeps the total
   // weight invariant across both code paths.
+  // `nutritionAdherence` now carries real weight (0.15) so logging meals
+  // on-target actually raises the fight score. Each phase sums to 1.0.
   weights: {
-    build:     { trainingLoad: 0.25, sleep: 0.25, weightCut: 0.25, wellness: 0.25, nutritionAdherence: 0, recovery: 0 },
-    peak:      { trainingLoad: 0.25, sleep: 0.25, weightCut: 0.25, wellness: 0.25, nutritionAdherence: 0, recovery: 0 },
-    fightWeek: { trainingLoad: 0.25, sleep: 0.25, weightCut: 0.25, wellness: 0.25, nutritionAdherence: 0, recovery: 0 },
+    build:     { trainingLoad: 0.20, sleep: 0.20, weightCut: 0.25, wellness: 0.20, nutritionAdherence: 0.15, recovery: 0 },
+    peak:      { trainingLoad: 0.20, sleep: 0.20, weightCut: 0.25, wellness: 0.20, nutritionAdherence: 0.15, recovery: 0 },
+    fightWeek: { trainingLoad: 0.15, sleep: 0.25, weightCut: 0.30, wellness: 0.15, nutritionAdherence: 0.15, recovery: 0 },
   },
   phaseThresholdsDays: { fightWeek: 7, peak: 14 },
   trainingLoad: {
@@ -78,6 +80,19 @@ export const ScoringConfigV1: ScoringConfig = {
   ],
   smoothing: { emaDays: 3 },
   coldStart: { minDaysOfDataIn7d: 3 },
+  staleness: {
+    neutral: 50,
+    byPillar: {
+      sleep:              { graceDays: 2, horizonDays: 9,  dMax: 0.7 },
+      weightCut:          { graceDays: 4, horizonDays: 14, dMax: 0.7 },
+      wellness:           { graceDays: 7, horizonDays: 14, dMax: 0.7 },
+      nutritionAdherence: { graceDays: 3, horizonDays: 10, dMax: 0.7 },
+      trainingLoad:       { graceDays: 5, horizonDays: 21, dMax: 0.7 },
+      recovery:           { graceDays: 3, horizonDays: 10, dMax: 0.7 },
+    },
+  },
+  confidence: { labelCapThreshold: 0.5, ceilingCooldownDays: 5 },
+  consistency: { maxBonus: 5, lookbackDays: 5, minRawForBonus: 75, fullBonusMean: 92 },
   labelThresholds: { sharp: 80, sharpening: 60, offPace: 40 },
   campAge: { maxWeeksDisplay: 4 },
 };

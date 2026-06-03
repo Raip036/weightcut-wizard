@@ -17,6 +17,13 @@ export type SubScore = {
    * Always optional — most sub-scores don't need it.
    */
   meta?: Record<string, number | string>;
+  /**
+   * 0..1 freshness/completeness of the data backing this sub-score, derived
+   * from how recently it was logged (1 = logged today, 0 = stale beyond the
+   * pillar's horizon or never logged). Optional so callers/tests that don't
+   * set it are unaffected; `computeFightFormScore` always populates it.
+   */
+  completeness?: number;
 };
 
 /**
@@ -64,7 +71,7 @@ export interface HealthSignals {
 
 export type ScoringPhase = "build" | "peak" | "fightWeek";
 
-export type FightFormState = "ok" | "calibrating" | "no_camp" | "paused";
+export type FightFormState = "ok" | "calibrating" | "no_camp" | "paused" | "stale";
 
 export type FightFormLabel = "sharp" | "sharpening" | "off_pace" | "at_risk";
 
@@ -106,6 +113,25 @@ export type FightFormScore = {
    * UI uses this to render a confidence chip next to the score.
    */
   recoveryConfidence: number;
+  /**
+   * 0..1 — how much of the (phase-weighted) composite was backed by fresh
+   * data today. 1.0 = every contributing pillar logged today; lower means
+   * the number rests partly on stale/partial inputs. UI dims the ring and
+   * caps the label when this is low. Always populated.
+   */
+  dataConfidence: number;
+  /** Largest staleness gap (days since last log) across contributing pillars. */
+  dataAgeDays: number;
+  /** Count of pillars currently contributing (weight > 0). */
+  activePillars: number;
+  /** Total pillars considered for the current phase (weight defined > 0). */
+  totalPillars: number;
+  /**
+   * 0..maxBonus points added to the raw composite this run as a consistency
+   * reward (0 when not earned). Surfaced so the UI can show "form building"
+   * feedback. Always populated.
+   */
+  formMomentum: number;
   /**
    * Debug/UX field surfacing where each input the engine consumed came
    * from (Apple Health vs. manual log). Optional so unit tests and
@@ -155,6 +181,12 @@ export type ScoringInputs = {
   meals: Array<{ date: string; calories: number; proteinG: number }>;
   targets: { calories: number | null; proteinG: number | null };
   priorRawScores: Array<{ date: string; rawScore: number }>; // for EMA
+  /**
+   * Recently-applied ceilings (most recent ~5 days), used to LATCH a fired
+   * safety cap so it can't be escaped by simply not logging. Optional — when
+   * absent the engine applies ceilings exactly as before (no latching).
+   */
+  priorCeilings?: Array<{ date: string; ruleId: string; cap: number }>;
   /**
    * HealthKit-derived signals for the recovery sub-score. OPTIONAL — when
    * omitted (or set to null) the engine produces the exact same output as
@@ -270,6 +302,36 @@ export type ScoringConfig = {
   ceilings: Array<{ id: string; cap: number }>;
   smoothing: { emaDays: number };
   coldStart: { minDaysOfDataIn7d: number };
+  /**
+   * Per-pillar staleness handling. `graceDays` = days a pillar may go
+   * unlogged before anything changes. `horizonDays` = days at which the
+   * pillar is fully decayed/zero-confidence. `dMax` = max decay fraction
+   * toward neutral (so a stale pillar eases toward 50, never erases).
+   */
+  staleness: {
+    neutral: number;
+    byPillar: Record<SubScoreKey, { graceDays: number; horizonDays: number; dMax: number }>;
+  };
+  /**
+   * `labelCapThreshold` — when `dataConfidence` is below this, the label is
+   * capped at "sharpening" and state is "stale". `ceilingCooldownDays` — how
+   * long a fired ceiling stays latched while its pillar is stale.
+   */
+  confidence: { labelCapThreshold: number; ceilingCooldownDays: number };
+  /**
+   * Consistency reward ("form momentum"). A small additive bonus on the raw
+   * composite for users who sustain strong, fully-logged performance. Gated so
+   * it rewards consistency of GOOD data, not just logging: requires all
+   * eligible pillars present AND a strong recent mean. `maxBonus` points,
+   * scaled 0→1 as the mean of the last `lookbackDays` raw scores moves from
+   * `minRawForBonus` to `fullBonusMean`, multiplied by data confidence.
+   */
+  consistency: {
+    maxBonus: number;
+    lookbackDays: number;
+    minRawForBonus: number;
+    fullBonusMean: number;
+  };
   labelThresholds: { sharp: number; sharpening: number; offPace: number };
   campAge: { maxWeeksDisplay: number };
 };

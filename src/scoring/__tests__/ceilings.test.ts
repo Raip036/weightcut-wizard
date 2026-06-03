@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { applyCeilings } from "../ceilings";
+import { applyCeilings, latchCeilings } from "../ceilings";
 import { ScoringConfigV1 } from "../config/v1";
 
 // All existing tests use signals that pass the cold-start guard so that the
@@ -164,5 +164,69 @@ describe("applyCeilings", () => {
     expect(r.score).toBe(60);
     expect(r.applied?.ruleId).toBe("training_spike");
     expect(r.applied?.cap).toBe(60);
+  });
+});
+
+describe("latchCeilings", () => {
+  it("re-applies a recently-fired cap when its pillar is stale (escape attempt)", () => {
+    const r = latchCeilings(
+      { score: 90, applied: null },
+      {
+        asOfDate: "2026-05-10",
+        priorCeilings: [{ date: "2026-05-08", ruleId: "sleep_debt", cap: 65 }],
+        staleDaysByRule: { sleep_debt: 6, weight_cut_dangerous: null, training_spike: null },
+      },
+      ScoringConfigV1,
+    );
+    expect(r.score).toBe(65);
+    expect(r.applied?.ruleId).toBe("sleep_debt");
+  });
+
+  it("releases the cap when the pillar has fresh data and no longer triggers", () => {
+    const r = latchCeilings(
+      { score: 90, applied: null },
+      {
+        asOfDate: "2026-05-10",
+        priorCeilings: [{ date: "2026-05-08", ruleId: "sleep_debt", cap: 65 }],
+        staleDaysByRule: { sleep_debt: 1, weight_cut_dangerous: null, training_spike: null },
+      },
+      ScoringConfigV1,
+    );
+    expect(r.score).toBe(90);
+    expect(r.applied).toBeNull();
+  });
+
+  it("does not latch a cap older than the cooldown window", () => {
+    const r = latchCeilings(
+      { score: 90, applied: null },
+      {
+        asOfDate: "2026-05-20",
+        priorCeilings: [{ date: "2026-05-08", ruleId: "sleep_debt", cap: 65 }],
+        staleDaysByRule: { sleep_debt: 12, weight_cut_dangerous: null, training_spike: null },
+      },
+      ScoringConfigV1,
+    );
+    expect(r.score).toBe(90);
+    expect(r.applied).toBeNull();
+  });
+
+  it("keeps the live cap when one is already applied (no-op)", () => {
+    const r = latchCeilings(
+      { score: 65, applied: { ruleId: "sleep_debt", cap: 65 } },
+      { asOfDate: "2026-05-10", priorCeilings: [], staleDaysByRule: { sleep_debt: 0, weight_cut_dangerous: null, training_spike: null } },
+      ScoringConfigV1,
+    );
+    expect(r.score).toBe(65);
+    expect(r.applied?.ruleId).toBe("sleep_debt");
+  });
+
+  it("is a no-op when priorCeilings is empty", () => {
+    const r = latchCeilings(
+      { score: 88, applied: null },
+      { asOfDate: "2026-05-10", priorCeilings: [], staleDaysByRule: { sleep_debt: 0, weight_cut_dangerous: null, training_spike: null } },
+      ScoringConfigV1,
+    );
+    expect(r.score).toBe(88);
+    expect(r.applied).toBeNull();
   });
 });
