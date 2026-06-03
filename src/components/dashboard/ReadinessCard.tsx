@@ -58,7 +58,7 @@ export function ReadinessCard({ userId }: ReadinessCardProps) {
         triggerHapticSelection();
         navigate("/recovery");
       }}
-      className="card-surface card-glow rounded-2xl p-3 aspect-square flex flex-col text-left card-press min-w-0 w-full overflow-hidden"
+      className="card-surface rounded-2xl p-3 aspect-square flex flex-col text-left card-press min-w-0 w-full overflow-hidden"
     >
       <div className="flex items-start justify-between w-full">
         <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">

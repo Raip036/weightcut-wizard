@@ -195,7 +195,7 @@ export function PhaseCoachCard({
         triggerHapticSelection();
         navigate("/fight-camps");
       }}
-      className="w-full card-surface card-glow rounded-2xl p-3.5 text-left active:scale-[0.99] transition-transform"
+      className="w-full card-surface rounded-2xl p-3.5 text-left active:scale-[0.99] transition-transform"
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">

@@ -376,7 +376,7 @@ export function CutPaceForecast({
         type="button"
         onClick={() => { triggerHapticSelection(); navigate("/cut-plan"); }}
         aria-label={`${TIER_LABEL[tier]} — ${heroEyebrow}, target ${focusCheckpoint.targetWeight.toFixed(1)} kg`}
-        className={`w-full card-surface card-glow rounded-2xl border-l-[3px] ${TIER_ACCENT[tier]} p-4 text-left active:scale-[0.99] transition-transform`}
+        className={`w-full card-surface rounded-2xl border-l-[3px] ${TIER_ACCENT[tier]} p-4 text-left active:scale-[0.99] transition-transform`}
       >
         {/* Subtle fade-in on focus change — key forces remount → re-plays anim. */}
         <div key={focusCheckpoint.week} className="animate-in fade-in duration-200">

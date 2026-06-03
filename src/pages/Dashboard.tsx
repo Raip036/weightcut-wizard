@@ -927,7 +927,7 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => setNextCampOpen(true)}
-              className="w-full text-left rounded-2xl card-surface card-glow p-3 card-press"
+              className="w-full text-left rounded-2xl card-surface p-3 card-press"
             >
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-xs bg-primary/15 flex items-center justify-center shrink-0">
@@ -1063,7 +1063,7 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => { triggerHapticSelection(); navigate('/weight'); }}
-              className="card-surface card-glow rounded-2xl p-3 aspect-square flex flex-col text-left card-press min-w-0 w-full overflow-hidden"
+              className="card-surface rounded-2xl p-3 aspect-square flex flex-col text-left card-press min-w-0 w-full overflow-hidden"
             >
               <div className="flex items-start justify-between w-full">
                 <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
@@ -1227,7 +1227,7 @@ export default function Dashboard() {
         </header>
 
         {weightLogs.length === 0 && (
-          <button onClick={() => navigate('/weight')} className="w-full card-surface card-glow rounded-2xl p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all">
+          <button onClick={() => navigate('/weight')} className="w-full card-surface rounded-2xl p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all">
             <div className="h-9 w-9 rounded-xs bg-primary/10 flex items-center justify-center flex-shrink-0">
               <Icon name="speedometerOutline" size={16} className="text-primary" />
             </div>
@@ -1253,7 +1253,7 @@ export default function Dashboard() {
         {/* Wizard's Daily Wisdom card — conditional states */}
         <div data-tutorial="daily-wisdom-card">
         {!hasTodayLog ? (
-          <button onClick={() => navigate('/weight')} className="w-full card-surface card-glow rounded-2xl p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all">
+          <button onClick={() => navigate('/weight')} className="w-full card-surface rounded-2xl p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all">
             <div className="h-8 w-8 rounded-xs bg-muted/40 flex items-center justify-center flex-shrink-0">
               <Icon name="lockClosedOutline" size={14} className="text-muted-foreground" />
             </div>
@@ -1266,7 +1266,7 @@ export default function Dashboard() {
             <Icon name="chevronForwardOutline" size={14} className="text-muted-foreground shrink-0" />
           </button>
         ) : wisdomLoading ? (
-          <div className="card-surface card-glow rounded-2xl p-3 flex items-center gap-2.5">
+          <div className="card-surface rounded-2xl p-3 flex items-center gap-2.5">
             <div className="h-8 w-8 rounded-xs bg-muted/40 flex-shrink-0" />
             <div className="flex-1 min-w-0 space-y-1.5">
               <div className="h-2.5 rounded shimmer-skeleton w-1/3" />
@@ -1274,7 +1274,7 @@ export default function Dashboard() {
             </div>
           </div>
         ) : wisdom ? (
-          <button className="w-full text-left card-surface card-glow rounded-2xl p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all" onClick={handleWisdomClick}>
+          <button className="w-full text-left card-surface rounded-2xl p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all" onClick={handleWisdomClick}>
             <div className="h-8 w-8 rounded-xs bg-primary/10 flex items-center justify-center flex-shrink-0">
               <Icon name="flashOutline" size={14} className="text-primary" />
             </div>
@@ -1294,7 +1294,7 @@ export default function Dashboard() {
             </div>
           </button>
         ) : (
-          <div className="card-surface card-glow rounded-2xl p-3 flex items-center gap-2.5">
+          <div className="card-surface rounded-2xl p-3 flex items-center gap-2.5">
             <div className="h-8 w-8 rounded-xs bg-muted/40 flex items-center justify-center flex-shrink-0">
               <Icon name="flashOutline" size={14} className="text-muted-foreground" />
             </div>
@@ -1315,7 +1315,7 @@ export default function Dashboard() {
         {/* Weight History + Training — side by side */}
         <div className="grid grid-cols-2 gap-2">
           {/* Weight History Chart */}
-          <div className="card-surface card-glow rounded-2xl p-2.5 aspect-square flex flex-col">
+          <div className="card-surface rounded-2xl p-2.5 aspect-square flex flex-col">
             <div className="flex items-center justify-between mb-1">
               <span className="section-header text-foreground font-bold">Weight</span>
               <div className="flex gap-0.5 bg-muted rounded-full p-0.5">
@@ -1379,7 +1379,7 @@ export default function Dashboard() {
                 } catch { /* malformed — default route stands */ }
                 navigate(route);
               }}
-              className="card-surface card-glow rounded-2xl p-3 flex items-center gap-2.5 active:scale-[0.98] transition-all text-left"
+              className="card-surface rounded-2xl p-3 flex items-center gap-2.5 active:scale-[0.98] transition-all text-left"
             >
               <div className="h-9 w-9 rounded-xs bg-primary/10 flex items-center justify-center flex-shrink-0">
                 <Icon name="flashOutline" size={16} className="text-primary" />
