@@ -4,6 +4,7 @@ import { api } from "../../../convex/_generated/api";
 import { Icon } from "@/components/ui/Icon";
 import { triggerHapticSelection } from "@/lib/haptics";
 import Sparkline from "@/components/charts/Sparkline";
+import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 
 interface ReadinessCardProps {
   userId: string | null | undefined;
@@ -27,6 +28,9 @@ function verdictFor(score: number): { label: string; color: string } {
  */
 export function ReadinessCard({ userId }: ReadinessCardProps) {
   const navigate = useNavigate();
+  // The whole Recovery surface is Pro-only — surface a lock badge so it
+  // reads as gated at a glance (the route gate enforces it on tap).
+  const { hasAccess } = useFeatureAccess("RECOVERY");
   const rows = useQuery(
     api.wellness.listCheckins,
     userId ? { limit: 14 } : "skip",
@@ -60,7 +64,14 @@ export function ReadinessCard({ userId }: ReadinessCardProps) {
         <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
           RECOVERY
         </span>
-        <Icon name="chevronForwardOutline" size={14} className="text-muted-foreground/40" />
+        {hasAccess ? (
+          <Icon name="chevronForwardOutline" size={14} className="text-muted-foreground/40" />
+        ) : (
+          <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-1.5 py-0.5">
+            <Icon name="lockClosedOutline" size={10} className="text-primary" />
+            <span className="text-[9px] font-bold uppercase tracking-wide text-primary">Pro</span>
+          </span>
+        )}
       </div>
 
       <div className="mt-2 flex items-baseline gap-1.5">

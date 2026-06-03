@@ -275,7 +275,22 @@ export function PolaroidStack({
 
   return (
     <div className="flex flex-col">
-      <div key="deck" className="relative mx-auto" style={{ width: 312, height: 396 }}>
+      {/* Deck drop-in — on first load the whole stack snaps down from
+          slightly above + scaled, with a small angle settle, so the
+          photos read as freshly snapped and dropped onto the pile.
+          Plays once (the deck container persists across swipes). */}
+      <motion.div
+        key="deck"
+        className="relative mx-auto"
+        style={{ width: 312, height: 396 }}
+        initial={prefersReducedMotion ? false : { opacity: 0, scale: 1.08, y: -28, rotate: -3 }}
+        animate={{ opacity: 1, scale: 1, y: 0, rotate: 0 }}
+        transition={
+          prefersReducedMotion
+            ? { duration: 0 }
+            : { type: "spring", stiffness: 360, damping: 24, mass: 0.9 }
+        }
+      >
         {exitingNode}
 
         {visibleSlots.map((post, idx) => {
@@ -313,7 +328,7 @@ export function PolaroidStack({
             />
           );
         })}
-      </div>
+      </motion.div>
 
       {/* Engagement section — sits OUTSIDE the draggable card container
           so its taps never compete with the swipe gesture. Only renders

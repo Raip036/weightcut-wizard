@@ -66,10 +66,9 @@ export default function RecoveryCheckIn() {
             type="button"
             onClick={handleBack}
             aria-label="Back"
-            className="-ml-1 inline-flex items-center gap-1.5 h-11 px-3 rounded-full bg-muted/40 hover:bg-muted/60 active:bg-muted/70 text-foreground text-[14px] font-semibold transition-colors"
+            className="-ml-2 inline-flex items-center justify-center h-11 w-11 text-foreground active:opacity-60 transition-opacity"
           >
-            <Icon name="chevronBackOutline" size={20} aria-label="Back" />
-            Back
+            <Icon name="chevronBackOutline" size={24} aria-label="Back" />
           </button>
         </div>
         <div className="flex-1 flex flex-col justify-center">
