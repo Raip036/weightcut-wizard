@@ -59,6 +59,10 @@ interface RoundedFeedCardProps {
   rotationDeg: number;
   /** Long-press the author overlay → enter profile. */
   onAuthorLongPress?: () => void;
+  /** Suppress the on-photo caption overlay. The Community deck renders the
+   *  caption itself (so it can clear the floating heart button), but other
+   *  consumers (story templates) keep the baked-in caption. Default false. */
+  hideCaption?: boolean;
   /** Plays the develop effect once on mount (ReviewSheet hand-off). */
   developing?: boolean;
   /** Drag-progress driver from the parent (position-1 background only). */
@@ -85,6 +89,7 @@ function RoundedFeedCardBase({
   onAuthorLongPress,
   developing = false,
   progress,
+  hideCaption = false,
 }: RoundedFeedCardProps) {
   // Use the SAME source for background and top cards. The stack already
   // preloads every visible card's full URL, so a background card has already
@@ -301,8 +306,9 @@ function RoundedFeedCardBase({
           </motion.button>
         )}
 
-        {/* Bottom caption overlay + gradient. Only when caption exists. */}
-        {isTop && post.caption && (
+        {/* Bottom caption overlay + gradient. Only when caption exists
+            and the consumer hasn't opted to render it itself. */}
+        {isTop && post.caption && !hideCaption && (
           <>
             <div
               aria-hidden="true"
@@ -338,7 +344,8 @@ function areEqual(prev: RoundedFeedCardProps, next: RoundedFeedCardProps): boole
     (prev.post.author.streakDays ?? 0) === (next.post.author.streakDays ?? 0) &&
     (prev.post.authorState ?? "active") === (next.post.authorState ?? "active") &&
     prev.developing === next.developing &&
-    prev.progress === next.progress
+    prev.progress === next.progress &&
+    prev.hideCaption === next.hideCaption
   );
 }
 
