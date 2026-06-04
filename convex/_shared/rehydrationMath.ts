@@ -169,3 +169,164 @@ function round1(n: number) {
 function round2(n: number) {
   return parseFloat(n.toFixed(2));
 }
+
+// ───────────────────────────────────────────────────────────────────────
+// Sweat-loss-driven rehydration fallback (sports-science vetted curve)
+// ───────────────────────────────────────────────────────────────────────
+
+/**
+ * A single fallback hour. Numeric-only — copy (cues, meal labels) is
+ * synthesised by the caller in `generateRehydrationProtocol.ts`.
+ */
+export interface RehydrationFallbackHour {
+  hourOffset: number;
+  liquidsMl: number;
+  cumulativeMl: number;
+}
+
+const MAX_ML_PER_HOUR = 1500;
+
+/** Round to the nearest 50 ml. */
+function roundTo50(n: number): number {
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.round(n / 50) * 50;
+}
+
+/**
+ * Deterministic per-hour rehydration curve, used when the AI call fails or
+ * returns invalid / out-of-tolerance JSON. Pure — no Convex, no I/O.
+ *
+ * Algorithm (matches the spec for the AI path so the fallback is a faithful
+ * stand-in):
+ *   - totalMl = totalLitresTarget * 1000
+ *   - Front-load:  H+0 = 20%, H+1 = 17.5%
+ *   - Top-up:      final 3h (H-2 / H-1 / H) share 15% split 40 / 40 / 20
+ *   - Overnight:   only when gapHours >= 20, H+8..min(15, gap-3) flat 75 ml/h
+ *   - Refeed:      remainder spread evenly across daytime hours 2..gap-3
+ *                  (excluding overnight hours)
+ *   - Clamp any hour to MAX_ML_PER_HOUR (1500), redistribute overflow into
+ *     refeed hours
+ *   - Round each hour to nearest 50 ml, reconcile rounding drift onto the
+ *     largest daytime hour
+ *   - Build cumulativeMl
+ *
+ * Returns EVERY hour from H+0..H+gapHours inclusive (length gapHours + 1).
+ */
+export function buildRehydrationFallback(
+  totalLitresTarget: number,
+  gapHours: number,
+): RehydrationFallbackHour[] {
+  const gap = Math.max(1, Math.round(Number(gapHours) || 0));
+  const totalMl = Math.max(0, (Number(totalLitresTarget) || 0) * 1000);
+
+  const n = gap + 1; // hours H+0..H+gap inclusive
+  const raw = new Array<number>(n).fill(0);
+
+  // Identify the overnight band (only when the window is long enough).
+  const hasOvernight = gap >= 20;
+  const overnightStart = 8;
+  const overnightEnd = Math.min(15, gap - 3); // inclusive
+  const isOvernight = (h: number): boolean =>
+    hasOvernight && h >= overnightStart && h <= overnightEnd && overnightEnd >= overnightStart;
+
+  // The three top-up hours at the tail (H-2, H-1, H). Guard tiny windows.
+  const topupHours = [gap - 2, gap - 1, gap].filter((h) => h >= 0 && h < n);
+  const topupShare = [0.4, 0.4, 0.2];
+  const isTopup = (h: number): boolean => topupHours.includes(h);
+
+  // Front-load hours.
+  const frontHours: Array<{ h: number; pct: number }> = [];
+  if (n > 0) frontHours.push({ h: 0, pct: 0.2 });
+  if (n > 1) frontHours.push({ h: 1, pct: 0.175 });
+  const isFront = (h: number): boolean => frontHours.some((f) => f.h === h);
+
+  // 1. Front-load.
+  let allocated = 0;
+  for (const { h, pct } of frontHours) {
+    // Don't double-allocate if the window is so short a front hour is also a
+    // top-up hour — top-up takes priority for the tail.
+    if (isTopup(h)) continue;
+    raw[h] = totalMl * pct;
+    allocated += raw[h];
+  }
+
+  // 2. Top-up (final 3h). 15% of total, split 40/40/20.
+  const topupTotal = totalMl * 0.15;
+  topupHours.forEach((h, i) => {
+    raw[h] = (raw[h] || 0) + topupTotal * topupShare[i];
+  });
+  allocated += topupTotal;
+
+  // 3. Overnight flat 75 ml/h.
+  let overnightMl = 0;
+  for (let h = 0; h < n; h++) {
+    if (isOvernight(h) && !isTopup(h) && !isFront(h)) {
+      raw[h] = 75;
+      overnightMl += 75;
+    }
+  }
+  allocated += overnightMl;
+
+  // 4. Refeed: spread remainder evenly across daytime hours 2..gap-3,
+  //    excluding overnight / front / top-up hours.
+  const refeedHours: number[] = [];
+  for (let h = 2; h <= gap - 3; h++) {
+    if (h < 0 || h >= n) continue;
+    if (isOvernight(h) || isTopup(h) || isFront(h)) continue;
+    refeedHours.push(h);
+  }
+  // Fallback: if the window is too tight to have any refeed hour, dump the
+  // remainder onto any non-tail interior hours we can find.
+  let refeedTargets = refeedHours;
+  if (refeedTargets.length === 0) {
+    for (let h = 0; h < n; h++) {
+      if (isTopup(h)) continue;
+      if (!refeedTargets.includes(h)) refeedTargets.push(h);
+    }
+  }
+
+  const remainder = Math.max(0, totalMl - allocated);
+  if (refeedTargets.length > 0 && remainder > 0) {
+    const perHour = remainder / refeedTargets.length;
+    for (const h of refeedTargets) raw[h] = (raw[h] || 0) + perHour;
+  }
+
+  // 5. Clamp to MAX_ML_PER_HOUR, redistribute overflow into refeed hours
+  //    that still have headroom.
+  for (let pass = 0; pass < 4; pass++) {
+    let overflow = 0;
+    for (let h = 0; h < n; h++) {
+      if (raw[h] > MAX_ML_PER_HOUR) {
+        overflow += raw[h] - MAX_ML_PER_HOUR;
+        raw[h] = MAX_ML_PER_HOUR;
+      }
+    }
+    if (overflow <= 0) break;
+    const headroom = refeedTargets.filter((h) => raw[h] < MAX_ML_PER_HOUR);
+    if (headroom.length === 0) break;
+    const add = overflow / headroom.length;
+    for (const h of headroom) raw[h] = Math.min(MAX_ML_PER_HOUR, raw[h] + add);
+  }
+
+  // 6. Round each to nearest 50 ml.
+  const rounded = raw.map(roundTo50);
+
+  // 7. Reconcile rounding drift onto the largest daytime (refeed) hour.
+  const roundedTotal = rounded.reduce((a, b) => a + b, 0);
+  let drift = roundTo50(totalMl) - roundedTotal;
+  if (drift !== 0) {
+    const driftPool = refeedTargets.length > 0 ? refeedTargets : rounded.map((_, i) => i);
+    let bestH = driftPool[0];
+    for (const h of driftPool) if (rounded[h] > rounded[bestH]) bestH = h;
+    rounded[bestH] = Math.max(0, Math.min(MAX_ML_PER_HOUR, rounded[bestH] + drift));
+  }
+
+  // 8. Build cumulative.
+  const out: RehydrationFallbackHour[] = [];
+  let cum = 0;
+  for (let h = 0; h < n; h++) {
+    cum += rounded[h];
+    out.push({ hourOffset: h, liquidsMl: rounded[h], cumulativeMl: cum });
+  }
+  return out;
+}

@@ -24,6 +24,15 @@ export interface RehydrationAnchor {
   foodCopy?: string;
   /** Free-form notes / cue. */
   notes?: string;
+  // ── New rich shape (backend now emits every hour) — preferred when present ──
+  /** Imperative cue for the hour. Preferred over notes/foodCopy. */
+  cue?: string;
+  /** Explicit meal flag from the generator. */
+  isMeal?: boolean;
+  /** Meal name; rendered as the bold lead-in on meal rows. */
+  mealLabel?: string | null;
+  /** Running cumulative ml through this hour (unused in layout, kept for parity). */
+  cumulativeMl?: number;
 }
 
 export interface RehydrationTimelineProps {
@@ -90,7 +99,14 @@ export function expandHours(
   anchors: RehydrationAnchor[],
   gapHours: number,
 ): ExpandedHour[] {
-  const lastHour = Math.max(0, Math.floor(gapHours));
+  // Defensive: render through the later of the requested gap and the highest
+  // anchor offset, so a dense payload always shows all its hours even if the
+  // caller's gapHours is stale/0.
+  const maxAnchor = anchors.reduce(
+    (m, a) => Math.max(m, Math.round(a.hourOffset)),
+    0,
+  );
+  const lastHour = Math.max(Math.floor(gapHours) || 0, maxAnchor, 0);
 
   // Index anchors by hour (later duplicates win — last write).
   const byHour = new Map<number, RehydrationAnchor>();
@@ -135,16 +151,21 @@ export function expandHours(
     const anchor = byHour.get(hour);
 
     if (anchor) {
-      const isMeal = !!(anchor.foodCopy && anchor.foodCopy.trim().length > 0);
+      const isMeal =
+        anchor.isMeal ??
+        !!(anchor.foodCopy && anchor.foodCopy.trim().length > 0);
       const cue =
         firstNonEmpty(
+          anchor.cue,
           anchor.foodCopy,
           anchor.notes,
           anchor.liquidsComposition,
           anchor.label,
         ) ?? DEFAULT_CUE;
-      // When we have a food cue, surface the label as the bold lead-in.
-      const lead = isMeal ? firstNonEmpty(anchor.label) : undefined;
+      // When it's a meal, surface the meal name as the bold lead-in.
+      const lead = isMeal
+        ? firstNonEmpty(anchor.mealLabel ?? undefined, anchor.label)
+        : undefined;
 
       const isWalkoutEmpty = phase === "walkout" && (anchor.liquidsMl ?? 0) <= 0;
 
@@ -203,6 +224,8 @@ export function RehydrationTimeline({
   className,
 }: RehydrationTimelineProps) {
   const rows = expandHours(anchors, gapHours);
+  // Use the actual last rendered hour for the header so it matches the table.
+  const effectiveGap = rows.length ? rows[rows.length - 1].hourOffset : gapHours;
 
   // Header line: "Replace 3 L over 24 h" (drop the "X L" part when absent).
   const litrePart =
@@ -226,7 +249,7 @@ export function RehydrationTimeline({
       <p className="mt-1.5 text-[11px] text-muted-foreground">
         Replace{" "}
         <span className="font-semibold text-foreground">
-          {litrePart}over {gapHours} h
+          {litrePart}over {effectiveGap} h
         </span>{" "}
         · weigh-in to walkout
       </p>

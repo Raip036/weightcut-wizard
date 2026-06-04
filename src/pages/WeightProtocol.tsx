@@ -251,6 +251,8 @@ export default function WeightProtocol() {
         ? currentWeight - cutDepthKgRaw
         : null;
   const gapHours =
+    (rhPayload?.gapHours as number | undefined) ??
+    (rhPayload?.derivedSnapshot?.gapHours as number | undefined) ??
     (rhPayload?.weighInToFightGapHours as number | undefined) ??
     rawGapHours ??
     null;
