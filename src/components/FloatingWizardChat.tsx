@@ -17,6 +17,8 @@ import { CoachThinkingState } from "@/components/fightcamp/cockpit/CoachThinking
 import { CoachCheckinStreak } from "@/components/fightcamp/cockpit/CoachCheckinStreak";
 import { useCoachCheckinStreak } from "@/hooks/useCoachCheckinStreak";
 import { CoachSpeechBubble } from "@/components/fightcamp/cockpit/CoachSpeechBubble";
+import { CoachProGate } from "@/components/subscription/CoachProGate";
+import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 import { api } from "@/../convex/_generated/api";
 import type { LogAction } from "@/../convex/_shared/aiSchemas";
 
@@ -40,6 +42,12 @@ export function FloatingWizardChat() {
   const { userId } = useUser();
   const navigate = useNavigate();
   const prefersReduced = useReducedMotion();
+
+  // FREE-vs-PRO split. Pro users get the full chat; free users open the coach
+  // and land on the engaging <CoachProGate /> — the gate owns its own paywall
+  // CTA and contextual briefing line. Free users cannot type at all (the whole
+  // composer is unmounted for them).
+  const { hasAccess } = useFeatureAccess("AI_FIGHT_CAMP_COACH");
 
   // Proactive cockpit read — powers the pinned header + adaptive chips. Loading
   // (`undefined`) is treated as null so children render their no-data fallback.
@@ -235,6 +243,8 @@ export function FloatingWizardChat() {
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Free users never reach the composer (it's unmounted), but guard anyway.
+    if (!hasAccess) return;
     if (!input.trim() || isLoading) return;
 
     triggerHapticSelection();
@@ -247,6 +257,8 @@ export function FloatingWizardChat() {
   };
 
   const handleSuggestion = async (prompt: string) => {
+    // Free users never see chips (gate replaces the body), but guard anyway.
+    if (!hasAccess) return;
     if (isLoading) return;
     triggerHapticSelection();
     // Tapping a chip is a coach interaction — counts as a check-in too.
@@ -467,7 +479,14 @@ export function FloatingWizardChat() {
                     scrollbarWidth: "none",
                   }}
                 >
-                  {messages.map((msg, idx) => {
+                  {/* FREE branch — the full engaging Pro gate fills the body.
+                      No message list, no nudge, no chips, no thinking state:
+                      this is the conversion moment. The gate owns its own
+                      "Unlock Pro" CTA + contextual briefing line. */}
+                  {!hasAccess ? (
+                    <CoachProGate />
+                  ) : (
+                  messages.map((msg, idx) => {
                     const prev = messages[idx - 1];
                     const isGrouped = prev && prev.role === msg.role;
                     const isLast = idx === messages.length - 1;
@@ -535,9 +554,10 @@ export function FloatingWizardChat() {
                         )}
                       </div>
                     );
-                  })}
+                  })
+                  )}
 
-                  {isLoading && (
+                  {hasAccess && isLoading && (
                     <div className="flex justify-start mt-2 animate-msg-bounce-in" style={{ transformOrigin: "bottom left" }}>
                       <div className="flex items-end gap-2 max-w-[82%]">
                         <div className="shrink-0 h-7 w-7 flex items-center justify-center">
@@ -556,7 +576,7 @@ export function FloatingWizardChat() {
                       read (days-to-weigh-in, drift) instead of a static list.
                       Aligned with the assistant bubbles (offset past the orb
                       gutter). Per-turn followups still render above. */}
-                  {showStarters && (
+                  {hasAccess && showStarters && (
                     <AdaptiveChips
                       data={cockpitData}
                       onPick={handleSuggestion}
@@ -566,9 +586,12 @@ export function FloatingWizardChat() {
                 </div>
 
                 {/* ========== INPUT BAR — glassy pill ==========
+                    Pro only. Free users land on <CoachProGate /> and cannot
+                    type — the entire composer is unmounted for them.
                     Keyboard is in `resize: "none"` app-wide, so we reserve
                     `--keyboard-inset` (set by the JS listener in main.tsx) in
                     addition to the safe-area inset. */}
+                {hasAccess && (
                 <div
                   className="shrink-0 border-t border-white/10 bg-background/30 backdrop-blur-2xl px-4 pt-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
                   style={{
@@ -576,39 +599,40 @@ export function FloatingWizardChat() {
                       "max(calc(env(safe-area-inset-bottom, 0px) + 10px), var(--keyboard-inset, 0px))",
                   }}
                 >
-                  <form onSubmit={handleSend} className="flex items-center gap-2">
-                    <div className="flex-1 flex items-center h-11 rounded-full bg-white/8 px-5 ring-1 ring-white/10 focus-within:ring-1 focus-within:ring-primary/30 transition-all">
-                      <input
-                        ref={inputRef}
-                        type="text"
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        onFocus={() => setInputFocused(true)}
-                        onBlur={() => setInputFocused(false)}
-                        placeholder="Message Coach"
-                        disabled={isLoading}
-                        className="flex-1 bg-transparent text-[15px] text-foreground placeholder:text-muted-foreground/70 outline-none border-none disabled:opacity-50"
-                      />
-                    </div>
-                    <div className="relative shrink-0">
-                      {/* Orb-tinted glow halo behind send — only when ready. */}
-                      {input.trim() && !isLoading && (
-                        <span
-                          aria-hidden
-                          className="absolute inset-0 rounded-full bg-primary/45 blur-md scale-110 pointer-events-none"
+                    <form onSubmit={handleSend} className="flex items-center gap-2">
+                      <div className="flex-1 flex items-center h-11 rounded-full bg-white/8 px-5 ring-1 ring-white/10 focus-within:ring-1 focus-within:ring-primary/30 transition-all">
+                        <input
+                          ref={inputRef}
+                          type="text"
+                          value={input}
+                          onChange={(e) => setInput(e.target.value)}
+                          onFocus={() => setInputFocused(true)}
+                          onBlur={() => setInputFocused(false)}
+                          placeholder="Message Coach"
+                          disabled={isLoading}
+                          className="flex-1 bg-transparent text-[15px] text-foreground placeholder:text-muted-foreground/70 outline-none border-none disabled:opacity-50"
                         />
-                      )}
-                      <button
-                        type="submit"
-                        disabled={!input.trim() || isLoading}
-                        aria-label="Send message"
-                        className="relative h-11 w-11 rounded-full bg-primary text-primary-foreground flex items-center justify-center disabled:opacity-40 disabled:scale-90 active:scale-90 transition-all duration-150"
-                      >
-                        <Send className="h-[18px] w-[18px] -ml-0.5" />
-                      </button>
-                    </div>
-                  </form>
+                      </div>
+                      <div className="relative shrink-0">
+                        {/* Orb-tinted glow halo behind send — only when ready. */}
+                        {input.trim() && !isLoading && (
+                          <span
+                            aria-hidden
+                            className="absolute inset-0 rounded-full bg-primary/45 blur-md scale-110 pointer-events-none"
+                          />
+                        )}
+                        <button
+                          type="submit"
+                          disabled={!input.trim() || isLoading}
+                          aria-label="Send message"
+                          className="relative h-11 w-11 rounded-full bg-primary text-primary-foreground flex items-center justify-center disabled:opacity-40 disabled:scale-90 active:scale-90 transition-all duration-150"
+                        >
+                          <Send className="h-[18px] w-[18px] -ml-0.5" />
+                        </button>
+                      </div>
+                    </form>
                 </div>
+                )}
               </div>
             </motion.div>
           </>

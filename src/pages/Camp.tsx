@@ -17,6 +17,7 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { ShimmerCrownBadge } from "@/components/subscription/ShimmerCrownBadge";
 import { MissionsProDialog } from "@/components/coach/MissionsProDialog";
 import { PostFightDebrief } from "@/components/fightcamp/PostFightDebrief";
+import { CampTrends } from "@/components/fightcamp/CampTrends";
 
 interface CampSection {
   title: string;
@@ -360,6 +361,16 @@ export default function Camp() {
         </button>
         )}
       </div>
+
+      {/* ── Multi-camp trends ("Cut over cut" — Fight Camp Coach Phase 4).
+          Sits below the active-camp plan area as a longitudinal complement:
+          the plan tracks the current cut, this card tracks the cut fight over
+          fight. Self-fetches + self-gates (Pro → full view, Free → locked
+          teaser → paywall) and renders null when there's no camp history, so
+          it's safe to always mount. ──────────────────────────────────────── */}
+      <ErrorBoundary fallback={null} silent>
+        <CampTrends />
+      </ErrorBoundary>
 
       {/* ── Training Missions — compact upsell for non-Pro zero-missions,
           full MissionStack (+heading) for Pro or anyone with active missions. */}

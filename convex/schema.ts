@@ -1099,6 +1099,48 @@ export default defineSchema({
     .index("by_user_camp", ["userId", "campId"])
     .index("by_user_camp_metric", ["userId", "campId", "metric"]),
 
+  /**
+   * Persisted Fight Camp Coach conversation memory (Phase 4 — §5 Phase 4 +
+   * §6 of docs/superpowers/specs/2026-06-04-fight-camp-coach-redesign-design.md).
+   *
+   * Until Phase 4 the coach only remembered the last ~16 turns held in
+   * localStorage. This table lets the (Pro) coach remember across the whole
+   * camp, server-side. One row per chat turn:
+   *  - `role`       : who spoke — "user" or "assistant".
+   *  - `content`    : the plain-text / markdown reply text (the conversational
+   *                   `reply` for assistant turns; the typed message for user
+   *                   turns).
+   *  - `blocksJson` : assistant structured `CoachBlock[]` (+ followups), JSON
+   *                   serialized. Optional — user turns and pure-prose
+   *                   assistant turns omit it. Stored as a string so the
+   *                   evolving block union needs no schema migration (same
+   *                   rationale as `weight_protocols.payload` being `v.any()`).
+   *  - `campId`     : the camp this turn belongs to, denormalised at append
+   *                   time. Optional because a user may chat with the coach
+   *                   off-season (no active/upcoming camp).
+   *  - `createdAt`  : explicit append timestamp (epoch ms). The action
+   *                   inserts turns in a single batch, so a monotonic
+   *                   per-turn stamp guarantees stable oldest-first ordering
+   *                   even within one mutation.
+   *
+   * Indexes:
+   *  - `by_user`      — load / clear a user's full conversation history.
+   *  - `by_user_camp` — scope history to a single camp (per-camp memory).
+   *
+   * NO Pro gate at this layer — these functions are infrastructure; the
+   * action/context decides when persistence is used (Pro-only per spec).
+   */
+  coach_conversations: defineTable({
+    userId: v.id("users"),
+    campId: v.optional(v.id("fight_camps")),
+    role: v.union(v.literal("user"), v.literal("assistant")),
+    content: v.string(),
+    blocksJson: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_camp", ["userId", "campId"]),
+
   // ────────────────────────────────────────────────────────────────────
   // COACH MODE
   // ────────────────────────────────────────────────────────────────────

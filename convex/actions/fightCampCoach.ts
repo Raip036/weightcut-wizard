@@ -55,6 +55,10 @@ import {
   buildCampHistoryCards,
   summarizeCampHistory,
 } from "../_shared/coachCampHistory";
+import {
+  buildCampArchitectCards,
+  summarizeCampArchitect,
+} from "../_shared/coachDomains/campArchitect";
 import { scoreDomains, selectDomains } from "../_shared/coachDomains/scorer";
 import {
   sanitizeUserText,
@@ -163,6 +167,21 @@ export const run = action({
       ? buildCampHistoryCards(campHistory)
       : [];
 
+    // ── Phase-4: OFF-SEASON Camp Architect ───────────────────────────────
+    // When there is NO active/upcoming camp, the coach flips from cutting to
+    // planning: load the architect slice, build its cards (the PRIMARY cards
+    // this turn), and inject its summary into the prompt facts. When a camp
+    // IS active we skip the loader entirely (existing behavior unchanged).
+    // The loader also returns `hasUpcomingCamp` as a defensive double-check;
+    // both builders are no-ops if that flips true under us.
+    const architect = hasActiveCamp
+      ? null
+      : await ctx.runQuery(internal.coachArchitect_internal.getArchitectData, {
+          userId,
+        });
+    const architectCards = architect ? buildCampArchitectCards(architect) : [];
+    const architectSummary = architect ? summarizeCampArchitect(architect) : "";
+
     // ── Hybrid domain routing: keyword scorer + (conditional) LLM arbiter ─
     const keywordHits = scoreDomains(latestUser?.content ?? "");
     const arbiterHits = await runArbiter(latestUser?.content, keywordHits);
@@ -198,6 +217,8 @@ export const run = action({
       safetySummary: summarizeSafety(safetyInput),
       cornermanSummary,
       campHistorySummary,
+      architectSummary,
+      offSeason: !hasActiveCamp,
     });
 
     // ── 5: structured call → merge → CoachMessage ───────────────────────
@@ -224,6 +245,7 @@ export const run = action({
       const merged = mergeDomainBlocks({
         safetyCallout,
         cornermanCards,
+        architectCards,
         domainCards,
         spineBlocks,
         campHistoryCards,
@@ -248,6 +270,7 @@ export const run = action({
         intent,
         safetyCallout,
         cornermanCards,
+        architectCards,
         domainCards,
         spineBlocks,
         campHistoryCards,
@@ -326,6 +349,8 @@ function buildSystemPrompt(opts: {
   safetySummary: string;
   cornermanSummary: string;
   campHistorySummary: string;
+  architectSummary: string;
+  offSeason: boolean;
 }): string {
   const {
     athleteName,
@@ -336,6 +361,8 @@ function buildSystemPrompt(opts: {
     safetySummary,
     cornermanSummary,
     campHistorySummary,
+    architectSummary,
+    offSeason,
   } = opts;
   const domainBlock =
     domainSummaries.length > 0
@@ -352,6 +379,15 @@ function buildSystemPrompt(opts: {
   const campHistoryBlock = campHistorySummary
     ? `\nCAMP HISTORY (reference, you may cite naturally): ${campHistorySummary}\n`
     : "";
+  // Phase-4 off-season: when there is no upcoming fight the coach is a "Camp
+  // Architect" — base-building, walk-around weight, WHEN to start the next cut,
+  // not an active cut. A short conditional addition to the existing prompt.
+  const architectBlock = architectSummary
+    ? `\nOFF-SEASON (Camp Architect, reference): ${architectSummary}\n`
+    : "";
+  const offSeasonDirective = offSeason
+    ? `\nOFF-SEASON MODE: There is no upcoming fight. You are the athlete's "Camp Architect" now, not a cut cornerman. Focus on holding a healthy walk-around weight, base-building (aerobic + strength), and WHEN to start the next cut once a fight is booked. Do NOT push an active weight cut or fight-week protocol; there is nothing to cut to yet.\n`
+    : "";
   const blockGuidance =
     intent === "planny"
       ? `For a planning question, you MAY add up to 3 blocks of type:
@@ -362,7 +398,7 @@ function buildSystemPrompt(opts: {
       : `This is a casual / feelings question. Keep "blocks" EMPTY ([]) unless one short "callout" genuinely helps. No checklists or timelines.`;
 
   return `You are the "Fight Camp Coach" - an elite combat-sports cut + fight-week cornerman.${athleteName ? ` Your athlete's name is "${athleteName}" - use it when it lands naturally.` : ""}
-
+${offSeasonDirective}
 ${SECOND_PERSON_DIRECTIVE}
 
 ${PROMPT_INJECTION_GUARD_INSTRUCTION}
@@ -379,7 +415,7 @@ RULES (non-negotiable):
 
 DETERMINISTIC FACTS (use verbatim, never recompute):
 ${facts}
-${safetyBlock}${cornermanBlock}${domainBlock}${campHistoryBlock}
+${safetyBlock}${cornermanBlock}${architectBlock}${domainBlock}${campHistoryBlock}
 ${snapshotBlock}`;
 }
 
@@ -414,6 +450,7 @@ async function fallbackMarkdown(opts: {
   intent: "planny" | "casual";
   safetyCallout: CoachBlock | null;
   cornermanCards: CoachBlock[];
+  architectCards: CoachBlock[];
   domainCards: CoachBlock[];
   spineBlocks: CoachBlock[];
   campHistoryCards: CoachBlock[];
@@ -421,6 +458,7 @@ async function fallbackMarkdown(opts: {
   const blocks: CoachBlock[] = mergeDomainBlocks({
     safetyCallout: opts.safetyCallout,
     cornermanCards: opts.cornermanCards,
+    architectCards: opts.architectCards,
     domainCards: opts.domainCards,
     spineBlocks: opts.spineBlocks,
     campHistoryCards: opts.campHistoryCards,

@@ -5,8 +5,10 @@ import {
   useCallback,
   useMemo,
   useEffect,
+  useRef,
   type ReactNode,
 } from "react";
+import { useMutation, useQuery } from "convex/react";
 import { useAIAction } from "@/hooks/useAIAction";
 import { api } from "@/../convex/_generated/api";
 import { useAuth, useUser } from "./UserContext";
@@ -67,8 +69,19 @@ export function FightCampCoachProvider({ children }: { children: ReactNode }) {
   const { hasAccess } = useFeatureAccess("AI_FIGHT_CAMP_COACH");
   const coachAction = useAIAction(api.actions.fightCampCoach.run, "AI_FIGHT_CAMP_COACH");
 
+  // Server-persisted conversation memory (Pro). Additive: localStorage stays
+  // the primary render store; these only hydrate-on-cold-start and mirror
+  // successful turns server-side so the coach remembers across the whole camp.
+  const appendTurns = useMutation(api.coachConversation.appendTurns);
+  const clearConversation = useMutation(api.coachConversation.clearConversation);
+
   const [messages, setMessages] = useState<CoachChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  // True once we've decided localStorage already has history (so we must NOT
+  // overwrite it with the server hydrate). Tracked in a ref so the hydrate
+  // effect doesn't re-fire when it flips.
+  const hadLocalHistoryRef = useRef(false);
 
   // Opening greeting (Phase 1 placeholder — Phase 2 makes this data-driven
   // from today's fight-week numbers via the pinned cockpit header).
@@ -91,14 +104,61 @@ export function FightCampCoachProvider({ children }: { children: ReactNode }) {
     }
     const cached = AIPersistence.load(userId, STORAGE_KEY) as CoachChatMessage[] | null;
     if (cached && Array.isArray(cached) && cached.length > 0) {
+      hadLocalHistoryRef.current = true;
       setMessages(cached);
     } else {
+      // No local history — render the greeting now; the server-hydrate effect
+      // below may replace it with persisted turns (Pro only) once they load.
+      hadLocalHistoryRef.current = false;
       setMessages([getGreeting()]);
     }
     // getGreeting depends on userName; we intentionally only re-hydrate on
     // userId change so a name update mid-session doesn't wipe history.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
+
+  // Server-persisted memory hydrate (Pro). Only queried when the user has
+  // access and is signed in; otherwise `"skip"` so we never hit the server for
+  // free users. localStorage stays primary — this only fills an empty store.
+  const serverConversation = useQuery(
+    api.coachConversation.getConversation,
+    hasAccess && userId && userId !== "pending" ? {} : "skip",
+  );
+
+  // When localStorage had no history AND the server returns persisted turns,
+  // seed the chat from the server (one-shot per user/session). If the server
+  // is empty or errors (undefined), we keep the localStorage greeting — no
+  // double-render, no UI block.
+  useEffect(() => {
+    if (!userId || userId === "pending") return;
+    if (hadLocalHistoryRef.current) return; // localStorage already authoritative
+    if (!serverConversation || serverConversation.length === 0) return;
+
+    const hydrated: CoachChatMessage[] = serverConversation.map((row, i) => {
+      let blocks: CoachBlock[] | undefined;
+      if (row.blocksJson) {
+        try {
+          const parsed = JSON.parse(row.blocksJson) as CoachBlock[];
+          if (Array.isArray(parsed)) blocks = parsed;
+        } catch {
+          // Corrupt/legacy blob — render text only.
+        }
+      }
+      return {
+        id: `srv-${row.createdAt}-${i}`,
+        role: row.role,
+        content: row.content,
+        blocks,
+        createdAt: row.createdAt,
+      };
+    });
+
+    // Mark local as populated so we don't re-hydrate, and mirror into
+    // localStorage so the render store and server agree going forward.
+    hadLocalHistoryRef.current = true;
+    setMessages(hydrated);
+    AIPersistence.save(userId, STORAGE_KEY, hydrated, STORAGE_TTL_HOURS);
+  }, [serverConversation, userId]);
 
   const persist = useCallback(
     (next: CoachChatMessage[]) => {
@@ -111,8 +171,14 @@ export function FightCampCoachProvider({ children }: { children: ReactNode }) {
   const clearChat = useCallback(() => {
     if (!userId || userId === "pending") return;
     AIPersistence.remove(userId, STORAGE_KEY);
+    hadLocalHistoryRef.current = false;
     setMessages([getGreeting()]);
-  }, [userId, getGreeting]);
+    // Best-effort server clear (Pro memory). Don't block the UI or surface
+    // errors — localStorage is already cleared, which is the user-visible state.
+    void clearConversation().catch(() => {
+      /* ignore — server memory clear is best-effort */
+    });
+  }, [userId, getGreeting, clearConversation]);
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -184,6 +250,25 @@ export function FightCampCoachProvider({ children }: { children: ReactNode }) {
         const finalMessages = [...withUser, assistantMsg];
         setMessages(finalMessages);
         persist(finalMessages);
+
+        // Mirror this exchange into server-persisted memory (Pro). Fire-and-
+        // forget: localStorage already holds the authoritative render state, so
+        // a failure here must not block or disturb the UI.
+        void appendTurns({
+          turns: [
+            { role: "user", content: userMsg.content },
+            {
+              role: "assistant",
+              content: assistantMsg.content,
+              blocksJson:
+                assistantMsg.blocks && assistantMsg.blocks.length > 0
+                  ? JSON.stringify(assistantMsg.blocks)
+                  : undefined,
+            },
+          ],
+        }).catch(() => {
+          /* ignore — server memory persist is best-effort */
+        });
       } catch (error) {
         logger.error("FightCamp Coach send failed", error);
         const fallback: CoachChatMessage[] = [
@@ -211,6 +296,7 @@ export function FightCampCoachProvider({ children }: { children: ReactNode }) {
       userName,
       coachAction,
       persist,
+      appendTurns,
     ],
   );
 

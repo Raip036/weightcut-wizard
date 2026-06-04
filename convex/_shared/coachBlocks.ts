@@ -524,10 +524,15 @@ export function buildDomainOutputs(
 }
 
 /**
- * Final block merge + cap for the Phase-3 cornerman coach. Priority order
- * (spec §5 Phase 3 + §7):
+ * Final block merge + cap for the Phase-3/4 cornerman coach. Priority order
+ * (spec §5 Phase 3 + Phase 4 + §7):
  *   1. safety callout (ALWAYS first, never dropped, free)
  *   2. daily fight-week cornerman cards (just under safety)
+ *   2b. off-season Camp Architect cards (Phase 4) — only ever populated when
+ *       there is NO upcoming camp, so in-camp this slot is empty and the
+ *       existing in-camp order is unchanged. Sits just under the cornerman
+ *       (which is itself empty off-season unless the user asked about fight
+ *       week), making architect cards the primary off-season cards.
  *   3. directly-asked domain cards (already in `selected` order)
  *   4. weight/fight-week spine cards (deterministic numeric blocks)
  *   5. camp-history card (only when the user asked about past/history/rebound)
@@ -541,6 +546,7 @@ export function buildDomainOutputs(
 export function mergeDomainBlocks(opts: {
   safetyCallout: CoachBlock | null;
   cornermanCards?: CoachBlock[];
+  architectCards?: CoachBlock[];
   domainCards: CoachBlock[];
   spineBlocks: CoachBlock[];
   campHistoryCards?: CoachBlock[];
@@ -550,8 +556,9 @@ export function mergeDomainBlocks(opts: {
   const max = opts.max ?? 6;
   const ordered: CoachBlock[] = [];
 
-  // 2 → 3 → 4 → 5 → 6 (safety handled below so it can never be trimmed).
+  // 2 → 2b → 3 → 4 → 5 → 6 (safety handled below so it can never be trimmed).
   for (const b of opts.cornermanCards ?? []) ordered.push(b);
+  for (const b of opts.architectCards ?? []) ordered.push(b);
   for (const b of opts.domainCards) ordered.push(b);
   for (const b of opts.spineBlocks) ordered.push(b);
   for (const b of opts.campHistoryCards ?? []) ordered.push(b);
