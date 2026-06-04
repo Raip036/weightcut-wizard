@@ -397,3 +397,203 @@ export const RehydrationProtocolSchema = z.object({
 });
 
 export type RehydrationProtocol = z.infer<typeof RehydrationProtocolSchema>;
+
+/* ------------------------------------------------------------------ */
+/* CoachMessage (2026-06-04): Fight Camp Coach redesign — Phase 1.     */
+/* Spec: docs/superpowers/specs/2026-06-04-fight-camp-coach-redesign-design.md §4 */
+/*                                                                     */
+/* The shared contract for the rewritten `fightCampCoach.run` action   */
+/* and the `CoachBlocks.tsx` renderer. Discriminated union on `type`.  */
+/* EVERY string and array has a TIGHT `.max()` cap — this is the       */
+/* mechanism that structurally prevents wall-of-text replies (same     */
+/* discipline as CutPlanAiSchema). Numbers in weight_target/chart/     */
+/* metric_row are computed server-side and merged in — never trusted   */
+/* from the LLM. Importable by both the Convex action and the React    */
+/* client via `import type { CoachMessage } from "convex/_shared/aiSchemas"`. */
+/* ------------------------------------------------------------------ */
+
+/** Which optimistic log flow a checklist item ties back to. */
+const LogKeySchema = z.enum(["weight", "fluid", "carbs", "sweat"]);
+
+/** CTA target for an `action` block. Discriminated union on `kind`. */
+const LogActionSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("log_weight"),
+    suggested_kg: z.number().optional(),
+  }),
+  z.object({
+    kind: z.literal("log_fluid"),
+    suggested_ml: z.number().optional(),
+  }),
+  z.object({ kind: z.literal("open_plan") }),
+  z.object({ kind: z.literal("open_rehydration") }),
+]);
+
+/** Block variants. Discriminated union on `type`; tight caps throughout. */
+const CoachBlockSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("weight_target"),
+    current_kg: z.number(),
+    target_kg: z.number(),
+    delta_kg: z.number(),
+    days_out: z.number(),
+    on_track: z.boolean(),
+    note: z.string().max(80).optional(),
+  }),
+  z.object({
+    type: z.literal("checklist"),
+    title: z.string().max(40),
+    items: z
+      .array(
+        z.object({
+          label: z.string().max(60),
+          done: z.boolean().optional(),
+          logKey: LogKeySchema.optional(),
+        }),
+      )
+      .min(1)
+      .max(6),
+  }),
+  z.object({
+    type: z.literal("timeline"),
+    title: z.string().max(40),
+    steps: z
+      .array(
+        z.object({
+          when: z.string().max(16),
+          label: z.string().max(50),
+          value: z.string().max(24).optional(),
+        }),
+      )
+      .min(2)
+      .max(8),
+  }),
+  z.object({
+    type: z.literal("metric_row"),
+    metrics: z
+      .array(
+        z.object({
+          label: z.string().max(20),
+          value: z.string().max(16),
+          tone: z.enum(["good", "warn", "bad"]).optional(),
+        }),
+      )
+      .min(1)
+      .max(4),
+  }),
+  z.object({
+    type: z.literal("action"),
+    label: z.string().max(50),
+    description: z.string().max(120).optional(),
+    action: LogActionSchema,
+  }),
+  z.object({
+    type: z.literal("chart"),
+    title: z.string().max(40),
+    kind: z.enum([
+      "weight_trend",
+      "fluid",
+      "training_load",
+      "calories",
+      "sleep",
+      "hrv",
+    ]),
+    // SERVER-supplied only — the LLM never emits chart series.
+    series: z.array(z.object({ x: z.string(), y: z.number() })).max(30),
+    targetLine: z.number().optional(),
+  }),
+  z.object({
+    type: z.literal("callout"),
+    tone: z.enum(["info", "warn", "danger"]),
+    text: z.string().max(200),
+  }),
+  // ── Generic visual primitives (2026-06-04): domain-aware cards. ──
+  // Any data domain (training load, nutrition, recovery…) maps onto
+  // these three shapes so the renderer stays domain-agnostic. Same
+  // tight-cap discipline as the blocks above.
+  z.object({
+    type: z.literal("stat_card"),
+    title: z.string().max(40),
+    value: z.string().max(16),
+    unit: z.string().max(8).optional(),
+    tone: z.enum(["good", "warn", "bad", "neutral"]).optional(),
+    subtitle: z.string().max(80).optional(),
+    icon: z.string().max(24).optional(),
+  }),
+  z.object({
+    type: z.literal("list"),
+    title: z.string().max(40),
+    items: z
+      .array(
+        z.object({
+          label: z.string().max(48),
+          value: z.string().max(24).optional(),
+          meta: z.string().max(32).optional(),
+        }),
+      )
+      .min(1)
+      .max(6),
+  }),
+  z.object({
+    type: z.literal("score_ring"),
+    label: z.string().max(40),
+    score: z.number(),
+    status: z.string().max(32).optional(),
+    sublabels: z
+      .array(
+        z.object({
+          label: z.string().max(20),
+          value: z.string().max(12),
+          tone: z.enum(["good", "warn", "bad"]).optional(),
+        }),
+      )
+      .max(5)
+      .optional(),
+  }),
+]);
+
+export const CoachMessageSchema = z.object({
+  /** 1–3 sentences, conversational, ALWAYS present. */
+  reply: z.string().max(600),
+  /** 0–6 blocks; empty is valid (pure-prose turn). Raised from 4 to give
+   *  domain cards a little more room — safety is still prioritized at merge
+   *  time when the final block set is assembled. */
+  blocks: z.array(CoachBlockSchema).max(6).default([]),
+  /** 0–3 suggested quick-reply chips, each ≤ 40 chars. */
+  followups: z.array(z.string().max(40)).max(3).optional(),
+});
+
+export type CoachMessage = z.infer<typeof CoachMessageSchema>;
+export type CoachBlock = z.infer<typeof CoachBlockSchema>;
+export type CoachBlockType = CoachBlock["type"];
+export type LogAction = z.infer<typeof LogActionSchema>;
+export type LogKey = z.infer<typeof LogKeySchema>;
+
+/* ------------------------------------------------------------------ */
+/* Domain selection (2026-06-04): domain-aware cards.                   */
+/*                                                                     */
+/* A cheap LLM "arbiter" call picks which data domains are relevant to */
+/* the user's turn (≤3) before the main coach call. The per-domain     */
+/* card builders then hydrate only the selected slices of DomainBundle */
+/* (see convex/_shared/coachDomains/types.ts).                         */
+/* ------------------------------------------------------------------ */
+
+/** The data domains the coach can surface cards for. */
+export const DomainIdSchema = z.enum([
+  "weight",
+  "fight_week",
+  "training_load",
+  "nutrition",
+  "fight_score",
+  "recovery",
+  "sleep",
+]);
+
+export type DomainId = z.infer<typeof DomainIdSchema>;
+
+/** Arbiter output: up to 3 relevant domains for the current turn. */
+export const DomainSelectionSchema = z.object({
+  domains: z.array(DomainIdSchema).max(3),
+});
+
+export type DomainSelection = z.infer<typeof DomainSelectionSchema>;

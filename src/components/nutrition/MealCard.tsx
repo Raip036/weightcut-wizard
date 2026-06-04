@@ -1,4 +1,4 @@
-import { Trash2, Star, Zap, Wheat, Droplet, X, ChevronDown } from "lucide-react";
+import { Trash2, Star, Drumstick, Wheat, Droplet, X, ChevronDown } from "lucide-react";
 import { useState, useRef, memo } from "react";
 import { coerceMealName } from "@/lib/mealName";
 import { motion, AnimatePresence, useMotionValue, useReducedMotion } from "motion/react";
@@ -144,7 +144,7 @@ export const MealCard = memo(function MealCard({ meal, onDelete, onFavorite, isF
               {(p > 0 || c > 0 || f > 0) && (
                 <div className="flex items-center gap-3 mt-1.5">
                   <div className="flex items-center gap-1">
-                    <Zap className="h-3 w-3 text-blue-500" strokeWidth={2.4} fill="currentColor" />
+                    <Drumstick className="h-3 w-3 text-blue-500" strokeWidth={2.2} />
                     <span className="text-[11px] tabular-nums font-semibold text-foreground/85">{Math.round(p)}g</span>
                   </div>
                   <div className="flex items-center gap-1">

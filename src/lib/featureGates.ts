@@ -22,7 +22,8 @@ export const FEATURE_GATES = {
   AI_MEAL_PLANNER: { minTier: "pro" as const },
   AI_RECOVERY_COACH: { minTier: "pro" as const },
   AI_WEIGHT_PROTOCOL: { minTier: "pro" as const },
-  AI_FIGHT_CAMP_COACH: { minTier: "pro" as const },
+  // TEMP(demo): dropped to "free" to review the redesigned coach UI locally. Revert to "pro" before shipping.
+  AI_FIGHT_CAMP_COACH: { minTier: "free" as const },
   AI_HYDRATION_INSIGHTS: { minTier: "pro" as const },
   AI_TRAINING_INSIGHTS: { minTier: "pro" as const },
   AI_TRAINING_SUMMARY: { minTier: "pro" as const },

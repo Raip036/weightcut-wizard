@@ -1,13 +1,24 @@
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { useQuery } from "convex/react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
-import { useWizardBackground } from "@/contexts/WizardBackgroundContext";
+import { useFightCampCoach } from "@/contexts/FightCampCoachContext";
+import { useUser } from "@/contexts/UserContext";
 import { Send, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
 import { triggerHapticSelection, triggerHapticSuccess, triggerHaptic } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
 import { Orb } from "@/components/chat/Orb";
-import { useFeatureAccess } from "@/hooks/useFeatureAccess";
+import { CoachBlocks } from "@/components/fightcamp/CoachBlocks";
+import { CoachCockpitHeader } from "@/components/fightcamp/cockpit/CoachCockpitHeader";
+import { AdaptiveChips } from "@/components/fightcamp/cockpit/AdaptiveChips";
+import { CoachThinkingState } from "@/components/fightcamp/cockpit/CoachThinkingState";
+import { CoachCheckinStreak } from "@/components/fightcamp/cockpit/CoachCheckinStreak";
+import { useCoachCheckinStreak } from "@/hooks/useCoachCheckinStreak";
+import { CoachSpeechBubble } from "@/components/fightcamp/cockpit/CoachSpeechBubble";
+import { api } from "@/../convex/_generated/api";
+import type { LogAction } from "@/../convex/_shared/aiSchemas";
 
 /* FAB rendered at 64px so the orb reads at a glance.
    Keep in sync with the `w-16 h-16` Tailwind utility on the button —
@@ -17,16 +28,6 @@ const EDGE_MARGIN = 16;
 const SNAP_SPRING = "transform 0.35s cubic-bezier(0.25, 1, 0.5, 1)";
 const FAB_POS_KEY = "wcw_fab_position";
 
-/* Starter prompts shown under the coach's opening message before the user
-   has said anything. Tapping one sends it straight away so first-time users
-   aren't staring at a blank composer. */
-const STARTER_PROMPTS = [
-  "How's my weight cut tracking?",
-  "Plan my meals for today",
-  "How do I make weight safely?",
-  "What should I train this week?",
-];
-
 function loadSavedPosition(): { x: number; y: number } | null {
   try {
     const raw = localStorage.getItem(FAB_POS_KEY);
@@ -35,9 +36,34 @@ function loadSavedPosition(): { x: number; y: number } | null {
 }
 
 export function FloatingWizardChat() {
-  const { messages, isLoading, sendMessage, clearChat } = useWizardBackground();
-  const { hasAccess } = useFeatureAccess("AI_WIZARD_CHAT");
+  const { messages, isLoading, sendMessage, clearChat } = useFightCampCoach();
+  const { userId } = useUser();
+  const navigate = useNavigate();
   const prefersReduced = useReducedMotion();
+
+  // Proactive cockpit read — powers the pinned header + adaptive chips. Loading
+  // (`undefined`) is treated as null so children render their no-data fallback.
+  const cockpit = useQuery(api.coachCockpit.getCockpit);
+  const cockpitData = cockpit ?? null;
+
+  // Local-only daily check-in streak. Recording is idempotent per day, so it's
+  // safe to fire on every coach send.
+  const { streak, checkedInToday, recordCheckin } = useCoachCheckinStreak(userId);
+
+  // Proactive speech bubble off the orb (chat closed) — surfaces the coach's
+  // current read (red flag / priority action / greeting) as a tutorial-style
+  // nudge to tap the orb. Position follows the orb's snapped edge via `fabPos`.
+  const briefing = useQuery(api.coachBriefing.getBriefing);
+  const bubbleText = useMemo(() => {
+    const t = briefing ? briefing.redFlag || briefing.priorityAction || briefing.greeting : null;
+    if (!t) return null;
+    return t.length > 130 ? `${t.slice(0, 127)}...` : t;
+  }, [briefing]);
+  const [fabPos, setFabPos] = useState<{ x: number; y: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [bubbleReady, setBubbleReady] = useState(false);
+  const [bubbleDismissed, setBubbleDismissed] = useState(false);
+
   const [open, setOpen] = useState(false);
   const [tutorialPulse, setTutorialPulse] = useState(false);
   const [input, setInput] = useState("");
@@ -86,7 +112,40 @@ export function FloatingWizardChat() {
       fabRef.current.style.transition = "none";
       fabRef.current.style.transform = `translate(${posRef.current.x}px, ${posRef.current.y}px)`;
     }
+    setFabPos({ ...posRef.current });
   }, [open]);
+
+  // Bubble gating: respect a dismiss cooldown, and only surface after a short
+  // beat so it reads as a deliberate nudge rather than a flash on load.
+  useEffect(() => {
+    try {
+      const until = Number(localStorage.getItem("wcw_bubble_dismissed_until") || 0);
+      if (until && Date.now() < until) setBubbleDismissed(true);
+    } catch {
+      /* ignore */
+    }
+    const t = window.setTimeout(() => setBubbleReady(true), 1400);
+    return () => window.clearTimeout(t);
+  }, []);
+
+  // Keep the bubble anchored to the orb across viewport changes (rotate/resize).
+  useEffect(() => {
+    const onResize = () => setFabPos({ ...posRef.current });
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const dismissBubble = useCallback(() => {
+    setBubbleDismissed(true);
+    try {
+      localStorage.setItem(
+        "wcw_bubble_dismissed_until",
+        String(Date.now() + 4 * 60 * 60 * 1000),
+      );
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const snapToEdge = useCallback(() => {
     const el = fabRef.current;
@@ -98,6 +157,7 @@ export function FloatingWizardChat() {
     posRef.current = { x: snappedX, y: clampedY };
     el.style.transition = SNAP_SPRING;
     el.style.transform = `translate(${snappedX}px, ${clampedY}px)`;
+    setFabPos({ x: snappedX, y: clampedY });
     try { localStorage.setItem(FAB_POS_KEY, JSON.stringify(posRef.current)); } catch {}
     setTimeout(() => { if (el) el.style.transition = "none"; }, 350);
   }, []);
@@ -116,6 +176,7 @@ export function FloatingWizardChat() {
     const touch = e.touches[0];
     const { x, y } = posRef.current;
     dragState.current = { isDragging: true, startX: x, startY: y, startTouchX: touch.clientX, startTouchY: touch.clientY, moved: false };
+    setDragging(true);
     if (fabRef.current) {
       fabRef.current.style.transition = "none";
       fabRef.current.style.transform = `translate(${x}px, ${y}px) scale(1.08)`;
@@ -137,6 +198,7 @@ export function FloatingWizardChat() {
   const handleTouchEnd = useCallback(() => {
     if (!dragState.current.isDragging) return;
     dragState.current.isDragging = false;
+    setDragging(false);
     if (fabRef.current) fabRef.current.style.transform = `translate(${posRef.current.x}px, ${posRef.current.y}px) scale(1)`;
     if (!dragState.current.moved) {
       // Tap — open chat
@@ -178,6 +240,8 @@ export function FloatingWizardChat() {
     triggerHapticSelection();
     const currentInput = input;
     setInput("");
+    // Talking to the coach counts as today's check-in (idempotent per day).
+    recordCheckin();
     await sendMessage(currentInput);
     triggerHapticSuccess();
   };
@@ -185,9 +249,35 @@ export function FloatingWizardChat() {
   const handleSuggestion = async (prompt: string) => {
     if (isLoading) return;
     triggerHapticSelection();
+    // Tapping a chip is a coach interaction — counts as a check-in too.
+    recordCheckin();
     await sendMessage(prompt);
     triggerHapticSuccess();
   };
+
+  // Wire structured-block CTAs to the existing log/plan flows. Minimal v1:
+  // navigate to the relevant screen. Phase 3+ can deep-link with the
+  // suggested values pre-filled.
+  const handleCoachAction = useCallback(
+    (action: LogAction) => {
+      triggerHapticSelection();
+      switch (action.kind) {
+        case "log_weight":
+          navigate("/weight");
+          break;
+        case "log_fluid":
+        case "open_plan":
+        case "open_rehydration":
+          navigate("/weight-protocol");
+          break;
+        default:
+          // Forward-compatible: unknown actions from a newer server are no-ops.
+          break;
+      }
+      setOpen(false);
+    },
+    [navigate],
+  );
 
   // Show starter chips only on a fresh conversation — i.e. before the user
   // has sent anything (the coach's greeting is the sole message).
@@ -247,6 +337,34 @@ export function FloatingWizardChat() {
           <Orb size={FAB_SIZE} state="idle" />
         </span>
       </button>
+
+      {/* Proactive coach speech bubble — pops out of the orb (chat closed) and
+          "speaks" the coach's current read to entice a tap. Positioned above
+          the orb, tail pointing to whichever edge it snapped to. */}
+      {!open && bubbleReady && !bubbleDismissed && !dragging && bubbleText && fabPos && (() => {
+        const side: "left" | "right" =
+          fabPos.x + FAB_SIZE / 2 > window.innerWidth / 2 ? "right" : "left";
+        const posStyle =
+          side === "right"
+            ? { right: Math.max(EDGE_MARGIN, window.innerWidth - (fabPos.x + FAB_SIZE) - 4) }
+            : { left: Math.max(EDGE_MARGIN, fabPos.x - 4) };
+        return (
+          <div
+            className="fixed z-[9999] md:hidden"
+            style={{ bottom: window.innerHeight - fabPos.y + 12, ...posStyle }}
+          >
+            <CoachSpeechBubble
+              text={bubbleText}
+              side={side}
+              onTap={() => {
+                dismissBubble();
+                handleFabPress();
+              }}
+              onDismiss={dismissBubble}
+            />
+          </div>
+        );
+      })()}
 
       {/* Backdrop + Panel — orbit-aware bloom from FAB position. */}
       <AnimatePresence>
@@ -326,6 +444,20 @@ export function FloatingWizardChat() {
                   </div>
                 </div>
 
+                {/* Pinned cockpit — proactive, data-grounded header + check-in
+                    streak. Sits ABOVE the chat scroll so it stays visible while
+                    messages scroll independently (shrink-0 in the flex column). */}
+                {(cockpitData || streak > 0 || checkedInToday) && (
+                  <div className="shrink-0 px-4 pt-3 pb-1 space-y-2">
+                    <CoachCockpitHeader data={cockpitData} />
+                    <CoachCheckinStreak
+                      streak={streak}
+                      checkedInToday={checkedInToday}
+                      onCheckIn={recordCheckin}
+                    />
+                  </div>
+                )}
+
                 {/* Messages area */}
                 <div
                   ref={scrollRef}
@@ -338,11 +470,17 @@ export function FloatingWizardChat() {
                   {messages.map((msg, idx) => {
                     const prev = messages[idx - 1];
                     const isGrouped = prev && prev.role === msg.role;
+                    const isLast = idx === messages.length - 1;
+                    const blocks = msg.role === "assistant" ? msg.blocks ?? [] : [];
+                    const followups = msg.role === "assistant" ? msg.followups ?? [] : [];
+                    // Per-turn followup chips appear only beneath the latest
+                    // assistant turn and once the user has engaged.
+                    const showFollowups = isLast && !isLoading && followups.length > 0;
                     return (
                       <div
-                        key={idx}
+                        key={msg.id ?? idx}
                         data-msg-idx={idx}
-                        className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} ${isGrouped ? "mt-0.5" : "mt-2"} ${msg.role === "user" ? "animate-fade-in" : "animate-msg-bounce-in"}`}
+                        className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"} ${isGrouped ? "mt-0.5" : "mt-2"} ${msg.role === "user" ? "animate-fade-in" : "animate-msg-bounce-in"}`}
                         style={msg.role !== "user" ? { transformOrigin: "bottom left" } : undefined}
                       >
                         <div className={`flex items-end gap-2 max-w-[82%] ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
@@ -371,6 +509,30 @@ export function FloatingWizardChat() {
                             </div>
                           )}
                         </div>
+
+                        {/* Structured coach blocks — render below the text bubble,
+                            offset past the orb gutter to align with the bubble. */}
+                        {blocks.length > 0 && (
+                          <div className="mt-2 ml-9 w-full max-w-[88%]">
+                            <CoachBlocks blocks={blocks} onAction={handleCoachAction} />
+                          </div>
+                        )}
+
+                        {/* Per-turn followup chips from the response. */}
+                        {showFollowups && (
+                          <div className="mt-2.5 ml-9 flex flex-wrap gap-2 animate-fade-in">
+                            {followups.map((chip) => (
+                              <button
+                                key={chip}
+                                type="button"
+                                onClick={() => handleSuggestion(chip)}
+                                className="text-left text-[13px] leading-snug px-3 py-1.5 rounded-full border border-primary/30 bg-primary/10 text-foreground active:scale-[0.97] active:bg-primary/20 transition-all"
+                              >
+                                {chip}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -381,31 +543,25 @@ export function FloatingWizardChat() {
                         <div className="shrink-0 h-7 w-7 flex items-center justify-center">
                           <Orb size={28} state="thinking" />
                         </div>
-                        <div className="px-4 py-3 rounded-2xl rounded-bl-md bg-white/5 border border-white/[0.08] flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/70 animate-[typing_1.2s_ease-in-out_infinite]" />
-                          <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/70 animate-[typing_1.2s_ease-in-out_0.15s_infinite]" />
-                          <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/70 animate-[typing_1.2s_ease-in-out_0.3s_infinite]" />
+                        {/* "Reading your numbers" thinking state replaces generic
+                            typing dots — rotating, data-flavoured status line. */}
+                        <div className="px-4 py-3 rounded-2xl rounded-bl-md bg-white/5 border border-white/[0.08]">
+                          <CoachThinkingState />
                         </div>
                       </div>
                     </div>
                   )}
 
-                  {/* Starter suggestions — quick-fill prompts beneath the
-                      coach's greeting. Aligned with the assistant bubbles
-                      (left, offset past the orb gutter). */}
+                  {/* Adaptive starter chips — context-derived from the cockpit
+                      read (days-to-weigh-in, drift) instead of a static list.
+                      Aligned with the assistant bubbles (offset past the orb
+                      gutter). Per-turn followups still render above. */}
                   {showStarters && (
-                    <div className="mt-3 ml-9 flex flex-col items-start gap-2 animate-fade-in">
-                      {STARTER_PROMPTS.map((prompt) => (
-                        <button
-                          key={prompt}
-                          type="button"
-                          onClick={() => handleSuggestion(prompt)}
-                          className="text-left text-[14px] leading-snug px-3.5 py-2 rounded-2xl border border-primary/30 bg-primary/10 text-foreground active:scale-[0.97] active:bg-primary/20 transition-all"
-                        >
-                          {prompt}
-                        </button>
-                      ))}
-                    </div>
+                    <AdaptiveChips
+                      data={cockpitData}
+                      onPick={handleSuggestion}
+                      className="mt-3 ml-9 animate-fade-in"
+                    />
                   )}
                 </div>
 

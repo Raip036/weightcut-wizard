@@ -13,6 +13,7 @@ import { ProfileCompletionGuard } from "@/components/ProfileCompletionGuard";
 import { UserProvider } from "@/contexts/UserContext";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { WizardBackgroundProvider } from "@/contexts/WizardBackgroundContext";
+import { FightCampCoachProvider } from "@/contexts/FightCampCoachContext";
 import { AITaskProvider } from "@/contexts/AITaskContext";
 import { PaywallOverlay } from "@/components/subscription/PaywallOverlay";
 import { WelcomeProOverlay } from "@/components/subscription/WelcomeProOverlay";
@@ -335,6 +336,7 @@ const App = () => (
           <SubscriptionProvider>
           <AITaskProvider>
           <WizardBackgroundProvider>
+          <FightCampCoachProvider>
             <Toaster />
             <Sonner />
             <PaywallOverlay />
@@ -452,6 +454,7 @@ const App = () => (
               </TutorialProvider>
               </NavigationDirectionProvider>
             </BrowserRouter>
+          </FightCampCoachProvider>
           </WizardBackgroundProvider>
           </AITaskProvider>
           </SubscriptionProvider>

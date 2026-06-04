@@ -16,6 +16,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import { useSubscription } from "@/hooks/useSubscription";
 import { ShimmerCrownBadge } from "@/components/subscription/ShimmerCrownBadge";
 import { MissionsProDialog } from "@/components/coach/MissionsProDialog";
+import { PostFightDebrief } from "@/components/fightcamp/PostFightDebrief";
 
 interface CampSection {
   title: string;
@@ -290,6 +291,14 @@ export default function Camp() {
         <p className="text-micro uppercase tracking-[0.15em] text-muted-foreground/70 font-bold">Your</p>
         <h1 className="text-title font-semibold leading-tight">Camp</h1>
       </header>
+
+      {/* ── Post-fight debrief (Fight Camp Coach — Phase 3). The camp page is
+          the natural home for the fight-camp wrap-up; self-hides (renders
+          null) unless a debrief is pending, so it sits just under the header
+          to prompt a returning fighter first. ──────────────────────────── */}
+      <ErrorBoundary fallback={null} silent>
+        <PostFightDebrief />
+      </ErrorBoundary>
 
       {/* ── Active camp hero — the headline camp details, first on the page
           for fighters with an active camp (name → days-left → progress ring →

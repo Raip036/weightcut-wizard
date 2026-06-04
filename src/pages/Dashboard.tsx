@@ -48,6 +48,7 @@ import NewAnnouncementWidget from "@/components/dashboard/NewAnnouncementWidget"
 import { GymInvitesBanner } from "@/components/dashboard/GymInvitesBanner";
 import { NextCampFlow } from "@/components/fightcamp/NextCampFlow";
 import { CatchUpSheet } from "@/components/dashboard/CatchUpSheet";
+import { PostFightDebrief } from "@/components/fightcamp/PostFightDebrief";
 import { isFighter } from "@/lib/goalType";
 
 // Module-level dedupe so re-mounts within the session don't re-fire identical
@@ -994,6 +995,15 @@ export default function Dashboard() {
             onAvatarClick={() => navigate('/goals')}
           />
 
+          {/* Proactive coach surfaces (Fight Camp Coach — Phase 3). Both
+              self-fetch and render null when there's nothing to say, so they
+              sit high in the page as the first "coach read" without cluttering
+              when idle. Post-fight debrief sits above the briefing card so a
+              returning fighter is prompted to wrap up before the daily read. */}
+          <ErrorBoundary fallback={null} silent>
+            <PostFightDebrief />
+          </ErrorBoundary>
+
           {/* Post-fight banner — auto-prompts the user to wrap up the camp
               and start the next one once the fight date has passed. The
               wrap-up is part of the NextCampFlow so the user moves through
@@ -1356,6 +1366,14 @@ export default function Dashboard() {
             {streak > 0 && <StreakBadge streak={streak} isActive={streakIncludesToday} />}
           </div>
         </header>
+
+        {/* Proactive coach surfaces (Fight Camp Coach — Phase 3). Both
+            self-fetch and render null when idle, so they sit just under the
+            greeting as the first coach read. Debrief above the briefing card
+            so a returning fighter is prompted to wrap up first. */}
+        <ErrorBoundary fallback={null} silent>
+          <PostFightDebrief />
+        </ErrorBoundary>
 
         {weightLogs.length === 0 && (
           <button onClick={() => navigate('/weight')} className="w-full card-surface rounded-2xl p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all">
