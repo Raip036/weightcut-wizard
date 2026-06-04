@@ -9,17 +9,37 @@ import { X } from "lucide-react";
  * attention bob — like a tutorial coach nudging the user to tap the orb.
  *
  * Presentational only: positioning + visibility + data are owned by
- * FloatingWizardChat (it knows the orb's snapped edge + position). The `side`
- * prop points the tail toward the orb (orb on the right edge → tail bottom-right).
+ * FloatingWizardChat (it knows the orb's snapped edge + position). `side` points
+ * the tail horizontally toward the orb; `placement` flips the bubble above vs
+ * below the orb so it stays on-screen wherever the orb is dragged.
  */
+
+/** Bold any number / figure (digits, optional decimal, optional unit). */
+function renderWithBoldNumbers(text: string) {
+  const parts = text.split(
+    /(\d[\d.,]*\s?(?:kg|lbs?|%|ml|L|g|hrs?|h|min|days?|wk|d)?)/gi,
+  );
+  return parts.map((part, i) =>
+    part && /^\d/.test(part) ? (
+      <strong key={i} className="font-bold text-foreground">
+        {part}
+      </strong>
+    ) : (
+      <span key={i}>{part}</span>
+    ),
+  );
+}
+
 export function CoachSpeechBubble({
   text,
   side,
+  placement = "above",
   onTap,
   onDismiss,
 }: {
   text: string;
   side: "left" | "right";
+  placement?: "above" | "below";
   onTap: () => void;
   onDismiss: () => void;
 }): JSX.Element {
@@ -45,13 +65,14 @@ export function CoachSpeechBubble({
   const visible = text.slice(0, shown);
   const typing = shown < text.length;
 
+  const originY = placement === "below" ? "top" : "bottom";
+  const originX = side === "right" ? "right" : "left";
+
   return (
     <motion.div
       initial={prefersReduced ? { opacity: 0 } : { opacity: 0, scale: 0.6, y: 8 }}
       animate={
-        prefersReduced
-          ? { opacity: 1 }
-          : { opacity: 1, scale: 1, y: [0, -3, 0] }
+        prefersReduced ? { opacity: 1 } : { opacity: 1, scale: 1, y: [0, -3, 0] }
       }
       exit={prefersReduced ? { opacity: 0 } : { opacity: 0, scale: 0.6, y: 8 }}
       transition={
@@ -63,7 +84,7 @@ export function CoachSpeechBubble({
               y: { duration: 2.6, repeat: Infinity, ease: "easeInOut" },
             }
       }
-      style={{ transformOrigin: side === "right" ? "bottom right" : "bottom left" }}
+      style={{ transformOrigin: `${originX} ${originY}` }}
       className="relative max-w-[230px] pointer-events-auto"
     >
       <button
@@ -76,7 +97,7 @@ export function CoachSpeechBubble({
           Coach
         </span>
         <p className="text-[13px] leading-snug text-foreground">
-          {visible}
+          {renderWithBoldNumbers(visible)}
           {typing && (
             <span className="inline-block w-[2px] h-[1em] align-middle bg-primary/80 ml-0.5 animate-pulse" />
           )}
@@ -97,10 +118,15 @@ export function CoachSpeechBubble({
         <X className="h-3 w-3" />
       </button>
 
-      {/* Tail pointing down toward the orb */}
+      {/* Tail — points toward the orb. Bottom edge when the bubble sits above
+          the orb, top edge when it sits below (orb dragged near the top). */}
       <div
-        className={`absolute -bottom-1.5 h-3 w-3 rotate-45 bg-card/90 border-primary/30 ${
-          side === "right" ? "right-5 border-r border-b" : "left-5 border-l border-b"
+        className={`absolute h-3 w-3 rotate-45 bg-card/90 border-primary/30 ${
+          side === "right" ? "right-5" : "left-5"
+        } ${
+          placement === "below"
+            ? `-top-1.5 ${side === "right" ? "border-r border-t" : "border-l border-t"}`
+            : `-bottom-1.5 ${side === "right" ? "border-r border-b" : "border-l border-b"}`
         }`}
       />
     </motion.div>

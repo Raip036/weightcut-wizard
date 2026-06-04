@@ -55,6 +55,20 @@ const PRO_REASONS: { icon: IonIconName; title: string; sub: string }[] = [
   },
 ];
 
+/** Fixed mote positions so particles don't re-randomise each render — the same
+ *  drifting-blue-particle field the Recovery Pro gate (ProUpsellScreen) uses. */
+const MOTES: Array<{ left: string; size: number; dur: number; delay: number }> = [
+  { left: "6%", size: 4, dur: 7.5, delay: 0.0 },
+  { left: "17%", size: 3, dur: 9.0, delay: 1.6 },
+  { left: "28%", size: 5, dur: 8.0, delay: 0.7 },
+  { left: "39%", size: 3, dur: 9.5, delay: 2.4 },
+  { left: "50%", size: 4, dur: 8.3, delay: 1.1 },
+  { left: "61%", size: 3, dur: 9.1, delay: 0.4 },
+  { left: "72%", size: 5, dur: 7.8, delay: 2.0 },
+  { left: "83%", size: 3, dur: 9.3, delay: 1.0 },
+  { left: "93%", size: 4, dur: 8.6, delay: 0.5 },
+];
+
 /** Build the contextual hook line from the live briefing, or a generic fallback. */
 function buildHook(
   briefing:
@@ -99,13 +113,53 @@ export function CoachProGate({ className }: { className?: string }): JSX.Element
   };
 
   return (
-    <div
-      className={cn(
-        "h-full overflow-y-auto overscroll-contain px-6 pb-8",
-        className,
+    <div className={cn("relative h-full overflow-hidden", className)}>
+      {/* ── Ambient blue backdrop + drifting motes (matches the Recovery Pro
+          gate / Welcome-to-Pro visual language). ── */}
+      <motion.div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(180deg, transparent 0%, hsl(var(--primary) / 0.08) 55%, hsl(217 91% 58% / 0.16) 82%, hsl(213 94% 68% / 0.22) 100%)",
+        }}
+        initial={prefersReduced ? false : { opacity: 0 }}
+        animate={prefersReduced ? { opacity: 1 } : { opacity: 1, scale: [1, 1.05, 1] }}
+        transition={
+          prefersReduced
+            ? { duration: 0 }
+            : {
+                opacity: { duration: 1, ease: "easeOut" },
+                scale: { duration: 8, ease: "easeInOut", repeat: Infinity },
+              }
+        }
+      />
+      {!prefersReduced && (
+        <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+          {MOTES.map((m, i) => (
+            <motion.span
+              key={i}
+              className="absolute bottom-0 rounded-full bg-blue-300/70"
+              style={{
+                left: m.left,
+                width: m.size,
+                height: m.size,
+                filter: "blur(0.5px)",
+                boxShadow: "0 0 7px hsl(213 94% 70% / 0.7)",
+              }}
+              initial={{ opacity: 0, y: 0 }}
+              animate={{ opacity: [0, 0.7, 0], y: [-12, -780] }}
+              transition={{ duration: m.dur, delay: m.delay, repeat: Infinity, ease: "easeOut" }}
+            />
+          ))}
+        </div>
       )}
-      style={{ paddingTop: 8, paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)" }}
-    >
+
+      {/* ── Scrollable content, layered over the animated backdrop ── */}
+      <div
+        className="relative z-10 h-full overflow-y-auto overscroll-contain px-6"
+        style={{ paddingTop: 8, paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)" }}
+      >
       {/* ── Hero ── */}
       <motion.div
         className="flex flex-col items-center text-center pt-2"
@@ -193,6 +247,7 @@ export function CoachProGate({ className }: { className?: string }): JSX.Element
           Includes a 7-day free trial. Cancel anytime.
         </p>
       </motion.div>
+      </div>
     </div>
   );
 }

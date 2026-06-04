@@ -64,9 +64,11 @@ export function FloatingWizardChat() {
   // nudge to tap the orb. Position follows the orb's snapped edge via `fabPos`.
   const briefing = useQuery(api.coachBriefing.getBriefing, userId ? {} : "skip");
   const bubbleText = useMemo(() => {
-    const t = briefing ? briefing.redFlag || briefing.priorityAction || briefing.greeting : null;
-    if (!t) return null;
-    return t.length > 130 ? `${t.slice(0, 127)}...` : t;
+    const raw = briefing ? briefing.redFlag || briefing.priorityAction || briefing.greeting : null;
+    if (!raw) return null;
+    // No em/en dashes in the bubble — swap for a comma so it reads naturally.
+    const cleaned = raw.replace(/\s*[—–]\s*/g, ", ").trim();
+    return cleaned.length > 130 ? `${cleaned.slice(0, 127)}...` : cleaned;
   }, [briefing]);
   const [fabPos, setFabPos] = useState<{ x: number; y: number } | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -357,18 +359,27 @@ export function FloatingWizardChat() {
       {!open && bubbleReady && !bubbleDismissed && !dragging && bubbleText && fabPos && (() => {
         const side: "left" | "right" =
           fabPos.x + FAB_SIZE / 2 > window.innerWidth / 2 ? "right" : "left";
+        // Horizontal: anchor to the orb's edge so the bubble grows INTO the
+        // screen (orb on the right edge -> bubble extends left, and vice-versa).
         const posStyle =
           side === "right"
             ? { right: Math.max(EDGE_MARGIN, window.innerWidth - (fabPos.x + FAB_SIZE) - 4) }
             : { left: Math.max(EDGE_MARGIN, fabPos.x - 4) };
+        // Vertical: above the orb normally, but BELOW it when the orb is near
+        // the top, so the bubble is never clipped off the top of the screen.
+        const placeBelow = fabPos.y < 150;
+        const vStyle = placeBelow
+          ? { top: fabPos.y + FAB_SIZE + 12 }
+          : { bottom: window.innerHeight - fabPos.y + 12 };
         return (
           <div
             className="fixed z-[9999] md:hidden"
-            style={{ bottom: window.innerHeight - fabPos.y + 12, ...posStyle }}
+            style={{ ...vStyle, ...posStyle }}
           >
             <CoachSpeechBubble
               text={bubbleText}
               side={side}
+              placement={placeBelow ? "below" : "above"}
               onTap={() => {
                 dismissBubble();
                 handleFabPress();
@@ -410,7 +421,7 @@ export function FloatingWizardChat() {
                 : { type: "spring", stiffness: 380, damping: 32, mass: 0.7 }}
             >
               <div
-                className="w-full flex flex-col pointer-events-auto rounded-t-[28px] border border-white/10 bg-card/80 backdrop-blur-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_-12px_40px_rgba(0,0,0,0.45)]"
+                className="relative w-full flex flex-col pointer-events-auto rounded-t-[28px] border border-white/10 bg-card/80 backdrop-blur-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_-12px_40px_rgba(0,0,0,0.45)]"
                 style={{ height: "85dvh" }}
               >
                 {/* Drag handle */}
@@ -418,7 +429,21 @@ export function FloatingWizardChat() {
                   <div className="w-9 h-[5px] rounded-full bg-white/25" />
                 </div>
 
-                {/* Header — Apple Health style with orb avatar */}
+                {/* Free users: the Pro gate fills the ENTIRE sheet — nothing
+                    else is shown except this floating close button. */}
+                {!hasAccess && (
+                  <button
+                    type="button"
+                    onClick={() => setOpen(false)}
+                    aria-label="Close"
+                    className="absolute top-3 right-3 z-20 h-9 w-9 rounded-full bg-white/10 hover:bg-white/15 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <X className="h-[16px] w-[16px]" />
+                  </button>
+                )}
+
+                {/* Header — Apple Health style with orb avatar (Pro only) */}
+                {hasAccess && (
                 <div className="shrink-0 px-5 py-3 border-b border-white/10">
                   <div className="flex items-center gap-3">
                     <div className="relative shrink-0 w-11 h-11 flex items-center justify-center">
@@ -456,11 +481,12 @@ export function FloatingWizardChat() {
                     </div>
                   </div>
                 </div>
+                )}
 
                 {/* Pinned cockpit — proactive, data-grounded header + check-in
-                    streak. Sits ABOVE the chat scroll so it stays visible while
-                    messages scroll independently (shrink-0 in the flex column). */}
-                {(cockpitData || streak > 0 || checkedInToday) && (
+                    streak. Sits ABOVE the chat scroll (Pro only — free users
+                    get the full-sheet gate). */}
+                {hasAccess && (cockpitData || streak > 0 || checkedInToday) && (
                   <div className="shrink-0 px-4 pt-3 pb-1 space-y-2">
                     <CoachCockpitHeader data={cockpitData} />
                     <CoachCheckinStreak
@@ -474,7 +500,11 @@ export function FloatingWizardChat() {
                 {/* Messages area */}
                 <div
                   ref={scrollRef}
-                  className="flex-1 overflow-y-auto min-h-0 px-4 py-4 space-y-2.5 wcw-scroll"
+                  className={`flex-1 min-h-0 wcw-scroll ${
+                    hasAccess
+                      ? "overflow-y-auto px-4 py-4 space-y-2.5"
+                      : "overflow-hidden"
+                  }`}
                   style={{
                     overscrollBehaviorY: "contain",
                     scrollbarWidth: "none",
