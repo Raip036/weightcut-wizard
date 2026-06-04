@@ -74,13 +74,16 @@ export const run = action({
   args: {
     mealDescription: v.optional(v.string()),
     imageBase64: v.optional(v.string()),
+    // Up to 3 photos of the SAME meal from different angles. Back-compat:
+    // a single `imageBase64` is still accepted and normalized into this array.
+    imagesBase64: v.optional(v.array(v.string())),
     date: v.optional(v.string()),
     mealType: v.optional(v.string()),
     persist: v.optional(v.boolean()),
   },
   handler: async (
     ctx,
-    { mealDescription, imageBase64, date, mealType, persist },
+    { mealDescription, imageBase64, imagesBase64, date, mealType, persist },
   ) => {
     const userId = await requireUserIdFromAction(ctx);
     await enforceFeatureGate(ctx, userId, "AI_MEAL_ANALYSIS");
@@ -88,26 +91,36 @@ export const run = action({
     const cleanDesc = mealDescription
       ? sanitizeUserText(mealDescription, { maxLength: 1000, raw: true })
       : "";
-    if (!cleanDesc && !imageBase64) {
+
+    // Normalize to an array of raw base64 strings (max 3 angles of the same
+    // meal). Back-compat: a single `imageBase64` still works and is folded in.
+    const rawImages = (
+      imagesBase64 && imagesBase64.length > 0
+        ? imagesBase64
+        : imageBase64
+          ? [imageBase64]
+          : []
+    ).slice(0, 3);
+
+    if (!cleanDesc && rawImages.length === 0) {
       throw new Error("Provide a meal description or photo");
     }
 
-    // Clean + validate the image early so we never fan out an obviously
+    // Clean + validate each image early so we never fan out an obviously
     // bad payload to Groq (which surfaces only a generic "invalid image
     // data" error). Size cap tightened to 4 MB to match Groq's vision
     // input limit; previous 5 MB allowed borderline images that Groq then
     // rejected, leading to the exact error we're guarding against here.
-    let cleanedImage: string | null = null;
-    let imageMime: string | null = null;
-    if (imageBase64) {
-      cleanedImage = cleanBase64(imageBase64);
-      if (cleanedImage.length === 0) {
+    const images: { mime: string; data: string }[] = [];
+    for (const raw of rawImages) {
+      const cleaned = cleanBase64(raw);
+      if (cleaned.length === 0) {
         throw new Error("Photo data was empty. Please retake the photo.");
       }
-      if (cleanedImage.length > 4_000_000) {
+      if (cleaned.length > 4_000_000) {
         throw new Error("Photo is too large. Please retake at lower quality.");
       }
-      const { mime, isHeic } = detectImageMime(cleanedImage);
+      const { mime, isHeic } = detectImageMime(cleaned);
       if (isHeic) {
         throw new Error(
           "HEIC photos aren't supported yet. Open iOS Settings → Camera → Formats and choose 'Most Compatible', then retake.",
@@ -116,14 +129,18 @@ export const run = action({
       if (!mime) {
         throw new Error("Photo format not recognized. Please retake the photo.");
       }
-      imageMime = mime;
+      images.push({ mime, data: cleaned });
     }
 
     let nutritionData: any;
 
-    if (cleanedImage && imageMime) {
+    if (images.length > 0) {
+      const multiViewNote =
+        images.length > 1
+          ? `\n\nYou are given ${images.length} photos of the SAME meal from different angles. Use them TOGETHER to judge portion volume and depth, and to catch items hidden in one view. Each real item appears ONCE in your output — do not double-count an item just because it shows in more than one photo.`
+          : "";
       const visionPrompt = `You are a JSON API. Respond with ONLY the JSON object.
-You are a visual food identification expert helping a combat-sports athlete log a meal accurately. No macro math here — that's the next stage's job.
+You are a visual food identification expert helping a combat-sports athlete log a meal accurately. No macro math here — that's the next stage's job.${multiViewNote}
 
 ${PROMPT_INJECTION_GUARD_INSTRUCTION}
 
@@ -144,10 +161,10 @@ Think step by step before responding:
       // sauce, or "actual" portion when their plate's odd. The image stays
       // primary for visual quantity; the text fills in the gaps.
       const visionUserContent: any = [
-        {
+        ...images.map((img) => ({
           type: "image_url",
-          image_url: { url: `data:${imageMime};base64,${cleanedImage}` },
-        },
+          image_url: { url: `data:${img.mime};base64,${img.data}` },
+        })),
         {
           type: "text",
           text: cleanDesc
@@ -187,9 +204,10 @@ Rules:
 - Macros must be self-consistent with calories under Atwater (protein 4, carbs 4, fat 9 kcal/g). If your numbers don't sum, prefer accurate macros and let calories follow.
 - Totals (top-level calories/protein_g/carbs_g/fats_g) equal the sum of items.
 - Copy each item's "bbox" verbatim from the vision observation. If absent, omit it — do not invent coordinates.
+- Copy each item's "confidence" ("high"|"medium"|"low") verbatim from the vision observation. If absent, omit it — do not invent one.
 - "meal_name": copy verbatim from the vision observation's meal_name. If missing/empty, generate a short (<=40 chars), specific descriptive name based on the visible items (e.g. "Grilled chicken & rice bowl"). Never use "Meal" or "Logged meal".
 
-{ "meal_name": "...", "calories": n, "protein_g": n, "carbs_g": n, "fats_g": n, "items": [{ "name": "...", "quantity": "...", "calories": n, "protein_g": n, "carbs_g": n, "fats_g": n, "bbox": { "x": n, "y": n, "w": n, "h": n } }] }`;
+{ "meal_name": "...", "calories": n, "protein_g": n, "carbs_g": n, "fats_g": n, "items": [{ "name": "...", "quantity": "...", "calories": n, "protein_g": n, "carbs_g": n, "fats_g": n, "confidence": "high|medium|low", "bbox": { "x": n, "y": n, "w": n, "h": n } }] }`;
       const reasoningUser = cleanDesc
         ? `Vision observation:
 ${JSON.stringify(visionObservation, null, 2)}

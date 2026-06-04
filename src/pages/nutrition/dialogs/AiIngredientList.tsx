@@ -12,7 +12,14 @@ export interface AiIngredientItem {
   carbs_g: number;
   fats_g: number;
   bbox?: { x: number; y: number; w: number; h: number };
+  confidence?: "high" | "medium" | "low";
+  base?: { calories: number; protein_g: number; carbs_g: number; fats_g: number };
 }
+
+// Portion multipliers for the quick-adjust stepper. Scale relative to the
+// AI's original estimate (`item.base`), so tapping 1× always restores it.
+const PORTION_MULTIPLIERS = [0.5, 1, 1.5, 2] as const;
+const formatMultiplier = (m: number) => (m === 0.5 ? "½×" : m === 1.5 ? "1½×" : `${m}×`);
 
 interface AiIngredientListProps {
   items: AiIngredientItem[];
@@ -112,13 +119,40 @@ function IngredientRow({ item, onUpdate, onRemove }: IngredientRowProps) {
     scaleMacros(next);
   };
 
+  // Quick portion multiplier — rescales the row to base × multiplier so the
+  // numbers stay anchored to the AI's original estimate. The active segment
+  // is whichever multiplier currently matches (null after a manual kcal edit).
+  const base = item.base;
+  const activeMultiplier =
+    base && base.calories > 0
+      ? PORTION_MULTIPLIERS.find((m) => Math.round(base.calories * m) === item.calories) ?? null
+      : null;
+
+  const applyMultiplier = (m: number) => {
+    if (!base) return;
+    triggerHapticSelection();
+    onUpdate({
+      calories: Math.round(base.calories * m),
+      protein_g: Math.round(base.protein_g * m * 10) / 10,
+      carbs_g: Math.round(base.carbs_g * m * 10) / 10,
+      fats_g: Math.round(base.fats_g * m * 10) / 10,
+    });
+  };
+
   return (
     <div className="rounded-xs bg-muted/30 border border-border/30 px-3 py-2.5 min-w-0">
       <div className="flex items-center gap-2 min-w-0">
         <div className="flex-1 min-w-0">
-          <p className="text-[14px] font-semibold text-foreground truncate leading-tight">
-            {capitalize(item.name)}
-          </p>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <p className="text-[14px] font-semibold text-foreground truncate leading-tight">
+              {capitalize(item.name)}
+            </p>
+            {item.confidence === "low" && (
+              <span className="shrink-0 rounded-xs bg-[rgb(var(--func-warning-yellow)/0.14)] text-[rgb(var(--func-warning-yellow))] text-[9px] font-bold px-1.5 py-0.5 leading-none">
+                ⚠ check
+              </span>
+            )}
+          </div>
           <Input
             value={item.quantity}
             onChange={(e) => onUpdate({ quantity: e.target.value })}
@@ -182,6 +216,31 @@ function IngredientRow({ item, onUpdate, onRemove }: IngredientRowProps) {
           {Math.round(item.fats_g)}F
         </span>
       </div>
+
+      {/* Quick portion multiplier — instant rescale, no AI call. */}
+      {base && (
+        <div className="mt-2 flex gap-1">
+          {PORTION_MULTIPLIERS.map((m) => {
+            const on = activeMultiplier === m;
+            return (
+              <button
+                key={m}
+                type="button"
+                onClick={() => applyMultiplier(m)}
+                aria-pressed={on}
+                aria-label={`Set portion to ${formatMultiplier(m)}`}
+                className={`flex-1 h-7 rounded-xs text-[11px] font-bold tabular-nums transition-colors ${
+                  on
+                    ? "bg-primary/15 text-primary ring-1 ring-primary/40"
+                    : "bg-muted/40 text-muted-foreground/70 active:bg-muted/60"
+                }`}
+              >
+                {formatMultiplier(m)}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

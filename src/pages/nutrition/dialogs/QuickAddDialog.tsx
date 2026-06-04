@@ -488,6 +488,9 @@ export function QuickAddDialog({
                   const result = await aiMeal.capturePhoto();
                   if (result) setPendingCaption(true);
                 }}
+                extraPhotos={aiMeal.extraPhotos}
+                onAddAngle={() => aiMeal.addExtraPhoto()}
+                onRemoveAngle={(i) => aiMeal.removeExtraPhoto(i)}
                 onToast={onToast}
               />
             )}
@@ -565,6 +568,15 @@ export function QuickAddDialog({
                   photoBase64={aiMeal.photoBase64}
                   savingMeal={savingMeal}
                   onSave={aiMeal.handleSaveAiMeal}
+                  canAddAngle={
+                    !!aiMeal.photoBase64 &&
+                    aiMeal.extraPhotos.length < 2 &&
+                    aiMeal.aiLineItems.some((i) => i.confidence === "low")
+                  }
+                  onAddAngle={async () => {
+                    const added = await aiMeal.addExtraPhoto();
+                    if (added) aiMeal.handlePhotoAnalyze();
+                  }}
                 />
               </motion.div>
             )}

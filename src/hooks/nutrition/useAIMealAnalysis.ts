@@ -74,9 +74,18 @@ export function useAIMealAnalysis(params: UseAIMealAnalysisParams) {
     fats_per_100g: "",
   });
 
-  // Photo capture state
+  // Photo capture state. `photoBase64` is the primary angle (drives the
+  // dialog's mode machine); `extraPhotos` holds up to 2 optional extra
+  // angles of the same meal for the multi-view accuracy boost.
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
+  const [extraPhotos, setExtraPhotos] = useState<string[]>([]);
   const [photoAnalyzing, setPhotoAnalyzing] = useState(false);
+
+  // Extra angles only make sense alongside a primary photo — drop them
+  // whenever the primary is cleared (retake / remove / sheet close).
+  useEffect(() => {
+    if (!photoBase64) setExtraPhotos([]);
+  }, [photoBase64]);
 
   // Per-macro overrides applied on top of the AI-summed totals. Lets the
   // user say "actually it was more like 750 cal" after the photo analysis
@@ -96,7 +105,10 @@ export function useAIMealAnalysis(params: UseAIMealAnalysisParams) {
     if (aiLineItems.length === 0) setOverrideTotals({});
   }, [aiLineItems.length]);
 
-  const capturePhoto = useCallback(async () => {
+  // Low-level capture — returns the base64 body (no data: prefix) WITHOUT
+  // mutating any photo state. Callers decide whether it becomes the primary
+  // photo or an extra angle.
+  const captureRawPhoto = useCallback(async (): Promise<string | null> => {
     try {
       if (Capacitor.isNativePlatform()) {
         const { Camera, CameraResultType, CameraSource, CameraDirection } = await import("@capacitor/camera");
@@ -122,10 +134,7 @@ export function useAIMealAnalysis(params: UseAIMealAnalysisParams) {
           promptLabelHeader: "Snap your meal",
           promptLabelPhoto: "Take Photo",
         });
-        if (photo.base64String) {
-          setPhotoBase64(photo.base64String);
-          return photo.base64String;
-        }
+        return photo.base64String ?? null;
       } else {
         // Web fallback: file input
         return new Promise<string | null>((resolve) => {
@@ -141,8 +150,7 @@ export function useAIMealAnalysis(params: UseAIMealAnalysisParams) {
             const reader = new FileReader();
             reader.onload = () => {
               const base64 = (reader.result as string).split(",")[1];
-              setPhotoBase64(base64);
-              resolve(base64);
+              resolve(base64 ?? null);
             };
             reader.readAsDataURL(file);
           };
@@ -157,6 +165,25 @@ export function useAIMealAnalysis(params: UseAIMealAnalysisParams) {
     }
     return null;
   }, [toast]);
+
+  // Capture the primary photo (used by the snap hero / retake).
+  const capturePhoto = useCallback(async (): Promise<string | null> => {
+    const b64 = await captureRawPhoto();
+    if (b64) setPhotoBase64(b64);
+    return b64;
+  }, [captureRawPhoto]);
+
+  // Capture an additional angle of the same meal (max 2 extras = 3 total).
+  // Returns the captured base64 so callers can chain a re-analysis.
+  const addExtraPhoto = useCallback(async (): Promise<string | null> => {
+    const b64 = await captureRawPhoto();
+    if (b64) setExtraPhotos((prev) => (prev.length >= 2 ? prev : [...prev, b64]));
+    return b64;
+  }, [captureRawPhoto]);
+
+  const removeExtraPhoto = useCallback((idx: number) => {
+    setExtraPhotos((prev) => prev.filter((_, i) => i !== idx));
+  }, []);
 
   // `description` is an optional free-text caption from the user — the
   // QuickAddDialog caption step passes it through so the vision model can
@@ -201,7 +228,7 @@ export function useAIMealAnalysis(params: UseAIMealAnalysisParams) {
       let data: any;
       try {
         data = await analyzeMealAction({
-          imageBase64: imageData,
+          imagesBase64: [imageData, ...extraPhotos],
           mealDescription: caption,
           persist: false,
         });
@@ -216,23 +243,39 @@ export function useAIMealAnalysis(params: UseAIMealAnalysisParams) {
 
       const nutritionData = data.nutritionData;
       if (nutritionData.items && Array.isArray(nutritionData.items) && nutritionData.items.length > 0) {
-        setAiLineItems(nutritionData.items.map((item: any) => ({
-          name: item.name || "Unknown",
-          quantity: item.quantity || "",
-          calories: item.calories || 0,
-          protein_g: item.protein_g || 0,
-          carbs_g: item.carbs_g || 0,
-          fats_g: item.fats_g || 0,
-          bbox: normalizeBbox(item.bbox),
-        })));
+        setAiLineItems(nutritionData.items.map((item: any) => {
+          const calories = item.calories || 0;
+          const protein_g = item.protein_g || 0;
+          const carbs_g = item.carbs_g || 0;
+          const fats_g = item.fats_g || 0;
+          return {
+            name: item.name || "Unknown",
+            quantity: item.quantity || "",
+            calories,
+            protein_g,
+            carbs_g,
+            fats_g,
+            bbox: normalizeBbox(item.bbox),
+            confidence:
+              item.confidence === "high" || item.confidence === "medium" || item.confidence === "low"
+                ? item.confidence
+                : undefined,
+            base: { calories, protein_g, carbs_g, fats_g },
+          };
+        }));
       } else {
+        const calories = nutritionData.calories || 0;
+        const protein_g = nutritionData.protein_g || 0;
+        const carbs_g = nutritionData.carbs_g || 0;
+        const fats_g = nutritionData.fats_g || 0;
         setAiLineItems([{
           name: nutritionData.meal_name || "Meal",
           quantity: "",
-          calories: nutritionData.calories || 0,
-          protein_g: nutritionData.protein_g || 0,
-          carbs_g: nutritionData.carbs_g || 0,
-          fats_g: nutritionData.fats_g || 0,
+          calories,
+          protein_g,
+          carbs_g,
+          fats_g,
+          base: { calories, protein_g, carbs_g, fats_g },
         }]);
       }
 
@@ -249,7 +292,7 @@ export function useAIMealAnalysis(params: UseAIMealAnalysisParams) {
       setPhotoAnalyzing(false);
       setAiAnalyzing(false);
     }
-  }, [photoBase64, aiMealDescription, hasMealAccess, openPaywall, handlePaywallError, analyzeMealAction, toast, addTask, completeTask, failTask, setManualMeal]);
+  }, [photoBase64, extraPhotos, aiMealDescription, hasMealAccess, openPaywall, handlePaywallError, analyzeMealAction, toast, addTask, completeTask, failTask, setManualMeal]);
 
   const extractIngredientName = (userInput: string): string => {
     let cleaned = userInput.trim();
@@ -756,6 +799,7 @@ export function useAIMealAnalysis(params: UseAIMealAnalysisParams) {
     cancelAI,
     // Photo analysis
     photoBase64, setPhotoBase64,
+    extraPhotos, addExtraPhoto, removeExtraPhoto,
     photoAnalyzing,
     capturePhoto,
     handlePhotoAnalyze,

@@ -44,6 +44,7 @@ export interface AiLineItemShape {
   carbs_g: number;
   fats_g: number;
   bbox?: { x: number; y: number; w: number; h: number };
+  confidence?: "high" | "medium" | "low";
 }
 
 export interface AiMealShape {
@@ -56,6 +57,10 @@ export interface AiMealShape {
   setAiAnalysisComplete: React.Dispatch<React.SetStateAction<boolean>>;
   photoBase64: string | null;
   setPhotoBase64: React.Dispatch<React.SetStateAction<string | null>>;
+  /** Up to 2 optional extra angles of the same meal (multi-view accuracy). */
+  extraPhotos: string[];
+  addExtraPhoto: () => Promise<string | null>;
+  removeExtraPhoto: (idx: number) => void;
   photoAnalyzing: boolean;
   capturePhoto: () => Promise<string | null | undefined>;
   handlePhotoAnalyze: () => void;

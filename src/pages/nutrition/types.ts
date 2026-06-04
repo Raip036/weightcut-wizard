@@ -25,6 +25,13 @@ export interface AiLineItem {
   // text-only analyses don't have one, and the UI falls back to scattered
   // positions when missing or invalid.
   bbox?: { x: number; y: number; w: number; h: number };
+  // Vision-stage confidence for this item, carried through the macro stage.
+  // Drives the portion-review "double-check" flag. Absent on text-only meals.
+  confidence?: "high" | "medium" | "low";
+  // The AI's original estimate, captured at analysis time. Lets the portion
+  // multiplier (½×/1×/1½×/2×) scale relative to the original instead of
+  // compounding off prior edits. UI-only — never persisted.
+  base?: { calories: number; protein_g: number; carbs_g: number; fats_g: number };
 }
 
 // ── DB-backed type aliases. Hand-written snake_case shape that the
