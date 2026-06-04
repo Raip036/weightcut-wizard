@@ -417,17 +417,17 @@ export default function GymTracker() {
                 <div className="grid grid-cols-3 gap-2.5">
                   <div className="relative overflow-hidden card-surface rounded-xs p-3 pt-3.5 text-center">
                     <span className="absolute inset-x-0 top-0 h-[3px] bg-primary" />
-                    <div className="display-number text-[26px] leading-none text-foreground">{analytics.sessionsThisWeek}</div>
+                    <div className="display-number text-[30px] font-extrabold leading-none text-foreground">{analytics.sessionsThisWeek}</div>
                     <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground mt-1.5">This Week</div>
                   </div>
                   <div className="relative overflow-hidden card-surface rounded-xs p-3 pt-3.5 text-center">
                     <span className="absolute inset-x-0 top-0 h-[3px] bg-secondary" />
-                    <div className="display-number text-[26px] leading-none text-foreground">{analytics.avgDuration}<span className="text-sm text-muted-foreground font-medium">m</span></div>
+                    <div className="display-number text-[30px] font-extrabold leading-none text-foreground">{analytics.avgDuration}<span className="text-sm text-muted-foreground font-medium">m</span></div>
                     <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground mt-1.5">Avg Duration</div>
                   </div>
                   <div className="relative overflow-hidden card-surface rounded-xs p-3 pt-3.5 text-center">
                     <span className="absolute inset-x-0 top-0 h-[3px]" style={{ background: "hsl(25 85% 58%)" }} />
-                    <div className="display-number text-[26px] leading-none text-foreground">{formatVol(weeklyVolume)}<span className="text-sm text-muted-foreground font-medium">kg</span></div>
+                    <div className="display-number text-[30px] font-extrabold leading-none text-foreground">{formatVol(weeklyVolume)}<span className="text-sm text-muted-foreground font-medium">kg</span></div>
                     <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground mt-1.5">Week Volume</div>
                   </div>
                 </div>

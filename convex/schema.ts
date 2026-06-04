@@ -336,6 +336,9 @@ export default defineSchema({
     rpe: v.optional(v.number()),
     isWarmup: v.boolean(),
     isBodyweight: v.boolean(),
+    // Active-workout "complete a set" state (Hevy/Strong model). Optional so
+    // existing rows read as not-completed; drives the green ✓ + auto rest timer.
+    completed: v.optional(v.boolean()),
     notes: v.optional(v.string()),
   })
     .index("by_session", ["sessionId"])

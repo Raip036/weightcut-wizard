@@ -60,6 +60,8 @@ export interface GymSet {
   rpe: number | null;
   is_warmup: boolean;
   is_bodyweight: boolean;
+  /** Active-workout "set complete" state (Hevy/Strong ✓). Defaults false. */
+  completed: boolean;
   assisted_weight_kg: number | null;
   notes: string | null;
   created_at: string;

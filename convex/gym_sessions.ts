@@ -45,6 +45,7 @@ function setToClient(row: Doc<"gym_sets">) {
     rpe: row.rpe ?? null,
     is_warmup: row.isWarmup,
     is_bodyweight: row.isBodyweight,
+    completed: row.completed ?? false,
     notes: row.notes ?? null,
     created_at: new Date(row._creationTime).toISOString(),
   };
@@ -187,6 +188,7 @@ export const addSetToSession = mutation({
     rpe: v.optional(v.number()),
     isWarmup: v.optional(v.boolean()),
     isBodyweight: v.optional(v.boolean()),
+    completed: v.optional(v.boolean()),
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -206,6 +208,7 @@ export const addSetToSession = mutation({
       rpe: args.rpe,
       isWarmup: args.isWarmup ?? false,
       isBodyweight: args.isBodyweight ?? false,
+      completed: args.completed ?? false,
       notes: args.notes,
     });
     // Recompute fight-form score after adding a set. The session may end
@@ -232,6 +235,7 @@ export const updateSet = mutation({
     assistedWeightKg: v.optional(v.number()),
     rpe: v.optional(v.number()),
     isWarmup: v.optional(v.boolean()),
+    completed: v.optional(v.boolean()),
     notes: v.optional(v.string()),
   },
   handler: async (ctx, { id, ...rest }) => {

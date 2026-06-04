@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
 import { Plus, Trash2, Check } from "lucide-react";
 import { motion } from "motion/react";
-import { staggerContainer, staggerItem, springs } from "@/lib/motion";
+import { staggerContainer, springs } from "@/lib/motion";
+import { AnimatedNumber } from "@/components/motion";
 import { ExerciseBlock } from "./ExerciseBlock";
+import { RestTimerPill } from "./RestTimerPill";
+import { SetInputAccessory } from "./SetInputAccessory";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { formatVolume } from "@/lib/gymCalculations";
 import { resolveTrackingType, effectiveVolumeWeight } from "@/lib/exerciseTypes";
@@ -20,7 +22,7 @@ interface ActiveSessionViewProps {
   previousSetsMap?: Map<string, GymSet[]>;
   onOpenExercisePicker: () => void;
   onAddSet: (exerciseOrder: number, data: { weight_kg?: number | null; reps: number; rpe?: number | null; is_warmup?: boolean; is_bodyweight?: boolean }) => void;
-  onUpdateSet: (setId: string, exerciseOrder: number, updates: Partial<{ weight_kg: number | null; reps: number; rpe: number | null; is_warmup: boolean }>) => void;
+  onUpdateSet: (setId: string, exerciseOrder: number, updates: Partial<{ weight_kg: number | null; reps: number; rpe: number | null; is_warmup: boolean; completed: boolean }>) => void;
   onDeleteSet: (setId: string, exerciseOrder: number) => void;
   onDuplicateLastSet: (exerciseOrder: number) => void;
   onRemoveExercise: (exerciseOrder: number) => void;
@@ -78,6 +80,7 @@ export function ActiveSessionView({
   const [fatigue, setFatigue] = useState([5]);
 
   const totalSets = workout.exerciseGroups.reduce((sum, g) => sum + g.sets.filter(s => !s.is_warmup).length, 0);
+  const completedSets = workout.exerciseGroups.reduce((sum, g) => sum + g.sets.filter(s => !s.is_warmup && s.completed).length, 0);
 
   const totalVolume = useMemo(() => {
     let vol = 0;
@@ -113,45 +116,55 @@ export function ActiveSessionView({
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
 
         <div className="relative space-y-4">
-          {/* Top row: badge + discard */}
+          {/* Top row: live badge + Finish (green) / discard */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
+            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/15 text-primary text-xs font-bold uppercase tracking-wide">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-func-recovery-green opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-func-recovery-green" />
               </span>
-              <span className="px-3 py-1 rounded-full bg-primary/15 text-primary text-xs font-semibold">
-                {workout.sessionType}
-              </span>
+              {workout.sessionType}
+            </span>
+            <div className="flex items-center gap-1.5">
+              {totalSets > 0 && (
+                <button
+                  onClick={() => setFinishSheetOpen(true)}
+                  className="rounded-full bg-success px-4 py-1.5 text-[13px] font-extrabold text-white active:scale-95 transition-transform shadow-[0_8px_22px_-8px_hsl(var(--success))]"
+                >
+                  Finish
+                </button>
+              )}
+              <button
+                onClick={() => setDiscardDialogOpen(true)}
+                className="p-2 rounded-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                aria-label="Discard workout"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
             </div>
-            <button
-              onClick={() => setDiscardDialogOpen(true)}
-              className="p-2 rounded-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-              aria-label="Discard workout"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
           </div>
 
-          {/* Centered timer */}
-          <div className="text-center py-2">
+          {/* Hero timer */}
+          <div className="text-center py-1">
             <ElapsedTimer startedAt={workout.startedAt} />
-            <p className="text-xs text-muted-foreground mt-1">Elapsed Time</p>
+            <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-muted-foreground mt-1.5">Elapsed</p>
           </div>
 
-          {/* Stats row */}
-          <div className="grid grid-cols-3 gap-2">
-            <div className="rounded-xs bg-muted/30 p-2.5 text-center">
-              <div className="display-number text-sm">{workout.exerciseGroups.length}</div>
-              <div className="text-[13px] text-muted-foreground">Exercises</div>
+          {/* Live counters — Sets done + Volume pop/count-up on completion */}
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="rounded-xl bg-muted/30 border border-border/40 p-3 text-center">
+              <div className="display-number text-2xl font-extrabold tabular-nums">
+                <AnimatedNumber value={completedSets} format={(n) => `${Math.round(n)}`} />
+                <span className="text-muted-foreground/60 text-base font-bold">/{totalSets}</span>
+              </div>
+              <div className="text-[10px] uppercase tracking-[0.14em] font-bold text-muted-foreground mt-1">Sets done</div>
             </div>
-            <div className="rounded-xs bg-muted/30 p-2.5 text-center">
-              <div className="display-number text-sm">{totalSets}</div>
-              <div className="text-[13px] text-muted-foreground">Working Sets</div>
-            </div>
-            <div className="rounded-xs bg-muted/30 p-2.5 text-center">
-              <div className="display-number text-sm">{formatVolume(totalVolume)}<span className="text-[13px] text-muted-foreground font-normal"> kg</span></div>
-              <div className="text-[13px] text-muted-foreground">Volume</div>
+            <div className="rounded-xl bg-muted/30 border border-border/40 p-3 text-center">
+              <div className="display-number text-2xl font-extrabold tabular-nums">
+                <AnimatedNumber value={totalVolume} format={(n) => formatVolume(n)} />
+                <span className="text-muted-foreground/60 text-base font-bold"> kg</span>
+              </div>
+              <div className="text-[10px] uppercase tracking-[0.14em] font-bold text-muted-foreground mt-1">Volume</div>
             </div>
           </div>
         </div>
@@ -205,25 +218,14 @@ export function ActiveSessionView({
         </button>
       </motion.div>
 
-      {/* Finish button */}
-      {totalSets > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={springs.responsive}
-        >
-          <button
-            onClick={() => setFinishSheetOpen(true)}
-            className="w-full py-3.5 rounded-xs text-sm font-semibold text-white flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
-            style={{ background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)))" }}
-          >
-            <Check className="h-4.5 w-4.5" />
-            Finish Workout
-          </button>
-        </motion.div>
-      )}
+      {/* Finish lives in the header HUD now (green pill, top-right). */}
 
-      {/* Bottom spacer for nav bar */}
+      {/* Auto rest timer (floating) + keyboard quick-increment bar. Both are
+          fixed-positioned and self-managed via their module buses. */}
+      <RestTimerPill />
+      <SetInputAccessory />
+
+      {/* Bottom spacer for nav bar + rest pill clearance */}
       <div className="h-4" />
 
       {/* Finish workout dialog */}

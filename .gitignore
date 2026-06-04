@@ -56,3 +56,6 @@ screenshots/
 
 # Brainstorming visual companion
 .superpowers/
+
+# All markdown files
+*.md
