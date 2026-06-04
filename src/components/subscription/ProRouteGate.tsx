@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useSubscription } from "@/hooks/useSubscription";
 import type { FeatureKey } from "@/lib/featureGates";
@@ -51,15 +52,24 @@ export function ProRouteGate({
   if (!isSubscriptionResolved) return null;
   if (checkFeatureAccess(feature)) return <>{children}</>;
 
-  return (
-    <ProUpsellScreen
-      title={title ?? DEFAULT_TITLE}
-      blurb={blurb ?? DEFAULT_BLURB}
-      onUpgrade={() => {
-        triggerHapticSelection();
-        openPaywall();
-      }}
-      onDismiss={() => navigate(-1)}
-    />
+  // Portal to <body> so the gate anchors to the viewport, not the transformed
+  // `.page-transition-page` ancestor it's rendered under (which would clip it
+  // and let the page scroll out from beneath it). `z-[60]` keeps it below the
+  // floating bottom nav (z-[9999]) so the user can still switch tabs; the
+  // premium background fills the entire viewport (incl. behind the nav) and the
+  // gate is its own `overscroll-contain` scroll container.
+  return createPortal(
+    <div className="fixed inset-0 z-[60] h-screen-safe overflow-y-auto overscroll-contain bg-background animate-in fade-in duration-300">
+      <ProUpsellScreen
+        title={title ?? DEFAULT_TITLE}
+        blurb={blurb ?? DEFAULT_BLURB}
+        onUpgrade={() => {
+          triggerHapticSelection();
+          openPaywall();
+        }}
+        onDismiss={() => navigate(-1)}
+      />
+    </div>,
+    document.body,
   );
 }

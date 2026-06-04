@@ -13,6 +13,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import type { CampTrends as CampTrendsData } from "@/../convex/coachTrends";
 import { Icon, type IonIconName } from "@/components/ui/Icon";
+import { ShimmerCrownBadge } from "@/components/subscription/ShimmerCrownBadge";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 import { useSubscription } from "@/hooks/useSubscription";
 import { triggerHapticSelection } from "@/lib/haptics";
@@ -108,25 +109,24 @@ function LockedTrends({
         triggerHapticSelection();
         onUpgrade();
       }}
-      className={`w-full min-h-[44px] card-surface rounded-2xl border border-border/50 p-3.5 text-left flex items-center gap-3 active:scale-[0.99] transition-transform ${className}`}
+      className={`w-full min-h-[44px] rounded-2xl border border-primary/20 bg-primary/10 p-3.5 text-left flex items-center gap-3 active:scale-[0.99] transition-transform ${className}`}
     >
-      <div className="shrink-0 w-9 h-9 rounded-xl bg-amber-400/10 flex items-center justify-center text-amber-400/90">
-        <Icon name="trendingDownOutline" size={18} aria-label="Multi-camp trends" />
-      </div>
+      {/* Shimmering crown crest — shared premium marker, matches the Training
+          Missions locked card. */}
+      <ShimmerCrownBadge size={40} />
       <div className="min-w-0 flex-1">
-        <p className="text-[13px] font-semibold text-foreground leading-tight">
-          Multi-camp trends
-        </p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-[13px] font-semibold text-foreground leading-tight">
+            Multi-camp trends
+          </p>
+          <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-primary">
+            Pro
+          </span>
+        </div>
         <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
-          See your cut, fight over fight — Pro
+          See your cut, fight over fight
         </p>
       </div>
-      <Icon
-        name="lockClosedOutline"
-        size={14}
-        className="shrink-0 text-amber-400/80"
-        aria-label="Pro feature"
-      />
     </button>
   );
 }

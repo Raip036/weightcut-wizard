@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { useSubscription } from "@/hooks/useSubscription";
 import { triggerHapticSelection } from "@/lib/haptics";
@@ -46,7 +47,11 @@ export function ProExplainerOverlay({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onOpenChange]);
 
-  return (
+  // Portal to <body> so `fixed` resolves against the viewport. Rendered inside
+  // a route page, this overlay would otherwise be trapped by the transformed
+  // `.page-transition-page` ancestor (containing block for fixed descendants),
+  // leaving it cut off and scrollable-away.
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
@@ -73,6 +78,7 @@ export function ProExplainerOverlay({
           />
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }

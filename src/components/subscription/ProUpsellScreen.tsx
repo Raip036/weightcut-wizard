@@ -66,7 +66,13 @@ export function ProUpsellScreen({
 
   return (
     <motion.div
-      className="relative min-h-screen-safe w-full overflow-hidden flex flex-col items-center justify-center px-6 py-10 text-center bg-background safe-area-inset-top safe-area-inset-bottom"
+      // `min-h-full` (not 100dvh): fills whatever scroll container it's portaled
+      // into and grows with content. `justify-center` centres when the content
+      // fits, but when it's taller than the viewport the block grows to content
+      // height — so a fresh mount sits scrolled to the top (the wizard/info is
+      // the first thing read, no upward scroll needed). The generous bottom
+      // padding clears the floating bottom nav in the route-gate case.
+      className="relative min-h-full w-full flex flex-col items-center justify-center px-6 pt-[calc(2.5rem+env(safe-area-inset-top,0px))] pb-[calc(7rem+env(safe-area-inset-bottom,0px))] text-center bg-background"
       initial={prefersReduced ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: prefersReduced ? 0 : 0.45, ease: "easeOut" }}
