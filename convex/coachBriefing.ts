@@ -107,7 +107,7 @@ function buildGreeting(
   } else if (onTrack === true) {
     bits.push("on plan");
   }
-  return bits.length > 0 ? `${lead} — ${bits.join(", ")}` : lead;
+  return bits.length > 0 ? `${lead}. ${bits.join(", ")}` : lead;
 }
 
 /**
@@ -132,16 +132,16 @@ function derivePriorityAction(opts: {
   // 1. Fight week — the day's key step keyed off days-to-weigh-in.
   if (phase === "fightWeek") {
     if (days != null) {
-      if (days <= 0) return "Weigh-in today — final check, then rehydrate";
-      if (days === 1) return "Last sweat-out tonight; sip only, no big meals";
-      if (days === 2) return "Water-load day — drink 1L now, keep it steady";
-      if (days === 3) return "Start water-loading: ~6–8L today, cut salt";
+      if (days <= 0) return "Weigh-in today. One last check, then it's rehydrate time";
+      if (days === 1) return "Last sweat-out tonight if needed. Sip only, go easy on meals";
+      if (days === 2) return "Water-load day. Could start with 1L now, then keep it steady";
+      if (days === 3) return "Good day to start water-loading. ~6-8L, ease off the salt";
     }
-    return "Log your weight + start water load";
+    return "Want to log your weight? Then water-loading can begin";
   }
 
   // 2. Coaching blind — get a weight in first.
-  if (!hasRecentWeightLog) return "Log today's weight to stay on plan";
+  if (!hasRecentWeightLog) return "A quick weigh-in helps me keep you on plan, whenever suits";
 
   // 3. Over plan.
   if (delta != null && delta > 0.2) {
@@ -149,16 +149,16 @@ function derivePriorityAction(opts: {
     // ask small and actionable when only modestly over.
     if (delta <= 2) {
       const kcal = Math.max(100, Math.round((delta * 200) / 50) * 50);
-      return `Cut ~${kcal} kcal today to stay on glide path`;
+      return `Trimming ~${kcal} kcal today would keep you on the glide path`;
     }
-    return `You're ${round1(delta)}kg over — tighten the plan`;
+    return `${round1(delta)}kg over. Worth tightening the plan a bit, your call`;
   }
 
   // 4. On track / positive nudge.
   if (onTrack === true || (delta != null && delta <= 0.2)) {
-    return "On plan — hold the line, log weight + meals";
+    return "Right on plan. Hold the line, a weight + meals log keeps it tight";
   }
-  return "Log today's weight to stay on plan";
+  return "A quick weigh-in helps me keep you on plan, whenever suits";
 }
 
 /**
@@ -196,7 +196,7 @@ function deriveRedFlag(opts: {
         const perWeek = (dropKg / spanDays) * 7;
         if (perWeek > bw * 0.015) {
           const pct = round1((perWeek / bw) * 100);
-          return `Cutting too fast (~${pct}%/wk) — slow down & rehydrate`;
+          return `Heads up: ~${pct}%/wk is past the safe pace. Worth easing off and rehydrating`;
         }
       }
     }
@@ -209,7 +209,7 @@ function deriveRedFlag(opts: {
       (Date.parse(todayIso()) - Date.parse(newest.date)) / MS_PER_DAY,
     );
     if (sinceDays >= 2) {
-      return `${sinceDays} days since your last weigh-in — log it now`;
+      return `It's been ${sinceDays} days since a weigh-in. A quick log keeps your plan honest`;
     }
   }
 

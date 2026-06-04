@@ -80,8 +80,10 @@ function buildStatusClause(data: CoachCockpitData): string | null {
 
   if (deltaKg > 0) {
     // Over target. onTrack tempers the wording.
-    const tail = onTrack ? "over target, on pace" : "over target";
-    return `${out}, ${kg1(deltaKg)}kg ${tail}`;
+    if (onTrack) {
+      return `${out}, ${kg1(deltaKg)}kg to go and right on pace`;
+    }
+    return `${out}, ${kg1(deltaKg)}kg to go, a touch to claw back`;
   }
 
   // Under target (deltaKg < 0) -> ahead.
@@ -119,7 +121,7 @@ export function buildCoachGreeting(
 
   if (noCamp) {
     const lead = name ? `${greeting} ${name}` : greeting;
-    return `${lead}, no fight scheduled - let's plan your next camp`;
+    return `${lead}, no fight booked yet. Want to plan your next camp?`;
   }
 
   const lead = name ? `${greeting} ${name}` : greeting;

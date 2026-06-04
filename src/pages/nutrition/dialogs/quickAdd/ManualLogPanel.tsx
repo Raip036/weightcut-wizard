@@ -361,7 +361,7 @@ export function ManualLogPanel({
         </div>
 
         {showSearchResults && (
-          <div className="mt-2 max-h-56 overflow-y-auto rounded-xs border border-border/30 bg-card/40 divide-y divide-border/15">
+          <div className="mt-2 max-h-56 overflow-y-auto rounded-2xl border border-border bg-card divide-y divide-border/50">
             {searching && (
               <div className="flex items-center justify-center py-4 text-[12px] text-muted-foreground">
                 <Icon name="syncOutline" size={14} className="animate-spin mr-2" />
@@ -549,23 +549,38 @@ function SearchResultRow({
           source_name: food.brand ? `${food.name} (${food.brand})` : food.name,
         })
       }
-      className="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left active:bg-muted/40 transition-colors"
+      className="w-full flex items-center justify-between gap-3 px-3.5 py-3 text-left active:bg-muted/40 transition-colors"
     >
       <div className="min-w-0 flex-1">
-        <p className="text-[13px] font-semibold text-foreground truncate leading-tight">{food.name}</p>
+        <p className="text-[14px] font-bold tracking-tight text-foreground truncate leading-tight">{food.name}</p>
         {food.brand && (
-          <p className="text-[11px] text-muted-foreground/70 truncate mt-0.5">{food.brand}</p>
+          <p className="text-[11px] text-muted-foreground truncate mt-0.5">{food.brand}</p>
         )}
+        <div className="mt-1.5 flex items-center gap-3">
+          <MacroDot color="bg-func-protein-blue" value={Math.round(food.protein_per_100g)} label="P" />
+          <MacroDot color="bg-func-carbs-orange" value={Math.round(food.carbs_per_100g)} label="C" />
+          <MacroDot color="bg-func-fats-purple" value={Math.round(food.fats_per_100g)} label="F" />
+        </div>
       </div>
       <div className="text-right shrink-0">
-        <p className="text-[13px] font-bold tabular-nums text-primary">
+        <p className="display-number text-[18px] font-extrabold tabular-nums leading-none tracking-tight text-foreground">
           {Math.round(food.calories_per_100g)}
         </p>
-        <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-          kcal/100g
+        <p className="mt-1 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+          kcal /100g
         </p>
       </div>
     </button>
+  );
+}
+
+function MacroDot({ color, value, label }: { color: string; value: number; label: string }) {
+  return (
+    <span className="flex items-center gap-1">
+      <span className={`h-1.5 w-1.5 rounded-full ${color}`} />
+      <span className="text-[12px] font-bold tabular-nums text-foreground">{value}g</span>
+      <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
+    </span>
   );
 }
 
