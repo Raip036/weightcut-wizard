@@ -141,7 +141,7 @@ function DotStrip({
   onSelect: (week: number) => void;
 }) {
   return (
-    <div className="mt-2 px-1">
+    <div className="px-1">
       <div className="relative flex items-center justify-between">
         {/* Connecting track — a thin line through the dot centres so the
             week stations read as one continuous timeline. Sits behind the
@@ -372,6 +372,13 @@ export function CutPaceForecast({
 
   return (
     <div className="space-y-2">
+      {/* Dot strip — week timeline sits above the focus card. Kept outside the
+          hero button so taps don't bubble into the /cut-plan navigation. */}
+      <DotStrip
+        checkpoints={checkpoints}
+        focusedWeek={focusCheckpoint.week}
+        onSelect={handleDotSelect}
+      />
       <button
         type="button"
         onClick={() => { triggerHapticSelection(); navigate("/cut-plan"); }}
@@ -487,14 +494,6 @@ export function CutPaceForecast({
           )}
         </div>
       </button>
-
-      {/* Dot strip — lives outside the hero button so taps don't bubble into
-          the /cut-plan navigation. */}
-      <DotStrip
-        checkpoints={checkpoints}
-        focusedWeek={focusCheckpoint.week}
-        onSelect={handleDotSelect}
-      />
     </div>
   );
 }

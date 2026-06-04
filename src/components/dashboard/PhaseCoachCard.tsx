@@ -198,7 +198,7 @@ export function PhaseCoachCard({
       className="w-full card-surface rounded-2xl p-3.5 text-left active:scale-[0.99] transition-transform"
     >
       <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center min-w-0">
           <div className="min-w-0">
             <p
               className={`text-[10px] font-bold uppercase tracking-[0.14em] ${meta.accent}`}

@@ -92,7 +92,7 @@ export function ReadinessCard({ userId }: ReadinessCardProps) {
             {hasData ? (
               <Sparkline data={series} className="h-full w-full" />
             ) : (
-              <div className="flex flex-col items-center justify-end h-full text-center pb-0.5">
+              <div className="flex flex-col items-center justify-center h-full text-center">
                 <Icon name="pulseOutline" size={20} className="text-muted-foreground/40 mb-1" />
                 <p className="text-note text-muted-foreground">No data yet</p>
               </div>
