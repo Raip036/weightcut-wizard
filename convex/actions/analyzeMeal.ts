@@ -209,9 +209,9 @@ Return ONLY the JSON object.`;
           { role: "user", content: reasoningUser },
         ],
         temperature: 0,
-        // gpt-oss-120b (Groq) and qwen3-235b (OpenRouter) spend reasoning
-        // tokens from this same budget, so a full items[] array easily
-        // truncated at 1200. 3000 covers a ~10-item meal with macros + bbox.
+        // gpt-oss-120b spends reasoning tokens from this same budget, so a
+        // full items[] array easily truncated at 1200. 3000 covers a
+        // ~10-item meal with macros + bbox.
         max_tokens: 3000,
         reasoning_effort: "low",
         response_format: { type: "json_object" },

@@ -25,9 +25,9 @@ export const run = action({
 Use USDA values. The "grams" must equal ${targetGrams}. All numeric values must reflect the actual quantity, not per-100g. The per100g block shows per-100g equivalents.`;
     const content = await callGroqText({
       // Heavy-tier model — ingredient lookup needs accurate per-gram
-      // macro computation (Atwater scaling, portion conversions). On
-      // OpenRouter this resolves to qwen3-235b via OPENROUTER_MODEL_MAP;
-      // on Groq direct it stays as gpt-oss-120b.
+      // macro computation (Atwater scaling, portion conversions). The same
+      // model runs on both providers (OPENROUTER_MODEL_MAP keeps it as
+      // gpt-oss-120b); OpenRouter just routes it to the fastest backend.
       model: "openai/gpt-oss-120b",
       messages: [
         { role: "system", content: systemPrompt },

@@ -213,9 +213,9 @@ ${snap.block}`;
 
     // ── Call LLM with retry, fall back to deterministic plan on failure ─
     //
-    // Uses the global heavy-reasoning model via OPENROUTER_MODEL_MAP:
-    // on OpenRouter this resolves to qwen3-235b-a22b-2507 (matches every
-    // other heavy-tier feature for routing consistency). The
+    // Uses the global heavy-reasoning model (gpt-oss-120b on both
+    // providers via OPENROUTER_MODEL_MAP — OpenRouter just routes it to the
+    // fastest backend; matches every other heavy-tier feature). The
     // `callGroqWithRetry` machinery already runs 4 attempts with appended
     // schema feedback, and falls back to a deterministic plan if the
     // model can't produce a valid CutPlanSchema after the retries.

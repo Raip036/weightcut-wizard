@@ -26,9 +26,9 @@ export async function extractCandidates(args: {
   try {
     raw = await callGroqText({
       // Heavy-tier model — candidate extraction quality directly drives
-      // downstream training-coach pipeline quality. On OpenRouter this
-      // resolves to qwen3-235b via OPENROUTER_MODEL_MAP; on Groq direct
-      // it stays as gpt-oss-120b.
+      // downstream training-coach pipeline quality. The same model runs on
+      // both providers (OPENROUTER_MODEL_MAP keeps it as gpt-oss-120b);
+      // OpenRouter just routes it to the fastest backend.
       model: "openai/gpt-oss-120b",
       messages: [
         { role: "system", content: EXTRACT_CANDIDATES_PROMPT },
