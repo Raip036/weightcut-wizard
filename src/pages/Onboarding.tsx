@@ -37,15 +37,64 @@ const ACTIVITY_MULTIPLIERS: Record<string, number> = {
   extra_active: 1.9,
 };
 
-// Mirrors the real outer step ceiling (`step` clamps to 16 in `goNext`
-// and `isLast{Cutting,Losing}` both gate on `step === 16`). Displayed
-// as "Round X of TOTAL_STEPS" — keep this in sync with the actual flow
-// length so the user doesn't see "Round 15 of 16" on the finale.
-// 2026-05-20: bumped 14 → 15 to make room for the Apple Health connect
-// step (step 10) inserted directly after the training-frequency screen.
-// 2026-06-03: bumped 15 → 16 to insert adaptive reminders step (step 11)
-// directly after the Apple Health connect step (permissions cluster).
-const TOTAL_STEPS = 16;
+// ── Flow-aware step maps ──────────────────────────────────────────────
+// The outer `step` counter is shared by both flows, but the two flows have
+// DIFFERENT lengths and DIFFERENT screens per number. To keep the magic
+// numbers honest (and the day-before/losing parity verifiable) we name
+// every step explicitly per flow.
+//
+// History:
+//   2026-05-20: Apple Health connect step inserted (cutting 10 / losing ...).
+//   2026-06-03: adaptive reminders step inserted directly after it.
+//   2026-06-04 (Weigh-In Timing, Task 2): NEW cutting-only "When do you
+//     weigh in?" screen inserted as cutting step 2, shifting every
+//     subsequent CUTTING step +1 (final 16 → 17). LOSING flow is unchanged.
+//
+// `F` = fighter (cutting) flow; `L` = losing flow. The losing numbers are
+// the pre-existing literals, untouched.
+const F = {
+  SPLIT: 1,        // shared goal-type split
+  WEIGH_IN: 2,     // NEW — when do you weigh in? (cutting only)
+  DISCIPLINES: 3,  // athlete_types (was 2)
+  FIGHT_DETAILS: 4,// fight-details mini-flow, 5 sub-steps (was 3)
+  AGE: 5,          // age + sex (was 4)
+  HEIGHT: 6,       // height (was 5)
+  WEIGHT: 7,       // current weight — isWeightStep / WeightLossSlam (was 6)
+  BODY_FAT: 8,     // body fat slider (was 7)
+  EXPERIENCE: 9,   // experience level (was 8)
+  TRAINING_FREQ: 10,// training frequency (was 9)
+  HEALTH: 11,      // connect Apple Health (was 10)
+  REMINDERS: 12,   // adaptive reminders (was 11)
+  TRAINING_TYPES: 13,// training types (was 12)
+  SLEEP: 14,       // sleep hours (was 13)
+  STRUGGLE: 15,    // primary struggle (was 14)
+  NAME: 16,        // display name (was 15)
+  FINAL: 17,       // declaration + projected cut + generate (was 16)
+} as const;
+
+const L = {
+  SPLIT: 1,        // shared goal-type split
+  CURRENT_WEIGHT: 2, // current weight (losing screen 2)
+  GOAL_WEIGHT: 3,  // goal weight
+  TIMEFRAME: 4,    // timeframe / target_weeks + weekly target (WeightLossSlam)
+  AGE: 5,          // age + sex
+  HEIGHT: 6,       // height
+  BODY_FAT: 7,     // body fat slider
+  EXPERIENCE: 8,   // experience level
+  TRAINING_FREQ: 9,// training frequency
+  HEALTH: 10,      // connect Apple Health
+  REMINDERS: 11,   // adaptive reminders
+  TRAINING_TYPES: 12,// training types
+  SLEEP: 13,       // sleep hours
+  AGGRESSIVENESS: 14,// plan aggressiveness (losing struggle slot)
+  NAME: 15,        // display name
+  FINAL: 16,       // declaration + projection + generate
+} as const;
+
+// Total step count per flow. The cutting flow gained one screen (weigh-in
+// timing); the losing flow is unchanged. Displayed as "Round X of N".
+const FIGHTER_TOTAL_STEPS = F.FINAL;  // 17
+const LOSING_TOTAL_STEPS = L.FINAL;   // 16
 
 // ── Display-name validation ──
 // Trimmed length must be 2–30 characters. Used by the step-13 name screen
@@ -233,8 +282,12 @@ function LosingProjectionChart({
 }
 
 // ── Screen layout wrapper ──
-function StepLayout({ step, title, subtitle, children, footer }: {
-  step: number; title: string; subtitle: string; children: React.ReactNode; footer?: React.ReactNode; mascotBump?: number;
+// `totalSteps` is flow-aware (17 for the fighter flow, 16 for the losing
+// flow) so "Round X of N" reads correctly on each path. Defaults to the
+// losing total so any caller that forgets the prop degrades to the
+// unchanged flow length rather than the cutting one.
+function StepLayout({ step, totalSteps = LOSING_TOTAL_STEPS, title, subtitle, children, footer }: {
+  step: number; totalSteps?: number; title: string; subtitle: string; children: React.ReactNode; footer?: React.ReactNode; mascotBump?: number;
 }) {
   // Container fills the parent (motion.div fills the remaining viewport
   // after the gamification header). Children scroll internally only if
@@ -244,7 +297,7 @@ function StepLayout({ step, title, subtitle, children, footer }: {
     <div className="relative flex flex-col h-full min-h-0 px-5 pb-2">
       <div className="pt-2 pb-1.5">
         <p className="text-[10px] uppercase tracking-[0.15em] text-primary/60 font-bold mb-1">
-          Round {step} of {TOTAL_STEPS}
+          Round {step} of {totalSteps}
         </p>
         <h1 className="text-[22px] font-bold leading-tight text-foreground">{title}</h1>
         <p className="text-[13px] text-muted-foreground mt-1 leading-snug">{subtitle}</p>
@@ -306,7 +359,12 @@ export default function Onboarding() {
   const [formData, setFormData] = useState({
     // Screen 1 — flow split
     goal_type: "",
-    // Screen 2 (cutting) — athlete types (multi)
+    // Screen 2 (cutting only) — weigh-in timing. Drives the fight-week
+    // target logic in Task 3 (same-day weigh-ins make weight on the day,
+    // so the pre-dehydration sub-step + target calc branch on this).
+    // "" until chosen | "day_before" | "same_day".
+    weigh_in_timing: "" as "" | "day_before" | "same_day",
+    // Screen 3 (cutting) — athlete types (multi)
     athlete_type: "",
     athlete_types: [] as string[],
     // Screen 2 (losing) — target weeks
@@ -396,8 +454,8 @@ export default function Onboarding() {
   const [pendingDateAdvance, setPendingDateAdvance] = useState(false);
 
   // Same pattern for the WeightLossSlam: only arm once the user taps
-  // Continue from the weight step (cutting step 6 / losing step 4), and
-  // defer the step advance until the slam dismisses so the hero-number
+  // Continue from the weight step (cutting F.WEIGHT / losing L.TIMEFRAME),
+  // and defer the step advance until the slam dismisses so the hero-number
   // reveal lands on the page the user just finished — not the next one.
   const [weightUserChanged, setWeightUserChanged] = useState(false);
   const [pendingWeightAdvance, setPendingWeightAdvance] = useState(false);
@@ -413,11 +471,14 @@ export default function Onboarding() {
 
   const goNext = useCallback(() => {
     triggerHapticSelection();
-    // Sub-step navigation within step 3 (cutting fight details). 5 sub-steps
-    // now: 0 competition level, 1 fight date, 2 weight class, 3 pre-cut
-    // target, 4 optional camp name. The camp-name page is skippable so its
-    // Continue button is always enabled (falls back to "Fight Camp").
-    if (isFighterFlow && step === 3 && fightSubStep < 4) {
+    // Per-flow step ceiling — fighter flow is one longer than losing.
+    const stepCeiling = isFighterFlow ? F.FINAL : L.FINAL;
+    // Sub-step navigation within the fight-details step (cutting only).
+    // 5 sub-steps: 0 competition level, 1 fight date, 2 weight class,
+    // 3 pre-cut target, 4 optional camp name. The camp-name page is
+    // skippable so its Continue button is always enabled (falls back
+    // to "Fight Camp").
+    if (isFighterFlow && step === F.FIGHT_DETAILS && fightSubStep < 4) {
       // Fight-date sub-step: arm the slam now and defer the sub-step
       // advance until the slam dismisses, so the reveal lands on this
       // page (not after we've already animated to the next one).
@@ -432,9 +493,9 @@ export default function Onboarding() {
     }
     // Weight-step Continue: arm the WeightLossSlam and defer the step
     // advance until it dismisses. Mirror of the fight-date pattern above.
-    // Cutting flow: step 6 (current weight, last data piece).
-    // Losing flow:  step 4 (goal weight, last data piece).
-    const isWeightStep = (isFighterFlow && step === 6) || (!isFighterFlow && step === 4);
+    // Cutting flow: F.WEIGHT (current weight, last data piece).
+    // Losing flow:  L.TIMEFRAME (goal + weeks, last data piece).
+    const isWeightStep = (isFighterFlow && step === F.WEIGHT) || (!isFighterFlow && step === L.TIMEFRAME);
     const weightDataReady =
       !!formData.current_weight_kg &&
       !!formData.goal_weight_kg &&
@@ -445,19 +506,20 @@ export default function Onboarding() {
       return;
     }
 
-    // End-of-flow: cutting ends at step 15 (preview chart + generate);
-    // losing ends at step 15 (plan_aggressiveness). Submit instead of advancing.
-    const isLastCutting = isFighterFlow && step === 16;
-    const isLastLosing = !isFighterFlow && step === 16;
+    // End-of-flow: cutting ends at F.FINAL (preview chart + generate);
+    // losing ends at L.FINAL. Submit instead of advancing.
+    const isLastCutting = isFighterFlow && step === F.FINAL;
+    const isLastLosing = !isFighterFlow && step === L.FINAL;
     if (isLastCutting || isLastLosing) {
       submitRef.current();
       return;
     }
     setDirection(1);
     setStep(prev => {
-      const next = Math.min(prev + 1, 16);
-      // Entering step 3 cutting from step 2 — start at first sub-page
-      if (isFighterFlow && next === 3) {
+      const next = Math.min(prev + 1, stepCeiling);
+      // Entering the fight-details step cutting (forward) — start at first
+      // sub-page.
+      if (isFighterFlow && next === F.FIGHT_DETAILS) {
         setFightSubStep(0);
         setFightSubDirection(1);
       }
@@ -493,14 +555,14 @@ export default function Onboarding() {
     if (pendingWeightAdvance) {
       setPendingWeightAdvance(false);
       setDirection(1);
-      setStep(prev => Math.min(prev + 1, 16));
+      setStep(prev => Math.min(prev + 1, isFighterFlow ? F.FINAL : L.FINAL));
     }
-  }, [pendingWeightAdvance]);
+  }, [pendingWeightAdvance, isFighterFlow]);
 
   const goBack = useCallback(() => {
     triggerHapticSelection();
-    // Sub-step navigation within step 3 (cutting fight details)
-    if (isFighterFlow && step === 3 && fightSubStep > 0) {
+    // Sub-step navigation within the fight-details step (cutting only)
+    if (isFighterFlow && step === F.FIGHT_DETAILS && fightSubStep > 0) {
       setFightSubDirection(-1);
       setFightSubStep(s => s - 1);
       return;
@@ -508,9 +570,9 @@ export default function Onboarding() {
     setDirection(-1);
     setStep(prev => {
       const next = Math.max(prev - 1, 1);
-      // Entering step 3 cutting from step 4 (back nav) — land on last sub-page
-      // (now sub-step 4: optional camp name)
-      if (isFighterFlow && next === 3) {
+      // Entering the fight-details step cutting via back nav — land on the
+      // last sub-page (sub-step 4: optional camp name).
+      if (isFighterFlow && next === F.FIGHT_DETAILS) {
         setFightSubStep(4);
         setFightSubDirection(-1);
       }
@@ -585,11 +647,22 @@ export default function Onboarding() {
 
   useEffect(() => {
     if (useAutoTarget && formData.goal_weight_kg && formData.goal_type === "cutting") {
-      const level = formData.competition_level || "amateur";
-      const rec = calculateRecommendedTarget(parseFloat(formData.goal_weight_kg), level);
+      const goalWeight = parseFloat(formData.goal_weight_kg);
+      let rec: number;
+      if (formData.weigh_in_timing === "same_day") {
+        // Same-day weigh-in: no time to rehydrate, so there is no water cut.
+        // Target a small ~1.5% natural buffer above goal — essentially at
+        // weight. The plan brings them here naturally over time, not via a
+        // last-minute dehydration.
+        rec = Math.round(goalWeight * 1.015 * 10) / 10;
+      } else {
+        // day_before (or unset): keep the existing per-level water-cut target.
+        const level = formData.competition_level || "amateur";
+        rec = calculateRecommendedTarget(goalWeight, level);
+      }
       setFormData(prev => ({ ...prev, fight_week_target_kg: rec.toString() }));
     }
-  }, [formData.goal_weight_kg, formData.competition_level, useAutoTarget, formData.goal_type]);
+  }, [formData.goal_weight_kg, formData.competition_level, useAutoTarget, formData.goal_type, formData.weigh_in_timing]);
 
   // Dynamic weight feedback
   const weightDiff = formData.current_weight_kg && formData.goal_weight_kg
@@ -638,15 +711,25 @@ export default function Onboarding() {
   const [achievementLabel, setAchievementLabel] = useState<string | null>(null);
   useEffect(() => {
     let label: string | null = null;
-    if (step === 4) label = "Goal Locked";
-    else if (step === 8) label = "Discipline Declared";
-    else if (step === 16) label = "Camp Sealed";
+    // Milestone pulses fire on the SAME screens they always have. For the
+    // cutting flow every screen shifted +1 when the weigh-in step was
+    // inserted, so the gates shift with them (F.AGE/F.EXPERIENCE/F.FINAL =
+    // 5/9/17 — the old 4/8/16). The losing flow is unchanged (4/8/16).
+    if (isFighterFlow) {
+      if (step === F.AGE) label = "Goal Locked";
+      else if (step === F.EXPERIENCE) label = "Discipline Declared";
+      else if (step === F.FINAL) label = "Camp Sealed";
+    } else {
+      if (step === 4) label = "Goal Locked";
+      else if (step === 8) label = "Discipline Declared";
+      else if (step === 16) label = "Camp Sealed";
+    }
     if (!label) return;
     setAchievementLabel(label);
     triggerHaptic(ImpactStyle.Medium);
     const t = setTimeout(() => setAchievementLabel(null), 2400);
     return () => clearTimeout(t);
-  }, [step]);
+  }, [step, isFighterFlow]);
 
   // Final-step declaration gate — before showing chart + Generate, ask the
   // user to hold-to-commit. Once declared, normal final-step content renders.
@@ -724,6 +807,7 @@ export default function Onboarding() {
         activityLevel,
         trainingFrequency: trainingFreq,
         goalType: formData.goal_type || "losing",
+        weighInTiming: formData.weigh_in_timing || "day_before",
         bmr,
         tdee,
         athleteType: formData.athlete_types.length > 0
@@ -759,6 +843,7 @@ export default function Onboarding() {
             name: campName,
             fightDate: formData.target_date,
             startingWeightKg: parseFloat(formData.current_weight_kg) || undefined,
+            weighInTiming: formData.weigh_in_timing || "day_before",
           });
         } catch (campErr) {
           logger.warn("Auto-create fight camp from onboarding failed", { error: campErr });
@@ -789,6 +874,7 @@ export default function Onboarding() {
                 sex: (formData.sex === "female" ? "female" : "male") as "male" | "female",
                 heightCm: parseFloat(formData.height_cm),
                 activityLevel,
+                weighInTiming: formData.weigh_in_timing || "day_before",
               });
             } catch (planError) {
               logger.warn("Cut plan generation failed", { error: planError });
@@ -1023,14 +1109,14 @@ export default function Onboarding() {
   // the data — so leaving and re-entering the step naturally re-arms
   // the slam.
   // - DaysToFightSlam: cutting flow only, fires on the date sub-step.
-  // - WeightLossSlam: cutting → step 6 (current weight, last piece);
-  //                   losing  → step 4 (goal weight, last piece).
-  const daysSlamArmed = isFighterFlow && step === 3 && fightSubStep === 1 && fightDateUserChanged;
+  // - WeightLossSlam: cutting → F.WEIGHT (current weight, last piece);
+  //                   losing  → L.TIMEFRAME (goal weight, last piece).
+  const daysSlamArmed = isFighterFlow && step === F.FIGHT_DETAILS && fightSubStep === 1 && fightDateUserChanged;
   // Weight slam now requires `weightUserChanged` (set in goNext on
   // Continue) so the reveal fires on the deliberate user action, not
   // the instant the user types in their weight.
   const weightSlamArmed =
-    ((isFighterFlow && step === 6) || (!isFighterFlow && step === 4)) &&
+    ((isFighterFlow && step === F.WEIGHT) || (!isFighterFlow && step === L.TIMEFRAME)) &&
     weightUserChanged;
 
   // Same gate as the redirect useEffect — when stayOnOnboarding is true
@@ -1074,7 +1160,7 @@ export default function Onboarding() {
             <div className="h-7 w-7" />
           )}
         </div>
-        <XPProgressBar step={step} totalSteps={15} />
+        <XPProgressBar step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS} />
       </div>
 
       <AnimatePresence mode="wait" initial={false}>
@@ -1089,7 +1175,7 @@ export default function Onboarding() {
 
         {/* ── Screen 1: Flow Split — "What brings you here?" ── */}
         {step === 1 && (
-          <StepLayout step={1} title="What brings you here?" subtitle="We'll build your plan around this."
+          <StepLayout step={1} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="What brings you here?" subtitle="We'll build your plan around this."
             footer={<Button onClick={goNext} disabled={!formData.goal_type}
               className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
@@ -1105,9 +1191,33 @@ export default function Onboarding() {
           </StepLayout>
         )}
 
-        {/* ── Screen 2: Branching ── */}
-        {step === 2 && formData.goal_type === "cutting" && (
-          <StepLayout step={2} title="What's your discipline?" subtitle={`Pick your sport${userName ? `, ${userName}` : ""} — we'll tailor everything to it.`}
+        {/* ── Screen 2 (cutting only): Weigh-in timing ──
+            NEW (Weigh-In Timing feature, Task 2). Inserted immediately
+            after the fight/lose split. Captures whether the athlete
+            weighs in the day before (recovery window) or same day (make
+            weight on the day). Drives the pre-dehydration sub-step + the
+            fight-week target auto-calc in Task 3. Single-select: tap
+            selects, Continue advances — same pattern as the split screen. */}
+        {step === F.WEIGH_IN && formData.goal_type === "cutting" && (
+          <StepLayout step={F.WEIGH_IN} totalSteps={FIGHTER_TOTAL_STEPS} title="When do you weigh in?" subtitle="This changes how we plan your cut."
+            footer={<Button onClick={goNext} disabled={!formData.weigh_in_timing}
+              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
+          >
+            <div className="space-y-2.5">
+              {([
+                { value: "day_before", label: "Day before weigh-in", description: "About a day to recover and rehydrate. Pro MMA, boxing, kickboxing, Muay Thai.", icon: <Moon className="h-5 w-5 text-func-fats-purple" /> },
+                { value: "same_day", label: "Same day weigh-in", description: "You weigh in hours before you compete. BJJ/IBJJF, amateur MMA, wrestling, most matches.", icon: <Gauge className="h-5 w-5 text-func-warning-yellow" /> },
+              ] as const).map(opt => (
+                <OptionCard key={opt.value} selected={formData.weigh_in_timing === opt.value} icon={opt.icon}
+                  label={opt.label} description={opt.description} onClick={() => selectAndAdvance("weigh_in_timing", opt.value)} />
+              ))}
+            </div>
+          </StepLayout>
+        )}
+
+        {/* ── Screen 3 (cutting): Discipline ── */}
+        {step === F.DISCIPLINES && formData.goal_type === "cutting" && (
+          <StepLayout step={F.DISCIPLINES} totalSteps={FIGHTER_TOTAL_STEPS} title="What's your discipline?" subtitle={`Pick your sport${userName ? `, ${userName}` : ""} — we'll tailor everything to it.`}
             footer={<Button onClick={goNext} disabled={formData.athlete_types.length === 0}
               className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
@@ -1256,13 +1366,15 @@ export default function Onboarding() {
           </StepLayout>
         )}
 
-        {/* ── Screen 3: Fight Details (cutting flow only) — 4 sub-pages ── */}
-        {step === 3 && formData.goal_type === "cutting" && (() => {
+        {/* ── Screen 4: Fight Details (cutting flow only) — 5 sub-pages ── */}
+        {step === F.FIGHT_DETAILS && formData.goal_type === "cutting" && (() => {
           const subTitles = [
             { title: "Competition level", subtitle: "We use this to set your safe water cut limit." },
             { title: "When's the fight?", subtitle: "We'll plan backwards from your fight date." },
             { title: "What's your weight class?", subtitle: "The weight you'll weigh in at." },
-            { title: "Pre-dehydration target", subtitle: "Your fight week target before the cut." },
+            formData.weigh_in_timing === "same_day"
+              ? { title: "Same-day strategy", subtitle: "No cut — we get you to weight naturally." }
+              : { title: "Pre-dehydration target", subtitle: "Your fight week target before the cut." },
             { title: "Name your camp", subtitle: "Optional — gives the camp a label in your list. We'll call it 'Fight Camp' otherwise." },
           ];
           const t = subTitles[fightSubStep];
@@ -1270,11 +1382,13 @@ export default function Onboarding() {
             (fightSubStep === 0 && !formData.competition_level) ||
             (fightSubStep === 1 && !formData.target_date) ||
             (fightSubStep === 2 && !formData.goal_weight_kg) ||
-            (fightSubStep === 3 && !formData.fight_week_target_kg);
+            // Same-day shows an education screen (no target picker), so its
+            // Continue is always allowed — the target is auto-set ~goal.
+            (fightSubStep === 3 && formData.weigh_in_timing !== "same_day" && !formData.fight_week_target_kg);
             // fightSubStep === 4 is intentionally always allowed — see the
             // inline Skip + default-fallback logic in the camp-name page.
           return (
-            <StepLayout step={3} title={t.title} subtitle={t.subtitle}
+            <StepLayout step={F.FIGHT_DETAILS} totalSteps={FIGHTER_TOTAL_STEPS} title={t.title} subtitle={t.subtitle}
               mascotBump={step * 10 + fightSubStep}
               footer={
                 <Button onClick={goNext} disabled={continueDisabled}
@@ -1390,8 +1504,81 @@ export default function Onboarding() {
                     </div>
                   )}
 
-                  {/* Sub-page 3: Pre-dehydration target with risk indicators */}
-                  {fightSubStep === 3 && (() => {
+                  {/* Sub-page 3 (same-day weigh-in): education screen.
+                      Same-day weigh-ins leave no recovery window, so there is
+                      no water cut. Instead of the dehydration-target picker we
+                      show a safety-first explainer and the auto-set target
+                      (≈ goal weight) read-only. */}
+                  {fightSubStep === 3 && formData.weigh_in_timing === "same_day" && (() => {
+                    const goalKg = parseFloat(formData.goal_weight_kg);
+                    const targetKg = parseFloat(formData.fight_week_target_kg);
+                    const bufferKg = goalKg > 0 && targetKg > 0 ? Math.max(0, targetKg - goalKg) : 0;
+                    const points = [
+                      {
+                        icon: <Gauge className="h-5 w-5 text-primary" />,
+                        title: "Weigh-in weight = fight weight",
+                        body: "You step on the scale and compete the same day — there's no time to rehydrate or refuel after.",
+                      },
+                      {
+                        icon: <Utensils className="h-5 w-5 text-func-recovery-green" />,
+                        title: "Keep carbs in — eat normally",
+                        body: "Don't deplete your glycogen tanks. With no refuel window, cutting carbs just leaves you flat and weak when it counts.",
+                      },
+                      {
+                        icon: <Shield className="h-5 w-5 text-func-recovery-green" />,
+                        title: "Hydrate normally",
+                        body: "No sauna, no sweat-suits, no fluid restriction. Dehydrating to make weight on a same-day weigh-in is dangerous and tanks performance.",
+                      },
+                      {
+                        icon: <TrendingDown className="h-5 w-5 text-primary" />,
+                        title: "We get you there naturally",
+                        body: "Your plan eases you toward weight over the weeks ahead — no last-minute cut, just steady, safe progress.",
+                      },
+                    ];
+                    return (
+                      <div className="flex flex-col gap-3 pt-2 pb-4">
+                        {points.map((p, i) => (
+                          <div key={i} className="flex items-start gap-3 rounded-xs border border-border/50 bg-card p-3.5">
+                            <span className="flex-shrink-0 mt-0.5">{p.icon}</span>
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-foreground">{p.title}</p>
+                              <p className="text-[12px] text-muted-foreground leading-snug mt-0.5">{p.body}</p>
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Auto-set fight-week target (≈ goal, read-only). */}
+                        <div className="rounded-xs border border-func-recovery-green/25 bg-func-recovery-green/[0.06] p-3.5">
+                          <div className="flex items-center gap-2 mb-1">
+                            <CheckCircle className="h-4 w-4 text-func-recovery-green flex-shrink-0" />
+                            <span className="text-[11px] uppercase tracking-wider font-bold text-func-recovery-green/90">
+                              Your fight-week target
+                            </span>
+                          </div>
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-3xl font-bold tabular-nums text-foreground">
+                              {targetKg > 0 ? targetKg.toFixed(1) : "—"}
+                            </span>
+                            <span className="text-sm text-muted-foreground">kg</span>
+                          </div>
+                          <p className="text-[12px] text-muted-foreground leading-snug mt-1.5">
+                            Right at your goal of{" "}
+                            <span className="text-foreground font-semibold tabular-nums">
+                              {goalKg > 0 ? goalKg.toFixed(1) : "—"}
+                            </span>{" "}
+                            kg{bufferKg > 0 ? (
+                              <> — a tiny ~1.5% ({bufferKg.toFixed(1)} kg) buffer, no water cut.</>
+                            ) : (
+                              <> — no water cut.</>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Sub-page 3 (day-before weigh-in): pre-dehydration target with risk indicators */}
+                  {fightSubStep === 3 && formData.weigh_in_timing !== "same_day" && (() => {
                     const goalKg = parseFloat(formData.goal_weight_kg);
                     const targetKg = parseFloat(formData.fight_week_target_kg);
                     const waterCutKg = targetKg - goalKg;
@@ -1510,10 +1697,9 @@ export default function Onboarding() {
           );
         })()}
 
-        {/* ── Screen 4: Height ── */}
-        {/* ── Screen 4: Age + Sex ── */}
-        {((step === 4 && formData.goal_type !== "losing") || (step === 5 && formData.goal_type === "losing")) && (
-          <StepLayout step={step} title="How old are you?" subtitle="We'll use this to dial in your metabolic rate."
+        {/* ── Age + Sex (cutting F.AGE=5 / losing L.AGE=5) ── */}
+        {((step === F.AGE && formData.goal_type === "cutting") || (step === L.AGE && formData.goal_type === "losing")) && (
+          <StepLayout step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="How old are you?" subtitle="We'll use this to dial in your metabolic rate."
             footer={<Button onClick={goNext} disabled={!formData.age}
               className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
@@ -1554,9 +1740,9 @@ export default function Onboarding() {
           </StepLayout>
         )}
 
-        {/* ── Screen 5: Height ── */}
-        {((step === 5 && formData.goal_type !== "losing") || (step === 6 && formData.goal_type === "losing")) && (
-          <StepLayout step={step} title="What's your height?" subtitle="Used to calculate your metabolic rate."
+        {/* ── Height (cutting F.HEIGHT=6 / losing L.HEIGHT=6) ── */}
+        {((step === F.HEIGHT && formData.goal_type === "cutting") || (step === L.HEIGHT && formData.goal_type === "losing")) && (
+          <StepLayout step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="What's your height?" subtitle="Used to calculate your metabolic rate."
             footer={<Button onClick={goNext} disabled={!formData.height_cm}
               className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
@@ -1586,9 +1772,9 @@ export default function Onboarding() {
           </StepLayout>
         )}
 
-        {/* ── Screen 6: Current Weight ── */}
-        {step === 6 && formData.goal_type !== "losing" && (
-          <StepLayout step={6} title="What's your current weight?" subtitle="Step on the scale. Be honest — this is your starting line."
+        {/* ── Current Weight (cutting F.WEIGHT=7) ── */}
+        {step === F.WEIGHT && formData.goal_type === "cutting" && (
+          <StepLayout step={F.WEIGHT} totalSteps={FIGHTER_TOTAL_STEPS} title="What's your current weight?" subtitle="Step on the scale. Be honest — this is your starting line."
             footer={<Button onClick={goNext} disabled={!formData.current_weight_kg}
               className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
@@ -1709,9 +1895,9 @@ export default function Onboarding() {
           </StepLayout>
         )}
 
-        {/* ── Screen 7: Body Fat (Optional) ── */}
-        {step === 7 && (
-          <StepLayout step={7} title="Estimate your body fat" subtitle="Drag the slider. Skip if you're not sure."
+        {/* ── Body Fat (shared; cutting F.BODY_FAT=8 / losing L.BODY_FAT=7) ── */}
+        {((step === F.BODY_FAT && isFighterFlow) || (step === L.BODY_FAT && !isFighterFlow)) && (
+          <StepLayout step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="Estimate your body fat" subtitle="Drag the slider. Skip if you're not sure."
             footer={
               <div className="space-y-2">
                 <Button onClick={goNext} className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90">Continue</Button>
@@ -1778,9 +1964,9 @@ export default function Onboarding() {
           </StepLayout>
         )}
 
-        {/* ── Screen 8: Experience Level ── */}
-        {step === 8 && (
-          <StepLayout step={8} title="What's your experience level?" subtitle="No judgment. We just need to know where you're at."
+        {/* ── Experience Level (shared; cutting F.EXPERIENCE=9 / losing L.EXPERIENCE=8) ── */}
+        {((step === F.EXPERIENCE && isFighterFlow) || (step === L.EXPERIENCE && !isFighterFlow)) && (
+          <StepLayout step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="What's your experience level?" subtitle="No judgment. We just need to know where you're at."
             footer={<Button onClick={goNext} disabled={!formData.experience_level}
               className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
@@ -1797,9 +1983,9 @@ export default function Onboarding() {
           </StepLayout>
         )}
 
-        {/* ── Screen 9: Training Frequency ── */}
-        {step === 9 && (
-          <StepLayout step={9} title="How often do you train?" subtitle="All sessions — pads, sparring, gym, running."
+        {/* ── Training Frequency (shared; cutting F.TRAINING_FREQ=10 / losing L.TRAINING_FREQ=9) ── */}
+        {((step === F.TRAINING_FREQ && isFighterFlow) || (step === L.TRAINING_FREQ && !isFighterFlow)) && (
+          <StepLayout step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="How often do you train?" subtitle="All sessions — pads, sparring, gym, running."
             footer={<Button onClick={goNext} disabled={!formData.training_frequency}
               className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
@@ -1824,9 +2010,10 @@ export default function Onboarding() {
             Wrapped in the same StepLayout chrome so the header /
             progress / mascot all stay consistent with neighbouring
             screens. */}
-        {step === 10 && (
+        {((step === F.HEALTH && isFighterFlow) || (step === L.HEALTH && !isFighterFlow)) && (
           <StepLayout
-            step={10}
+            step={step}
+            totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS}
             title="Connect Apple Health"
             subtitle="Optional. Powers your Fight Form score with real recovery data."
           >
@@ -1839,9 +2026,10 @@ export default function Onboarding() {
             system-permission asks are grouped together. The step body
             owns its own action buttons (primary + secondary) so no
             StepLayout footer is needed — mirrors ConnectHealthStep. */}
-        {step === 11 && (
+        {((step === F.REMINDERS && isFighterFlow) || (step === L.REMINDERS && !isFighterFlow)) && (
           <StepLayout
-            step={11}
+            step={step}
+            totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS}
             title="Stay on track"
             subtitle="We'll remind you at the times you already log."
           >
@@ -1849,9 +2037,9 @@ export default function Onboarding() {
           </StepLayout>
         )}
 
-        {/* ── Screen 12: Training Types ── */}
-        {step === 12 && (
-          <StepLayout step={12} title="What does your training include?" subtitle="Select all that apply."
+        {/* ── Training Types (shared; cutting F.TRAINING_TYPES=13 / losing L.TRAINING_TYPES=12) ── */}
+        {((step === F.TRAINING_TYPES && isFighterFlow) || (step === L.TRAINING_TYPES && !isFighterFlow)) && (
+          <StepLayout step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="What does your training include?" subtitle="Select all that apply."
             footer={<Button onClick={goNext} disabled={formData.training_types.length === 0}
               className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
@@ -1864,9 +2052,9 @@ export default function Onboarding() {
           </StepLayout>
         )}
 
-        {/* ── Screen 13: Sleep ── */}
-        {step === 13 && (
-          <StepLayout step={13} title="How many hours do you sleep?" subtitle="Recovery is half the game."
+        {/* ── Sleep (shared; cutting F.SLEEP=14 / losing L.SLEEP=13) ── */}
+        {((step === F.SLEEP && isFighterFlow) || (step === L.SLEEP && !isFighterFlow)) && (
+          <StepLayout step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="How many hours do you sleep?" subtitle="Recovery is half the game."
             footer={<Button onClick={goNext} disabled={!formData.sleep_hours}
               className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
@@ -1892,8 +2080,8 @@ export default function Onboarding() {
             cut-plan AI's framing. Losing flow takes a different
             question on this step (see below) so the shared step 15
             stays a clean declaration + generate-plan finale. */}
-        {step === 14 && formData.goal_type !== "losing" && (
-          <StepLayout step={14} title="What do you struggle with most?" subtitle="Be real. We'll build around your weak spots."
+        {step === F.STRUGGLE && formData.goal_type === "cutting" && (
+          <StepLayout step={F.STRUGGLE} totalSteps={FIGHTER_TOTAL_STEPS} title="What do you struggle with most?" subtitle="Be real. We'll build around your weak spots."
             footer={<Button onClick={goNext} disabled={!formData.primary_struggle}
               className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
@@ -1916,8 +2104,8 @@ export default function Onboarding() {
             step is purely declaration → tale-of-the-tape → generate.
             Was the source of "round 13 asks me how aggressive when it
             should just be Generate" — this fixes that. */}
-        {step === 14 && formData.goal_type === "losing" && (
-          <StepLayout step={14} title="How aggressive do you want to go?" subtitle="Picks the pace of your cut. You can change it later in Settings."
+        {step === L.AGGRESSIVENESS && formData.goal_type === "losing" && (
+          <StepLayout step={L.AGGRESSIVENESS} totalSteps={LOSING_TOTAL_STEPS} title="How aggressive do you want to go?" subtitle="Picks the pace of your cut. You can change it later in Settings."
             footer={<Button onClick={goNext} disabled={!formData.plan_aggressiveness}
               className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
@@ -1940,9 +2128,10 @@ export default function Onboarding() {
             `profiles.setUserName` mutation) so the dashboard, coach view,
             and camp roster all see a real name from day one. Skipping is
             blocked (Continue disabled until valid). */}
-        {step === 15 && (
+        {((step === F.NAME && isFighterFlow) || (step === L.NAME && !isFighterFlow)) && (
           <StepLayout
-            step={15}
+            step={step}
+            totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS}
             title="What should we call you?"
             subtitle="Your gym sees this name. Real name, nickname, fight name — your call."
             footer={
@@ -1983,9 +2172,9 @@ export default function Onboarding() {
           </StepLayout>
         )}
 
-        {/* ── Screen 16: Declaration + finale (losing flow only) ── */}
-        {step === 16 && formData.goal_type === "losing" && !declared && (
-          <StepLayout step={16} title={`${vocab.campNoun} — last call.`} subtitle="One commitment, then we build the plan.">
+        {/* ── L.FINAL=16: Declaration + finale (losing flow only) ── */}
+        {step === L.FINAL && formData.goal_type === "losing" && !declared && (
+          <StepLayout step={L.FINAL} totalSteps={LOSING_TOTAL_STEPS} title={`${vocab.campNoun} — last call.`} subtitle="One commitment, then we build the plan.">
             <div className="space-y-4 px-1 pt-4">
               <h2 className="text-[28px] font-black leading-tight text-center">{userName ? userName + ", " : ""}lock it in.</h2>
               <p className="text-[14px] text-center text-muted-foreground">
@@ -1996,8 +2185,8 @@ export default function Onboarding() {
             </div>
           </StepLayout>
         )}
-        {step === 16 && formData.goal_type === "losing" && declared && (
-          <StepLayout step={16} title="Here's your plan." subtitle="Review the snapshot, then tap Generate to lock it in."
+        {step === L.FINAL && formData.goal_type === "losing" && declared && (
+          <StepLayout step={L.FINAL} totalSteps={LOSING_TOTAL_STEPS} title="Here's your plan." subtitle="Review the snapshot, then tap Generate to lock it in."
             footer={
               generatedPlan ? null : generatingPlan ? (
                 <WizardPlanForgeOverlay
@@ -2095,8 +2284,8 @@ export default function Onboarding() {
           </StepLayout>
         )}
 
-        {/* ── Screen 16: Cut Preview (cutting flow only) — projected weight chart ── */}
-        {step === 16 && formData.goal_type === "cutting" && (() => {
+        {/* ── F.FINAL=17: Cut Preview (cutting flow only) — projected weight chart ── */}
+        {step === F.FINAL && formData.goal_type === "cutting" && (() => {
           const currentWeight = parseFloat(formData.current_weight_kg) || 0;
           const fightWeekTarget = parseFloat(formData.fight_week_target_kg) || 0;
           const fightWeight = parseFloat(formData.goal_weight_kg) || 0;
@@ -2189,7 +2378,7 @@ export default function Onboarding() {
           // the existing final-step content remains intact.
           if (!declared) {
             return (
-              <StepLayout step={16} title={`${vocab.campNoun} — last call.`} subtitle="One commitment, then we build the plan.">
+              <StepLayout step={F.FINAL} totalSteps={FIGHTER_TOTAL_STEPS} title={`${vocab.campNoun} — last call.`} subtitle="One commitment, then we build the plan.">
                 <div className="space-y-4 px-1 pt-4">
                   <h2 className="text-[28px] font-black leading-tight text-center">{userName ? userName + ", " : ""}lock it in.</h2>
                   <p className="text-[14px] text-center text-muted-foreground">
@@ -2203,7 +2392,7 @@ export default function Onboarding() {
           }
 
           return (
-            <StepLayout step={16} title={`Your projected ${vocab.campNoun.toLowerCase()}`} subtitle="Review before we generate your plan."
+            <StepLayout step={F.FINAL} totalSteps={FIGHTER_TOTAL_STEPS} title={`Your projected ${vocab.campNoun.toLowerCase()}`} subtitle="Review before we generate your plan."
               footer={
                 generatedPlan ? null : generatingPlan ? (
                   <WizardPlanForgeOverlay

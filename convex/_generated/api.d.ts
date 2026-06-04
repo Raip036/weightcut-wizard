@@ -38,6 +38,7 @@ import type * as _shared_researchSummary from "../_shared/researchSummary.js";
 import type * as _shared_sanitizeUserText from "../_shared/sanitizeUserText.js";
 import type * as _shared_subscriptionGuard from "../_shared/subscriptionGuard.js";
 import type * as _shared_tier from "../_shared/tier.js";
+import type * as _shared_weighInTiming from "../_shared/weighInTiming.js";
 import type * as _shared_weightProtocolMath from "../_shared/weightProtocolMath.js";
 import type * as actions__helpers from "../actions/_helpers.js";
 import type * as actions__trainingCoach_completePath from "../actions/_trainingCoach/completePath.js";
@@ -183,6 +184,7 @@ declare const fullApi: ApiFromModules<{
   "_shared/sanitizeUserText": typeof _shared_sanitizeUserText;
   "_shared/subscriptionGuard": typeof _shared_subscriptionGuard;
   "_shared/tier": typeof _shared_tier;
+  "_shared/weighInTiming": typeof _shared_weighInTiming;
   "_shared/weightProtocolMath": typeof _shared_weightProtocolMath;
   "actions/_helpers": typeof actions__helpers;
   "actions/_trainingCoach/completePath": typeof actions__trainingCoach_completePath;

@@ -36,6 +36,9 @@ export interface ProfileData {
   manual_nutrition_override?: boolean;
   avatar_url?: string;
   goal_type?: 'cutting' | 'losing';
+  /** When the user weighs in relative to competition. Drives same-day vs
+   *  day-before cut planning. "" | "day_before" | "same_day". */
+  weigh_in_timing?: string;
   role?: 'fighter' | 'coach';
   display_name?: string | null;
   is_premium?: boolean;

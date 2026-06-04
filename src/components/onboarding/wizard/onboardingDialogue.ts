@@ -30,105 +30,116 @@ const LINES: Record<string, DialogueLine> = {
   },
 
   // ── Cutting branch ─────────────────────────────────────────────────
-  // Step 2: athlete type (multi-select)
+  // NOTE: every cutting step shifted +1 on 2026-06-04 when the weigh-in
+  // timing screen was inserted as cutting step 2. Keys below are the
+  // post-shift step numbers (F.* in Onboarding.tsx). Sub-step keys for
+  // the fight-details mini-flow moved 3:N → 4:N with it.
+
+  // Step 2 (F.WEIGH_IN): weigh-in timing — day before vs same day
   "cutting:2": {
+    headline: "Weigh-in day.",
+    body: "Day before or same day? It changes the whole water-cut math.",
+  },
+
+  // Step 3 (F.DISCIPLINES): athlete type (multi-select)
+  "cutting:3": {
     headline: "Your sport.",
     body: "Boxers cut different from grapplers. Tell me what you do.",
   },
 
-  // Step 3 sub-steps
-  "cutting:3:0": {
+  // Step 4 (F.FIGHT_DETAILS) sub-steps
+  "cutting:4:0": {
     headline: "Level up.",
     body: "Amateur or pro changes the whole protocol. Don't sandbag.",
   },
-  "cutting:3:1": {
+  "cutting:4:1": {
     headline: "Fight date.",
     body: "This is the gravity well. Every meal and run orbits it.",
   },
-  "cutting:3:2": {
+  "cutting:4:2": {
     headline: "Weight class.",
     body: "Pick the line you have to cross. Usually lighter than the ego wants.",
   },
-  "cutting:3:3": {
-    headline: "Walk-in weight.",
-    body: "Your pre-dehydration target — not the scale at weigh-in, the one before water cut.",
+  "cutting:4:3": {
+    headline: "Fight-week target.",
+    body: "How close to weight you'll be before the final stretch — tailored to your weigh-in.",
   },
-  "cutting:3:4": {
+  "cutting:4:4": {
     headline: "Camp name.",
     body: "Optional. But naming the camp makes it real.",
   },
-  // Step 3 fallback (rare; if substep undefined)
-  "cutting:3": {
+  // Step 4 fallback (rare; if substep undefined)
+  "cutting:4": {
     headline: "Fight details.",
     body: "A few specifics about your bout. This shapes the cut.",
   },
 
-  // Step 4: age
-  "cutting:4": {
+  // Step 5: age
+  "cutting:5": {
     headline: "How old.",
     body: "Metabolism is a real number, not a vibe. We need it.",
     pose: "point",
   },
 
-  // Step 5: height
-  "cutting:5": {
+  // Step 6: height
+  "cutting:6": {
     headline: "Stand tall.",
     body: "Height feeds your real burn rate. No rounding up.",
     pose: "point",
   },
 
-  // Step 6: current weight — slam follows, keep grounded
-  "cutting:6": {
+  // Step 7: current weight — slam follows, keep grounded
+  "cutting:7": {
     headline: "Step on.",
     body: "Honest number, please. This is the starting line.",
     pose: "point",
   },
 
-  // Step 7: body fat slider
-  "cutting:7": {
+  // Step 8: body fat slider
+  "cutting:8": {
     headline: "Eyeball it.",
     body: "Rough body fat is fine — we calibrate as you log.",
     pose: "point",
   },
 
-  // Step 8: experience
-  "cutting:8": {
+  // Step 9: experience
+  "cutting:9": {
     headline: "How long.",
     body: "Beginners cut different from vets. Be straight with me.",
   },
 
-  // Step 9: training frequency
-  "cutting:9": {
+  // Step 10: training frequency
+  "cutting:10": {
     headline: "Sessions a week.",
     body: "Pads, sparring, gym, runs — count all of them.",
   },
 
-  // Step 10: training types
-  "cutting:10": {
+  // Step 13: training types
+  "cutting:13": {
     headline: "The work.",
     body: "Wrestling burns more than shadowbox. Surprising no one.",
   },
 
-  // Step 11: sleep
-  "cutting:11": {
+  // Step 14: sleep
+  "cutting:14": {
     headline: "Sleep hours.",
     body: "This is when fat actually leaves. Wild, I know.",
   },
 
-  // Step 12: struggle
-  "cutting:12": {
+  // Step 15: struggle
+  "cutting:15": {
     headline: "Your demon.",
     body: "Pick the one that wrecks camps. Naming it is half the fight.",
   },
 
-  // Step 13: name
-  "cutting:13": {
+  // Step 16: name
+  "cutting:16": {
     headline: "Your name.",
     body: "Your gym needs something to chant at the weigh-in.",
   },
 
-  // Step 14: final
-  "cutting:14": {
+  // Step 17: final
+  "cutting:17": {
     headline: "Hold the line.",
     body: "Sign your name, fighter. Then we build the plan.",
     pose: "celebrate",

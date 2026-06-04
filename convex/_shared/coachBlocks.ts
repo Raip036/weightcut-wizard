@@ -35,6 +35,7 @@ import {
   buildSleepCards,
   summarizeSleep,
 } from "./coachDomains/recovery";
+import { weighInTimingLabel } from "./weighInTiming";
 
 // ── Input shape (subset of fetchFightWeekData) ──────────────────────────
 // Spelled out structurally rather than imported from the generated API to
@@ -309,7 +310,12 @@ export function computeDeterministicBundle(
       `Upcoming fight: ${data.upcomingCamp.fight_date} (${data.upcomingCamp.name})`,
     );
     if (data.upcomingCamp.weigh_in_timing) {
-      factLines.push(`Weigh-in timing: ${data.upcomingCamp.weigh_in_timing}`);
+      // Normalize the (possibly free-form / legacy) token to a human label so
+      // the LLM never sees raw "same_day" / "morning_of" etc. Missing values
+      // are handled by the surrounding guard; unknown tokens → "Day before".
+      factLines.push(
+        `Weigh-in timing: ${weighInTimingLabel(data.upcomingCamp.weigh_in_timing)}`,
+      );
     }
   } else {
     factLines.push("No upcoming fight scheduled.");

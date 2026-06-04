@@ -61,6 +61,11 @@ export default defineSchema({
 
     // Onboarding v2 profile fields
     athleteType: v.optional(v.string()),
+    // Weigh-in timing for the user's discipline / event format. Drives the
+    // same-day vs day-before cut-strategy branch in generateCutPlan. Absent
+    // rows default to "day_before" (the historical managed-acute-cut
+    // behavior) at the read site. Canonical: "day_before" | "same_day".
+    weighInTiming: v.optional(v.string()),
     // Convex Storage ID for the avatar image. Resolved to a long-lived URL
     // server-side via ctx.storage.getUrl() before sending to the client.
     avatarStorageId: v.optional(v.id("_storage")),

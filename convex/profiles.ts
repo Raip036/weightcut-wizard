@@ -57,6 +57,7 @@ function toClientShape(
     manual_nutrition_override: row.manualNutritionOverride,
     cut_plan_json: row.cutPlanJson,
     athlete_type: row.athleteType,
+    weigh_in_timing: row.weighInTiming,
     avatar_url: avatarUrl,
     display_name: row.displayName,
     experience_level: row.experienceLevel,
@@ -440,6 +441,9 @@ export const updateGoals = mutation({
     trainingFrequency: v.optional(v.number()),
     trainingTypes: v.optional(v.array(v.string())),
     athleteType: v.optional(v.string()),
+    // "day_before" | "same_day" — drives the cut-strategy branch in
+    // generateCutPlan. Optional; existing callers are unaffected.
+    weighInTiming: v.optional(v.string()),
     experienceLevel: v.optional(v.string()),
     planAggressiveness: v.optional(v.string()),
     primaryStruggle: v.optional(v.string()),

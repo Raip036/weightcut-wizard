@@ -25,11 +25,19 @@ export const run = action({
     age: v.number(),
     sex: v.union(v.literal("male"), v.literal("female")),
     activityLevel: v.optional(v.string()),
+    // "day_before" | "same_day". Drives the cut-strategy branch below.
+    // Absent / unrecognised → "day_before" (preserves historical behavior).
+    weighInTiming: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserIdFromAction(ctx);
     // Free for everyone — see featureGates.ts for the policy reason.
     const snap = await loadAthleteSnapshot(ctx, userId);
+    // Canonical weigh-in timing. Default to "day_before" everywhere it's
+    // missing or unrecognised so existing callers keep the managed acute-cut
+    // behavior. "same_day" switches to the research-backed (ISSN 2025)
+    // no-acute-cut strategy.
+    const isSameDay = args.weighInTiming === "same_day";
     const primaryStruggle: string | undefined =
       typeof snap.profile?.primaryStruggle === "string"
         ? snap.profile.primaryStruggle
@@ -54,9 +62,56 @@ export const run = action({
       tdee: maintenanceCal,
     });
     const targetCal = Math.max(1200, maintenanceCal - deficit.dailyDeficitKcal);
-    const macros = macroSplit(targetCal, args.currentWeight, "cut");
+    const baseMacros = macroSplit(targetCal, args.currentWeight, "cut");
+    // Same-day weigh-in: there is NO post-weigh-in recovery window, so we
+    // must never deplete glycogen. Floor carbohydrates at >=3 g/kg bodyweight
+    // (ISSN 2025) — overriding the deficit-driven remainder if it would dip
+    // below that. day_before keeps the unchanged cut macro logic.
+    const sameDayCarbFloorG = Math.round(args.currentWeight * 3);
+    const macros = isSameDay
+      ? { ...baseMacros, carb_g: Math.max(baseMacros.carb_g, sameDayCarbFloorG) }
+      : baseMacros;
 
-    const systemPrompt = `You are an evidence-based combat-sports nutritionist building a card-based fight-camp plan. Output ONLY valid JSON matching the schema. Use the deterministic numbers below verbatim — never invent calories or macros that contradict them.
+    // ── Same-day context (only meaningful when isSameDay) ──────────────
+    // How much of bodyweight the athlete would need to shed to reach the
+    // target, and whether the timeline is long enough for a true
+    // body-composition descent. These steer the same-day edge cases:
+    //  - already at/under goal       → maintenance plan, no cut
+    //  - drop > ~5% or short window  → recommend moving UP a weight class
+    //  - long timeline               → chronic body-comp mode only
+    const totalDropKg = +(args.currentWeight - finalTarget).toFixed(2);
+    const pctDrop =
+      args.currentWeight > 0 ? (totalDropKg / args.currentWeight) * 100 : 0;
+    const alreadyAtGoal = totalDropKg <= 0 || pctDrop <= 1;
+    const dropTooBig = pctDrop > 5;
+    const shortTimeline = days < 14;
+
+    // Build the same-day EDGE-CASE clauses as a list so they're numbered
+    // sequentially (no duplicate "6." / off-by-one) regardless of which
+    // ones fire. `alreadyAtGoal` (maintenance) and the move-up-a-class
+    // clause are MUTUALLY EXCLUSIVE — maintenance wins when both could
+    // apply, so the move-up clause is gated behind `!alreadyAtGoal`.
+    const sameDayEdgeClauses: string[] = [];
+    if (alreadyAtGoal) {
+      sameDayEdgeClauses.push(
+        "EDGE CASE — the athlete is already at or under goal weight. Build a MAINTENANCE plan: hold weight, keep carbs and hydration normal, train and recover. Do NOT prescribe any cut or deficit.",
+      );
+    } else if (dropTooBig || shortTimeline) {
+      sameDayEdgeClauses.push(
+        `EDGE CASE — reaching the limit would need roughly ${pctDrop.toFixed(0)}% of bodyweight${shortTimeline ? " in a short timeline" : ""}. That cannot be done safely without meaningful dehydration on a same-day weigh-in. RECOMMEND MOVING UP A WEIGHT CLASS rather than cutting, and say so clearly in \`summary\` and \`safetyNotes\`.`,
+      );
+    }
+    if (days > 7 * 16) {
+      sameDayEdgeClauses.push(
+        "EDGE CASE — the timeline is long/open-ended. Use CHRONIC body-composition mode only: slow, sustainable fat loss with full carbs and hydration; no countdown, no acute phase.",
+      );
+    }
+    // Numbered continuation of the 5 strategy rules above (start at 6).
+    const sameDayEdgeCases = sameDayEdgeClauses
+      .map((clause, i) => `${i + 6}. ${clause}\n`)
+      .join("");
+
+    const DAY_BEFORE_PROMPT = `You are an evidence-based combat-sports nutritionist building a card-based fight-camp plan. Output ONLY valid JSON matching the schema. Use the deterministic numbers below verbatim — never invent calories or macros that contradict them.
 
 ${SECOND_PERSON_DIRECTIVE}
 
@@ -90,6 +145,52 @@ DETERMINISTIC FACTS:
 
 ${snap.block}`;
 
+    // SAME-DAY weigh-in. There is NO recovery window between weigh-in and
+    // competition, so the entire managed acute-cut model (water/carb/sodium
+    // manipulation → rehydrate/refuel) is the WRONG strategy and is removed.
+    // Rules are ISSN 2025 position stand; tone is plain and safety-first
+    // because most same-day athletes are amateurs / BJJ / match fighters.
+    const SAME_DAY_PROMPT = `You are an evidence-based combat-sports nutritionist building a card-based plan for an athlete who weighs in on the SAME DAY as they compete. There is NO recovery window between weigh-in and the fight. Output ONLY valid JSON matching the schema. Use the deterministic numbers below verbatim — never invent calories or macros that contradict them.
+
+${SECOND_PERSON_DIRECTIVE}
+
+USER STRUGGLE: ${primaryStruggle ?? "unspecified"}
+You MUST address this struggle directly in \`personalNote\` (1-2 sentences, ≤280 chars) and weave one mitigating tactic into the relevant week's \`dailyFocus\` bullets.
+
+SAME-DAY WEIGH-IN STRATEGY (this OVERRIDES any acute water-cut you know):
+1. Build the whole plan around GRADUAL body-composition change done EARLY in the timeline. The final days are MAINTENANCE plus light training, NOT an acute cut. There is no fight-week water cut and no refuel window.
+2. KEEP CARBOHYDRATES throughout. Never deplete glycogen. Hold carbs at >=3-4 g/kg/day right through the descent and right up to competition — the athlete competes on the weight they make, fueled.
+3. Cap acute dehydration at <=2-3% of bodyweight, and prefer ~0%. Explicitly tell the athlete: do NOT use sauna, sweat suits, hot baths, or fluid restriction to make weight. Hydrate normally.
+4. Explain WHY plainly: even ~2-3% dehydration costs roughly >=10% performance, and with same-day weigh-in that loss is carried straight into the fight with no time to recover. Eating normally and keeping carbs is a performance ADVANTAGE here, not a compromise.
+5. Treat the fight-week target as essentially AT goal weight (within ~1-2%). The last days hold weight steady, they do not chase a number.
+${sameDayEdgeCases}Per week, return:
+- \`phase\`: one of foundation | build | peak | final | fight_week (the LAST week MUST be fight_week). For same-day, treat fight_week as a MAINTENANCE / hold-weight week — eat normally, full carbs, hydrate. It is NOT a water-cut week.
+- \`heroLine\`: ≤80 chars, ONE memorable sentence.
+- \`keyMetric\`: ≤24 chars headline (e.g. "−0.4 kg", "Carbs 4 g/kg").
+- \`dailyFocus\`: 3-5 bullets, each ≤60 chars, imperative voice. NO PARAGRAPHS. The final-week bullets MUST reflect eating normally, keeping carbs, and hydrating — never water/sodium/sweat manipulation.
+- \`risk\` / \`recovery\`: ≤80 chars each, optional.
+
+Also return:
+- \`phases[]\`: 2-3 macro phases with name + label + weekStart + weekEnd + 1-line \`intent\` (≤120 chars).
+- \`toughestWeek\`: { week, reason ≤120 chars }.
+- \`personalNote\`: 10-280 chars, references the struggle above.
+- \`summary\`: ≤500 chars, ONE paragraph max. MUST state plainly that this is a same-day weigh-in so there is no acute cut, no sauna/sweat suits, full carbs and normal hydration into the fight.
+- \`safetyNotes\`: ≤300 chars. MUST include the no-sauna / no-sweat-suit / no-fluid-restriction warning and the ~2-3% dehydration ≈ >=10% performance-loss rationale.
+- \`keyPrinciples\`: 3-5 short rules, each ≤120 chars — center them on full carbs, normal hydration, gradual early change, and no acute cut.
+
+BANNED: any sauna / sweat suit / hot bath / water-load / sodium-cliff / fluid-restriction guidance, glycogen depletion, paragraph-length focus strings, motivational fluff, repeating numbers already in \`calories\`/\`protein_g\`, generic advice that ignores the user struggle above, em-dashes (—) or en-dashes (–) anywhere in the output — use commas or periods instead.
+For \`recovery\` field (optional, per-week): omit unless you have a sport-specific, dose-and-timing directive. Do NOT emit generic wellness lines.
+
+DETERMINISTIC FACTS:
+- BMR: ${bmr}, maintenance: ${maintenanceCal}, target: ${targetCal} kcal
+- Macros: ${macros.protein_g}P / ${macros.carb_g}C / ${macros.fat_g}F (carbs floored at >=3 g/kg — do NOT cut below this)
+- Weeks: ${weekCount}, days remaining: ${days}
+- Starting weight: ${args.currentWeight}kg, target: ${finalTarget}kg (drop ≈ ${pctDrop.toFixed(1)}% of bodyweight)
+
+${snap.block}`;
+
+    const systemPrompt = isSameDay ? SAME_DAY_PROMPT : DAY_BEFORE_PROMPT;
+
     let aiResult: any = null;
     try {
       aiResult = await callGroqWithRetry({
@@ -98,7 +199,9 @@ ${snap.block}`;
           { role: "system", content: systemPrompt },
           {
             role: "user",
-            content: `Generate a ${weekCount}-week cut plan for an athlete cutting from ${args.currentWeight}kg to ${finalTarget}kg in ${days} days. Tapered weekly targets, 2-3 phase summary, structured per-week cards with heroLine + dailyFocus bullets, personalNote tied to the struggle, toughestWeek call-out. The fightWeek numeric block is computed server-side, so do not emit it.`,
+            content: isSameDay
+              ? `Generate a ${weekCount}-week SAME-DAY-weigh-in plan for an athlete going from ${args.currentWeight}kg toward ${finalTarget}kg in ${days} days. Gradual body-composition change done early, full carbs (>=3 g/kg) and normal hydration held all the way to competition, the final week a maintenance/hold-weight week with NO acute cut. Structured per-week cards with heroLine + dailyFocus bullets, personalNote tied to the struggle, toughestWeek call-out, and a summary + safetyNotes that spell out the no-sauna / no-dehydration rationale. The fightWeek numeric block is computed server-side, so do not emit it.`
+              : `Generate a ${weekCount}-week cut plan for an athlete cutting from ${args.currentWeight}kg to ${finalTarget}kg in ${days} days. Tapered weekly targets, 2-3 phase summary, structured per-week cards with heroLine + dailyFocus bullets, personalNote tied to the struggle, toughestWeek call-out. The fightWeek numeric block is computed server-side, so do not emit it.`,
           },
         ],
         temperature: 0.4,
@@ -158,16 +261,50 @@ ${snap.block}`;
     // compute server-side from bodyweight, never trust LLM output for
     // these. This also produces a per-day timeline (fightWeekDays) the
     // UI uses to render a clear day-stack instead of opaque date ranges.
-    const fightWeekBundle = buildFightWeekBundle({
-      currentWeight: args.currentWeight,
-      finalTarget,
-      daysRemaining: days,
-      targetDateISO: args.targetDate,
-    });
+    //
+    // SAME-DAY: there is no acute cut, so the day-stack is a MAINTENANCE /
+    // hold-weight protocol (full carbs, normal hydration, no water-load,
+    // no sodium cliff) rather than the day-before depletion timeline.
+    const fightWeekBundle = isSameDay
+      ? buildSameDayFinalWeekBundle({
+          currentWeight: args.currentWeight,
+          daysRemaining: days,
+          targetDateISO: args.targetDate,
+        })
+      : buildFightWeekBundle({
+          currentWeight: args.currentWeight,
+          finalTarget,
+          daysRemaining: days,
+          targetDateISO: args.targetDate,
+        });
+
+    // SAME-DAY narrative guarantee: the educational messaging (no acute cut,
+    // full carbs, normal hydration, ~2-3% dehydration ≈ >=10% performance
+    // loss, move-up-a-class when needed) must appear even when the LLM call
+    // fails and we fall through to the deterministic fallback. Override the
+    // narrative fields rather than trusting normalisePlanTopLevel's output.
+    const sameDayNarrative = isSameDay
+      ? {
+          summary: alreadyAtGoal
+            ? `You weigh in the same day you compete and you are already at or under ${finalTarget} kg. No cut needed: hold your weight, keep carbs and fluids normal, train and recover into the fight.`
+            : dropTooBig || shortTimeline
+              ? `Same-day weigh-in means no recovery window. Reaching ${finalTarget} kg would need about ${pctDrop.toFixed(0)}% of bodyweight, which is not safe to do without dehydration you cannot recover from before you fight. Strongly consider moving up a weight class. If you proceed, change weight gradually and early, keep full carbs and normal hydration, and never use a sauna or sweat suit.`
+              : `Same-day weigh-in means you fight on the weight you make, so there is no acute cut. Drop weight gradually and early, keep carbs at or above ${sameDayCarbFloorG} g/day, and hydrate normally right up to the fight. No sauna, sweat suits, or fluid restriction.`,
+          safetyNotes: `Do NOT use a sauna, sweat suit, hot bath, or fluid restriction to make weight. Even 2-3% dehydration cuts performance by roughly 10% or more, and with same-day weigh-in you carry that straight into the fight with no time to recover. Keep carbs in and stay hydrated.`,
+          keyPrinciples: [
+            `Keep carbohydrates at or above ${sameDayCarbFloorG} g/day. Never deplete glycogen, you compete fueled.`,
+            "Hydrate normally right up to competition. No sauna, no sweat suits, no fluid restriction.",
+            "Make weight by gradual, early body-composition change, not by dehydration in the final days.",
+            "If the limit needs more than ~5% loss or any real dehydration, move up a weight class instead.",
+          ],
+        }
+      : {};
 
     const plan = {
       weeklyPlan,
       ...topLevel,
+      ...sameDayNarrative,
+      weighInTiming: isSameDay ? "same_day" : "day_before",
       fightWeek: fightWeekBundle.block,
       fightWeekDays: fightWeekBundle.days,
       fightWeekRefeed: fightWeekBundle.refeed,
@@ -514,6 +651,82 @@ function buildFightWeekBundle(opts: {
       firstMeal: "Rice and banana within 30 min of weigh-in.",
     },
     safetyFlag,
+    block,
+  };
+}
+
+// ─── Same-day final-week deterministic compute ───────────────────────
+// Mirrors the FightWeekBundle shape so downstream consumers (share card,
+// day-stack UI) keep working, but encodes the SAME-DAY strategy: there is
+// no acute cut. Every day is a maintenance / hold-weight day with full
+// carbs (>=3 g/kg), normal hydration, and NO water-load or sodium cliff.
+// The "refeed" block becomes a "fuel for the fight" note (there is no
+// post-weigh-in recovery window to refeed into). No aggressive-cut flag is
+// ever raised here because no dehydration is prescribed.
+function buildSameDayFinalWeekBundle(opts: {
+  currentWeight: number;
+  daysRemaining: number;
+  targetDateISO: string;
+}): FightWeekBundle {
+  const bw = opts.currentWeight;
+  const finalWeekLen = Math.min(7, Math.max(0, opts.daysRemaining));
+  // Full carbs and normal sodium/fluids held flat across the final days.
+  const carbsGrams = Math.round(3 * bw); // >=3 g/kg floor — never deplete
+  const proteinGrams = Math.round(2.0 * bw);
+  const sodiumGrams = +((35 * bw) / 1000).toFixed(1); // ~normal intake, no load
+  const fluidLiters = +((40 * bw) / 1000).toFixed(1); // ~normal hydration
+
+  const targetMs = Date.parse(opts.targetDateISO);
+  const validTarget = Number.isFinite(targetMs);
+  const WEEKDAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+
+  const days: FightWeekDay[] = [];
+  for (let offset = -finalWeekLen; offset <= 0; offset++) {
+    let date = "";
+    let weekday = "";
+    if (validTarget) {
+      const d = new Date(targetMs + offset * 86400000);
+      date = d.toISOString().slice(0, 10);
+      weekday = WEEKDAYS[d.getDay()];
+    }
+    days.push({
+      dayOffset: offset,
+      date,
+      weekday,
+      // Same-day has no depletion/water-load/cut phases — every day is a
+      // hold-weight maintenance day. We reuse "weigh-in" on the last day
+      // for the UI marker and "water-load" is intentionally never used.
+      phase: offset === 0 ? "weigh-in" : "cut",
+      carbsGrams,
+      proteinGrams,
+      sodiumGrams,
+      fluidLiters,
+      notes:
+        offset === 0
+          ? "Weigh in, then eat normally and fuel for the fight. No cut, you compete on this weight."
+          : "Hold weight. Eat normally, keep carbs in, hydrate as usual. No sauna, no sweat suits.",
+      flag: offset === 0 ? "weigh-in" : undefined,
+    });
+  }
+
+  const block = {
+    lowCarb: `Keep carbs full at about ${carbsGrams} g/day. Same-day weigh-in means no recovery window, so never deplete glycogen, you fight fueled.`,
+    sodium: `Keep sodium at your normal intake (around ${sodiumGrams} g/day). No sodium loading and no cliff, there is nothing to cut and recover from.`,
+    waterLoading: `Hydrate normally (around ${fluidLiters} L/day). No water loading and no fluid restriction. Even 2-3% dehydration costs roughly 10% or more of your performance with no time to recover.`,
+    nutrition: `Eat normally right up to the fight. After weigh-in, have a familiar, carb-forward meal you tolerate well, then top up between weigh-in and bout.`,
+  };
+
+  return {
+    days,
+    refeed: {
+      // No depletion to refeed; these stay as gentle fueling guidance.
+      carbsGPerKgFirstHr: 1.0,
+      carbsGPerKgPhase2: 0.5,
+      sodiumGPerLiterFluid: 1.0,
+      firstMeal: "A familiar carb-forward meal you tolerate well, soon after weigh-in.",
+    },
+    // Same-day prescribes no dehydration, so the aggressive-cut flag is N/A.
+    safetyFlag: undefined,
     block,
   };
 }
