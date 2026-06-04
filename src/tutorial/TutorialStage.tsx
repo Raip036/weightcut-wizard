@@ -1,6 +1,6 @@
 import React, { Component, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { AnimatePresence, LayoutGroup, motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { X } from "lucide-react";
 import { StatusBar, Style } from "@capacitor/status-bar";
 import { Capacitor } from "@capacitor/core";
@@ -285,16 +285,17 @@ function StageInner({
         </div>
       )}
 
-      {/* LayoutGroup scopes the wizard's layoutId so it animates smoothly
-          between spotlight (above bubble) and default (below bubble) positions.
-          wizardAnchor="top"  → column just below the status bar.
-          wizardAboveSpotlight → bottom computed from spotlightRect so the
-                                 column sits just above the spotlit element.
-          wizardSide="right"  → right-anchored instead of left. */}
+      {/* Wizard + bubble column.
+          A single AnimatePresence (mode="popLayout", keyed to step id) fades
+          the entire column — wizard AND bubble — in and out on every step
+          change. This gives a consistent, direction-agnostic transition that
+          works identically when going forward or back:
+            • Old content fades out while being removed from layout flow.
+            • New content fades in at the new position.
+          No layoutId is needed; the position jump between steps is hidden
+          by the simultaneous fade. */}
       {(() => {
         const isRight = currentStep.wizardSide === "right";
-        // wizardFirst = wizard on top, bubble below. Default for spotlight/top-anchor
-        // steps unless bubbleFirst overrides it.
         const wizardFirst =
           (!!currentStep.spotlight || currentStep.wizardAnchor === "top") &&
           !currentStep.bubbleFirst;
@@ -302,16 +303,28 @@ function StageInner({
           ? isRight ? ("top-right" as const) : ("top-left" as const)
           : isRight ? ("bottom-right" as const) : ("bottom-left" as const);
 
+        // Column anchor position. For wizardAboveSpotlight, fall back to
+        // lastSpotGeomRef when spotlightRect hasn't been measured yet so the
+        // wizard doesn't snap from a far-off default on step entry.
         const colStyle: React.CSSProperties = (() => {
           if (currentStep.wizardAnchor === "top") {
             return { top: "calc(env(safe-area-inset-top) + 56px)", pointerEvents: "auto" };
           }
-          if (currentStep.wizardAboveSpotlight && spotlightRect) {
-            // Sit just above the spotlit element.
-            const fromBottom = window.innerHeight - spotlightRect.top + 20;
-            // Clamp so the ~240px tall column always fits on screen.
-            const maxBottom = window.innerHeight - 260;
-            return { bottom: `${Math.min(fromBottom, maxBottom)}px`, pointerEvents: "auto" };
+          if (currentStep.wizardAboveSpotlight) {
+            let approxTop: number | null = null;
+            if (spotlightRect) {
+              approxTop = spotlightRect.top;
+            } else if (lastSpotGeomRef.current) {
+              const { cy, h } = lastSpotGeomRef.current;
+              approxTop = cy - (h ?? 80) / 2;
+            }
+            if (approxTop !== null) {
+              const fromBottom = Math.min(
+                window.innerHeight - approxTop + 20,
+                window.innerHeight - 260,
+              );
+              return { bottom: `${fromBottom}px`, pointerEvents: "auto" };
+            }
           }
           return {
             bottom: currentStep.wizardBottomOffset ?? "calc(env(safe-area-inset-bottom) + 100px)",
@@ -323,47 +336,57 @@ function StageInner({
           ? "absolute right-4 flex flex-col items-end gap-3"
           : "absolute left-4 flex flex-col items-start gap-3";
 
-        const WizardNode = (
-          <motion.div
-            layoutId="wcw-wizard"
-            layout
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          >
-            <motion.div
-              key={`hop-${currentStep.id}`}
-              animate={{ y: [0, -10, 0], scaleY: [1, 0.94, 1] }}
-              transition={{ duration: 0.28, ease: "easeOut" }}
-            >
-              <WizardCharacter pose={currentStep.wizardPose ?? "idle"} />
-            </motion.div>
-          </motion.div>
-        );
-
-        const BubbleNode = (
-          <AnimatePresence mode="wait">
-            <SpeechBubble
-              key={currentStep.id}
-              revealKey={currentStep.id}
-              headline={currentStep.title}
-              body={currentStep.description}
-              pace={currentStep.voicePace}
-              forceComplete={forceComplete}
-              onTypingComplete={() => setBubbleComplete(true)}
-              tailSide={tailSide}
-            />
-          </AnimatePresence>
-        );
-
         return (
-          <LayoutGroup id="tutorial-bottom">
-            <div className={colClass} style={colStyle}>
-              {wizardFirst ? (
-                <>{WizardNode}{BubbleNode}</>
-              ) : (
-                <>{BubbleNode}{WizardNode}</>
-              )}
-            </div>
-          </LayoutGroup>
+          <div className={colClass} style={colStyle}>
+            <AnimatePresence mode="popLayout">
+              <motion.div
+                key={currentStep.id}
+                className={`flex flex-col ${isRight ? "items-end" : "items-start"} gap-3`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18, ease: "easeInOut" }}
+              >
+                {wizardFirst ? (
+                  <>
+                    <motion.div
+                      animate={{ y: [0, -10, 0], scaleY: [1, 0.94, 1] }}
+                      transition={{ duration: 0.28, ease: "easeOut" }}
+                    >
+                      <WizardCharacter pose={currentStep.wizardPose ?? "idle"} />
+                    </motion.div>
+                    <SpeechBubble
+                      revealKey={currentStep.id}
+                      headline={currentStep.title}
+                      body={currentStep.description}
+                      pace={currentStep.voicePace}
+                      forceComplete={forceComplete}
+                      onTypingComplete={() => setBubbleComplete(true)}
+                      tailSide={tailSide}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <SpeechBubble
+                      revealKey={currentStep.id}
+                      headline={currentStep.title}
+                      body={currentStep.description}
+                      pace={currentStep.voicePace}
+                      forceComplete={forceComplete}
+                      onTypingComplete={() => setBubbleComplete(true)}
+                      tailSide={tailSide}
+                    />
+                    <motion.div
+                      animate={{ y: [0, -10, 0], scaleY: [1, 0.94, 1] }}
+                      transition={{ duration: 0.28, ease: "easeOut" }}
+                    >
+                      <WizardCharacter pose={currentStep.wizardPose ?? "idle"} />
+                    </motion.div>
+                  </>
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </div>
         );
       })()}
 

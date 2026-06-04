@@ -1187,7 +1187,7 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => { triggerHapticSelection(); navigate('/weight'); }}
-              className="card-surface rounded-2xl p-3 aspect-square flex flex-col text-left card-press min-w-0 w-full overflow-hidden"
+              className="relative card-surface rounded-2xl p-3 aspect-square flex flex-col text-left card-press min-w-0 w-full overflow-hidden"
             >
               <div className="flex items-start justify-between w-full">
                 <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
@@ -1218,30 +1218,31 @@ export default function Dashboard() {
                 )}
               </div>
 
-              {/* Footer — date left, trend arrow + delta + chevron grouped at bottom-right */}
-              <div className="mt-1.5 flex items-center justify-between">
+              {/* Footer — date stays bottom-left; the trend arrow + delta is
+                  pinned to the card's bottom-right corner (below). */}
+              <div className="mt-1.5">
                 <span className="text-micro text-muted-foreground">
                   {chartData.length >= 2 ? chartData[chartData.length - 1].date : ""}
                 </span>
-                <div className="flex items-center gap-1.5">
-                  {chartData.length >= 2 && (() => {
-                    const last = chartData[chartData.length - 1];
-                    const prev = chartData[chartData.length - 2];
-                    const delta = last.weight - prev.weight;
-                    const isDown = delta < 0;
-                    return (
-                      <div className={`flex items-center gap-0.5 text-micro font-medium tabular-nums ${isDown ? "text-func-recovery-green" : "text-func-danger-red"}`}>
-                        <Icon
-                          name="trendingDownOutline"
-                          size={12}
-                          className={isDown ? "" : "rotate-180"}
-                        />
-                        <span>{Math.abs(delta).toFixed(1)}</span>
-                      </div>
-                    );
-                  })()}
-                </div>
               </div>
+
+              {/* Trend arrow + delta — anchored to the bottom-right corner. */}
+              {chartData.length >= 2 && (() => {
+                const last = chartData[chartData.length - 1];
+                const prev = chartData[chartData.length - 2];
+                const delta = last.weight - prev.weight;
+                const isDown = delta < 0;
+                return (
+                  <div className={`absolute bottom-3 right-3 flex items-center gap-0.5 text-micro font-medium tabular-nums ${isDown ? "text-func-recovery-green" : "text-func-danger-red"}`}>
+                    <Icon
+                      name="trendingDownOutline"
+                      size={12}
+                      className={isDown ? "" : "rotate-180"}
+                    />
+                    <span>{Math.abs(delta).toFixed(1)}</span>
+                  </div>
+                );
+              })()}
             </button>
             {userId && <TrainingWeekWidget userId={userId} compact />}
             {userId && <SleepCard userId={userId} />}

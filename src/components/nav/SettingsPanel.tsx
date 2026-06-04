@@ -49,24 +49,17 @@ function Section({
   );
 }
 
+// `color` is retained on the row API so call sites don't change, but icons no
+// longer sit on coloured tiles — they render as plain glyphs. Everything is
+// white except the destructive "red" action (Delete Account), which stays red.
 type TileColor =
   | "brand" | "indigo" | "orange" | "red";
 
-// Brand tile = the WeightCut Wizard primary blue (HSL 217 91% 53%, ≈ #2161F1).
-// Used for nearly every settings icon so the page reads as one product, with
-// the only exceptions being Dark Mode (indigo / orange depending on theme)
-// and Delete Account (destructive red).
-const TILE_BG: Record<TileColor, string> = {
-  brand:  "bg-primary",
-  indigo: "bg-[#5E5CE6]",   // iOS systemIndigo — Dark Mode (dark)
-  orange: "bg-[#FF9F0A]",   // iOS systemOrange — Dark Mode (light)
-  red:    "bg-[#FF453A]",   // iOS systemRed   — Delete Account
-};
-
 function IconTile({ name, color, glyphClass }: { name: IonIconName; color: TileColor; glyphClass?: string }) {
+  const tone = color === "red" ? "text-destructive" : "text-foreground";
   return (
-    <span className={`flex h-7 w-7 items-center justify-center rounded-[7px] shrink-0 ${TILE_BG[color]} ${glyphClass ?? "text-white"}`}>
-      <Icon name={name} size={16} />
+    <span className={`flex h-7 w-7 items-center justify-center shrink-0 ${glyphClass ?? tone}`}>
+      <Icon name={name} size={20} />
     </span>
   );
 }
@@ -197,7 +190,7 @@ function SubscriptionSection() {
       >
         <ShimmerCrownBadge size={38} />
         <div className="flex-1 min-w-0">
-          <p className="text-[15px] font-semibold text-foreground">Upgrade to Premium</p>
+          <p className="text-[15px] font-semibold text-foreground">Upgrade to Pro</p>
           <p className="text-[12.5px] text-foreground/70 leading-tight mt-0.5">
             Unlimited AI · Advanced insights
           </p>
@@ -294,7 +287,7 @@ export function SettingsPanel({
         onClick={onClose}
       />
       <div
-        className="fixed inset-x-0 bottom-0 z-[10002] bg-black border-0 rounded-t-2xl animate-in slide-in-from-bottom duration-300 flex flex-col"
+        className="fixed inset-x-0 bottom-0 z-[10002] bg-background border-0 rounded-t-2xl animate-in slide-in-from-bottom duration-300 flex flex-col"
         style={{ maxHeight: "92dvh" }}
       >
         {/* Drag handle */}

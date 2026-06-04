@@ -51,7 +51,8 @@ export function FloatingWizardChat() {
 
   // Proactive cockpit read — powers the pinned header + adaptive chips. Loading
   // (`undefined`) is treated as null so children render their no-data fallback.
-  const cockpit = useQuery(api.coachCockpit.getCockpit);
+  // Skipped when unauthenticated so the component renders safely before login.
+  const cockpit = useQuery(api.coachCockpit.getCockpit, userId ? {} : "skip");
   const cockpitData = cockpit ?? null;
 
   // Local-only daily check-in streak. Recording is idempotent per day, so it's
@@ -61,7 +62,7 @@ export function FloatingWizardChat() {
   // Proactive speech bubble off the orb (chat closed) — surfaces the coach's
   // current read (red flag / priority action / greeting) as a tutorial-style
   // nudge to tap the orb. Position follows the orb's snapped edge via `fabPos`.
-  const briefing = useQuery(api.coachBriefing.getBriefing);
+  const briefing = useQuery(api.coachBriefing.getBriefing, userId ? {} : "skip");
   const bubbleText = useMemo(() => {
     const t = briefing ? briefing.redFlag || briefing.priorityAction || briefing.greeting : null;
     if (!t) return null;

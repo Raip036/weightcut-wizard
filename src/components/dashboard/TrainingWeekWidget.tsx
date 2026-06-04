@@ -340,27 +340,25 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
               <span className="display-number text-xs font-bold tabular-nums">{Math.round(animatedSessions)}</span>
             </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-baseline gap-1 mt-0.5">
-              <span className="display-number text-lg font-bold tabular-nums">
-                {Math.round(animatedTotal)}
-              </span>
-              <span className="text-[10px] text-muted-foreground font-medium">
-                {totalMinutes >= 60 ? "hrs" : "min"}
-              </span>
-            </div>
-            {/* Delta lives on its own line so wider values (−12m, −1.5h)
-                never push past the card's right edge. Mirrors the
-                WEIGHT sibling tile's delta-on-its-own-line pattern. */}
+          {/* Single baseline row so the whole text block centres vertically
+              against the ring. Delta is pushed to the column's right edge,
+              sitting to the right of the hours value. */}
+          <div className="flex-1 min-w-0 flex items-baseline gap-1">
+            <span className="display-number text-lg font-bold tabular-nums">
+              {Math.round(animatedTotal)}
+            </span>
+            <span className="text-[10px] text-muted-foreground font-medium">
+              {totalMinutes >= 60 ? "hrs" : "min"}
+            </span>
             {deltaMin != null && deltaDisplay != null && (
               deltaMin === 0 ? (
-                <div className="text-[10px] font-semibold tabular-nums leading-none mt-1 text-muted-foreground/70">
+                <span className="ml-auto text-[10px] font-semibold tabular-nums leading-none text-muted-foreground/70">
                   ±0{deltaUnitSuffix}
-                </div>
+                </span>
               ) : (
-                <div className={`text-[10px] font-semibold tabular-nums leading-none mt-1 ${deltaMin > 0 ? "text-func-recovery-green" : "text-func-danger-red"}`}>
+                <span className={`ml-auto text-[10px] font-semibold tabular-nums leading-none ${deltaMin > 0 ? "text-func-recovery-green" : "text-func-danger-red"}`}>
                   {deltaMin > 0 ? "+" : "−"}{Math.abs(deltaDisplay)}{deltaUnitSuffix}
-                </div>
+                </span>
               )
             )}
           </div>
