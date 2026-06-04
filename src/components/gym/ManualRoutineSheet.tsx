@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, X, Search, Dumbbell, ChevronLeft, Check } from "lucide-react";
+import { Plus, X, Search, ChevronLeft, Check, Minus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { triggerHaptic } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
@@ -22,49 +22,58 @@ interface ManualRoutineSheetProps {
   ) => Promise<void>;
 }
 
-const GOALS: { value: TrainingGoal; label: string; icon: typeof Dumbbell }[] = [
-  { value: "hypertrophy", label: "Hypertrophy", icon: Dumbbell },
-  { value: "strength", label: "Strength", icon: Dumbbell },
-  { value: "explosiveness", label: "Explosiveness", icon: Dumbbell },
-  { value: "conditioning", label: "Conditioning", icon: Dumbbell },
+const GOALS: { value: TrainingGoal; label: string }[] = [
+  { value: "strength", label: "Strength" },
+  { value: "hypertrophy", label: "Hypertrophy" },
+  { value: "explosiveness", label: "Explosiveness" },
+  { value: "conditioning", label: "Conditioning" },
 ];
 
-const MUSCLE_COLORS: Record<string, string> = {
-  chest: "bg-blue-500/15 text-blue-400",
-  back: "bg-func-fats-purple/15 text-func-fats-purple",
-  shoulders: "bg-func-carbs-orange/15 text-func-carbs-orange",
-  biceps: "bg-func-hydration-cyan/15 text-func-hydration-cyan",
-  triceps: "bg-pink-500/15 text-pink-400",
-  quads: "bg-func-recovery-green/15 text-func-recovery-green",
-  hamstrings: "bg-func-recovery-green/15 text-func-recovery-green",
-  glutes: "bg-func-danger-red/15 text-func-danger-red",
-  calves: "bg-teal-500/15 text-teal-400",
-  abs: "bg-primary/15 text-primary",
-  forearms: "bg-func-warning-yellow/15 text-func-warning-yellow",
-  traps: "bg-func-fats-purple/15 text-func-fats-purple",
-  full_body: "bg-indigo-500/15 text-indigo-400",
-  cardio: "bg-func-danger-red/15 text-func-danger-red",
+const REP_PRESETS = ["5", "8-12", "12-15"];
+const REST_PRESETS = [60, 90, 120];
+
+// Solid muscle dot colours, matching the routine card markers.
+const MUSCLE_DOT: Record<string, string> = {
+  chest: "bg-blue-400",
+  back: "bg-func-fats-purple",
+  shoulders: "bg-func-carbs-orange",
+  biceps: "bg-func-hydration-cyan",
+  triceps: "bg-pink-400",
+  quads: "bg-func-recovery-green",
+  hamstrings: "bg-func-recovery-green",
+  glutes: "bg-func-danger-red",
+  calves: "bg-teal-400",
+  abs: "bg-primary",
+  forearms: "bg-func-warning-yellow",
+  traps: "bg-func-fats-purple",
+  full_body: "bg-indigo-400",
+  cardio: "bg-func-danger-red",
 };
 
-interface RoutineExerciseEntry {
+interface Entry {
   exercise: Exercise;
   sets: number;
   reps: string;
   restSeconds: number;
+  day: number; // 1-based
 }
 
-export function ManualRoutineSheet({
-  open,
-  onOpenChange,
-  exercises,
-  onSave,
-}: ManualRoutineSheetProps) {
+const pill = (active: boolean) =>
+  `px-3.5 py-2 rounded-full text-xs font-semibold transition-all active:scale-[0.97] ${
+    active
+      ? "bg-primary text-primary-foreground"
+      : "bg-muted/30 text-muted-foreground border border-border/30 hover:text-foreground"
+  }`;
+
+export function ManualRoutineSheet({ open, onOpenChange, exercises, onSave }: ManualRoutineSheetProps) {
   const { toast } = useToast();
 
   const [step, setStep] = useState<1 | 2>(1);
   const [routineName, setRoutineName] = useState("");
-  const [goal, setGoal] = useState<TrainingGoal>("hypertrophy");
-  const [addedExercises, setAddedExercises] = useState<RoutineExerciseEntry[]>([]);
+  const [goal, setGoal] = useState<TrainingGoal>("strength");
+  const [entries, setEntries] = useState<Entry[]>([]);
+  const [dayCount, setDayCount] = useState(1);
+  const [currentDay, setCurrentDay] = useState(1);
   const [showPicker, setShowPicker] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [saving, setSaving] = useState(false);
@@ -78,8 +87,10 @@ export function ManualRoutineSheet({
   const resetState = () => {
     setStep(1);
     setRoutineName("");
-    setGoal("hypertrophy");
-    setAddedExercises([]);
+    setGoal("strength");
+    setEntries([]);
+    setDayCount(1);
+    setCurrentDay(1);
     setShowPicker(false);
     setSearchQuery("");
     setSaving(false);
@@ -92,39 +103,33 @@ export function ManualRoutineSheet({
 
   const handleAddExercise = (exercise: Exercise) => {
     triggerHaptic(ImpactStyle.Light);
-    setAddedExercises((prev) => [
-      ...prev,
-      { exercise, sets: 3, reps: "8-12", restSeconds: 90 },
-    ]);
+    setEntries((prev) => [...prev, { exercise, sets: 3, reps: "8-12", restSeconds: 90, day: currentDay }]);
     setShowPicker(false);
     setSearchQuery("");
   };
 
-  const handleRemoveExercise = (index: number) => {
+  const removeAt = (index: number) => {
     triggerHaptic(ImpactStyle.Light);
-    setAddedExercises((prev) => prev.filter((_, i) => i !== index));
+    setEntries((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const updateExerciseField = (
-    index: number,
-    field: "sets" | "reps" | "restSeconds",
-    value: string,
-  ) => {
-    setAddedExercises((prev) =>
-      prev.map((entry, i) => {
-        if (i !== index) return entry;
-        if (field === "sets") return { ...entry, sets: parseInt(value, 10) || 1 };
-        if (field === "restSeconds") return { ...entry, restSeconds: parseInt(value, 10) || 0 };
-        return { ...entry, reps: value };
-      }),
-    );
+  const updateAt = (index: number, patch: Partial<Entry>) => {
+    setEntries((prev) => prev.map((e, i) => (i === index ? { ...e, ...patch } : e)));
+  };
+
+  const addDay = () => {
+    triggerHaptic(ImpactStyle.Light);
+    setDayCount((c) => c + 1);
+    setCurrentDay((c) => Math.min(dayCount + 1, c + 1) || dayCount + 1);
+    setCurrentDay(dayCount + 1);
   };
 
   const handleSave = async () => {
-    if (addedExercises.length === 0 || !routineName.trim()) return;
+    if (entries.length === 0 || !routineName.trim()) return;
     setSaving(true);
     try {
-      const routineExercises: RoutineExercise[] = addedExercises.map((entry) => ({
+      const ordered = [...entries].sort((a, b) => a.day - b.day);
+      const routineExercises: RoutineExercise[] = ordered.map((entry) => ({
         exercise_id: entry.exercise.id,
         name: entry.exercise.name,
         muscle_group: entry.exercise.muscle_group as MuscleGroup,
@@ -133,6 +138,7 @@ export function ManualRoutineSheet({
         rpe: null,
         rest_seconds: entry.restSeconds,
         notes: null,
+        ...(dayCount > 1 ? { day: `Day ${entry.day}` } : {}),
       }));
       await onSave(routineName.trim(), goal, routineExercises, undefined, undefined, false);
       triggerHaptic(ImpactStyle.Medium);
@@ -146,24 +152,21 @@ export function ManualRoutineSheet({
     }
   };
 
+  // Indices grouped per day so we can render day headers + reassign.
+  const visibleDays = Array.from({ length: dayCount }, (_, i) => i + 1);
+
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent side="bottom" className="h-[80vh] flex flex-col rounded-t-3xl border-border/50 p-0 [&>button:last-of-type]:hidden" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 0.5rem)" }}>
+      <SheetContent side="bottom" className="h-[86vh] flex flex-col rounded-t-3xl border-border/50 p-0 [&>button:last-of-type]:hidden" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 0.5rem)" }}>
         <SheetHeader className="px-5 pb-3 pt-5 shrink-0">
           <div className="flex items-center gap-3">
             {step === 2 && (
-              <button
-                onClick={() => { setStep(1); setShowPicker(false); }}
-                className="h-8 w-8 rounded-xs bg-muted/30 flex items-center justify-center"
-              >
+              <button onClick={() => { setStep(1); setShowPicker(false); }} className="h-9 w-9 rounded-full bg-muted/30 flex items-center justify-center">
                 <ChevronLeft className="h-4 w-4" />
               </button>
             )}
-            <SheetTitle className="flex-1">{step === 1 ? "New Routine" : "Add Exercises"}</SheetTitle>
-            <button
-              onClick={() => onOpenChange(false)}
-              className="h-8 w-8 rounded-xs bg-muted/30 flex items-center justify-center shrink-0"
-            >
+            <SheetTitle className="flex-1 text-left">{step === 1 ? "New routine" : "Build your days"}</SheetTitle>
+            <button onClick={() => onOpenChange(false)} className="h-9 w-9 rounded-full bg-muted/30 flex items-center justify-center shrink-0">
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -174,194 +177,198 @@ export function ManualRoutineSheet({
           {step === 1 && (
             <div className="space-y-6">
               <div className="space-y-2">
-                <label className="text-sm text-muted-foreground">Routine Name</label>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Routine name</label>
                 <Input
-                  placeholder="My Routine"
+                  placeholder="e.g. Fighter Strength Block"
                   value={routineName}
                   onChange={(e) => setRoutineName(e.target.value)}
-                  className="bg-muted/30 border-border/50 rounded-xs"
+                  className="h-12 bg-muted/20 border-border/40 rounded-xs text-[15px]"
                 />
               </div>
 
               <div className="space-y-3">
-                <label className="text-sm text-muted-foreground">Training Goal</label>
-                <div className="grid grid-cols-2 gap-3">
-                  {GOALS.map((g) => {
-                    const selected = goal === g.value;
-                    return (
-                      <button
-                        key={g.value}
-                        onClick={() => { setGoal(g.value); triggerHaptic(ImpactStyle.Light); }}
-                        className={`card-surface rounded-xs border p-4 text-left transition-all active:scale-[0.97] ${
-                          selected
-                            ? "border-primary/50 ring-1 ring-primary/30 bg-primary/5"
-                            : "border-border/50 hover:border-border"
-                        }`}
-                      >
-                        <div className={`h-9 w-9 rounded-xs flex items-center justify-center mb-2 ${
-                          selected ? "bg-primary/20" : "bg-muted/40"
-                        }`}>
-                          <g.icon className={`h-4 w-4 ${selected ? "text-primary" : "text-muted-foreground"}`} />
-                        </div>
-                        <span className={`text-sm font-medium ${selected ? "text-foreground" : "text-muted-foreground"}`}>
-                          {g.label}
-                        </span>
-                      </button>
-                    );
-                  })}
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Training goal</label>
+                <div className="flex flex-wrap gap-2">
+                  {GOALS.map((g) => (
+                    <button
+                      key={g.value}
+                      onClick={() => { setGoal(g.value); triggerHaptic(ImpactStyle.Light); }}
+                      className={pill(goal === g.value)}
+                    >
+                      {g.label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              <Button
-                onClick={() => setStep(2)}
-                disabled={!routineName.trim()}
-                className="w-full rounded-xs h-12"
-              >
+              <Button onClick={() => setStep(2)} disabled={!routineName.trim()} className="w-full rounded-xs h-12 text-[15px] font-semibold">
                 Next
               </Button>
             </div>
           )}
 
-          {/* ── Step 2: Add Exercises ── */}
+          {/* ── Step 2: Days + exercises ── */}
           {step === 2 && (
-            <div className="space-y-4">
-              {/* Inline exercise picker */}
-              {showPicker ? (
-                <div className="space-y-3">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search exercises..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-9 bg-muted/30 border-border/50 rounded-xs"
-                      autoFocus
-                    />
-                  </div>
-                  <div className="max-h-[45vh] overflow-y-auto space-y-1 rounded-xs border border-border/50 bg-muted/10 p-2">
-                    {filteredExercises.length === 0 && (
-                      <p className="text-sm text-muted-foreground text-center py-6">No exercises found</p>
-                    )}
-                    {filteredExercises.map((ex) => {
-                      const alreadyAdded = addedExercises.some((a) => a.exercise.id === ex.id);
-                      return (
-                        <button
-                          key={ex.id}
-                          onClick={() => !alreadyAdded && handleAddExercise(ex)}
-                          disabled={alreadyAdded}
-                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xs text-left transition-colors ${
-                            alreadyAdded
-                              ? "opacity-40 cursor-not-allowed"
-                              : "hover:bg-muted/30 active:scale-[0.99]"
-                          }`}
-                        >
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{ex.name}</p>
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium ${
-                              MUSCLE_COLORS[ex.muscle_group] || "bg-muted/30 text-muted-foreground"
-                            }`}>
-                              {ex.muscle_group.replace("_", " ")}
-                            </span>
-                          </div>
-                          {alreadyAdded && <Check className="h-4 w-4 text-primary shrink-0" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <Button
-                    variant="ghost"
-                    onClick={() => { setShowPicker(false); setSearchQuery(""); }}
-                    className="w-full rounded-xs text-muted-foreground"
-                  >
-                    Cancel
-                  </Button>
+            showPicker ? (
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground">Adding to <span className="font-semibold text-foreground">Day {currentDay}</span></p>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search exercises…"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 h-11 bg-muted/20 border-border/40 rounded-xs"
+                    autoFocus
+                  />
                 </div>
-              ) : (
-                <>
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowPicker(true)}
-                    className="w-full rounded-xs border-dashed border-border/50 bg-muted/10 h-11"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Exercise
-                  </Button>
-
-                  {addedExercises.length === 0 && (
-                    <p className="text-sm text-muted-foreground text-center py-8">
-                      No exercises yet. Tap above to add some.
-                    </p>
+                <div className="max-h-[55vh] overflow-y-auto space-y-1 rounded-xs border border-border/40 bg-muted/10 p-2">
+                  {filteredExercises.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-6">No exercises found</p>
                   )}
-
-                  <div className="space-y-3">
-                    {addedExercises.map((entry, idx) => (
-                      <div
-                        key={`${entry.exercise.id}-${idx}`}
-                        className="card-surface rounded-xs border border-border/50 p-4 space-y-3"
+                  {filteredExercises.map((ex) => {
+                    const already = entries.some((a) => a.exercise.id === ex.id && a.day === currentDay);
+                    return (
+                      <button
+                        key={ex.id}
+                        onClick={() => !already && handleAddExercise(ex)}
+                        disabled={already}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xs text-left transition-colors ${already ? "opacity-40" : "hover:bg-muted/30 active:scale-[0.99]"}`}
                       >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium truncate">{entry.exercise.name}</p>
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium ${
-                              MUSCLE_COLORS[entry.exercise.muscle_group] || "bg-muted/30 text-muted-foreground"
-                            }`}>
-                              {entry.exercise.muscle_group.replace("_", " ")}
-                            </span>
-                          </div>
-                          <button
-                            onClick={() => handleRemoveExercise(idx)}
-                            className="h-7 w-7 rounded-xs bg-muted/30 flex items-center justify-center shrink-0 hover:bg-destructive/20 transition-colors"
-                          >
-                            <X className="h-3.5 w-3.5 text-muted-foreground" />
-                          </button>
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-2">
-                          <div className="space-y-1">
-                            <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Sets</label>
-                            <Input
-                              type="number"
-                              min={1}
-                              value={entry.sets}
-                              onChange={(e) => updateExerciseField(idx, "sets", e.target.value)}
-                              className="h-9 bg-muted/20 border-border/50 rounded-xs text-center text-sm"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Reps</label>
-                            <Input
-                              value={entry.reps}
-                              onChange={(e) => updateExerciseField(idx, "reps", e.target.value)}
-                              className="h-9 bg-muted/20 border-border/50 rounded-xs text-center text-sm"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Rest (s)</label>
-                            <Input
-                              type="number"
-                              min={0}
-                              value={entry.restSeconds}
-                              onChange={(e) => updateExerciseField(idx, "restSeconds", e.target.value)}
-                              className="h-9 bg-muted/20 border-border/50 rounded-xs text-center text-sm"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {addedExercises.length > 0 && (
-                    <Button
-                      onClick={handleSave}
-                      disabled={saving}
-                      className="w-full rounded-xs h-12 mt-2"
+                        <span className={`h-2 w-2 rounded-full shrink-0 ${MUSCLE_DOT[ex.muscle_group] || "bg-muted-foreground/50"}`} />
+                        <span className="flex-1 min-w-0">
+                          <span className="block text-sm font-medium truncate text-foreground">{ex.name}</span>
+                          <span className="block text-[11px] text-muted-foreground capitalize">{ex.muscle_group.replace(/_/g, " ")}</span>
+                        </span>
+                        {already && <Check className="h-4 w-4 text-primary shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+                <Button variant="ghost" onClick={() => { setShowPicker(false); setSearchQuery(""); }} className="w-full rounded-full text-muted-foreground">
+                  Done
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Day selector */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {visibleDays.map((d) => (
+                    <button key={d} onClick={() => setCurrentDay(d)} className={pill(currentDay === d)}>
+                      Day {d}
+                    </button>
+                  ))}
+                  <button onClick={addDay} className="inline-flex items-center gap-1 px-3 py-2 rounded-full text-xs font-semibold text-primary border border-primary/30 bg-primary/10 active:scale-[0.97] transition-transform">
+                    <Plus className="h-3.5 w-3.5" /> Day
+                  </button>
+                  {dayCount > 1 && (
+                    <button
+                      onClick={() => {
+                        // Remove the last day and its exercises.
+                        setEntries((prev) => prev.filter((e) => e.day !== dayCount));
+                        setDayCount((c) => Math.max(1, c - 1));
+                        setCurrentDay((c) => Math.min(c, dayCount - 1) || 1);
+                      }}
+                      className="inline-flex items-center justify-center h-8 w-8 rounded-full text-muted-foreground border border-border/30 bg-muted/30 active:scale-[0.95] transition-transform"
+                      aria-label="Remove last day"
                     >
-                      {saving ? "Saving..." : "Save Routine"}
-                    </Button>
+                      <Minus className="h-3.5 w-3.5" />
+                    </button>
                   )}
-                </>
-              )}
-            </div>
+                </div>
+
+                <Button variant="outline" onClick={() => setShowPicker(true)} className="w-full rounded-xs border-dashed border-border/50 bg-muted/10 h-11">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add exercise to Day {currentDay}
+                </Button>
+
+                {entries.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-8">No exercises yet. Pick a day and add some.</p>
+                )}
+
+                {/* Exercises grouped by day */}
+                {visibleDays.map((d) => {
+                  const dayEntries = entries
+                    .map((e, idx) => ({ e, idx }))
+                    .filter(({ e }) => e.day === d);
+                  if (dayEntries.length === 0) return null;
+                  return (
+                    <div key={d} className="space-y-2">
+                      {dayCount > 1 && (
+                        <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-primary/80 pt-1">Day {d}</p>
+                      )}
+                      {dayEntries.map(({ e: entry, idx }) => (
+                        <div key={`${entry.exercise.id}-${idx}`} className="card-surface rounded-xs border border-border/40 p-3.5 space-y-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="min-w-0 flex items-center gap-2">
+                              <span className={`h-2 w-2 rounded-full shrink-0 ${MUSCLE_DOT[entry.exercise.muscle_group] || "bg-muted-foreground/50"}`} />
+                              <span className="min-w-0">
+                                <span className="block text-[14px] font-semibold truncate text-foreground">{entry.exercise.name}</span>
+                                <span className="block text-[11px] text-muted-foreground capitalize">{entry.exercise.muscle_group.replace(/_/g, " ")}</span>
+                              </span>
+                            </span>
+                            <button onClick={() => removeAt(idx)} className="h-7 w-7 rounded-full bg-muted/30 flex items-center justify-center shrink-0 active:bg-destructive/20 transition-colors">
+                              <X className="h-3.5 w-3.5 text-muted-foreground" />
+                            </button>
+                          </div>
+
+                          {/* Sets / Reps / Rest with presets */}
+                          <div className="grid grid-cols-3 gap-2">
+                            <div className="space-y-1">
+                              <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Sets</label>
+                              <Input
+                                type="number"
+                                min={1}
+                                value={entry.sets}
+                                onChange={(ev) => updateAt(idx, { sets: parseInt(ev.target.value, 10) || 1 })}
+                                className="h-10 bg-muted/20 border-border/40 rounded-xs text-center text-sm"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Reps</label>
+                              <Input
+                                value={entry.reps}
+                                onChange={(ev) => updateAt(idx, { reps: ev.target.value })}
+                                className="h-10 bg-muted/20 border-border/40 rounded-xs text-center text-sm"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Rest (s)</label>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={entry.restSeconds}
+                                onChange={(ev) => updateAt(idx, { restSeconds: parseInt(ev.target.value, 10) || 0 })}
+                                className="h-10 bg-muted/20 border-border/40 rounded-xs text-center text-sm"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {REP_PRESETS.map((r) => (
+                              <button key={r} onClick={() => updateAt(idx, { reps: r })} className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${entry.reps === r ? "bg-primary/15 text-primary border border-primary/30" : "bg-muted/30 text-muted-foreground border border-border/20"}`}>
+                                {r}
+                              </button>
+                            ))}
+                            <span className="w-px self-stretch bg-border/40 mx-0.5" />
+                            {REST_PRESETS.map((s) => (
+                              <button key={s} onClick={() => updateAt(idx, { restSeconds: s })} className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${entry.restSeconds === s ? "bg-primary/15 text-primary border border-primary/30" : "bg-muted/30 text-muted-foreground border border-border/20"}`}>
+                                {s}s
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+
+                {entries.length > 0 && (
+                  <Button onClick={handleSave} disabled={saving} className="w-full rounded-xs h-12 mt-2 text-[15px] font-semibold">
+                    {saving ? "Saving…" : "Save routine"}
+                  </Button>
+                )}
+              </div>
+            )
           )}
         </div>
       </SheetContent>

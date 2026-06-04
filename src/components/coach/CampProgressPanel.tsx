@@ -114,22 +114,55 @@ export function CampProgressPanel({
   return (
     <div className="rounded-2xl card-surface border border-primary/15 p-4">
       {/* ── Phase stepper ─────────────────────────────────────────────── */}
-      <div className={`flex items-center ${phaseText}`}>
-        {PHASES.map((label, i) => {
-          const done = i < currentPhase;
-          const active = i === currentPhase;
-          return (
-            <div key={label} className="flex items-center flex-1 last:flex-none">
-              <div className="flex flex-col items-center gap-1">
-                <span
-                  className={`rounded-full transition-colors ${
-                    active
-                      ? "h-3.5 w-3.5 bg-current"
-                      : done
-                        ? "h-2.5 w-2.5 bg-current"
-                        : "h-2.5 w-2.5 bg-muted-foreground/30"
-                  }`}
+      {/* Dots sit in equal-width columns so their centres land at evenly
+          spaced fractions (1/6, 1/2, 5/6 for three phases) regardless of how
+          wide each label is. The connector segments are drawn as an absolute
+          overlay so each spans exactly one column-width — guaranteeing the
+          Build→Peak and Peak→Fight Week lines are identical lengths. */}
+      <div className={`relative ${phaseText}`}>
+        {/* Connector overlay — behind the dots, aligned to the dot-row centre. */}
+        <div className="pointer-events-none absolute inset-x-0 top-[6px] flex">
+          {/* Lead-in spacer reaches the first dot's centre (50/N %). */}
+          <div style={{ flexBasis: `${50 / PHASES.length}%` }} className="shrink-0" />
+          {PHASES.slice(0, -1).map((_, i) => (
+            <div
+              key={i}
+              style={{ flexBasis: `${100 / PHASES.length}%` }}
+              className="shrink-0 px-1.5"
+            >
+              <div className="h-0.5 w-full rounded-full overflow-hidden bg-muted-foreground/15">
+                <div
+                  className="h-full bg-current rounded-full transition-all duration-500"
+                  style={{ width: i < currentPhase ? "100%" : "0%" }}
                 />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Dots + labels — one equal column per phase. */}
+        <div
+          className="relative grid"
+          style={{ gridTemplateColumns: `repeat(${PHASES.length}, minmax(0, 1fr))` }}
+        >
+          {PHASES.map((label, i) => {
+            const done = i < currentPhase;
+            const active = i === currentPhase;
+            return (
+              <div key={label} className="flex flex-col items-center gap-1">
+                {/* Fixed-height wrapper keeps every dot's centre on the same
+                    line so the connector overlay aligns regardless of dot size. */}
+                <span className="flex h-3.5 items-center">
+                  <span
+                    className={`rounded-full transition-colors ${
+                      active
+                        ? "h-3.5 w-3.5 bg-current"
+                        : done
+                          ? "h-2.5 w-2.5 bg-current"
+                          : "h-2.5 w-2.5 bg-muted-foreground/30"
+                    }`}
+                  />
+                </span>
                 <span
                   className={`text-[10px] font-semibold tracking-tight whitespace-nowrap ${
                     active
@@ -142,17 +175,9 @@ export function CampProgressPanel({
                   {label}
                 </span>
               </div>
-              {i < PHASES.length - 1 && (
-                <div className="flex-1 h-0.5 mx-1.5 -mt-4 rounded-full overflow-hidden bg-muted-foreground/15">
-                  <div
-                    className="h-full bg-current rounded-full transition-all duration-500"
-                    style={{ width: i < currentPhase ? "100%" : "0%" }}
-                  />
-                </div>
-              )}
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
       {/* ── Weight-vs-plan trajectory ─────────────────────────────────── */}

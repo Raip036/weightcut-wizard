@@ -5,6 +5,7 @@ import { Icon } from "@/components/ui/Icon";
 import { triggerHapticSelection } from "@/lib/haptics";
 import Sparkline from "@/components/charts/Sparkline";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
+import { ShimmerCrownBadge } from "@/components/subscription/ShimmerCrownBadge";
 
 interface ReadinessCardProps {
   userId: string | null | undefined;
@@ -58,7 +59,7 @@ export function ReadinessCard({ userId }: ReadinessCardProps) {
         triggerHapticSelection();
         navigate("/recovery");
       }}
-      className="card-surface rounded-2xl p-3 aspect-square flex flex-col text-left card-press min-w-0 w-full overflow-hidden"
+      className="relative card-surface rounded-2xl p-3 aspect-square flex flex-col text-left card-press min-w-0 w-full overflow-hidden"
     >
       <div className="flex items-start justify-between w-full">
         <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
@@ -74,46 +75,62 @@ export function ReadinessCard({ userId }: ReadinessCardProps) {
         )}
       </div>
 
-      <div className="mt-2 flex items-baseline gap-1.5">
-        <span className="font-display font-bold text-[40px] leading-none text-foreground tabular-nums">
-          {latest ? Math.round(latest.readinessScore) : "—"}
-        </span>
-        {verdict && (
-          <span className={`text-note font-semibold ${verdict.color}`}>
-            {verdict.label}
-          </span>
-        )}
-      </div>
-
-      <div className="flex-1 min-h-0 mt-2">
-        {hasData ? (
-          <Sparkline data={series} className="h-full w-full" />
-        ) : (
-          <div className="flex flex-col items-center justify-end h-full text-center pb-0.5">
-            <Icon name="pulseOutline" size={20} className="text-muted-foreground/40 mb-1" />
-            <p className="text-note text-muted-foreground">No data yet</p>
+      {hasAccess ? (
+        <>
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <span className="font-display font-bold text-[40px] leading-none text-foreground tabular-nums">
+              {latest ? Math.round(latest.readinessScore) : "—"}
+            </span>
+            {verdict && (
+              <span className={`text-note font-semibold ${verdict.color}`}>
+                {verdict.label}
+              </span>
+            )}
           </div>
-        )}
-      </div>
 
-      {/* Footer — last check-in delta, right-aligned to match siblings. */}
-      <div className="mt-1.5 flex items-center justify-end">
-        <div className="flex items-center gap-1.5">
-          {delta != null && Math.abs(delta) >= 1 && (() => {
-            const isUp = delta > 0; // higher readiness is better
-            return (
-              <div className={`flex items-center gap-0.5 text-micro font-medium tabular-nums ${isUp ? "text-func-recovery-green" : "text-func-danger-red"}`}>
-                <Icon
-                  name="trendingDownOutline"
-                  size={12}
-                  className={isUp ? "rotate-180" : ""}
-                />
-                <span>{Math.abs(Math.round(delta))}</span>
+          <div className="flex-1 min-h-0 mt-2">
+            {hasData ? (
+              <Sparkline data={series} className="h-full w-full" />
+            ) : (
+              <div className="flex flex-col items-center justify-end h-full text-center pb-0.5">
+                <Icon name="pulseOutline" size={20} className="text-muted-foreground/40 mb-1" />
+                <p className="text-note text-muted-foreground">No data yet</p>
               </div>
-            );
-          })()}
+            )}
+          </div>
+
+          {/* Footer — last check-in delta, right-aligned to match siblings. */}
+          <div className="mt-1.5 flex items-center justify-end">
+            <div className="flex items-center gap-1.5">
+              {delta != null && Math.abs(delta) >= 1 && (() => {
+                const isUp = delta > 0; // higher readiness is better
+                return (
+                  <div className={`flex items-center gap-0.5 text-micro font-medium tabular-nums ${isUp ? "text-func-recovery-green" : "text-func-danger-red"}`}>
+                    <Icon
+                      name="trendingDownOutline"
+                      size={12}
+                      className={isUp ? "rotate-180" : ""}
+                    />
+                    <span>{Math.abs(Math.round(delta))}</span>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </>
+      ) : (
+        // Free users never see the score — render an aesthetic crown gate
+        // instead (the number is not in the DOM). Absolutely centered over the
+        // whole card so it's optically dead-centre regardless of the header.
+        // Taps through to the animated Recovery Pro gate at /recovery.
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center gap-2 px-2">
+          <ShimmerCrownBadge size={34} />
+          <div>
+            <p className="text-note font-semibold text-foreground leading-tight">Recovery is Pro</p>
+            <p className="text-micro text-muted-foreground leading-snug mt-0.5">Tap to unlock</p>
+          </div>
         </div>
-      </div>
+      )}
     </button>
   );
 }

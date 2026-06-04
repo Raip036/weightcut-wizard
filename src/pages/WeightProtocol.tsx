@@ -15,9 +15,10 @@ import { useAction, useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import { useUser } from "@/contexts/UserContext";
 import { useSubscription } from "@/hooks/useSubscription";
-import { Icon } from "@/components/ui/Icon";
 
 import { ProtocolHeader } from "@/components/protocol/ProtocolHeader";
+import { ProtocolProGate } from "@/components/protocol/ProtocolProGate";
+import { WeightProtocolProDialog } from "@/components/protocol/WeightProtocolProDialog";
 import {
   InputsUsedChips,
   type InputStat,
@@ -77,7 +78,12 @@ const FEEL_CHECK_METRICS: ReadonlyArray<FeelCheckMetric> = [
 
 export default function WeightProtocol() {
   const { userId, profile } = useUser();
-  const { isPremium, openPaywall } = useSubscription();
+  const { isPremium } = useSubscription();
+
+  // Single upgrade surface for the whole page — the top gate and every
+  // locked preview below open this same "here's what you get" explainer.
+  const [proDialogOpen, setProDialogOpen] = useState(false);
+  const openProDialog = useCallback(() => setProDialogOpen(true), []);
 
   // Single page-level query. Returns `undefined` while loading, `null`
   // when there's no active camp, and the protocol bundle otherwise.
@@ -214,15 +220,29 @@ export default function WeightProtocol() {
     rawGapHours ??
     null;
 
+  // Cut depth is the hero stat — tag it with the severity tier (matches the
+  // header pill) so the headline number reads its risk at a glance.
+  const cutBadgeTone =
+    cutCategory === "extreme"
+      ? "danger"
+      : cutCategory === "heavy"
+        ? "warn"
+        : cutCategory === "light"
+          ? "neutral"
+          : "accent";
+  const hasCutData = cutDepthKgRaw != null && cutDepthPctRaw != null;
+
   const inputStats: InputStat[] = [
     {
       label: "Cut depth",
-      value:
-        cutDepthKgRaw != null && cutDepthPctRaw != null
-          ? `${cutDepthKgRaw.toFixed(1)} kg (${cutDepthPctRaw.toFixed(1)}%)`
-          : "—",
+      value: hasCutData
+        ? `${cutDepthKgRaw.toFixed(1)} kg (${cutDepthPctRaw.toFixed(1)}%)`
+        : "—",
       tone: "accent",
       iconName: "trendingDownOutline",
+      ...(hasCutData
+        ? { badge: { text: cutCategory.toUpperCase(), tone: cutBadgeTone } }
+        : {}),
     },
     {
       label: "Weight",
@@ -363,39 +383,11 @@ export default function WeightProtocol() {
       {isGeneratingProtocol ? (
         <ProtocolGeneratingOverlay tone={tier} />
       ) : needsGenerateCta ? (
-        <button
-          type="button"
-          onClick={() => (isPremium ? handleRegenerate() : openPaywall())}
-          className="w-full text-left card-surface rounded-2xl p-5 active:scale-[0.99] transition border border-primary/30 bg-primary/[0.04]"
-        >
-          {/* Header row: icon + title block + CTA label. Description is
-              lifted out below the row so it spans the full card width
-              instead of being squeezed into a narrow middle column. */}
-          <div className="flex items-start gap-3">
-            <div className="h-11 w-11 shrink-0 rounded-2xl border flex items-center justify-center border-primary/30 bg-primary/10 text-primary">
-              <Icon name={isPremium ? "sparklesOutline" : "lockClosedOutline"} size={22} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary/80">
-                {isPremium ? "Ready when you are" : "Pro feature"}
-              </p>
-              <p className="mt-0.5 text-[17px] font-bold leading-tight text-foreground">
-                {isPremium ? "Generate your fight plan" : "Unlock your fight plan"}
-              </p>
-            </div>
-            <span className="inline-flex items-center gap-1 shrink-0 rounded-full bg-primary text-primary-foreground px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider">
-              {isPremium ? "Generate" : "Upgrade"}
-              <Icon name="chevronForwardOutline" size={14} />
-            </span>
-          </div>
-          {/* Description — full card width so the copy spreads
-              horizontally instead of wrapping in a tall narrow column. */}
-          <p className="mt-3 text-[12px] text-muted-foreground leading-snug">
-            {isPremium
-              ? "We'll tune the cut + rehydration timeline to your weight, training load, and prior camps. Takes 5-15 seconds."
-              : "AI-tuned fight-week protocol, hour-by-hour rehydration timeline, DIY ORS recipe. All personalised to your body and prior camps."}
-          </p>
-        </button>
+        <ProtocolProGate
+          isPremium={isPremium}
+          onUnlock={openProDialog}
+          onGenerate={handleRegenerate}
+        />
       ) : (
         <TodaysActionHero
           phase={phaseTyped}
@@ -457,7 +449,9 @@ export default function WeightProtocol() {
             index={i}
           />
         ))}
-        {lockedDays.length > 0 && <LockedDayCard days={lockedDays} />}
+        {lockedDays.length > 0 && (
+          <LockedDayCard days={lockedDays} onUnlock={openProDialog} />
+        )}
       </div>
 
       {/* 7. Weight-loss breakdown chart */}
@@ -488,10 +482,16 @@ export default function WeightProtocol() {
           ]}
         />
       )}
-      {weighInDay && !isPremium && <LockedDayCard days={[weighInDay]} />}
+      {weighInDay && !isPremium && (
+        <LockedDayCard days={[weighInDay]} onUnlock={openProDialog} />
+      )}
 
-      {/* 9. Section divider */}
-      <ProtocolSectionDivider label="After the scale" />
+      {/* 9. Section divider — the post-weigh-in rehydration / refuel window. */}
+      <ProtocolSectionDivider label="After the scale · Rehydration" />
+      <p className="-mt-1 text-[12px] text-muted-foreground/80 leading-snug">
+        Your refuel plan for once you step off the weigh-in scale — how to
+        rehydrate and reload before fight night.
+      </p>
 
       {/* 10. ORS recipe + 11. rehydration hourly timeline (premium) */}
       {isPremium && rhPayload && (
@@ -530,7 +530,11 @@ export default function WeightProtocol() {
       {!isPremium && (
         // Single locked card stands in for the full rehydration section
         // for free users — keeps the page silhouette consistent.
-        <LockedDayCard days={[]} />
+        <LockedDayCard
+          days={[]}
+          onUnlock={openProDialog}
+          teaser="the rehydration timeline + ORS recipe"
+        />
       )}
 
       {/* 12. Do-not callouts */}
@@ -558,6 +562,13 @@ export default function WeightProtocol() {
 
       {/* Floating back-to-top */}
       <BackToTopFAB />
+
+      {/* Single shared upgrade explainer — opened by the top gate and every
+          locked preview below. Shows the value story before the paywall. */}
+      <WeightProtocolProDialog
+        open={proDialogOpen}
+        onOpenChange={setProDialogOpen}
+      />
     </div>
   );
 }

@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { motion } from "motion/react";
 import { staggerContainer, staggerItem } from "@/lib/motion";
-import { Dumbbell, ArrowUpDown, Plus } from "lucide-react";
-import { ProGate } from "@/components/subscription/ProGate";
+import { Dumbbell, ArrowUpDown, Plus, Sparkles } from "lucide-react";
+import { useSubscription } from "@/hooks/useSubscription";
+import { ShimmerCrownBadge } from "@/components/subscription/ShimmerCrownBadge";
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { RoutineDetailCard } from "./RoutineDetailCard";
+import { RoutineGenProDialog } from "./RoutineGenProDialog";
 import type { SavedRoutine } from "@/pages/gym/types";
 
 interface RoutineLibraryProps {
@@ -23,6 +25,8 @@ type SortMode = "recent" | "name" | "goal";
 export function RoutineLibrary({ routines, loading, onDelete, onRename, onStartWorkout, onOpenGenerator, onOpenManualCreator }: RoutineLibraryProps) {
   const [sortMode, setSortMode] = useState<SortMode>("recent");
   const [deleteTarget, setDeleteTarget] = useState<SavedRoutine | null>(null);
+  const [genProOpen, setGenProOpen] = useState(false);
+  const { checkFeatureAccess, isSubscriptionResolved } = useSubscription();
 
   const sorted = [...routines].sort((a, b) => {
     switch (sortMode) {
@@ -88,14 +92,23 @@ export function RoutineLibrary({ routines, loading, onDelete, onRename, onStartW
             <Plus className="!size-3.5" />
             Manual
           </Button>
-          <ProGate feature="AI_WORKOUT_GENERATOR">
+          {!isSubscriptionResolved || checkFeatureAccess("AI_WORKOUT_GENERATOR") ? (
             <Button onClick={onOpenGenerator} className="h-10 px-3.5 rounded-xs text-xs font-medium">
-              <span className="inline-flex items-center gap-1.5">
-                AI Generate
-              </span>
+              <Sparkles className="!size-3.5" />
+              AI Generate
             </Button>
-          </ProGate>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setGenProOpen(true)}
+              className="h-10 inline-flex items-center gap-1.5 rounded-xs border border-primary/30 bg-primary/10 pl-1.5 pr-3.5 text-xs font-semibold text-foreground whitespace-nowrap active:scale-[0.97] transition-transform"
+            >
+              <ShimmerCrownBadge size={26} />
+              AI Routines
+            </button>
+          )}
         </div>
+        <RoutineGenProDialog open={genProOpen} onOpenChange={setGenProOpen} />
       </div>
     );
   }
@@ -108,23 +121,31 @@ export function RoutineLibrary({ routines, loading, onDelete, onRename, onStartW
           <Button
             onClick={onOpenManualCreator}
             size="sm"
-            className="h-8 px-2.5 rounded-xs text-xs font-medium"
+            className="h-9 px-3.5 rounded-full text-xs font-semibold whitespace-nowrap"
             variant="outline"
           >
             <Plus className="!size-3.5" />
             Manual
           </Button>
-          <ProGate feature="AI_WORKOUT_GENERATOR">
+          {!isSubscriptionResolved || checkFeatureAccess("AI_WORKOUT_GENERATOR") ? (
             <Button
               onClick={onOpenGenerator}
               size="sm"
-              className="h-8 px-2.5 rounded-xs text-xs font-medium"
+              className="h-9 px-3.5 rounded-full text-xs font-semibold whitespace-nowrap"
             >
-              <span className="inline-flex items-center gap-1.5">
-                AI Generate
-              </span>
+              <Sparkles className="!size-3.5" />
+              AI Generate
             </Button>
-          </ProGate>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setGenProOpen(true)}
+              className="h-9 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 pl-1 pr-3.5 text-xs font-semibold text-foreground whitespace-nowrap active:scale-[0.97] transition-transform"
+            >
+              <ShimmerCrownBadge size={26} />
+              AI Routines
+            </button>
+          )}
         </div>
         <button
           onClick={cycleSortMode}
@@ -162,6 +183,8 @@ export function RoutineLibrary({ routines, loading, onDelete, onRename, onStartW
         title="Delete Routine"
         itemName={deleteTarget?.name}
       />
+
+      <RoutineGenProDialog open={genProOpen} onOpenChange={setGenProOpen} />
     </div>
   );
 }

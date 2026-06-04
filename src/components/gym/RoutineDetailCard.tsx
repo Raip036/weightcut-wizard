@@ -14,27 +14,32 @@ interface RoutineDetailCardProps {
   onStartWorkout: (routine: SavedRoutine, dayFilter?: string) => void;
 }
 
+// App-themed tints, one per goal — kept within the brand/functional palette.
 const GOAL_BADGE: Record<string, string> = {
-  hypertrophy: "bg-blue-500/15 text-blue-400",
+  hypertrophy: "bg-primary/15 text-primary",
   strength: "bg-func-danger-red/15 text-func-danger-red",
   explosiveness: "bg-func-warning-yellow/15 text-func-warning-yellow",
   conditioning: "bg-func-recovery-green/15 text-func-recovery-green",
 };
 
-const MUSCLE_COLORS: Record<string, string> = {
-  chest: "bg-blue-500/15 text-blue-400",
-  back: "bg-func-fats-purple/15 text-func-fats-purple",
-  shoulders: "bg-func-carbs-orange/15 text-func-carbs-orange",
-  biceps: "bg-func-hydration-cyan/15 text-func-hydration-cyan",
-  triceps: "bg-pink-500/15 text-pink-400",
-  quads: "bg-func-recovery-green/15 text-func-recovery-green",
-  hamstrings: "bg-func-recovery-green/15 text-func-recovery-green",
-  glutes: "bg-func-danger-red/15 text-func-danger-red",
-  calves: "bg-teal-500/15 text-teal-400",
-  abs: "bg-func-warning-yellow/15 text-func-warning-yellow",
-  core: "bg-func-warning-yellow/15 text-func-warning-yellow",
-  full_body: "bg-indigo-500/15 text-indigo-400",
-  cardio: "bg-func-danger-red/15 text-func-danger-red",
+// Shared chip style so the goal / AI / sport tags read as one consistent family.
+const CHIP = "inline-flex items-center text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full leading-none";
+
+// Solid dot colours for the muscle marker on the two-line exercise rows.
+const MUSCLE_DOT: Record<string, string> = {
+  chest: "bg-blue-400",
+  back: "bg-func-fats-purple",
+  shoulders: "bg-func-carbs-orange",
+  biceps: "bg-func-hydration-cyan",
+  triceps: "bg-pink-400",
+  quads: "bg-func-recovery-green",
+  hamstrings: "bg-func-recovery-green",
+  glutes: "bg-func-danger-red",
+  calves: "bg-teal-400",
+  abs: "bg-func-warning-yellow",
+  core: "bg-func-warning-yellow",
+  full_body: "bg-indigo-400",
+  cardio: "bg-func-danger-red",
 };
 
 const DAY_COLORS = [
@@ -52,22 +57,31 @@ interface GroupedExerciseListProps {
 }
 
 function ExerciseRow({ ex, idx }: { ex: RoutineExercise; idx: number }) {
-  // Explicit grid columns guarantee alignment and prevent the muscle pill from
-  // colliding with sets×reps even when names or values get long. min-w-0 on
-  // every cell lets each column truncate independently instead of pushing
-  // siblings around. Each cell uses overflow-hidden so a long pill can't bleed
-  // into the next column visually.
+  // Two-line layout: the exercise name gets its own full-width line so it never
+  // truncates, with sets×reps + a single primary-muscle marker beneath. The
+  // `muscle_group` field can be a pipe-joined list ("chest|triceps|shoulders");
+  // we surface only the first and a "+N" so nothing overflows.
+  const parts = ex.muscle_group.split("|").map((m) => m.trim()).filter(Boolean);
+  const primaryKey = (parts[0] ?? "").toLowerCase();
+  const primaryLabel = (parts[0] ?? "").replace(/_/g, " ");
+  const moreCount = parts.length - 1;
   return (
-    <div className="grid grid-cols-[1rem_minmax(0,1fr)_3.5rem_5.75rem] items-center gap-2 px-3 py-2">
-      <span className="text-[10px] text-muted-foreground/50 text-right tabular-nums">{idx + 1}</span>
-      <span className="text-xs font-medium truncate min-w-0">{ex.name}</span>
-      <span className="text-[11px] text-muted-foreground tabular-nums text-right min-w-0 truncate">
-        {ex.sets}&times;{ex.reps}
+    <div className="flex items-start gap-2.5 px-3 py-2.5">
+      <span className="mt-[3px] w-3.5 shrink-0 text-[10px] text-muted-foreground/50 text-right tabular-nums">
+        {idx + 1}
       </span>
-      <div className="min-w-0 flex justify-end overflow-hidden">
-        <span className={`text-[9px] px-1.5 py-0.5 rounded-full max-w-full truncate ${MUSCLE_COLORS[ex.muscle_group] || "bg-muted/50 text-muted-foreground"}`}>
-          {ex.muscle_group.replace("_", " ")}
-        </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[13px] font-medium text-foreground leading-snug">{ex.name}</p>
+        <div className="mt-1 flex items-center gap-2.5 text-[11px] text-muted-foreground">
+          <span className="tabular-nums font-medium">{ex.sets}&times;{ex.reps}</span>
+          {primaryLabel && (
+            <span className="inline-flex items-center gap-1.5 capitalize">
+              <span className={`inline-block h-1.5 w-1.5 rounded-full shrink-0 ${MUSCLE_DOT[primaryKey] || "bg-muted-foreground/50"}`} />
+              {primaryLabel}
+              {moreCount > 0 && <span className="normal-case text-muted-foreground/55">+{moreCount}</span>}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -192,11 +206,11 @@ export function RoutineDetailCard({ routine, onDelete, onRename, onStartWorkout 
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center gap-2">
-                  <span className="text-[15px] font-bold truncate">{routine.name}</span>
+                <div className="flex items-start gap-1.5">
+                  <h3 className="flex-1 text-[15px] font-bold leading-snug text-foreground break-words">{routine.name}</h3>
                   <button
                     onClick={(e) => { e.stopPropagation(); setEditing(true); }}
-                    className="p-1 rounded hover:bg-muted/40 shrink-0 opacity-40 hover:opacity-100 transition-opacity"
+                    className="p-1 -mr-1 mt-0.5 rounded hover:bg-muted/40 shrink-0 opacity-40 hover:opacity-100 transition-opacity"
                     aria-label="Rename routine"
                   >
                     <Pencil className="h-3 w-3 text-muted-foreground" />
@@ -204,24 +218,24 @@ export function RoutineDetailCard({ routine, onDelete, onRename, onStartWorkout 
                 </div>
               )}
 
-              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${GOAL_BADGE[routine.goal] || "bg-muted/50 text-muted-foreground"}`}>
+              <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                <span className={`${CHIP} ${GOAL_BADGE[routine.goal] || "bg-muted/50 text-muted-foreground"}`}>
                   {routine.goal}
                 </span>
                 {routine.is_ai_generated && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-func-fats-purple/15 text-func-fats-purple font-bold uppercase tracking-wider">
+                  <span className={`${CHIP} bg-func-fats-purple/15 text-func-fats-purple`}>
                     AI
                   </span>
                 )}
                 {routine.sport && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted/50 text-muted-foreground border border-border/20 capitalize">
-                    {routine.sport.replace("_", " ")}
+                  <span className={`${CHIP} bg-muted/40 text-muted-foreground/90`}>
+                    {routine.sport.replace(/_/g, " ")}
                   </span>
                 )}
-                <span className="text-[10px] text-muted-foreground/60 tabular-nums">
-                  {routine.exercises.length} exer · {formattedDate}
-                </span>
               </div>
+              <p className="text-[11px] text-muted-foreground/60 mt-1.5 tabular-nums">
+                {routine.exercises.length} {routine.exercises.length === 1 ? "exercise" : "exercises"} · {formattedDate}
+              </p>
             </div>
 
             {/* Always-visible Start button + expand chevron */}
@@ -230,9 +244,9 @@ export function RoutineDetailCard({ routine, onDelete, onRename, onStartWorkout 
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onStartWorkout(routine); }}
                 aria-label="Start routine"
-                className="h-9 px-3 rounded-full bg-primary text-primary-foreground text-[12px] font-bold inline-flex items-center gap-1.5 active:scale-[0.96] transition-transform"
+                className="h-9 px-4 rounded-full bg-gradient-to-r from-primary to-secondary text-primary-foreground text-[13px] font-bold inline-flex items-center gap-1.5 active:scale-[0.96] transition-transform shadow-[0_0_16px_hsl(var(--primary)/0.28)]"
               >
-                <Play className="h-3.5 w-3.5" strokeWidth={2.6} />
+                <Play className="h-3.5 w-3.5" strokeWidth={2.6} fill="currentColor" />
                 Start
               </button>
               <CollapsibleTrigger asChild>

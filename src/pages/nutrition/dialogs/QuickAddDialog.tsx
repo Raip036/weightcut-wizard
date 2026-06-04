@@ -22,9 +22,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
-import { ProGate } from "@/components/subscription/ProGate";
+import { Crown } from "lucide-react";
 import { Icon } from "@/components/ui/Icon";
 import { triggerHapticSelection } from "@/lib/haptics";
+import { useSubscription } from "@/hooks/useSubscription";
+import { NutritionProDialog } from "@/components/nutrition/NutritionProDialog";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useKeyboardAware } from "@/hooks/useKeyboardAware";
 import { useScrollIntoViewOnFocus } from "@/hooks/useScrollIntoViewOnFocus";
@@ -52,9 +54,12 @@ export function QuickAddDialog({
   savingMeal,
   // The following three props remain in the QuickAddDialog public API for
   // backwards compatibility with NutritionPage's call site, but the
-  // AI-first rewrite no longer needs them here — manual logging is fully
-  // owned by ManualLogPanel which calls Convex actions directly.
+  // AI-first rewrite no longer needs them here. Manual logging is owned by
+  // ManualLogPanel, which commits via the `onSaveManualMeal` callback below
+  // (NutritionPage's `saveMealToDb`) so the new meal flows through the shared
+  // optimistic-update orchestration and shows up in the day's list.
   onAddManualMeal: _onAddManualMeal,
+  onSaveManualMeal,
   savingAllMeals: _savingAllMeals,
   macroCalc: _macroCalc,
   aiTask,
@@ -168,6 +173,27 @@ export function QuickAddDialog({
       onToast({ title: "Voice Input", description: error, variant: "destructive" }),
   });
 
+  // ── Pro gate for the AI capture surface ───────────────────────────
+  // Photo, voice, and Analyze are all Pro-only. Rather than block each
+  // control, a free tap on any of them opens a full-screen explainer that
+  // sells AI photo + natural-language tracking before the paywall.
+  const { isPremium, isSubscriptionResolved } = useSubscription();
+  const prefersReduced = useReducedMotion();
+  const [aiUpsellOpen, setAiUpsellOpen] = useState(false);
+  // Treat an unresolved subscription as unlocked to avoid a lock flash on
+  // cold start (mirrors ProGate's own behaviour).
+  const aiLocked = isSubscriptionResolved && !isPremium;
+  const openAiUpsell = () => {
+    triggerHapticSelection();
+    // Close the bottom sheet first. The Sheet renders in a Radix portal that
+    // wins the stacking order, so leaving it open hides the full-screen
+    // explainer behind it. QuickAddDialog stays mounted (NutritionPage owns
+    // it) and NutritionProDialog is a sibling holding its own open state, so
+    // the explainer stays up after the sheet closes.
+    onOpenChange(false);
+    setAiUpsellOpen(true);
+  };
+
   // ── Keyboard padding ──────────────────────────────────────────────
   const { keyboardHeight } = useKeyboardAware();
 
@@ -212,12 +238,20 @@ export function QuickAddDialog({
 
   // ── Handlers ──────────────────────────────────────────────────────
   const handleAnalyze = () => {
+    if (aiLocked) {
+      openAiUpsell();
+      return;
+    }
     if (isListening) stopListening();
     if (aiMeal.photoBase64) aiMeal.handlePhotoAnalyze();
     else aiMeal.handleAiAnalyzeMeal();
   };
 
   const handleVoiceToggle = () => {
+    if (aiLocked) {
+      openAiUpsell();
+      return;
+    }
     if (isListening) stopListening();
     else startListening();
   };
@@ -258,6 +292,7 @@ export function QuickAddDialog({
   );
 
   return (
+    <>
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
@@ -329,6 +364,10 @@ export function QuickAddDialog({
                 ) : (
                   <SnapPhotoHero
                     onTap={async () => {
+                      if (aiLocked) {
+                        openAiUpsell();
+                        return;
+                      }
                       const result = await aiMeal.capturePhoto();
                       if (result) setPendingCaption(true);
                     }}
@@ -354,7 +393,42 @@ export function QuickAddDialog({
                   }
                 />
 
-                <ProGate feature="AI_MEAL_ANALYSIS">
+                {aiLocked ? (
+                  // Free users: a premium crowned CTA that opens the AI
+                  // tracking explainer (photo + natural-language) before the
+                  // paywall — replaces ProGate's plain lock button here.
+                  <button
+                    type="button"
+                    onClick={openAiUpsell}
+                    aria-label="Upgrade to Pro to unlock AI meal tracking"
+                    className="relative w-full h-12 overflow-hidden rounded-2xl text-[15px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform"
+                  >
+                    <span className="relative z-10 inline-flex w-full items-center justify-center gap-2">
+                      <Crown
+                        className="h-[18px] w-[18px]"
+                        strokeWidth={2}
+                        fill="currentColor"
+                      />
+                      Upgrade to Pro
+                    </span>
+                    {!prefersReduced && (
+                      <motion.span
+                        aria-hidden
+                        className="absolute inset-y-0 -left-1/3 w-1/3 bg-white/25"
+                        style={{ transform: "skewX(-20deg)" }}
+                        initial={{ x: "-120%" }}
+                        animate={{ x: "440%" }}
+                        transition={{
+                          duration: 1.1,
+                          ease: "easeOut",
+                          repeat: Infinity,
+                          repeatDelay: 2.8,
+                          delay: 1.1,
+                        }}
+                      />
+                    )}
+                  </button>
+                ) : (
                   <button
                     type="button"
                     onClick={handleAnalyze}
@@ -373,7 +447,7 @@ export function QuickAddDialog({
                       </span>
                     )}
                   </button>
-                </ProGate>
+                )}
 
                 {/* Small "Or log manually →" link. Mid-bottom, low-emphasis
                     so it doesn't compete with Analyze. */}
@@ -507,6 +581,7 @@ export function QuickAddDialog({
                   mealTime={(manualMeal.meal_type as MealType) ?? "breakfast"}
                   onClose={() => onOpenChange(false)}
                   onBackToAi={handleBackToAi}
+                  onSaveMeal={onSaveManualMeal}
                 />
               </motion.div>
             )}
@@ -514,6 +589,12 @@ export function QuickAddDialog({
         </div>
       </SheetContent>
     </Sheet>
+
+      {/* Full-screen "what you get" explainer for the AI capture surface.
+          Renders above the sheet (z-[10000], opaque) so a free tap on photo /
+          voice / Analyze shows the value before the paywall. */}
+      <NutritionProDialog open={aiUpsellOpen} onOpenChange={setAiUpsellOpen} />
+    </>
   );
 }
 

@@ -199,11 +199,6 @@ export function PhaseCoachCard({
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <span
-            className={`h-7 w-7 rounded-xs bg-muted/40 flex items-center justify-center shrink-0 ${meta.accent}`}
-          >
-            <Icon name={meta.icon} size={14} />
-          </span>
           <div className="min-w-0">
             <p
               className={`text-[10px] font-bold uppercase tracking-[0.14em] ${meta.accent}`}

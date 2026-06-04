@@ -7,7 +7,27 @@
  * field names verbatim to stay drop-in compatible with that hook's return
  * value; renaming would force a touch on three call sites.
  */
-import type { ManualMealForm } from "@/pages/nutrition/types";
+import type { ManualMealForm, Ingredient } from "@/pages/nutrition/types";
+
+/**
+ * Save callback the manual sub-panel uses to commit a meal. Wired to
+ * `useMealOperations.saveMealToDb` by NutritionPage so the manual path goes
+ * through the same optimistic-update + cache orchestration (`runInsertFlow`)
+ * as every other insert path. Resolves to the new meal's id, or `null` if the
+ * insert failed (in which case the orchestrator has already surfaced a toast).
+ */
+export type SaveManualMeal = (data: {
+  meal_name: string;
+  calories: number;
+  protein_g: number | null;
+  carbs_g: number | null;
+  fats_g: number | null;
+  meal_type: string;
+  portion_size: string | null;
+  recipe_notes: string | null;
+  ingredients: Ingredient[] | null;
+  is_ai_generated: boolean;
+}) => Promise<unknown>;
 
 export interface MacroOverrides {
   calories?: number;
@@ -88,6 +108,12 @@ export interface QuickAddDialogProps {
    */
   savingMeal: boolean;
   onAddManualMeal: () => void;
+  /**
+   * Commits a meal logged via the manual sub-panel. Routes through
+   * `useMealOperations.saveMealToDb` so the meal appears in the day's list
+   * (optimistic `setMeals` + cache writes) rather than persisting silently.
+   */
+  onSaveManualMeal: SaveManualMeal;
   aiTask: AiTaskShape | null;
   onCancelAi: () => void;
   onDismissTask: (id: string) => void;

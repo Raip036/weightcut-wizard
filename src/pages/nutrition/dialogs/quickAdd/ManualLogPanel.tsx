@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import { motion } from "motion/react";
 
 import { Input } from "@/components/ui/input";
@@ -11,12 +11,12 @@ import { useUser } from "@/contexts/UserContext";
 import { useKeyboardAware } from "@/hooks/useKeyboardAware";
 import { localCache } from "@/lib/localCache";
 import { logger } from "@/lib/logger";
-import { celebrateSuccess, triggerHapticSelection } from "@/lib/haptics";
-import { buildCreateMealRpcArgs } from "@/lib/buildMealRpcArgs";
+import { triggerHapticSelection } from "@/lib/haptics";
 
 import { api } from "../../../../../convex/_generated/api";
 import type { MealTemplate } from "@/pages/nutrition/types";
 import type { MealType } from "./MealTypeSelector";
+import type { SaveManualMeal } from "./types";
 
 /**
  * Manual-logging sub-panel for the "Add a meal" sheet. Search-first (USDA via
@@ -31,6 +31,14 @@ interface ManualLogPanelProps {
   mealTime: MealType;
   onClose: () => void;
   onBackToAi: () => void;
+  /**
+   * Commits the meal. Wired to `useMealOperations.saveMealToDb` (via
+   * QuickAddDialog → NutritionPage) so the save runs through the shared
+   * optimistic-update + cache orchestration and the new meal immediately
+   * appears in the day's list. Resolves to the meal id, or null on failure
+   * (the orchestrator surfaces its own error toast in that case).
+   */
+  onSaveMeal: SaveManualMeal;
 }
 
 interface FoodSearchResult {
@@ -89,6 +97,7 @@ export function ManualLogPanel({
   mealTime,
   onClose,
   onBackToAi,
+  onSaveMeal,
 }: ManualLogPanelProps) {
   const { userId } = useUser();
   const { toast } = useToast();
@@ -96,7 +105,6 @@ export function ManualLogPanel({
   const todayStr = useMemo(() => format(new Date(), "yyyy-MM-dd"), []);
 
   const foodSearch = useAction(api.actions.foodSearch.run);
-  const createMeal = useMutation(api.meals.createMealWithItems);
 
   // ── Today's meals → drives the "Recent" chip row. listWithTotals is the
   // same reactive query the rest of the nutrition surface consumes, so this
@@ -245,41 +253,30 @@ export function ManualLogPanel({
         macros.source_name?.trim() ||
         (description.length > 0 ? description.slice(0, 40) : "");
 
-      const args = buildCreateMealRpcArgs({
-        header: {
-          meal_name: name,
-          meal_type: mealTime,
-          date: todayStr,
-          notes: description.length > 0 ? description : null,
-          is_ai_generated: false,
-        },
-        fallbackTotals: {
-          calories,
-          protein_g: protein,
-          carbs_g: carbs,
-          fats_g: fats,
-          name: name || null,
-        },
+      // Route through the shared insert orchestration (saveMealToDb →
+      // runInsertFlow). This is what makes the meal show up: it fires the
+      // optimistic `setMeals` update and writes the day's caches. Calling the
+      // Convex mutation directly from here persisted the meal but never
+      // touched the page's state/cache, so the entry silently never appeared.
+      const result = await onSaveMeal({
+        meal_name: name,
+        calories,
+        protein_g: protein,
+        carbs_g: carbs,
+        fats_g: fats,
+        meal_type: mealTime,
+        portion_size: null,
+        recipe_notes: description.length > 0 ? description : null,
+        ingredients: null,
+        is_ai_generated: false,
       });
 
-      await createMeal({
-        date: args.p_date,
-        mealType: args.p_meal_type,
-        mealName: args.p_meal_name,
-        notes: args.p_notes ?? undefined,
-        isAiGenerated: args.p_is_ai_generated,
-        items: args.p_items.map((it) => ({
-          name: it.name,
-          grams: it.grams,
-          calories: it.calories,
-          proteinG: it.protein_g,
-          carbsG: it.carbs_g,
-          fatsG: it.fats_g,
-        })),
-        idempotencyKey: crypto.randomUUID(),
-      });
+      // `saveMealToDb` resolves to null when the insert failed — the
+      // orchestrator has already surfaced a destructive toast and rolled back
+      // the optimistic row, so leave the sheet open for a retry without
+      // double-toasting or falsely celebrating.
+      if (result == null) return;
 
-      celebrateSuccess();
       toast({
         title: "Meal logged",
         description: `${Math.round(calories)} kcal`,
@@ -300,8 +297,7 @@ export function ManualLogPanel({
     canSave,
     macros,
     mealTime,
-    todayStr,
-    createMeal,
+    onSaveMeal,
     toast,
     onClose,
   ]);

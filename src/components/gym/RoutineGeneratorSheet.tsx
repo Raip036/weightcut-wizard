@@ -14,6 +14,7 @@ import { AICompactOverlay } from "@/components/AICompactOverlay";
 import type {
   RoutineGenerationParams, RoutineExercise, TrainingGoal,
   CombatSport, Equipment, WorkoutSplit, FocusArea,
+  CampPhase, ExperienceLevel, WeakPoint,
 } from "@/pages/gym/types";
 
 interface CompletedRoutineResult {
@@ -66,6 +67,28 @@ const FOCUS_AREAS: { value: FocusArea; label: string }[] = [
   { value: "core", label: "Core" },
   { value: "explosiveness", label: "Explosiveness" },
   { value: "grip", label: "Grip" },
+];
+
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+const CAMP_PHASES: { value: CampPhase; label: string }[] = [
+  { value: "off", label: "Off-camp" },
+  { value: "pre", label: "Pre-camp" },
+  { value: "camp", label: "Fight camp" },
+];
+
+const EXPERIENCE_LEVELS: { value: ExperienceLevel; label: string }[] = [
+  { value: "beginner", label: "Beginner" },
+  { value: "intermediate", label: "Intermediate" },
+  { value: "advanced", label: "Advanced" },
+];
+
+const WEAK_POINTS: { value: WeakPoint; label: string }[] = [
+  { value: "posterior_chain", label: "Posterior chain" },
+  { value: "explosiveness", label: "Explosiveness" },
+  { value: "grip", label: "Grip" },
+  { value: "conditioning", label: "Conditioning" },
+  { value: "unilateral", label: "Single-leg" },
 ];
 
 const MUSCLE_COLORS: Record<string, string> = {
@@ -192,6 +215,13 @@ export function RoutineGeneratorSheet({ open, onOpenChange, onGenerate, onSave, 
   const [splitUsed, setSplitUsed] = useState<string | null>(null);
   const [routineNotes, setRoutineNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  // V2 S&C context
+  const [description, setDescription] = useState("");
+  const [injuries, setInjuries] = useState("");
+  const [hardSparringDays, setHardSparringDays] = useState<string[]>([]);
+  const [campPhase, setCampPhase] = useState<CampPhase | null>(null);
+  const [experience, setExperience] = useState<ExperienceLevel | null>(null);
+  const [weakPoints, setWeakPoints] = useState<WeakPoint[]>([]);
 
   const stepIndex = STEPS.indexOf(step);
 
@@ -209,6 +239,12 @@ export function RoutineGeneratorSheet({ open, onOpenChange, onGenerate, onSave, 
     setSplitUsed(null);
     setRoutineNotes("");
     setSaving(false);
+    setDescription("");
+    setInjuries("");
+    setHardSparringDays([]);
+    setCampPhase(null);
+    setExperience(null);
+    setWeakPoints([]);
   }, []);
 
   // Restore state from a completed background generation
@@ -274,6 +310,12 @@ export function RoutineGeneratorSheet({ open, onOpenChange, onGenerate, onSave, 
       sessionDurationMinutes: sessionDuration,
       focusAreas,
       preferredSplit,
+      description: description.trim() || undefined,
+      injuries: injuries.trim() || undefined,
+      hardSparringDays: hardSparringDays.length ? hardSparringDays : undefined,
+      campPhase: campPhase ?? undefined,
+      experience: experience ?? undefined,
+      weakPoints: weakPoints.length ? weakPoints : undefined,
     };
     try {
       const result = await onGenerate(params);
@@ -423,6 +465,64 @@ export function RoutineGeneratorSheet({ open, onOpenChange, onGenerate, onSave, 
                   </p>
                 </div>
 
+                {/* Hard sparring days */}
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Hard sparring days <span className="font-normal normal-case">(optional)</span></p>
+                  <div className="flex flex-wrap gap-2">
+                    {WEEKDAYS.map((d) => {
+                      const selected = hardSparringDays.includes(d);
+                      return (
+                        <button
+                          key={d}
+                          onClick={() => setHardSparringDays((p) => p.includes(d) ? p.filter((x) => x !== d) : [...p, d])}
+                          className={`px-3.5 py-2 rounded-full text-xs font-semibold transition-all active:scale-[0.97] ${selected ? "bg-primary/15 text-primary border border-primary/30" : "bg-muted/30 text-muted-foreground border border-border/30 hover:text-foreground"}`}
+                        >
+                          {d}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground/60 mt-2">We'll keep heavy-leg days away from these.</p>
+                </div>
+
+                {/* Camp phase */}
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Camp phase <span className="font-normal normal-case">(optional)</span></p>
+                  <div className="flex gap-2">
+                    {CAMP_PHASES.map((p) => {
+                      const selected = campPhase === p.value;
+                      return (
+                        <button
+                          key={p.value}
+                          onClick={() => setCampPhase(selected ? null : p.value)}
+                          className={`flex-1 px-3 py-2.5 rounded-full text-xs font-semibold transition-all active:scale-[0.97] ${selected ? "bg-primary text-primary-foreground" : "bg-muted/30 text-muted-foreground border border-border/30 hover:text-foreground"}`}
+                        >
+                          {p.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Lifting experience */}
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Lifting experience <span className="font-normal normal-case">(optional)</span></p>
+                  <div className="flex gap-2">
+                    {EXPERIENCE_LEVELS.map((e) => {
+                      const selected = experience === e.value;
+                      return (
+                        <button
+                          key={e.value}
+                          onClick={() => setExperience(selected ? null : e.value)}
+                          className={`flex-1 px-3 py-2.5 rounded-full text-xs font-semibold transition-all active:scale-[0.97] ${selected ? "bg-primary text-primary-foreground" : "bg-muted/30 text-muted-foreground border border-border/30 hover:text-foreground"}`}
+                        >
+                          {e.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <Button onClick={goNext} disabled={!sport} className="w-full h-12 rounded-xs text-[15px] font-semibold">
                   Continue <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
@@ -500,6 +600,45 @@ export function RoutineGeneratorSheet({ open, onOpenChange, onGenerate, onSave, 
                   <div className="flex justify-between text-[10px] text-muted-foreground/60 mt-1.5 px-0.5">
                     <span>30m</span><span>45m</span><span>60m</span><span>75m</span><span>90m</span>
                   </div>
+                </div>
+
+                {/* Weak points */}
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Weak points to target <span className="font-normal normal-case">(optional)</span></p>
+                  <div className="flex flex-wrap gap-2">
+                    {WEAK_POINTS.map((w) => {
+                      const selected = weakPoints.includes(w.value);
+                      return (
+                        <button
+                          key={w.value}
+                          onClick={() => setWeakPoints((p) => p.includes(w.value) ? p.filter((x) => x !== w.value) : [...p, w.value])}
+                          className={`px-3.5 py-2 rounded-full text-xs font-semibold transition-all active:scale-[0.97] ${selected ? "bg-primary/15 text-primary border border-primary/30" : "bg-muted/30 text-muted-foreground border border-border/30 hover:text-foreground"}`}
+                        >
+                          {w.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Free text + injuries */}
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Tell the coach anything <span className="font-normal normal-case">(optional)</span></p>
+                  <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    rows={3}
+                    maxLength={500}
+                    placeholder="e.g. I fight in 8 weeks, only have dumbbells, want to be more explosive off my back foot…"
+                    className="w-full rounded-xs bg-muted/20 border border-border/40 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 resize-none focus:outline-none focus:ring-1 focus:ring-primary/40"
+                  />
+                  <input
+                    value={injuries}
+                    onChange={(e) => setInjuries(e.target.value)}
+                    maxLength={200}
+                    placeholder="Any injuries to work around?"
+                    className="mt-2 w-full rounded-xs bg-muted/20 border border-border/40 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                  />
                 </div>
 
                 <Button onClick={goNext} className="w-full h-12 rounded-xs text-[15px] font-semibold">

@@ -14,6 +14,8 @@ import { CampProgressPanel } from "@/components/coach/CampProgressPanel";
 import { CampActivityFeed } from "@/components/coach/CampActivityFeed";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useSubscription } from "@/hooks/useSubscription";
+import { ShimmerCrownBadge } from "@/components/subscription/ShimmerCrownBadge";
+import { MissionsProDialog } from "@/components/coach/MissionsProDialog";
 
 interface CampSection {
   title: string;
@@ -108,6 +110,7 @@ export default function Camp() {
   const { profile, userId, loadCutPlan } = useUser();
   const { openPaywall, checkFeatureAccess, isSubscriptionResolved } =
     useSubscription();
+  const [missionsExplainerOpen, setMissionsExplainerOpen] = useState(false);
 
   // Recovery is a Pro feature. Only treat a user as locked once the
   // subscription state has resolved, so paid users never flash the lock.
@@ -357,13 +360,13 @@ export default function Camp() {
             type="button"
             onClick={() => {
               triggerHaptic(ImpactStyle.Light);
-              openPaywall();
+              setMissionsExplainerOpen(true);
             }}
             className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border border-primary/30 bg-primary/10 active:brightness-110 transition-[filter]"
           >
-            <span className="flex items-center gap-2 min-w-0">
-              <Icon name="lockClosed" size={14} className="text-primary shrink-0" />
-              <span className="text-body-sm text-foreground truncate">Unlock training missions</span>
+            <span className="flex items-center gap-2.5 min-w-0">
+              <ShimmerCrownBadge size={26} />
+              <span className="text-body-sm font-semibold text-foreground truncate">Unlock training missions</span>
             </span>
             <span className="inline-flex items-center gap-0.5 rounded-full border border-primary/40 bg-primary/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-primary shrink-0">
               Pro
@@ -512,6 +515,8 @@ export default function Camp() {
           <CampActivityFeed userId={userId} limit={7} />
         </div>
       </ErrorBoundary>
+
+      <MissionsProDialog open={missionsExplainerOpen} onOpenChange={setMissionsExplainerOpen} />
     </div>
   );
 }

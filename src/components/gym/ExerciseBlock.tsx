@@ -217,8 +217,8 @@ export function ExerciseBlock({
           const setIndex = set.is_warmup ? i : workingSets.indexOf(set);
           const prTypesForSet: PRType[] = [];
           if (newPRSetIds?.has(set.id)) {
+            // Weight-only PRs: a set is flagged solely for a new heaviest weight.
             if (pr && set.weight_kg && set.weight_kg >= (pr.max_weight_kg ?? 0)) prTypesForSet.push("weight");
-            if (pr && set.reps >= (pr.max_reps ?? 0)) prTypesForSet.push("reps");
           }
 
           return (

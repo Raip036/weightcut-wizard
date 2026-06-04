@@ -32,7 +32,7 @@ function normalizeBbox(raw: unknown): AiLineItem["bbox"] | undefined {
 interface UseAIMealAnalysisParams {
   manualMeal: ManualMealForm;
   setManualMeal: React.Dispatch<React.SetStateAction<ManualMealForm>>;
-  saveMealToDb: (mealData: any) => Promise<void>;
+  saveMealToDb: (mealData: any) => Promise<unknown>;
   setIsQuickAddSheetOpen: (open: boolean) => void;
   setQuickAddTab: (tab: "ai" | "manual") => void;
 }

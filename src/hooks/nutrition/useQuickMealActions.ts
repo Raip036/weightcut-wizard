@@ -26,7 +26,9 @@ interface UseQuickMealActionsParams {
     recipe_notes: string | null;
     ingredients: Ingredient[] | null;
     is_ai_generated: boolean;
-  }) => Promise<void>;
+    // saveMealToDb resolves to the new meal's id (or null on failure); these
+    // call sites ignore the result, so the return type stays wide here.
+  }) => Promise<unknown>;
 }
 
 export function useQuickMealActions({ meals, selectedDate, saveMealToDb }: UseQuickMealActionsParams) {

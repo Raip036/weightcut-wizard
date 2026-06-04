@@ -92,6 +92,18 @@ export function useRoutines() {
             duration: params.sessionDurationMinutes,
             equipment: params.availableEquipment as string[],
             notes,
+            // V2 structured context — the action prefers these over `notes`.
+            goals: params.goals as string[],
+            sport: params.sport,
+            sportTrainingDays: params.sportTrainingDays,
+            focusAreas: params.focusAreas as string[],
+            preferredSplit: params.preferredSplit,
+            description: params.description,
+            hardSparringDays: params.hardSparringDays,
+            campPhase: params.campPhase,
+            experience: params.experience,
+            weakPoints: params.weakPoints as string[] | undefined,
+            injuries: params.injuries,
           });
         } catch (error: any) {
           if (await handlePaywallError(error)) { failTask(taskId, "Pro required"); return null; }
