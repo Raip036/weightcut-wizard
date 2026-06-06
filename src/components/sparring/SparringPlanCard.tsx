@@ -1,12 +1,19 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, useReducedMotion } from "motion/react";
 import { Icon } from "@/components/ui/Icon";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
-import { triggerHaptic, triggerHapticSelection } from "@/lib/haptics";
+import { cn } from "@/lib/utils";
+import {
+  triggerHaptic,
+  triggerHapticSelection,
+  triggerHapticSuccess,
+} from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
 import { disciplineLabel, disciplineToken } from "@/lib/coachColors";
 import { useSubscription } from "@/hooks/useSubscription";
 import { ShimmerCrownBadge } from "@/components/subscription/ShimmerCrownBadge";
+import { CompleteCelebration } from "@/components/motion";
 import {
   SparringAssignmentRow,
   type SparringAssignment,
@@ -39,6 +46,7 @@ function DisciplineGroup({
   const label = disciplineLabel(discipline);
   const regenerate = useMutation(api.sparring_plan.regenerateDiscipline);
   const [expanded, setExpanded] = useState(false);
+  const [minimised, setMinimised] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   // Default view = the first N todo rows (this session's focus). Expanded =
@@ -93,32 +101,67 @@ function DisciplineGroup({
             className={refreshing ? "animate-spin" : undefined}
           />
         </button>
-      </div>
-
-      {/* Assignment rows */}
-      <div className="space-y-1.5">
-        {visibleRows.map((row) => (
-          <SparringAssignmentRow key={row._id} assignment={row} token={token} />
-        ))}
-      </div>
-
-      {/* Show all / collapse toggle */}
-      {hasMore && (
+        {/* Minimise / expand the whole discipline's list. */}
         <button
           type="button"
           onClick={() => {
             triggerHapticSelection();
-            setExpanded((e) => !e);
+            setMinimised((m) => !m);
           }}
-          className="w-full min-h-[32px] flex items-center justify-center gap-1.5 text-note font-semibold text-muted-foreground/80 active:text-foreground"
+          aria-expanded={!minimised}
+          aria-label={
+            minimised ? `Expand ${label} list` : `Minimise ${label} list`
+          }
+          className="h-7 w-7 flex items-center justify-center rounded-xs text-muted-foreground/60 active:text-foreground active:bg-muted/25 transition-colors"
         >
-          {expanded ? "Show fewer" : `Show all (${orderedAll.length})`}
           <Icon
-            name="chevronForwardOutline"
+            name="chevronDownOutline"
             size={14}
-            className={expanded ? "rotate-90 transition-transform" : "transition-transform"}
+            className={cn(
+              "transition-transform",
+              minimised ? "-rotate-90" : "rotate-0",
+            )}
           />
         </button>
+      </div>
+
+      {/* Body — hidden when the group is minimised. */}
+      {!minimised && (
+        <>
+          {/* Assignment rows */}
+          <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+            {visibleRows.map((row) => (
+              <SparringAssignmentRow
+                key={row._id}
+                assignment={row}
+                token={token}
+              />
+            ))}
+          </div>
+
+          {/* Show all / collapse toggle */}
+          {hasMore && (
+            <button
+              type="button"
+              onClick={() => {
+                triggerHapticSelection();
+                setExpanded((e) => !e);
+              }}
+              className="w-full min-h-[32px] flex items-center justify-center gap-1.5 text-note font-semibold text-muted-foreground/80 active:text-foreground"
+            >
+              {expanded ? "Show fewer" : `Show all (${orderedAll.length})`}
+              <Icon
+                name="chevronForwardOutline"
+                size={14}
+                className={
+                  expanded
+                    ? "rotate-90 transition-transform"
+                    : "transition-transform"
+                }
+              />
+            </button>
+          )}
+        </>
       )}
     </div>
   );
@@ -160,6 +203,33 @@ export function SparringPlanCard({ userId }: SparringPlanCardProps) {
     }
     return Array.from(map.entries());
   }, [assignments]);
+
+  // All-complete celebration: fire once when the outstanding "todo" count drops
+  // from >0 to 0 (a real completion, not the initial load). Mirrors the
+  // Training Missions behaviour.
+  const prefersReduced = useReducedMotion();
+  const [celebrating, setCelebrating] = useState(false);
+  const prevTodoCountRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (assignments === undefined) return;
+    const count = assignments.filter((a) => a.status === "todo").length;
+    const prev = prevTodoCountRef.current;
+    prevTodoCountRef.current = count;
+    if (prev != null && prev > 0 && count === 0) {
+      setCelebrating(true);
+      void triggerHapticSuccess();
+    }
+  }, [assignments]);
+
+  useEffect(() => {
+    if (!celebrating) return;
+    const t = setTimeout(
+      () => setCelebrating(false),
+      prefersReduced ? 1600 : 2600,
+    );
+    return () => clearTimeout(t);
+  }, [celebrating, prefersReduced]);
 
   // Wait for auth + feature gate before deciding what to render.
   if (!userId || featureStatus === undefined) return null;
@@ -249,6 +319,17 @@ export function SparringPlanCard({ userId }: SparringPlanCardProps) {
           </div>
         </div>
       )}
+
+      <AnimatePresence>
+        {celebrating && (
+          <CompleteCelebration
+            prefersReduced={prefersReduced}
+            eyebrow="Sparring ready"
+            title="To-do list cleared"
+            subtitle="Every sparring focus ticked off. Log more techniques to refresh your list."
+          />
+        )}
+      </AnimatePresence>
     </>
   );
 }

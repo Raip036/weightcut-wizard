@@ -8,7 +8,6 @@ import { staggerContainer, springs } from "@/lib/motion";
 import { AnimatedNumber } from "@/components/motion";
 import { ExerciseBlock } from "./ExerciseBlock";
 import { RestTimerPill } from "./RestTimerPill";
-import { SetInputAccessory } from "./SetInputAccessory";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { formatVolume } from "@/lib/gymCalculations";
 import { resolveTrackingType, effectiveVolumeWeight } from "@/lib/exerciseTypes";
@@ -220,10 +219,9 @@ export function ActiveSessionView({
 
       {/* Finish lives in the header HUD now (green pill, top-right). */}
 
-      {/* Auto rest timer (floating) + keyboard quick-increment bar. Both are
-          fixed-positioned and self-managed via their module buses. */}
+      {/* Auto rest timer (floating), fixed-positioned and self-managed via
+          its module bus. */}
       <RestTimerPill />
-      <SetInputAccessory />
 
       {/* Bottom spacer for nav bar + rest pill clearance */}
       <div className="h-4" />

@@ -5,7 +5,6 @@ import { motion } from "motion/react";
 import { springs } from "@/lib/motion";
 import { triggerHaptic, triggerHapticSuccess } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
-import { setInputBus } from "./setInputBus";
 import type { GymSet, PRType } from "@/pages/gym/types";
 
 /** Shared 6-column grid template — ExerciseBlock's header uses the same one so
@@ -79,23 +78,6 @@ export function SetRow({ set, index, prTypes, previous, onUpdate, onToggleComple
     onToggleComplete(set.id, next);
   };
 
-  // Keyboard-accessory wiring — register the focused field so the ± bar can
-  // mutate it, and advance focus via [data-setfield] DOM order.
-  const focusWeight = (e: React.FocusEvent<HTMLInputElement>) =>
-    setInputBus.focus({
-      key: `${set.id}:weight`,
-      kind: "weight",
-      el: e.currentTarget,
-      apply: (d) => setWeightStr((s) => fmtNum((parseFloat(s || "0") || 0) + d)),
-    });
-  const focusReps = (e: React.FocusEvent<HTMLInputElement>) =>
-    setInputBus.focus({
-      key: `${set.id}:reps`,
-      kind: "reps",
-      el: e.currentTarget,
-      apply: (d) => setRepsStr((s) => String(Math.max(0, (parseInt(s || "0", 10) || 0) + d))),
-    });
-
   const inputCls =
     "h-9 w-full px-1 text-center text-[15px] font-bold tabular-nums rounded-lg bg-background/50 border-border/40 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:border-primary/40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
   const inputDone = done ? " !bg-transparent !border-transparent text-success" : "";
@@ -146,16 +128,10 @@ export function SetRow({ set, index, prTypes, previous, onUpdate, onToggleComple
       <Input
         type="number"
         inputMode="decimal"
-        data-setfield="weight"
         placeholder={previous?.weight_kg != null ? fmtNum(previous.weight_kg) : set.is_bodyweight ? "BW" : "kg"}
         value={weightStr}
         onChange={(e) => setWeightStr(e.target.value)}
-        onFocus={focusWeight}
-        onBlur={(e) => {
-          setInputBus.blur(`${set.id}:weight`);
-          handleWeightBlur();
-          void e;
-        }}
+        onBlur={handleWeightBlur}
         className={inputCls + inputDone}
         disabled={set.is_bodyweight}
       />
@@ -164,15 +140,10 @@ export function SetRow({ set, index, prTypes, previous, onUpdate, onToggleComple
       <Input
         type="number"
         inputMode="numeric"
-        data-setfield="reps"
         placeholder={previous?.reps != null ? String(previous.reps) : "reps"}
         value={repsStr}
         onChange={(e) => setRepsStr(e.target.value)}
-        onFocus={focusReps}
-        onBlur={() => {
-          setInputBus.blur(`${set.id}:reps`);
-          handleRepsBlur();
-        }}
+        onBlur={handleRepsBlur}
         className={inputCls + inputDone}
       />
 
