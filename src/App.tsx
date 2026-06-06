@@ -102,7 +102,10 @@ _idle(() => {
 
 const queryClient = new QueryClient();
 
-const SKIP_ROUTES = ['/', '/welcome', '/auth', '/onboarding', '/legal'];
+// `/cut-plan` + `/weight-plan` are excluded so RouteTracker never persists them
+// as `lastRoute` — otherwise a cold launch / refresh would restore the user onto
+// the cut plan (a second way into the old "stuck on the plan" trap).
+const SKIP_ROUTES = ['/', '/welcome', '/auth', '/onboarding', '/legal', '/cut-plan', '/weight-plan'];
 
 import { App as CapacitorApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';

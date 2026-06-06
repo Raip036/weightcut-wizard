@@ -18,7 +18,7 @@
  * layer) and freezes to a static glow when reduced-motion is requested.
  */
 import { useMemo } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { motion, useReducedMotion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { TrendingDown, X } from "lucide-react";
@@ -81,7 +81,6 @@ function PlanAurora() {
 
 export default function CutPlanReview() {
   const navigate = useNavigate();
-  const location = useLocation();
 
   const planData = useMemo(() => {
     try {
@@ -111,24 +110,27 @@ export default function CutPlanReview() {
 
   const handleContinue = () => {
     triggerHaptic(ImpactStyle.Medium);
-    localStorage.setItem("wcw_cut_plan_seen", "true");
-    // Return to wherever the user opened the plan from (e.g. the "Your Camp"
-    // page) rather than forcing a route to /dashboard. Previously this set
-    // `wcw_onboarding_just_completed` and navigated to /dashboard, which made
-    // the dashboard auto-replay the onboarding tutorial every time the plan
-    // was closed. Both have been removed — closing the plan is now a plain
-    // "go back" with no side effects on the tutorial flow.
-    //
-    // BUT: when this page is the FIRST entry in the history stack — a fresh
-    // load, a deep link, a refresh, or arriving via `navigate(..., {replace})`
-    // — there is nothing to go back to and `navigate(-1)` is a silent no-op,
-    // trapping the user on the plan. React Router sets `location.key` to
-    // "default" in exactly that case, so fall back to a concrete route.
-    if (location.key !== "default") {
-      navigate(-1);
-    } else {
-      navigate("/dashboard", { replace: true });
+    // Wrap in try/catch: iOS WKWebView (private mode / storage pressure) can
+    // throw on setItem, which would abort before navigation and strand the user.
+    try {
+      localStorage.setItem("wcw_cut_plan_seen", "true");
+    } catch {
+      /* non-fatal — the planClosed router state below covers this case */
     }
+    // ALWAYS leave via an explicit route with replace:true.
+    //
+    // Why not navigate(-1): it silently no-ops under iOS WKWebView (and when
+    // this page is the first history entry), and the page was reached via
+    // `{replace:true}` from several flows so there's often nothing to pop.
+    //
+    // Why `state.planClosed`: the Dashboard mounts an "unseen plan" guard that
+    // redirects back to /cut-plan whenever `wcw_cut_plan` exists and
+    // `wcw_cut_plan_seen` is falsy. On iOS the setItem above isn't reliably
+    // durable, so the guard would read it back as unseen and snap the user
+    // straight back here — the bounce loop that made the X "do nothing".
+    // Router state is IN-MEMORY (immune to localStorage volatility), so the
+    // guard reads `planClosed` and skips the redirect. This guarantees exit.
+    navigate("/dashboard", { replace: true, state: { planClosed: true } });
   };
 
   return (

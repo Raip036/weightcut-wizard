@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef, useMemo, lazy, Suspense } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAction, useConvex, useMutation, useQuery } from "convex/react";
 import { Capacitor } from "@capacitor/core";
 import { format } from "date-fns";
@@ -286,6 +286,7 @@ export default function Dashboard() {
   // user having to write a fresh log to trigger it.
   const recomputeFiredRef = useRef(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { safeAsync, isMounted } = useSafeAsync();
   const { streak, streakIncludesToday } = useGamification(userId, weightLogs, todayCalories, profile);
 
@@ -335,6 +336,19 @@ export default function Dashboard() {
   // weight-loss user lands on /weight-plan (which reuses CutPlanReview with
   // adjusted labels).
   useEffect(() => {
+    // If the user just closed the plan, CutPlanReview routes here with an
+    // in-memory `planClosed` flag. Honour it and DON'T bounce them back — the
+    // localStorage seen-flag isn't reliably durable on iOS WKWebView, so without
+    // this the guard re-read "unseen" and snapped the user straight back to the
+    // plan (the "X does nothing" bug). Re-assert the seen flag here too.
+    if ((location.state as { planClosed?: boolean } | null)?.planClosed) {
+      try {
+        localStorage.setItem("wcw_cut_plan_seen", "true");
+      } catch {
+        /* non-fatal */
+      }
+      return;
+    }
     const cutPlan = localStorage.getItem("wcw_cut_plan");
     const cutPlanSeen = localStorage.getItem("wcw_cut_plan_seen");
     if (cutPlan && !cutPlanSeen) {
@@ -347,7 +361,7 @@ export default function Dashboard() {
       }
       navigate(route, { replace: true });
     }
-  }, [navigate]);
+  }, [navigate, location.state]);
 
   // Rehydrate cut plan from DB if localStorage is empty (iOS WebView can wipe it).
   // cut_plan_json is no longer in PROFILE_COLUMNS, so we lazy-fetch it via
@@ -364,6 +378,13 @@ export default function Dashboard() {
       if (cancelled) return;
       if (dbPlan && typeof dbPlan === "object" && dbPlan.weeklyPlan) {
         localStorage.setItem("wcw_cut_plan", JSON.stringify(dbPlan));
+        // A DB-rehydrate is an EXISTING plan, not a freshly generated one, so
+        // mark it seen — otherwise the unseen-plan guard above would force-open
+        // /cut-plan every time iOS WKWebView wipes localStorage. Only onboarding
+        // (which clears the seen flag) should trigger the force-view.
+        if (!localStorage.getItem("wcw_cut_plan_seen")) {
+          localStorage.setItem("wcw_cut_plan_seen", "true");
+        }
         setHasCutPlan(true);
       } else if (hasCutPlan) {
         setHasCutPlan(false);

@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>WeightCut Wizard — App Store Mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0f0f0f;
+    --card: #1c1c1e;
+    --card2: #161617;
+    --line: rgba(255,255,255,.09);
+    --line2: rgba(255,255,255,.06);
+    --fg: #f2f2f3;
+    --muted: #9aa0ab;
+    --muted2: #6c727d;
+    --primary: #2e7bf6;
+    --primary-soft: rgba(46,123,246,.14);
+    --protein: #3b82f6;
+    --carbs: #f08439;
+    --fats: #8b5cf6;
+    --green: #10b981;
+    --amber: #fbbf24;
+    --rose: #f43f5e;
+    --cyan: #38bdf8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+  body {
+    background:
+      radial-gradient(1200px 700px at 15% -5%, #15233f 0%, transparent 55%),
+      radial-gradient(1000px 600px at 100% 100%, #221327 0%, transparent 50%),
+      #08090c;
+    font-family: "Inter", -apple-system, sans-serif;
+    color: var(--fg);
+    padding: 60px 40px 80px;
+  }
+  .gallery {
+    display: grid;
+    grid-template-columns: repeat(3, 430px);
+    gap: 34px;
+    justify-content: center;
+  }
+  /* ---------------- App Store slide shell ---------------- */
+  .slide {
+    width: 430px;
+    height: 932px;
+    border-radius: 32px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 52px 0 0;
+    isolation: isolate;
+  }
+  .slide::after {
+    content: "";
+    position: absolute; inset: 0;
+    background: radial-gradient(120% 60% at 50% 120%, rgba(0,0,0,.5), transparent 60%);
+    z-index: 0; pointer-events: none;
+  }
+  .s-blue   { background: linear-gradient(165deg,#0a1830 0%,#0b1020 55%,#070a12 100%); }
+  .s-orange { background: linear-gradient(165deg,#2a160a 0%,#1a0f0a 55%,#0a0807 100%); }
+  .s-green  { background: linear-gradient(165deg,#06231a 0%,#08160f 55%,#060b08 100%); }
+  .s-violet { background: linear-gradient(165deg,#1c0f33 0%,#120b22 55%,#08070f 100%); }
+  .s-cyan   { background: linear-gradient(165deg,#062436 0%,#08161f 55%,#06090d 100%); }
+  .s-rose   { background: linear-gradient(165deg,#310a1c 0%,#1e0a14 55%,#0c070b 100%); }
+
+  .glow {
+    position: absolute; z-index: 0; border-radius: 50%;
+    filter: blur(70px); opacity: .55; pointer-events: none;
+  }
+
+  .headline { position: relative; z-index: 2; text-align: center; padding: 0 36px; }
+  .eyebrow {
+    font-family: "Sora"; font-weight: 700; font-size: 12px; letter-spacing: .22em;
+    text-transform: uppercase; margin-bottom: 12px;
+  }
+  .headline h2 {
+    font-family: "Sora"; font-weight: 800; font-size: 33px; line-height: 1.08;
+    letter-spacing: -.02em;
+  }
+  .headline h2 .hl { color: var(--primary); }
+  .headline p {
+    margin-top: 12px; font-size: 14.5px; color: var(--muted); line-height: 1.45;
+    max-width: 330px; margin-left: auto; margin-right: auto;
+  }
+
+  /* ---------------- iPhone frame ---------------- */
+  .phone-wrap { position: relative; z-index: 2; margin-top: 40px; }
+  .phone {
+    width: 318px; height: 654px; border-radius: 50px; padding: 11px;
+    background: linear-gradient(160deg,#3a3a3e,#0c0c0d 40%,#000 80%);
+    box-shadow:
+      0 1px 0 1px rgba(255,255,255,.06) inset,
+      0 50px 90px -30px rgba(0,0,0,.85),
+      0 30px 60px -40px rgba(46,123,246,.4);
+  }
+  .screen {
+    position: relative; width: 100%; height: 100%;
+    border-radius: 40px; overflow: hidden; background: var(--bg);
+  }
+  .island {
+    position: absolute; top: 11px; left: 50%; transform: translateX(-50%);
+    width: 92px; height: 27px; background: #000; border-radius: 16px; z-index: 50;
+  }
+  .statusbar {
+    position: absolute; top: 0; left: 0; right: 0; height: 48px; z-index: 40;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 22px; font-size: 13px; font-weight: 700; font-family: "Sora";
+  }
+  .statusbar .icons { display: flex; gap: 6px; align-items: center; font-size: 11px; }
+  .app { position: absolute; inset: 0; padding: 54px 16px 0; overflow: hidden; }
+
+  /* ---------------- shared app bits ---------------- */
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 20px; }
+  .row { display: flex; align-items: center; }
+  .between { justify-content: space-between; }
+  .micro { font-size: 9px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted2); font-weight: 700; }
+  .title-xl { font-family: "Sora"; font-weight: 800; letter-spacing: -.02em; }
+  .tabbar {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 64px; z-index: 30;
+    background: rgba(14,14,15,.82); backdrop-filter: blur(14px);
+    border-top: 1px solid var(--line2);
+    display: flex; align-items: center; justify-content: space-around; padding-bottom: 8px;
+  }
+  .tabbar .ti { width: 22px; height: 22px; border-radius: 7px; opacity: .4; }
+  .tabbar .ti.on { opacity: 1; background: var(--primary); }
+  svg { display: block; }
+
+  /* greeting header */
+  .ghead { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+  .avatar { width:38px;height:38px;border-radius:50%; background:linear-gradient(135deg,#2e7bf6,#7b31ea); flex:none; }
+  .chip-fight {
+    margin-left:auto; font-size:10.5px; font-weight:700; color:#bfe0ff;
+    background:linear-gradient(135deg,rgba(56,189,248,.16),rgba(46,123,246,.16));
+    border:1px solid rgba(56,189,248,.32); padding:6px 10px; border-radius:999px;
+    display:flex; align-items:center; gap:5px;
+  }
+
+  /* macro bar */
+  .macrobar { display:flex; height:11px; border-radius:999px; overflow:hidden; background:rgba(255,255,255,.06); }
+  .macrobar i { height:100%; }
+
+  .label-section { font-size:9.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted2); font-weight:700; }
+
+  /* footer caption under gallery */
+  .meta { grid-column: 1 / -1; text-align:center; color:var(--muted2); font-size:13px; padding-top:14px; font-family:"Sora"; letter-spacing:.04em;}
+
+  /* scanner viewfinder */
+  .vf { position:relative; height:236px; border-radius:18px; overflow:hidden;
+        background:
+          radial-gradient(80% 60% at 50% 38%, #4a3722 0%, #2a1d12 45%, #160f0a 100%);
+  }
+  .plate {
+    position:absolute; left:50%; top:54%; transform:translate(-50%,-50%);
+    width:188px; height:188px; border-radius:50%;
+    background: radial-gradient(circle at 38% 32%, #3b2e22, #20160e 75%);
+    box-shadow: 0 18px 40px rgba(0,0,0,.55), inset 0 2px 10px rgba(255,255,255,.05);
+  }
+  .food { position:absolute; border-radius:46% 54% 50% 50%/52% 48% 52% 48%; filter:blur(.3px); }
+  .reticle { position:absolute; width:26px; height:26px; border:2.5px solid rgba(255,255,255,.85); }
+  .det {
+    position:absolute; font-size:9.5px; font-weight:700; color:#fff;
+    background:rgba(46,123,246,.85); border:1px solid rgba(255,255,255,.5);
+    padding:3px 7px; border-radius:7px; white-space:nowrap;
+    box-shadow:0 4px 14px rgba(0,0,0,.4);
+  }
+  .det.g { background:rgba(16,185,129,.85); }
+  .scanline { position:absolute; left:0; right:0; height:2px; top:46%;
+    background:linear-gradient(90deg,transparent,rgba(56,189,248,.9),transparent);
+    box-shadow:0 0 14px 2px rgba(56,189,248,.6); }
+
+  .mgrid { display:grid; grid-template-columns:repeat(4,1fr); gap:7px; }
+  .mcell { background:rgba(255,255,255,.04); border:1px solid var(--line2); border-radius:13px; padding:9px 6px; text-align:center; }
+  .mcell b { font-size:16px; font-family:"Sora"; font-weight:800; display:block; }
+  .mcell span { font-size:8.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted2); font-weight:700; }
+
+  .btn { border-radius:13px; font-weight:700; font-size:13px; text-align:center; padding:12px; font-family:"Sora"; }
+  .btn-pri { background:var(--primary); color:#fff; }
+  .btn-ghost { background:rgba(255,255,255,.06); color:var(--muted); border:1px solid var(--line); }
+
+  /* phase pill card */
+  .phase { display:flex; background:var(--card); border:1px solid var(--line); border-radius:16px; overflow:hidden; }
+  .phase .rail { width:4px; flex:none; }
+  .phase .body { padding:11px 12px; flex:1; }
+</style>
+</head>
+<body>
+<div class="gallery">
+
+  <!-- ============ SLIDE 1 — FOOD SCANNER (scanning) ============ -->
+  <div class="slide s-orange">
+    <div class="glow" style="width:340px;height:300px;background:#f08439;top:330px;left:50%;transform:translateX(-50%);"></div>
+    <div class="headline">
+      <div class="eyebrow" style="color:var(--carbs)">AI Food Scanner</div>
+      <h2>Snap a meal.<br><span class="hl" style="color:var(--carbs)">Macros in seconds.</span></h2>
+      <p>Point your camera at any plate. The Wizard reads what's on it — no weighing, no guessing.</p>
+    </div>
+    <div class="phone-wrap"><div class="phone"><div class="screen">
+      <div class="island"></div>
+      <div class="statusbar"><span>9:41</span><span class="icons">●●● ▮</span></div>
+      <div class="app">
+        <div class="row between" style="margin-bottom:12px;">
+          <div><div class="micro">Analyzing</div><div class="title-xl" style="font-size:19px;">Scan your meal</div></div>
+          <div style="width:34px;height:34px;border-radius:11px;background:rgba(240,132,57,.16);display:flex;align-items:center;justify-content:center;">📷</div>
+        </div>
+        <!-- viewfinder -->
+        <div class="vf">
+          <div class="plate"></div>
+          <!-- food blobs -->
+          <div class="food" style="width:78px;height:58px;left:88px;top:250px;background:radial-gradient(circle at 35% 30%,#c98a4e,#8a5526);transform:translateY(-120px);"></div>
+          <div class="food" style="width:84px;height:60px;left:150px;top:250px;background:radial-gradient(circle at 40% 30%,#efe4c4,#cdbd8e);transform:translateY(-118px);"></div>
+          <div class="food" style="width:46px;height:44px;left:120px;top:250px;background:radial-gradient(circle at 40% 30%,#3f7a3a,#244d22);transform:translateY(-168px);"></div>
+          <div class="food" style="width:40px;height:38px;left:172px;top:250px;background:radial-gradient(circle at 40% 30%,#4a8a40,#274f24);transform:translateY(-170px);"></div>
+          <!-- reticle corners -->
+          <div class="reticle" style="left:18px;top:18px;border-right:none;border-bottom:none;border-radius:6px 0 0 0;"></div>
+          <div class="reticle" style="right:18px;top:18px;border-left:none;border-bottom:none;border-radius:0 6px 0 0;"></div>
+          <div class="reticle" style="left:18px;bottom:18px;border-right:none;border-top:none;border-radius:0 0 0 6px;"></div>
+          <div class="reticle" style="right:18px;bottom:18px;border-left:none;border-top:none;border-radius:0 0 6px 0;"></div>
+          <div class="scanline"></div>
+          <!-- detection labels -->
+          <div class="det g" style="left:40px;top:96px;">Chicken breast · 96%</div>
+          <div class="det" style="right:30px;top:138px;">Jasmine rice</div>
+          <div class="det g" style="left:64px;bottom:40px;">Broccoli</div>
+        </div>
+        <div class="card" style="margin-top:12px;padding:11px 12px;display:flex;align-items:center;gap:10px;">
+          <img src="assets/thoughtful_wizard.png" style="width:38px;height:38px;object-fit:contain;" />
+          <div>
+            <div class="micro" style="color:var(--carbs)">Wizard is reading your plate</div>
+            <div style="font-size:12.5px;color:var(--muted);margin-top:2px;">Found 3 items · estimating portions…</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr;gap:8px;margin-top:11px;">
+          <div class="btn btn-pri" style="background:var(--carbs)">Review &amp; log meal</div>
+        </div>
+      </div>
+    </div></div></div>
+  </div>
+
+  <!-- ============ SLIDE 2 — FOOD SCANNER (result) ============ -->
+  <div class="slide s-blue">
+    <div class="glow" style="width:330px;height:280px;background:#2e7bf6;top:340px;left:50%;transform:translateX(-50%);"></div>
+    <div class="headline">
+      <div class="eyebrow" style="color:var(--primary)">Instant Breakdown</div>
+      <h2>Every gram,<br><span class="hl">tallied for you.</span></h2>
+      <p>Calories and macros land in your log automatically. Tweak a portion if you like — or just tap confirm.</p>
+    </div>
+    <div class="phone-wrap"><div class="phone"><div class="screen">
+      <div class="island"></div>
+      <div class="statusbar"><span>9:41</span><span class="icons">●●● ▮</span></div>
+      <div class="app">
+        <!-- meal photo -->
+        <div style="height:140px;border-radius:18px;overflow:hidden;position:relative;background:radial-gradient(70% 70% at 45% 30%,#caa468,#5e4022 70%,#2a1d12);">
+          <div style="position:absolute;left:60px;top:64px;width:96px;height:70px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#d49a5b,#8a5526);"></div>
+          <div style="position:absolute;left:140px;top:60px;width:104px;height:74px;border-radius:50%;background:radial-gradient(circle at 40% 30%,#efe4c4,#cdbd8e);"></div>
+          <div style="position:absolute;left:118px;top:40px;width:54px;height:50px;border-radius:50%;background:radial-gradient(circle at 40% 30%,#3f7a3a,#244d22);"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(15,15,15,.92),transparent 55%);"></div>
+          <div style="position:absolute;left:13px;bottom:11px;">
+            <div class="micro" style="color:#cfe2ff;">Lunch · just now</div>
+            <div style="font-family:'Sora';font-weight:800;font-size:18px;margin-top:2px;">Chicken &amp; Rice Bowl</div>
+          </div>
+        </div>
+        <!-- calorie + macro card -->
+        <div class="card" style="margin-top:12px;padding:14px;position:relative;overflow:hidden;border-top:2px solid var(--primary);">
+          <div class="micro">Total</div>
+          <div style="font-family:'Sora';font-weight:800;font-size:34px;line-height:1;margin-top:3px;">612<span style="font-size:13px;color:var(--muted);font-weight:700;margin-left:5px;">kcal</span></div>
+          <div class="macrobar" style="margin-top:14px;">
+            <i style="width:46%;background:var(--carbs)"></i>
+            <i style="width:38%;background:var(--protein)"></i>
+            <i style="width:16%;background:var(--fats)"></i>
+          </div>
+          <div class="row between" style="margin-top:11px;">
+            <div class="row" style="gap:5px;"><span style="width:7px;height:7px;border-radius:50%;background:var(--carbs)"></span><span class="micro">Carbs</span><b style="color:var(--carbs);font-size:13px;font-family:'Sora'">68g</b></div>
+            <div class="row" style="gap:5px;"><span style="width:7px;height:7px;border-radius:50%;background:var(--protein)"></span><span class="micro">Protein</span><b style="color:var(--protein);font-size:13px;font-family:'Sora'">52g</b></div>
+            <div class="row" style="gap:5px;"><span style="width:7px;height:7px;border-radius:50%;background:var(--fats)"></span><span class="micro">Fat</span><b style="color:var(--fats);font-size:13px;font-family:'Sora'">14g</b></div>
+          </div>
+        </div>
+        <!-- detected foods -->
+        <div class="label-section" style="margin:14px 2px 8px;">Detected foods</div>
+        <div class="card" style="padding:10px 12px;margin-bottom:8px;">
+          <div class="row between"><b style="font-size:13.5px;">Grilled chicken breast</b><b style="font-size:13px;font-family:'Sora'">280</b></div>
+          <div class="row" style="gap:6px;margin-top:7px;">
+            <span style="font-size:9.5px;font-weight:700;color:var(--protein);background:rgba(59,130,246,.14);padding:2px 7px;border-radius:6px;">48g P</span>
+            <span style="font-size:9.5px;font-weight:700;color:var(--carbs);background:rgba(240,132,57,.14);padding:2px 7px;border-radius:6px;">0g C</span>
+            <span style="font-size:9.5px;font-weight:700;color:var(--fats);background:rgba(139,92,246,.14);padding:2px 7px;border-radius:6px;">9g F</span>
+          </div>
+        </div>
+        <div class="card" style="padding:10px 12px;">
+          <div class="row between"><b style="font-size:13.5px;">Jasmine rice</b><b style="font-size:13px;font-family:'Sora'">242</b></div>
+          <div class="row" style="gap:6px;margin-top:7px;">
+            <span style="font-size:9.5px;font-weight:700;color:var(--protein);background:rgba(59,130,246,.14);padding:2px 7px;border-radius:6px;">4g P</span>
+            <span style="font-size:9.5px;font-weight:700;color:var(--carbs);background:rgba(240,132,57,.14);padding:2px 7px;border-radius:6px;">53g C</span>
+            <span style="font-size:9.5px;font-weight:700;color:var(--fats);background:rgba(139,92,246,.14);padding:2px 7px;border-radius:6px;">1g F</span>
+          </div>
+        </div>
+        <div class="btn btn-pri" style="margin-top:11px;">Looks right · Log it</div>
+      </div>
+    </div></div></div>
+  </div>
+
+  <!-- ============ SLIDE 3 — WEIGHT CUT PLAN ============ -->
+  <div class="slide s-cyan">
+    <div class="glow" style="width:320px;height:280px;background:#2e7bf6;top:330px;left:50%;transform:translateX(-50%);"></div>
+    <div class="headline">
+      <div class="eyebrow" style="color:var(--cyan)">Smart Cut Plan</div>
+      <h2>Your fight-week cut,<br><span class="hl" style="color:var(--cyan)">planned to the gram.</span></h2>
+      <p>A week-by-week roadmap to the scale — calories, macros and phases built around your fight date.</p>
+    </div>
+    <div class="phone-wrap"><div class="phone"><div class="screen">
+      <div class="island"></div>
+      <div class="statusbar"><span>9:41</span><span class="icons">●●● ▮</span></div>
+      <div class="app">
+        <div style="text-align:center;margin-bottom:6px;">
+          <div class="micro" style="color:var(--primary);letter-spacing:.18em;">Your Cut</div>
+        </div>
+        <!-- hero ring -->
+        <div style="display:flex;justify-content:center;margin:6px 0 4px;">
+          <div style="position:relative;width:140px;height:140px;">
+            <svg width="140" height="140" viewBox="0 0 140 140">
+              <circle cx="70" cy="70" r="56" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="9"/>
+              <circle cx="70" cy="70" r="56" fill="none" stroke="var(--primary)" stroke-width="9" stroke-linecap="round"
+                stroke-dasharray="351.8" stroke-dashoffset="120" transform="rotate(-90 70 70)"/>
+            </svg>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+              <div style="font-family:'Sora';font-weight:800;font-size:34px;line-height:1;">−5.2</div>
+              <div class="micro" style="margin-top:3px;">kg to go</div>
+            </div>
+          </div>
+        </div>
+        <!-- daily fuel -->
+        <div class="card" style="padding:13px;border-top:2px solid var(--primary);margin-top:6px;">
+          <div class="micro">Daily Fuel</div>
+          <div style="font-family:'Sora';font-weight:800;font-size:27px;line-height:1;margin-top:3px;">2,180<span style="font-size:12px;color:var(--muted);font-weight:700;margin-left:5px;">kcal</span></div>
+          <div class="macrobar" style="margin-top:12px;"><i style="width:42%;background:var(--carbs)"></i><i style="width:40%;background:var(--protein)"></i><i style="width:18%;background:var(--fats)"></i></div>
+          <div class="row between" style="margin-top:10px;">
+            <div class="row" style="gap:5px;"><span style="width:7px;height:7px;border-radius:50%;background:var(--carbs)"></span><span class="micro">Carbs</span><b style="color:var(--carbs);font-size:12px;font-family:'Sora'">214g</b></div>
+            <div class="row" style="gap:5px;"><span style="width:7px;height:7px;border-radius:50%;background:var(--protein)"></span><span class="micro">Protein</span><b style="color:var(--protein);font-size:12px;font-family:'Sora'">196g</b></div>
+            <div class="row" style="gap:5px;"><span style="width:7px;height:7px;border-radius:50%;background:var(--fats)"></span><span class="micro">Fat</span><b style="color:var(--fats);font-size:12px;font-family:'Sora'">48g</b></div>
+          </div>
+        </div>
+        <!-- macro cycling -->
+        <div class="card" style="padding:12px;margin-top:9px;">
+          <div class="micro" style="margin-bottom:9px;">Cycle Your Macros</div>
+          <div class="row" style="gap:10px;margin-bottom:9px;">
+            <span style="font-size:18px;">🔥</span>
+            <div><div style="font-size:12.5px;font-weight:700;">Hard training days</div><div style="font-size:11px;color:var(--muted);">More carbs to fuel the session.</div></div>
+          </div>
+          <div class="row" style="gap:10px;">
+            <span style="font-size:18px;">🌙</span>
+            <div><div style="font-size:12.5px;font-weight:700;">Rest &amp; low days</div><div style="font-size:11px;color:var(--muted);">Prioritise protein to recover.</div></div>
+          </div>
+        </div>
+        <!-- phases -->
+        <div class="label-section" style="margin:13px 2px 8px;">Plan Phases</div>
+        <div style="display:flex;flex-direction:column;gap:7px;">
+          <div class="phase"><div class="rail" style="background:var(--cyan)"></div><div class="body row between"><div class="row" style="gap:9px;"><span style="font-size:15px;">🌱</span><b style="font-size:13px;">Foundation</b></div><span class="micro">Wk 1-3</span></div></div>
+          <div class="phase"><div class="rail" style="background:var(--primary)"></div><div class="body row between"><div class="row" style="gap:9px;"><span style="font-size:15px;">🔨</span><b style="font-size:13px;">Build</b></div><span class="micro">Wk 4-6</span></div></div>
+          <div class="phase"><div class="rail" style="background:var(--amber)"></div><div class="body row between"><div class="row" style="gap:9px;"><span style="font-size:15px;">⚔️</span><b style="font-size:13px;">Fight Week</b></div><span class="micro">Wk 8</span></div></div>
+        </div>
+      </div>
+    </div></div></div>
+  </div>
+
+  <!-- ============ SLIDE 4 — DASHBOARD / FIGHT FORM ============ -->
+  <div class="slide s-green">
+    <div class="glow" style="width:300px;height:280px;background:#10b981;top:330px;left:50%;transform:translateX(-50%);"></div>
+    <div class="headline">
+      <div class="eyebrow" style="color:var(--green)">Fight Form Score</div>
+      <h2>Know if you're<br><span class="hl" style="color:var(--green)">fight-ready.</span> Daily.</h2>
+      <p>One score blends your weight, training, sleep, recovery and nutrition — so you always know where you stand.</p>
+    </div>
+    <div class="phone-wrap"><div class="phone"><div class="screen">
+      <div class="island"></div>
+      <div class="statusbar"><span>9:41</span><span class="icons">●●● ▮</span></div>
+      <div class="app">
+        <div class="ghead">
+          <div class="avatar"></div>
+          <div><div class="micro">Good morning</div><div class="title-xl" style="font-size:17px;">Pratik</div></div>
+          <div class="chip-fight">⏱ 42 mornings to fight</div>
+        </div>
+        <!-- FF ring -->
+        <div style="display:flex;justify-content:center;margin:18px 0 6px;">
+          <div style="position:relative;width:184px;height:184px;">
+            <div class="glow" style="width:200px;height:200px;background:#10b981;top:-8px;left:-8px;opacity:.35;filter:blur(40px);"></div>
+            <svg width="184" height="184" viewBox="0 0 184 184" style="position:relative;">
+              <circle cx="92" cy="92" r="78" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="11"/>
+              <circle cx="92" cy="92" r="78" fill="none" stroke="var(--green)" stroke-width="11" stroke-linecap="round"
+                stroke-dasharray="490" stroke-dashoffset="88" transform="rotate(-90 92 92)"/>
+            </svg>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+              <div style="font-family:'Sora';font-weight:800;font-size:52px;line-height:1;">82</div>
+              <div style="font-family:'Sora';font-weight:700;font-size:14px;color:var(--green);letter-spacing:.04em;margin-top:2px;">Sharp</div>
+            </div>
+          </div>
+        </div>
+        <!-- insight strip -->
+        <div style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.25);border-left:3px solid var(--green);border-radius:14px;padding:11px 13px;margin-top:6px;">
+          <div style="font-size:13px;font-weight:700;color:#7af0c8;">You're peaking on schedule.</div>
+          <div style="font-size:11.5px;color:var(--muted);margin-top:3px;">Sleep is your top driver this week. Hold the line on weigh-ins.</div>
+        </div>
+        <!-- today strip -->
+        <div class="row between" style="margin-top:16px;padding:0 6px;">
+          <div style="text-align:center;"><div style="width:44px;height:44px;border-radius:50%;border:2px solid var(--green);display:flex;align-items:center;justify-content:center;font-size:17px;">⚖️</div><div class="micro" style="margin-top:5px;">Weight</div></div>
+          <div style="text-align:center;"><div style="width:44px;height:44px;border-radius:50%;border:2px solid var(--green);display:flex;align-items:center;justify-content:center;font-size:17px;">🥊</div><div class="micro" style="margin-top:5px;">Train</div></div>
+          <div style="text-align:center;"><div style="width:44px;height:44px;border-radius:50%;border:2px solid var(--green);display:flex;align-items:center;justify-content:center;font-size:17px;">😴</div><div class="micro" style="margin-top:5px;">Sleep</div></div>
+          <div style="text-align:center;"><div style="width:44px;height:44px;border-radius:50%;border:2px solid rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:17px;opacity:.5;">❤️</div><div class="micro" style="margin-top:5px;">Wellness</div></div>
+          <div style="text-align:center;"><div style="width:44px;height:44px;border-radius:50%;border:2px solid var(--green);display:flex;align-items:center;justify-content:center;font-size:17px;">🍽️</div><div class="micro" style="margin-top:5px;">Fuel</div></div>
+        </div>
+        <!-- mini stat cards -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:16px;">
+          <div class="card" style="padding:12px;"><div class="micro">Current</div><div style="font-family:'Sora';font-weight:800;font-size:22px;margin-top:3px;">75.2<span style="font-size:11px;color:var(--muted);margin-left:3px;">kg</span></div></div>
+          <div class="card" style="padding:12px;"><div class="micro">Cut pace</div><div style="font-family:'Sora';font-weight:800;font-size:15px;margin-top:4px;color:var(--green);">On track ✓</div></div>
+        </div>
+      </div>
+    </div></div></div>
+  </div>
+
+  <!-- ============ SLIDE 5 — WEIGHT TRACKER ============ -->
+  <div class="slide s-violet">
+    <div class="glow" style="width:320px;height:280px;background:#8b5cf6;top:330px;left:50%;transform:translateX(-50%);"></div>
+    <div class="headline">
+      <div class="eyebrow" style="color:#a78bfa">Weight Tracker</div>
+      <h2>Weigh in. Watch<br><span class="hl" style="color:#a78bfa">the trend bend.</span></h2>
+      <p>Log every morning and see the line move toward your number — with a projected path to fight night.</p>
+    </div>
+    <div class="phone-wrap"><div class="phone"><div class="screen">
+      <div class="island"></div>
+      <div class="statusbar"><span>9:41</span><span class="icons">●●● ▮</span></div>
+      <div class="app">
+        <div class="title-xl" style="font-size:20px;margin-bottom:14px;">Weight Tracker</div>
+        <!-- log card -->
+        <div class="card" style="padding:14px;">
+          <div class="micro" style="margin-bottom:10px;">Log weight</div>
+          <div class="row between">
+            <div style="width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--muted);">−</div>
+            <div style="text-align:center;"><span style="font-family:'Sora';font-weight:800;font-size:40px;">75.2</span><span style="font-size:14px;color:var(--muted);margin-left:4px;">kg</span></div>
+            <div style="width:46px;height:46px;border-radius:50%;background:var(--primary-soft);display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--primary);">+</div>
+          </div>
+        </div>
+        <!-- tabs -->
+        <div class="row" style="gap:0;background:rgba(255,255,255,.05);border:1px solid var(--line2);border-radius:12px;padding:3px;margin:12px 0;">
+          <div style="flex:1;text-align:center;font-size:11px;font-weight:700;color:var(--muted);padding:7px;">1W</div>
+          <div style="flex:1;text-align:center;font-size:11px;font-weight:700;background:var(--primary);color:#fff;border-radius:9px;padding:7px;">1M</div>
+          <div style="flex:1;text-align:center;font-size:11px;font-weight:700;color:var(--muted);padding:7px;">ALL</div>
+        </div>
+        <!-- chart -->
+        <div class="card" style="padding:14px 12px;">
+          <svg width="100%" height="150" viewBox="0 0 280 150" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="ar" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="rgba(46,123,246,.35)"/><stop offset="100%" stop-color="rgba(46,123,246,0)"/>
+              </linearGradient>
+            </defs>
+            <line x1="0" y1="120" x2="280" y2="60" stroke="rgba(244,63,94,.5)" stroke-width="1.5" stroke-dasharray="5 5"/>
+            <path d="M0,38 C50,52 80,60 120,78 C160,96 200,104 280,120 L280,150 L0,150 Z" fill="url(#ar)"/>
+            <path d="M0,38 C50,52 80,60 120,78 C160,96 200,104 280,120" fill="none" stroke="var(--primary)" stroke-width="2.5"/>
+            <path d="M280,120 C300,124 320,128 360,134" fill="none" stroke="rgba(167,139,250,.7)" stroke-width="2" stroke-dasharray="4 4"/>
+            <circle cx="0" cy="38" r="3" fill="var(--primary)"/><circle cx="120" cy="78" r="3" fill="var(--primary)"/><circle cx="280" cy="120" r="3.5" fill="#fff"/>
+          </svg>
+          <div class="row" style="gap:12px;margin-top:8px;justify-content:center;">
+            <span style="font-size:9.5px;color:var(--muted);">— Weight</span>
+            <span style="font-size:9.5px;color:#f87f93;">-- Fight night</span>
+            <span style="font-size:9.5px;color:#a78bfa;">-- Projected</span>
+          </div>
+        </div>
+        <!-- stats grid -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:11px;">
+          <div class="card" style="padding:10px 4px;text-align:center;"><div style="font-family:'Sora';font-weight:800;font-size:15px;">75.2</div><div class="micro" style="margin-top:3px;">Now</div></div>
+          <div class="card" style="padding:10px 4px;text-align:center;"><div style="font-family:'Sora';font-weight:800;font-size:15px;">70.0</div><div class="micro" style="margin-top:3px;">Target</div></div>
+          <div class="card" style="padding:10px 4px;text-align:center;"><div style="font-family:'Sora';font-weight:800;font-size:15px;color:var(--primary);">5.2</div><div class="micro" style="margin-top:3px;">To lose</div></div>
+          <div class="card" style="padding:10px 4px;text-align:center;"><div style="font-family:'Sora';font-weight:800;font-size:13px;">Jul 18</div><div class="micro" style="margin-top:3px;">Weigh-in</div></div>
+        </div>
+      </div>
+    </div></div></div>
+  </div>
+
+  <!-- ============ SLIDE 6 — COMMUNITY ============ -->
+  <div class="slide s-rose">
+    <div class="glow" style="width:320px;height:280px;background:#f43f5e;top:330px;left:50%;transform:translateX(-50%);"></div>
+    <div class="headline">
+      <div class="eyebrow" style="color:#fb7185">Your Gym, In Your Pocket</div>
+      <h2>Cut weight with<br><span class="hl" style="color:#fb7185">your gym behind you.</span></h2>
+      <p>Share sessions, hit the leaderboard, and celebrate making weight together — your whole team in one feed.</p>
+    </div>
+    <div class="phone-wrap"><div class="phone"><div class="screen">
+      <div class="island"></div>
+      <div class="statusbar"><span>9:41</span><span class="icons">●●● ▮</span></div>
+      <div class="app">
+        <div class="row" style="gap:10px;margin-bottom:14px;">
+          <div style="width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,#f43f5e,#7b31ea);"></div>
+          <div><div style="font-family:'Sora';font-weight:700;font-size:15px;">Elite MMA Gym</div><div class="micro">28 members</div></div>
+          <div style="margin-left:auto;font-size:18px;">🔔</div>
+        </div>
+        <!-- polaroid deck -->
+        <div style="position:relative;height:300px;display:flex;justify-content:center;">
+          <div class="card" style="position:absolute;top:14px;width:240px;height:268px;transform:scale(.9) rotate(-3deg);opacity:.5;"></div>
+          <div class="card" style="position:absolute;top:8px;width:248px;height:276px;transform:scale(.95) rotate(2deg);opacity:.7;"></div>
+          <div class="card" style="position:absolute;top:0;width:256px;height:284px;overflow:hidden;padding:0;">
+            <div style="height:212px;position:relative;background:radial-gradient(60% 60% at 50% 35%,#3a2230,#1a0e16 75%);">
+              <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(244,63,94,.25),transparent 60%);"></div>
+              <div style="position:absolute;top:10px;right:12px;font-size:10px;font-weight:700;color:#fff;background:rgba(0,0,0,.4);padding:3px 8px;border-radius:999px;">3 / 42</div>
+              <div style="position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);text-align:center;">
+                <div style="font-size:44px;">🥊</div>
+              </div>
+              <div style="position:absolute;left:12px;bottom:12px;">
+                <div style="font-size:10px;font-weight:700;color:#fde68a;background:rgba(0,0,0,.35);display:inline-block;padding:3px 8px;border-radius:999px;">⚔️ Sparring · 30m · RPE 8</div>
+              </div>
+              <div style="position:absolute;right:12px;bottom:12px;width:34px;height:34px;border-radius:50%;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;font-size:16px;">🤍</div>
+            </div>
+            <div style="padding:11px 13px;">
+              <div style="font-size:12.5px;font-weight:600;">Felt sharp tonight. Down to 75.2 ✅</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:5px;">Coach Mike: Looking ready 🔥 · 4 comments</div>
+            </div>
+          </div>
+        </div>
+        <!-- made weight banner -->
+        <div style="margin-top:14px;background:linear-gradient(135deg,rgba(16,185,129,.16),rgba(46,123,246,.12));border:1px solid rgba(16,185,129,.3);border-radius:16px;padding:13px;text-align:center;">
+          <div style="font-family:'Sora';font-weight:800;font-size:15px;">🎯 Jordan made weight!</div>
+          <div style="font-size:11.5px;color:var(--muted);margin-top:3px;">70.0 kg · 3 days out · 12 in your gym cheering</div>
+        </div>
+        <!-- leaderboard peek -->
+        <div class="label-section" style="margin:14px 2px 8px;">This week</div>
+        <div class="card" style="padding:11px 13px;display:flex;flex-direction:column;gap:9px;">
+          <div class="row between"><div class="row" style="gap:9px;"><b style="color:var(--amber);font-family:'Sora';">1</b><span style="font-size:12.5px;">Jordan R.</span></div><b style="font-size:12px;font-family:'Sora';">9 sessions</b></div>
+          <div class="row between"><div class="row" style="gap:9px;"><b style="color:#cbd5e1;font-family:'Sora';">2</b><span style="font-size:12.5px;">You</span></div><b style="font-size:12px;font-family:'Sora';">7 sessions</b></div>
+        </div>
+      </div>
+    </div></div></div>
+  </div>
+
+  <div class="meta">WeightCut Wizard · App Store screenshot mockups · 6.9″ display</div>
+</div>
+</body>
+</html>

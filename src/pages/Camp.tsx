@@ -190,6 +190,11 @@ export default function Camp() {
       const dbPlan = await loadCutPlan();
       if (cancelled || !dbPlan?.weeklyPlan) return;
       localStorage.setItem("wcw_cut_plan", JSON.stringify(dbPlan));
+      // Rehydrating an existing plan must not arm the dashboard's unseen-plan
+      // redirect guard — mark it seen unless onboarding deliberately cleared it.
+      if (!localStorage.getItem("wcw_cut_plan_seen")) {
+        localStorage.setItem("wcw_cut_plan_seen", "true");
+      }
       setCutPlanSummary(readSummaryFromRaw(JSON.stringify(dbPlan)));
     })();
     return () => { cancelled = true; };

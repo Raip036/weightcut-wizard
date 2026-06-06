@@ -28,6 +28,8 @@ import {
   Sun,
   AlertTriangle,
   ChevronDown,
+  Flame,
+  Moon,
   Sprout,
   Hammer,
   Mountain,
@@ -154,11 +156,11 @@ const PHASE_DOT: Record<WeekPhase, string> = {
 };
 
 const PHASE_BADGE: Record<WeekPhase, string> = {
-  foundation: "bg-sky-500/12 text-sky-400",
-  build: "bg-primary/12 text-primary",
-  peak: "bg-secondary/15 text-secondary",
-  final: "bg-func-warning-yellow/12 text-func-warning-yellow",
-  fight_week: "bg-func-warning-yellow/12 text-func-warning-yellow",
+  foundation: "text-sky-400",
+  build: "text-primary",
+  peak: "text-secondary",
+  final: "text-func-warning-yellow",
+  fight_week: "text-func-warning-yellow",
 };
 
 const PHASE_ICON: Record<WeekPhase, typeof Sprout> = {
@@ -406,6 +408,55 @@ function DailyFuelCard({
   );
 }
 
+// ─── Macro cycling — match carbs/protein to training load ─────────────
+// Two-row tip card. Hard days lead with carbs to fuel work; rest/low
+// days prioritise protein to recover. Colours mirror DailyFuelCard.
+function MacroCyclingCard() {
+  const rows = [
+    {
+      key: "hard",
+      Icon: Flame,
+      color: MACRO_COLOR.carbs,
+      title: "Hard training days",
+      body: "Eat more carbs to fuel the session and refill glycogen.",
+    },
+    {
+      key: "rest",
+      Icon: Moon,
+      color: MACRO_COLOR.protein,
+      title: "Rest & low days",
+      body: "Prioritise protein, pull carbs back to recover and stay lean.",
+    },
+  ];
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12, scale: 0.99 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ ...ENTER_SPRING, delay: 0.05 }}
+      className="card-surface rounded-2xl border border-border/50 p-4 mt-3 space-y-3"
+    >
+      <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70 font-semibold">
+        Cycle Your Macros
+      </p>
+      {rows.map((r) => (
+        <div key={r.key} className="flex items-start gap-3">
+          <div className="h-9 w-9 shrink-0 flex items-center justify-center">
+            <r.Icon className="h-5 w-5" strokeWidth={2.2} style={{ color: r.color }} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-bold text-foreground leading-tight">
+              {r.title}
+            </p>
+            <p className="text-[12px] text-muted-foreground leading-snug mt-0.5">
+              {r.body}
+            </p>
+          </div>
+        </div>
+      ))}
+    </motion.div>
+  );
+}
+
 // ─── Daily Focus block — ONE place, top of plan ───────────────────────
 function DailyFocusBlock({ bullets }: { bullets: string[] }) {
   if (!bullets || bullets.length === 0) return null;
@@ -487,7 +538,7 @@ function PhasePills({
               className="w-full flex card-surface rounded-2xl border border-border/50 overflow-hidden active:scale-[0.99] transition-transform"
             >
               <div className={`w-1 shrink-0 ${PHASE_RAIL[p.name]}`} aria-hidden />
-              <div className="flex-1 flex items-start gap-3 p-3.5 text-left min-w-0">
+              <div className="flex-1 flex items-center gap-3 p-3.5 text-left min-w-0">
                 <div
                   className={`h-10 w-10 shrink-0 rounded-xl flex items-center justify-center ${PHASE_BADGE[p.name]}`}
                 >
@@ -1043,6 +1094,9 @@ export function InlinePlanDisplay({
         carbs={week1?.carbs_g}
         fats={week1?.fats_g}
       />
+
+      {/* MACRO CYCLING — carbs on hard days, protein on rest days */}
+      <MacroCyclingCard />
 
       {/* COACH NOTE */}
       {planData.personalNote && <CoachNote text={planData.personalNote} />}
