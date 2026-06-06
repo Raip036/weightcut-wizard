@@ -349,8 +349,11 @@ export function CutPaceForecast({
       : currentWeight || null;
 
   const tier = tierFromDelta(displayActual, focusCheckpoint.targetWeight);
+  // The last NON-dehydration week is the final cut target, NOT the weigh-in
+  // (the weigh-in happens in the fight week, which this forecast excludes).
+  // Labelling it "WEIGH-IN" mislabelled e.g. week 7 of an 8-week plan.
   const heroEyebrow = isFinalWeek
-    ? `WEIGH-IN · ${fmtWeekDate(focusCheckpoint.weekEndDate)}`
+    ? `FINAL WEEK · ${fmtWeekDate(focusCheckpoint.weekEndDate)}`
     : `WEEK ${focusCheckpoint.week} · ${fmtWeekDate(focusCheckpoint.weekEndDate)}`;
 
   // Top-right chip: days-left for current/future, "Week N of M" for past.

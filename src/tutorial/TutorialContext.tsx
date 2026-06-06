@@ -195,21 +195,30 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
     }
   }, [waitingForNav, location.pathname, location.search, state.isActive, state.currentStep]);
 
-  // Auto-trigger onboarding on /dashboard
+  // Auto-trigger onboarding on /dashboard — EXACTLY ONCE, on the first
+  // dashboard load after the weight-cut plan was generated. After it has run
+  // once (or the user has completed it), it NEVER auto-runs again — the only
+  // other way to see it is the manual "replay" from Settings.
+  //
+  // Fixes the bug where the tutorial kept re-appearing after viewing the plan:
+  // the previous logic cleared its own completion record and leaned on fragile
+  // ref/session flags. The durable, per-user `wcw_tutorial_autoshown_<id>` lock
+  // below can't be undone by navigation, paused flows, or the one-shot flag
+  // being re-set.
   useEffect(() => {
     if (location.pathname !== "/dashboard" || !userId || !hasProfile || state.isActive) return;
 
-    // Check for fresh onboarding completion — must come before autoTriggeredRef check
-    // so we can reset the ref (it may have been set during the /cut-plan render cycle)
+    const autoShownKey = `wcw_tutorial_autoshown_${userId}`;
+    // `wcw_onboarding_just_completed` is set ONCE by onboarding right after the
+    // plan is generated — the only signal that auto-starts the tutorial.
     const justOnboarded = localStorage.getItem("wcw_onboarding_just_completed");
-    if (justOnboarded) {
-      autoTriggeredRef.current = false;
-    }
 
-    if (autoTriggeredRef.current) return;
-
-    // Check if we should resume a paused flow
+    // Resume a paused flow (mid-tutorial manual navigation) — highest priority.
+    // A paused flow means the tutorial is already in progress, so lock out any
+    // future auto-trigger and consume the one-shot flag.
     if (pausedFlowRef.current) {
+      localStorage.setItem(autoShownKey, "1");
+      if (justOnboarded) localStorage.removeItem("wcw_onboarding_just_completed");
       const { flowId, stepIndex } = pausedFlowRef.current;
       pausedFlowRef.current = null;
       const timer = setTimeout(() => {
@@ -218,35 +227,31 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
       return () => clearTimeout(timer);
     }
 
-    // If user just finished onboarding, always show the tutorial
-    if (justOnboarded) {
-      localStorage.removeItem("wcw_onboarding_just_completed");
-      // Clear any stale completion state so the tutorial runs fresh
-      tutorialPersistence.clearFlow(userId, "onboarding");
-    } else {
-      // Check if onboarding already completed (persistence + localStorage guard)
-      if (tutorialPersistence.isFlowCompleted(userId, onboardingFlow)) {
-        autoTriggeredRef.current = true;
-        return;
-      }
+    if (autoTriggeredRef.current) return;
 
-      // Extra guard: check if tutorial was already shown this session
-      const sessionKey = `wcw_tutorial_shown_${userId}`;
-      if (localStorage.getItem(sessionKey)) {
-        autoTriggeredRef.current = true;
-        return;
-      }
+    // Permanent guard: once auto-shown OR completed, the tutorial is replay-only.
+    const alreadyShown =
+      localStorage.getItem(autoShownKey) != null ||
+      tutorialPersistence.isFlowCompleted(userId, onboardingFlow);
+
+    // Only auto-run on the FIRST dashboard entry after plan generation.
+    if (!justOnboarded || alreadyShown) {
+      if (justOnboarded) localStorage.removeItem("wcw_onboarding_just_completed");
+      autoTriggeredRef.current = true;
+      return;
     }
 
-    // Seed demo data only for brand-new users (no cached weight data yet)
+    // First-time post-plan: consume the flag and set the permanent lock BEFORE
+    // starting, so it can never run twice even if this effect re-runs.
+    localStorage.removeItem("wcw_onboarding_just_completed");
+    localStorage.setItem(autoShownKey, "1");
+
+    // Seed demo data only for brand-new users (no cached weight data yet).
     const hasRealData = localCache.get(userId, "dashboard_weight_logs");
     if (!hasRealData && !isDemoActive(userId)) {
       seedDemoData(userId);
     }
 
-    // Start onboarding after dashboard animations finish — mark as shown immediately
-    const sessionKey = `wcw_tutorial_shown_${userId}`;
-    localStorage.setItem(sessionKey, 'true');
     const timer = setTimeout(() => {
       autoTriggeredRef.current = true;
       managerRef.current.start("onboarding", getUserState());

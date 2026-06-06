@@ -34,7 +34,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { WizardCharacter } from "@/tutorial/WizardCharacter";
-import { Orb } from "@/components/chat/Orb";
 
 // ── Tuning ────────────────────────────────────────────────────────────
 const ACT1_DWELL_MS = 2200;
@@ -110,15 +109,16 @@ function useCountUp(
 // Wizard sits centred-high; the orb glows directly behind it so the
 // mascot reads as lit from within. Kept to a single blurred layer for
 // iOS performance — no stacked blurs.
-function MascotStage({ pose }: { pose: "wave" | "celebrate" | "idle" }): JSX.Element {
+function MascotStage({
+  pose,
+}: {
+  pose: "wave" | "celebrate" | "idle";
+}): JSX.Element {
   return (
     <div className="pointer-events-none absolute inset-x-0 z-10 flex justify-center" style={{ top: "16%" }}>
       <div className="relative flex items-center justify-center">
-        {/* Ambient orb glow behind the mascot */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-          <Orb size={220} state="idle" />
-        </div>
-        {/* Single mascot instance — pose swaps per act */}
+        {/* Single mascot instance — pose swaps per act. (Orb removed per
+            design: the wizard stands on its own here.) */}
         <div className="relative" style={{ width: 150, height: 150 }}>
           <WizardCharacter pose={pose} />
         </div>

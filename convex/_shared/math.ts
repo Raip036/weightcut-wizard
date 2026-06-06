@@ -34,10 +34,17 @@ export function macroSplit(
   weightKg: number,
   goal: "cut" | "maintain" | "recomp",
 ): { protein_g: number; carb_g: number; fat_g: number } {
-  const proteinPerKg = goal === "cut" ? 2.2 : goal === "recomp" ? 2.0 : 1.8;
-  const fatPerKg = 0.9;
+  // Athlete-first split: combat athletes train hard while cutting, so we keep
+  // protein high enough to protect lean mass (2.0 g/kg on a cut) but pull fat
+  // back to 0.8 g/kg so MORE of the calorie budget lands on CARBS — the fuel
+  // that keeps training quality and weight-room output up through the deficit.
+  // maintain (1.8) and recomp (2.0) protein are unchanged and keep fat at 0.9.
+  const proteinPerKg = goal === "cut" ? 2.0 : goal === "recomp" ? 2.0 : 1.8;
+  const fatPerKg = goal === "cut" ? 0.8 : 0.9;
   const protein_g = Math.round(weightKg * proteinPerKg);
   const fat_g = Math.round(weightKg * fatPerKg);
+  // Carbs take the remainder, so the protein/fat trims above auto-increase
+  // carbohydrate. The 20 g floor guards against a degenerate near-zero budget.
   const remainderKcal = kcal - protein_g * 4 - fat_g * 9;
   const carb_g = Math.max(20, Math.round(remainderKcal / 4));
   return { protein_g, carb_g, fat_g };

@@ -104,6 +104,11 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
   const [endWeight, setEndWeight] = useState("");
   const [performance, setPerformance] = useState<string>("");
   const [notes, setNotes] = useState("");
+  // Cut breakdown — how the total drop was achieved. Feeds the camp's
+  // weightViaDehydration / weightViaCarbReduction fields (the "Breakdown" on
+  // the camp detail page) so it's filled in automatically at wrap-up.
+  const [dehydrationKg, setDehydrationKg] = useState("");
+  const [dietKg, setDietKg] = useState("");
   const [wrappingUp, setWrappingUp] = useState(false);
 
   // Wizard state. `targetWeightKg` = fight-day weight (goal_weight_kg).
@@ -161,6 +166,8 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
     setEndWeight("");
     setPerformance("");
     setNotes("");
+    setDehydrationKg("");
+    setDietKg("");
   }, [open, profile?.current_weight_kg]);
 
   // Re-estimate the walk-around weight any time the target changes IF the
@@ -206,11 +213,25 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
     setWrappingUp(true);
     try {
       if (!skip) {
+        // Cut breakdown → camp fields. Total is the sum of the two reported
+        // components (water + diet) so the camp's CUT total and its breakdown
+        // stay self-consistent.
+        const dehy = parseFloat(dehydrationKg);
+        const diet = parseFloat(dietKg);
+        const hasDehy = Number.isFinite(dehy) && dehy >= 0;
+        const hasDiet = Number.isFinite(diet) && diet >= 0;
+        const breakdownTotal =
+          (hasDehy ? dehy : 0) + (hasDiet ? diet : 0);
         await completeCampMut({
           id: activeCamp._id,
           endWeightKg: endWeight ? parseFloat(endWeight) : undefined,
           performanceFeeling: performance || undefined,
           rehydrationNotes: notes.trim() || undefined,
+          ...(hasDehy ? { weightViaDehydration: +dehy.toFixed(1) } : {}),
+          ...(hasDiet ? { weightViaCarbReduction: +diet.toFixed(1) } : {}),
+          ...(hasDehy || hasDiet
+            ? { totalWeightCut: +breakdownTotal.toFixed(1) }
+            : {}),
         });
       } else {
         await completeCampMut({ id: activeCamp._id });
@@ -306,6 +327,7 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
           sex,
           heightCm,
           activityLevel,
+          weighInTiming: wizardData.weighInTiming || undefined,
         });
       } catch (planError) {
         logger.warn("Cut plan generation failed in NextCampFlow", { error: planError });
@@ -419,6 +441,41 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
                   />
                 </div>
 
+                {/* Cut breakdown — auto-fills the camp's "Breakdown" field. */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground/70 block mb-1.5">
+                      Via dehydration (kg)
+                    </label>
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.1"
+                      value={dehydrationKg}
+                      onChange={(e) => setDehydrationKg(e.target.value)}
+                      placeholder="Water cut"
+                      className="h-11 rounded-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground/70 block mb-1.5">
+                      Via diet (kg)
+                    </label>
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.1"
+                      value={dietKg}
+                      onChange={(e) => setDietKg(e.target.value)}
+                      placeholder="Carbs, fibre, sodium"
+                      className="h-11 rounded-xs"
+                    />
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground/70 -mt-1 leading-snug">
+                  Splits your total cut into water vs diet, saved to the camp breakdown.
+                </p>
+
                 <div>
                   <label className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground/70 block mb-1.5">
                     How did it go?
@@ -503,9 +560,9 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
               </div>
 
               {/* Mascot companion + encouraging one-liner */}
-              <div className="flex items-center gap-2.5">
-                <div className="relative h-[52px] w-[52px] shrink-0 overflow-visible">
-                  <div className="absolute inset-0 flex items-center justify-center scale-[0.37] origin-center">
+              <div className="flex items-center gap-3">
+                <div className="relative h-[76px] w-[76px] shrink-0 overflow-visible">
+                  <div className="absolute inset-0 flex items-center justify-center scale-[0.52] origin-center">
                     <WizardCharacter pose={step === wizardSteps.length - 1 ? "point" : "idle"} />
                   </div>
                 </div>
