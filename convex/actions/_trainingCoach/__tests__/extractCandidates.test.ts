@@ -42,11 +42,13 @@ describe("extractCandidates", () => {
     expect(out).toEqual([]);
   });
 
-  it("calls the cheap llama-3.1-8b-instant model", async () => {
+  it("calls the heavy gpt-oss-120b model in JSON mode", async () => {
     (callGroqText as any).mockResolvedValue(JSON.stringify({ candidates: [] }));
     await extractCandidates({ notes: "x" });
     const call = (callGroqText as any).mock.calls[0][0];
-    expect(call.model).toBe("llama-3.1-8b-instant");
+    // Candidate extraction uses the heavy-tier model — its quality drives the
+    // whole downstream training-coach pipeline (see extractCandidates.ts).
+    expect(call.model).toBe("openai/gpt-oss-120b");
     expect(call.response_format).toEqual({ type: "json_object" });
   });
 

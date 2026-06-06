@@ -4,8 +4,9 @@
  * Stage 1 of the Training Coach Paths planner: read raw session notes,
  * extract candidate techniques the user mentioned learning/practicing.
  *
- * Uses the cheap llama-3.1-8b-instant model because the task is structured
- * extraction, not reasoning.
+ * Uses the heavy-tier openai/gpt-oss-120b model: candidate-extraction quality
+ * directly drives the quality of the whole downstream training-coach pipeline,
+ * so it's worth the stronger model rather than the cheap tier.
  */
 import { callGroqText } from "../../_shared/groq";
 import { parseJSON } from "../../_shared/parseResponse";
