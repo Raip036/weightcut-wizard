@@ -21,7 +21,7 @@
  * Monday the card disappears so it doesn't compete with the new week's
  * training feed.
  */
-import { useState, useRef } from "react";
+import { useMemo, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "convex/react";
 import { motion, AnimatePresence } from "motion/react";
@@ -57,7 +57,15 @@ export function WeeklyHighlightCard() {
   // Week-offset scrubber: 0 = the rolling 7d window ending now.
   // weekOffset N = the window ending (now - N*7d).
   const [weekOffset, setWeekOffset] = useState(0);
-  const weekEndMs = Date.now() - weekOffset * SEVEN_DAYS_MS;
+  // Stabilise the window endpoint: `Date.now()` changes every millisecond, so
+  // computing it inline made `weekEndMs` a fresh value on EVERY render — and
+  // since Convex keys a useQuery subscription by its args, that spun up a brand
+  // new `weeklyHighlight` execution per re-render. Capture it once per
+  // `weekOffset` (only changes when the user actually scrubs weeks).
+  const weekEndMs = useMemo(
+    () => Date.now() - weekOffset * SEVEN_DAYS_MS,
+    [weekOffset],
+  );
 
   const data = useQuery(
     api.feedSocial.weeklyHighlight,

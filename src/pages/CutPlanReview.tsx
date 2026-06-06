@@ -18,7 +18,7 @@
  * layer) and freezes to a static glow when reduced-motion is requested.
  */
 import { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { motion, useReducedMotion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { TrendingDown, X } from "lucide-react";
@@ -81,6 +81,7 @@ function PlanAurora() {
 
 export default function CutPlanReview() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const planData = useMemo(() => {
     try {
@@ -117,7 +118,17 @@ export default function CutPlanReview() {
     // the dashboard auto-replay the onboarding tutorial every time the plan
     // was closed. Both have been removed — closing the plan is now a plain
     // "go back" with no side effects on the tutorial flow.
-    navigate(-1);
+    //
+    // BUT: when this page is the FIRST entry in the history stack — a fresh
+    // load, a deep link, a refresh, or arriving via `navigate(..., {replace})`
+    // — there is nothing to go back to and `navigate(-1)` is a silent no-op,
+    // trapping the user on the plan. React Router sets `location.key` to
+    // "default" in exactly that case, so fall back to a concrete route.
+    if (location.key !== "default") {
+      navigate(-1);
+    } else {
+      navigate("/dashboard", { replace: true });
+    }
   };
 
   return (

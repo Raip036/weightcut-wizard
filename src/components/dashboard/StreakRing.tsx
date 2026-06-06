@@ -44,37 +44,28 @@ export default function StreakRing() {
 
   const view = useMemo(() => {
     if (!stats) return null;
-    const { current, best, todayComplete } = stats;
+    const { current, todayComplete } = stats;
     const next = nextMilestone(current);
     const prev = prevMilestone(current);
 
-    // Ring progress within the current milestone band.
+    // Ring progress within the current milestone band. This stays a purely
+    // VISUAL cue — the milestone math (best streak, days-to-next-badge) is
+    // intentionally NOT spelled out in the copy, which kept the strip crowded.
     const progress =
       next === null
         ? 1
         : Math.max(0, Math.min(1, (current - prev) / (next - prev)));
 
-    const remaining = next === null ? 0 : next - current;
-
-    // Headline + sub copy by state.
+    // One short, unambiguous line per state: the streak count IS the point,
+    // the sub is a single nudge — not a stats dump.
     let headline: string;
     let sub: string;
-
     if (current === 0) {
       headline = "Start your streak";
-      sub = todayComplete
-        ? "Day 1 in the bag — keep it going 🔥"
-        : "Log all 5 today to light the flame";
+      sub = todayComplete ? "Day 1 done — nice start" : "Log all 5 today to begin";
     } else {
       headline = `${current}-day streak`;
-      if (next === null) {
-        sub = `Best ${best} · you're maxed out 🏆`;
-      } else if (!todayComplete) {
-        sub = `Log all 5 today to reach ${current + 1} 🔥`;
-      } else {
-        const dayWord = remaining === 1 ? "day" : "days";
-        sub = `Best ${best} · ${remaining} ${dayWord} to ${next}-day badge`;
-      }
+      sub = todayComplete ? "Locked in for today" : "Log all 5 today to keep it";
     }
 
     return { current, progress, headline, sub, active: current > 0 };
