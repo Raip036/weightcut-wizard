@@ -12,6 +12,7 @@ import { Slider } from "@/components/ui/slider";
 import { ArrowLeft, Trophy, Camera, CheckCircle2, Share2, ChevronRight, Check, Droplet, Wheat } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { triggerHapticSelection, triggerHaptic } from "@/lib/haptics";
+import { normalizeWeighInTiming, weighInTimingLabel } from "@/lib/weighInTiming";
 import { ImpactStyle } from "@capacitor/haptics";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -257,7 +258,7 @@ export default function FightCampDetail() {
       </div>
 
       {/* Hero — outcome chip, camp name, date, 3-up stat tiles */}
-      <header className="rounded-xs bg-card/60 border border-border/40 overflow-hidden mb-6">
+      <header className="rounded-xs card-surface overflow-hidden mb-6">
         <div className="px-5 pt-5 pb-4 flex flex-col items-center gap-3">
           <label className="relative cursor-pointer group">
             {camp.profile_pic_url ? (
@@ -328,7 +329,7 @@ export default function FightCampDetail() {
           />
           <SettingsRow
             label="Weigh-in timing"
-            value={camp.weigh_in_timing === "day_before" ? "Day before" : camp.weigh_in_timing === "day_of" ? "Day of" : "—"}
+            value={camp.weigh_in_timing ? weighInTimingLabel(camp.weigh_in_timing) : "—"}
             onTap={() => setActiveField({ key: "weigh_in_timing", title: "Weigh-in timing" })}
           />
         </SettingsGroup>
@@ -417,7 +418,7 @@ function SettingsGroup({ title, children }: { title: string; children: React.Rea
       <h2 className="px-4 mb-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground/80">
         {title}
       </h2>
-      <div className="rounded-xs bg-card/60 backdrop-blur-sm border border-border/40 overflow-hidden divide-y divide-border/30">
+      <div className="rounded-xs card-surface overflow-hidden divide-y divide-border/30">
         {children}
       </div>
     </section>
@@ -516,9 +517,11 @@ function EditFieldSheet({
           <div className="grid gap-2">
             {[
               { value: "day_before", label: "Day before" },
-              { value: "day_of", label: "Day of" },
+              { value: "same_day", label: "Same-day" },
             ].map((o) => {
-              const active = camp.weigh_in_timing === o.value;
+              // Normalize the stored value (handles legacy "day_of" / "morning_of"
+              // and canonical "same_day") so the right chip highlights.
+              const active = normalizeWeighInTiming(camp.weigh_in_timing) === o.value;
               return (
                 <button
                   key={o.value}

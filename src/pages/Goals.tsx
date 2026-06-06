@@ -449,7 +449,7 @@ function SettingsGroup({ title, children }: { title: string; children: React.Rea
       <h2 className="px-4 mb-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground/80">
         {title}
       </h2>
-      <div className="rounded-xs bg-card/60 backdrop-blur-sm border border-border/40 overflow-hidden divide-y divide-border/30">
+      <div className="rounded-xs card-surface overflow-hidden divide-y divide-border/30">
         {children}
       </div>
     </section>

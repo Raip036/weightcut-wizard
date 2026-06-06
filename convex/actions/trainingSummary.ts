@@ -66,6 +66,7 @@ interface WeekSession {
   soreness_level: number | null;
   sleep_hours: number | null;
   notes: string | null;
+  techniques_notes?: string | null;
 }
 
 interface WeekStats {
@@ -164,8 +165,14 @@ async function runTrainingSummary(
   const allSessions = (data.sessions ?? []) as WeekSession[];
 
   // Only sessions with non-empty notes are useful for debrief mining.
+  // A session counts if EITHER the reflection (`notes`) OR the techniques
+  // log (`techniques_notes`) has content — technique-only logs must not be
+  // dropped, since they're the primary source for `takeaways`.
   const sessionsWithNotes = allSessions.filter(
-    (s) => typeof s?.notes === "string" && s.notes.trim().length > 0,
+    (s) =>
+      (typeof s?.notes === "string" && s.notes.trim().length > 0) ||
+      (typeof s?.techniques_notes === "string" &&
+        s.techniques_notes.trim().length > 0),
   );
 
   // Compute stats from ALL sessions (with or without notes) — a session
@@ -201,16 +208,31 @@ async function runTrainingSummary(
   );
   const sessionsText = sessionsWithNotes
     .map((s) => {
-      const cleanNotes = sanitizeUserText(s.notes ?? "", {
+      const cleanTechniques = sanitizeUserText(s.techniques_notes ?? "", {
+        maxLength: 800,
+        raw: true,
+      });
+      const cleanReflection = sanitizeUserText(s.notes ?? "", {
         maxLength: 800,
         raw: true,
       });
       const discipline = `${s.session_type}${s.session_tag ? ` (${s.session_tag})` : ""}`;
-      return `${s.date} | ${discipline} | ${s.duration_minutes}min | Notes: <user_input>${cleanNotes}</user_input>`;
+      const lines = [
+        `${s.date} | ${discipline} | ${s.duration_minutes}min`,
+      ];
+      if (cleanTechniques.trim().length > 0) {
+        lines.push(`Techniques: <user_input>${cleanTechniques}</user_input>`);
+      }
+      if (cleanReflection.trim().length > 0) {
+        lines.push(`Reflection: <user_input>${cleanReflection}</user_input>`);
+      }
+      return lines.join("\n");
     })
     .join("\n");
 
     const systemPrompt = `You write a WEEKLY TRAINING DEBRIEF for a combat-sports athlete from their own session notes. Output two things: a one-sentence weekHeadline summarising the week's focus, and a "debrief" with up to 4 "takeaways" plus an optional "watchOut".
+
+Each session below may provide up to two blocks: a "Techniques" block (the combos/positions/drills they drilled or learned — the primary source for "takeaways") and a "Reflection" block (what went well / what to improve — the primary source for "watchOut"). Either block may be absent for a given session. For legacy entries the Reflection block may be empty or may itself mix technique mentions in with the reflection, so when a session has no Techniques block still mine techniques from its Reflection block.
 
 Each takeaway distils ONE concrete thing the athlete drilled or learned this week, pulled from their notes:
 - "discipline": the session_type EXACTLY as given (Boxing is not Muay Thai). Do not merge or rename disciplines.

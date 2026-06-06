@@ -36,9 +36,9 @@ export function MealIdeasSection({
   onLogIdea,
 }: MealIdeasSectionProps) {
   return (
-    <div className="space-y-2" data-tutorial="generate-meal-plan">
+    <div className="space-y-2 pt-4" data-tutorial="generate-meal-plan">
       <div className="flex items-center justify-between">
-        <h2 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Meal Plan Ideas</h2>
+        <h2 className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/80">Meal Plan Ideas</h2>
         <Button onClick={() => setIsAiDialogOpen(true)} size="sm" variant="ghost" className="h-8 text-xs gap-1.5 rounded-xs text-primary font-medium">
           Generate
         </Button>

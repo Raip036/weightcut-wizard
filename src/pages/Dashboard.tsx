@@ -10,11 +10,15 @@ import { FightFormRing } from "@/components/dashboard/FightFormRing";
 import { FightFormInsightStrip } from "@/components/dashboard/FightFormInsightStrip";
 import { FightFormDeltaBanner } from "@/components/dashboard/FightFormDeltaBanner";
 import TodayStrip from "@/components/dashboard/TodayStrip";
+import StreakRing from "@/components/dashboard/StreakRing";
 import { FightFormScoreSheet } from "@/components/dashboard/FightFormScoreSheet";
 // Lazy-load recharts wrapper so the ~100KB charts bundle defers until first paint.
 const DashboardWeightChart = lazy(() => import("@/components/charts/DashboardWeightChart"));
+import Sparkline from "@/components/charts/Sparkline";
 import { Icon } from "@/components/ui/Icon";
 import { TrainingWeekWidget, preloadTrainingWeek } from "@/components/dashboard/TrainingWeekWidget";
+import { SleepCard } from "@/components/dashboard/SleepCard";
+import { ReadinessCard } from "@/components/dashboard/ReadinessCard";
 import { WeightProgressRing } from "@/components/dashboard/WeightProgressRing";
 import { StreakBadge } from "@/components/dashboard/StreakBadge";
 import { CutPaceForecast, type PlanData } from "@/components/dashboard/CutPaceForecast";
@@ -43,6 +47,8 @@ import { ProfileSheet } from "@/components/dashboard/ProfileSheet";
 import NewAnnouncementWidget from "@/components/dashboard/NewAnnouncementWidget";
 import { GymInvitesBanner } from "@/components/dashboard/GymInvitesBanner";
 import { NextCampFlow } from "@/components/fightcamp/NextCampFlow";
+import { CatchUpSheet } from "@/components/dashboard/CatchUpSheet";
+import { PostFightDebrief } from "@/components/fightcamp/PostFightDebrief";
 import { isFighter } from "@/lib/goalType";
 
 // Module-level dedupe so re-mounts within the session don't re-fire identical
@@ -151,6 +157,7 @@ export default function Dashboard() {
   const [scoreSheetOpen, setScoreSheetOpen] = useState(false);
   const [nextCampOpen, setNextCampOpen] = useState(false);
   const [profileSheetOpen, setProfileSheetOpen] = useState(false);
+  const [catchUpOpen, setCatchUpOpen] = useState(false);
   // Active camp drives the post-fight "wrap up + start next camp" banner.
   // Skip the query while userId is unresolved to avoid an extra round trip.
   const activeCamp = useQuery(api.fight_camp.getActiveCamp, userId ? {} : "skip");
@@ -190,6 +197,34 @@ export default function Dashboard() {
       document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, []);
+
+  // Compute yesterday's date string from liveTodayStr (local date math).
+  // Uses the same approach as the app-wide date utilities: parse the local
+  // ISO string, subtract one day, reformat. Declared here so catchUpOpen
+  // effect below can close over it.
+  const yesterday = (() => {
+    const d = new Date(liveTodayStr + "T00:00:00");
+    d.setDate(d.getDate() - 1);
+    // Format from LOCAL parts — `toISOString()` would shift to UTC and yield
+    // two-days-ago for UTC+ users (e.g. BST). Matches the app's local-date convention.
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  })();
+
+  // "Yesterday in 10 seconds" catch-up sheet. Fires once per calendar day
+  // (keyed on liveTodayStr so it re-arms at local midnight), skipped when
+  // the user has already dismissed it for yesterday. Gated on userId so it
+  // only fires after auth resolves.
+  useEffect(() => {
+    if (!userId) return;
+    const today = liveTodayStr;
+    const lastOpen = localStorage.getItem("catchup_last_open");
+    const dismissed = localStorage.getItem("catchup_dismissed_" + yesterday);
+    if (lastOpen !== today && !dismissed) {
+      setCatchUpOpen(true);
+    }
+    localStorage.setItem("catchup_last_open", today);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   // Tutorial bridge: a step in the onboarding flow can request the Fight
   // Form Score sheet open declaratively via `actionEventName`. We listen
@@ -239,6 +274,7 @@ export default function Dashboard() {
     FEATURE_FLAGS.enableFightFormScore ? { days: 14 } : "skip",
   );
   const ffRecompute = useMutation(api.fightFormScore.recomputeNow);
+  const markRestDayMutation = useMutation(api.fight_camp.createCalendarEntry);
   // One-shot Sharp crossing celebration. Fires once per calendar date when
   // the user transitions from below 80 to 80+; expires automatically after
   // the animation runs so it doesn't loop on re-renders.
@@ -812,6 +848,10 @@ export default function Dashboard() {
       topDriver: null,
       topLimiter: null,
       algorithmVersion: "1.0.0",
+      dataConfidence: 0,
+      dataAgeDays: 0,
+      activePillars: 0,
+      totalPillars: 0,
     };
     const startingWeight = weightLogs.length > 0 ? parseFloat(weightLogs[0].weight_kg) : currentWeightValue;
     const goalWeight = profile?.goal_weight_kg ?? 0;
@@ -916,6 +956,15 @@ export default function Dashboard() {
             onAvatarClick={() => navigate('/goals')}
           />
 
+          {/* Proactive coach surfaces (Fight Camp Coach — Phase 3). Both
+              self-fetch and render null when there's nothing to say, so they
+              sit high in the page as the first "coach read" without cluttering
+              when idle. Post-fight debrief sits above the briefing card so a
+              returning fighter is prompted to wrap up before the daily read. */}
+          <ErrorBoundary fallback={null} silent>
+            <PostFightDebrief />
+          </ErrorBoundary>
+
           {/* Post-fight banner — auto-prompts the user to wrap up the camp
               and start the next one once the fight date has passed. The
               wrap-up is part of the NextCampFlow so the user moves through
@@ -924,7 +973,7 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => setNextCampOpen(true)}
-              className="w-full text-left rounded-2xl card-surface card-glow p-3 card-press"
+              className="w-full text-left rounded-2xl card-surface p-3 card-press"
             >
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-xs bg-primary/15 flex items-center justify-center shrink-0">
@@ -959,6 +1008,10 @@ export default function Dashboard() {
                 phase={ffScore.phase}
                 celebrateSharp={celebrateSharp}
                 ritualDaysCount={ritualDaysTotal}
+                dataConfidence={ffScore.dataConfidence}
+                dataAgeDays={ffScore.dataAgeDays}
+                activePillars={ffScore.activePillars}
+                totalPillars={ffScore.totalPillars}
                 onTap={() =>
                   ffScore.state === "no_camp"
                     ? navigate("/goals")
@@ -1020,14 +1073,35 @@ export default function Dashboard() {
                   </div>
                 );
               })()}
-            {ffScore.state === "ok" && (
-              <FightFormDeltaBanner
-                delta={ffDelta?.delta ?? null}
-                topDriver={ffScore.topDriver}
-                topLimiter={ffScore.topLimiter}
-                onTap={() => setScoreSheetOpen(true)}
-              />
-            )}
+            {(ffScore.state === "ok" || ffScore.state === "stale") && (() => {
+              const SUBSCORE_HUMAN_DASH: Record<string, string> = {
+                trainingLoad: "training load",
+                sleep: "sleep",
+                weightCut: "weight cut",
+                wellness: "wellness",
+                nutritionAdherence: "nutrition",
+                recovery: "recovery",
+              };
+              const ffHeld =
+                ffScoreData &&
+                (ffScoreData.state === "stale" || (ffScoreData.dataAgeDays ?? 0) >= 2) &&
+                ffScoreData.topLimiter
+                  ? {
+                      pillarLabel: SUBSCORE_HUMAN_DASH[ffScoreData.topLimiter] ?? ffScoreData.topLimiter,
+                      score: ffScoreData.displayedScore,
+                      sinceLabel: undefined,
+                    }
+                  : null;
+              return (
+                <FightFormDeltaBanner
+                  delta={ffDelta?.delta ?? null}
+                  topDriver={ffScore.topDriver}
+                  topLimiter={ffScore.topLimiter}
+                  held={ffHeld}
+                  onTap={() => setScoreSheetOpen(true)}
+                />
+              );
+            })()}
             {ffScore.campAge && (
               <p className="text-micro text-muted-foreground/80 mt-2">
                 {ffScore.campAge.weeksAhead === 0
@@ -1042,13 +1116,33 @@ export default function Dashboard() {
           {userId && <GymInvitesBanner />}
           {userId && <NewAnnouncementWidget userId={userId} />}
 
-          <TodayStrip adherence={adherence} mealsLoggedToday={todayCalories > 0} />
+          {/* Streak ring — gamified replacement for the old "Last 7 days"
+              completeness strip. Self-fetches `streakStats`; wrapped so a
+              missing server function (pre `npx convex dev`) can't crash the
+              page, mirroring the other dashboard probes. */}
+          <ErrorBoundary fallback={null} silent>
+            <StreakRing />
+          </ErrorBoundary>
+
+          <TodayStrip
+            adherence={adherence}
+            mealsLoggedToday={todayCalories > 0}
+            onMarkRestDay={async () => {
+              await markRestDayMutation({
+                date: liveTodayStr,
+                sessionType: "Rest",
+                intensity: "Rest",
+                durationMinutes: 0,
+                rpe: 0,
+              });
+            }}
+          />
 
           <div className="pt-3 flex items-baseline justify-between">
             <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/80">Your Stats</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 items-stretch">
+          <div className="grid grid-cols-2 gap-3 items-stretch -mt-2">
             {/* Weight metric card — Design System v1 Metric Card layout
                 (Figma node 67:725). Eyebrow → big bold value → smaller
                 chart → date + trend at the bottom. The kg/lb toggle
@@ -1060,11 +1154,14 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => { triggerHapticSelection(); navigate('/weight'); }}
-              className="card-surface card-glow rounded-2xl p-3 aspect-square flex flex-col text-left card-press min-w-0 w-full overflow-hidden"
+              className="relative card-surface rounded-2xl p-3 aspect-square flex flex-col text-left card-press min-w-0 w-full overflow-hidden"
             >
-              <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
-                WEIGHT
-              </span>
+              <div className="flex items-start justify-between w-full">
+                <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
+                  WEIGHT
+                </span>
+                <Icon name="chevronForwardOutline" size={14} className="text-muted-foreground/40" />
+              </div>
 
               <div className="mt-2 flex items-baseline gap-1.5">
                 <span className="font-display font-bold text-[40px] leading-none text-foreground tabular-nums">
@@ -1078,59 +1175,61 @@ export default function Dashboard() {
               </div>
 
               <div className="flex-1 min-h-0 mt-2">
-                {chartData.length > 0 ? (
-                  <Suspense fallback={<div className="h-full w-full bg-neutral-700/40 rounded-xs" />}>
-                    <DashboardWeightChart data={chartData} weightUnit={weightUnit} />
-                  </Suspense>
+                {chartData.length >= 2 ? (
+                  <Sparkline data={chartData.map((d) => d.weight)} className="h-full w-full" />
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-center">
+                  <div className="flex flex-col items-center justify-end h-full text-center pb-0.5">
                     <Icon name="trendingDownOutline" size={20} className="text-muted-foreground/40 mb-1" />
                     <p className="text-note text-muted-foreground">No data yet</p>
                   </div>
                 )}
               </div>
 
-              {/* Footer — date left, trend arrow + delta + chevron grouped at bottom-right */}
-              <div className="mt-1.5 flex items-center justify-between">
+              {/* Footer — date stays bottom-left; the trend arrow + delta is
+                  pinned to the card's bottom-right corner (below). */}
+              <div className="mt-1.5">
                 <span className="text-micro text-muted-foreground">
                   {chartData.length >= 2 ? chartData[chartData.length - 1].date : ""}
                 </span>
-                <div className="flex items-center gap-1.5">
-                  {chartData.length >= 2 && (() => {
-                    const last = chartData[chartData.length - 1];
-                    const prev = chartData[chartData.length - 2];
-                    const delta = last.weight - prev.weight;
-                    const isDown = delta < 0;
-                    return (
-                      <div className={`flex items-center gap-0.5 text-micro font-medium tabular-nums ${isDown ? "text-func-recovery-green" : "text-func-danger-red"}`}>
-                        <Icon
-                          name="trendingDownOutline"
-                          size={12}
-                          className={isDown ? "" : "rotate-180"}
-                        />
-                        <span>{Math.abs(delta).toFixed(1)}</span>
-                      </div>
-                    );
-                  })()}
-                  <Icon name="chevronForwardOutline" size={14} className="text-muted-foreground/40" />
-                </div>
               </div>
+
+              {/* Trend arrow + delta — anchored to the bottom-right corner. */}
+              {chartData.length >= 2 && (() => {
+                const last = chartData[chartData.length - 1];
+                const prev = chartData[chartData.length - 2];
+                const delta = last.weight - prev.weight;
+                const isDown = delta < 0;
+                return (
+                  <div className={`absolute bottom-3 right-3 flex items-center gap-0.5 text-micro font-medium tabular-nums ${isDown ? "text-func-recovery-green" : "text-func-danger-red"}`}>
+                    <Icon
+                      name="trendingDownOutline"
+                      size={12}
+                      className={isDown ? "" : "rotate-180"}
+                    />
+                    <span>{Math.abs(delta).toFixed(1)}</span>
+                  </div>
+                );
+              })()}
             </button>
             {userId && <TrainingWeekWidget userId={userId} compact />}
+            {userId && <SleepCard userId={userId} />}
+            {userId && <ReadinessCard userId={userId} />}
           </div>
 
           {/* CAMP STATUS — forward-looking guidance. Hidden unless the user
               has an active camp with a weigh-in date set. */}
           {activeCamp && !activeCamp.isCompleted && profile?.target_date && (
-            <DashboardCampStatusSection
-              weightLogs={weightLogs}
-              currentWeight={currentWeightValue}
-              goalWeight={profile.fight_week_target_kg ?? profile.goal_weight_kg ?? 0}
-              targetDate={profile.target_date}
-              phase={ffScore.phase}
-              daysUntilFight={daysUntilTarget || null}
-              plan={profile?.cut_plan_json as PlanData | null | undefined}
-            />
+            <div data-tutorial="camp-status">
+              <DashboardCampStatusSection
+                weightLogs={weightLogs}
+                currentWeight={currentWeightValue}
+                goalWeight={profile.fight_week_target_kg ?? profile.goal_weight_kg ?? 0}
+                targetDate={profile.target_date}
+                phase={ffScore.phase}
+                daysUntilFight={daysUntilTarget || null}
+                plan={profile?.cut_plan_json as PlanData | null | undefined}
+              />
+            </div>
           )}
         </div>
 
@@ -1151,6 +1250,9 @@ export default function Dashboard() {
           trend={ffTrend ?? null}
           yesterdaySubScores={yesterdaySubScores}
           subScoreTrend={subScoreTrend}
+          state={ffScore.state}
+          activePillars={ffScore.activePillars}
+          totalPillars={ffScore.totalPillars}
           loggedToday={{
             // Map adherence (which uses `wellnessCheckin`) → the sheet's
             // canonical shape (`wellness`). Meals is sourced from the
@@ -1176,6 +1278,20 @@ export default function Dashboard() {
           onOpenChange={setNextCampOpen}
           activeCamp={activeCamp ?? null}
         />
+
+        <ErrorBoundary fallback={null} silent>
+          <CatchUpSheet
+            targetDate={yesterday}
+            open={catchUpOpen}
+            onOpenChange={(o) => {
+              if (!o) {
+                localStorage.setItem("catchup_dismissed_" + yesterday, "1");
+              }
+              setCatchUpOpen(o);
+            }}
+            onEmpty={() => setCatchUpOpen(false)}
+          />
+        </ErrorBoundary>
       </ErrorBoundary>
     );
   }
@@ -1219,8 +1335,16 @@ export default function Dashboard() {
           </div>
         </header>
 
+        {/* Proactive coach surfaces (Fight Camp Coach — Phase 3). Both
+            self-fetch and render null when idle, so they sit just under the
+            greeting as the first coach read. Debrief above the briefing card
+            so a returning fighter is prompted to wrap up first. */}
+        <ErrorBoundary fallback={null} silent>
+          <PostFightDebrief />
+        </ErrorBoundary>
+
         {weightLogs.length === 0 && (
-          <button onClick={() => navigate('/weight')} className="w-full card-surface card-glow rounded-2xl p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all">
+          <button onClick={() => navigate('/weight')} className="w-full card-surface rounded-2xl p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all">
             <div className="h-9 w-9 rounded-xs bg-primary/10 flex items-center justify-center flex-shrink-0">
               <Icon name="speedometerOutline" size={16} className="text-primary" />
             </div>
@@ -1246,7 +1370,7 @@ export default function Dashboard() {
         {/* Wizard's Daily Wisdom card — conditional states */}
         <div data-tutorial="daily-wisdom-card">
         {!hasTodayLog ? (
-          <button onClick={() => navigate('/weight')} className="w-full card-surface card-glow rounded-2xl p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all">
+          <button onClick={() => navigate('/weight')} className="w-full card-surface rounded-2xl p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all">
             <div className="h-8 w-8 rounded-xs bg-muted/40 flex items-center justify-center flex-shrink-0">
               <Icon name="lockClosedOutline" size={14} className="text-muted-foreground" />
             </div>
@@ -1259,7 +1383,7 @@ export default function Dashboard() {
             <Icon name="chevronForwardOutline" size={14} className="text-muted-foreground shrink-0" />
           </button>
         ) : wisdomLoading ? (
-          <div className="card-surface card-glow rounded-2xl p-3 flex items-center gap-2.5">
+          <div className="card-surface rounded-2xl p-3 flex items-center gap-2.5">
             <div className="h-8 w-8 rounded-xs bg-muted/40 flex-shrink-0" />
             <div className="flex-1 min-w-0 space-y-1.5">
               <div className="h-2.5 rounded shimmer-skeleton w-1/3" />
@@ -1267,7 +1391,7 @@ export default function Dashboard() {
             </div>
           </div>
         ) : wisdom ? (
-          <button className="w-full text-left card-surface card-glow rounded-2xl p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all" onClick={handleWisdomClick}>
+          <button className="w-full text-left card-surface rounded-2xl p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all" onClick={handleWisdomClick}>
             <div className="h-8 w-8 rounded-xs bg-primary/10 flex items-center justify-center flex-shrink-0">
               <Icon name="flashOutline" size={14} className="text-primary" />
             </div>
@@ -1287,7 +1411,7 @@ export default function Dashboard() {
             </div>
           </button>
         ) : (
-          <div className="card-surface card-glow rounded-2xl p-3 flex items-center gap-2.5">
+          <div className="card-surface rounded-2xl p-3 flex items-center gap-2.5">
             <div className="h-8 w-8 rounded-xs bg-muted/40 flex items-center justify-center flex-shrink-0">
               <Icon name="flashOutline" size={14} className="text-muted-foreground" />
             </div>
@@ -1308,7 +1432,7 @@ export default function Dashboard() {
         {/* Weight History + Training — side by side */}
         <div className="grid grid-cols-2 gap-2">
           {/* Weight History Chart */}
-          <div className="card-surface card-glow rounded-2xl p-2.5 aspect-square flex flex-col">
+          <div className="card-surface rounded-2xl p-2.5 aspect-square flex flex-col">
             <div className="flex items-center justify-between mb-1">
               <span className="section-header text-foreground font-bold">Weight</span>
               <div className="flex gap-0.5 bg-muted rounded-full p-0.5">
@@ -1372,7 +1496,7 @@ export default function Dashboard() {
                 } catch { /* malformed — default route stands */ }
                 navigate(route);
               }}
-              className="card-surface card-glow rounded-2xl p-3 flex items-center gap-2.5 active:scale-[0.98] transition-all text-left"
+              className="card-surface rounded-2xl p-3 flex items-center gap-2.5 active:scale-[0.98] transition-all text-left"
             >
               <div className="h-9 w-9 rounded-xs bg-primary/10 flex items-center justify-center flex-shrink-0">
                 <Icon name="flashOutline" size={16} className="text-primary" />
@@ -1602,6 +1726,20 @@ export default function Dashboard() {
         onOpenChange={setQuestionnaireOpen}
         onComplete={() => { sessionStorage.setItem(`wcw_questionnaire_dismissed_${todayStr}`, '1'); setWisdomSheetOpen(true); }}
       />
+
+      <ErrorBoundary fallback={null} silent>
+        <CatchUpSheet
+          targetDate={yesterday}
+          open={catchUpOpen}
+          onOpenChange={(o) => {
+            if (!o) {
+              localStorage.setItem("catchup_dismissed_" + yesterday, "1");
+            }
+            setCatchUpOpen(o);
+          }}
+          onEmpty={() => setCatchUpOpen(false)}
+        />
+      </ErrorBoundary>
 
     </ErrorBoundary>
   );

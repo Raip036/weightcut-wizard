@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Plus, ChevronRight, List, CalendarDays, Sparkles, Dumbbell, Target, Award, Zap, Footprints, RotateCw, Activity, Flame } from "lucide-react";
 import { motion, LayoutGroup } from "motion/react";
-import { Icon, type IonIconName } from "@/components/ui/Icon";
+import { Icon } from "@/components/ui/Icon";
 import wizardLogo from "@/assets/wizard_3D.png";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
@@ -29,6 +29,7 @@ import { CreateExerciseDialog } from "@/components/gym/CreateExerciseDialog";
 import { RoutineLibrary } from "@/components/gym/RoutineLibrary";
 import { RoutineGeneratorSheet } from "@/components/gym/RoutineGeneratorSheet";
 import { ManualRoutineSheet } from "@/components/gym/ManualRoutineSheet";
+import { VolumeAreaChart, MuscleBalanceRing } from "@/components/gym/GymProgressCharts";
 import { SESSION_TYPES } from "@/data/exerciseDatabase";
 
 // Restrict the start-workout picker to the 3 disciplines the user wants
@@ -62,14 +63,6 @@ const SESSION_TYPE_META: Record<string, { icon: typeof Dumbbell; accent: string 
   "Custom":        { icon: Plus,        accent: "text-muted-foreground" },
 };
 
-// Picker-chip Ionicon mapping. Lives separately from SESSION_TYPE_META
-// because the rest of the app still consumes Lucide components from
-// SESSION_TYPE_META; only the picker switched.
-const PICKER_ICONS: Record<"Strength" | "Hypertrophy" | "Explosiveness", { name: IonIconName; accent: string }> = {
-  "Strength":      { name: "barbellOutline", accent: "text-blue-400" },
-  "Hypertrophy":   { name: "bodyOutline",    accent: "text-violet-400" },
-  "Explosiveness": { name: "flashOutline",   accent: "text-yellow-400" },
-};
 import { triggerHaptic } from "@/lib/haptics";
 import { useAITask } from "@/contexts/AITaskContext";
 import { AICompactOverlay } from "@/components/AICompactOverlay";
@@ -422,17 +415,20 @@ export default function GymTracker() {
               {/* Quick stats row */}
               {analytics.totalSessions > 0 && (
                 <div className="grid grid-cols-3 gap-2.5">
-                  <div className="card-surface rounded-xs p-3 text-center">
-                    <div className="display-number text-lg">{analytics.sessionsThisWeek}</div>
-                    <div className="text-[13px] text-muted-foreground mt-0.5">This Week</div>
+                  <div className="relative overflow-hidden card-surface rounded-xs p-3 pt-3.5 text-center">
+                    <span className="absolute inset-x-0 top-0 h-[3px] bg-primary" />
+                    <div className="display-number text-[30px] font-extrabold leading-none text-foreground">{analytics.sessionsThisWeek}</div>
+                    <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground mt-1.5">This Week</div>
                   </div>
-                  <div className="card-surface rounded-xs p-3 text-center">
-                    <div className="display-number text-lg">{analytics.avgDuration}<span className="text-xs text-muted-foreground font-normal">m</span></div>
-                    <div className="text-[13px] text-muted-foreground mt-0.5">Avg Duration</div>
+                  <div className="relative overflow-hidden card-surface rounded-xs p-3 pt-3.5 text-center">
+                    <span className="absolute inset-x-0 top-0 h-[3px] bg-secondary" />
+                    <div className="display-number text-[30px] font-extrabold leading-none text-foreground">{analytics.avgDuration}<span className="text-sm text-muted-foreground font-medium">m</span></div>
+                    <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground mt-1.5">Avg Duration</div>
                   </div>
-                  <div className="card-surface rounded-xs p-3 text-center">
-                    <div className="display-number text-lg">{formatVol(weeklyVolume)}<span className="text-xs text-muted-foreground font-normal">kg</span></div>
-                    <div className="text-[13px] text-muted-foreground mt-0.5">Week Volume</div>
+                  <div className="relative overflow-hidden card-surface rounded-xs p-3 pt-3.5 text-center">
+                    <span className="absolute inset-x-0 top-0 h-[3px]" style={{ background: "hsl(25 85% 58%)" }} />
+                    <div className="display-number text-[30px] font-extrabold leading-none text-foreground">{formatVol(weeklyVolume)}<span className="text-sm text-muted-foreground font-medium">kg</span></div>
+                    <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground mt-1.5">Week Volume</div>
                   </div>
                 </div>
               )}
@@ -464,7 +460,6 @@ export default function GymTracker() {
                   <div className="flex items-center gap-2 w-max">
                     {VISIBLE_SESSION_TYPES.map((t) => {
                       const active = sessionType === t;
-                      const meta = PICKER_ICONS[t];
                       return (
                         <button
                           key={t}
@@ -472,17 +467,12 @@ export default function GymTracker() {
                             setSessionType(t as SessionType);
                             triggerHaptic(ImpactStyle.Light);
                           }}
-                          className={`relative shrink-0 flex items-center gap-2 rounded-xs border px-3 py-2.5 text-left active:scale-[0.97] transition-all ${
+                          className={`relative shrink-0 flex items-center justify-center rounded-xs border px-4 py-2.5 active:scale-[0.97] transition-all ${
                             active
                               ? "bg-primary text-primary-foreground border-primary"
                               : "bg-muted/30 border-border/30 hover:bg-muted/50"
                           }`}
                         >
-                          <Icon
-                            name={meta.name}
-                            size={16}
-                            className={`${active ? "text-primary-foreground" : meta.accent}`}
-                          />
                           <span className="text-[13px] font-semibold whitespace-nowrap">{t}</span>
                         </button>
                       );
@@ -750,7 +740,6 @@ function ProgressTabContent({
       .reduce((sum, s) => sum + (s.totalVolume || 0), 0);
     return { date: dateStr, label: d.toLocaleDateString("en-US", { weekday: "short" })[0], volume: dayVolume };
   });
-  const maxVol = Math.max(1, ...days.map((d) => d.volume));
 
   // Frequency — sessions per muscle group across all history
   const muscleFreq = new Map<string, number>();
@@ -765,7 +754,6 @@ function ProgressTabContent({
   }
   const muscleRows = Array.from(muscleFreq.entries())
     .sort((a, b) => b[1] - a[1]);
-  const maxMuscleCount = Math.max(1, ...muscleRows.map(([, n]) => n));
 
   return (
     <div className="space-y-3">
@@ -807,12 +795,40 @@ function ProgressTabContent({
             <p className="text-[12px] text-muted-foreground/60 mt-0.5">Complete a workout to track PRs</p>
           </div>
         ) : (
-          <div className="space-y-1.5">
+          <div className="space-y-2.5">
+            {(() => {
+              const top = [...loggedExercises].filter((e) => e.bestWeight > 0).sort((a, b) => b.bestWeight - a.bestWeight)[0];
+              if (!top) return null;
+              return (
+                <button
+                  onClick={() => onExerciseTap(top.exercise)}
+                  className="relative w-full overflow-hidden rounded-xs p-4 text-left active:scale-[0.99] transition-transform"
+                  style={{ background: "linear-gradient(135deg, hsl(var(--primary) / 0.22), hsl(var(--secondary) / 0.10))", border: "1px solid hsl(var(--primary) / 0.25)" }}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                      <Award className="h-5 w-5 text-primary" />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary">Top lift</p>
+                      <p className="text-[15px] font-bold truncate text-foreground">{top.exercise.name}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="display-number text-[24px] leading-none text-foreground">
+                        {top.bestWeight}<span className="text-[12px] font-medium text-muted-foreground ml-0.5">kg</span>
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">× {top.bestReps} reps</p>
+                    </div>
+                  </div>
+                </button>
+              );
+            })()}
+            <div className="space-y-1.5">
             {loggedExercises.map(({ id, exercise: ex, bestWeight, bestReps }) => (
               <button
                 key={id}
                 onClick={() => onExerciseTap(ex)}
-                className="w-full flex items-center gap-3 rounded-xs border border-border/40 bg-card/50 px-3 py-2.5 active:bg-muted/30 transition-colors text-left"
+                className="w-full flex items-center gap-3 rounded-xs card-surface px-3 py-2.5 active:bg-muted/30 transition-colors text-left"
               >
                 <div className="flex-1 min-w-0">
                   <p className="text-[14px] font-semibold truncate text-foreground">{ex.name}</p>
@@ -834,6 +850,7 @@ function ProgressTabContent({
                 <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
               </button>
             ))}
+            </div>
           </div>
         )
       )}
@@ -847,25 +864,12 @@ function ProgressTabContent({
               <span className="text-[11px] text-muted-foreground font-medium ml-0.5">kg</span>
             </p>
           </div>
-          {/* Bar chart */}
-          <div className="mt-4 flex items-end gap-1.5 h-28">
-            {days.map((d, i) => {
-              const h = d.volume > 0 ? Math.max(6, Math.round((d.volume / maxVol) * 100)) : 4;
-              return (
-                <div key={i} className="flex-1 flex flex-col items-center justify-end gap-1.5">
-                  <div className="w-full flex flex-col justify-end" style={{ height: 100 }}>
-                    <div
-                      className={`w-full rounded-md ${d.volume > 0 ? "bg-primary" : "bg-muted/40"}`}
-                      style={{ height: `${h}%` }}
-                    />
-                  </div>
-                  <span className="text-[10px] font-bold uppercase text-muted-foreground">{d.label}</span>
-                </div>
-              );
-            })}
+          {/* Smooth gradient area chart */}
+          <div className="mt-3">
+            <VolumeAreaChart days={days} />
           </div>
-          <p className="mt-3 text-[11px] text-muted-foreground text-center">
-            Total weekly volume across all working sets (warmups excluded).
+          <p className="mt-2 text-[11px] text-muted-foreground text-center">
+            Daily training volume across all working sets (warmups excluded).
           </p>
         </div>
       )}
@@ -877,31 +881,12 @@ function ProgressTabContent({
             <p className="text-[12px] text-muted-foreground/60 mt-0.5">Log workouts to see muscle frequency</p>
           </div>
         ) : (
-          <div className="card-surface rounded-xs p-4 space-y-2.5">
+          <div className="card-surface rounded-xs p-4 space-y-3">
             <div className="flex items-baseline justify-between">
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Sessions per muscle</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Muscle balance</p>
               <p className="text-[10px] text-muted-foreground/70">All-time</p>
             </div>
-            {muscleRows.map(([muscle, count]) => {
-              const pct = (count / maxMuscleCount) * 100;
-              return (
-                <div key={muscle}>
-                  <div className="flex items-baseline justify-between mb-1">
-                    <span className="text-[12px] font-semibold capitalize text-foreground">{muscle}</span>
-                    <span className="text-[12px] font-bold tabular-nums text-foreground">
-                      {count}
-                      <span className="text-[10px] font-medium text-muted-foreground ml-0.5">sessions</span>
-                    </span>
-                  </div>
-                  <div className="h-1.5 rounded-full bg-muted/40 overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-primary transition-all duration-500"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+            <MuscleBalanceRing rows={muscleRows} />
           </div>
         )
       )}

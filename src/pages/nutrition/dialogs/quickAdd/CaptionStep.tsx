@@ -34,6 +34,12 @@ interface CaptionStepProps {
   onAnalyze: (description: string) => void;
   /** User wants to retake the photo — parent should re-open the camera. */
   onRetake: () => void;
+  /** Optional extra angles of the same meal (multi-view accuracy boost). */
+  extraPhotos?: string[];
+  /** Capture another angle — appends to extraPhotos (max 2). */
+  onAddAngle?: () => void;
+  /** Remove a previously-added angle by index. */
+  onRemoveAngle?: (idx: number) => void;
   /** Optional toast callback for voice-input errors. */
   onToast?: (args: { title: string; description?: string; variant?: "default" | "destructive" }) => void;
 }
@@ -45,6 +51,9 @@ export function CaptionStep({
   onDescriptionChange,
   onAnalyze,
   onRetake,
+  extraPhotos = [],
+  onAddAngle,
+  onRemoveAngle,
   onToast,
 }: CaptionStepProps) {
   const prefersReduced = useReducedMotion();
@@ -139,6 +148,49 @@ export function CaptionStep({
           className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/15 via-transparent to-transparent"
         />
       </div>
+
+      {/* ── Extra angles (optional, multi-view accuracy) ────────── */}
+      {onAddAngle && (
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2">
+            {extraPhotos.map((p, i) => (
+              <div key={i} className="relative">
+                <img
+                  src={`data:image/jpeg;base64,${p}`}
+                  alt={`Angle ${i + 2}`}
+                  className="h-12 w-12 rounded-xl object-cover border border-border/40"
+                />
+                <button
+                  type="button"
+                  onClick={() => onRemoveAngle?.(i)}
+                  aria-label={`Remove angle ${i + 2}`}
+                  className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-black/70 flex items-center justify-center backdrop-blur active:scale-95 transition-transform"
+                >
+                  <Icon name="closeOutline" size={11} className="text-white" />
+                </button>
+              </div>
+            ))}
+            {extraPhotos.length < 2 && (
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHapticSelection();
+                  onAddAngle();
+                }}
+                aria-label="Add another angle"
+                className="h-12 w-12 rounded-xl border border-dashed border-border/60 bg-muted/20 flex items-center justify-center text-muted-foreground active:bg-muted/40 transition-colors"
+              >
+                <Icon name="addOutline" size={20} />
+              </button>
+            )}
+          </div>
+          <p className="text-[11px] text-muted-foreground/70 px-0.5">
+            {extraPhotos.length === 0
+              ? "Add a side angle for sharper portion accuracy"
+              : "Multiple angles help size portions more accurately"}
+          </p>
+        </div>
+      )}
 
       {/* ── Hint label + textarea + voice mic ───────────────────── */}
       <div className="space-y-2">

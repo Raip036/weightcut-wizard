@@ -80,7 +80,7 @@ function DefaultFallback({ error, errorInfo, onRetry }: DefaultFallbackProps) {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, ease: "easeOut" }}
-        className="relative w-full max-w-md overflow-hidden rounded-xs border border-border/50 bg-card/60 backdrop-blur-sm p-6 sm:p-7"
+        className="relative w-full max-w-md overflow-hidden rounded-xs card-surface p-6 sm:p-7"
       >
         <div className="flex flex-col items-center text-center">
           <div

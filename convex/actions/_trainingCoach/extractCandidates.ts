@@ -4,8 +4,9 @@
  * Stage 1 of the Training Coach Paths planner: read raw session notes,
  * extract candidate techniques the user mentioned learning/practicing.
  *
- * Uses the cheap llama-3.1-8b-instant model because the task is structured
- * extraction, not reasoning.
+ * Uses the heavy-tier openai/gpt-oss-120b model: candidate-extraction quality
+ * directly drives the quality of the whole downstream training-coach pipeline,
+ * so it's worth the stronger model rather than the cheap tier.
  */
 import { callGroqText } from "../../_shared/groq";
 import { parseJSON } from "../../_shared/parseResponse";
@@ -26,9 +27,9 @@ export async function extractCandidates(args: {
   try {
     raw = await callGroqText({
       // Heavy-tier model — candidate extraction quality directly drives
-      // downstream training-coach pipeline quality. On OpenRouter this
-      // resolves to qwen3-235b via OPENROUTER_MODEL_MAP; on Groq direct
-      // it stays as gpt-oss-120b.
+      // downstream training-coach pipeline quality. The same model runs on
+      // both providers (OPENROUTER_MODEL_MAP keeps it as gpt-oss-120b);
+      // OpenRouter just routes it to the fastest backend.
       model: "openai/gpt-oss-120b",
       messages: [
         { role: "system", content: EXTRACT_CANDIDATES_PROMPT },

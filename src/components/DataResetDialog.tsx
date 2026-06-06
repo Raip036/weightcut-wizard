@@ -18,6 +18,7 @@ import { Download, Loader2, AlertTriangle, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { logger } from "@/lib/logger";
+import { weighInTimingLabel } from "@/lib/weighInTiming";
 
 interface DataResetDialogProps {
   open: boolean;
@@ -145,7 +146,7 @@ export function DataResetDialog({ open, onOpenChange }: DataResetDialogProps) {
             camp.total_weight_cut ? String(camp.total_weight_cut) : "N/A",
             camp.weight_via_dehydration ? String(camp.weight_via_dehydration) : "N/A",
             camp.weight_via_carb_reduction ? String(camp.weight_via_carb_reduction) : "N/A",
-            camp.weigh_in_timing === "day_before" ? "Day Before" : camp.weigh_in_timing === "day_of" ? "Day Of" : "N/A",
+            camp.weigh_in_timing ? weighInTimingLabel(camp.weigh_in_timing) : "N/A",
             camp.is_completed ? "Yes" : "No"
           ]);
         });
@@ -242,7 +243,7 @@ export function DataResetDialog({ open, onOpenChange }: DataResetDialogProps) {
           ["Via Carb Reduction (kg)", ...fightCamps.map(c => c.weight_via_carb_reduction ? String(c.weight_via_carb_reduction) : "N/A")],
           ["Starting Weight (kg)", ...fightCamps.map(c => c.starting_weight_kg ? String(c.starting_weight_kg) : "N/A")],
           ["End Weight (kg)", ...fightCamps.map(c => c.end_weight_kg ? String(c.end_weight_kg) : "N/A")],
-          ["Weigh-In Timing", ...fightCamps.map(c => c.weigh_in_timing === "day_before" ? "Day Before" : c.weigh_in_timing === "day_of" ? "Day Of" : "N/A")],
+          ["Weigh-In Timing", ...fightCamps.map(c => c.weigh_in_timing ? weighInTimingLabel(c.weigh_in_timing) : "N/A")],
           ["Completed", ...fightCamps.map(c => c.is_completed ? "Yes" : "No")]
         );
       }

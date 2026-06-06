@@ -36,6 +36,11 @@ export const getToday = query({
       topDriver: null,
       topLimiter: null,
       algorithmVersion: "1.0.0",
+      dataConfidence: 0,
+      dataAgeDays: 0,
+      activePillars: 0,
+      totalPillars: 0,
+      formMomentum: 0,
     };
   },
 });
@@ -198,6 +203,69 @@ export const calibrationProgress = query({
 });
 
 /**
+ * Trailing 7-day completeness meter for the weekly adherence strip.
+ * Returns one entry per day (oldest → newest) with per-pillar logged flags,
+ * a count out of 5, and a status: "full" | "partial" | "none" | "rest".
+ * A lone rest entry (or marked skip) with no real logs → "rest" (count 0),
+ * NOT partial.
+ */
+export const weeklyCompleteness = query({
+  args: { date: v.optional(v.string()) },
+  handler: async (ctx, { date }) => {
+    const userId = await optionalUserId(ctx);
+    if (!userId) return null;
+    const targetDate = date ?? todayInUtc();
+    const end = new Date(targetDate + "T00:00:00Z");
+    const start = new Date(end);
+    start.setUTCDate(start.getUTCDate() - 6);
+    const startIso = start.toISOString().slice(0, 10);
+
+    const [weights, sleep, wellness, sessions, calendar, meals, skips] = await Promise.all([
+      ctx.db.query("weight_logs").withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", startIso)).collect(),
+      ctx.db.query("sleep_logs").withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", startIso)).collect(),
+      ctx.db.query("daily_wellness_checkins").withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", startIso)).collect(),
+      ctx.db.query("gym_sessions").withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", startIso)).collect(),
+      ctx.db.query("fight_camp_calendar").withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", startIso)).collect(),
+      ctx.db.query("meals").withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", startIso)).collect(),
+      ctx.db.query("marked_skips").withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", startIso)).collect(),
+    ]);
+
+    const has = (rows: Array<{ date: string }>, d: string) => rows.some((r) => r.date === d);
+    const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const dd = new Date(end);
+      dd.setUTCDate(dd.getUTCDate() - i);
+      const d = dd.toISOString().slice(0, 10);
+
+      const restEntry = calendar.some((c) => c.date === d && (c.sessionType ?? "").toLowerCase() === "rest");
+      const realSession =
+        sessions.some((s) => s.date === d && s.status === "completed") ||
+        calendar.some((c) => c.date === d && (c.sessionType ?? "").toLowerCase() !== "rest");
+      const logged = {
+        weight: has(weights, d),
+        training: realSession,
+        sleep: has(sleep, d),
+        wellness: has(wellness, d),
+        meals: has(meals, d),
+      };
+      const count = Object.values(logged).filter(Boolean).length;
+      const skipped = has(skips, d);
+
+      let status: "full" | "partial" | "none" | "rest";
+      if (count === 5) status = "full";
+      else if (count > 0) status = "partial";
+      else if (restEntry || skipped) status = "rest";
+      else status = "none";
+
+      days.push({ date: d, weekday: WEEKDAYS[dd.getUTCDay()], logged, count, total: 5, status });
+    }
+    return days;
+  },
+});
+
+/**
  * Distinct dates within the last `windowDays` (default 28) where the user
  * lit up ALL FIVE of the dashboard TodayStrip ritual pills (weight, sleep,
  * training, wellness check-in, and a meal with calorie content). Used by
@@ -303,6 +371,109 @@ export const fullRitualDaysCount = query({
       total: candidates.size,
       latestRitualDate,
     };
+  },
+});
+
+/**
+ * Daily-ritual streak stats for the dashboard's gamified streak ring.
+ *
+ * A day "qualifies" toward the streak when the user either completes the
+ * FULL daily ritual (all five pillars: weight, training, sleep, wellness,
+ * meals) OR marks it as a rest/skip day — resting deliberately should never
+ * break a streak. Partial days and untouched days break it. This mirrors
+ * `weeklyCompleteness`'s pillar resolution (training = a completed
+ * `gym_sessions` row OR a non-rest `fight_camp_calendar` entry; rest = a
+ * rest calendar entry or an explicit `marked_skips` row).
+ *
+ * Returns:
+ *   - `current`: consecutive qualifying days ending today, or — if today
+ *     isn't done yet — ending yesterday (so an in-progress day never shows
+ *     the streak as already broken).
+ *   - `best`: longest qualifying run inside the lookback window.
+ *   - `total`: total qualifying days inside the window.
+ *   - `todayComplete`: whether today already qualifies (full ritual or rest).
+ *
+ * Bounded to a 180-day lookback so reads stay cheap; streaks longer than
+ * that are clamped at the window edge (acceptable for a UI counter).
+ */
+export const streakStats = query({
+  args: { date: v.optional(v.string()) },
+  handler: async (ctx, { date }) => {
+    const userId = await optionalUserId(ctx);
+    if (!userId) return null;
+
+    const WINDOW_DAYS = 180;
+    const targetDate = date ?? todayInUtc();
+    const end = new Date(targetDate + "T00:00:00Z");
+    const start = new Date(end);
+    start.setUTCDate(start.getUTCDate() - (WINDOW_DAYS - 1));
+    const startIso = start.toISOString().slice(0, 10);
+
+    const [weights, sleep, wellness, sessions, calendar, meals, skips] = await Promise.all([
+      ctx.db.query("weight_logs").withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", startIso)).collect(),
+      ctx.db.query("sleep_logs").withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", startIso)).collect(),
+      ctx.db.query("daily_wellness_checkins").withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", startIso)).collect(),
+      ctx.db.query("gym_sessions").withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", startIso)).collect(),
+      ctx.db.query("fight_camp_calendar").withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", startIso)).collect(),
+      ctx.db.query("meals").withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", startIso)).collect(),
+      ctx.db.query("marked_skips").withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", startIso)).collect(),
+    ]);
+
+    const setOf = (rows: Array<{ date: string }>) => new Set(rows.map((r) => r.date));
+    const weightDates = setOf(weights);
+    const sleepDates = setOf(sleep);
+    const wellnessDates = setOf(wellness);
+    const mealDates = setOf(meals);
+    const skipDates = setOf(skips);
+    const restDates = new Set(
+      calendar.filter((c) => (c.sessionType ?? "").toLowerCase() === "rest").map((c) => c.date),
+    );
+    const trainingDates = new Set<string>();
+    for (const s of sessions) if (s.status === "completed") trainingDates.add(s.date);
+    for (const c of calendar) if ((c.sessionType ?? "").toLowerCase() !== "rest") trainingDates.add(c.date);
+
+    // Build oldest → newest qualifying flags.
+    const qualifies: boolean[] = [];
+    for (let i = WINDOW_DAYS - 1; i >= 0; i--) {
+      const dd = new Date(end);
+      dd.setUTCDate(dd.getUTCDate() - i);
+      const d = dd.toISOString().slice(0, 10);
+      const isRest = restDates.has(d) || skipDates.has(d);
+      const isFull =
+        weightDates.has(d) &&
+        trainingDates.has(d) &&
+        sleepDates.has(d) &&
+        wellnessDates.has(d) &&
+        mealDates.has(d);
+      qualifies.push(isRest || isFull);
+    }
+
+    // best + total over the window
+    let best = 0;
+    let run = 0;
+    let total = 0;
+    for (const q of qualifies) {
+      if (q) {
+        run += 1;
+        total += 1;
+        if (run > best) best = run;
+      } else {
+        run = 0;
+      }
+    }
+
+    // current streak: walk back from today; if today isn't done, start from
+    // yesterday so an unfinished day doesn't read as already broken.
+    const todayComplete = qualifies[qualifies.length - 1] === true;
+    let current = 0;
+    let idx = qualifies.length - 1;
+    if (!todayComplete) idx -= 1; // skip the in-progress day
+    while (idx >= 0 && qualifies[idx]) {
+      current += 1;
+      idx -= 1;
+    }
+
+    return { current, best, total, todayComplete };
   },
 });
 
@@ -464,6 +635,48 @@ export const getSubScoreTrend = query({
   },
 });
 
+export const catchUpSuggestions = query({
+  args: { date: v.optional(v.string()) },
+  handler: async (ctx, { date }) => {
+    const userId = await optionalUserId(ctx);
+    if (!userId) return null;
+    const targetDate = date ?? todayInUtc();
+
+    const firstAt = (table: "weight_logs" | "sleep_logs" | "daily_wellness_checkins" | "meals") =>
+      ctx.db.query(table).withIndex("by_user_date", (q) => q.eq("userId", userId).eq("date", targetDate)).first();
+    const [weight, sleep, wellness, meal] = await Promise.all([
+      firstAt("weight_logs"), firstAt("sleep_logs"), firstAt("daily_wellness_checkins"), firstAt("meals"),
+    ]);
+    const sessions = await ctx.db.query("gym_sessions").withIndex("by_user_date", (q) => q.eq("userId", userId).eq("date", targetDate)).collect();
+    const calendar = await ctx.db.query("fight_camp_calendar").withIndex("by_user_date", (q) => q.eq("userId", userId).eq("date", targetDate)).collect();
+    const training = sessions.some((s) => s.status === "completed") || calendar.length > 0;
+    const skips = await ctx.db.query("marked_skips").withIndex("by_user_date", (q) => q.eq("userId", userId).eq("date", targetDate)).collect();
+    const skipped = new Set<string>(skips.map((s) => s.pillar));
+
+    const logged: Record<string, boolean> = {
+      weight: weight != null, training, sleep: sleep != null, wellness: wellness != null, nutrition: meal != null,
+    };
+    const SKIP_NAME: Record<string, string | undefined> = { weight: "weight", sleep: "sleep", wellness: "wellness", nutrition: "nutrition" };
+    const PILLARS = ["weight", "training", "sleep", "wellness", "nutrition"] as const;
+    const missing = PILLARS.filter((p) => !logged[p] && !(SKIP_NAME[p] && skipped.has(SKIP_NAME[p]!)));
+
+    const sevenStart = new Date(targetDate + "T00:00:00Z"); sevenStart.setUTCDate(sevenStart.getUTCDate() - 6);
+    const recentSleep = await ctx.db.query("sleep_logs")
+      .withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", sevenStart.toISOString().slice(0, 10)).lte("date", targetDate))
+      .collect();
+    const hrs = recentSleep.map((s) => s.hours).sort((a, b) => a - b);
+    const suggestedSleepHours = hrs.length ? hrs[Math.floor((hrs.length - 1) / 2)] : null;
+
+    const priorWeights = await ctx.db.query("weight_logs")
+      .withIndex("by_user_date", (q) => q.eq("userId", userId).lte("date", targetDate))
+      .collect();
+    const sortedW = [...priorWeights].sort((a, b) => a.date.localeCompare(b.date));
+    const lastWeightKg = sortedW.length ? sortedW[sortedW.length - 1].weightKg : null;
+
+    return { date: targetDate, missing, suggestedSleepHours, lastWeightKg };
+  },
+});
+
 export const getHistory = query({
   args: { campId: v.id("fight_camps"), limit: v.optional(v.number()) },
   handler: async (ctx, { campId, limit }) => {
@@ -525,6 +738,10 @@ export const recomputeForUserDate = internalAction({
         proteinG: inputs.profile?.aiRecommendedProteinG ?? null,
       },
       priorRawScores: inputs.priorRawScores,
+      // Recently-applied ceilings, used by the engine to latch a fired safety
+      // cap while its governing pillar is stale (anti-gaming).
+      priorCeilings: inputs.priorCeilings,
+      markedSkips: inputs.markedSkips,
       // HealthKit-derived signals (HRV, RHR, sleep, wrist temp, VO2max)
       // assembled by `fetchScoringInputs`; drives the `recovery` sub-score.
       healthSignals: inputs.healthSignals,
@@ -691,6 +908,75 @@ export const coalescedRecompute = internalAction({
       { userId, date },
     );
     return null;
+  },
+});
+
+/**
+ * Median log time per pillar over the last 14 days (by `date` field).
+ * Uses each row's `_creationTime` (ms epoch, auto-set by Convex) to derive
+ * the UTC hour and minute. Returns `{ hour, minute }` for pillars with at
+ * least one entry in the window, `null` for pillars with no entries.
+ *
+ * Shape: `{ weight, sleep, training, wellness, nutrition }` where each is
+ * `{ hour: number; minute: number } | null`. Returns `null` when unauthenticated.
+ */
+export const loggingTimeStats = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await optionalUserId(ctx);
+    if (!userId) return null;
+
+    const since = new Date(Date.now());
+    since.setUTCDate(since.getUTCDate() - 14);
+    const sinceIso = since.toISOString().slice(0, 10);
+
+    const collect = (
+      table:
+        | "weight_logs"
+        | "sleep_logs"
+        | "daily_wellness_checkins"
+        | "gym_sessions"
+        | "fight_camp_calendar"
+        | "meals",
+    ) =>
+      ctx.db
+        .query(table)
+        .withIndex("by_user_date", (q) =>
+          q.eq("userId", userId).gte("date", sinceIso),
+        )
+        .collect();
+
+    const [weights, sleep, wellness, sessions, calendar, meals] =
+      await Promise.all([
+        collect("weight_logs"),
+        collect("sleep_logs"),
+        collect("daily_wellness_checkins"),
+        collect("gym_sessions"),
+        collect("fight_camp_calendar"),
+        collect("meals"),
+      ]);
+
+    const medianTime = (
+      rows: Array<{ _creationTime: number }>,
+    ): { hour: number; minute: number } | null => {
+      if (!rows.length) return null;
+      const mins = rows
+        .map((r) => {
+          const d = new Date(r._creationTime);
+          return d.getUTCHours() * 60 + d.getUTCMinutes();
+        })
+        .sort((a, b) => a - b);
+      const m = mins[Math.floor((mins.length - 1) / 2)];
+      return { hour: Math.floor(m / 60), minute: m % 60 };
+    };
+
+    return {
+      weight: medianTime(weights),
+      sleep: medianTime(sleep),
+      training: medianTime([...sessions, ...calendar]),
+      wellness: medianTime(wellness),
+      nutrition: medianTime(meals),
+    };
   },
 });
 

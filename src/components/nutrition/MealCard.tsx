@@ -1,11 +1,10 @@
-import { Edit2, Trash2, Star, Flame, Zap, Wheat, Droplet, ChevronDown } from "lucide-react";
-import { useState, useRef, useEffect, memo } from "react";
+import { Trash2, Star, Drumstick, Wheat, Droplet, X, ChevronDown } from "lucide-react";
+import { useState, useRef, memo } from "react";
 import { coerceMealName } from "@/lib/mealName";
 import { motion, AnimatePresence, useMotionValue, useReducedMotion } from "motion/react";
 import { springs } from "@/lib/motion";
 import { MacroDonut } from "./MacroDonut";
-import { triggerHaptic, triggerHapticSelection } from "@/lib/haptics";
-import { ImpactStyle } from "@capacitor/haptics";
+import { triggerHapticSelection } from "@/lib/haptics";
 
 interface Ingredient {
   name: string;
@@ -39,34 +38,9 @@ interface MealCardProps {
   isFavorited?: boolean;
 }
 
-function formatMealTime(iso?: string): string | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  let h = d.getHours();
-  const m = d.getMinutes();
-  const ampm = h >= 12 ? "pm" : "am";
-  h = h % 12 || 12;
-  return `${h}:${m.toString().padStart(2, "0")}${ampm}`;
-}
-
 const DELETE_THRESHOLD = -80;
-const LONG_PRESS_MS = 550;
 
-export const MealCard = memo(function MealCard({ meal, onEdit, onDelete, onFavorite, isFavorited }: MealCardProps) {
-  const [showHint, setShowHint] = useState(() => !localStorage.getItem("wcw_swipe_hint_shown"));
-
-  useEffect(() => {
-    if (showHint) {
-      const timer = setTimeout(() => {
-        setShowHint(false);
-        localStorage.setItem("wcw_swipe_hint_shown", "true");
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [showHint]);
-
-  const [expanded, setExpanded] = useState(false);
+export const MealCard = memo(function MealCard({ meal, onDelete, onFavorite, isFavorited }: MealCardProps) {
   const prefersReducedMotion = useReducedMotion();
   const dragX = useMotionValue(0);
   const crossedRef = useRef(false);
@@ -78,56 +52,19 @@ export const MealCard = memo(function MealCard({ meal, onEdit, onDelete, onFavor
   const [isDragging, setIsDragging] = useState(false);
   const canSwipe = !!onDelete && !prefersReducedMotion;
 
-  // Macro split (largest-remainder rounding to sum 100%)
-  const proteinCal = p * 4;
-  const carbsCal = c * 4;
-  const fatsCal = f * 9;
-  const macroTotal = proteinCal + carbsCal + fatsCal || 1;
-  const raw = [proteinCal, carbsCal, fatsCal].map((v) => (v / macroTotal) * 100);
-  const floors = raw.map((v) => Math.floor(v));
-  let rem = 100 - floors.reduce((s, v) => s + v, 0);
-  const order = raw.map((v, i) => ({ i, frac: v - Math.floor(v) })).sort((a, b) => b.frac - a.frac);
-  const pcts = [...floors];
-  for (let k = 0; k < order.length && rem > 0; k++, rem--) pcts[order[k].i] += 1;
-  const [pPct, cPct, fPct] = pcts;
+  // Tap-to-expand reveals ingredients / serving / notes / macro split. Only
+  // expandable when there's actually detail to show.
+  const [expanded, setExpanded] = useState(false);
+  const hasDetails = !!(
+    (meal.ingredients && meal.ingredients.length > 0) ||
+    meal.portion_size ||
+    meal.recipe_notes ||
+    p > 0 || c > 0 || f > 0
+  );
 
   const mealTypeLabel = meal.meal_type
     ? meal.meal_type.charAt(0).toUpperCase() + meal.meal_type.slice(1).toLowerCase()
     : null;
-  const timeLabel = formatMealTime(meal.created_at);
-
-  // Long-press → favorite. Track press timer + cancel if pointer moves
-  // far (intent was a swipe-to-delete or scroll, not a hold).
-  const pressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pressMovedRef = useRef(false);
-  const pressedRef = useRef(false);
-  const startPress = () => {
-    if (!onFavorite) return;
-    pressedRef.current = true;
-    pressMovedRef.current = false;
-    pressTimerRef.current = setTimeout(() => {
-      if (pressedRef.current && !pressMovedRef.current) {
-        triggerHaptic(ImpactStyle.Medium);
-        onFavorite();
-      }
-    }, LONG_PRESS_MS);
-  };
-  const cancelPress = () => {
-    pressedRef.current = false;
-    if (pressTimerRef.current) {
-      clearTimeout(pressTimerRef.current);
-      pressTimerRef.current = null;
-    }
-  };
-  const markPressMoved = () => {
-    pressMovedRef.current = true;
-    cancelPress();
-  };
-
-  const handleTap = () => {
-    triggerHaptic(ImpactStyle.Light);
-    setExpanded((v) => !v);
-  };
 
   return (
     <div className="relative overflow-hidden rounded-xs">
@@ -138,7 +75,7 @@ export const MealCard = memo(function MealCard({ meal, onEdit, onDelete, onFavor
         </div>
       )}
 
-      {/* Foreground card — drag, long-press, tap-to-expand */}
+      {/* Foreground card — swipe-to-delete */}
       <motion.div
         className="relative rounded-xs card-surface"
         style={{ x: canSwipe ? dragX : undefined }}
@@ -149,7 +86,6 @@ export const MealCard = memo(function MealCard({ meal, onEdit, onDelete, onFavor
         onDragStart={() => {
           crossedRef.current = false;
           setIsDragging(true);
-          markPressMoved();
         }}
         onDrag={() => {
           if (!crossedRef.current && dragX.get() < DELETE_THRESHOLD) {
@@ -165,19 +101,14 @@ export const MealCard = memo(function MealCard({ meal, onEdit, onDelete, onFavor
             onDelete?.();
           }
         }}
-        whileTap={prefersReducedMotion ? undefined : { scale: 0.985 }}
         transition={springs.snappy}
       >
         <div
-          className="flex items-stretch gap-3.5 p-3 cursor-pointer select-none"
-          onClick={handleTap}
-          onPointerDown={startPress}
-          onPointerUp={cancelPress}
-          onPointerCancel={cancelPress}
-          onPointerLeave={cancelPress}
-          onPointerMove={markPressMoved}
-          role="button"
-          aria-label={`${coerceMealName(meal.meal_name, meal.meal_type)} — tap to ${expanded ? "collapse" : "expand"}, long-press to favorite`}
+          className="flex items-stretch gap-3.5 p-3 select-none"
+          onClick={() => { if (hasDetails) setExpanded((v) => !v); }}
+          role={hasDetails ? "button" : undefined}
+          tabIndex={hasDetails ? 0 : undefined}
+          aria-expanded={hasDetails ? expanded : undefined}
         >
           {/* Photo / donut */}
           <div className="flex-shrink-0 w-[78px] h-[78px] rounded-xs bg-muted/40 flex items-center justify-center overflow-hidden">
@@ -193,17 +124,14 @@ export const MealCard = memo(function MealCard({ meal, onEdit, onDelete, onFavor
             )}
           </div>
 
-          {/* Body — name/type left, time + big kcal right (right column vertically stacked) */}
+          {/* Body — name/type left, action buttons + big kcal right (right column vertically stacked) */}
           <div className="flex-1 min-w-0 flex gap-3">
             <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
               <div className="min-w-0">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="text-[15px] font-semibold leading-snug text-foreground line-clamp-1">
+                <div className="min-w-0">
+                  <span className="text-[15px] font-semibold leading-snug text-foreground">
                     {coerceMealName(meal.meal_name, meal.meal_type)}
                   </span>
-                  {isFavorited && (
-                    <Star className="h-3.5 w-3.5 fill-func-warning-yellow text-func-warning-yellow shrink-0" />
-                  )}
                 </div>
                 {mealTypeLabel && (
                   <p className="text-[10.5px] font-medium uppercase tracking-[0.08em] text-muted-foreground/60 mt-0.5">
@@ -216,7 +144,7 @@ export const MealCard = memo(function MealCard({ meal, onEdit, onDelete, onFavor
               {(p > 0 || c > 0 || f > 0) && (
                 <div className="flex items-center gap-3 mt-1.5">
                   <div className="flex items-center gap-1">
-                    <Zap className="h-3 w-3 text-blue-500" strokeWidth={2.4} fill="currentColor" />
+                    <Drumstick className="h-3 w-3 text-blue-500" strokeWidth={2.2} />
                     <span className="text-[11px] tabular-nums font-semibold text-foreground/85">{Math.round(p)}g</span>
                   </div>
                   <div className="flex items-center gap-1">
@@ -231,145 +159,134 @@ export const MealCard = memo(function MealCard({ meal, onEdit, onDelete, onFavor
               )}
             </div>
 
-            {/* Right rail — time pill above big kcal */}
+            {/* Right rail — star/delete actions above big kcal */}
             <div className="flex flex-col items-end justify-between py-0.5 flex-shrink-0">
-              {timeLabel ? (
-                <span className="text-[10px] font-medium text-muted-foreground/70 tabular-nums whitespace-nowrap bg-muted/50 px-2 py-0.5 rounded-full">
-                  {timeLabel}
+              {/* Action cluster — right-aligned; `-mr-1.5` offsets the icon
+                  buttons' internal padding so the X lines up flush with the
+                  calorie column below. `-mt-1` keeps it level with the name. */}
+              <div className="flex items-center gap-1 -mt-1 -mr-1.5">
+                {onFavorite && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); triggerHapticSelection(); onFavorite?.(); }}
+                    aria-label={isFavorited ? "Remove favorite" : "Favorite"}
+                    className="h-7 w-7 inline-flex items-center justify-center rounded-full active:scale-90 transition"
+                  >
+                    <Star
+                      className={`h-4 w-4 ${isFavorited ? "fill-func-warning-yellow text-func-warning-yellow" : "text-muted-foreground/60"}`}
+                    />
+                  </button>
+                )}
+                {onDelete && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); triggerHapticSelection(); onDelete?.(); }}
+                    aria-label="Delete meal"
+                    className="h-7 w-7 inline-flex items-center justify-center rounded-full active:scale-90 transition"
+                  >
+                    <X className="h-4 w-4 text-muted-foreground/60" />
+                  </button>
+                )}
+              </div>
+              {/* Calorie readout — vertically centred between the action
+                  cluster above and the expand chevron below. */}
+              <div className="flex flex-col items-end leading-none">
+                <span className="text-[18px] font-bold tabular-nums text-foreground leading-none">
+                  {meal.calories}
                 </span>
-              ) : (
-                <span aria-hidden />
-              )}
-              <div className="text-right leading-none mt-0.5">
-                <div className="flex items-baseline justify-end gap-1">
-                  <Flame className="h-3 w-3 text-func-carbs-orange" strokeWidth={2.4} />
-                  <span className="text-[18px] font-bold tabular-nums text-foreground leading-none">
-                    {meal.calories}
-                  </span>
-                </div>
                 <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/60 mt-0.5">
                   kcal
                 </p>
               </div>
+
+              {/* Expand chevron — anchored at the bottom of the rail. */}
+              {hasDetails && (
+                <ChevronDown
+                  className={`h-3.5 w-3.5 text-muted-foreground/40 transition-transform ${expanded ? "rotate-180" : ""}`}
+                  aria-hidden="true"
+                />
+              )}
             </div>
           </div>
         </div>
 
-        {/* Inline expand — ingredients, notes, edit/delete actions.
-            Replaces the modal dialog that used to open on tap. */}
-        <AnimatePresence initial={false}>
-          {expanded && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-              className="overflow-hidden border-t border-border/30"
-            >
-              <div className="px-3 py-3 space-y-3">
-                {/* Macro split bar */}
-                {(p > 0 || c > 0 || f > 0) && (
-                  <div>
-                    <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-muted/40">
-                      <span className="bg-blue-500" style={{ width: `${pPct}%` }} aria-hidden />
-                      <span className="bg-func-carbs-orange" style={{ width: `${cPct}%` }} aria-hidden />
-                      <span className="bg-func-fats-purple" style={{ width: `${fPct}%` }} aria-hidden />
+        {/* Expandable detail — ingredients / serving / notes / macro split.
+            Revealed on tap; only rendered when there's detail to show. */}
+        {hasDetails && (
+          <AnimatePresence initial={false}>
+            {expanded && (
+              <motion.div
+                key="details"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={prefersReducedMotion ? { duration: 0 } : { type: "spring", stiffness: 320, damping: 34 }}
+                className="overflow-hidden"
+              >
+                <div className="px-3 pb-3 pt-2 border-t border-border/40 space-y-3">
+                  {/* Macro split */}
+                  {(p > 0 || c > 0 || f > 0) && (
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 mb-1.5">
+                        Macro split
+                      </p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { label: "Protein", val: p, color: "text-blue-500" },
+                          { label: "Carbs", val: c, color: "text-func-carbs-orange" },
+                          { label: "Fat", val: f, color: "text-func-fats-purple" },
+                        ].map((m) => (
+                          <div key={m.label} className="rounded-xs bg-muted/30 px-2 py-1.5 text-center">
+                            <p className={`text-[13px] font-bold tabular-nums ${m.color}`}>{Math.round(m.val)}g</p>
+                            <p className="text-[10px] text-muted-foreground/70">{m.label}</p>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="mt-1.5 flex justify-between text-[10px] tabular-nums">
-                      <span className="text-blue-400 font-semibold">P {pPct}%</span>
-                      <span className="text-func-carbs-orange font-semibold">C {cPct}%</span>
-                      <span className="text-func-fats-purple font-semibold">F {fPct}%</span>
+                  )}
+
+                  {/* Serving */}
+                  {meal.portion_size && (
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 mb-1">
+                        Serving
+                      </p>
+                      <p className="text-[12px] text-foreground/80">{meal.portion_size}</p>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {meal.portion_size && (
-                  <div className="rounded-xs bg-muted/20 px-3 py-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">Serving</p>
-                    <p className="text-[12px] text-foreground/90 leading-snug mt-0.5">{meal.portion_size}</p>
-                  </div>
-                )}
-
-                {meal.ingredients && meal.ingredients.length > 0 && (
-                  <div className="rounded-xs bg-muted/20 px-3 py-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80 mb-1">
-                      Ingredients
-                    </p>
-                    <div className="divide-y divide-border/20">
-                      {meal.ingredients.map((ing, idx) => (
-                        <div key={idx} className="flex items-start justify-between gap-2 py-1 text-[12px]">
-                          <span className="flex-1 min-w-0 text-foreground/90">
-                            {ing.quantity ? `${ing.quantity} ` : ""}{ing.name}
-                          </span>
-                          <span className="flex-shrink-0 tabular-nums text-muted-foreground">
-                            {ing.calories != null
-                              ? <>{ing.calories} kcal</>
-                              : <>{ing.grams}g</>}
-                          </span>
-                        </div>
-                      ))}
+                  {/* Ingredients */}
+                  {meal.ingredients && meal.ingredients.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 mb-1">
+                        Ingredients
+                      </p>
+                      <ul className="space-y-0.5">
+                        {meal.ingredients.map((ing, i) => (
+                          <li key={i} className="flex items-center justify-between gap-2 text-[12px]">
+                            <span className="text-foreground/80 min-w-0 break-words">{ing.name}</span>
+                            <span className="text-muted-foreground/70 tabular-nums shrink-0">
+                              {ing.quantity || `${Math.round(ing.grams)}g`}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {meal.recipe_notes && (
-                  <div className="rounded-xs bg-muted/20 px-3 py-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">Notes</p>
-                    <p className="text-[12px] text-foreground/90 leading-snug whitespace-pre-wrap mt-0.5">
-                      {meal.recipe_notes}
-                    </p>
-                  </div>
-                )}
-
-                {/* Actions */}
-                {(onEdit || onDelete || onFavorite) && (
-                  <div className="flex items-center gap-1.5 pt-1">
-                    {onFavorite && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); triggerHapticSelection(); onFavorite(); }}
-                        className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-xs bg-muted/40 border border-border/40 text-[12px] font-semibold active:scale-[0.97] transition"
-                      >
-                        <Star
-                          className={`h-3.5 w-3.5 ${isFavorited ? "fill-func-warning-yellow text-func-warning-yellow" : "text-muted-foreground"}`}
-                          strokeWidth={2.4}
-                        />
-                        {isFavorited ? "Saved" : "Favorite"}
-                      </button>
-                    )}
-                    {onEdit && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); onEdit(); }}
-                        className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-xs bg-muted/40 border border-border/40 text-[12px] font-semibold active:scale-[0.97] transition"
-                      >
-                        <Edit2 className="h-3.5 w-3.5" /> Edit
-                      </button>
-                    )}
-                    {onDelete && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                        className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-xs bg-destructive/10 border border-destructive/30 text-[12px] font-semibold text-destructive active:scale-[0.97] transition"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" /> Delete
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {/* Collapse cue */}
-                <div className="flex justify-center text-muted-foreground/40">
-                  <ChevronDown className="h-3.5 w-3.5 rotate-180" />
+                  {/* Notes */}
+                  {meal.recipe_notes && (
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 mb-1">
+                        Notes
+                      </p>
+                      <p className="text-[12px] text-foreground/80 leading-snug">{meal.recipe_notes}</p>
+                    </div>
+                  )}
                 </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        )}
       </motion.div>
-
-      {showHint && (
-        <p className="text-[10px] text-muted-foreground/50 text-center mt-1 animate-[fadeSlideUp_0.3s_ease-out_both]">
-          ← Swipe to delete · long-press to favorite
-        </p>
-      )}
     </div>
   );
 });

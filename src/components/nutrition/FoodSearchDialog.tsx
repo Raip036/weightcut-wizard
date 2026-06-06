@@ -157,6 +157,17 @@ function MacroRing({
   );
 }
 
+// ── Macro stat (dot + bold value + label) ──────────────────────────────
+function MacroStat({ color, value, label }: { color: string; value: number; label: string }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className={`h-1.5 w-1.5 rounded-full ${color}`} />
+      <span className="text-[13px] font-bold tabular-nums text-foreground">{value}g</span>
+      <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
+    </div>
+  );
+}
+
 // ── Result row (card-style) ────────────────────────────────────────────
 function ResultRow({
   food,
@@ -175,55 +186,44 @@ function ResultRow({
     <motion.button
       onClick={onSelect}
       whileTap={{ scale: 0.985 }}
-      className="w-full text-left rounded-xs border border-border/40 bg-card/50 px-3 py-2.5 active:bg-muted/30 transition-colors"
+      className="w-full text-left rounded-2xl border border-border bg-card px-3.5 py-3 active:bg-muted/40 transition-colors"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-[14px] font-semibold leading-snug text-foreground line-clamp-1">
+          <p className="text-[15px] font-bold leading-tight tracking-tight text-foreground line-clamp-1">
             {food.name}
           </p>
           {food.brand && (
-            <p className="text-[11px] text-muted-foreground/70 truncate mt-0.5">
+            <p className="text-xs text-muted-foreground truncate mt-0.5">
               {food.brand}
             </p>
           )}
         </div>
         <div className="text-right shrink-0">
-          <p className="display-number text-[18px] font-bold tabular-nums leading-none text-primary">
+          <p className="display-number text-[22px] font-extrabold tabular-nums leading-none tracking-tight text-foreground">
             {kcal}
           </p>
-          <p className="mt-0.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-            kcal · /100g
+          <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            kcal /100g
           </p>
         </div>
       </div>
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="inline-flex items-baseline gap-0.5 rounded-full bg-blue-500/12 ring-1 ring-blue-500/25 px-2 py-0.5 text-[10px] font-bold text-blue-300">
-            <span className="tabular-nums">{p}</span>
-            <span className="opacity-70">P</span>
-          </span>
-          <span className="inline-flex items-baseline gap-0.5 rounded-full bg-func-carbs-orange/12 ring-1 ring-func-carbs-orange/25 px-2 py-0.5 text-[10px] font-bold text-func-carbs-orange">
-            <span className="tabular-nums">{c}</span>
-            <span className="opacity-70">C</span>
-          </span>
-          <span className="inline-flex items-baseline gap-0.5 rounded-full bg-func-fats-purple/12 ring-1 ring-func-fats-purple/25 px-2 py-0.5 text-[10px] font-bold text-func-fats-purple">
-            <span className="tabular-nums">{f}</span>
-            <span className="opacity-70">F</span>
-          </span>
-        </div>
-        <div className="flex items-center gap-1 shrink-0">
+      <div className="mt-2.5 flex items-center gap-3.5 border-t border-border/60 pt-2.5">
+        <MacroStat color="bg-func-protein-blue" value={p} label="P" />
+        <MacroStat color="bg-func-carbs-orange" value={c} label="C" />
+        <MacroStat color="bg-func-fats-purple" value={f} label="F" />
+        <div className="ml-auto flex items-center gap-1 shrink-0">
           {onQuickAdd && (
             <span
               role="button"
               tabIndex={0}
               onClick={(e) => { e.stopPropagation(); onQuickAdd(); }}
               onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); onQuickAdd(); } }}
-              className="h-7 w-7 rounded-full bg-primary/15 hover:bg-primary/25 flex items-center justify-center text-primary transition-colors"
+              className="h-7 w-7 flex items-center justify-center text-primary hover:text-primary/80 transition-colors"
               aria-label="Quick add 100g"
               title="Quick add 100g"
             >
-              <PlusCircle className="h-3.5 w-3.5" />
+              <PlusCircle className="h-5 w-5" />
             </span>
           )}
           <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40" />

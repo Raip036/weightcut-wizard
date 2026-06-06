@@ -1,41 +1,33 @@
 /**
- * Post-weigh-in rehydration protocol generator (WP-T7).
+ * Post-weigh-in rehydration protocol generator (WP-T7) — sweat-loss driven.
  *
- * Sibling to `generateFightPlan` (T6). Produces the hour-by-hour refuel +
- * rehydrate window between weigh-in and walkout: ORS recipe, per-hour
- * liquids/foods, do-nots, and feel-checks. Numerics come from the
- * deterministic skeleton in `weightProtocolMath.ts`; the AI fills in copy
- * and the (creative) ORS recipe.
+ * Sibling to `generateFightPlan` (T6). Produces the hour-by-hour rehydrate +
+ * refuel window between weigh-in and walkout, driven by a single
+ * fighter-entered number: how much sweat (mass) they lost in the cut.
+ *
+ * CORE RULE (sports-science vetted):
+ *   totalLitresTarget = round(sweatLossKg * 1.5, 1)   // 150% replacement
+ *   minimum 1.0 L; never exceed sweatLossKg * 2.0 L (safety cap).
  *
  * Two surfaces:
  *
  *   • `run`          – public action called from the UI. Pro-gated via
  *                       `enforceFeatureGate(... AI_WEIGHT_PROTOCOL)`.
+ *                       Args: { campId, sweatLossKg } (sweatLossKg REQUIRED).
  *
- *   • `runInternal`  – internalAction for programmatic regen. Currently
- *                       unused — rehydration has no auto-regen hook in v1,
- *                       but it's provided for symmetry with
- *                       `generateFightPlan` and to keep future schedulers
- *                       cheap to wire up.
+ *   • `runInternal`  – internalAction for programmatic regen. Same args +
+ *                       userId. Symmetry with `generateFightPlan`.
  *
  * Idempotent via the `(userId, campId, kind="rehydration")` index on
- * `weight_protocols`.
+ * `weight_protocols` — same `upsert` path as before.
  *
- * Provider-conditional model: Claude Opus 4.7 on OpenRouter (preferred)
- * with the canonical Groq fallback when `LLM_PROVIDER` is not openrouter.
- *
- * Numerics flow:
- *   1. Math module computes the deterministic per-hour anchors.
- *   2. AI fills copy (hour labels, liquidsComposition, foodCopy, notes,
- *      caution) PLUS the entirely-creative orsRecipe / doNots / feelChecks.
- *   3. Merge step OVERWRITES every numeric field on every hour from the
- *      skeleton (liquidsMl, foodGrams). The ORS recipe is trusted to the
- *      AI because there's no deterministic skeleton equivalent — it's a
- *      content artifact, not a dosing curve.
+ * Model: gpt-oss-120b served by Cerebras on OpenRouter (pinned via provider
+ * routing), with the same model running natively on Groq when `LLM_PROVIDER`
+ * is not openrouter. The AI fills hour-by-hour copy + the per-hour litres curve;
+ * if it fails or returns invalid JSON we fall back to the deterministic
+ * `buildRehydrationFallback` curve from `_shared/rehydrationMath.ts`.
  *
  * Spec: docs/superpowers/specs/2026-06-01-weight-protocol-redesign-design.md
- *       §5.2 (action shape), §6.2–§6.3 (ORS recipe + hour-by-hour curves).
- *
  * Reference: convex/actions/generateFightPlan.ts (sibling — same patterns).
  */
 "use node";
@@ -49,59 +41,147 @@ import { requireUserIdFromAction } from "./_helpers";
 import { enforceFeatureGate } from "../_shared/featureGates";
 import { parseJSON } from "../_shared/parseResponse";
 import {
-  RehydrationProtocolSchema,
-  type RehydrationProtocol,
-} from "../_shared/aiSchemas";
-import {
   computeDerived,
-  buildRehydrationSkeleton,
   type Approach,
   type DerivedInputs,
   type GatheredInputs,
-  type RehydrationSkeleton,
 } from "../_shared/weightProtocolMath";
-import { REHYDRATION_RESEARCH } from "../_shared/protocolResearch";
+import { buildRehydrationFallback } from "../_shared/rehydrationMath";
 
 const GROQ_TIMEOUT_MS = 30_000;
 
-/**
- * Per-provider model pick. OpenRouter gets Opus 4.7; Groq fallback uses
- * the canonical heavy-reasoning model. Mirrors generateFightPlan so both
- * protocols sit on the same provider/model surface.
- */
-// Swapped from Claude Opus 4.7 to DeepSeek V3.5 — ~55x cheaper, strong on
-// structured-output tasks. Verify the exact model ID against the OpenRouter
-// catalog before deploy.
-function deepseekOrFallback(): string {
-  const provider =
-    typeof process !== "undefined" &&
-    process.env?.LLM_PROVIDER?.toLowerCase() === "openrouter"
-      ? "openrouter"
-      : "groq";
-  return provider === "openrouter"
-    ? "deepseek/deepseek-chat"
-    : "openai/gpt-oss-120b";
+// 150% replacement factor (sports-science vetted).
+const REPLACEMENT_FACTOR = 1.5 as const;
+// Safety cap: never exceed 200% of mass lost.
+const SAFETY_CAP_FACTOR = 2.0;
+// Minimum target regardless of how small the entered sweat loss is.
+const MIN_LITRES = 1.0;
+// Gastric-emptying ceiling — no single hour above this.
+const MAX_ML_PER_HOUR = 1500;
+// Default weigh-in→fight gap when the camp doesn't tell us.
+const DEFAULT_GAP_HOURS = 24;
+
+// ───────────────────────────────────────────────────────────────────────
+// Persisted payload shape (what the frontend now reads)
+// ───────────────────────────────────────────────────────────────────────
+
+interface OrsIngredient {
+  ingredient: string;
+  amount: number;
+  unit: string;
+  note: string;
+}
+
+interface RehydrationHour {
+  hourOffset: number;
+  liquidsMl: number;
+  cumulativeMl: number;
+  isMeal: boolean;
+  mealLabel: string | null;
+  cue: string;
+}
+
+interface RehydrationPayload {
+  sweatLossKg: number;
+  replacementFactor: 1.5;
+  totalLitresTarget: number;
+  gapHours: number;
+  orsRecipe: {
+    perLitre: OrsIngredient[];
+    totalLitresTarget: number;
+    diyShoppingList: string[];
+    commercialEquivalents: string[];
+  };
+  hours: RehydrationHour[];
+  carbTargetGramsTotal: number;
+  doNots: string[];
+  derivedSnapshot: {
+    sweatLossKg: number;
+    replacementFactor: 1.5;
+    totalLitresTarget: number;
+    gapHours: number;
+  };
 }
 
 // ───────────────────────────────────────────────────────────────────────
-// Public action — generate (or refresh) the user's rehydration protocol
+// Hardcoded ORS recipe (Na ~60 mmol/L, glucose ~1:1 SGLT1, K ~20 mmol/L)
+// ───────────────────────────────────────────────────────────────────────
+
+const ORS_PER_LITRE: OrsIngredient[] = [
+  {
+    ingredient: "Glucose / dextrose",
+    amount: 40,
+    unit: "g",
+    note: "≈3 tbsp; energy + sodium co-transport",
+  },
+  {
+    ingredient: "Table salt (NaCl)",
+    amount: 2.5,
+    unit: "g",
+    note: "≈½ tsp",
+  },
+  {
+    ingredient: "Sodium citrate",
+    amount: 1.0,
+    unit: "g",
+    note: "buffer + taste",
+  },
+  {
+    ingredient: "Potassium chloride (Lite salt)",
+    amount: 1.5,
+    unit: "g",
+    note: "≈20 mmol K+",
+  },
+];
+
+const ORS_DIY_SHOPPING_LIST = [
+  "Dextrose powder",
+  "Table salt",
+  "Sodium citrate",
+  "Lite salt (KCl)",
+  "Bottled water",
+];
+
+const ORS_COMMERCIAL_EQUIVALENTS = ["LMNT", "Liquid I.V.", "DripDrop", "Pedialyte"];
+
+const DEFAULT_DO_NOTS = [
+  "Do not chug plain water — it dilutes blood sodium and risks hyponatremia.",
+  "No heavy fat or fibre in the first few hours; it slows gastric emptying.",
+  "Do not try new supplements or stimulants you have not used before.",
+  "Do not overhydrate beyond your target — more is not better.",
+  "Stop and seek help if you feel dizzy, confused, or get a worsening headache.",
+];
+
+// ───────────────────────────────────────────────────────────────────────
+// Model selection — gpt-oss-120b served by Cerebras
+// ───────────────────────────────────────────────────────────────────────
+
+// Same model on both providers: Groq runs gpt-oss-120b natively (default),
+// and on OpenRouter we pin the call to Cerebras via CEREBRAS_ROUTING for its
+// very high throughput on this model. Was DeepSeek V3.5 on OpenRouter.
+const PROTOCOL_MODEL = "openai/gpt-oss-120b" as const;
+
+// OpenRouter provider-routing override: prefer Cerebras for gpt-oss-120b,
+// falling back automatically if it's unavailable. No-op on the Groq path.
+const CEREBRAS_ROUTING = { order: ["cerebras"], allow_fallbacks: true };
+
+// ───────────────────────────────────────────────────────────────────────
+// Public action
 // ───────────────────────────────────────────────────────────────────────
 
 /**
- * Generate the post-weigh-in rehydration protocol for the calling user's
- * camp. Pro-gated. Idempotent — overwrites any existing `rehydration` row
- * for this (userId, campId). No approach selector — rehydration strategy
- * is the same regardless of how the cut was performed.
+ * Generate (or refresh) the calling user's rehydration protocol for a camp,
+ * driven by a fighter-entered sweat-loss number. Pro-gated. Idempotent.
  */
 export const run = action({
-  args: { campId: v.id("fight_camps") },
+  args: { campId: v.id("fight_camps"), sweatLossKg: v.number() },
   handler: async (
     ctx,
-    { campId },
-  ): Promise<{ id: Id<"weight_protocols">; payload: RehydrationProtocol }> => {
+    { campId, sweatLossKg },
+  ): Promise<{ id: Id<"weight_protocols">; payload: RehydrationPayload }> => {
     const userId = await requireUserIdFromAction(ctx);
     await enforceFeatureGate(ctx, userId, "AI_WEIGHT_PROTOCOL");
-    return await runCore(ctx, { userId, campId });
+    return await runCore(ctx, { userId, campId, sweatLossKg });
   },
 });
 
@@ -109,200 +189,344 @@ export const run = action({
 // Internal action — programmatic regen entry (symmetry with fight plan)
 // ───────────────────────────────────────────────────────────────────────
 
-/**
- * Internal entry. Currently unused — rehydration has no auto-regen hook in
- * v1 (no drift detector analogous to fight-plan weight drift). Provided
- * for symmetry with `generateFightPlan` so any future scheduler can call
- * this without re-plumbing.
- */
 export const runInternal = internalAction({
   args: {
     userId: v.id("users"),
     campId: v.id("fight_camps"),
+    sweatLossKg: v.number(),
   },
   handler: async (
     ctx,
     args,
-  ): Promise<{ id: Id<"weight_protocols">; payload: RehydrationProtocol }> => {
+  ): Promise<{ id: Id<"weight_protocols">; payload: RehydrationPayload }> => {
     return await runCore(ctx, args);
   },
 });
 
 // ───────────────────────────────────────────────────────────────────────
-// Shared core — used by both public and internal entries
+// Shared core
 // ───────────────────────────────────────────────────────────────────────
 
 type RunCoreArgs = {
   userId: Id<"users">;
   campId: Id<"fight_camps">;
+  sweatLossKg: number;
 };
 
 async function runCore(
   ctx: { runQuery: any; runMutation: any },
-  { userId, campId }: RunCoreArgs,
-): Promise<{ id: Id<"weight_protocols">; payload: RehydrationProtocol }> {
-  // 1. Single round-trip fetch of every input the prompt + math need.
+  { userId, campId, sweatLossKg }: RunCoreArgs,
+): Promise<{ id: Id<"weight_protocols">; payload: RehydrationPayload }> {
+  // 1. Fetch inputs (profile + camp) — same single round-trip as before.
   const inputs: GatheredInputs = await ctx.runQuery(
     internal.weight_protocols_internal.gatherInputs,
     { userId, campId },
   );
 
-  // 2. Deterministic derivations. Rehydration uses 'standard' approach
-  //    for derived because the cut approach doesn't affect refeed strategy
-  //    — once you're off the scale, the playbook converges regardless of
-  //    how you got there.
+  // 2. Derive gapHours from the camp the same way the prior code did:
+  //    weigh-in → fight gap, default 24h when unknown / non-positive.
   const derived: DerivedInputs = computeDerived(inputs, "standard" as Approach);
+  const gapHours = deriveGapHours(derived.weighInToFightHours);
 
-  // 3. Build the deterministic per-hour skeleton.
-  const skeleton: RehydrationSkeleton = buildRehydrationSkeleton(derived);
+  // 3. Core rule: 150% replacement, min 1.0 L, cap at 200% of sweat loss.
+  const cleanSweatLossKg = Math.max(0, Number(sweatLossKg) || 0);
+  const totalLitresTarget = computeTotalLitresTarget(cleanSweatLossKg);
 
-  // 4. Build prompt + call the AI for copy + ORS recipe.
-  const userPrompt = buildUserPrompt(inputs, derived, skeleton);
-  const apiResponse = await callGroqRaw({
-    model: deepseekOrFallback(),
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: userPrompt },
-    ],
-    response_format: { type: "json_object" },
-    temperature: 0.4,
-    max_tokens: 3500,
-    timeoutMs: GROQ_TIMEOUT_MS,
-  });
-  const rawContent = apiResponse.choices?.[0]?.message?.content ?? "{}";
-  const rawJson = parseJSON(rawContent);
-  const validated = RehydrationProtocolSchema.parse(rawJson);
+  // 4. Carb target over the window: 10 g/kg if aggressive depletion else
+  //    5 g/kg of bodyweight, both capped at 60 g/h across the window.
+  const bodyWeightKg = derived.currentWeightKg || derived.targetWeightKg || 0;
+  const depletionStrategy = inferDepletionStrategy(derived);
+  const carbTargetGramsTotal = computeCarbTarget(
+    bodyWeightKg,
+    depletionStrategy,
+    gapHours,
+  );
 
-  // 5. Merge: skeleton numerics overwrite AI numerics on every hour.
-  const merged = mergeRehydrationProtocol(skeleton, validated, campId);
+  // 5. AI for the hour-by-hour curve + cues + meal placement. Fall back to
+  //    the deterministic curve on any failure / invalid output.
+  let hours: RehydrationHour[];
+  try {
+    hours = await generateHoursViaAI({
+      sweatLossKg: cleanSweatLossKg,
+      gapHours,
+      totalLitresTarget,
+      bodyWeightKg,
+      sex: derived.sex,
+      depletionStrategy,
+    });
+  } catch (err) {
+    console.error("[generateRehydrationProtocol] AI failed, using fallback:", err);
+    hours = buildFallbackHours(totalLitresTarget, gapHours);
+  }
 
-  // 6. Persist (idempotent on userId+campId+kind=rehydration).
+  // 6. Assemble persisted payload.
+  const payload: RehydrationPayload = {
+    sweatLossKg: cleanSweatLossKg,
+    replacementFactor: REPLACEMENT_FACTOR,
+    totalLitresTarget,
+    gapHours,
+    orsRecipe: {
+      perLitre: ORS_PER_LITRE,
+      totalLitresTarget,
+      diyShoppingList: ORS_DIY_SHOPPING_LIST,
+      commercialEquivalents: ORS_COMMERCIAL_EQUIVALENTS,
+    },
+    hours,
+    carbTargetGramsTotal,
+    doNots: DEFAULT_DO_NOTS,
+    derivedSnapshot: {
+      sweatLossKg: cleanSweatLossKg,
+      replacementFactor: REPLACEMENT_FACTOR,
+      totalLitresTarget,
+      gapHours,
+    },
+  };
+
+  // 7. Persist via the same idempotent upsert helper.
   const id: Id<"weight_protocols"> = await ctx.runMutation(
     internal.weight_protocols_internal.upsert,
     {
       userId,
       campId,
       kind: "rehydration",
-      payload: merged,
-      derivedSnapshot: derived,
+      payload,
+      derivedSnapshot: payload.derivedSnapshot,
       approach: undefined,
-      model: deepseekOrFallback(),
+      model: PROTOCOL_MODEL,
     },
   );
 
-  return { id, payload: merged };
+  return { id, payload };
 }
 
 // ───────────────────────────────────────────────────────────────────────
-// Prompt construction
+// Pure derivations
 // ───────────────────────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are a world-class combat-sports nutrition coach with elite-level experience in post-weigh-in rehydration and refueling for combat athletes (MMA, boxing, BJJ, muay thai). You write hour-by-hour protocols athletes actually follow in the window between making weight and walking out.
+/** Whole-hour weigh-in→fight gap; default 24 when unknown/non-positive. */
+function deriveGapHours(weighInToFightHours: number): number {
+  const raw = Number(weighInToFightHours);
+  if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_GAP_HOURS;
+  return Math.max(1, Math.round(raw));
+}
 
-Output strict JSON conforming to the provided schema. No emojis. No em-dashes. Second-person voice. No hedging.`;
+/** 150% replacement, min 1.0 L, hard cap at 200% of mass lost. Rounded 0.1. */
+function computeTotalLitresTarget(sweatLossKg: number): number {
+  const target = round1(sweatLossKg * REPLACEMENT_FACTOR);
+  const cap = sweatLossKg * SAFETY_CAP_FACTOR;
+  const capped = cap > 0 ? Math.min(target, cap) : target;
+  return Math.max(MIN_LITRES, round1(capped));
+}
 
-function buildUserPrompt(
-  inputs: GatheredInputs,
-  derived: DerivedInputs,
-  skeleton: RehydrationSkeleton,
-): string {
-  return `## KNOWLEDGE
+/**
+ * Heuristic depletion strategy. We don't have an explicit field, so treat a
+ * deep cut (heavy/extreme category) as aggressive depletion → higher carb
+ * target. Everything else is moderate.
+ */
+function inferDepletionStrategy(d: DerivedInputs): "aggressive" | "moderate" {
+  return d.cutCategory === "heavy" || d.cutCategory === "extreme"
+    ? "aggressive"
+    : "moderate";
+}
 
-${REHYDRATION_RESEARCH}
+/** Carb target across the window: 10 (aggressive) or 5 g/kg, ≤60 g/h. */
+function computeCarbTarget(
+  bodyWeightKg: number,
+  depletionStrategy: "aggressive" | "moderate",
+  gapHours: number,
+): number {
+  const perKg = depletionStrategy === "aggressive" ? 10 : 5;
+  const target = Math.round(perKg * Math.max(0, bodyWeightKg));
+  const hourlyCeiling = Math.max(1, gapHours) * 60;
+  return Math.min(target, hourlyCeiling);
+}
 
-## INPUTS
-
-ATHLETE: age ${inputs.profile.age}, sex ${inputs.profile.sex}, weigh-in target ${derived.targetWeightKg}kg
-CUT DEPTH: ${derived.cutDepthKg.toFixed(1)}kg (${derived.cutDepthPct.toFixed(1)}% BW) — category ${derived.cutCategory}
-GAP TO FIGHT: ${skeleton.weighInToFightGapHours}h between weigh-in and walkout
-TOTAL FLUID TARGET: ${skeleton.totalFluidTargetMl} mL (150% of mass lost)
-TOTAL CARB TARGET: ${skeleton.totalCarbTargetGrams} g over the window
-TOTAL SODIUM TARGET: ${skeleton.totalSodiumTargetMg} mg
-
-## DETERMINISTIC SKELETON (numerics — copy these values verbatim)
-
-${JSON.stringify(skeleton, null, 2)}
-
-## OUTPUT
-
-Return JSON matching RehydrationProtocolSchema. Required:
-- orsRecipe: per-litre ingredient list (combat-adapted WHO ORS — 30-50g glucose, 1.0-1.5g NaCl, 0.5g KCl, ½ lemon citrus). totalLitresTarget = 150% of cut depth in kg. diyShoppingList with home-accessible items. commercialEquivalents (LMNT, Liquid I.V., DripDrop, Pedialyte).
-- For each hour: label ("Just off the scale" / "Mid-meal" / "Pre-fight final"), liquidsComposition (e.g. "500ml ORS, 250ml plain water"), foodCopy (e.g. "1 cup white rice, grilled chicken, ½ tsp salt"), notes, caution if applicable.
-- doNots: 5-7 stark safety items (no chugging plain water, no heavy fat in first 4h, no alcohol, no fibre too early, no overhydrating >200%).
-- feelChecks: at least urine_colour (pale straw target), weigh_back_kg (80-100% of cut depth), no_cramps.
-
-Numerics will be replaced server-side from the skeleton. Focus on copy quality. Each *Copy / label / notes ≤140 chars.`;
+function round1(n: number): number {
+  return Number.isFinite(n) ? parseFloat(n.toFixed(1)) : 0;
 }
 
 // ───────────────────────────────────────────────────────────────────────
-// Merge: skeleton numerics overwrite AI numerics
+// AI path
+// ───────────────────────────────────────────────────────────────────────
+
+const SYSTEM_PROMPT = `You are a sports-science nutritionist generating an evidence-based post-weigh-in rapid rehydration plan for a combat-sports athlete. Output STRICT JSON only — no prose, no markdown, no emojis.
+INPUTS: sweatLossKg, gapHours, athlete {weightKg, sex, depletionStrategy}.
+RULES: 1) totalLitresTarget = round(sweatLossKg*1.5,1); min 1.0 L; never exceed sweatLossKg*2.0. 2) Distribute across EVERY hour H+0..H+gapHours: front-load 35–40% in first 2h; never >1500 ml in any hour; steady refeed daytime; overnight (~H+8..H+15 when gapHours>=20) minimal 50–150 ml/h; moderate top-up final 2–3h tapering the last 60–90 min; SUM of hourly liquidsMl within ±100 ml of totalLitresTarget*1000. 3) Round each liquidsMl to nearest 50 ml. 4) Place 2–3 meals, first carb meal within ~1h of weigh-in (isMeal=true those hours); carb target = (depletionStrategy=='aggressive'?10:5) g/kg over the window at <=60 g/h, low fat/fibre early. 5) Each hour: {hourOffset, liquidsMl, cumulativeMl, isMeal, mealLabel, cue}; cue imperative <=90 chars no emojis. 6) doNots array of safety strings (no plain-water chugging/hyponatremia, no heavy fat/fibre early, no new supplements, no overhydration). Return JSON shape {sweatLossKg,gapHours,totalLitresTarget,hours,carbTargetGramsTotal,doNots}. Validate: hours length==gapHours+1; sum within ±100 ml; no hour >1500 ml.`;
+
+function buildUserPrompt(args: {
+  sweatLossKg: number;
+  gapHours: number;
+  totalLitresTarget: number;
+  bodyWeightKg: number;
+  sex: string;
+  depletionStrategy: "aggressive" | "moderate";
+}): string {
+  return JSON.stringify({
+    sweatLossKg: args.sweatLossKg,
+    gapHours: args.gapHours,
+    totalLitresTarget: args.totalLitresTarget,
+    athlete: {
+      weightKg: args.bodyWeightKg,
+      sex: args.sex,
+      depletionStrategy: args.depletionStrategy,
+    },
+  });
+}
+
+/**
+ * Call the model and parse + validate the hour curve. Throws on any failure
+ * (network, parse, validation) so the caller swaps in the deterministic
+ * fallback. Validation enforces: length == gapHours+1, sum within ±100 ml of
+ * target, and no hour > 1500 ml.
+ */
+async function generateHoursViaAI(args: {
+  sweatLossKg: number;
+  gapHours: number;
+  totalLitresTarget: number;
+  bodyWeightKg: number;
+  sex: string;
+  depletionStrategy: "aggressive" | "moderate";
+}): Promise<RehydrationHour[]> {
+  const apiResponse = await callGroqRaw({
+    model: PROTOCOL_MODEL,
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: buildUserPrompt(args) },
+    ],
+    response_format: { type: "json_object" },
+    temperature: 0.4,
+    max_tokens: 3500,
+    timeoutMs: GROQ_TIMEOUT_MS,
+    providerRouting: CEREBRAS_ROUTING,
+  });
+  const rawContent = apiResponse.choices?.[0]?.message?.content ?? "{}";
+  const rawJson = parseJSON(rawContent) as { hours?: unknown };
+
+  const hours = normalizeAIHours(rawJson?.hours, args.gapHours);
+  if (!validateHours(hours, args.gapHours, args.totalLitresTarget)) {
+    throw new Error("AI hours failed validation");
+  }
+  return hours;
+}
+
+/**
+ * Coerce the AI's `hours` array into our shape. Missing/garbage fields are
+ * defaulted but NOT silently repaired — `validateHours` decides acceptance.
+ */
+function normalizeAIHours(raw: unknown, gapHours: number): RehydrationHour[] {
+  if (!Array.isArray(raw)) return [];
+  const byOffset = new Map<number, RehydrationHour>();
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const o = item as Record<string, unknown>;
+    const hourOffset = Number(o.hourOffset);
+    if (!Number.isInteger(hourOffset) || hourOffset < 0 || hourOffset > gapHours) {
+      continue;
+    }
+    const liquidsMl = Math.max(0, Math.round(Number(o.liquidsMl) || 0));
+    byOffset.set(hourOffset, {
+      hourOffset,
+      liquidsMl,
+      cumulativeMl: 0, // recomputed below
+      isMeal: Boolean(o.isMeal),
+      mealLabel:
+        typeof o.mealLabel === "string" && o.mealLabel.trim().length > 0
+          ? o.mealLabel.trim()
+          : null,
+      cue:
+        typeof o.cue === "string" && o.cue.trim().length > 0
+          ? o.cue.trim().slice(0, 90)
+          : "Sip ORS steadily this hour",
+    });
+  }
+  // Rebuild a contiguous 0..gapHours array and recompute cumulative.
+  const out: RehydrationHour[] = [];
+  let cum = 0;
+  for (let h = 0; h <= gapHours; h++) {
+    const found = byOffset.get(h);
+    if (!found) return []; // missing hour → reject (length check will fail)
+    cum += found.liquidsMl;
+    out.push({ ...found, cumulativeMl: cum });
+  }
+  return out;
+}
+
+/** length == gapHours+1, sum within ±100 ml of target, no hour > 1500 ml. */
+function validateHours(
+  hours: RehydrationHour[],
+  gapHours: number,
+  totalLitresTarget: number,
+): boolean {
+  if (hours.length !== gapHours + 1) return false;
+  let sum = 0;
+  for (const h of hours) {
+    if (h.liquidsMl > MAX_ML_PER_HOUR) return false;
+    sum += h.liquidsMl;
+  }
+  const targetMl = totalLitresTarget * 1000;
+  return Math.abs(sum - targetMl) <= 100;
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Deterministic fallback path
 // ───────────────────────────────────────────────────────────────────────
 
 /**
- * Reconcile AI output with the deterministic skeleton. Every per-hour
- * numeric field (liquidsMl, foodGrams) is taken from the skeleton — the
- * AI's numbers are ignored. Copy fields come from the AI when present,
- * fall back to safe defaults otherwise.
+ * Turn the numeric-only fallback curve from `rehydrationMath.ts` into full
+ * RehydrationHour objects, synthesising cues + meal placement.
  *
- * The ORS recipe and the doNots / feelChecks arrays are trusted to the
- * AI as-is. There is no deterministic skeleton for those — the recipe is
- * a creative content artifact, and the safety/feel-check lists are
- * narrative guidance that doesn't have a numeric anchor to overwrite.
+ * Meals: first refeed hour, mid-window, and a pre-fight meal.
  */
-function mergeRehydrationProtocol(
-  skeleton: RehydrationSkeleton,
-  ai: RehydrationProtocol,
-  campId: Id<"fight_camps">,
-): RehydrationProtocol {
-  // Index AI hours by hourOffset for O(1) lookup during merge.
-  const aiHoursByOffset = new Map<number, RehydrationProtocol["hours"][number]>();
-  for (const h of ai.hours) aiHoursByOffset.set(h.hourOffset, h);
+function buildFallbackHours(
+  totalLitresTarget: number,
+  gapHours: number,
+): RehydrationHour[] {
+  const curve = buildRehydrationFallback(totalLitresTarget, gapHours);
 
-  const mergedHours: RehydrationProtocol["hours"] = skeleton.hours.map((sh) => {
-    const ah =
-      aiHoursByOffset.get(sh.hourOffset) ??
-      ({} as Partial<RehydrationProtocol["hours"][number]>);
+  // Meal hours: first carb meal ~H+1, mid-window, pre-fight (~H-3).
+  const firstMeal = Math.min(1, gapHours);
+  const midMeal = Math.round(gapHours / 2);
+  const preFightMeal = Math.max(0, gapHours - 3);
+  const mealMap = new Map<number, string>();
+  mealMap.set(firstMeal, "First refeed meal");
+  if (!mealMap.has(midMeal)) mealMap.set(midMeal, "Mid-window meal");
+  if (!mealMap.has(preFightMeal)) mealMap.set(preFightMeal, "Pre-fight meal");
+
+  const hasOvernight = gapHours >= 20;
+
+  return curve.map((c) => {
+    const isMeal = mealMap.has(c.hourOffset);
+    const mealLabel = isMeal ? (mealMap.get(c.hourOffset) ?? null) : null;
     return {
-      // Numerics from skeleton (authoritative).
-      hourOffset: sh.hourOffset,
-      liquidsMl: sh.liquidsMl,
-      foodGrams: sh.foodGrams,
-      // Copy from AI (fallback to derived defaults).
-      label: String(
-        ah.label ?? labelForHour(sh.hourOffset, skeleton.weighInToFightGapHours),
-      ),
-      liquidsComposition: String(ah.liquidsComposition ?? ""),
-      foodCopy: String(ah.foodCopy ?? ""),
-      notes: String(ah.notes ?? ""),
-      caution: ah.caution == null ? null : String(ah.caution),
+      hourOffset: c.hourOffset,
+      liquidsMl: c.liquidsMl,
+      cumulativeMl: c.cumulativeMl,
+      isMeal,
+      mealLabel,
+      cue: synthesizeCue(c.hourOffset, c.liquidsMl, gapHours, hasOvernight, isMeal),
     };
   });
-
-  return {
-    generatedAt: Date.now(),
-    campId: String(campId),
-    weighInWeightKg: skeleton.weighInWeightKg,
-    fightWeightTargetKg: skeleton.fightWeightTargetKg,
-    weighInToFightGapHours: skeleton.weighInToFightGapHours,
-    // AI-only — no skeleton equivalent. The recipe is a creative content
-    // artifact; doNots / feelChecks are narrative safety lists.
-    orsRecipe: ai.orsRecipe,
-    hours: mergedHours,
-    doNots: ai.doNots,
-    feelChecks: ai.feelChecks,
-  };
 }
 
-/**
- * Deterministic fallback labels for the per-hour timeline, used when the
- * AI omits the `label` field for a given hour. Mirrors the spec's narrative
- * phases (rapid rehydration → main refeed → maintenance → walkout).
- */
-function labelForHour(h: number, gap: number): string {
-  if (h === 0) return "Just off the scale";
-  if (h === gap) return "Walkout";
-  if (h === gap - 1) return "Pre-fight final hour";
-  if (h <= 4) return `H+${h} — front-load phase`;
-  if (h <= 12) return `H+${h} — main refeed`;
-  return `H+${h} — maintenance`;
+function synthesizeCue(
+  hourOffset: number,
+  liquidsMl: number,
+  gapHours: number,
+  hasOvernight: boolean,
+  isMeal: boolean,
+): string {
+  const ml = liquidsMl;
+  if (isMeal) {
+    return `Eat now and sip ~${ml}ml ORS alongside it`;
+  }
+  if (hourOffset <= 1) {
+    return `Front-load: sip ~${ml}ml ORS steadily, do not chug`;
+  }
+  if (hasOvernight && hourOffset >= 8 && hourOffset <= 15) {
+    return `Overnight: small sips, ~${ml}ml ORS only`;
+  }
+  if (hourOffset >= gapHours - 2) {
+    return `Top-up: ~${ml}ml ORS, taper into the last hour`;
+  }
+  return `Sip ~${ml}ml ORS steadily`;
 }

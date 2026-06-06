@@ -95,6 +95,19 @@ function headlineFor(p: Props): string {
     return `${remaining} more ${remaining === 1 ? "day" : "days"} of logging to unlock your score.`;
   }
 
+  // state === "stale"
+  if (p.state === "stale") {
+    const limiter = p.topLimiter ? SUBSCORE_HUMAN[p.topLimiter] : null;
+    if (p.appliedCeiling) {
+      return limiter
+        ? `Score capped and running on older data — log ${limiter.toLowerCase()} to refresh.`
+        : "Score capped and running on older data — log today to refresh it.";
+    }
+    return limiter
+      ? `Score is based on older data — log ${limiter.toLowerCase()} to refresh it.`
+      : "Score is based on older data — log today to refresh it.";
+  }
+
   // state === "ok"
   if (p.appliedCeiling) {
     if (p.appliedCeiling.ruleId === "weight_cut_dangerous") return "Score capped. Weight loss is too aggressive this week.";
@@ -126,7 +139,7 @@ function headlineFor(p: Props): string {
 export function FightFormInsightStrip(p: Props) {
   if (p.state === "no_camp" || p.state === "paused") {
     return (
-      <p className="text-[12px] text-muted-foreground text-center mt-6 px-6 max-w-xs mx-auto leading-snug">
+      <p className="text-[12px] text-muted-foreground text-center mt-10 px-6 max-w-xs mx-auto leading-snug">
         {headlineFor(p)}
       </p>
     );
@@ -140,10 +153,10 @@ export function FightFormInsightStrip(p: Props) {
   // what "Score capped — training load is spiking" actually means.
   const isTappable =
     !!p.onHeadlineTap &&
-    (p.appliedCeiling != null || (p.state === "ok" && (p.topDriver != null || p.topLimiter != null)));
+    (p.appliedCeiling != null || ((p.state === "ok" || p.state === "stale") && (p.topDriver != null || p.topLimiter != null)));
 
   return (
-    <div className="mt-6 flex flex-col items-center gap-2.5">
+    <div className="mt-10 flex flex-col items-center gap-2.5">
       {isTappable ? (
         <button
           type="button"

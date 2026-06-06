@@ -127,24 +127,31 @@ export function GymHeader({
   // sibling so we never nest <button>s.
   const clusterContent = (
     <>
-      <GymLogoAvatar logoUrl={logoUrl ?? null} name={gymName} size={44} />
+      <GymLogoAvatar logoUrl={logoUrl ?? null} name={gymName} size={48} />
       <div className="flex-1 min-w-0">
-        <h1 className="text-[22px] font-semibold leading-tight truncate">
+        <h1 className="text-[19px] font-bold leading-tight tracking-[-0.01em] truncate">
           {gymName}
         </h1>
         {isLoading ? (
-          <div className="mt-1 space-y-1">
-            <Skeleton className="h-3.5 w-24" />
-            <Skeleton className="h-3.5 w-32" />
+          <div className="mt-1.5">
+            <Skeleton className="h-3.5 w-40" />
           </div>
         ) : hasCounts ? (
-          <div className="mt-1 space-y-0.5">
-            <p className="text-sm text-muted-foreground">
+          <div className="mt-0.5 flex items-center gap-1.5 whitespace-nowrap text-[11px] text-muted-foreground">
+            <span className="tabular-nums">
               {memberCount} {memberCount === 1 ? "member" : "members"}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {activePosters} training this week
-            </p>
+            </span>
+            <span className="text-muted-foreground/40">·</span>
+            <span className="inline-flex items-center gap-1">
+              {/* live dot — signals the gym is active this week */}
+              <span
+                aria-hidden
+                className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_0_2px_rgba(52,211,153,0.16)]"
+              />
+              <span className="tabular-nums text-foreground/80 font-medium">
+                {activePosters} training this week
+              </span>
+            </span>
           </div>
         ) : null}
       </div>
@@ -152,27 +159,39 @@ export function GymHeader({
   );
 
   return (
-    <header className="flex items-start justify-between px-5 pt-1 pb-3">
-      {onProfileOpen ? (
-        <button
-          type="button"
-          onClick={onProfileOpen}
-          className="flex-1 min-w-0 mr-3 flex items-center gap-3 text-left active:opacity-80 transition-opacity"
-          aria-label={`Open ${gymName} profile`}
-        >
-          {clusterContent}
-        </button>
-      ) : (
-        <div className="flex-1 min-w-0 mr-3 flex items-center gap-3">
-          {clusterContent}
-        </div>
-      )}
+    <header className="px-5 pt-1 pb-3">
+      {/* Premium identity card — gradient wash + radial primary glow so
+          the gym reads as the page's anchor, not just a text row. */}
+      <div className="relative flex items-center justify-between gap-2 overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br from-white/[0.045] to-white/[0.01] p-3.5">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(120px 80px at 90% -10%, hsl(217 91% 58% / 0.16), transparent 70%)",
+          }}
+        />
+        {onProfileOpen ? (
+          <button
+            type="button"
+            onClick={onProfileOpen}
+            className="relative z-[1] flex-1 min-w-0 flex items-center gap-3 text-left active:opacity-80 transition-opacity"
+            aria-label={`Open ${gymName} profile`}
+          >
+            {clusterContent}
+          </button>
+        ) : (
+          <div className="relative z-[1] flex-1 min-w-0 flex items-center gap-3">
+            {clusterContent}
+          </div>
+        )}
 
-      {/* Right-side: activity bell only. The "Bring a teammate" pill
-          has been removed from this header — invites live on the
-          EmptyFeed card now. */}
-      <div className="flex items-center gap-2 flex-shrink-0">
-        <ActivityBell gymId={gymId ?? null} onClick={onActivityClick} />
+        {/* Right-side: activity bell only. The "Bring a teammate" pill
+            has been removed from this header — invites live on the
+            EmptyFeed card now. */}
+        <div className="relative z-[1] flex items-center gap-2 flex-shrink-0">
+          <ActivityBell gymId={gymId ?? null} onClick={onActivityClick} />
+        </div>
       </div>
     </header>
   );

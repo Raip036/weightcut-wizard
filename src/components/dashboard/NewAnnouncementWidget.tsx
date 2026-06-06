@@ -111,7 +111,7 @@ export default function NewAnnouncementWidget({ userId }: Props) {
   // plain text announcement.
   const cardClass = isFightOffer
     ? "w-full card-glow rounded-2xl bg-primary/[0.08] p-3 flex items-center gap-3 active:scale-[0.99] transition-all"
-    : "w-full card-surface card-glow rounded-2xl p-3 flex items-center gap-3 active:scale-[0.99] transition-all";
+    : "w-full card-surface rounded-2xl p-3 flex items-center gap-3 active:scale-[0.99] transition-all";
   const iconBg = isFightOffer ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary";
   const iconName: IonIconName = isFightOffer ? "flashOutline" : "notificationsOutline";
   const headlineCopy = isFightOffer

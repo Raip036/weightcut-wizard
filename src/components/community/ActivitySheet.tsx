@@ -52,7 +52,7 @@ export function ActivitySheet({
             <SheetTitle>Activity</SheetTitle>
             <SheetClose
               aria-label="Close"
-              className="-mr-2 inline-flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              className="-mr-2 inline-flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground active:opacity-70 focus:outline-none [-webkit-tap-highlight-color:transparent]"
             >
               <X className="h-5 w-5" />
             </SheetClose>

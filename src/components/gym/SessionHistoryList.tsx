@@ -22,6 +22,20 @@ function sessionEdgeColor(type: string | null | undefined): string {
   }
 }
 
+// Relative date — premium history cards read "Yesterday / Tue / 3d ago"
+// rather than a raw date, so the eye recognizes recency at a glance.
+function relativeDate(iso: string): string {
+  const d = new Date(iso + (iso.length === 10 ? "T00:00:00" : ""));
+  if (Number.isNaN(d.getTime())) return iso;
+  const today = new Date();
+  const startOfDay = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const days = Math.round((startOfDay(today) - startOfDay(d)) / 86_400_000);
+  if (days === 0) return "Today";
+  if (days === 1) return "Yesterday";
+  if (days < 7) return d.toLocaleDateString("en-US", { weekday: "short" });
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 interface SessionHistoryListProps {
   sessions: SessionWithSets[];
   loading: boolean;
@@ -80,10 +94,10 @@ export const SessionHistoryList = memo(function SessionHistoryList({ sessions, l
             {/* Apple Health-style colored edge bar */}
             <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${edge}`} />
 
-            {/* Top row: discipline + date */}
+            {/* Top row: discipline + relative date */}
             <div className="flex items-center justify-between gap-2">
               <span className="flex items-center gap-1.5 min-w-0">
-                <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-foreground truncate">
+                <span className="text-[13px] font-extrabold uppercase tracking-[0.12em] text-foreground truncate">
                   {session.session_type}
                 </span>
                 {session.session_tag && (
@@ -92,9 +106,9 @@ export const SessionHistoryList = memo(function SessionHistoryList({ sessions, l
                   </span>
                 )}
               </span>
-              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/80">
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground/80 shrink-0">
                 <Calendar className="h-3 w-3" />
-                {new Date(session.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                {relativeDate(session.date)}
               </div>
             </div>
 

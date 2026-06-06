@@ -249,7 +249,7 @@ export function ExercisePickerSheet({
                     {muscle.replace(/_/g, " ")}
                   </h4>
                 )}
-                <div className="rounded-xs border border-border/40 bg-card/50 overflow-hidden divide-y divide-border/20">
+                <div className="rounded-xs card-surface overflow-hidden divide-y divide-border/20">
                   {exs.map((ex) => {
                     const isFav = favIds.includes(ex.id);
                     const tile = MUSCLE_BG[ex.muscle_group] || "bg-muted/40 text-muted-foreground";

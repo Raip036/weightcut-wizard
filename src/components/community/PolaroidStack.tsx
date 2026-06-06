@@ -1,89 +1,78 @@
 /**
  * PolaroidStack — the centerpiece of the Corner tab.
  *
- * Tinder-style swipe deck:
- *   - Top card is drag-bound on the X axis. A horizontal commit (offset
- *     past 32% of viewport OR velocity > 600px/s) sends the card flying
- *     in the throw direction; under-threshold releases snap back to 0.
- *   - The second card (position 1) scales/rises live-bound to the top
- *     card's drag offset via a shared `dragX` MotionValue → derived
- *     `dragMagnitude` (0..1). Position 2 stays at static offsets.
- *   - Tap (single OR double) = like.
+ * Tap-to-advance deck (Instagram-"stacks" style):
+ *   - The top card is TAP-driven, not swipe-driven. Pressing it dips the
+ *     card (scale 0.96 + a light selection haptic); releasing commits:
+ *     the card flies UP-AND-AWAY with a peel tilt while the next card —
+ *     already sitting full-size behind it — is revealed, like flicking a
+ *     card off a real deck. A light impact haptic fires on commit.
+ *   - The fly-off direction alternates each tap (`flyDirRef`) so the deck
+ *     never feels mechanical.
+ *   - Liking is NO LONGER the photo tap. A floating heart button on the
+ *     photo (bottom-right) owns the like and stops propagation so it can
+ *     never advance the deck. A "n / total" counter pill sits top-right.
  *
- * When the last real post is swiped, the stack returns `null` and the
- * parent (`Community.tsx`) renders the EmptyFeed call sheet — no more
- * sentinel sparkle card in the deck. The fade between the stack and
- * the empty state is handled at the page level by AnimatePresence.
+ * When the last real post is tapped away, the stack returns `null` and
+ * the parent (`Community.tsx`) cross-fades to the EmptyFeed call sheet.
  *
- * Smooth transitions:
- *   - Top card rotation = per-post base rotation + drag-relative
- *     rotation, so when a background card is promoted to top its
- *     resting angle stays the same (no rotation jump).
- *   - `dragX.set(0)` only fires AFTER the parent has cleared the
- *     dismissed post, so the position-1 card doesn't snap back to its
- *     background offset before being promoted.
+ * The exit card renders SEPARATELY (`exitingNode`) so the parent's
+ * `dismissedIds` filter can drop the post from `posts` without unmounting
+ * the card mid-flight. The deferred `setExitingPost(null)` + `advance()`
+ * (after EXIT_DURATION_MS) keep `markPostViewed` firing only once the
+ * animation finishes — see Community.tsx `pendingDismissalRef`.
  */
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { animate, motion, useMotionValue, useTransform, useReducedMotion, type PanInfo, type MotionValue } from "motion/react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { motion, useReducedMotion } from "motion/react";
+import { Heart } from "lucide-react";
 import { triggerHaptic } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
 import { RoundedFeedCard } from "./RoundedFeedCard";
+import { preloadAndDecodeImages } from "@/hooks/useImageReady";
 import { EmptyStackState } from "./EmptyStackState";
-import { EmojiReactionBar } from "./EmojiReactionBar";
-import { CommentInputBar } from "./CommentInputBar";
-import { InlineCommentsPreview } from "./InlineCommentsPreview";
 import type { FeedPost, FeedStatus } from "@/hooks/community/useGymFeed";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 const EXIT_DURATION_MS = 280;
 const REDUCED_EXIT_DURATION_MS = 110;
 const PREFETCH_TRIGGER = 5;
+// How many upcoming full-res images to fetch + DECODE ahead of the top
+// card. The deck only shows 3 at once, but decoding 6 deep keeps rapid
+// tapping warm so a promoted card never has to decode on screen.
+const DECODE_AHEAD = 6;
 
-const COMMIT_RATIO = 0.32;
-const COMMIT_VELOCITY = 600;
-const EXIT_DISTANCE_MULT = 1.5;
-const EXIT_TILT_DEG = 14;
-const DRAG_ELASTIC = 0.18;
+// Square deck — the slot matches the photo so the overlays (counter,
+// heart) land on the image corners and the info row sits tight beneath.
+const DECK_W = 312;
+const DECK_H = 312;
 
-const EXIT_SPRING = { type: "spring", stiffness: 420, damping: 34, mass: 0.8 } as const;
-const SNAPBACK_SPRING = { type: "spring", stiffness: 520, damping: 30, mass: 0.7 } as const;
+const FLY_UP_MULT = 1.35; // * DECK_H — up and out the top
+const FLY_SIDE_MULT = 0.18; // * DECK_W — small lateral drift
+const FLY_TILT_DEG = 9; // peel tilt
+const FLY_EASE = [0.32, 0.72, 0, 1] as const;
+
+// Press-down dip — the single biggest "premium" tell for a tap deck.
+const PRESS_SPRING = { type: "spring", stiffness: 700, damping: 30, mass: 1 } as const;
 
 interface PolaroidStackProps {
   posts: FeedPost[];
   status: FeedStatus;
   loadMore: () => void;
-  onIndexChange: (index: number) => void;
+  onIndexChange?: (index: number) => void;
   onOpenProfile: (userId: Id<"users">) => void;
-  onDoubleTapLike: (post: FeedPost) => void;
   onPostClick: () => void;
   topIndex: number;
   advance: () => void;
   onSwipeCommit?: (postId: Id<"session_media">) => void;
-  /**
-   * Optional engagement wiring for the in-deck reaction bar + comment
-   * input. When omitted, the bar/input collapse — handy for surfaces
-   * (story templates, share previews) that re-use the stack visually
-   * without the social affordances. The parent passes a `topPostId`-
-   * agnostic callback set; the stack itself decides which post is the
-   * current `topPost`.
-   */
-  engagement?: {
-    onReact: (postId: Id<"session_media">, key: string) => void;
-    onSubmitComment: (
-      postId: Id<"session_media">,
-      text: string,
-    ) => Promise<void> | void;
-    onSeeAllComments: (
-      postId: Id<"session_media">,
-      count: number,
-    ) => void;
-  };
-}
-
-interface GloveBurst {
-  id: number;
-  x: number;
-  y: number;
+  /** Shared like state (owned by the page) for the floating heart. */
+  liked: boolean;
+  onToggleLike: () => void;
+  likeBurstKey?: number;
+  /** Deck progress for the "n / total" counter pill. `seenCount` is how
+   *  many posts have been dismissed so far; `totalCount` is the full
+   *  (unfiltered) feed length. */
+  seenCount: number;
+  totalCount: number;
 }
 
 export function PolaroidStack({
@@ -92,32 +81,24 @@ export function PolaroidStack({
   loadMore,
   onIndexChange,
   onOpenProfile,
-  onDoubleTapLike,
   onPostClick,
   topIndex,
   advance,
   onSwipeCommit,
-  engagement,
+  liked,
+  onToggleLike,
+  likeBurstKey,
+  seenCount,
+  totalCount,
 }: PolaroidStackProps) {
   const prefersReducedMotion = useReducedMotion();
-  const dragX = useMotionValue(0);
-  const dragMagnitude = useTransform(dragX, (v) => {
-    const vw = window.innerWidth || 375;
-    return Math.min(Math.abs(v) / (vw * COMMIT_RATIO), 1);
-  });
 
   const [exitingPost, setExitingPost] = useState<FeedPost | null>(null);
   const exitDirRef = useRef<1 | -1>(1);
-  const exitVelocityRef = useRef<{ vx: number; vy: number }>({ vx: 0, vy: 0 });
-
-  const [bursts, setBursts] = useState<GloveBurst[]>([]);
-  const burstIdRef = useRef(0);
+  // Alternates each commit so consecutive cards peel off opposite sides.
+  const flyDirRef = useRef<1 | -1>(1);
 
   // ── Visible slice — at most 3 real posts, no sentinel filler ───────
-  // When fewer than 3 remain, we just render fewer cards. The deck no
-  // longer slots an end-of-feed card behind the last post; the parent
-  // (Community.tsx) takes over with the EmptyFeed call sheet once the
-  // last card has flown off.
   const visibleSlots: FeedPost[] = useMemo(() => {
     const slice = posts.slice(topIndex, topIndex + 3);
     if (!exitingPost) return slice;
@@ -128,17 +109,21 @@ export function PolaroidStack({
   const isAtEnd = topPost === undefined;
 
   useEffect(() => {
-    onIndexChange(topIndex);
+    onIndexChange?.(topIndex);
   }, [topIndex, onIndexChange]);
 
-  // Eager preload of the next 3 image URLs so they're warm in cache.
+  // Fetch + DECODE the next DECODE_AHEAD full images so a promoted card is
+  // already paint-ready (no decode hitch / opacity fade on advance). Keyed
+  // off the live deck order + the exiting post, so the window re-decodes
+  // forward on every advance. Goes deeper than `visibleSlots` (3) so rapid
+  // tapping stays ahead of the deck.
   useEffect(() => {
-    visibleSlots.forEach((slot) => {
-      if (!slot.url) return;
-      const img = new Image();
-      img.src = slot.url;
-    });
-  }, [visibleSlots]);
+    const upcoming = posts
+      .slice(topIndex, topIndex + DECODE_AHEAD + 1)
+      .filter((p) => p.id !== exitingPost?.id)
+      .map((p) => p.url);
+    preloadAndDecodeImages(upcoming);
+  }, [posts, topIndex, exitingPost]);
 
   // Pagination trigger — fetch more before we run out.
   useEffect(() => {
@@ -147,143 +132,99 @@ export function PolaroidStack({
     loadMore();
   }, [topIndex, posts.length, status, loadMore]);
 
-  // ── Flick mechanics ────────────────────────────────────────────────
-  const commitFlick = useCallback(
-    (direction: 1 | -1, vx = 0, vy = 0) => {
-      if (!topPost || exitingPost) return;
-      exitDirRef.current = direction;
-      exitVelocityRef.current = { vx, vy };
-      setExitingPost(topPost);
-      onSwipeCommit?.(topPost.id);
-      triggerHaptic(ImpactStyle.Medium);
+  // ── Tap-to-advance ─────────────────────────────────────────────────
+  // Reuses the exit-card mechanism the swipe path used; the only change
+  // is the trigger (tap vs. drag) and the trajectory (up-and-away vs.
+  // horizontal). The commit → onSwipeCommit → advance ordering is
+  // preserved exactly so Community.tsx's deferred markPostViewed is unchanged.
+  const commitAdvance = useCallback(() => {
+    if (!topPost || exitingPost) return;
+    const dir = flyDirRef.current;
+    flyDirRef.current = dir === 1 ? -1 : 1;
+    exitDirRef.current = dir;
+    setExitingPost(topPost);
+    onSwipeCommit?.(topPost.id);
+    triggerHaptic(ImpactStyle.Light);
 
-      const vw = window.innerWidth || 375;
-      // Capture the controls so we can STOP this spring before reset. A
-      // spring has no fixed duration — it keeps driving `dragX` toward the
-      // off-screen target well past `exitMs`. `dragX.set(0)` does NOT cancel
-      // a running animation, so without an explicit `.stop()` the spring
-      // pulls `dragX` back off-screen on the very next frame. The newly-
-      // promoted TopCard binds `style={{ x: dragX }}`, so it then renders
-      // off-screen (blank deck) and the live animation overrides drag input
-      // — the real "next card is blank + unswipeable" bug.
-      const exitControls = animate(dragX, direction * vw * EXIT_DISTANCE_MULT, EXIT_SPRING);
-      const exitMs = prefersReducedMotion ? REDUCED_EXIT_DURATION_MS : EXIT_DURATION_MS;
-      window.setTimeout(() => {
-        // Stop the in-flight spring FIRST, then reset to rest, then unmount
-        // the exit card + advance. Order matters: stop() → set(0) guarantees
-        // the promoted TopCard binds a settled dragX at 0.
-        exitControls.stop();
-        dragX.set(0);
-        setExitingPost(null);
-        advance();
-      }, exitMs);
-    },
-    [topPost, exitingPost, advance, dragX, onSwipeCommit, prefersReducedMotion],
-  );
-
-  const handleDragEnd = useCallback(
-    (_e: unknown, info: PanInfo) => {
-      if (isAtEnd) {
-        animate(dragX, 0, SNAPBACK_SPRING);
-        return;
-      }
-      const dx = info.offset.x;
-      const vx = info.velocity.x;
-      const vy = info.velocity.y;
-      const vw = window.innerWidth || 375;
-      const shouldFlick =
-        Math.abs(dx) > vw * COMMIT_RATIO || Math.abs(vx) > COMMIT_VELOCITY;
-      if (shouldFlick) {
-        commitFlick(dx > 0 ? 1 : -1, vx, vy);
-      } else {
-        animate(dragX, 0, SNAPBACK_SPRING);
-      }
-    },
-    [commitFlick, dragX, isAtEnd],
-  );
-
-  // ── Glove-tap delight ──────────────────────────────────────────────
-  const spawnBurst = useCallback((clientX: number, clientY: number, rect: DOMRect) => {
-    const localX = clientX - rect.left;
-    const localY = clientY - rect.top;
-    const id = ++burstIdRef.current;
-    setBursts((prev) => [...prev, { id, x: localX, y: localY }]);
+    const exitMs = prefersReducedMotion ? REDUCED_EXIT_DURATION_MS : EXIT_DURATION_MS;
     window.setTimeout(() => {
-      setBursts((prev) => prev.filter((b) => b.id !== id));
-    }, 520);
-  }, []);
-
-  const handleCardClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!topPost || exitingPost || isAtEnd) return;
-      const rect = e.currentTarget.getBoundingClientRect();
-      spawnBurst(e.clientX, e.clientY, rect);
-      onDoubleTapLike(topPost);
-    },
-    [topPost, exitingPost, isAtEnd, spawnBurst, onDoubleTapLike],
-  );
+      setExitingPost(null);
+      advance();
+    }, exitMs);
+  }, [topPost, exitingPost, advance, onSwipeCommit, prefersReducedMotion]);
 
   // ── Empty + post-last-card states ──────────────────────────────────
-  // True "no posts at all" → keep the CTA empty state.
   if (posts.length === 0 && !exitingPost) {
     return <EmptyStackState onPostClick={onPostClick} />;
   }
-
-  // After the user has swiped past the last real post and the exit
-  // animation has finished, return null. The parent Community page
-  // detects the empty effectivePosts and cross-fades to EmptyFeed.
   if (isAtEnd && !exitingPost && visibleSlots.length === 0) {
-    return null;
+    // Hold the deck's footprint instead of collapsing to null. The parent
+    // cross-fades this feed branch out while the "all caught up" state fades
+    // in (Community.tsx AnimatePresence); a sudden height collapse here would
+    // make that cross-fade jump. An invisible same-size box keeps it smooth.
+    return <div aria-hidden className="mx-auto" style={{ width: DECK_W, height: DECK_H }} />;
   }
 
-  // ── Exit card (renders separately so the parent's dismissedIds
-  //     filter can drop the post from `posts` without unmounting it) ──
+  // ── Exit card (separate node so dismissedIds can drop the post from
+  //     `posts` without unmounting it mid-flight) ──────────────────────
   const exitingNode = (() => {
     if (!exitingPost) return null;
     const dir = exitDirRef.current;
-    const { vx, vy } = exitVelocityRef.current;
-    const velocityBoost = Math.min(Math.abs(vx) / 1200, 0.4);
-    const exitX = dir * window.innerWidth * (EXIT_DISTANCE_MULT - 0.1 + velocityBoost);
-    const exitY = vy * 0.3;
     const baseRotation = computeRotation(exitingPost.id);
-    const exitRotate = baseRotation + dir * EXIT_TILT_DEG;
+    const dur = (prefersReducedMotion ? REDUCED_EXIT_DURATION_MS : EXIT_DURATION_MS) / 1000;
 
     return (
       <motion.div
         key={exitingPost.id}
         className="absolute inset-0"
-        // `pointer-events-none` blocks the exiting card from intercepting
-        // taps on the newly-visible top card while it's still in mid-flight.
         style={{ zIndex: 40, willChange: "transform, opacity", pointerEvents: "none" }}
-        initial={{ x: dragX.get(), y: 0, rotate: baseRotation, opacity: 1 }}
-        animate={{ x: exitX, y: exitY, rotate: exitRotate, opacity: 0 }}
+        initial={{ x: 0, y: 0, rotate: baseRotation, scale: 0.97, opacity: 1 }}
+        animate={{
+          x: dir * DECK_W * FLY_SIDE_MULT,
+          y: -(DECK_H * FLY_UP_MULT),
+          rotate: baseRotation + dir * FLY_TILT_DEG,
+          scale: 1.04,
+          opacity: 0,
+        }}
         transition={
           prefersReducedMotion
-            ? { duration: REDUCED_EXIT_DURATION_MS / 1000, ease: "linear" }
+            ? { duration: dur, ease: "linear" }
             : {
-                x: EXIT_SPRING,
-                y: EXIT_SPRING,
-                rotate: EXIT_SPRING,
-                opacity: { delay: 0.16, duration: 0.18, ease: "easeIn" },
+                x: { duration: dur, ease: FLY_EASE },
+                y: { duration: dur, ease: FLY_EASE },
+                rotate: { duration: dur, ease: FLY_EASE },
+                scale: { duration: dur, ease: FLY_EASE },
+                opacity: { delay: 0.14, duration: 0.16, ease: "easeIn" },
               }
         }
       >
-        <RoundedFeedCard post={exitingPost} stackPosition={0} isTop rotationDeg={baseRotation} />
+        <RoundedFeedCard post={exitingPost} stackPosition={0} isTop rotationDeg={baseRotation} hideCaption />
       </motion.div>
     );
   })();
 
+  const counterLabel =
+    totalCount > 0 ? `${Math.min(seenCount + 1, totalCount)} / ${totalCount}` : null;
+
   return (
     <div className="flex flex-col">
-      <div key="deck" className="relative mx-auto" style={{ width: 312, height: 396 }}>
+      {/* Deck drop-in — plays once (the container persists across taps). */}
+      <motion.div
+        key="deck"
+        className="relative mx-auto"
+        style={{ width: DECK_W, height: DECK_H }}
+        initial={prefersReducedMotion ? false : { opacity: 0, scale: 1.08, y: -28, rotate: -3 }}
+        animate={{ opacity: 1, scale: 1, y: 0, rotate: 0 }}
+        transition={
+          prefersReducedMotion
+            ? { duration: 0 }
+            : { type: "spring", stiffness: 360, damping: 24, mass: 0.9 }
+        }
+      >
         {exitingNode}
 
         {visibleSlots.map((post, idx) => {
           const stackPos = idx as 0 | 1 | 2;
-          // If a card is mid-flight, the new slot[0] is the NEXT post.
-          // We render it as a non-interactive background card until the
-          // exit animation completes so it doesn't catch taps for a card
-          // that's about to land on it.
           const isTop = idx === 0 && !exitingPost;
           const rotationDeg = computeRotation(post.id);
 
@@ -293,11 +234,13 @@ export function PolaroidStack({
                 key={post.id}
                 post={post}
                 rotationDeg={rotationDeg}
-                dragX={dragX}
-                onDragEnd={handleDragEnd}
-                onClick={handleCardClick}
+                onAdvance={commitAdvance}
                 onAuthorLongPress={() => onOpenProfile(post.author.userId)}
-                bursts={bursts}
+                prefersReducedMotion={!!prefersReducedMotion}
+                liked={liked}
+                onToggleLike={onToggleLike}
+                likeBurstKey={likeBurstKey}
+                counterLabel={counterLabel}
               />
             );
           }
@@ -309,101 +252,66 @@ export function PolaroidStack({
               stackPosition={stackPos}
               isTop={false}
               rotationDeg={rotationDeg}
-              progress={stackPos === 1 ? dragMagnitude : undefined}
             />
           );
         })}
-      </div>
-
-      {/* Engagement section — sits OUTSIDE the draggable card container
-          so its taps never compete with the swipe gesture. Only renders
-          when:
-            - the parent wired the `engagement` callback set, AND
-            - there's a real top post (not mid-exit, not empty deck).
-          We key on `topPost.id` so the comment input + bar reset cleanly
-          when a card is swiped and the next post is promoted to top. */}
-      {engagement && topPost && !exitingPost && (
-        // Soft fade-in keyed to the top post so the reactions + comment row
-        // glides in with the promoted card instead of hard-popping.
-        <motion.div
-          key={topPost.id}
-          initial={{ opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.22, ease: "easeOut" }}
-          className="mt-3 space-y-2 px-2 flex-shrink-0"
-        >
-          <EmojiReactionBar
-            reactionCounts={topPost.reactionCounts ?? {}}
-            viewerReactions={topPost.viewerReactions ?? []}
-            onReact={(key) => engagement.onReact(topPost.id, key)}
-          />
-          <InlineCommentsPreview
-            comments={[]}
-            totalCount={topPost.commentCount}
-            onSeeAll={() =>
-              engagement.onSeeAllComments(topPost.id, topPost.commentCount)
-            }
-          />
-          <CommentInputBar
-            onSubmit={(text) => engagement.onSubmitComment(topPost.id, text)}
-          />
-        </motion.div>
-      )}
+      </motion.div>
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// TopCard — extracted so we can run a per-post `useTransform` that
-// folds the deterministic base rotation into the drag-driven rotation.
-// Without this composition the rotation snaps from `rotationDeg`
-// (background state) to `0` (drag-derived) at the moment a card is
-// promoted to top, which read as a jitter on every advance.
+// TopCard — tap-driven. Press dips it (scale 0.96); a tap commits the
+// advance. The counter + floating heart are overlaid here (rather than
+// inside the memoized RoundedFeedCard) so the heart's liked state can
+// re-render freely without touching the shared photo component.
 // ─────────────────────────────────────────────────────────────────────
 
 function TopCard({
   post,
   rotationDeg,
-  dragX,
-  onDragEnd,
-  onClick,
+  onAdvance,
   onAuthorLongPress,
-  bursts,
+  prefersReducedMotion,
+  liked,
+  onToggleLike,
+  likeBurstKey,
+  counterLabel,
 }: {
   post: FeedPost;
   rotationDeg: number;
-  dragX: MotionValue<number>;
-  onDragEnd: (e: unknown, info: PanInfo) => void;
-  onClick: (e: React.MouseEvent<HTMLDivElement>) => void;
+  onAdvance: () => void;
   onAuthorLongPress: () => void;
-  bursts: GloveBurst[];
+  prefersReducedMotion: boolean;
+  liked: boolean;
+  onToggleLike: () => void;
+  likeBurstKey?: number;
+  counterLabel: string | null;
 }) {
-  // Drag rotation tilts ±18° around the per-post base rotation. At rest
-  // (dragX=0) the value equals `rotationDeg`, matching the background
-  // card's resting angle — so promoting a card from position 1 → 0 is
-  // visually continuous.
-  const rotate = useTransform(
-    dragX,
-    [-200, 0, 200],
-    [rotationDeg - 18, rotationDeg, rotationDeg + 18],
-  );
+  const [pressed, setPressed] = useState(false);
+
+  // Visual dip only — no haptic here. A press that commits an advance
+  // already fires a Light impact in commitAdvance, so every actual tap
+  // gives feedback; firing on pointerdown too would buzz on every scroll
+  // that happens to start on the photo.
+  const handlePointerDown = () => setPressed(true);
+  const release = () => setPressed(false);
 
   return (
     <motion.div
       className="absolute inset-0"
       style={{
-        x: dragX,
-        rotate,
+        rotate: rotationDeg,
         zIndex: 30,
-        willChange: "transform, opacity",
-        touchAction: "pan-y pinch-zoom",
+        willChange: "transform",
+        touchAction: "manipulation",
       }}
-      drag="x"
-      dragDirectionLock
-      dragElastic={DRAG_ELASTIC}
-      dragMomentum={false}
-      onDragEnd={onDragEnd}
-      onClick={onClick}
+      animate={{ scale: pressed && !prefersReducedMotion ? 0.96 : 1 }}
+      transition={PRESS_SPRING}
+      onPointerDown={handlePointerDown}
+      onPointerUp={release}
+      onPointerLeave={release}
+      onClick={onAdvance}
     >
       <RoundedFeedCard
         post={post}
@@ -411,61 +319,56 @@ function TopCard({
         isTop
         rotationDeg={rotationDeg}
         onAuthorLongPress={onAuthorLongPress}
+        hideCaption
       />
 
-      {bursts.map((b) => (
-        <GloveBurst key={b.id} x={b.x} y={b.y} />
-      ))}
+      {/* Caption — rendered here (not on the gradient) so it never sits
+          under the heart button. Bottom-left, clears the heart's width. */}
+      {post.caption && (
+        <p className="pointer-events-none absolute bottom-3 left-3 right-16 z-[3] text-[13px] font-medium leading-snug text-white line-clamp-2 drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]">
+          {post.caption}
+        </p>
+      )}
+
+      {/* Counter pill — top-right. */}
+      {counterLabel && (
+        <div className="pointer-events-none absolute top-3 right-3 z-[3] rounded-full border border-white/15 bg-black/40 px-2.5 py-1 text-[11px] font-bold tracking-wide text-white backdrop-blur-md">
+          {counterLabel}
+        </div>
+      )}
+
+      {/* Floating heart — bottom-right. stopPropagation so it never advances. */}
+      <button
+        type="button"
+        aria-label={liked ? "Unlike post" : "Like post"}
+        aria-pressed={liked}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleLike();
+        }}
+        className="absolute bottom-3 right-3 z-[5] flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-black/35 backdrop-blur-md transition-transform active:scale-90"
+      >
+        <Heart
+          className={`h-6 w-6 transition-colors ${liked ? "fill-func-danger-red text-func-danger-red" : "text-white"}`}
+          strokeWidth={2.2}
+        />
+        {likeBurstKey !== undefined && likeBurstKey > 0 && (
+          <motion.span
+            key={likeBurstKey}
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 flex items-center justify-center"
+            initial={{ scale: 0.6, opacity: 0.9 }}
+            animate={{ scale: 1.9, opacity: 0 }}
+            transition={{ duration: 0.5, ease: FLY_EASE }}
+          >
+            <Heart className="h-6 w-6 fill-func-danger-red/40 text-func-danger-red/40" strokeWidth={0} />
+          </motion.span>
+        )}
+      </button>
     </motion.div>
   );
 }
-
-/* ─── Glove-tap burst ─── */
-
-const BoxingGloveSvg = memo(function BoxingGloveSvg({ size }: { size: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 64 64"
-      fill="none"
-      aria-hidden="true"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M14 22c0-7.18 5.82-13 13-13h6c7.73 0 14 6.27 14 14v9c0 9.94-8.06 18-18 18h-2c-7.18 0-13-5.82-13-13V22z"
-        fill="#DC2626"
-      />
-      <path
-        d="M12 26c0-3.31 2.69-6 6-6h2v12h-2c-3.31 0-6-2.69-6-6z"
-        fill="#B91C1C"
-      />
-      <rect x="16" y="48" width="28" height="8" rx="2" fill="#7F1D1D" />
-      <path
-        d="M22 24c2.5-2 6-3 10-3"
-        stroke="#FCA5A5"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        opacity="0.6"
-      />
-    </svg>
-  );
-});
-
-const GloveBurst = memo(function GloveBurst({ x, y }: { x: number; y: number }) {
-  return (
-    <motion.div
-      aria-hidden="true"
-      className="pointer-events-none absolute select-none"
-      style={{ left: x, top: y, translateX: "-50%", translateY: "-50%" }}
-      initial={{ scale: 0.6, rotate: 0, opacity: 1 }}
-      animate={{ scale: 1.4, rotate: 12, opacity: 0 }}
-      transition={{ duration: 0.48, ease: [0.32, 0.72, 0, 1] }}
-    >
-      <BoxingGloveSvg size={64} />
-    </motion.div>
-  );
-});
 
 /* ─── Deterministic per-card rotation ─── */
 

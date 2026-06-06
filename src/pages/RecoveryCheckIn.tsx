@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
@@ -37,13 +37,18 @@ export default function RecoveryCheckIn() {
   );
   const alreadyCheckedIn = Array.isArray(todayRows) && todayRows.length > 0;
 
-  // If we know definitively that today's check-in already exists, bounce
-  // to the dashboard. The mutation is idempotent (upsert), so this is a
-  // UX nicety rather than a data-integrity requirement.
+  // Bounce-on-arrival only: if today's check-in ALREADY existed when the page
+  // first loaded, send the user on. This decision is made exactly once (when
+  // the query + subscription first resolve) — NOT reactively. Otherwise the
+  // reactive `listCheckins` update that fires right after a fresh submit would
+  // unmount the survey before its result screen can show.
+  const bounceDecidedRef = useRef(false);
   useEffect(() => {
-    if (alreadyCheckedIn && isSubscriptionResolved)
-      navigate(afterCheckInRoute, { replace: true });
-  }, [alreadyCheckedIn, isSubscriptionResolved, afterCheckInRoute, navigate]);
+    if (bounceDecidedRef.current) return;
+    if (!isSubscriptionResolved || todayRows === undefined) return; // wait for data
+    bounceDecidedRef.current = true;
+    if (alreadyCheckedIn) navigate(afterCheckInRoute, { replace: true });
+  }, [todayRows, alreadyCheckedIn, isSubscriptionResolved, afterCheckInRoute, navigate]);
 
   if (!userId) return <Navigate to="/" replace />;
 
@@ -66,10 +71,9 @@ export default function RecoveryCheckIn() {
             type="button"
             onClick={handleBack}
             aria-label="Back"
-            className="-ml-1 inline-flex items-center gap-1.5 h-11 px-3 rounded-full bg-muted/40 hover:bg-muted/60 active:bg-muted/70 text-foreground text-[14px] font-semibold transition-colors"
+            className="-ml-2 inline-flex items-center justify-center h-11 w-11 text-foreground active:opacity-60 transition-opacity"
           >
-            <Icon name="chevronBackOutline" size={20} aria-label="Back" />
-            Back
+            <Icon name="chevronBackOutline" size={24} aria-label="Back" />
           </button>
         </div>
         <div className="flex-1 flex flex-col justify-center">

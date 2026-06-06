@@ -1,5 +1,5 @@
 import { Icon, type IonIconName } from "@/components/ui/Icon";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { ProfilePictureUpload } from "@/components/ProfilePictureUpload";
@@ -9,6 +9,7 @@ import { getSettings, saveSettings, scheduleReminder, cancelReminder, type Remin
 import { useSubscription } from "@/hooks/useSubscription";
 import { restorePurchases, isPremiumFromCustomerInfo, presentCustomerCenter } from "@/lib/purchases";
 import { PremiumBadge } from "@/components/subscription/PremiumBadge";
+import { ShimmerCrownBadge } from "@/components/subscription/ShimmerCrownBadge";
 import { useProfile } from "@/contexts/UserContext";
 import { useToast as useToastSub } from "@/hooks/use-toast";
 
@@ -36,7 +37,7 @@ function Section({
           {header}
         </p>
       )}
-      <div className="rounded-2xl bg-muted/15 overflow-hidden divide-y divide-border/25">
+      <div className="rounded-2xl card-surface overflow-hidden divide-y divide-border/30">
         {children}
       </div>
       {footer && (
@@ -48,24 +49,17 @@ function Section({
   );
 }
 
+// `color` is retained on the row API so call sites don't change, but icons no
+// longer sit on coloured tiles — they render as plain glyphs. Everything is
+// white except the destructive "red" action (Delete Account), which stays red.
 type TileColor =
   | "brand" | "indigo" | "orange" | "red";
 
-// Brand tile = the WeightCut Wizard primary blue (HSL 217 91% 53%, ≈ #2161F1).
-// Used for nearly every settings icon so the page reads as one product, with
-// the only exceptions being Dark Mode (indigo / orange depending on theme)
-// and Delete Account (destructive red).
-const TILE_BG: Record<TileColor, string> = {
-  brand:  "bg-primary",
-  indigo: "bg-[#5E5CE6]",   // iOS systemIndigo — Dark Mode (dark)
-  orange: "bg-[#FF9F0A]",   // iOS systemOrange — Dark Mode (light)
-  red:    "bg-[#FF453A]",   // iOS systemRed   — Delete Account
-};
-
 function IconTile({ name, color, glyphClass }: { name: IonIconName; color: TileColor; glyphClass?: string }) {
+  const tone = color === "red" ? "text-destructive" : "text-foreground";
   return (
-    <span className={`flex h-7 w-7 items-center justify-center rounded-[7px] shrink-0 ${TILE_BG[color]} ${glyphClass ?? "text-white"}`}>
-      <Icon name={name} size={16} />
+    <span className={`flex h-7 w-7 items-center justify-center shrink-0 ${glyphClass ?? tone}`}>
+      <Icon name={name} size={20} />
     </span>
   );
 }
@@ -194,11 +188,9 @@ function SubscriptionSection() {
         onClick={openPaywall}
         className="mt-5 w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-transform active:scale-[0.99] bg-gradient-to-br from-primary/25 via-primary/10 to-primary/[0.04] ring-1 ring-primary/40 shadow-[0_0_28px_-4px_rgba(33,97,241,0.55),inset_0_0_24px_-8px_rgba(33,97,241,0.45)]"
       >
-        <span className="flex h-9 w-9 items-center justify-center rounded-[9px] shrink-0 bg-primary text-white shadow-[0_0_16px_-2px_rgba(33,97,241,0.7)]">
-          <Icon name="flashOutline" size={18} />
-        </span>
+        <ShimmerCrownBadge size={38} />
         <div className="flex-1 min-w-0">
-          <p className="text-[15px] font-semibold text-foreground">Upgrade to Premium</p>
+          <p className="text-[15px] font-semibold text-foreground">Upgrade to Pro</p>
           <p className="text-[12.5px] text-foreground/70 leading-tight mt-0.5">
             Unlimited AI · Advanced insights
           </p>
@@ -215,45 +207,6 @@ function SubscriptionSection() {
         />
       </Section>
     </>
-  );
-}
-
-/* ────────────────────────────────────────────────────────────────────
- * Cut/Weight plan link — only renders when a plan exists locally.
- * ──────────────────────────────────────────────────────────────────── */
-
-function PlanLinkSection({ onClose }: { onClose: () => void }) {
-  const navigate = useNavigate();
-  const raw = typeof window !== "undefined" ? window.localStorage.getItem("wcw_cut_plan") : null;
-  if (!raw) return null;
-
-  let planType: "weight_loss" | "weight_cut" = "weight_cut";
-  let summary = "";
-  try {
-    const parsed = JSON.parse(raw);
-    if (parsed?.planType === "weight_loss") planType = "weight_loss";
-    if (parsed?.totalWeeks && parsed?.weeklyLossTarget) {
-      summary = `${parsed.totalWeeks} weeks · ${parsed.weeklyLossTarget}`;
-    }
-  } catch {
-    // Malformed payload — still surface the row.
-  }
-
-  const route = planType === "weight_loss" ? "/weight-plan" : "/cut-plan";
-  const label = planType === "weight_loss" ? "View Weight Loss Plan" : "View Cut Plan";
-
-  return (
-    <Section header="Your Plan">
-      <Row
-        icon={{ name: "trendingDownOutline", color: "brand" }}
-        label={label}
-        sublabel={summary || undefined}
-        onClick={() => {
-          onClose();
-          setTimeout(() => navigate(route), 50);
-        }}
-      />
-    </Section>
   );
 }
 
@@ -334,7 +287,7 @@ export function SettingsPanel({
         onClick={onClose}
       />
       <div
-        className="fixed inset-x-0 bottom-0 z-[10002] bg-black border-0 rounded-t-2xl animate-in slide-in-from-bottom duration-300 flex flex-col"
+        className="fixed inset-x-0 bottom-0 z-[10002] bg-background border-0 rounded-t-2xl animate-in slide-in-from-bottom duration-300 flex flex-col"
         style={{ maxHeight: "92dvh" }}
       >
         {/* Drag handle */}
@@ -382,8 +335,6 @@ export function SettingsPanel({
           </div>
 
           <SubscriptionSection />
-
-          <PlanLinkSection onClose={onClose} />
 
           {/* Preferences */}
           <Section header="Preferences">

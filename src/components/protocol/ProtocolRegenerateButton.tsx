@@ -1,5 +1,5 @@
 // WP-T18 — ProtocolRegenerateButton
-// Inline "Regenerate protocol" control with a daily-cap chip and confirm
+// Inline "Regenerate protocol" control with a daily-cap counter and confirm
 // flow. Used at the bottom of the Weight Protocol screen so a fighter can
 // ask the AI for a fresh plan without leaving the page.
 //
@@ -11,6 +11,9 @@
 //   - When `usedToday >= limit` the button is disabled with an
 //     accessible "Daily limit reached" label so the user still understands
 //     why the action is unavailable.
+//   - The counter reads as REMAINING regenerations ("1 of 1 daily
+//     regeneration left") with an info popover explaining when most fighters
+//     actually need this.
 import { useState } from "react";
 import {
   Popover,
@@ -36,8 +39,14 @@ export function ProtocolRegenerateButton({
   className = "",
 }: ProtocolRegenerateButtonProps) {
   const [open, setOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
   const atLimit = usedToday >= limit;
   const disabled = isLoading || atLimit;
+
+  const remaining = Math.max(0, limit - usedToday);
+  const counterText = `${remaining} of ${limit} daily regeneration${
+    limit === 1 ? "" : "s"
+  } left`;
 
   const buttonLabel = isLoading ? "Regenerating..." : "Regenerate protocol";
   const ariaLabel = atLimit
@@ -54,9 +63,7 @@ export function ProtocolRegenerateButton({
   };
 
   return (
-    <div
-      className={`flex items-center justify-between gap-3 ${className}`.trim()}
-    >
+    <div className={`flex flex-col gap-2 ${className}`.trim()}>
       <Popover
         open={open}
         onOpenChange={(next) => {
@@ -74,20 +81,22 @@ export function ProtocolRegenerateButton({
             aria-label={ariaLabel}
             aria-disabled={disabled}
             title={atLimit ? "Daily limit reached" : undefined}
-            className={`inline-flex items-center gap-1.5 rounded-full border border-border/40 px-3 py-1.5 text-[13px] text-foreground transition-opacity active:opacity-70 ${
-              disabled ? "opacity-50 cursor-not-allowed" : ""
+            className={`flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-[15px] font-medium transition-transform active:scale-[0.98] ${
+              disabled
+                ? "border-border/40 bg-muted/30 text-muted-foreground cursor-not-allowed"
+                : "border-border/60 bg-card text-foreground"
             }`}
           >
             <Icon
               name={isLoading ? "syncOutline" : "refreshOutline"}
-              size={14}
+              size={16}
               className={isLoading ? "animate-spin" : ""}
             />
             <span>{buttonLabel}</span>
           </button>
         </PopoverTrigger>
         <PopoverContent
-          align="start"
+          align="center"
           sideOffset={8}
           className="w-64 p-3 text-[13px]"
         >
@@ -113,15 +122,42 @@ export function ProtocolRegenerateButton({
         </PopoverContent>
       </Popover>
 
-      <span
-        className="inline-flex items-center gap-1 text-[12px] text-muted-foreground tabular-nums"
-        aria-label={`${usedToday} of ${limit} daily AI calls used`}
-      >
-        <span aria-hidden>✦</span>
-        <span>
-          {usedToday} of {limit} daily AI calls used
+      <div className="flex items-center justify-center gap-1.5">
+        <span
+          className="inline-flex items-center gap-1 text-[12px] text-muted-foreground tabular-nums"
+          aria-label={counterText}
+        >
+          <span aria-hidden>✦</span>
+          <span>{counterText}</span>
         </span>
-      </span>
+
+        <Popover open={infoOpen} onOpenChange={setInfoOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              aria-label="About daily regenerations"
+              className="inline-flex items-center text-muted-foreground transition-opacity active:opacity-70"
+            >
+              <Icon name="informationCircleOutline" size={14} />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="center"
+            sideOffset={8}
+            className="w-64 p-3 text-[13px] text-muted-foreground"
+          >
+            You get 1 plan regeneration per day. Most fighters only need this in
+            the final week before weigh-in — when your weight and weigh-in
+            timing are locked in.
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      {!isLoading && (
+        <p className="text-center text-[11px] text-muted-foreground/80">
+          Tip: most fighters generate this in the final week before weigh-in.
+        </p>
+      )}
     </div>
   );
 }

@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/UserContext";
 import { routeAfterAuth } from "@/lib/roleRouter";
 import { mapAuthError, isAppleCancelError } from "@/lib/authErrors";
-import wizardLogo from "@/assets/wizard-logo.webp";
+import wizardLogo from "@/assets/wizard-logo-3d.png";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ChevronLeft, Mail, Lock, Eye, EyeOff, Swords } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
@@ -370,7 +370,7 @@ export default function Auth() {
               <img
                 src={wizardLogo}
                 alt="FightCamp Wizard"
-                className="relative h-16 w-16 object-contain rounded-xs ring-2 ring-primary/60"
+                className="relative h-16 w-16 object-cover rounded-2xl ring-2 ring-primary/60"
               />
               <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-primary ring-2 ring-background">
                 <Swords className="h-3.5 w-3.5 text-primary-foreground" strokeWidth={2.5} />

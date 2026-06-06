@@ -7,16 +7,65 @@ export interface ProgressSection {
 }
 
 export const ONBOARDING_SECTIONS: ProgressSection[] = [
-  { id: "welcome", label: "Welcome", stepIds: ["welcome"] },
-  { id: "dashboard", label: "Dashboard", stepIds: ["dashboard-overview"] },
-  { id: "score", label: "Score", stepIds: ["score-number", "score-labels", "score-components", "score-phases", "score-ceilings", "score-daily-use"] },
-  { id: "nutrition", label: "Nutrition", stepIds: ["nutrition-page", "nutrition-features"] },
-  { id: "weight", label: "Weight", stepIds: ["weight-tracker-page"] },
-  { id: "cut", label: "Cut", stepIds: ["fight-week-page", "rehydration-page"] },
-  { id: "camps", label: "Camps", stepIds: ["fight-camps-page", "training-calendar-page"] },
-  { id: "recovery", label: "Recovery", stepIds: ["recovery-page", "sleep-page"] },
-  { id: "corner", label: "Corner", stepIds: ["your-corner", "feed-view-once"] },
-  { id: "sendoff", label: "Wrap", stepIds: ["quick-tips", "pro-features", "all-done"] },
+  {
+    id: "home",
+    label: "Home",
+    stepIds: [
+      "welcome",
+      "home-overview",
+      "ring-intro",
+      "today-strip-intro",
+      "today-weight",
+      "today-sleep",
+      "today-wellness",
+      "home-stats",
+    ],
+  },
+  {
+    id: "camp",
+    label: "Camp",
+    stepIds: [
+      "camp-intro",
+      "camp-full-plan",
+      "camp-gym-tracker",
+      "camp-gym-page",
+      "camp-training-calendar",
+      "camp-training-calendar-page",
+      "camp-recent-activity",
+      "camp-weight-protocol-tile",
+      "camp-fight-protocol",
+    ],
+  },
+  {
+    id: "community",
+    label: "Community",
+    stepIds: ["community-intro", "community-photos", "community-details"],
+  },
+  {
+    id: "nutrition",
+    label: "Nutrition",
+    stepIds: [
+      "nutrition-intro",
+      "nutrition-snap-meal",
+      "nutrition-daily-wisdom",
+      "nutrition-meal-plan",
+    ],
+  },
+  {
+    id: "chat",
+    label: "Chat",
+    stepIds: ["chat-intro", "chat-suggestions"],
+  },
+  {
+    id: "profile",
+    label: "Profile",
+    stepIds: ["profile-tap", "profile-intro"],
+  },
+  {
+    id: "handoff",
+    label: "Done",
+    stepIds: ["camera-intro", "camera-log", "all-done"],
+  },
 ];
 
 export function computeSegmentFills(

@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { CheckCircle, Sparkles, ChevronRight } from "lucide-react";
-import { ProGate } from "@/components/subscription/ProGate";
+import { CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
@@ -28,6 +27,7 @@ import { useNutritionPageEffects } from "@/hooks/nutrition/useNutritionPageEffec
 import { NutritionHero } from "./NutritionHero";
 import { MealSections } from "./MealSections";
 import { MealIdeasSection } from "./MealIdeasSection";
+import { DietAnalysisCta } from "@/components/nutrition/DietAnalysisCta";
 import { TrainingWisdomSheet } from "./TrainingWisdomSheet";
 import { EmptyMealsBanner } from "./EmptyMealsBanner";
 import { AiTaskBanner } from "./AiTaskBanner";
@@ -429,23 +429,27 @@ export default function NutritionPage() {
           </div>
         )}
 
-        <MealSections
-          mealsLoading={nutritionData.mealsLoading}
-          meals={meals}
-          quickActions={quickActions}
-          aiMealHandlers={{ handleBarcodeScanned: handleBarcodeLogged }}
-          generatingPlan={mealPlan.generatingPlan}
-          savingAllMeals={mealOps.savingAllMeals}
-          onDeleteMeal={handleDeleteMeal}
-          onOpenFoodSearch={openFoodSearch}
-          onOpenQuickAdd={openQuickAdd}
-          onOpenManualAdd={openManualAdd}
-          onOpenFavorites={
-            quickActions.favorites && quickActions.favorites.length > 0
-              ? () => toggleFavoritesCollapsed("favorites")
-              : undefined
-          }
-        />
+        {/* Extra top padding so the Today's tip card breathes above the
+            Snap / Search / Barcode action row. */}
+        <div className="pt-3">
+          <MealSections
+            mealsLoading={nutritionData.mealsLoading}
+            meals={meals}
+            quickActions={quickActions}
+            aiMealHandlers={{ handleBarcodeScanned: handleBarcodeLogged }}
+            generatingPlan={mealPlan.generatingPlan}
+            savingAllMeals={mealOps.savingAllMeals}
+            onDeleteMeal={handleDeleteMeal}
+            onOpenFoodSearch={openFoodSearch}
+            onOpenQuickAdd={openQuickAdd}
+            onOpenManualAdd={openManualAdd}
+            onOpenFavorites={
+              quickActions.favorites && quickActions.favorites.length > 0
+                ? () => toggleFavoritesCollapsed("favorites")
+                : undefined
+            }
+          />
+        </div>
 
         <FavoritesSheet
           favorites={quickActions.favorites}
@@ -478,26 +482,13 @@ export default function NutritionPage() {
                 }}
               />
             </Suspense>
-          ) : meals.length > 0 ? (
-            <ProGate feature="AI_DIET_ANALYSIS" className="w-full">
-              <button
-                onClick={() => dietAnalysisHook.handleAnalyseDiet()}
-                disabled={nutritionData.dietAnalysisLoading}
-                className="card-surface w-full p-4 flex items-center gap-3 active:scale-[0.98] transition-transform rounded-2xl text-left"
-              >
-                <span className="h-10 w-10 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
-                  <Sparkles className="h-5 w-5 text-primary" />
-                </span>
-                <span className="flex-1 min-w-0">
-                  <span className="block text-[14px] font-semibold text-foreground">Analyse my day</span>
-                  <span className="block text-[12px] text-muted-foreground/80 leading-snug">
-                    Your protein g/kg and micronutrient gaps for today
-                  </span>
-                </span>
-                <ChevronRight className="h-4 w-4 text-muted-foreground/50 shrink-0" />
-              </button>
-            </ProGate>
-          ) : null}
+          ) : (
+            <DietAnalysisCta
+              hasMeals={meals.length > 0}
+              loading={nutritionData.dietAnalysisLoading}
+              onAnalyse={() => dietAnalysisHook.handleAnalyseDiet()}
+            />
+          )}
         </div>
 
         <MealIdeasSection
@@ -538,6 +529,7 @@ export default function NutritionPage() {
           savingAllMeals={mealOps.savingAllMeals}
           savingMeal={mealOps.savingMeal}
           onAddManualMeal={handleAddManualMeal}
+          onSaveManualMeal={mealOps.saveMealToDb}
           aiTask={aiTask ?? null}
           onCancelAi={cancelAI}
           onDismissTask={dismissTask}

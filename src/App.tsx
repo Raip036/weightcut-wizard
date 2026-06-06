@@ -12,7 +12,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ProfileCompletionGuard } from "@/components/ProfileCompletionGuard";
 import { UserProvider } from "@/contexts/UserContext";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
-import { WizardBackgroundProvider } from "@/contexts/WizardBackgroundContext";
+import { FightCampCoachProvider } from "@/contexts/FightCampCoachContext";
 import { AITaskProvider } from "@/contexts/AITaskContext";
 import { PaywallOverlay } from "@/components/subscription/PaywallOverlay";
 import { WelcomeProOverlay } from "@/components/subscription/WelcomeProOverlay";
@@ -131,7 +131,8 @@ function RouteTracker() {
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
       StatusBar.setStyle({ style: Style.Dark });
-      document.documentElement.classList.add("native-app");
+      // `.native-app` class is now added synchronously in main.tsx (before first
+      // paint) so the iOS CSS overrides fire on the first frame — see main.tsx.
     }
   }, []);
 
@@ -334,7 +335,7 @@ const App = () => (
         <UserProvider>
           <SubscriptionProvider>
           <AITaskProvider>
-          <WizardBackgroundProvider>
+          <FightCampCoachProvider>
             <Toaster />
             <Sonner />
             <PaywallOverlay />
@@ -452,7 +453,7 @@ const App = () => (
               </TutorialProvider>
               </NavigationDirectionProvider>
             </BrowserRouter>
-          </WizardBackgroundProvider>
+          </FightCampCoachProvider>
           </AITaskProvider>
           </SubscriptionProvider>
         </UserProvider>

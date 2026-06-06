@@ -25,19 +25,12 @@ import { requireUserIdFromAction } from "../_helpers";
 import { enforceFeatureGate } from "../../_shared/featureGates";
 import { parseJSON } from "../../_shared/parseResponse";
 
-// Per-provider model pick. Recovery features get OpenRouter models directly
-// (not via the shared OPENROUTER_MODEL_MAP) so other features keep their
-// current routing. Falls back to the canonical Groq model when LLM_PROVIDER
-// is not openrouter.
-//   - Pre-session brief → DeepSeek V3.5 (strong structured-output, ~5x
-//     cheaper than Haiku 4.5). Latency is slightly higher than Haiku
-//     (~1-2s vs ~500ms); acceptable for this surface since the user is
-//     not blocked waiting.
-//     Verify the exact OpenRouter model ID before deploy.
-const MODEL =
-  (typeof process !== "undefined" && process.env?.LLM_PROVIDER?.toLowerCase() === "openrouter")
-    ? "deepseek/deepseek-chat"
-    : "llama-3.1-8b-instant";
+// gpt-oss-120b on both providers; on OpenRouter we pin the call to Cerebras
+// via CEREBRAS_ROUTING for its very high throughput. reasoning_effort "low"
+// (set at the call site) keeps this terse verdict fast — the user isn't
+// blocked waiting on it.
+const MODEL = "openai/gpt-oss-120b" as const;
+const CEREBRAS_ROUTING = { order: ["cerebras"], allow_fallbacks: true };
 const GROQ_TIMEOUT_MS = 12_000;
 
 export type GreenLightVerdict = "go" | "modify" | "bail";
@@ -103,8 +96,12 @@ export const generateBrief = action({
       ],
       response_format: { type: "json_object" },
       temperature: 0.4,
-      max_tokens: 220,
+      // Bumped from 220 to leave headroom for gpt-oss-120b's hidden
+      // reasoning tokens (minimised by reasoning_effort "low").
+      max_tokens: 512,
+      reasoning_effort: "low",
       timeoutMs: GROQ_TIMEOUT_MS,
+      providerRouting: CEREBRAS_ROUTING,
     });
 
     const rawContent = response.choices?.[0]?.message?.content;

@@ -1,5 +1,6 @@
 import { motion, useReducedMotion } from "motion/react";
 import orbImage from "@/assets/orb.png";
+import { isNativePlatform } from "@/hooks/useIsNative";
 
 export type OrbState = "idle" | "listening" | "thinking";
 
@@ -57,7 +58,12 @@ export function Orb({ size, state = "idle", className, muted = false }: OrbProps
           borderRadius: "50%",
           background:
             "radial-gradient(circle, hsl(var(--primary) / 0.85) 0%, hsl(var(--primary) / 0.25) 35%, transparent 70%)",
-          filter: `blur(${Math.max(6, size * 0.18)}px)`,
+          // The orb FAB is mounted on every screen and breathes forever. On iOS,
+          // animating opacity/scale on a `filter: blur()` layer re-rasterizes the
+          // blur each frame — a constant background cost. The gradient already
+          // fades to transparent, so drop the blur on native (softer falloff is
+          // visually close); web keeps the true blur.
+          filter: isNativePlatform ? undefined : `blur(${Math.max(6, size * 0.18)}px)`,
         }}
         animate={
           prefersReduced
@@ -108,9 +114,14 @@ export function Orb({ size, state = "idle", className, muted = false }: OrbProps
           position: "relative",
           zIndex: 1,
           userSelect: "none",
+          // Static drop-shadow still forces a re-raster of the filtered bitmap
+          // each frame while the orb scale/opacity-breathes on iOS. Drop it on
+          // native (the orb art carries its own glow); web keeps it.
           filter: muted
             ? "grayscale(0.7) brightness(0.7)"
-            : "drop-shadow(0 0 10px hsl(var(--primary) / 0.45))",
+            : isNativePlatform
+              ? undefined
+              : "drop-shadow(0 0 10px hsl(var(--primary) / 0.45))",
         }}
         animate={
           prefersReduced || state === "thinking"

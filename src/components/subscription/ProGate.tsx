@@ -81,9 +81,9 @@ export function ProGate({
       {/* Replacement CTA: a clean "Upgrade to Pro" button that fills
           the same footprint. Matches the app's standard rounded-xs
           primary button styling so it slots into any page layout. */}
-      <div className="absolute inset-0 flex items-center justify-center gap-1.5 rounded-xs bg-primary text-primary-foreground active:scale-[0.98] transition-transform">
-        <Icon name="lockClosedOutline" size={14} />
-        <span className="text-[14px] font-bold tracking-tight">
+      <div className="absolute inset-0 flex items-center justify-center gap-1.5 rounded-xs bg-primary text-primary-foreground px-2 active:scale-[0.98] transition-transform">
+        <Icon name="lockClosedOutline" size={14} className="shrink-0" />
+        <span className="text-[13px] font-bold tracking-tight whitespace-nowrap">
           Upgrade to {label}
         </span>
       </div>

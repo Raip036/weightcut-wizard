@@ -100,7 +100,7 @@ export function WeeklyHighlightCard() {
         initial={{ opacity: 0, y: -6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
-        className="mb-3 rounded-2xl border border-primary/25 bg-card/70 overflow-hidden"
+        className="mb-3 rounded-2xl border border-primary/25 bg-neutral-800 overflow-hidden"
         aria-label="Your week in review"
         style={{ fontFamily: IOS_FONT }}
       >

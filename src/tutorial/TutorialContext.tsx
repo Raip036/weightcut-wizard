@@ -47,6 +47,9 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
   const autoTriggeredRef = useRef(false);
   const pausedFlowRef = useRef<{ flowId: string; stepIndex: number } | null>(null);
   const isPausingRef = useRef(false);
+  // Set true while prev() handles a cross-route back navigation so the pause
+  // mechanism doesn't fire a skip() before the navigation resolves.
+  const navigatingBackRef = useRef(false);
 
   // Whether we're waiting for a navigation to settle before revealing the tooltip
   const [waitingForNav, setWaitingForNav] = useState(false);
@@ -70,12 +73,14 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
     };
   }, [profile, hasProfile, location.pathname]);
 
-  // Register all flows on mount
+  // Register flows. The version is a dep so that Vite HMR re-registers the
+  // latest flow object when only onboardingFlow.ts changes (avoiding stale
+  // flows staying in the TutorialManager ref after a hot reload).
   useEffect(() => {
     const manager = managerRef.current;
     manager.registerFlow(onboardingFlow);
     manager.registerFlows(featureFlows);
-  }, []);
+  }, [onboardingFlow.version]);
 
   // Subscribe to manager state changes
   useEffect(() => {
@@ -110,6 +115,30 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
       );
     }
   }, [state.isActive, state.currentFlow, state.currentStepIndex, userId]);
+
+  // Scroll a target element into view once navigation has settled.
+  // Gated on `waitingForNav` so scrollTo fires AFTER the page has rendered
+  // (not mid-transition), giving the spotlight time to measure correctly.
+  useEffect(() => {
+    if (!state.isActive || !state.currentStep?.scrollTo || waitingForNav) return;
+    const selector = state.currentStep.scrollTo;
+    const t = setTimeout(() => {
+      const el = document.querySelector<HTMLElement>(`[data-tutorial="${selector}"]`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 150);
+    return () => clearTimeout(t);
+  }, [state.isActive, state.currentStep, waitingForNav]);
+
+  // Auto-advance timer — fires autoAdvanceMs after nav settles so cinematic
+  // card→page transitions don't need the user to tap Next.
+  useEffect(() => {
+    if (!state.isActive || !state.currentStep?.autoAdvanceMs || waitingForNav) return;
+    const delay = state.currentStep.autoAdvanceMs;
+    const t = setTimeout(() => {
+      managerRef.current.next(getUserState());
+    }, delay);
+    return () => clearTimeout(t);
+  }, [state.isActive, state.currentStep, waitingForNav, getUserState]);
 
   // Dispatch `actionEventName` (if set) when a step enters. Bridges
   // declarative tutorial steps to imperative side-effects in pages
@@ -166,21 +195,30 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
     }
   }, [waitingForNav, location.pathname, location.search, state.isActive, state.currentStep]);
 
-  // Auto-trigger onboarding on /dashboard
+  // Auto-trigger onboarding on /dashboard — EXACTLY ONCE, on the first
+  // dashboard load after the weight-cut plan was generated. After it has run
+  // once (or the user has completed it), it NEVER auto-runs again — the only
+  // other way to see it is the manual "replay" from Settings.
+  //
+  // Fixes the bug where the tutorial kept re-appearing after viewing the plan:
+  // the previous logic cleared its own completion record and leaned on fragile
+  // ref/session flags. The durable, per-user `wcw_tutorial_autoshown_<id>` lock
+  // below can't be undone by navigation, paused flows, or the one-shot flag
+  // being re-set.
   useEffect(() => {
     if (location.pathname !== "/dashboard" || !userId || !hasProfile || state.isActive) return;
 
-    // Check for fresh onboarding completion — must come before autoTriggeredRef check
-    // so we can reset the ref (it may have been set during the /cut-plan render cycle)
+    const autoShownKey = `wcw_tutorial_autoshown_${userId}`;
+    // `wcw_onboarding_just_completed` is set ONCE by onboarding right after the
+    // plan is generated — the only signal that auto-starts the tutorial.
     const justOnboarded = localStorage.getItem("wcw_onboarding_just_completed");
-    if (justOnboarded) {
-      autoTriggeredRef.current = false;
-    }
 
-    if (autoTriggeredRef.current) return;
-
-    // Check if we should resume a paused flow
+    // Resume a paused flow (mid-tutorial manual navigation) — highest priority.
+    // A paused flow means the tutorial is already in progress, so lock out any
+    // future auto-trigger and consume the one-shot flag.
     if (pausedFlowRef.current) {
+      localStorage.setItem(autoShownKey, "1");
+      if (justOnboarded) localStorage.removeItem("wcw_onboarding_just_completed");
       const { flowId, stepIndex } = pausedFlowRef.current;
       pausedFlowRef.current = null;
       const timer = setTimeout(() => {
@@ -189,35 +227,31 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
       return () => clearTimeout(timer);
     }
 
-    // If user just finished onboarding, always show the tutorial
-    if (justOnboarded) {
-      localStorage.removeItem("wcw_onboarding_just_completed");
-      // Clear any stale completion state so the tutorial runs fresh
-      tutorialPersistence.clearFlow(userId, "onboarding");
-    } else {
-      // Check if onboarding already completed (persistence + localStorage guard)
-      if (tutorialPersistence.isFlowCompleted(userId, onboardingFlow)) {
-        autoTriggeredRef.current = true;
-        return;
-      }
+    if (autoTriggeredRef.current) return;
 
-      // Extra guard: check if tutorial was already shown this session
-      const sessionKey = `wcw_tutorial_shown_${userId}`;
-      if (localStorage.getItem(sessionKey)) {
-        autoTriggeredRef.current = true;
-        return;
-      }
+    // Permanent guard: once auto-shown OR completed, the tutorial is replay-only.
+    const alreadyShown =
+      localStorage.getItem(autoShownKey) != null ||
+      tutorialPersistence.isFlowCompleted(userId, onboardingFlow);
+
+    // Only auto-run on the FIRST dashboard entry after plan generation.
+    if (!justOnboarded || alreadyShown) {
+      if (justOnboarded) localStorage.removeItem("wcw_onboarding_just_completed");
+      autoTriggeredRef.current = true;
+      return;
     }
 
-    // Seed demo data only for brand-new users (no cached weight data yet)
+    // First-time post-plan: consume the flag and set the permanent lock BEFORE
+    // starting, so it can never run twice even if this effect re-runs.
+    localStorage.removeItem("wcw_onboarding_just_completed");
+    localStorage.setItem(autoShownKey, "1");
+
+    // Seed demo data only for brand-new users (no cached weight data yet).
     const hasRealData = localCache.get(userId, "dashboard_weight_logs");
     if (!hasRealData && !isDemoActive(userId)) {
       seedDemoData(userId);
     }
 
-    // Start onboarding after dashboard animations finish — mark as shown immediately
-    const sessionKey = `wcw_tutorial_shown_${userId}`;
-    localStorage.setItem(sessionKey, 'true');
     const timer = setTimeout(() => {
       autoTriggeredRef.current = true;
       managerRef.current.start("onboarding", getUserState());
@@ -226,14 +260,14 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
   }, [location.pathname, userId, hasProfile, state.isActive]);
 
   // Pause on route change — ONLY if the user navigated manually (not via tutorial navigation).
-  // If the step has `navigateTo`, we expect the route to differ temporarily.
+  // If the step has `navigateTo`, the context handles it — don't pause.
+  // If `navigatingBackRef` is set, prev() is handling a back-navigation — don't pause.
   useEffect(() => {
     if (!state.isActive || !state.currentStep) return;
+    if (navigatingBackRef.current) return;
 
     const step = state.currentStep;
-    // If the step specifies navigateTo, the context handles navigation — don't pause
     if (step.navigateTo) return;
-    // If the step specifies a route and we're not on it, pause
     const flowId = state.currentFlow?.id;
     if (step.route && step.route !== location.pathname && flowId) {
       pausedFlowRef.current = {
@@ -251,8 +285,34 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
   }, [getUserState]);
 
   const prev = useCallback(() => {
-    managerRef.current.prev(getUserState());
-  }, [getUserState]);
+    const mgr = managerRef.current;
+    const { activeSteps, currentStepIndex } = mgr.getState();
+
+    // Peek at what the previous step would be.
+    let prevIdx = currentStepIndex - 1;
+    while (prevIdx >= 0) {
+      const s = activeSteps[prevIdx];
+      if (!s.target || s.navigateTo || mgr.resolveTarget(s)) break;
+      prevIdx--;
+    }
+
+    if (prevIdx >= 0) {
+      const prevStep = activeSteps[prevIdx];
+      const targetRoute = prevStep.navigateTo ?? prevStep.route;
+      if (targetRoute) {
+        const targetPath = targetRoute.split("?")[0];
+        if (location.pathname !== targetPath) {
+          // Route navigation needed — suppress the pause mechanism while it resolves.
+          navigatingBackRef.current = true;
+          setWaitingForNav(true);
+          navigate(targetPath);
+          setTimeout(() => { navigatingBackRef.current = false; }, NAV_SETTLE_MS * 2 + 200);
+        }
+      }
+    }
+
+    mgr.prev(getUserState());
+  }, [getUserState, location.pathname, navigate]);
 
   const skip = useCallback(() => {
     pausedFlowRef.current = null;

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef, ReactNode } from "react";
 import { useProfile, useAuth } from "@/contexts/UserContext";
 import { Capacitor } from "@capacitor/core";
 import {
@@ -279,23 +279,50 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const closePaywall = useCallback(() => setIsPaywallOpen(false), []);
   const dismissWelcomePro = useCallback(() => setShowWelcomePro(false), []);
 
+  // Memoize the context value. `profile` pushes from Convex (every weight log,
+  // name edit, etc.) re-render this provider, but the subscription-relevant
+  // facts rarely change — without this, EVERY consumer of useSubscription /
+  // useFeatureAccess (every Pro gate, the floating chat, the coach context)
+  // re-rendered on any unrelated profile change. Keyed on primitives so the
+  // Date instances (expiresAt/trialEndsAt) also keep a stable identity.
+  const expiresAtMs = expiresAt?.getTime() ?? null;
+  const value = useMemo(
+    () => ({
+      isPremium,
+      tier,
+      rawTier,
+      expiresAt,
+      isInTrial,
+      trialEndsAt,
+      isPaywallOpen,
+      isSubscriptionResolved,
+      openPaywall,
+      closePaywall,
+      showWelcomePro,
+      dismissWelcomePro,
+    }),
+    // `expiresAt`/`trialEndsAt` are keyed by their ms timestamps (stable across
+    // renders) rather than Date identity; the objects themselves are recreated
+    // each render but only land in `value` when a timestamp actually changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      isPremium,
+      tier,
+      rawTier,
+      expiresAtMs,
+      isInTrial,
+      trialEndsAtMs,
+      isPaywallOpen,
+      isSubscriptionResolved,
+      openPaywall,
+      closePaywall,
+      showWelcomePro,
+      dismissWelcomePro,
+    ],
+  );
+
   return (
-    <SubscriptionContext.Provider
-      value={{
-        isPremium,
-        tier,
-        rawTier,
-        expiresAt,
-        isInTrial,
-        trialEndsAt,
-        isPaywallOpen,
-        isSubscriptionResolved,
-        openPaywall,
-        closePaywall,
-        showWelcomePro,
-        dismissWelcomePro,
-      }}
-    >
+    <SubscriptionContext.Provider value={value}>
       {children}
     </SubscriptionContext.Provider>
   );

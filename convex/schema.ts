@@ -61,6 +61,11 @@ export default defineSchema({
 
     // Onboarding v2 profile fields
     athleteType: v.optional(v.string()),
+    // Weigh-in timing for the user's discipline / event format. Drives the
+    // same-day vs day-before cut-strategy branch in generateCutPlan. Absent
+    // rows default to "day_before" (the historical managed-acute-cut
+    // behavior) at the read site. Canonical: "day_before" | "same_day".
+    weighInTiming: v.optional(v.string()),
     // Convex Storage ID for the avatar image. Resolved to a long-lived URL
     // server-side via ctx.storage.getUrl() before sending to the client.
     avatarStorageId: v.optional(v.id("_storage")),
@@ -331,6 +336,9 @@ export default defineSchema({
     rpe: v.optional(v.number()),
     isWarmup: v.boolean(),
     isBodyweight: v.boolean(),
+    // Active-workout "complete a set" state (Hevy/Strong model). Optional so
+    // existing rows read as not-completed; drives the green ✓ + auto rest timer.
+    completed: v.optional(v.boolean()),
     notes: v.optional(v.string()),
   })
     .index("by_session", ["sessionId"])
@@ -388,21 +396,28 @@ export default defineSchema({
     rawScore: v.number(),
     displayedScore: v.number(),
     label: v.union(v.literal("sharp"), v.literal("sharpening"), v.literal("off_pace"), v.literal("at_risk")),
-    state: v.union(v.literal("ok"), v.literal("calibrating"), v.literal("no_camp"), v.literal("paused")),
+    state: v.union(v.literal("ok"), v.literal("calibrating"), v.literal("no_camp"), v.literal("paused"), v.literal("stale")),
     phase: v.optional(v.union(v.literal("build"), v.literal("peak"), v.literal("fightWeek"))),
     subScores: v.object({
-      trainingLoad:        v.object({ value: v.number(), weight: v.number(), reason: v.string() }),
-      sleep:               v.object({ value: v.number(), weight: v.number(), reason: v.string() }),
-      weightCut:           v.object({ value: v.number(), weight: v.number(), reason: v.string(), meta: v.optional(v.record(v.string(), v.union(v.number(), v.string()))) }),
-      wellness:            v.object({ value: v.number(), weight: v.number(), reason: v.string() }),
-      nutritionAdherence:  v.object({ value: v.number(), weight: v.number(), reason: v.string() }),
+      trainingLoad:        v.object({ value: v.number(), weight: v.number(), reason: v.string(), completeness: v.optional(v.number()) }),
+      sleep:               v.object({ value: v.number(), weight: v.number(), reason: v.string(), completeness: v.optional(v.number()) }),
+      weightCut:           v.object({ value: v.number(), weight: v.number(), reason: v.string(), completeness: v.optional(v.number()), meta: v.optional(v.record(v.string(), v.union(v.number(), v.string()))) }),
+      wellness:            v.object({ value: v.number(), weight: v.number(), reason: v.string(), completeness: v.optional(v.number()) }),
+      nutritionAdherence:  v.object({ value: v.number(), weight: v.number(), reason: v.string(), completeness: v.optional(v.number()) }),
       // Optional so historical rows written before the recovery sub-score
       // was added still pass schema validation on read. New writes from
       // the calculator always include it (currently weight 0 — not yet
       // factored into the displayed score).
-      recovery:            v.optional(v.object({ value: v.number(), weight: v.number(), reason: v.string() })),
+      recovery:            v.optional(v.object({ value: v.number(), weight: v.number(), reason: v.string(), completeness: v.optional(v.number()) })),
     }),
     appliedCeiling: v.optional(v.object({ ruleId: v.string(), cap: v.number() })),
+    // Plan 1/1b engine outputs. Optional so historical rows (written before
+    // these existed) still validate on read; new writes always include them.
+    dataConfidence: v.optional(v.number()),
+    dataAgeDays: v.optional(v.number()),
+    activePillars: v.optional(v.number()),
+    totalPillars: v.optional(v.number()),
+    formMomentum: v.optional(v.number()),
     campAge: v.optional(v.object({ weeksAhead: v.number() })),
     topDriver: v.string(),
     topLimiter: v.string(),
@@ -453,7 +468,14 @@ export default defineSchema({
     // Legacy single-media attachment. Kept so existing rows still render.
     // New uploads go into the `session_media` table (multi-attachment).
     mediaStorageId: v.optional(v.id("_storage")),
+    // Reflection notes: "what went well / what to improve". This is the
+    // ORIGINAL freeform notes field — legacy single-blob entries live here.
     notes: v.optional(v.string()),
+    // Techniques covered in the session (combos, positions, drills). Split
+    // out from `notes` so the AI features (summary / coach / missions) read
+    // a clean technique signal instead of inferring it from mixed prose.
+    // Optional: absent on legacy rows and on quick / round-card logs.
+    techniquesNotes: v.optional(v.string()),
     // Denormalised primary-gym id stamped at insert time so the gym
     // leaderboard query can range-scan by_gym_date directly. Optional
     // because historical rows are backfilled lazily (see migrations.ts).
@@ -894,6 +916,40 @@ export default defineSchema({
     .index("by_user_norm", ["userId", "techniqueNormalized"]),
 
   // ────────────────────────────────────────────────────────────────────
+  // SPARRING PLAN — the "sparring to-do list" Pro feature. Each row is one
+  // previously-logged technique enriched by the LLM with how to land it in
+  // LIVE sparring (when to use it, feint/entry setups, opponent counters).
+  // Upsert-keyed per (userId, techniqueNormalized) like training_techniques
+  // so a technique accretes one assignment rather than duplicating. Source:
+  // training_techniques log + extractCandidates over recent techniquesNotes.
+  // ────────────────────────────────────────────────────────────────────
+  sparring_assignments: defineTable({
+    userId: v.id("users"),
+    discipline: v.string(),
+    technique: v.string(),
+    // "<discipline>::<technique>" dedup key (normalizeTechniqueKey).
+    techniqueNormalized: v.string(),
+    // One-line trigger: when in a live round this technique becomes available.
+    whenToUse: v.string(),
+    // 1-2 feint / entry setups to land it on a resisting partner. For grappling
+    // these are grip-fight / level-change / transition fakes, not strikes.
+    setups: v.array(v.string()),
+    // 1-2 realistic opponent-reaction counters.
+    counters: v.array(v.string()),
+    // Checkbox state — "I worked this in sparring". Persists across regen.
+    status: v.union(v.literal("todo"), v.literal("done")),
+    // Hash of the source technique's detail/cue so we only re-roll when the
+    // underlying logged technique materially changed.
+    sourceFingerprint: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    completedAt: v.optional(v.number()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_discipline", ["userId", "discipline"])
+    .index("by_user_norm", ["userId", "techniqueNormalized"]),
+
+  // ────────────────────────────────────────────────────────────────────
   // SKILL TREE
   // ────────────────────────────────────────────────────────────────────
 
@@ -950,6 +1006,10 @@ export default defineSchema({
     hydrationFeeling: v.optional(v.number()),
     hooperIndex: v.optional(v.number()),
     readinessScore: v.optional(v.number()),
+    // Adaptive follow-up: body areas flagged as worst when soreness was high
+    // (e.g. ["Legs", "Back"]). Optional — only captured when the soreness
+    // answer triggers the follow-up. Powers the tailored recovery tip.
+    sorenessAreas: v.optional(v.array(v.string())),
   }).index("by_user_date", ["userId", "date"]),
 
   personal_baselines: defineTable({
@@ -1091,6 +1151,48 @@ export default defineSchema({
   })
     .index("by_user_camp", ["userId", "campId"])
     .index("by_user_camp_metric", ["userId", "campId", "metric"]),
+
+  /**
+   * Persisted Fight Camp Coach conversation memory (Phase 4 — §5 Phase 4 +
+   * §6 of docs/superpowers/specs/2026-06-04-fight-camp-coach-redesign-design.md).
+   *
+   * Until Phase 4 the coach only remembered the last ~16 turns held in
+   * localStorage. This table lets the (Pro) coach remember across the whole
+   * camp, server-side. One row per chat turn:
+   *  - `role`       : who spoke — "user" or "assistant".
+   *  - `content`    : the plain-text / markdown reply text (the conversational
+   *                   `reply` for assistant turns; the typed message for user
+   *                   turns).
+   *  - `blocksJson` : assistant structured `CoachBlock[]` (+ followups), JSON
+   *                   serialized. Optional — user turns and pure-prose
+   *                   assistant turns omit it. Stored as a string so the
+   *                   evolving block union needs no schema migration (same
+   *                   rationale as `weight_protocols.payload` being `v.any()`).
+   *  - `campId`     : the camp this turn belongs to, denormalised at append
+   *                   time. Optional because a user may chat with the coach
+   *                   off-season (no active/upcoming camp).
+   *  - `createdAt`  : explicit append timestamp (epoch ms). The action
+   *                   inserts turns in a single batch, so a monotonic
+   *                   per-turn stamp guarantees stable oldest-first ordering
+   *                   even within one mutation.
+   *
+   * Indexes:
+   *  - `by_user`      — load / clear a user's full conversation history.
+   *  - `by_user_camp` — scope history to a single camp (per-camp memory).
+   *
+   * NO Pro gate at this layer — these functions are infrastructure; the
+   * action/context decides when persistence is used (Pro-only per spec).
+   */
+  coach_conversations: defineTable({
+    userId: v.id("users"),
+    campId: v.optional(v.id("fight_camps")),
+    role: v.union(v.literal("user"), v.literal("assistant")),
+    content: v.string(),
+    blocksJson: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_camp", ["userId", "campId"]),
 
   // ────────────────────────────────────────────────────────────────────
   // COACH MODE
@@ -1390,6 +1492,23 @@ export default defineSchema({
     sampleCount: v.number(),
     updatedAt: v.number(),
   }).index("by_user_metric", ["userId", "metric"]),
+
+  // Intentional non-logging. A row means "the user deliberately skipped this
+  // pillar on this date" — distinct from a silent missing log. The engine
+  // treats a skip as recency for that pillar (pauses staleness decay) and the
+  // catch-up sheet won't nag about it. Training rest is recorded separately as
+  // a fight_camp_calendar `sessionType:"Rest"` row, so it is NOT a pillar here.
+  marked_skips: defineTable({
+    userId: v.id("users"),
+    date: v.string(),
+    pillar: v.union(
+      v.literal("sleep"),
+      v.literal("weight"),
+      v.literal("nutrition"),
+      v.literal("wellness"),
+    ),
+  }).index("by_user_date", ["userId", "date"])
+    .index("by_user_date_pillar", ["userId", "date", "pillar"]),
 });
 
 /*

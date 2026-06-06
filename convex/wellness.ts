@@ -91,6 +91,7 @@ export const upsertCheckin = mutation({
     hydrationFeeling: v.optional(v.number()),
     hooperIndex: v.optional(v.number()),
     readinessScore: v.optional(v.number()),
+    sorenessAreas: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
@@ -122,6 +123,81 @@ export const upsertCheckin = mutation({
       date: args.date,
     });
     return resultId;
+  },
+});
+
+/**
+ * Context for the wellness check-in screen so it can personalise prompts and
+ * the result screen WITHOUT extra taps:
+ *   - `yesterday`     — yesterday's check-in (for "feeling better than yesterday")
+ *   - `recent`        — prior Hooper history (sparkline + baseline comparison)
+ *   - `recentAvg`     — mean prior Hooper (baseline)
+ *   - `lastTraining`  — yesterday's hardest session (drives "big sparring day?" copy)
+ * All fields are nullable — a brand-new user gets a sensible default flow.
+ */
+export const getCheckinContext = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireUserId(ctx);
+    const now = new Date();
+    const iso = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const today = iso(now);
+    const yDate = new Date(now);
+    yDate.setDate(yDate.getDate() - 1);
+    const yesterday = iso(yDate);
+    const fromDate = new Date(now);
+    fromDate.setDate(fromDate.getDate() - 14);
+    const fromIso = iso(fromDate);
+
+    const rows = await ctx.db
+      .query("daily_wellness_checkins")
+      .withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", fromIso))
+      .order("desc")
+      .take(20);
+
+    // Prior history only — exclude today's row so the result screen compares
+    // today against the user's established baseline, not against itself.
+    const recent = rows
+      .filter((r) => r.date < today && typeof r.hooperIndex === "number")
+      .map((r) => ({ date: r.date, hooper: r.hooperIndex as number }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    const recentAvg = recent.length
+      ? recent.reduce((a, r) => a + r.hooper, 0) / recent.length
+      : null;
+
+    const yRow = rows.find((r) => r.date === yesterday) ?? null;
+
+    // Yesterday's hardest session (by RPE) — context for the opening prompt.
+    const calRows = await ctx.db
+      .query("fight_camp_calendar")
+      .withIndex("by_user_date", (q) => q.eq("userId", userId).eq("date", yesterday))
+      .collect();
+    const lastTraining =
+      calRows.length > 0
+        ? calRows
+            .map((c) => ({
+              sessionType: c.sessionType,
+              sessionTag: c.sessionTag ?? null,
+              intensity: c.intensity,
+              rpe: c.rpe ?? 0,
+              durationMinutes: c.durationMinutes ?? 0,
+            }))
+            .sort((a, b) => b.rpe - a.rpe)[0]
+        : null;
+
+    return {
+      yesterday: yRow
+        ? {
+            hooper: yRow.hooperIndex ?? null,
+            sorenessLevel: yRow.sorenessLevel,
+            fatigueLevel: yRow.fatigueLevel,
+          }
+        : null,
+      recent,
+      recentAvg,
+      lastTraining,
+    };
   },
 });
 

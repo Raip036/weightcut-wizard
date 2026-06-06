@@ -33,6 +33,8 @@ interface TrainingCalendarRow {
   sleep_quality: string | null;
   mobility_done: boolean | null;
   notes: string | null;
+  /** Techniques covered (combos / positions / drills). Optional. */
+  techniques_notes?: string | null;
   media_url: string | null;
   created_at: string | null;
   rounds?: number | null;
@@ -334,10 +336,19 @@ export function SessionDetailDrawer({
             />
           </div>
 
-          {/* Notes — prominent, first thing the user sees */}
+          {/* Techniques covered — combos / positions / drills */}
+          {session.techniques_notes && (
+            <div className="rounded-xs border border-border/20 bg-muted/10 dark:bg-white/[0.02] p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">Techniques covered</p>
+              <p className="mt-1.5 text-[13px] text-foreground leading-relaxed whitespace-pre-wrap">{session.techniques_notes}</p>
+            </div>
+          )}
+
+          {/* Reflection notes — what went well / to improve */}
           {(isRun ? cleanNotes : session.notes) && (
             <div className="rounded-xs border border-border/20 bg-muted/10 dark:bg-white/[0.02] p-4">
-              <p className="text-[13px] text-foreground leading-relaxed whitespace-pre-wrap">{isRun ? cleanNotes : session.notes}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">What went well / to improve</p>
+              <p className="mt-1.5 text-[13px] text-foreground leading-relaxed whitespace-pre-wrap">{isRun ? cleanNotes : session.notes}</p>
             </div>
           )}
 

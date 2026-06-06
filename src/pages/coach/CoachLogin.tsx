@@ -16,6 +16,7 @@ import { ImpactStyle } from "@capacitor/haptics";
 import { routeAfterAuth } from "@/lib/roleRouter";
 import { mapAuthError } from "@/lib/authErrors";
 import { logger } from "@/lib/logger";
+import wizardLogo from "@/assets/wizard-logo-3d.png";
 
 const inputClass =
   "h-[50px] rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/40 text-foreground placeholder:text-muted-foreground/50 px-4 text-[16px] focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all";
@@ -196,9 +197,14 @@ export default function CoachLogin() {
               don't accidentally complete signup here. */}
           <div className="flex flex-col items-center text-center mb-8">
             <div className="relative mb-4">
-              <div className="relative flex h-16 w-16 items-center justify-center rounded-xs bg-card ring-2 ring-primary/60">
-                <ClipboardList className="h-7 w-7 text-primary" strokeWidth={2.25} />
-              </div>
+              <img
+                src={wizardLogo}
+                alt="FightCamp Wizard"
+                className="relative h-16 w-16 object-cover rounded-2xl ring-2 ring-primary/60"
+              />
+              <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-primary ring-2 ring-background">
+                <ClipboardList className="h-3.5 w-3.5 text-primary-foreground" strokeWidth={2.5} />
+              </span>
             </div>
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary/90">
               Coach sign-in

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import { motion } from "motion/react";
 
 import { Input } from "@/components/ui/input";
@@ -11,12 +11,12 @@ import { useUser } from "@/contexts/UserContext";
 import { useKeyboardAware } from "@/hooks/useKeyboardAware";
 import { localCache } from "@/lib/localCache";
 import { logger } from "@/lib/logger";
-import { celebrateSuccess, triggerHapticSelection } from "@/lib/haptics";
-import { buildCreateMealRpcArgs } from "@/lib/buildMealRpcArgs";
+import { triggerHapticSelection } from "@/lib/haptics";
 
 import { api } from "../../../../../convex/_generated/api";
 import type { MealTemplate } from "@/pages/nutrition/types";
 import type { MealType } from "./MealTypeSelector";
+import type { SaveManualMeal } from "./types";
 
 /**
  * Manual-logging sub-panel for the "Add a meal" sheet. Search-first (USDA via
@@ -31,6 +31,14 @@ interface ManualLogPanelProps {
   mealTime: MealType;
   onClose: () => void;
   onBackToAi: () => void;
+  /**
+   * Commits the meal. Wired to `useMealOperations.saveMealToDb` (via
+   * QuickAddDialog → NutritionPage) so the save runs through the shared
+   * optimistic-update + cache orchestration and the new meal immediately
+   * appears in the day's list. Resolves to the meal id, or null on failure
+   * (the orchestrator surfaces its own error toast in that case).
+   */
+  onSaveMeal: SaveManualMeal;
 }
 
 interface FoodSearchResult {
@@ -89,6 +97,7 @@ export function ManualLogPanel({
   mealTime,
   onClose,
   onBackToAi,
+  onSaveMeal,
 }: ManualLogPanelProps) {
   const { userId } = useUser();
   const { toast } = useToast();
@@ -96,7 +105,6 @@ export function ManualLogPanel({
   const todayStr = useMemo(() => format(new Date(), "yyyy-MM-dd"), []);
 
   const foodSearch = useAction(api.actions.foodSearch.run);
-  const createMeal = useMutation(api.meals.createMealWithItems);
 
   // ── Today's meals → drives the "Recent" chip row. listWithTotals is the
   // same reactive query the rest of the nutrition surface consumes, so this
@@ -245,41 +253,30 @@ export function ManualLogPanel({
         macros.source_name?.trim() ||
         (description.length > 0 ? description.slice(0, 40) : "");
 
-      const args = buildCreateMealRpcArgs({
-        header: {
-          meal_name: name,
-          meal_type: mealTime,
-          date: todayStr,
-          notes: description.length > 0 ? description : null,
-          is_ai_generated: false,
-        },
-        fallbackTotals: {
-          calories,
-          protein_g: protein,
-          carbs_g: carbs,
-          fats_g: fats,
-          name: name || null,
-        },
+      // Route through the shared insert orchestration (saveMealToDb →
+      // runInsertFlow). This is what makes the meal show up: it fires the
+      // optimistic `setMeals` update and writes the day's caches. Calling the
+      // Convex mutation directly from here persisted the meal but never
+      // touched the page's state/cache, so the entry silently never appeared.
+      const result = await onSaveMeal({
+        meal_name: name,
+        calories,
+        protein_g: protein,
+        carbs_g: carbs,
+        fats_g: fats,
+        meal_type: mealTime,
+        portion_size: null,
+        recipe_notes: description.length > 0 ? description : null,
+        ingredients: null,
+        is_ai_generated: false,
       });
 
-      await createMeal({
-        date: args.p_date,
-        mealType: args.p_meal_type,
-        mealName: args.p_meal_name,
-        notes: args.p_notes ?? undefined,
-        isAiGenerated: args.p_is_ai_generated,
-        items: args.p_items.map((it) => ({
-          name: it.name,
-          grams: it.grams,
-          calories: it.calories,
-          proteinG: it.protein_g,
-          carbsG: it.carbs_g,
-          fatsG: it.fats_g,
-        })),
-        idempotencyKey: crypto.randomUUID(),
-      });
+      // `saveMealToDb` resolves to null when the insert failed — the
+      // orchestrator has already surfaced a destructive toast and rolled back
+      // the optimistic row, so leave the sheet open for a retry without
+      // double-toasting or falsely celebrating.
+      if (result == null) return;
 
-      celebrateSuccess();
       toast({
         title: "Meal logged",
         description: `${Math.round(calories)} kcal`,
@@ -300,8 +297,7 @@ export function ManualLogPanel({
     canSave,
     macros,
     mealTime,
-    todayStr,
-    createMeal,
+    onSaveMeal,
     toast,
     onClose,
   ]);
@@ -365,7 +361,7 @@ export function ManualLogPanel({
         </div>
 
         {showSearchResults && (
-          <div className="mt-2 max-h-56 overflow-y-auto rounded-xs border border-border/30 bg-card/40 divide-y divide-border/15">
+          <div className="mt-2 max-h-56 overflow-y-auto rounded-2xl border border-border bg-card divide-y divide-border/50">
             {searching && (
               <div className="flex items-center justify-center py-4 text-[12px] text-muted-foreground">
                 <Icon name="syncOutline" size={14} className="animate-spin mr-2" />
@@ -553,23 +549,38 @@ function SearchResultRow({
           source_name: food.brand ? `${food.name} (${food.brand})` : food.name,
         })
       }
-      className="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left active:bg-muted/40 transition-colors"
+      className="w-full flex items-center justify-between gap-3 px-3.5 py-3 text-left active:bg-muted/40 transition-colors"
     >
       <div className="min-w-0 flex-1">
-        <p className="text-[13px] font-semibold text-foreground truncate leading-tight">{food.name}</p>
+        <p className="text-[14px] font-bold tracking-tight text-foreground truncate leading-tight">{food.name}</p>
         {food.brand && (
-          <p className="text-[11px] text-muted-foreground/70 truncate mt-0.5">{food.brand}</p>
+          <p className="text-[11px] text-muted-foreground truncate mt-0.5">{food.brand}</p>
         )}
+        <div className="mt-1.5 flex items-center gap-3">
+          <MacroDot color="bg-func-protein-blue" value={Math.round(food.protein_per_100g)} label="P" />
+          <MacroDot color="bg-func-carbs-orange" value={Math.round(food.carbs_per_100g)} label="C" />
+          <MacroDot color="bg-func-fats-purple" value={Math.round(food.fats_per_100g)} label="F" />
+        </div>
       </div>
       <div className="text-right shrink-0">
-        <p className="text-[13px] font-bold tabular-nums text-primary">
+        <p className="display-number text-[18px] font-extrabold tabular-nums leading-none tracking-tight text-foreground">
           {Math.round(food.calories_per_100g)}
         </p>
-        <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-          kcal/100g
+        <p className="mt-1 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+          kcal /100g
         </p>
       </div>
     </button>
+  );
+}
+
+function MacroDot({ color, value, label }: { color: string; value: number; label: string }) {
+  return (
+    <span className="flex items-center gap-1">
+      <span className={`h-1.5 w-1.5 rounded-full ${color}`} />
+      <span className="text-[12px] font-bold tabular-nums text-foreground">{value}g</span>
+      <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
+    </span>
   );
 }
 

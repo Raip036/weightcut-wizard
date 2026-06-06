@@ -19,6 +19,8 @@ export type Adherence = {
 type Props = {
   adherence: Adherence;
   mealsLoggedToday: boolean;
+  /** Marks today as a rest day (writes a Rest calendar entry). Absent → control hidden. */
+  onMarkRestDay?: () => void | Promise<void>;
 };
 
 type PillKey = "weight" | "training" | "sleep" | "wellness" | "meals";
@@ -92,9 +94,10 @@ function CompletionConfetti({ fireKey }: { fireKey: number }) {
   );
 }
 
-export default function TodayStrip({ adherence, mealsLoggedToday }: Props) {
+export default function TodayStrip({ adherence, mealsLoggedToday, onMarkRestDay }: Props) {
   const prefersReduced = useReducedMotion();
   const { checkFeatureAccess, isSubscriptionResolved } = useSubscription();
+  const [restPending, setRestPending] = useState(false);
 
   // The wellness check-in survey is free (it feeds the free user's
   // fight-form score), but the Recovery dashboard at /recovery is Pro.
@@ -140,7 +143,7 @@ export default function TodayStrip({ adherence, mealsLoggedToday }: Props) {
   }, [confettiKey]);
 
   return (
-    <div className="card-surface card-glow relative rounded-2xl px-3 pt-3 pb-4 space-y-2.5">
+    <div className="card-surface card-glow relative rounded-2xl px-3 pt-3 pb-4 space-y-2.5" data-tutorial="today-strip">
       <AnimatePresence>
         {confettiKey > 0 && <CompletionConfetti fireKey={confettiKey} />}
       </AnimatePresence>
@@ -205,21 +208,57 @@ export default function TodayStrip({ adherence, mealsLoggedToday }: Props) {
         )}
       </AnimatePresence>
 
+      {/* Rest-day shortcut — visible only when training is not yet logged
+          and the parent has wired the mutation handler. */}
+      <AnimatePresence initial={false}>
+        {onMarkRestDay && !logged.training && (
+          <motion.div
+            key="rest-day-row"
+            initial={prefersReduced ? false : { opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={springs.gentle}
+            className="flex justify-center"
+          >
+            <button
+              type="button"
+              disabled={restPending}
+              aria-label="Mark today as a rest day"
+              onClick={async () => {
+                void triggerHaptic(ImpactStyle.Light);
+                setRestPending(true);
+                try {
+                  await onMarkRestDay();
+                } finally {
+                  setRestPending(false);
+                }
+              }}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-md text-muted-foreground/70 hover:text-muted-foreground active:text-muted-foreground/50 transition-colors disabled:opacity-50"
+            >
+              <Icon name={restPending ? "refreshOutline" : "moonOutline"} size={13} className={restPending ? "animate-spin" : ""} />
+              <span className="text-[11px] tracking-[0.12em] font-medium">
+                {restPending ? "Saving…" : "Mark today as a rest day"}
+              </span>
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Pills */}
-      <div className="flex items-stretch gap-1.5 w-full">
+      <div className="flex items-stretch gap-1.5 w-full pt-1">
         {PILLS.map(({ key, label, href, icon, iconDone }) => {
           const isLogged = logged[key];
-          // The wellness survey is FREE — route into the full-screen check-in
-          // when it's not done yet. Once logged, the "review" target is the
-          // Pro Recovery dashboard, so free users go to /dashboard instead of
-          // a locked page; Pro users get the dashboard as before.
+          // Wellness pill routing keys off whether today's check-in is done:
+          //   • not done  → open the full-screen survey at /recovery/check-in
+          //   • done       → the Pro Recovery dashboard (/recovery). Free users
+          //     can't open /recovery (Pro-gated), so they land on /dashboard.
           const finalHref =
             key === "wellness"
               ? !isLogged
                 ? "/recovery/check-in"
                 : wellnessIsFree
                   ? "/dashboard"
-                  : href
+                  : "/recovery"
               : href;
 
           const pillClassName = cn(
@@ -273,10 +312,17 @@ export default function TodayStrip({ adherence, mealsLoggedToday }: Props) {
             </>
           );
 
+          const tutorialAttr: Partial<Record<PillKey, string>> = {
+            weight: "today-weight",
+            sleep: "today-sleep",
+            wellness: "today-wellness",
+          };
+
           return (
             <Link
               key={key}
               to={finalHref}
+              data-tutorial={tutorialAttr[key]}
               onClick={() => { void triggerHaptic(ImpactStyle.Light); }}
               className={pillClassName}
               style={{ boxShadow: isLogged ? DONE_GLOW : undefined }}

@@ -93,7 +93,7 @@ function MorningCheckInPromptInner({
             }
           }}
           className={cn(
-            "cursor-pointer rounded-xs border border-border/50 bg-card/60 p-4",
+            "cursor-pointer rounded-xs card-surface p-4",
             "active:scale-[0.99] transition-transform",
           )}
           aria-label="Open morning check-in"
@@ -161,7 +161,7 @@ function MorningCheckInErrorFallback({
   return (
     <Card
       className={cn(
-        "rounded-xs border border-border/50 bg-card/60 p-4",
+        "rounded-xs card-surface p-4",
         className,
       )}
       aria-live="polite"

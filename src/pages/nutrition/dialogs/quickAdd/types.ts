@@ -7,7 +7,27 @@
  * field names verbatim to stay drop-in compatible with that hook's return
  * value; renaming would force a touch on three call sites.
  */
-import type { ManualMealForm } from "@/pages/nutrition/types";
+import type { ManualMealForm, Ingredient } from "@/pages/nutrition/types";
+
+/**
+ * Save callback the manual sub-panel uses to commit a meal. Wired to
+ * `useMealOperations.saveMealToDb` by NutritionPage so the manual path goes
+ * through the same optimistic-update + cache orchestration (`runInsertFlow`)
+ * as every other insert path. Resolves to the new meal's id, or `null` if the
+ * insert failed (in which case the orchestrator has already surfaced a toast).
+ */
+export type SaveManualMeal = (data: {
+  meal_name: string;
+  calories: number;
+  protein_g: number | null;
+  carbs_g: number | null;
+  fats_g: number | null;
+  meal_type: string;
+  portion_size: string | null;
+  recipe_notes: string | null;
+  ingredients: Ingredient[] | null;
+  is_ai_generated: boolean;
+}) => Promise<unknown>;
 
 export interface MacroOverrides {
   calories?: number;
@@ -24,6 +44,7 @@ export interface AiLineItemShape {
   carbs_g: number;
   fats_g: number;
   bbox?: { x: number; y: number; w: number; h: number };
+  confidence?: "high" | "medium" | "low";
 }
 
 export interface AiMealShape {
@@ -36,6 +57,10 @@ export interface AiMealShape {
   setAiAnalysisComplete: React.Dispatch<React.SetStateAction<boolean>>;
   photoBase64: string | null;
   setPhotoBase64: React.Dispatch<React.SetStateAction<string | null>>;
+  /** Up to 2 optional extra angles of the same meal (multi-view accuracy). */
+  extraPhotos: string[];
+  addExtraPhoto: () => Promise<string | null>;
+  removeExtraPhoto: (idx: number) => void;
   photoAnalyzing: boolean;
   capturePhoto: () => Promise<string | null | undefined>;
   handlePhotoAnalyze: () => void;
@@ -88,6 +113,12 @@ export interface QuickAddDialogProps {
    */
   savingMeal: boolean;
   onAddManualMeal: () => void;
+  /**
+   * Commits a meal logged via the manual sub-panel. Routes through
+   * `useMealOperations.saveMealToDb` so the meal appears in the day's list
+   * (optimistic `setMeals` + cache writes) rather than persisting silently.
+   */
+  onSaveManualMeal: SaveManualMeal;
   aiTask: AiTaskShape | null;
   onCancelAi: () => void;
   onDismissTask: (id: string) => void;

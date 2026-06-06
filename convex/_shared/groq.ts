@@ -41,38 +41,36 @@ function getProvider(): LlmProvider {
 /**
  * Groq model IDs → OpenRouter equivalents.
  *
- * Two purposes:
- *   1. Translation — Groq uses bare names (`llama-3.1-8b-instant`);
- *      OpenRouter requires `<provider>/<model>` IDs.
- *   2. Strategic upgrade — on OpenRouter we can pick smarter models
- *      that aren't available on Groq directly, within the same budget.
+ * On OpenRouter the same OpenAI-compatible call needs `<provider>/<model>`
+ * IDs. Strategy: keep the SAME models you run on Groq (zero prompt /
+ * output-shape regression) and lean on throughput-based provider routing
+ * (see `extraBody.provider` below) to make them dramatically faster.
  *
- * The current routing (verified against live OpenRouter pricing):
+ *   Fast/cheap   llama-3.1-8b-instant
+ *     → meta-llama/llama-3.1-8b-instruct
+ *     Same model family — drop-in. On the fastest provider (e.g. Cerebras
+ *     ~1.8k tok/s) it's far faster than Groq's instant tier AND cheaper
+ *     (~$0.02 in / $0.05 out per 1M).
  *
- *   Heavy reasoning (was gpt-oss-120b @ $0.039/$0.180):
- *     → qwen/qwen3-235b-a22b-2507 @ $0.071/$0.100
- *     235B MoE, strictly smarter on reasoning benchmarks, CHEAPER
- *     output. Net cost lower on output-heavy calls (plans, summaries).
+ *   Heavy reason openai/gpt-oss-120b
+ *     → openai/gpt-oss-120b   (UNCHANGED model)
+ *     Identical outputs to today. Throughput routing sends it to Cerebras
+ *     (~1.8k–3k tok/s), roughly 5–50× faster than its default GPU route,
+ *     for zero quality-regression risk. This is the big speed win.
  *
- *   Fast/cheap (was llama-3.1-8b @ $0.020/$0.050):
- *     → mistralai/mistral-nemo @ $0.020/$0.030
- *     12B model (vs 8B) — smarter AND cheaper output.
+ *   Vision       meta-llama/llama-4-scout-17b-16e-instruct
+ *     → google/gemini-2.5-flash-lite
+ *     Stronger meal-photo OCR + native JSON, ~$0.10 in / $0.40 out — a
+ *     small cost lift for a real accuracy jump. To optimise raw speed/cost
+ *     over accuracy instead, map this to `meta-llama/llama-4-scout`.
  *
- *   Vision (was llama-4-scout @ $0.080/$0.300):
- *     → google/gemini-2.5-flash-lite @ $0.100/$0.400
- *     Significantly stronger on meal-photo identification; +25% in,
- *     +33% out — modest cost lift for a real quality jump.
- *     (gemini-2.0-flash-001 was previously routed here but OpenRouter
- *     dropped the endpoint; 2.5-flash-lite has identical pricing and
- *     stronger vision quality.)
- *
- * Models not in this map pass through unchanged (lets per-action
- * overrides like deepseek-v3.2 in weightTrackerAnalysis hit OpenRouter
- * directly without a translation step).
+ * Models not in this map pass through unchanged, so per-action overrides
+ * (e.g. deepseek/deepseek-chat in the weight-protocol actions) hit
+ * OpenRouter directly without a translation step.
  */
 const OPENROUTER_MODEL_MAP: Record<string, string> = {
-  "llama-3.1-8b-instant": "mistralai/mistral-nemo",
-  "openai/gpt-oss-120b": "qwen/qwen3-235b-a22b-2507",
+  "llama-3.1-8b-instant": "meta-llama/llama-3.1-8b-instruct",
+  "openai/gpt-oss-120b": "openai/gpt-oss-120b",
   "meta-llama/llama-4-scout-17b-16e-instruct": "google/gemini-2.5-flash-lite",
 };
 
@@ -107,12 +105,18 @@ function getProviderConfig(): { provider: LlmProvider; config: ProviderConfig } 
           "HTTP-Referer": "https://fightcampwizard.app",
           "X-Title": "FightCamp Wizard",
         },
-        // Provider preference: prefer Groq's hosted backend (cheapest +
-        // fastest when up), fall back to Cerebras/Together if Groq is
-        // down — which is exactly the outage scenario this switch fixes.
+        // Route every call to the highest-throughput provider available
+        // for the resolved model (Cerebras/Groq lead by a wide margin),
+        // falling back automatically if the fastest one is down. This is
+        // what makes the OpenRouter path "incredibly fast".
+        //
+        // Trade-off: throughput-sort can pick a pricier fast provider
+        // (e.g. Cerebras for gpt-oss-120b at ~$0.35/$0.75 per 1M) over the
+        // cheapest one. To optimise cost-first instead, swap `sort` for
+        // `order: ["groq", "cerebras", "together", "fireworks"]`.
         extraBody: {
           provider: {
-            order: ["groq", "cerebras", "together", "fireworks"],
+            sort: "throughput",
             allow_fallbacks: true,
           },
         },
@@ -154,6 +158,13 @@ export interface GroqCallOptions {
   response_format?: { type: "json_object" };
   reasoning_effort?: "low" | "medium" | "high";
   timeoutMs?: number;
+  /**
+   * Per-call OpenRouter provider-routing override. Replaces the default
+   * throughput-sort routing (see getProviderConfig) for this single call —
+   * e.g. `{ order: ["cerebras"], allow_fallbacks: true }` to pin a model to
+   * Cerebras. Ignored when the active provider is Groq (no routing layer).
+   */
+  providerRouting?: Record<string, unknown>;
 }
 
 /**
@@ -199,6 +210,11 @@ export async function callGroqRaw(opts: GroqCallOptions): Promise<GroqChatComple
         ...(opts.response_format ? { response_format: opts.response_format } : {}),
         ...(opts.reasoning_effort ? { reasoning_effort: opts.reasoning_effort } : {}),
         ...config.extraBody,
+        // Per-call provider-routing override wins over the default (Groq has
+        // no routing layer, so this is a no-op there).
+        ...(provider === "openrouter" && opts.providerRouting
+          ? { provider: opts.providerRouting }
+          : {}),
       }),
       signal: controller.signal,
     });

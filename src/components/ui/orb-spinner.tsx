@@ -1,4 +1,5 @@
 import { motion } from "motion/react";
+import { isNativePlatform } from "@/hooks/useIsNative";
 
 interface OrbSpinnerProps {
   /** Diameter in px. Default 24. */
@@ -42,8 +43,13 @@ export function OrbSpinner({ size = 24, label = "Loading", className }: OrbSpinn
           height: size,
           background:
             "radial-gradient(circle at 35% 35%, rgba(255,255,255,0.95) 0%, rgba(139,126,234,0.85) 28%, rgba(74,180,237,0.55) 58%, rgba(74,180,237,0) 78%)",
-          filter:
-            "drop-shadow(0 0 6px rgba(139, 126, 234, 0.65)) drop-shadow(0 0 12px rgba(74, 180, 237, 0.35))",
+          // The stacked drop-shadow halo re-rasterizes every frame on iOS as the
+          // orb scales+rotates. This is the app's standard spinner (many loading
+          // states), so drop the filter on native — the gradient sphere reads
+          // fine on its own. Web keeps the full glow.
+          filter: isNativePlatform
+            ? undefined
+            : "drop-shadow(0 0 6px rgba(139, 126, 234, 0.65)) drop-shadow(0 0 12px rgba(74, 180, 237, 0.35))",
         }}
         animate={{
           scale: [1, 1.15, 1],

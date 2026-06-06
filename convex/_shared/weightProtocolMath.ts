@@ -458,10 +458,6 @@ export function buildSafetyWarnings(
 // ────────────────────────────────────────────────────────────────────────────
 
 interface DayAnchor {
-  /** Per-kg carbs target. If null, use absolute carbsAbsoluteG. */
-  carbsPerKg: number | null;
-  /** Absolute carbs override (for the tail of the curve). */
-  carbsAbsoluteG: number | null;
   /** Water mL/kg (will be scaled with currentWeightKg/75 below). */
   waterMlPerKg: number;
   /** Absolute sodium mg (scaled with currentWeightKg/75 below). */
@@ -469,27 +465,59 @@ interface DayAnchor {
   fibreNote: "normal" | "reduce" | "eliminate" | "low_residue_only";
 }
 
-// Index = daysToWeighIn (0 = weigh-in day, 7 = T-7). Values per spec §3.
+// Index = daysToWeighIn (0 = weigh-in day, 7 = T-7). Water/sodium/fibre per
+// spec §3. Carbs are intentionally NOT in this table — they follow the
+// body-weight-scaled RESTRICTION model in `carbsForDay` below (which replaces
+// the previous gradual per-kg taper of 3→2→1 g/kg).
 const FIGHT_WEEK_ANCHORS: Record<number, DayAnchor> = {
-  7: { carbsPerKg: 3.0, carbsAbsoluteG: null, waterMlPerKg: 100, sodiumMgAt75kg: 2500, fibreNote: "normal" },
-  6: { carbsPerKg: 3.0, carbsAbsoluteG: null, waterMlPerKg: 100, sodiumMgAt75kg: 2500, fibreNote: "normal" },
-  5: { carbsPerKg: 2.0, carbsAbsoluteG: null, waterMlPerKg: 100, sodiumMgAt75kg: 2500, fibreNote: "reduce" },
-  4: { carbsPerKg: 1.0, carbsAbsoluteG: null, waterMlPerKg: 75, sodiumMgAt75kg: 2500, fibreNote: "eliminate" },
-  3: { carbsPerKg: null, carbsAbsoluteG: 50, waterMlPerKg: 50, sodiumMgAt75kg: 1000, fibreNote: "eliminate" },
-  2: { carbsPerKg: null, carbsAbsoluteG: 50, waterMlPerKg: 30, sodiumMgAt75kg: 500, fibreNote: "low_residue_only" },
-  1: { carbsPerKg: null, carbsAbsoluteG: 30, waterMlPerKg: 15, sodiumMgAt75kg: 200, fibreNote: "low_residue_only" },
-  0: { carbsPerKg: null, carbsAbsoluteG: 0, waterMlPerKg: 5, sodiumMgAt75kg: 0, fibreNote: "low_residue_only" },
+  7: { waterMlPerKg: 100, sodiumMgAt75kg: 2500, fibreNote: "normal" },
+  6: { waterMlPerKg: 100, sodiumMgAt75kg: 2500, fibreNote: "normal" },
+  5: { waterMlPerKg: 100, sodiumMgAt75kg: 2500, fibreNote: "reduce" },
+  4: { waterMlPerKg: 75, sodiumMgAt75kg: 2500, fibreNote: "eliminate" },
+  3: { waterMlPerKg: 50, sodiumMgAt75kg: 1000, fibreNote: "eliminate" },
+  2: { waterMlPerKg: 30, sodiumMgAt75kg: 500, fibreNote: "low_residue_only" },
+  1: { waterMlPerKg: 15, sodiumMgAt75kg: 200, fibreNote: "low_residue_only" },
+  0: { waterMlPerKg: 5, sodiumMgAt75kg: 0, fibreNote: "low_residue_only" },
 };
 
+/**
+ * Fight-week carb target in grams — a body-weight-scaled RESTRICTION rather
+ * than a gradual taper. Mirrors the onboarding cut-plan model:
+ *   • Weigh-in (T-0):  fixed 30 g — glycogen is already stripped by here.
+ *   • T-1 … T-5:       0.5 g/kg, capped strictly under 50 g — the low-carb
+ *                      restriction that drives glycogen + bound water down.
+ *   • T-6 … T-7:       2.0 g/kg — the early fight-week step-down.
+ *   • T-8+:            3.0 g/kg — normal carbs (outside the manipulation window).
+ * Scales with bodyweight but the restriction phase never reaches 50 g
+ * (60 kg → 30 g, 80 kg → 40 g, 100 kg → 49 g cap).
+ */
+const CARB_WEIGH_IN_G = 30;
+const CARB_RESTRICT_PER_KG = 0.5;
+const CARB_RESTRICT_MAX_G = 49; // strictly under 50 g
+const CARB_EARLY_PER_KG = 2.0;
+const CARB_NORMAL_PER_KG = 3.0;
+
+function carbsForDay(daysToWeighIn: number, bodyWeightKg: number): number {
+  if (daysToWeighIn <= 0) return CARB_WEIGH_IN_G;
+  if (daysToWeighIn >= 8) return Math.round(CARB_NORMAL_PER_KG * bodyWeightKg);
+  if (daysToWeighIn >= 6) return Math.round(CARB_EARLY_PER_KG * bodyWeightKg);
+  return Math.min(CARB_RESTRICT_MAX_G, Math.round(CARB_RESTRICT_PER_KG * bodyWeightKg));
+}
+
+/** The approach shifts the curve by a day: gradual = lighter (use the next,
+ *  higher-carb day), aggressive = harsher (use the previous day), standard =
+ *  no shift. Used for BOTH the anchor lookup and the carb target so the three
+ *  approaches stay meaningful. */
+function approachShiftedDay(daysToWeighIn: number, approach: Approach): number {
+  if (approach === "gradual") return daysToWeighIn + 1;
+  if (approach === "aggressive") return Math.max(0, daysToWeighIn - 1);
+  return daysToWeighIn;
+}
+
 function anchorForDay(daysToWeighIn: number, approach: Approach): DayAnchor {
-  // Approach shifts the curve. gradual = right by 1 (use NEXT day's harsher
-  // values one day later, i.e., lookup at d+1 means a LIGHTER day for "today").
   // Per spec: gradual shifts right (T-4 uses T-5 values → lighter); aggressive
-  // shifts left (T-4 uses T-3 values → harsher).
-  let key = daysToWeighIn;
-  if (approach === "gradual") key = daysToWeighIn + 1;
-  else if (approach === "aggressive") key = daysToWeighIn - 1;
-  // Clamp to table range.
+  // shifts left (T-4 uses T-3 values → harsher). Clamp to the table range.
+  let key = approachShiftedDay(daysToWeighIn, approach);
   if (key < 0) key = 0;
   if (key > 7) key = 7;
   return FIGHT_WEEK_ANCHORS[key];
@@ -524,9 +552,13 @@ export function buildFightPlanSkeleton(
   for (let dtw = horizon; dtw >= 0; dtw--) {
     const anchor = anchorForDay(dtw, effectiveApproach);
 
-    const carbsGrams = anchor.carbsPerKg != null
-      ? Math.round(anchor.carbsPerKg * d.currentWeightKg)
-      : Math.round((anchor.carbsAbsoluteG ?? 0) * scale);
+    // Carbs follow the body-weight-scaled restriction model (see carbsForDay),
+    // NOT the anchor table. Approach still shifts the day so gradual/aggressive
+    // remain meaningful; standard uses the raw day → matches the spec curve.
+    const carbsGrams = carbsForDay(
+      approachShiftedDay(dtw, effectiveApproach),
+      d.currentWeightKg,
+    );
 
     const waterMl = anchor.waterMlPerKg * d.currentWeightKg;
     const waterLitres = round2(waterMl / 1000);

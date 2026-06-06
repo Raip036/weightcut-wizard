@@ -795,6 +795,7 @@ export const fetchTrainingWeek = internalQuery({
           soreness_level: s.sorenessLevel ?? null,
           sleep_hours: s.sleepHours ?? null,
           notes: s.notes ?? null,
+          techniques_notes: s.techniquesNotes ?? null,
         };
       }),
     };

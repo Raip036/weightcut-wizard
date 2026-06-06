@@ -199,6 +199,137 @@ export default function FightCamps() {
     );
   }
 
+  // Partition camps into the live "Current camp" and finished "Past camps"
+  // so it's obvious what's active vs. history. The active camp (from
+  // getActiveCamp) gets the highlighted "Current" treatment; completed camps
+  // get a muted card + "Done" badge and stay tappable for looking back.
+  const activeCampId =
+    (activeCamp as { _id?: string } | null | undefined)?._id ?? null;
+  const currentCamps = camps.filter((c) => !c.is_completed);
+  const pastCamps = camps.filter((c) => c.is_completed);
+
+  const renderCampCard = (camp: FightCamp) => {
+    const completed = camp.is_completed;
+    const isActive = !completed && camp.id === activeCampId;
+    return (
+      <div
+        key={camp.id}
+        className={`group relative card-surface p-4 active:scale-[0.98] transition-all duration-200 overflow-hidden ${
+          isActive ? "border border-primary/30 card-glow" : ""
+        } ${completed ? "opacity-[0.92]" : ""} ${
+          compareMode && selectedCamps.includes(camp.id) ? "ring-2 ring-primary" : ""
+        } ${
+          selectMode && selectedForDelete.includes(camp.id) ? "ring-2 ring-destructive" : ""
+        }`}
+      >
+        <div onClick={() => {
+          if (selectMode) {
+            setSelectedForDelete((prev) =>
+              prev.includes(camp.id) ? prev.filter((id) => id !== camp.id) : [...prev, camp.id]
+            );
+            return;
+          }
+          if (compareMode) {
+            setSelectedCamps((prev) => {
+              if (prev.includes(camp.id)) return prev.filter((id) => id !== camp.id);
+              if (prev.length >= 2) return prev;
+              const next = [...prev, camp.id];
+              if (next.length === 2) setCompareDialogOpen(true);
+              return next;
+            });
+          } else {
+            navigate(`/fight-camps/${camp.id}`);
+          }
+        }} className="cursor-pointer">
+        {selectMode && (
+          <div className={`absolute top-3 right-3 h-5 w-5 rounded-full border-2 flex items-center justify-center ${
+            selectedForDelete.includes(camp.id)
+              ? "bg-destructive border-destructive"
+              : "border-muted-foreground/40 bg-background/40"
+          }`}>
+            {selectedForDelete.includes(camp.id) && <Check className="h-3 w-3 text-destructive-foreground" />}
+          </div>
+        )}
+          <div className="flex items-start gap-3">
+            {camp.profile_pic_url ? (
+              <img
+                src={camp.profile_pic_url}
+                alt={camp.name}
+                className="w-9 h-9 rounded-full object-cover border border-border shrink-0"
+              />
+            ) : (
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center border border-border shrink-0 ${
+                isActive ? "bg-primary/10" : completed ? "bg-func-recovery-green/10" : "bg-muted"
+              }`}>
+                <Trophy className={`w-4 h-4 ${
+                  isActive ? "text-primary" : completed ? "text-func-recovery-green" : "text-muted-foreground"
+                }`} />
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 min-w-0">
+                <h3 className="font-bold text-sm leading-tight truncate">{camp.name}</h3>
+                {isActive && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary shrink-0">
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                    Current
+                  </span>
+                )}
+                {completed && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-func-recovery-green/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-func-recovery-green shrink-0">
+                    <Check className="h-3 w-3" strokeWidth={3} />
+                    Done
+                  </span>
+                )}
+              </div>
+              {camp.event_name && (
+                <p className="text-xs text-primary font-medium truncate">{camp.event_name}</p>
+              )}
+              <p className="text-xs text-muted-foreground mt-0.5">{format(new Date(camp.fight_date), "MMM dd, yyyy")}</p>
+            </div>
+          </div>
+
+          {/* Metrics Strip */}
+          {(camp.starting_weight_kg || camp.total_weight_cut) ? (
+            <div className="mt-3 bg-muted/50 rounded-xs p-2.5 flex items-center justify-around border border-border">
+              <div className="text-center">
+                <p className="text-[13px] uppercase tracking-widest text-muted-foreground mb-0.5">Start</p>
+                <p className="text-sm font-bold">{camp.starting_weight_kg ? `${camp.starting_weight_kg}kg` : '-'}</p>
+              </div>
+              <div className="h-5 w-px bg-border" />
+              <div className="text-center">
+                <p className="text-[13px] uppercase tracking-widest text-muted-foreground mb-0.5">Cut</p>
+                <p className="text-sm font-bold text-primary">{camp.total_weight_cut ? `-${camp.total_weight_cut.toFixed(1)}kg` : '-'}</p>
+              </div>
+              <div className="h-5 w-px bg-border" />
+              <div className="text-center">
+                <p className="text-[13px] uppercase tracking-widest text-muted-foreground mb-0.5">End</p>
+                <p className="text-sm font-bold">{camp.end_weight_kg ? `${camp.end_weight_kg}kg` : '-'}</p>
+              </div>
+            </div>
+          ) : (
+            <p className="mt-2 text-xs text-muted-foreground pl-[3.25rem]">No weight data yet</p>
+          )}
+        </div>
+
+        {!selectMode && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              initiateDelete(camp);
+            }}
+            aria-label="Delete camp"
+            className="absolute top-3 right-3 h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-muted/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div
       className="animate-page-in space-y-4 px-5 py-3 sm:p-5 md:p-6 max-w-2xl mx-auto"
@@ -277,7 +408,7 @@ export default function FightCamps() {
             about. New users see the empty-state card instead, which has its
             own onboarding tone. */}
         {!compareMode && !selectMode && camps.length > 0 && (
-          <div className="rounded-xs bg-card/60 border border-border/40 overflow-hidden">
+          <div className="rounded-xs card-surface overflow-hidden">
             <div className="grid grid-cols-3 divide-x divide-border/40">
               <div className="py-4 px-2 text-center">
                 <p className="text-[26px] font-bold tabular-nums tracking-tight">{stats.total}</p>
@@ -366,104 +497,25 @@ export default function FightCamps() {
             </Button>
           </div>
         ) : (
-          <div className="space-y-3">
-            {camps.map((camp) => (
-              <div
-                key={camp.id}
-                className={`group relative card-surface p-4 active:scale-[0.98] transition-all duration-200 overflow-hidden ${
-                  compareMode && selectedCamps.includes(camp.id) ? "ring-2 ring-primary" : ""
-                } ${
-                  selectMode && selectedForDelete.includes(camp.id) ? "ring-2 ring-destructive" : ""
-                }`}
-              >
-                <div onClick={() => {
-                  if (selectMode) {
-                    setSelectedForDelete((prev) =>
-                      prev.includes(camp.id) ? prev.filter((id) => id !== camp.id) : [...prev, camp.id]
-                    );
-                    return;
-                  }
-                  if (compareMode) {
-                    setSelectedCamps((prev) => {
-                      if (prev.includes(camp.id)) return prev.filter((id) => id !== camp.id);
-                      if (prev.length >= 2) return prev;
-                      const next = [...prev, camp.id];
-                      if (next.length === 2) setCompareDialogOpen(true);
-                      return next;
-                    });
-                  } else {
-                    navigate(`/fight-camps/${camp.id}`);
-                  }
-                }} className="cursor-pointer">
-                {selectMode && (
-                  <div className={`absolute top-3 right-3 h-5 w-5 rounded-full border-2 flex items-center justify-center ${
-                    selectedForDelete.includes(camp.id)
-                      ? "bg-destructive border-destructive"
-                      : "border-muted-foreground/40 bg-background/40"
-                  }`}>
-                    {selectedForDelete.includes(camp.id) && <Check className="h-3 w-3 text-destructive-foreground" />}
-                  </div>
+          <div className="space-y-6">
+            {currentCamps.length > 0 && (
+              <div className="space-y-3">
+                {pastCamps.length > 0 && (
+                  <h2 className="px-0.5 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/70">
+                    Current camp
+                  </h2>
                 )}
-                  <div className="flex items-start gap-3">
-                    {camp.profile_pic_url ? (
-                      <img
-                        src={camp.profile_pic_url}
-                        alt={camp.name}
-                        className="w-9 h-9 rounded-full object-cover border border-border shrink-0"
-                      />
-                    ) : (
-                      <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center border border-border shrink-0">
-                        <Trophy className="w-4 h-4 text-muted-foreground" />
-                      </div>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <h3 className="font-bold text-sm leading-tight">{camp.name}</h3>
-                      {camp.event_name && (
-                        <p className="text-xs text-primary font-medium truncate">{camp.event_name}</p>
-                      )}
-                      <p className="text-xs text-muted-foreground mt-0.5">{format(new Date(camp.fight_date), "MMM dd, yyyy")}</p>
-                    </div>
-                  </div>
-
-                  {/* Metrics Strip */}
-                  {(camp.starting_weight_kg || camp.total_weight_cut) ? (
-                    <div className="mt-3 bg-muted/50 rounded-xs p-2.5 flex items-center justify-around border border-border">
-                      <div className="text-center">
-                        <p className="text-[13px] uppercase tracking-widest text-muted-foreground mb-0.5">Start</p>
-                        <p className="text-sm font-bold">{camp.starting_weight_kg ? `${camp.starting_weight_kg}kg` : '-'}</p>
-                      </div>
-                      <div className="h-5 w-px bg-border" />
-                      <div className="text-center">
-                        <p className="text-[13px] uppercase tracking-widest text-muted-foreground mb-0.5">Cut</p>
-                        <p className="text-sm font-bold text-primary">{camp.total_weight_cut ? `-${camp.total_weight_cut.toFixed(1)}kg` : '-'}</p>
-                      </div>
-                      <div className="h-5 w-px bg-border" />
-                      <div className="text-center">
-                        <p className="text-[13px] uppercase tracking-widest text-muted-foreground mb-0.5">End</p>
-                        <p className="text-sm font-bold">{camp.end_weight_kg ? `${camp.end_weight_kg}kg` : '-'}</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="mt-2 text-xs text-muted-foreground pl-[3.25rem]">No weight data yet</p>
-                  )}
-                </div>
-
-                {!selectMode && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      initiateDelete(camp);
-                    }}
-                    aria-label="Delete camp"
-                    className="absolute top-3 right-3 h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-muted/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                )}
+                <div className="space-y-3">{currentCamps.map(renderCampCard)}</div>
               </div>
-            ))}
+            )}
+            {pastCamps.length > 0 && (
+              <div className="space-y-3">
+                <h2 className="px-0.5 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/70">
+                  Past camps
+                </h2>
+                <div className="space-y-3">{pastCamps.map(renderCampCard)}</div>
+              </div>
+            )}
           </div>
         )}
 

@@ -62,6 +62,9 @@ interface FightCampLogFormProps {
   setSorenessLevel: (v: number[]) => void;
   notes: string;
   setNotes: (v: string) => void;
+  /** Techniques covered (combos / positions / drills). Separate reflection field. */
+  techniquesNotes: string;
+  setTechniquesNotes: (v: string) => void;
   runDistance: string;
   setRunDistance: (v: string) => void;
   runTime: string;
@@ -106,6 +109,7 @@ export function FightCampLogForm({
   hasSoreness, setHasSoreness,
   sorenessLevel, setSorenessLevel,
   notes, setNotes,
+  techniquesNotes, setTechniquesNotes,
   runDistance, setRunDistance,
   runTime, setRunTime,
   runDistanceUnit, setRunDistanceUnit,
@@ -225,9 +229,28 @@ export function FightCampLogForm({
     [pendingMedia.length, onAddMedia, toast],
   );
 
+  // Which textarea the voice transcription should append to. Set when the
+  // user taps a box's mic button, so a single recogniser instance can feed
+  // either the Techniques box or the reflection box.
+  const [voiceTarget, setVoiceTarget] = useState<"techniques" | "reflection">("reflection");
+  // Read the live target/values via refs so the (stable) transcript handler
+  // routes to the box that's actually recording without re-subscribing.
+  const voiceTargetRef = useRef(voiceTarget);
+  voiceTargetRef.current = voiceTarget;
+  const notesRef = useRef(notes);
+  notesRef.current = notes;
+  const techniquesNotesRef = useRef(techniquesNotes);
+  techniquesNotesRef.current = techniquesNotes;
+
   const handleVoiceTranscript = useCallback((text: string) => {
-    setNotes(notes ? notes + " " + text : text);
-  }, [notes, setNotes]);
+    if (voiceTargetRef.current === "techniques") {
+      const prev = techniquesNotesRef.current;
+      setTechniquesNotes(prev ? prev + " " + text : text);
+    } else {
+      const prev = notesRef.current;
+      setNotes(prev ? prev + " " + text : text);
+    }
+  }, [setNotes, setTechniquesNotes]);
 
   const handleVoiceError = useCallback((error: string) => {
     toast({ title: "Voice Input", description: error, variant: "destructive" });
@@ -237,6 +260,22 @@ export function FightCampLogForm({
     onTranscript: handleVoiceTranscript,
     onError: handleVoiceError,
   });
+
+  // Tap a box's mic: if that box is already the active recording target,
+  // stop; otherwise (re)start listening with that box as the target.
+  const toggleVoiceFor = useCallback(
+    (target: "techniques" | "reflection") => {
+      triggerHapticSelection();
+      if (isListening && voiceTargetRef.current === target) {
+        stopListening();
+        return;
+      }
+      setVoiceTarget(target);
+      voiceTargetRef.current = target;
+      if (!isListening) startListening();
+    },
+    [isListening, startListening, stopListening],
+  );
 
   // Tags offered for the currently-selected primary. Drives the
   // incompatible-tag cleanup effect below + the Run-details / Rounds gating.
@@ -493,34 +532,66 @@ export function FightCampLogForm({
         </div>
       </div>
 
-      {/* ── Notes ─────────────────────────────────────────────── */}
+      {/* ── Techniques covered ────────────────────────────────── */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <Label className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/60">
-            Notes
+            Techniques covered
           </Label>
           {voiceSupported && (
             <button
               type="button"
-              onClick={() => { triggerHapticSelection(); isListening ? stopListening() : startListening(); }}
+              onClick={() => toggleVoiceFor("techniques")}
               className={`flex items-center gap-1 h-7 px-2.5 rounded-full text-[11px] font-semibold transition-all ${
-                isListening
+                isListening && voiceTarget === "techniques"
                   ? "bg-func-danger-red/15 text-func-danger-red animate-pulse"
                   : "bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-muted-foreground active:bg-muted/60"
               }`}
             >
-              {isListening ? <MicOff className="h-3 w-3" /> : <Mic className="h-3 w-3" />}
-              {isListening ? "Stop" : "Voice"}
+              {isListening && voiceTarget === "techniques" ? <MicOff className="h-3 w-3" /> : <Mic className="h-3 w-3" />}
+              {isListening && voiceTarget === "techniques" ? "Stop" : "Voice"}
+            </button>
+          )}
+        </div>
+        <Textarea
+          value={techniquesNotes}
+          onChange={(e) => setTechniquesNotes(e.target.value)}
+          placeholder={isListening && voiceTarget === "techniques" ? "Listening…" : "Combos, positions, drills you worked…"}
+          className={`min-h-[88px] resize-none rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/30 text-[14px] px-4 py-3 placeholder:text-muted-foreground/50 ${isListening && voiceTarget === "techniques" ? "ring-2 ring-func-danger-red/40" : ""}`}
+        />
+        {isListening && voiceTarget === "techniques" && interimText && (
+          <p className="text-[12px] text-muted-foreground/70 italic px-1">{interimText}</p>
+        )}
+      </div>
+
+      {/* ── What went well / to improve ───────────────────────── */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/60">
+            What went well / to improve
+          </Label>
+          {voiceSupported && (
+            <button
+              type="button"
+              onClick={() => toggleVoiceFor("reflection")}
+              className={`flex items-center gap-1 h-7 px-2.5 rounded-full text-[11px] font-semibold transition-all ${
+                isListening && voiceTarget === "reflection"
+                  ? "bg-func-danger-red/15 text-func-danger-red animate-pulse"
+                  : "bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-muted-foreground active:bg-muted/60"
+              }`}
+            >
+              {isListening && voiceTarget === "reflection" ? <MicOff className="h-3 w-3" /> : <Mic className="h-3 w-3" />}
+              {isListening && voiceTarget === "reflection" ? "Stop" : "Voice"}
             </button>
           )}
         </div>
         <Textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder={isListening ? "Listening…" : "Techniques, drills, anything worth remembering…"}
-          className={`min-h-[88px] resize-none rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/30 text-[14px] px-4 py-3 placeholder:text-muted-foreground/50 ${isListening ? "ring-2 ring-func-danger-red/40" : ""}`}
+          placeholder={isListening && voiceTarget === "reflection" ? "Listening…" : "What clicked, what to fix next time…"}
+          className={`min-h-[88px] resize-none rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/30 text-[14px] px-4 py-3 placeholder:text-muted-foreground/50 ${isListening && voiceTarget === "reflection" ? "ring-2 ring-func-danger-red/40" : ""}`}
         />
-        {isListening && interimText && (
+        {isListening && voiceTarget === "reflection" && interimText && (
           <p className="text-[12px] text-muted-foreground/70 italic px-1">{interimText}</p>
         )}
       </div>

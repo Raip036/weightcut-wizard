@@ -2,7 +2,8 @@ import { useCallback, useMemo } from "react";
 import { Plus, Copy, X, ChevronRight, ChevronDown, Trophy } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { staggerItem } from "@/lib/motion";
-import { SetRow } from "./SetRow";
+import { SetRow, SET_GRID } from "./SetRow";
+import { startRest, getRestForExercise } from "./restTimer";
 import { formatWeight, formatVolume } from "@/lib/gymCalculations";
 import { resolveTrackingType, effectiveVolumeWeight } from "@/lib/exerciseTypes";
 import type { ExerciseGroup, PRType, GymSet } from "@/pages/gym/types";
@@ -19,7 +20,7 @@ interface ExerciseBlockProps {
    *  and tapping the row toggles the block. */
   onToggleCollapse?: () => void;
   onAddSet: (exerciseOrder: number, data: { weight_kg?: number | null; reps: number; rpe?: number | null; is_warmup?: boolean; is_bodyweight?: boolean }) => void;
-  onUpdateSet: (setId: string, exerciseOrder: number, updates: Partial<{ weight_kg: number | null; reps: number; rpe: number | null; is_warmup: boolean }>) => void;
+  onUpdateSet: (setId: string, exerciseOrder: number, updates: Partial<{ weight_kg: number | null; reps: number; rpe: number | null; is_warmup: boolean; completed: boolean }>) => void;
   onDeleteSet: (setId: string, exerciseOrder: number) => void;
   onDuplicateLastSet: (exerciseOrder: number) => void;
   onRemoveExercise: (exerciseOrder: number) => void;
@@ -97,13 +98,20 @@ export function ExerciseBlock({
     });
   }, [group, previousSets, onAddSet]);
 
-  const handleUpdate = useCallback((setId: string, updates: any) => {
+  const handleUpdate = useCallback((setId: string, updates: Partial<{ weight_kg: number | null; reps: number; rpe: number | null; is_warmup: boolean; completed: boolean }>) => {
     onUpdateSet(setId, group.exerciseOrder, updates);
   }, [group.exerciseOrder, onUpdateSet]);
 
   const handleDelete = useCallback((setId: string) => {
     onDeleteSet(setId, group.exerciseOrder);
   }, [group.exerciseOrder, onDeleteSet]);
+
+  // Completing a set persists the flag and auto-starts the rest timer using
+  // this exercise's configured rest (override → default).
+  const handleToggleComplete = useCallback((setId: string, next: boolean) => {
+    onUpdateSet(setId, group.exerciseOrder, { completed: next });
+    if (next) startRest(getRestForExercise(group.exercise.id));
+  }, [group.exerciseOrder, group.exercise.id, onUpdateSet]);
 
   const muscleColor = MUSCLE_COLORS[group.exercise.muscle_group] || "bg-muted text-muted-foreground";
   const borderColor = MUSCLE_BORDER_COLORS[group.exercise.muscle_group] || "border-l-muted-foreground";
@@ -200,14 +208,16 @@ export function ExerciseBlock({
         </div>
       )}
 
-      {/* Column headers — mirror SetRow flex/gap/widths so labels sit centered above inputs */}
+      {/* Column headers — share the SetRow grid template so labels sit
+          centered above each column (Set · Previous · Kg · Reps · ✓). */}
       {group.sets.length > 0 && (
-        <div className="flex items-center gap-2 px-3 pb-1.5 mb-1 text-[11px] text-muted-foreground/70 uppercase tracking-wider border-b border-border/20">
-          <div className="w-8 shrink-0 text-center">Set</div>
-          <div className="w-[84px] text-center">Weight</div>
-          <div className="w-[84px] text-center">Reps</div>
-          <div className="w-7 shrink-0" />
-          <div className="w-7 shrink-0" />
+        <div className={`${SET_GRID} px-3 pb-1.5 mb-1 text-[10px] text-muted-foreground/70 uppercase tracking-wider border-b border-border/20`}>
+          <div className="text-center">Set</div>
+          <div className="text-left pl-0.5">Prev</div>
+          <div className="text-center">Kg</div>
+          <div className="text-center">Reps</div>
+          <div className="text-center">✓</div>
+          <div />
         </div>
       )}
 
@@ -217,9 +227,13 @@ export function ExerciseBlock({
           const setIndex = set.is_warmup ? i : workingSets.indexOf(set);
           const prTypesForSet: PRType[] = [];
           if (newPRSetIds?.has(set.id)) {
+            // Weight-only PRs: a set is flagged solely for a new heaviest weight.
             if (pr && set.weight_kg && set.weight_kg >= (pr.max_weight_kg ?? 0)) prTypesForSet.push("weight");
-            if (pr && set.reps >= (pr.max_reps ?? 0)) prTypesForSet.push("reps");
           }
+          // Previous session's matching set (by working-set position) as the
+          // inline ghost target — data already comes from usePreviousSets.
+          const prevSet = !set.is_warmup ? previousSets?.[setIndex] : undefined;
+          const previous = prevSet ? { weight_kg: prevSet.weight_kg, reps: prevSet.reps } : null;
 
           return (
             <SetRow
@@ -227,7 +241,9 @@ export function ExerciseBlock({
               set={set}
               index={setIndex}
               prTypes={prTypesForSet}
+              previous={previous}
               onUpdate={handleUpdate}
+              onToggleComplete={handleToggleComplete}
               onDelete={handleDelete}
             />
           );

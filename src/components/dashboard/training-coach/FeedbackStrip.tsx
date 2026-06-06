@@ -14,7 +14,7 @@ export function FeedbackStrip({ stepId, onDone }: Props) {
     onDone();
   };
   return (
-    <div className="rounded-xl border border-border/50 bg-card/60 px-3 py-2 flex items-center gap-2">
+    <div className="rounded-xl card-surface px-3 py-2 flex items-center gap-2">
       <span className="text-[12px] text-muted-foreground flex-1">
         How'd it go?
       </span>

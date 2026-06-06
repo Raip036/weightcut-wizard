@@ -276,7 +276,7 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
     // Compact skeleton: mimics exact final layout, clipped by overflow-hidden
     if (compact) {
       return (
-        <div className="card-surface card-glow rounded-2xl overflow-hidden p-3.5 aspect-square flex flex-col">
+        <div className="card-surface rounded-2xl overflow-hidden p-3.5 aspect-square flex flex-col">
           <div className="flex items-center gap-2.5 min-w-0">
             <Skeleton className="w-11 h-11 rounded-full shrink-0" />
             <div className="flex-1 min-w-0 space-y-1.5">
@@ -294,7 +294,7 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
     }
     // Full skeleton
     return (
-      <div className="card-surface card-glow rounded-2xl overflow-hidden p-5">
+      <div className="card-surface rounded-2xl overflow-hidden p-5">
         <div className="flex items-center gap-4 min-w-0">
           <Skeleton className="w-20 h-20 rounded-full shrink-0" />
           <div className="flex-1 min-w-0 space-y-2">
@@ -315,11 +315,19 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
   if (compact) {
     return (
       <div
-        className="card-surface card-glow p-3.5 rounded-2xl overflow-hidden cursor-pointer active:scale-[0.98] transition-all duration-200 aspect-square flex flex-col min-w-0 w-full"
+        className="card-surface p-3.5 rounded-2xl overflow-hidden cursor-pointer active:scale-[0.98] transition-all duration-200 aspect-square flex flex-col min-w-0 w-full"
         onClick={() => { triggerHapticSelection(); navigate("/training-calendar?openLogSession=true"); }}
       >
-        {/* Header: ring + stats */}
-        <div className="flex items-center gap-2.5">
+        {/* Title top-left, expand chevron top-right — matches the WEIGHT card */}
+        <div className="flex items-start justify-between">
+          <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
+            TRAINING
+          </span>
+          <Icon name="chevronForwardOutline" size={14} className="text-muted-foreground/40" />
+        </div>
+
+        {/* Ring + stats */}
+        <div className="flex items-center gap-2.5 mt-2">
           <div className="relative w-11 h-11 flex-shrink-0">
             <AnimatedRing
               progress={ringProgress}
@@ -332,34 +340,28 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
               <span className="display-number text-xs font-bold tabular-nums">{Math.round(animatedSessions)}</span>
             </div>
           </div>
-          <div className="flex-1 min-w-0">
-            {/* Design System v1: eyebrow labels render in Inter Regular
-                (not bold). Matches the WEIGHT label on the sibling card. */}
-            <div className="text-[10px] font-normal uppercase tracking-[0.08em] text-muted-foreground">Training</div>
-            <div className="flex items-baseline gap-1 mt-0.5">
-              <span className="display-number text-lg font-bold tabular-nums">
-                {Math.round(animatedTotal)}
-              </span>
-              <span className="text-[10px] text-muted-foreground font-medium">
-                {totalMinutes >= 60 ? "hrs" : "min"}
-              </span>
-            </div>
-            {/* Delta lives on its own line so wider values (−12m, −1.5h)
-                never push past the card's right edge. Mirrors the
-                WEIGHT sibling tile's delta-on-its-own-line pattern. */}
+          {/* Single baseline row so the whole text block centres vertically
+              against the ring. Delta is pushed to the column's right edge,
+              sitting to the right of the hours value. */}
+          <div className="flex-1 min-w-0 flex items-baseline gap-1">
+            <span className="display-number text-lg font-bold tabular-nums">
+              {Math.round(animatedTotal)}
+            </span>
+            <span className="text-[10px] text-muted-foreground font-medium">
+              {totalMinutes >= 60 ? "hrs" : "min"}
+            </span>
             {deltaMin != null && deltaDisplay != null && (
               deltaMin === 0 ? (
-                <div className="text-[10px] font-semibold tabular-nums leading-none mt-1 text-muted-foreground/70">
+                <span className="ml-auto text-[10px] font-semibold tabular-nums leading-none text-muted-foreground/70">
                   ±0{deltaUnitSuffix}
-                </div>
+                </span>
               ) : (
-                <div className={`text-[10px] font-semibold tabular-nums leading-none mt-1 ${deltaMin > 0 ? "text-func-recovery-green" : "text-func-danger-red"}`}>
+                <span className={`ml-auto text-[10px] font-semibold tabular-nums leading-none ${deltaMin > 0 ? "text-func-recovery-green" : "text-func-danger-red"}`}>
                   {deltaMin > 0 ? "+" : "−"}{Math.abs(deltaDisplay)}{deltaUnitSuffix}
-                </div>
+                </span>
               )
             )}
           </div>
-          <Icon name="chevronForwardOutline" size={14} className="text-muted-foreground/30 flex-shrink-0" />
         </div>
 
         {/* Week bar chart — fills remaining space. Each session renders as
@@ -416,7 +418,7 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
   // Full-size (non-compact) layout
   return (
     <div
-      className="card-surface card-glow p-3 rounded-2xl overflow-hidden cursor-pointer active:scale-[0.98] transition-all duration-200"
+      className="card-surface p-3 rounded-2xl overflow-hidden cursor-pointer active:scale-[0.98] transition-all duration-200"
       onClick={() => { triggerHapticSelection(); navigate("/training-calendar?openLogSession=true"); }}
     >
       {/* Header row — eyebrow label + chevron, matches Weight/Sleep cards */}

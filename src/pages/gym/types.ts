@@ -60,6 +60,8 @@ export interface GymSet {
   rpe: number | null;
   is_warmup: boolean;
   is_bodyweight: boolean;
+  /** Active-workout "set complete" state (Hevy/Strong ✓). Defaults false. */
+  completed: boolean;
   assisted_weight_kg: number | null;
   notes: string | null;
   created_at: string;
@@ -134,6 +136,10 @@ export type WorkoutSplit = "upper_lower" | "push_pull_legs" | "full_body" | "bro
 
 export type FocusArea = "chest" | "back" | "shoulders" | "arms" | "legs" | "core" | "explosiveness" | "grip";
 
+export type CampPhase = "off" | "pre" | "camp";
+export type ExperienceLevel = "beginner" | "intermediate" | "advanced";
+export type WeakPoint = "posterior_chain" | "explosiveness" | "grip" | "conditioning" | "unilateral";
+
 export interface RoutineGenerationParams {
   goals: TrainingGoal[];
   sport: CombatSport;
@@ -142,6 +148,14 @@ export interface RoutineGenerationParams {
   sessionDurationMinutes: number;
   focusAreas: FocusArea[];
   preferredSplit: WorkoutSplit;
+  // V2 context for the S&C engine (all optional, backwards compatible).
+  description?: string;
+  /** Weekday labels the athlete spars hard, e.g. ["Mon","Wed"]. */
+  hardSparringDays?: string[];
+  campPhase?: CampPhase;
+  experience?: ExperienceLevel;
+  weakPoints?: WeakPoint[];
+  injuries?: string;
 }
 
 export type PRType = "weight" | "reps" | "volume" | "1rm";

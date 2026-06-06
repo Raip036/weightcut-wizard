@@ -207,9 +207,9 @@ Days to comment on: ${projection.timeline.map((d) => d.day).join(", ")}.`;
     try {
       const content = await callGroqText({
         // Heavy-tier model — fight-week analysis spans a multi-day
-        // projection and needs accurate, structured reasoning. On
-        // OpenRouter this resolves to qwen3-235b via OPENROUTER_MODEL_MAP;
-        // on Groq direct it stays as gpt-oss-120b.
+        // projection and needs accurate, structured reasoning. The same
+        // model runs on both providers (OPENROUTER_MODEL_MAP keeps it as
+        // gpt-oss-120b); OpenRouter just routes it to the fastest backend.
         model: "openai/gpt-oss-120b",
         messages: [
           { role: "system", content: systemPrompt },

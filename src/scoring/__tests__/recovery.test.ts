@@ -173,7 +173,7 @@ describe("computeFightFormScore + healthSignals integration", () => {
     expect(withNull.recoveryConfidence).toBe(0);
   });
 
-  it("with Tier 2 signals, recovery takes over wellness weight and recoveryConfidence > 0.9", () => {
+  it("with Tier 2 signals AND a logged survey, the wellness slot blends 50/50", () => {
     const r = computeFightFormScore(
       baseInputs({
         healthSignals: fullTier2Signals,
@@ -182,8 +182,24 @@ describe("computeFightFormScore + healthSignals integration", () => {
       ScoringConfigV1,
     );
     expect(r.recoveryConfidence).toBeGreaterThan(0.9);
+    // Blend (not handover): the self-reported survey ALWAYS keeps weight when
+    // logged. With HealthKit recovery also present, the slot splits evenly.
     expect(r.subScores.recovery.weight).toBeGreaterThan(0);
-    expect(r.subScores.wellness.weight).toBe(0); // weight handed over
+    expect(r.subScores.wellness.weight).toBeGreaterThan(0);
+    expect(r.subScores.wellness.weight).toBeCloseTo(r.subScores.recovery.weight, 5);
+  });
+
+  it("with Tier 2 signals but NO logged survey, recovery takes the full wellness slot", () => {
+    const r = computeFightFormScore(
+      baseInputs({
+        healthSignals: fullTier2Signals,
+        selfReportRecovery: { soreness: 3, energy: 8 },
+        hooperByDate: [], // no wellness check-ins → survey has no data
+      }),
+      ScoringConfigV1,
+    );
+    expect(r.subScores.recovery.weight).toBeGreaterThan(0);
+    expect(r.subScores.wellness.weight).toBe(0);
   });
 
   it("with all-null signals AND null self-report, recovery contributes 0 and wellness keeps its weight", () => {

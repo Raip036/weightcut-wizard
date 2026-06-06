@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon, type IonIconName } from "@/components/ui/Icon";
 import { triggerHapticSelection } from "@/lib/haptics";
+import { DeltaPill, deltaVerdict } from "./DeltaPill";
 
 type Phase = "build" | "peak" | "fightWeek" | null | undefined;
 
@@ -61,6 +62,8 @@ const DEFAULT_FALLBACK_GUIDANCE: Record<NonNullable<Phase>, string> = {
 
 interface ChartData {
   actualPath: string;
+  /** Actual line closed down to the baseline — for the area-fill gradient. */
+  areaPath: string;
   planPath: string;
   driftKg: number;
   todayPx: { x: number; y: number };
@@ -119,8 +122,15 @@ function buildChart(
     .join("");
   const planPath = `M${sx(startTs).toFixed(1)},${sy(startKg).toFixed(1)} L${sx(targetTs).toFixed(1)},${sy(targetWeight).toFixed(1)}`;
 
+  // Close the actual line down to the baseline so it can carry a soft
+  // area-fill gradient (the single biggest "premium" upgrade for the spark).
+  const firstX = sx(points[0].ts);
+  const lastX = sx(points[points.length - 1].ts);
+  const areaPath = `${actualPath} L${lastX.toFixed(1)},${h} L${firstX.toFixed(1)},${h} Z`;
+
   return {
     actualPath,
+    areaPath,
     planPath,
     driftKg,
     todayPx: { x: sx(todayTs), y: sy(actualToday) },
@@ -136,24 +146,6 @@ function fixSuggestion(driftKg: number | null): string {
   if (driftKg > 0.3) return "Add 1 sauna session this week.";
   if (driftKg < -1.0) return "Cutting too fast. Refeed +500 kcal tomorrow.";
   return "Ahead of plan. Add 50 g carbs to dinner.";
-}
-
-// A single verdict drives every drift-colored element (line, today dot,
-// legend swatch, badge) so they always agree: on-or-ahead of plan reads in
-// the primary blue accent, meaningfully over plan is the lone amber.
-function isOverPlan(driftKg: number): boolean {
-  return driftKg > 0.3;
-}
-
-function driftBadge(driftKg: number): { label: string; tone: string } {
-  const abs = Math.abs(driftKg).toFixed(1);
-  if (Math.abs(driftKg) < 0.1) {
-    return { label: "On plan", tone: "text-primary" };
-  }
-  if (driftKg > 0) {
-    return { label: `+${abs} kg over plan`, tone: isOverPlan(driftKg) ? "text-amber-400" : "text-primary" };
-  }
-  return { label: `−${abs} kg under plan`, tone: "text-primary" };
 }
 
 export function PhaseCoachCard({
@@ -178,15 +170,20 @@ export function PhaseCoachCard({
     [chart],
   );
 
-  const badge = chart ? driftBadge(chart.driftKg) : null;
+  // One verdict drives every drift-colored element (line, area fill, today
+  // dot, pill) via the unified ramp, so the whole chart speaks one language.
+  const verdict = chart ? deltaVerdict(chart.driftKg) : null;
 
-  // Line color follows the drift verdict so the chart and badge agree.
-  const overPlan = chart ? isOverPlan(chart.driftKg) : false;
-  const actualLineClass = !chart
-    ? "text-foreground/70"
-    : overPlan
-      ? "text-amber-400"
-      : "text-primary";
+  // Current weight hero — today's authoritative weight, else the last log.
+  const currentDisplay =
+    currentWeight ??
+    (weightLogs && weightLogs.length > 0
+      ? parseFloat(String(weightLogs[weightLogs.length - 1].weight_kg))
+      : null);
+  const kgToGo =
+    currentDisplay != null && typeof targetWeight === "number" && targetWeight > 0
+      ? Math.max(0, currentDisplay - targetWeight)
+      : null;
 
   return (
     <button
@@ -195,47 +192,72 @@ export function PhaseCoachCard({
         triggerHapticSelection();
         navigate("/fight-camps");
       }}
-      className="w-full card-surface card-glow rounded-2xl p-3.5 text-left active:scale-[0.99] transition-transform"
+      className="w-full card-surface rounded-2xl p-3.5 text-left active:scale-[0.99] transition-transform"
     >
       <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <span
-            className={`h-7 w-7 rounded-xs bg-muted/40 flex items-center justify-center shrink-0 ${meta.accent}`}
-          >
-            <Icon name={meta.icon} size={14} />
-          </span>
-          <div className="min-w-0">
-            <p
-              className={`text-[10px] font-bold uppercase tracking-[0.14em] ${meta.accent}`}
-            >
-              {meta.label}
-            </p>
-            <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
-              {daysUntilFight != null && daysUntilFight > 0
-                ? `${daysUntilFight} ${daysUntilFight === 1 ? "day" : "days"} to weigh-in`
-                : "Camp inactive"}
-            </p>
-          </div>
+        <div className="min-w-0">
+          {/* Phase eyebrow — muted, so the single accent on this card is the
+              drift verdict (chart + pill), not the phase label. */}
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+            {meta.label} phase
+          </p>
+          {/* Hero — current weight is the one number the eye lands on. */}
+          <p className="mt-1.5 flex items-baseline gap-1.5">
+            <span className="display-number font-bold tabular-nums text-foreground text-[30px] leading-none">
+              {currentDisplay != null ? currentDisplay.toFixed(1) : "—"}
+            </span>
+            <span className="text-[13px] text-muted-foreground font-light">kg now</span>
+          </p>
+          {/* Subline — distance + countdown, the two facts that matter. */}
+          <p className="mt-1.5 text-[12px] text-muted-foreground">
+            {kgToGo != null && (
+              <>
+                <span className="tabular-nums font-semibold text-foreground/90">
+                  {kgToGo.toFixed(1)} kg
+                </span>{" "}
+                to go
+              </>
+            )}
+            {kgToGo != null && daysUntilFight != null && daysUntilFight > 0 && " · "}
+            {daysUntilFight != null && daysUntilFight > 0 && (
+              <>
+                <span className="tabular-nums font-semibold text-foreground/90">
+                  {daysUntilFight}
+                </span>{" "}
+                {daysUntilFight === 1 ? "day" : "days"} to weigh-in
+              </>
+            )}
+          </p>
         </div>
         {typeof targetWeight === "number" && targetWeight > 0 && (
           <div className="text-right shrink-0">
             <p className="text-[9px] uppercase tracking-wider text-muted-foreground">
               target
             </p>
-            <p className="text-[13px] font-semibold tabular-nums text-foreground/90 leading-tight">
+            <p className="text-[14px] font-semibold tabular-nums text-foreground/90 leading-tight">
               {targetWeight.toFixed(1)} kg
             </p>
           </div>
         )}
       </div>
 
-      {chart ? (
+      {chart && verdict ? (
         <div className="mt-3">
+          {/* `color` on the <svg> = the drift verdict, so the actual line,
+              the area fill (currentColor stops), and the today dot all inherit
+              one hue. The dashed plan line overrides to muted. */}
           <svg
             viewBox={`0 0 ${chart.w} ${chart.h}`}
             preserveAspectRatio="none"
-            className="w-full h-16"
+            className={`w-full h-16 ${verdict.text}`}
           >
+            <defs>
+              <linearGradient id="phaseActualFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="currentColor" stopOpacity={0.18} />
+                <stop offset="100%" stopColor="currentColor" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <path d={chart.areaPath} fill="url(#phaseActualFill)" stroke="none" />
             <path
               d={chart.planPath}
               className="stroke-foreground/30"
@@ -246,39 +268,19 @@ export function PhaseCoachCard({
             <path
               d={chart.actualPath}
               stroke="currentColor"
-              strokeWidth={2}
+              strokeWidth={2.25}
               strokeLinecap="round"
               strokeLinejoin="round"
               fill="none"
-              className={actualLineClass}
             />
-            <circle
-              cx={chart.todayPx.x}
-              cy={chart.todayPx.y}
-              r={3.5}
-              className={overPlan ? "fill-amber-400" : "fill-primary"}
-            />
+            {/* Card-colored halo so the "you are here" dot punches off the line. */}
+            <circle cx={chart.todayPx.x} cy={chart.todayPx.y} r={5.5} className="fill-[hsl(var(--card))]" />
+            <circle cx={chart.todayPx.x} cy={chart.todayPx.y} r={3.5} fill="currentColor" />
           </svg>
-          <div className="flex items-center justify-between mt-1.5 px-0.5">
-            <div className="flex items-center gap-2.5 text-[10px] text-muted-foreground">
-              <span className="inline-flex items-center gap-1">
-                <span className="inline-block w-2.5 h-[1.5px] bg-foreground/30" />
-                plan
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <span
-                  className={`inline-block w-2.5 h-[1.5px] ${overPlan ? "bg-amber-400" : "bg-primary"}`}
-                />
-                actual
-              </span>
-            </div>
-            {badge && (
-              <p
-                className={`text-[10.5px] font-semibold tabular-nums ${badge.tone}`}
-              >
-                {badge.label}
-              </p>
-            )}
+          {/* Legend dropped (dashed-grey = plan, colored = actual is
+              self-evident); the single drift pill carries the verdict. */}
+          <div className="mt-2 flex justify-end">
+            <DeltaPill value={chart.driftKg} noun="plan" />
           </div>
         </div>
       ) : null}

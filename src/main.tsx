@@ -29,6 +29,14 @@ import "./index.css";
 // when keyboard closes" twitch is already handled by `resize: "none"`
 // alone — there's nothing further to disable.
 if (Capacitor.isNativePlatform()) {
+  // Tag <html> with `.native-app` SYNCHRONOUSLY at module-eval — before
+  // createRoot().render() below — so the iOS-cheap CSS overrides in index.css
+  // (stripping backdrop-filter / filter:blur on `.native-app …`) apply on the
+  // very FIRST paint of every navigation. Previously this was added in an
+  // App.tsx useEffect, which runs AFTER first paint, so heavy blurs flashed on
+  // each page load before being stripped.
+  document.documentElement.classList.add("native-app");
+
   Keyboard.setResizeMode({ mode: KeyboardResize.None }).catch(() => {});
 
   Keyboard.addListener("keyboardWillShow", (info) => {

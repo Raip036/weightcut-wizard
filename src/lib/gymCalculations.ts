@@ -25,41 +25,20 @@ export function comparePR(
   existingPR: ExercisePR | null
 ): PRRecord[] {
   const records: PRRecord[] = [];
-  const weight = set.weight_kg ?? 0;
-  const volume = calculateSetVolume(set);
-  const e1rm = calculateEpley1RM(weight, set.reps);
-
   if (set.is_warmup) return records;
 
-  if (weight > 0 && (existingPR === null || weight > (existingPR.max_weight_kg ?? 0))) {
+  // A PR is ONLY a new heaviest weight that was actually lifted for at least
+  // one rep. Rep-count, volume and estimated-1RM improvements no longer count
+  // as PRs — only "I lifted heavier than ever before" does.
+  const weight = set.weight_kg ?? 0;
+  const reps = set.reps ?? 0;
+  if (reps < 1 || weight <= 0) return records;
+
+  if (existingPR === null || weight > (existingPR.max_weight_kg ?? 0)) {
     records.push({
       type: "weight",
       value: weight,
       previousValue: existingPR?.max_weight_kg ?? null,
-    });
-  }
-
-  if (set.reps > (existingPR?.max_reps ?? 0)) {
-    records.push({
-      type: "reps",
-      value: set.reps,
-      previousValue: existingPR?.max_reps ?? null,
-    });
-  }
-
-  if (volume > 0 && volume > (existingPR?.max_volume ?? 0)) {
-    records.push({
-      type: "volume",
-      value: volume,
-      previousValue: existingPR?.max_volume ?? null,
-    });
-  }
-
-  if (e1rm > 0 && e1rm > (existingPR?.estimated_1rm ?? 0)) {
-    records.push({
-      type: "1rm",
-      value: e1rm,
-      previousValue: existingPR?.estimated_1rm ?? null,
     });
   }
 

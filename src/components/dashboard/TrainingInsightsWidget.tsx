@@ -23,6 +23,7 @@ interface SessionRow {
   /** Optional activity tag (Sparring, Strength, …); may be null. */
   session_tag: string | null;
   notes: string | null;
+  techniquesNotes: string | null;
   rpe: number | null;
   intensity: string | null;
   duration_minutes: number | null;
@@ -81,11 +82,26 @@ function cacheKey(sessionType: string): string {
   return `training_insight_${CACHE_VERSION}_${sessionType.toLowerCase().replace(/\s+/g, "_")}`;
 }
 
+// Fingerprint for the SWR cache. Keyed on the latest session id PLUS the
+// length of its note fields, so editing the latest session's notes or
+// techniques in-place (the row id never changes) still invalidates the
+// cached insight and forces a fresh coach read.
+function sessionFingerprint(latest: SessionRow): string {
+  const notesLen = latest.notes?.length ?? 0;
+  const techLen = latest.techniquesNotes?.length ?? 0;
+  return `${latest.id}:${notesLen}:${techLen}`;
+}
+
 async function fetchRecentSessions(_userId: string): Promise<SessionRow[]> {
   const since = format(subDays(new Date(), LOOKBACK_DAYS), "yyyy-MM-dd");
   const rows = (await convex.query(api.fight_camp.listCalendar, { from: since })) ?? [];
   return (rows as any[])
-    .filter((r) => r.sessionType !== "Rest" && typeof r.notes === "string" && r.notes.trim().length > 0)
+    .filter(
+      (r) =>
+        r.sessionType !== "Rest" &&
+        ((typeof r.notes === "string" && r.notes.trim().length > 0) ||
+          (typeof r.techniquesNotes === "string" && r.techniquesNotes.trim().length > 0)),
+    )
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, 120)
     .map((r) => ({
@@ -94,6 +110,7 @@ async function fetchRecentSessions(_userId: string): Promise<SessionRow[]> {
       session_type: r.sessionType,
       session_tag: r.sessionTag ?? null,
       notes: r.notes,
+      techniquesNotes: r.techniquesNotes ?? null,
       rpe: r.rpe ?? null,
       intensity: r.intensity ?? null,
       duration_minutes: r.durationMinutes ?? null,
@@ -137,6 +154,7 @@ async function callTrainingInsights(
       sessions: sessions.map((s) => ({
         date: s.date,
         notes: s.notes,
+        techniquesNotes: s.techniquesNotes,
         rpe: s.rpe,
         intensity: s.intensity,
         duration_minutes: s.duration_minutes,
@@ -203,7 +221,11 @@ export const TrainingInsightsWidget = memo(function TrainingInsightsWidget({
   const hasRecentSessions = useMemo(() => {
     if (recentCalendar == null) return null;
     return (recentCalendar as any[]).some(
-      (r) => r.sessionType !== "Rest" && typeof r.notes === "string" && r.notes.trim().length > 0,
+      (r) =>
+        r.sessionType !== "Rest" &&
+        ((typeof r.notes === "string" && r.notes.trim().length > 0) ||
+          (typeof r.techniquesNotes === "string" &&
+            r.techniquesNotes.trim().length > 0)),
     );
   }, [recentCalendar]);
   // `coldLoading` blocks the UI on first render only — once we have any
@@ -286,7 +308,7 @@ export const TrainingInsightsWidget = memo(function TrainingInsightsWidget({
         const toFetch: Array<{ sessionType: string; sessions: SessionRow[]; fingerprint: string }> = [];
 
         for (const [sessionType, sessions] of grouped.entries()) {
-          const fingerprint = sessions[0].id;
+          const fingerprint = sessionFingerprint(sessions[0]);
           const cached = AIPersistence.load(userId, cacheKey(sessionType)) as
             | CachedInsight
             | null;

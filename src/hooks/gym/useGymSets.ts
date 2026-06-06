@@ -169,6 +169,7 @@ export function useGymSets({ activeSession, updateActiveSession }: UseGymSetsOpt
         is_warmup: setData.is_warmup ?? false,
         is_bodyweight: setData.is_bodyweight ?? group.exercise.is_bodyweight,
         assisted_weight_kg: null,
+        completed: false,
         notes: null,
         created_at: new Date().toISOString(),
       };
@@ -203,6 +204,7 @@ export function useGymSets({ activeSession, updateActiveSession }: UseGymSetsOpt
     reps: number;
     rpe: number | null;
     is_warmup: boolean;
+    completed: boolean;
   }>) => {
     if (!activeSession || !userId) return;
 
@@ -224,6 +226,7 @@ export function useGymSets({ activeSession, updateActiveSession }: UseGymSetsOpt
         weightKg: updates.weight_kg ?? undefined,
         rpe: updates.rpe ?? undefined,
         isWarmup: updates.is_warmup,
+        completed: updates.completed,
       });
       if (group) invalidateExerciseHistory(userId, group.exercise.id);
     } catch {

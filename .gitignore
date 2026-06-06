@@ -52,3 +52,10 @@ convex/_generated/ai/
 
 # Ad-hoc dev screenshots saved to the repo root
 /*.png
+screenshots/
+
+# Brainstorming visual companion
+.superpowers/
+
+# All markdown files
+*.md

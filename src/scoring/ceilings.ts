@@ -47,3 +47,57 @@ export function applyCeilings(
   const tightest = caps.reduce((min, c) => (c.cap < min.cap ? c : min), caps[0]);
   return { score: Math.min(score, tightest.cap), applied: tightest };
 }
+
+/** Maps each latchable ceiling rule to the pillar whose freshness governs it. */
+const CEILING_PILLAR: Record<string, "sleep_debt" | "weight_cut_dangerous" | "training_spike"> = {
+  sleep_debt: "sleep_debt",
+  weight_cut_dangerous: "weight_cut_dangerous",
+  training_spike: "training_spike",
+};
+
+export type LatchInputs = {
+  asOfDate: string;
+  priorCeilings: Array<{ date: string; ruleId: string; cap: number }>;
+  /**
+   * Days since the rule's governing pillar was last logged (null = never).
+   * A rule whose pillar is fresh (staleDays within grace) is allowed to
+   * release; a stale pillar keeps the cap latched.
+   */
+  staleDaysByRule: Record<"sleep_debt" | "weight_cut_dangerous" | "training_spike", number | null>;
+};
+
+/**
+ * Latch a recently-fired ceiling that the live evaluation no longer triggers,
+ * UNLESS the governing pillar has fresh data showing genuine recovery. This
+ * closes the "stop logging to escape the cap" exploit: silence keeps the cap;
+ * a fresh, recovered log lifts it.
+ */
+export function latchCeilings(
+  live: { score: number; applied: { ruleId: string; cap: number } | null },
+  inputs: LatchInputs,
+  cfg: ScoringConfig,
+): { score: number; applied: { ruleId: string; cap: number } | null } {
+  if (live.applied) return live; // a live cap already governs; nothing to latch.
+  const graceByRule = {
+    sleep_debt: cfg.staleness.byPillar.sleep.graceDays,
+    weight_cut_dangerous: cfg.staleness.byPillar.weightCut.graceDays,
+    training_spike: cfg.staleness.byPillar.trainingLoad.graceDays,
+  } as const;
+
+  let latched: { ruleId: string; cap: number } | null = null;
+  for (const pc of inputs.priorCeilings) {
+    const rule = CEILING_PILLAR[pc.ruleId];
+    if (!rule) continue;
+    const ageDays = Math.max(0, Math.round(
+      (new Date(inputs.asOfDate + "T00:00:00Z").getTime() - new Date(pc.date + "T00:00:00Z").getTime()) / 86400000,
+    ));
+    if (ageDays > cfg.confidence.ceilingCooldownDays) continue; // too old to latch
+    const staleDays = inputs.staleDaysByRule[rule];
+    const pillarFresh = staleDays !== null && staleDays <= graceByRule[rule];
+    if (pillarFresh) continue; // fresh data + rule not live = genuine recovery → release
+    // Stale pillar within cooldown → latch the tightest such cap.
+    if (latched === null || pc.cap < latched.cap) latched = { ruleId: pc.ruleId, cap: pc.cap };
+  }
+  if (latched === null) return live;
+  return { score: Math.min(live.score, latched.cap), applied: latched };
+}

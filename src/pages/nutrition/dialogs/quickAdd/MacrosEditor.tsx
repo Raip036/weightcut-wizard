@@ -26,6 +26,10 @@ interface MacrosEditorProps {
   onSave: () => void;
   /** Reset whole flow back to AI input (e.g. "discard / start over"). */
   onStartOver?: () => void;
+  /** Show the "add a side angle" nudge (low-confidence item + room for more photos). */
+  canAddAngle?: boolean;
+  /** Capture another angle and re-run the analysis with all photos. */
+  onAddAngle?: () => void;
 }
 
 /**
@@ -47,6 +51,8 @@ export function MacrosEditor({
   photoBase64,
   savingMeal,
   onSave,
+  canAddAngle,
+  onAddAngle,
 }: MacrosEditorProps) {
   const handleInputFocus = useScrollIntoViewOnFocus();
   const [editingMacro, setEditingMacro] = useState<
@@ -245,6 +251,27 @@ export function MacrosEditor({
           );
         })}
       </div>
+
+      {/* Confidence-gated nudge: an item was hard to size and there's room
+          for another photo — offer a side angle that re-runs the analysis. */}
+      {canAddAngle && onAddAngle && (
+        <button
+          type="button"
+          onClick={() => {
+            triggerHapticSelection();
+            onAddAngle();
+          }}
+          className="w-full flex items-center gap-2.5 rounded-2xl bg-[rgb(var(--func-warning-yellow)/0.1)] border border-[rgb(var(--func-warning-yellow)/0.28)] px-3 py-2.5 text-left active:scale-[0.99] transition-transform"
+        >
+          <span className="text-[rgb(var(--func-warning-yellow))] text-[15px] leading-none">⚠</span>
+          <span className="flex-1 text-[12px] leading-snug text-[rgb(var(--func-warning-yellow))]/90">
+            Some items were hard to size — add a side angle to sharpen the estimate.
+          </span>
+          <span className="shrink-0 text-[11px] font-bold text-black bg-[rgb(var(--func-warning-yellow))] rounded-lg px-2.5 py-1">
+            + Angle
+          </span>
+        </button>
+      )}
 
       {/* Editable detected-foods list. Mutating any row recomputes the
           macro totals above and clears stale tile overrides so the

@@ -27,7 +27,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { ArrowRight, ChevronDown, Check, Dumbbell } from "lucide-react";
-import wizardMascot from "@/assets/wizard-tutorial.png";
+import wizardMascot from "@/assets/thoughtful_wizard.png";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -36,6 +36,7 @@ import { useMyGyms, type MyGymRow } from "@/hooks/coach/useMyGyms";
 import { useGymFeed, type FeedPost } from "@/hooks/community/useGymFeed";
 import { usePolaroidStack } from "@/hooks/community/usePolaroidStack";
 import { GymHeader } from "@/components/community/GymHeader";
+import { JoinGymGate } from "@/components/community/JoinGymGate";
 import { GymProfileSheet } from "@/components/community/GymProfileSheet";
 import { PolaroidStack } from "@/components/community/PolaroidStack";
 import { SessionInfoCard } from "@/components/community/SessionInfoCard";
@@ -250,14 +251,13 @@ export default function Community() {
   // them on a different route, and stop the tutorial state machine.
   // We render an inline empty state instead.
   const { isActive: isTutorialActive } = useTutorial();
-  const shouldRedirectToJoin = !gymsLoading && !primaryGym && !isTutorialActive;
-  useEffect(() => {
-    if (shouldRedirectToJoin) {
-      navigate("/join", { replace: true });
-    }
-  }, [shouldRedirectToJoin, navigate]);
-  if (shouldRedirectToJoin) {
-    return null;
+  // No gym yet → show the animated in-page "Join a gym" gate (The Locker Room)
+  // instead of bouncing to /join. It owns the gym-code entry + live preview +
+  // join flow inline. During the onboarding tutorial we hold the existing
+  // inline beat below so the tour isn't interrupted.
+  const showJoinGate = !gymsLoading && !primaryGym && !isTutorialActive;
+  if (showJoinGate) {
+    return <JoinGymGate />;
   }
 
   return (
@@ -326,9 +326,14 @@ export default function Community() {
         {/* Content area — branches on member-count threshold + load state.
             Wrapped in AnimatePresence so the swap between the feed and
             the "all caught up" empty state cross-fades smoothly when the
-            user swipes the last polaroid (or when posts refill). */}
-        <main className="px-5 pb-32 pt-2">
-          <AnimatePresence mode="wait" initial={false}>
+            user swipes the last polaroid (or when posts refill).
+
+            mode="popLayout" (not "wait") so the outgoing feed and incoming
+            empty state animate CONCURRENTLY — a true cross-fade. "wait" held
+            the new state out until the old one finished its exit, leaving a
+            ~240ms dead gap that read as a flash right before "all caught up". */}
+        <main className="px-5 pb-20 md:pb-8 pt-2">
+          <AnimatePresence mode="popLayout" initial={false}>
             {(() => {
               const branch =
                 !primaryGym && !gymsLoading
@@ -355,7 +360,11 @@ export default function Community() {
                     key="loading"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
+                    // Near-instant exit so `mode="wait"` hands off to the feed
+                    // the moment posts arrive — otherwise the spinner's fade-out
+                    // inserts a ~180ms dead gap before the polaroid drop-in can
+                    // even mount. The enter fade stays soft via `transition`.
+                    exit={{ opacity: 0, transition: { duration: 0.05 } }}
                     transition={{ duration: 0.18 }}
                     className="mt-10 flex items-center justify-center min-h-[280px]"
                   >
@@ -368,9 +377,12 @@ export default function Community() {
                 return (
                   <motion.div
                     key="empty"
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
+                    // Pure in-place opacity cross-fade (no y-slide) so the
+                    // "all caught up" state fades in exactly where the deck
+                    // was, concurrently with the feed fading out — no jump.
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
                     transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
                   >
                     <EmptyFeed
@@ -385,7 +397,10 @@ export default function Community() {
                   key="feed"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  exit={{ opacity: 0, scale: 0.98 }}
+                  // Opacity-only exit (was scale: 0.98). The zoom-out read as
+                  // a flash/refresh as the last card cleared; a flat fade
+                  // cross-fades cleanly into the empty state.
+                  exit={{ opacity: 0 }}
                   transition={{ duration: 0.24, ease: [0.32, 0.72, 0, 1] }}
                 >
                   <WeeklyHighlightCard />
@@ -394,14 +409,13 @@ export default function Community() {
                     status={status}
                     loadMore={loadMore}
                     topIndex={0}
-                    onTopIndexChange={() => {
-                      /* unused — dismissedIds drives the head */
-                    }}
                     advance={handleAdvance}
                     onOpenProfile={handleOpenProfile}
                     onOpenComments={openComments}
                     onPostSwiped={handlePostSwiped}
                     onPostClick={handlePostClick}
+                    seenCount={dismissedIds.size}
+                    totalCount={posts.length}
                   />
                 </motion.div>
               );
@@ -414,7 +428,7 @@ export default function Community() {
               only once gymId is resolved so we don't fire an empty query
               during the first paint. */}
           {gymId && (
-            <section className="mt-8">
+            <section className="mt-8" data-tutorial="community-leaderboard">
               <LeaderboardSection gymId={gymId} viewer="athlete" />
             </section>
           )}
@@ -665,12 +679,14 @@ interface CommunityFeedSectionProps {
   status: ReturnType<typeof useGymFeed>["status"];
   loadMore: () => void;
   topIndex: number;
-  onTopIndexChange: (i: number) => void;
   advance: () => void;
   onOpenProfile: (userId: Id<"users">) => void;
   onOpenComments: (postId: Id<"session_media">, count: number) => void;
   onPostSwiped: (postId: Id<"session_media">) => void;
   onPostClick: () => void;
+  /** Counter pill source: dismissed-so-far + full feed length. */
+  seenCount: number;
+  totalCount: number;
 }
 
 const CommunityFeedSection = React.memo(function CommunityFeedSection({
@@ -678,12 +694,13 @@ const CommunityFeedSection = React.memo(function CommunityFeedSection({
   status,
   loadMore,
   topIndex,
-  onTopIndexChange,
   advance,
   onOpenProfile,
   onOpenComments,
   onPostSwiped,
   onPostClick,
+  seenCount,
+  totalCount,
 }: CommunityFeedSectionProps) {
   const topPost = posts[topIndex];
 
@@ -711,77 +728,53 @@ const CommunityFeedSection = React.memo(function CommunityFeedSection({
     server,
   );
 
-  // Stable wrapper for PolaroidStack's onDoubleTapLike. `doubleTapLike`
-  // is wrapped in useCallback inside the hook; its identity only shifts
-  // when `liked` flips, so this stays stable across the bulk of renders.
-  const handleDoubleTapLike = useCallback(
-    () => topEngagement.doubleTapLike(),
-    [topEngagement.doubleTapLike],
-  );
-
-  // Engagement bundle for the in-deck reaction bar + comment input. We
-  // route by `postId` instead of capturing `topPost` so PolaroidStack
-  // can decide which post is currently top (avoids a stale-closure bug
-  // during the swipe → advance transition where the parent's notion of
-  // the top post lags the deck by one paint frame).
+  // Reaction + comment handlers for the below-photo info block. The
+  // reaction bar + comment input now live in SessionInfoCard (keyed to
+  // topPost.id), so they always act on the current top post — no postId
+  // routing needed. `toggleReaction` runs the same haptic + error path as
+  // a like-toggle. `key` is an ASCII slug (heart/fire/muscle/praise/clap).
   const addCommentMut = useMutation(api.feedSocial.addComment);
-  const stackEngagement = useMemo(
-    () => ({
-      onReact: (postId: Id<"session_media">, key: string) => {
-        // Reaction is only mutated server-side; the reactive listFeed
-        // will repaint with the new counts on the next websocket tick.
-        // We still route through the engagement hook so the haptic +
-        // error-toast path matches like-toggle behaviour. `key` is an
-        // ASCII slug (heart/fire/muscle/praise/clap), not an emoji.
-        if (postId === topPost?.id) {
-          topEngagement.toggleReaction(key);
-        }
-      },
-      onSubmitComment: async (
-        postId: Id<"session_media">,
-        text: string,
-      ) => {
-        try {
-          await addCommentMut({ postId, body: text });
-          if (postId === topPost?.id) {
-            topEngagement.incrementCommentCount();
-          }
-        } catch (err) {
-          logger.warn("addComment failed", { err: String(err) });
-        }
-      },
-      onSeeAllComments: (postId: Id<"session_media">, count: number) =>
-        onOpenComments(postId, count),
-    }),
-    [topPost?.id, topEngagement, addCommentMut, onOpenComments],
+  const handleReact = useCallback(
+    (key: string) => topEngagement.toggleReaction(key),
+    [topEngagement],
+  );
+  const handleSubmitComment = useCallback(
+    async (text: string) => {
+      if (!topPost) return;
+      try {
+        await addCommentMut({ postId: topPost.id, body: text });
+        topEngagement.incrementCommentCount();
+      } catch (err) {
+        logger.warn("addComment failed", { err: String(err) });
+      }
+    },
+    [topPost, addCommentMut, topEngagement],
   );
 
   return (
     <div className="mt-2">
-      {/* Stack wrapper carries an explicit bottom buffer so the background
-          cards' y-offset (up to ~20px below the 396px container) and any
-          motion overshoot during a release can't visually creep into the
-          SessionInfoCard below. Without this margin, the deck and info
-          card sit ~24px apart (space-y-6), which the y-shifted backgrounds
-          can paint into. 56px gives the deck enough reserved space below
-          while staying compact on small viewports. */}
-      <div className="mt-4 mb-14">
+      {/* Tight bottom buffer — the square deck (312px) reveals the next
+          card in place, so there's no y-overshoot to clear and the info
+          block can sit close beneath, putting comments on first glance. */}
+      <div className="mt-4 mb-4" data-tutorial="community-photo-stack">
         <PolaroidStack
           posts={posts}
           status={status}
           loadMore={loadMore}
           topIndex={topIndex}
           advance={advance}
-          onIndexChange={onTopIndexChange}
           onOpenProfile={onOpenProfile}
-          onDoubleTapLike={handleDoubleTapLike}
           onSwipeCommit={onPostSwiped}
           onPostClick={onPostClick}
-          engagement={stackEngagement}
+          liked={topEngagement.liked}
+          onToggleLike={topEngagement.toggleLike}
+          likeBurstKey={topEngagement.burstKey}
+          seenCount={seenCount}
+          totalCount={totalCount}
         />
       </div>
 
-      {/* Crossfade the session-type card as the deck advances so its content
+      {/* Crossfade the info block as the deck advances so its content
           glides between posts instead of snapping. Keyed to the top post id;
           mode="popLayout" keeps the height stable through the swap. */}
       <AnimatePresence mode="popLayout" initial={false}>
@@ -798,6 +791,8 @@ const CommunityFeedSection = React.memo(function CommunityFeedSection({
               engagement={topEngagement}
               onCommentTap={onOpenComments}
               onProfileTap={onOpenProfile}
+              onReact={handleReact}
+              onSubmitComment={handleSubmitComment}
             />
           </motion.div>
         )}

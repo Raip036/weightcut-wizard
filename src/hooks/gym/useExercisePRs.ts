@@ -5,7 +5,7 @@ import type { Id } from "@/../convex/_generated/dataModel";
 import { useUser } from "@/contexts/UserContext";
 import { useToast } from "@/hooks/use-toast";
 import { celebrateSuccess } from "@/lib/haptics";
-import { calculateEpley1RM, calculateSetVolume, comparePR } from "@/lib/gymCalculations";
+import { comparePR } from "@/lib/gymCalculations";
 import type { ExercisePR, GymSet, PRRecord } from "@/pages/gym/types";
 
 export function useExercisePRs() {
@@ -29,25 +29,16 @@ export function useExercisePRs() {
 
   const checkAndUpdatePR = useCallback(async (set: GymSet): Promise<PRRecord[]> => {
     if (!userId || set.is_warmup) return [];
+    // A PR only counts when a rep was actually logged at the new heaviest weight.
+    if ((set.reps ?? 0) < 1) return [];
 
     const existingPR = prsRef.current.get(set.exercise_id) ?? null;
     const newRecords = comparePR(set, existingPR);
     if (newRecords.length === 0) return [];
 
     const weight = set.weight_kg ?? 0;
-    const volume = calculateSetVolume(set);
-    const e1rm = calculateEpley1RM(weight, set.reps);
 
-    // Celebrate
-    const prTypes = newRecords.map(r => {
-      switch (r.type) {
-        case "weight": return "Weight";
-        case "reps": return "Rep";
-        case "volume": return "Volume";
-        case "1rm": return "1RM";
-      }
-    });
-    toast({ description: `New PR! ${prTypes.join(" + ")} record!` });
+    toast({ description: "New weight PR! 🏆" });
     celebrateSuccess();
 
     try {
@@ -55,9 +46,6 @@ export function useExercisePRs() {
         exerciseId: set.exercise_id as unknown as Id<"exercises">,
         bestSetId: set.id as unknown as Id<"gym_sets">,
         maxWeightKg: Math.max(weight, existingPR?.max_weight_kg ?? 0),
-        maxReps: Math.max(set.reps, existingPR?.max_reps ?? 0),
-        maxVolume: Math.max(volume, existingPR?.max_volume ?? 0),
-        estimated1rm: Math.max(e1rm, existingPR?.estimated_1rm ?? 0),
       });
     } catch {
       // Reactive query will re-sync from server next mount.

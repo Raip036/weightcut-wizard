@@ -288,7 +288,11 @@ export function useMealOperations(params: UseMealOperationsParams) {
       },
     });
 
-    await runInsertFlow({
+    // Return the canonical id (or null on failure) so callers that own their
+    // own success/close UX — e.g. ManualLogPanel — can branch on the outcome
+    // instead of assuming success. `runInsertFlow` already surfaces its own
+    // destructive toast + rollback on failure.
+    return await runInsertFlow({
       args,
       ingredients: mealData.ingredients,
       portion_size: mealData.portion_size,

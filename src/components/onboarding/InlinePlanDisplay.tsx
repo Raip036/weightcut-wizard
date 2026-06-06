@@ -1,23 +1,40 @@
 /**
- * InlinePlanDisplay (v3 — 2026-05-18 revision) — generated post-onboarding
- * plan UI tuned for fighter-readability:
+ * InlinePlanDisplay (v4 — 2026-06-06 premium pass) — generated
+ * post-onboarding plan UI, restyled to feel editorial and hand-crafted
+ * rather than machine-generated. Mirrors the Recovery feature's visual
+ * language: `card-surface` cards with a top accent stripe, soft radial
+ * glow halos, spring entrances (damping 22 / stiffness 260) and a gentle
+ * breath pulse on the hero.
  *
- *   1. Hero ring (kg delta sized to fit inside the circle)
- *   2. Cal + macro stat strip (macros use the nutrition theme colors)
+ *   1. Hero card — camp name + "YOUR CUT" kicker + count-up ring with a
+ *      blue glow halo and breath pulse
+ *   2. Daily Fuel card — big week-1 calories + a stacked macro proportion
+ *      bar (carbs-leading) and the maintain/deficit/target math
  *   3. Coach note (one-line plan intent, no em-dashes)
  *   4. Daily Focus block ONCE at the top (no per-week repetition)
- *   5. Phase pills stacked vertically full-width (no icons, no truncation)
- *   6. Week timeline — collapsed cards lead with the 4-tile macro grid
- *   7. Fight Week as a swipeable carousel (one big card per day)
- *   8. Plan rules + safety + tomorrow anchor + plan ID footer
+ *   5. Phase cards — icon badge + phase colour, staggered spring entrance
+ *   6. Week-by-week accordion — collapsed summary row, expand for macros
+ *   7. Fight Week protocol — carb bars, taper- or hold-aware header
+ *   8. Plan rules + safety + tomorrow anchor (no plan-ID footer)
  *   9. Sticky CTA
  *
  * Consumes the v2 `CutPlanSchema` shape — see `convex/_shared/aiSchemas.ts`.
  */
 import { useMemo, useState, useRef, useEffect } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { Button } from "@/components/ui/button";
-import { ShieldCheck, Sun, AlertTriangle } from "lucide-react";
+import {
+  ShieldCheck,
+  Sun,
+  AlertTriangle,
+  ChevronDown,
+  Sprout,
+  Hammer,
+  Mountain,
+  Flag,
+  Swords,
+} from "lucide-react";
+import { AnimatedNumber } from "@/components/motion";
 import { triggerHaptic } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
 
@@ -78,6 +95,7 @@ interface FightWeekRefeed {
 }
 
 interface PlanData {
+  campName?: string;
   weeklyPlan: WeekRow[];
   phases?: PhaseSummary[];
   personalNote?: string;
@@ -115,13 +133,40 @@ const MACRO_COLOR = {
   fat: "#a855f7",
 } as const;
 
-// ─── Phase rail color (no icons per design feedback) ─────────────────
+// ─── Phase rail color (rail accent on cards) ─────────────────────────
 const PHASE_RAIL: Record<WeekPhase, string> = {
   foundation: "bg-sky-500",
   build: "bg-primary",
   peak: "bg-secondary",
   final: "bg-func-warning-yellow",
   fight_week: "bg-func-warning-yellow",
+};
+
+// Dot + soft icon-badge tints, keyed per phase. The badge `bg` is the
+// translucent wash, `text` is the icon colour (mirrors Recovery pillar
+// `iconTone` styling: a 10x10 rounded-xl badge with a tinted glyph).
+const PHASE_DOT: Record<WeekPhase, string> = {
+  foundation: "bg-sky-500",
+  build: "bg-primary",
+  peak: "bg-secondary",
+  final: "bg-func-warning-yellow",
+  fight_week: "bg-func-warning-yellow",
+};
+
+const PHASE_BADGE: Record<WeekPhase, string> = {
+  foundation: "bg-sky-500/12 text-sky-400",
+  build: "bg-primary/12 text-primary",
+  peak: "bg-secondary/15 text-secondary",
+  final: "bg-func-warning-yellow/12 text-func-warning-yellow",
+  fight_week: "bg-func-warning-yellow/12 text-func-warning-yellow",
+};
+
+const PHASE_ICON: Record<WeekPhase, typeof Sprout> = {
+  foundation: Sprout,
+  build: Hammer,
+  peak: Mountain,
+  final: Flag,
+  fight_week: Swords,
 };
 
 const PHASE_LABEL: Record<WeekPhase, string> = {
@@ -132,27 +177,17 @@ const PHASE_LABEL: Record<WeekPhase, string> = {
   fight_week: "Fight Week",
 };
 
+// Recovery-matched spring entrance — reused across the main sections.
+const ENTER_SPRING = { type: "spring", damping: 22, stiffness: 260 } as const;
+
 // ─── Util: clean em-dashes from any AI string ─────────────────────────
 const cleanText = (s: string | undefined | null): string =>
   (s ?? "").replace(/—/g, ",").replace(/–/g, ",").replace(/\s*,\s*,\s*/g, ", ").trim();
 
-// ─── Plan ID hash ────────────────────────────────────────────────────
-function hashToPlanId(seed: string): string {
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) {
-    h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-  }
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ0123456789";
-  let id = "";
-  let n = h;
-  for (let i = 0; i < 4; i++) {
-    id += alphabet[n % alphabet.length];
-    n = Math.floor(n / alphabet.length);
-  }
-  return `WC-${id}`;
-}
-
 // ─── Hero ring ───────────────────────────────────────────────────────
+// The big −X.X kg counts up on mount (AnimatedNumber), the progress arc
+// sweeps in, and the whole ring carries a slow 4s "breath" pulse — the
+// same living-card feel as the Recovery readiness hero.
 function HeroRing({
   totalKg,
   goalLabel,
@@ -166,9 +201,18 @@ function HeroRing({
   const R = 56;
   const C = 2 * Math.PI * R;
   const arc = Math.min(1, weekCount / 16) * C;
+  const isLoss = totalKg > 0;
   return (
-    <div className="flex flex-col items-center pt-2 pb-1">
-      <div className="relative h-[150px] w-[150px]">
+    <div className="flex flex-col items-center pt-1 pb-1">
+      <motion.div
+        className="relative h-[150px] w-[150px]"
+        animate={reduced ? { scale: 1 } : { scale: [1, 1.012, 1] }}
+        transition={
+          reduced
+            ? { duration: 0 }
+            : { duration: 4, repeat: Infinity, repeatType: "loop", ease: "easeInOut" }
+        }
+      >
         <svg
           viewBox="0 0 140 140"
           className="absolute inset-0"
@@ -211,23 +255,32 @@ function HeroRing({
         {/* Number sized to comfortably fit inside the ring (radius 56 → diameter 112 → safe text width ~96px). */}
         <div className="absolute inset-0 flex flex-col items-center justify-center px-3">
           <p className="text-[30px] font-black tabular-nums leading-none bg-gradient-to-br from-primary to-secondary bg-clip-text text-transparent">
-            {totalKg > 0 ? `-${totalKg.toFixed(1)}` : totalKg.toFixed(1)}
+            <AnimatedNumber
+              value={totalKg}
+              format={(n) => `${isLoss ? "-" : ""}${n.toFixed(1)}`}
+              delay={250}
+            />
           </p>
           <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-muted-foreground mt-0.5">
             kg
           </p>
         </div>
-      </div>
+      </motion.div>
       <p className="text-[12px] text-muted-foreground mt-2.5">{goalLabel}</p>
     </div>
   );
 }
 
-// ─── Stat strip (kcal row + macro row) ───────────────────────────────
-function StatStrip({
+// ─── Daily Fuel card (big kcal + stacked macro proportion bar) ───────
+// Replaces the old StatStrip. Leads with week-1 calories, then a single
+// horizontal bar split into Carbs / Protein / Fat by their kcal share
+// (carbs lead — the athlete-carb design). Grams are labelled beside each
+// macro, with the maintain / deficit / target math on a muted line below.
+function DailyFuelCard({
   maintenance,
   deficit,
   target,
+  calories,
   protein,
   carbs,
   fats,
@@ -235,85 +288,121 @@ function StatStrip({
   maintenance?: number;
   deficit?: number;
   target?: number;
+  calories?: number;
   protein?: number;
   carbs?: number;
   fats?: number;
 }) {
-  if (!maintenance && !deficit && !target && !protein && !carbs && !fats) return null;
+  const hasMacros = carbs != null || protein != null || fats != null;
+  if (!hasMacros && calories == null && maintenance == null && target == null) {
+    return null;
+  }
   const round100 = (n: number) => Math.round(n / 100) * 100;
+
+  // kcal share per macro drives the segment widths (carbs/protein = 4, fat = 9).
+  const c = carbs ?? 0;
+  const p = protein ?? 0;
+  const f = fats ?? 0;
+  const cKcal = c * 4;
+  const pKcal = p * 4;
+  const fKcal = f * 9;
+  const totalKcal = Math.max(1, cKcal + pKcal + fKcal);
+  // Carbs FIRST — the leading, largest macro.
+  const segments = [
+    { key: "carbs", label: "Carbs", grams: c, color: MACRO_COLOR.carbs, pct: (cKcal / totalKcal) * 100 },
+    { key: "protein", label: "Protein", grams: p, color: MACRO_COLOR.protein, pct: (pKcal / totalKcal) * 100 },
+    { key: "fat", label: "Fat", grams: f, color: MACRO_COLOR.fat, pct: (fKcal / totalKcal) * 100 },
+  ].filter((s) => s.grams > 0);
+
+  const bigKcal = calories ?? target;
+
   return (
-    <div className="card-surface rounded-xs border border-border/40 overflow-hidden mt-3">
-      {/* kcal row */}
+    <motion.div
+      initial={{ opacity: 0, y: 12, scale: 0.99 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ ...ENTER_SPRING, delay: 0.05 }}
+      className="relative overflow-hidden card-surface rounded-2xl border border-border/50 border-t-2 border-t-primary p-4 mt-4"
+    >
+      {/* Soft top glow halo — Recovery's blur-2xl radial trick. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-12 left-1/2 -translate-x-1/2 h-32 w-64 rounded-full opacity-10 blur-2xl text-primary"
+        style={{ background: "radial-gradient(circle, currentColor 0%, transparent 70%)" }}
+      />
+
+      <div className="relative flex items-end justify-between">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70 font-semibold">
+            Daily Fuel
+          </p>
+          {bigKcal != null && (
+            <p className="mt-1 text-[34px] font-black tabular-nums leading-none text-foreground">
+              {round100(bigKcal).toLocaleString()}
+              <span className="ml-1.5 text-[13px] font-bold text-muted-foreground/70 align-baseline">
+                kcal
+              </span>
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Stacked macro proportion bar — carbs lead. */}
+      {segments.length > 0 && (
+        <>
+          <div className="relative mt-4 flex h-3 w-full overflow-hidden rounded-full bg-muted/25">
+            {segments.map((s, i) => (
+              <motion.div
+                key={s.key}
+                className={`h-full ${i > 0 ? "border-l border-background/40" : ""}`}
+                style={{ background: s.color }}
+                initial={{ width: 0 }}
+                animate={{ width: `${s.pct}%` }}
+                transition={{ duration: 0.7, delay: 0.2 + i * 0.08, ease: [0.22, 1, 0.36, 1] }}
+              />
+            ))}
+          </div>
+
+          {/* Per-macro gram labels, carbs leading. */}
+          <div className="mt-3 flex items-center justify-between">
+            {segments.map((s) => (
+              <div key={s.key} className="flex items-center gap-1.5">
+                <span
+                  className="h-2 w-2 rounded-full shrink-0"
+                  style={{ background: s.color }}
+                  aria-hidden
+                />
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                  {s.label}
+                </span>
+                <span
+                  className="text-[13px] font-bold tabular-nums leading-none"
+                  style={{ color: s.color }}
+                >
+                  {Math.round(s.grams)}g
+                </span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Maintain · Deficit · Target math line. */}
       {(maintenance != null || deficit != null || target != null) && (
-        <div className="flex divide-x divide-border/40">
+        <p className="mt-3.5 pt-3 border-t border-border/30 text-[11px] text-muted-foreground tabular-nums">
           {maintenance != null && (
-            <div className="flex-1 py-2.5 text-center">
-              <p className="text-[16px] font-bold tabular-nums leading-none">
-                {round100(maintenance).toLocaleString()}
-              </p>
-              <p className="text-[9px] uppercase tracking-wider text-muted-foreground mt-1">
-                Maintain
-              </p>
-            </div>
+            <span>Maintain {round100(maintenance).toLocaleString()}</span>
           )}
           {deficit != null && (
-            <div className="flex-1 py-2.5 text-center">
-              <p className="text-[16px] font-bold tabular-nums leading-none text-destructive">
-                -{round100(deficit).toLocaleString()}
-              </p>
-              <p className="text-[9px] uppercase tracking-wider text-muted-foreground mt-1">
-                Deficit
-              </p>
-            </div>
+            <span> · Deficit -{round100(deficit).toLocaleString()}</span>
           )}
           {target != null && (
-            <div className="flex-1 py-2.5 text-center">
-              <p className="text-[16px] font-bold tabular-nums leading-none text-primary">
-                {round100(target).toLocaleString()}
-              </p>
-              <p className="text-[9px] uppercase tracking-wider text-muted-foreground mt-1">
-                Target
-              </p>
-            </div>
+            <span className="text-foreground/80">
+              {" "}· Target {round100(target).toLocaleString()}
+            </span>
           )}
-        </div>
+        </p>
       )}
-      {/* Macro row */}
-      {(protein != null || carbs != null || fats != null) && (
-        <div className="flex divide-x divide-border/40 border-t border-border/40 bg-muted/10">
-          {protein != null && (
-            <div className="flex-1 py-2 text-center">
-              <p className="text-[14px] font-bold tabular-nums leading-none" style={{ color: MACRO_COLOR.protein }}>
-                {Math.round(protein)}g
-              </p>
-              <p className="text-[9px] uppercase tracking-wider text-muted-foreground mt-1">
-                Protein
-              </p>
-            </div>
-          )}
-          {carbs != null && (
-            <div className="flex-1 py-2 text-center">
-              <p className="text-[14px] font-bold tabular-nums leading-none" style={{ color: MACRO_COLOR.carbs }}>
-                {Math.round(carbs)}g
-              </p>
-              <p className="text-[9px] uppercase tracking-wider text-muted-foreground mt-1">
-                Carbs
-              </p>
-            </div>
-          )}
-          {fats != null && (
-            <div className="flex-1 py-2 text-center">
-              <p className="text-[14px] font-bold tabular-nums leading-none" style={{ color: MACRO_COLOR.fat }}>
-                {Math.round(fats)}g
-              </p>
-              <p className="text-[9px] uppercase tracking-wider text-muted-foreground mt-1">
-                Fat
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+    </motion.div>
   );
 }
 
@@ -321,42 +410,52 @@ function StatStrip({
 function DailyFocusBlock({ bullets }: { bullets: string[] }) {
   if (!bullets || bullets.length === 0) return null;
   return (
-    <div className="rounded-xs border border-primary/20 bg-primary/[0.04] p-4 mt-3">
-      <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-primary/80 mb-2">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ ...ENTER_SPRING, delay: 0.12 }}
+      className="card-surface rounded-2xl border border-border/50 p-4 mt-3"
+    >
+      <p className="text-[10px] uppercase tracking-[0.16em] font-semibold text-muted-foreground/70 mb-2.5">
         Daily Focus
       </p>
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         {bullets.map((b, i) => (
           <p
             key={i}
-            className="text-[13px] text-foreground/95 leading-snug flex items-start gap-2"
+            className="text-[13px] text-foreground/95 leading-snug flex items-start gap-2.5"
           >
-            <span className="text-primary mt-0.5 shrink-0">→</span>
+            <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-primary shrink-0" aria-hidden />
             <span>{cleanText(b)}</span>
           </p>
         ))}
       </div>
-    </div>
+    </motion.div>
   );
 }
 
-// ─── Coach note ─────────────────────────────────────────────────────
+// ─── Coach note — editorial, hand-written feel ───────────────────────
 function CoachNote({ text }: { text: string }) {
   const cleaned = cleanText(text);
   if (!cleaned) return null;
   return (
-    <div className="rounded-xs border border-secondary/20 bg-secondary/[0.05] p-3.5 mt-3">
-      <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-secondary/80 mb-1.5">
-        Your Plan
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ ...ENTER_SPRING, delay: 0.1 }}
+      className="relative card-surface rounded-2xl border border-border/50 border-l-2 border-l-secondary/60 pl-4 pr-4 py-3.5 mt-3"
+    >
+      <p className="text-[10px] uppercase tracking-[0.16em] font-semibold text-secondary/80 mb-1.5">
+        From your coach
       </p>
-      <p className="text-[13px] leading-snug text-foreground/95 italic">
+      <p className="text-[13.5px] leading-relaxed text-foreground/95">
         {cleaned}
       </p>
-    </div>
+    </motion.div>
   );
 }
 
-// ─── Phase pills — stacked vertically, full-width, no icons ─────────
+// ─── Phase cards — icon badge + phase colour, staggered entrance ─────
 function PhasePills({
   phases,
   onTapPhase,
@@ -364,157 +463,219 @@ function PhasePills({
   phases: PhaseSummary[];
   onTapPhase: (weekStart: number) => void;
 }) {
+  const reduced = useReducedMotion();
   if (!phases || phases.length === 0) return null;
   return (
     <div className="mt-5">
-      <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-bold mb-2 px-1">
+      <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-bold mb-2.5 px-1">
         Plan Phases
       </p>
       <div className="space-y-2">
-        {phases.map((p) => (
-          <button
-            key={`${p.name}-${p.weekStart}`}
-            type="button"
-            onClick={() => {
-              triggerHaptic(ImpactStyle.Light);
-              onTapPhase(p.weekStart);
-            }}
-            className="w-full flex rounded-xs border border-border/50 bg-card overflow-hidden active:scale-[0.99] transition-transform"
-          >
-            <div className={`w-1.5 shrink-0 ${PHASE_RAIL[p.name]}`} aria-hidden />
-            <div className="flex-1 p-3.5 text-left min-w-0">
-              <div className="flex items-baseline justify-between gap-2 mb-1">
-                <p className="text-[14px] font-bold text-foreground">
-                  {PHASE_LABEL[p.name]}
-                </p>
-                <p className="text-[11px] uppercase tracking-wider text-muted-foreground tabular-nums shrink-0">
-                  Wk {p.weekStart}{p.weekEnd !== p.weekStart ? `-${p.weekEnd}` : ""}
-                </p>
+        {phases.map((p, index) => {
+          const PhaseIcon = PHASE_ICON[p.name];
+          return (
+            <motion.button
+              key={`${p.name}-${p.weekStart}`}
+              type="button"
+              initial={reduced ? false : { opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ...ENTER_SPRING, delay: index * 0.06 }}
+              onClick={() => {
+                triggerHaptic(ImpactStyle.Light);
+                onTapPhase(p.weekStart);
+              }}
+              className="w-full flex card-surface rounded-2xl border border-border/50 overflow-hidden active:scale-[0.99] transition-transform"
+            >
+              <div className={`w-1 shrink-0 ${PHASE_RAIL[p.name]}`} aria-hidden />
+              <div className="flex-1 flex items-start gap-3 p-3.5 text-left min-w-0">
+                <div
+                  className={`h-10 w-10 shrink-0 rounded-xl flex items-center justify-center ${PHASE_BADGE[p.name]}`}
+                >
+                  <PhaseIcon className="h-5 w-5" strokeWidth={2.2} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline justify-between gap-2 mb-1">
+                    <p className="text-[14px] font-bold text-foreground">
+                      {PHASE_LABEL[p.name]}
+                    </p>
+                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground tabular-nums shrink-0">
+                      Wk {p.weekStart}
+                      {p.weekEnd !== p.weekStart ? `-${p.weekEnd}` : ""}
+                    </p>
+                  </div>
+                  <p className="text-[12px] text-muted-foreground leading-snug">
+                    {cleanText(p.intent)}
+                  </p>
+                </div>
               </div>
-              <p className="text-[12px] text-muted-foreground leading-snug">
-                {cleanText(p.intent)}
-              </p>
-            </div>
-          </button>
-        ))}
+            </motion.button>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-// ─── Week card — big macro tiles, no daily focus repetition ──────────
-function WeekCard({
+// ─── Week accordion row ──────────────────────────────────────────────
+// Collapsed: phase dot + "Week N · Phase" + target weight + calories +
+// chevron. Expanded (Recovery height/opacity transition): the 4 macro
+// tiles + any risk / recovery / tough chips. The phase rail accent stays
+// down the left edge.
+function WeekAccordionRow({
   row,
   isToughest,
   toughReason,
+  open,
+  onToggle,
 }: {
   row: WeekRow;
   isToughest?: boolean;
   toughReason?: string;
+  open: boolean;
+  onToggle: () => void;
 }) {
   const rail = PHASE_RAIL[row.phase];
+  const dot = PHASE_DOT[row.phase];
   return (
     <div
       id={`week-card-${row.week}`}
-      className={`relative flex rounded-xs border border-border/50 bg-card overflow-hidden ${
+      className={`relative flex card-surface rounded-2xl border border-border/50 overflow-hidden ${
         isToughest ? "ring-1 ring-func-warning-yellow/40" : ""
       }`}
     >
-      <div className={`w-1.5 shrink-0 ${rail}`} aria-hidden />
-      <div className="flex-1 p-3.5 min-w-0">
-        {/* Header row */}
-        <div className="flex items-baseline justify-between gap-2 mb-1">
-          <div className="flex items-baseline gap-1.5 min-w-0">
-            <span className="text-[11px] uppercase tracking-wider font-bold text-muted-foreground">
+      <div className={`w-1 shrink-0 ${rail}`} aria-hidden />
+      <div className="flex-1 min-w-0">
+        {/* Collapsed summary row — always visible, tappable. */}
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={open}
+          aria-label={`Week ${row.week}, ${PHASE_LABEL[row.phase]} — ${row.targetWeight.toFixed(1)} kg`}
+          className="w-full flex items-center gap-3 p-3.5 text-left active:bg-muted/10 transition-colors"
+        >
+          <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${dot}`} aria-hidden />
+          <div className="flex-1 min-w-0">
+            <p className="text-[13.5px] font-bold text-foreground truncate">
               Week {row.week}
-            </span>
-            <span className="text-[10px] uppercase tracking-wider text-foreground/60">
-              · {PHASE_LABEL[row.phase]}
-            </span>
-            {isToughest && (
-              <span className="ml-1 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-func-warning-yellow/15 text-func-warning-yellow text-[9px] font-bold uppercase">
-                Tough
+              <span className="text-[11px] font-medium text-muted-foreground">
+                {" · "}
+                {PHASE_LABEL[row.phase]}
               </span>
-            )}
+              {isToughest && (
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  {" · "}Toughest week
+                </span>
+              )}
+            </p>
+            <p className="text-[11px] text-muted-foreground tabular-nums mt-0.5">
+              {row.calories.toLocaleString()} kcal
+            </p>
           </div>
-          <p className="text-[14px] font-bold tabular-nums leading-none text-foreground shrink-0">
-            {row.targetWeight.toFixed(1)} kg
+          <p className="text-[15px] font-bold tabular-nums leading-none text-foreground shrink-0">
+            {row.targetWeight.toFixed(1)}
+            <span className="text-[10px] font-semibold text-muted-foreground ml-0.5">kg</span>
           </p>
-        </div>
+          <motion.span
+            animate={{ rotate: open ? 180 : 0 }}
+            transition={{ duration: 0.2 }}
+            className="shrink-0 text-muted-foreground"
+            aria-hidden
+          >
+            <ChevronDown className="h-4 w-4" />
+          </motion.span>
+        </button>
 
-        {/* Hero line */}
-        <p className="text-[12px] text-muted-foreground leading-snug mb-2.5">
-          {cleanText(row.heroLine)}
-        </p>
+        {/* Expanded detail — macro tiles + chips. */}
+        <AnimatePresence initial={false}>
+          {open && (
+            <motion.div
+              key="content"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ height: { duration: 0.25 }, opacity: { duration: 0.2 } }}
+              className="overflow-hidden"
+            >
+              <div className="px-3.5 pb-3.5 pt-1 border-t border-border/30">
+                {row.heroLine && (
+                  <p className="text-[12px] text-muted-foreground leading-snug mb-2.5 mt-2">
+                    {cleanText(row.heroLine)}
+                  </p>
+                )}
 
-        {/* 4-tile macro grid — the main focus */}
-        <div className="grid grid-cols-4 gap-1.5">
-          <div className="rounded-xs bg-muted/30 py-2 text-center">
-            <p className="text-[18px] font-black tabular-nums leading-none text-foreground">
-              {row.calories.toLocaleString()}
-            </p>
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground mt-1">
-              Cal
-            </p>
-          </div>
-          <div className="rounded-xs bg-muted/30 py-2 text-center">
-            <p
-              className="text-[18px] font-black tabular-nums leading-none"
-              style={{ color: MACRO_COLOR.protein }}
-            >
-              {row.protein_g}
-            </p>
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground mt-1">
-              Protein
-            </p>
-          </div>
-          <div className="rounded-xs bg-muted/30 py-2 text-center">
-            <p
-              className="text-[18px] font-black tabular-nums leading-none"
-              style={{ color: MACRO_COLOR.carbs }}
-            >
-              {row.carbs_g}
-            </p>
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground mt-1">
-              Carbs
-            </p>
-          </div>
-          <div className="rounded-xs bg-muted/30 py-2 text-center">
-            <p
-              className="text-[18px] font-black tabular-nums leading-none"
-              style={{ color: MACRO_COLOR.fat }}
-            >
-              {row.fats_g}
-            </p>
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground mt-1">
-              Fat
-            </p>
-          </div>
-        </div>
+                {/* 4-tile macro grid. */}
+                <div className="grid grid-cols-4 gap-1.5">
+                  <div className="rounded-xs bg-muted/20 py-2 text-center">
+                    <p className="text-[18px] font-black tabular-nums leading-none text-foreground">
+                      {row.calories.toLocaleString()}
+                    </p>
+                    <p className="text-[9px] uppercase tracking-wider text-muted-foreground mt-1">
+                      Cal
+                    </p>
+                  </div>
+                  <div className="rounded-xs bg-muted/20 py-2 text-center">
+                    <p
+                      className="text-[18px] font-black tabular-nums leading-none"
+                      style={{ color: MACRO_COLOR.protein }}
+                    >
+                      {row.protein_g}
+                    </p>
+                    <p className="text-[9px] uppercase tracking-wider text-muted-foreground mt-1">
+                      Protein
+                    </p>
+                  </div>
+                  <div className="rounded-xs bg-muted/20 py-2 text-center">
+                    <p
+                      className="text-[18px] font-black tabular-nums leading-none"
+                      style={{ color: MACRO_COLOR.carbs }}
+                    >
+                      {row.carbs_g}
+                    </p>
+                    <p className="text-[9px] uppercase tracking-wider text-muted-foreground mt-1">
+                      Carbs
+                    </p>
+                  </div>
+                  <div className="rounded-xs bg-muted/20 py-2 text-center">
+                    <p
+                      className="text-[18px] font-black tabular-nums leading-none"
+                      style={{ color: MACRO_COLOR.fat }}
+                    >
+                      {row.fats_g}
+                    </p>
+                    <p className="text-[9px] uppercase tracking-wider text-muted-foreground mt-1">
+                      Fat
+                    </p>
+                  </div>
+                </div>
 
-        {/* Risk / recovery chips — only when present */}
-        {(row.risk || row.recovery || toughReason) && (
-          <div className="flex flex-wrap gap-1.5 mt-2.5">
-            {toughReason && (
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-func-warning-yellow/15 border border-func-warning-yellow/25 text-[10px] text-func-warning-yellow leading-tight">
-                <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
-                {cleanText(toughReason)}
-              </span>
-            )}
-            {row.risk && (
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/[0.06] border border-amber-500/20 text-[10px] text-amber-200/85 leading-tight">
-                <AlertTriangle className="h-2.5 w-2.5 shrink-0 text-amber-400/70" />
-                {cleanText(row.risk)}
-              </span>
-            )}
-            {row.recovery && (
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-func-recovery-green/10 border border-func-recovery-green/20 text-[10px] text-func-recovery-green leading-tight">
-                <ShieldCheck className="h-2.5 w-2.5 shrink-0" />
-                {cleanText(row.recovery)}
-              </span>
-            )}
-          </div>
-        )}
+                {/* Risk / recovery notes — plain text lines in the body font,
+                    normal colours, no tinted pill boxes. */}
+                {(row.risk || row.recovery || toughReason) && (
+                  <div className="flex flex-col gap-1.5 mt-2.5">
+                    {toughReason && (
+                      <p className="flex items-start gap-1.5 text-[12px] text-muted-foreground leading-snug">
+                        <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5 text-muted-foreground/70" />
+                        {cleanText(toughReason)}
+                      </p>
+                    )}
+                    {row.risk && (
+                      <p className="flex items-start gap-1.5 text-[12px] text-muted-foreground leading-snug">
+                        <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5 text-muted-foreground/70" />
+                        {cleanText(row.risk)}
+                      </p>
+                    )}
+                    {row.recovery && (
+                      <p className="flex items-start gap-1.5 text-[12px] text-muted-foreground leading-snug">
+                        <ShieldCheck className="h-3 w-3 shrink-0 mt-0.5 text-muted-foreground/70" />
+                        {cleanText(row.recovery)}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
@@ -560,11 +721,13 @@ function FightWeekDayStack({
   refeed,
   safetyFlag,
   target,
+  maintenanceCalories,
 }: {
   days: FightWeekDay[];
   refeed?: FightWeekRefeed;
   safetyFlag?: string;
   target?: number;
+  maintenanceCalories?: number;
 }) {
   const prefersReduced = useReducedMotion();
   const [mounted, setMounted] = useState(false);
@@ -579,10 +742,31 @@ function FightWeekDayStack({
   // sharp drop at day -5 reads as a visible cliff in the bar lengths.
   const maxCarbs = Math.max(1, ...days.map((d) => d.carbsGrams));
 
+  // The backend may HOLD carbs for day-of weigh-ins (flat or non-decreasing
+  // bars) instead of tapering. Detect that so the header reads honestly: if
+  // every non-weigh-in day's carbs is roughly equal-to or higher-than the
+  // day before (within a small tolerance), there's no real taper to "watch".
+  const carbDays = days.filter((d) => d.dayOffset !== 0);
+  const carbsHeld =
+    carbDays.length > 1 &&
+    carbDays.every((d, i) => i === 0 || d.carbsGrams >= carbDays[i - 1].carbsGrams * 0.92);
+
   return (
-    <div className="mt-3">
-      <div className="flex items-baseline justify-between mb-2 px-1">
-        <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-muted-foreground">
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ ...ENTER_SPRING, delay: 0.08 }}
+      className="relative overflow-hidden card-surface rounded-2xl border border-border/50 border-t-2 border-t-func-warning-yellow p-4 mt-4"
+    >
+      {/* Soft warm glow halo at top. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-12 left-1/2 -translate-x-1/2 h-32 w-64 rounded-full opacity-10 blur-2xl text-func-warning-yellow"
+        style={{ background: "radial-gradient(circle, currentColor 0%, transparent 70%)" }}
+      />
+
+      <div className="relative flex items-baseline justify-between mb-3">
+        <p className="text-[10px] uppercase tracking-[0.16em] font-semibold text-muted-foreground/70">
           Fight Week Protocol
         </p>
         {typeof target === "number" && target > 0 && (
@@ -601,15 +785,32 @@ function FightWeekDayStack({
         </div>
       )}
 
-      {/* Legend — the carb bar is the hero, so name it once. */}
+      {/* Fuel strategy — eat at maintenance; the cut comes from carbs, water and
+          sodium, not a calorie deficit, so fuel stays high. */}
+      <div className="rounded-xs border border-primary/20 bg-primary/[0.05] p-3 mb-2.5">
+        <p className="text-[12px] font-semibold text-foreground">Eat at maintenance this week</p>
+        <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+          Fat loss over fight week is negligible, your drop comes from carbs, water
+          and sodium, not calories. Eat around your maintenance
+          {maintenanceCalories ? ` (~${(Math.round(maintenanceCalories / 100) * 100).toLocaleString()} kcal)` : ""}
+          {carbsHeld
+            ? " so you carry maximum fuel and glycogen into the fight."
+            : " so you carry maximum fuel into the fight while carbs taper down."}
+        </p>
+      </div>
+
+      {/* Legend — the carb bar is the hero, so name it once. The copy adapts
+          to whether carbs taper or are held flat for the fight. */}
       <div className="flex items-center gap-1.5 px-1 mb-1.5">
         <span className="h-2 w-2 rounded-full bg-func-carbs-orange/70" />
         <span className="text-[9px] uppercase tracking-wider text-muted-foreground/70">
-          Carbs per day (g) — watch the day -5 drop
+          {carbsHeld
+            ? "Carbs held — fuel for the fight"
+            : "Carbs per day (g) — watch the day -5 drop"}
         </span>
       </div>
 
-      <ul className="rounded-xs border border-border/40 bg-card/40 divide-y divide-border/30 overflow-hidden">
+      <ul className="rounded-xs bg-muted/[0.04] border border-border/30 divide-y divide-border/30 overflow-hidden">
         {days.map((d, i) => {
           const isWeighIn = d.dayOffset === 0;
           const isCliff =
@@ -642,12 +843,20 @@ function FightWeekDayStack({
                 {isWeighIn ? (
                   <div className="pt-0.5">
                     <p className="text-[13px] font-semibold text-foreground/90">
-                      Weigh-in, then refuel
+                      {carbsHeld ? "Weigh-in, then rehydrate" : "Weigh-in, then refuel"}
                     </p>
-                    {refeed && (
-                      <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
-                        {refeed.carbsGPerKgFirstHr} g/kg/hr carbs for 2 hr, then {refeed.carbsGPerKgPhase2} g/kg/hr. Sodium {refeed.sodiumGPerLiterFluid} g per L fluid.
-                      </p>
+                    {carbsHeld ? (
+                      d.notes && (
+                        <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
+                          {cleanText(d.notes)}
+                        </p>
+                      )
+                    ) : (
+                      refeed && (
+                        <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
+                          {refeed.carbsGPerKgFirstHr} g/kg/hr carbs for 2 hr, then {refeed.carbsGPerKgPhase2} g/kg/hr. Sodium {refeed.sodiumGPerLiterFluid} g per L fluid.
+                        </p>
+                      )
                     )}
                   </div>
                 ) : (
@@ -701,7 +910,7 @@ function FightWeekDayStack({
           );
         })}
       </ul>
-    </div>
+    </motion.div>
   );
 }
 
@@ -742,14 +951,6 @@ export function InlinePlanDisplay({
     return `${weekCount} weeks`;
   }, [planData.targetDate, weekCount]);
 
-  const planId = useMemo(
-    () =>
-      hashToPlanId(
-        `${currentWeight}|${goalWeight}|${weekCount}|${planType}|${planData.targetDate ?? ""}`,
-      ),
-    [currentWeight, goalWeight, weekCount, planType, planData.targetDate],
-  );
-
   // Universal Daily Focus: derive 3 actionable bullets that apply every
   // day across the entire camp. Pull the most-common bullets from week 1
   // (the foundation week), deduped + capped at 3, falling back to the
@@ -779,11 +980,19 @@ export function InlinePlanDisplay({
 
   const week1 = planData.weeklyPlan[0];
 
+  // Week accordion: auto-expand the toughest week if flagged, else week 1.
+  // Tapping a row toggles it; tapping a phase opens + scrolls to its start.
+  const defaultOpenWeek = toughestWeek ?? planData.weeklyPlan[0]?.week ?? 1;
+  const [openWeek, setOpenWeek] = useState<number | null>(defaultOpenWeek);
+
   const scrollToWeek = (week: number) => {
-    const el = containerRef.current?.querySelector(`#week-card-${week}`);
-    if (el) {
-      (el as HTMLElement).scrollIntoView({ behavior: "smooth", block: "center" });
-    }
+    setOpenWeek(week);
+    requestAnimationFrame(() => {
+      const el = containerRef.current?.querySelector(`#week-card-${week}`);
+      if (el) {
+        (el as HTMLElement).scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    });
   };
 
   return (
@@ -794,19 +1003,42 @@ export function InlinePlanDisplay({
       transition={{ duration: 0.4, ease: [0.32, 0.72, 0, 1] }}
       className="w-full pb-24"
     >
-      {/* HERO */}
-      <div className="text-center mb-1">
-        <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-primary/70">
-          {isWeightLoss ? "Your Plan" : "Your Cut"}
-        </p>
-      </div>
-      <HeroRing totalKg={totalKg} goalLabel={goalLabel} weekCount={weekCount} />
+      {/* HERO CARD — camp name + kicker + count-up ring, in a premium
+          card-surface card with a top accent stripe and a blue glow halo
+          behind the ring (mirrors the Recovery readiness hero). */}
+      <motion.div
+        initial={{ opacity: 0, y: 12, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={ENTER_SPRING}
+        className="relative overflow-hidden card-surface rounded-2xl border border-border/50 border-t-2 border-t-primary px-5 pt-5 pb-4"
+      >
+        {/* Blue glow halo behind the ring — Recovery's blur-2xl radial. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute top-16 left-1/2 -translate-x-1/2 h-44 w-44 rounded-full opacity-10 blur-2xl text-primary"
+          style={{ background: "radial-gradient(circle, currentColor 0%, transparent 70%)" }}
+        />
+        <div className="relative text-center mb-1">
+          {planData.campName && planData.campName.trim() !== "" && (
+            <p className="text-[16px] font-bold text-foreground tracking-tight mb-1">
+              {planData.campName}
+            </p>
+          )}
+          <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-primary/70">
+            {isWeightLoss ? "Your Plan" : "Your Cut"}
+          </p>
+        </div>
+        <div className="relative">
+          <HeroRing totalKg={totalKg} goalLabel={goalLabel} weekCount={weekCount} />
+        </div>
+      </motion.div>
 
-      {/* STAT STRIP — kcal + macros (using nutrition theme colors) */}
-      <StatStrip
+      {/* DAILY FUEL — big kcal + stacked macro proportion bar (carbs lead) */}
+      <DailyFuelCard
         maintenance={planData.maintenanceCalories}
         deficit={planData.deficit}
         target={planData.targetCalories}
+        calories={week1?.calories}
         protein={week1?.protein_g}
         carbs={week1?.carbs_g}
         fats={week1?.fats_g}
@@ -823,17 +1055,21 @@ export function InlinePlanDisplay({
         <PhasePills phases={planData.phases} onTapPhase={scrollToWeek} />
       )}
 
-      {/* WEEK TIMELINE */}
+      {/* WEEK-BY-WEEK ACCORDION */}
       <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-bold mt-5 mb-2 px-1">
         Week by Week
       </p>
       <div className="space-y-2">
         {planData.weeklyPlan.map((row) => (
-          <WeekCard
+          <WeekAccordionRow
             key={row.week}
             row={row}
             isToughest={toughestWeek === row.week}
             toughReason={toughestWeek === row.week ? toughReason : undefined}
+            open={openWeek === row.week}
+            onToggle={() =>
+              setOpenWeek((cur) => (cur === row.week ? null : row.week))
+            }
           />
         ))}
       </div>
@@ -847,21 +1083,22 @@ export function InlinePlanDisplay({
           target={
             planData.weeklyPlan?.[planData.weeklyPlan.length - 1]?.targetWeight
           }
+          maintenanceCalories={planData.maintenanceCalories}
         />
       )}
 
-      {/* PLAN RULES */}
+      {/* PLAN RULES — editorial glass card */}
       {planData.keyPrinciples && planData.keyPrinciples.length > 0 && (
-        <div className="card-surface rounded-xs border border-border/40 p-4 mt-3 space-y-1.5">
-          <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-bold mb-1">
+        <div className="card-surface rounded-2xl border border-border/50 p-4 mt-3 space-y-2">
+          <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70 font-semibold mb-1">
             Plan Rules
           </p>
           {planData.keyPrinciples.map((p, i) => (
             <p
               key={i}
-              className="text-[12px] text-foreground/85 leading-snug flex items-start gap-1.5"
+              className="text-[12.5px] text-foreground/90 leading-snug flex items-start gap-2.5"
             >
-              <span className="text-primary mt-0.5">·</span>
+              <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-primary shrink-0" aria-hidden />
               <span>{cleanText(p)}</span>
             </p>
           ))}
@@ -870,19 +1107,19 @@ export function InlinePlanDisplay({
 
       {/* SAFETY */}
       {planData.safetyNotes && (
-        <div className="rounded-xs border border-func-recovery-green/20 bg-func-recovery-green/5 p-3.5 mt-3 flex items-start gap-2">
+        <div className="card-surface rounded-2xl border border-func-recovery-green/25 border-l-2 border-l-func-recovery-green/60 p-3.5 mt-3 flex items-start gap-2.5">
           <ShieldCheck className="h-4 w-4 text-func-recovery-green mt-0.5 shrink-0" />
-          <p className="text-[12px] text-emerald-200/90 leading-snug">
+          <p className="text-[12.5px] text-emerald-200/90 leading-relaxed">
             {cleanText(planData.safetyNotes)}
           </p>
         </div>
       )}
 
       {/* TOMORROW-MORNING ANCHOR */}
-      <div className="rounded-xs border border-border/40 bg-muted/20 p-3.5 mt-3 flex items-start gap-2.5">
+      <div className="card-surface rounded-2xl border border-border/50 p-3.5 mt-3 flex items-start gap-2.5">
         <Sun className="h-4 w-4 text-func-warning-yellow mt-0.5 shrink-0" />
         <div>
-          <p className="text-[12px] font-semibold text-foreground">
+          <p className="text-[12.5px] font-semibold text-foreground">
             Tomorrow, 7am, weigh in fasted.
           </p>
           <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
@@ -890,11 +1127,6 @@ export function InlinePlanDisplay({
           </p>
         </div>
       </div>
-
-      {/* PLAN ID FOOTER */}
-      <p className="text-center text-[10px] text-muted-foreground/60 mt-4 mb-2 tabular-nums">
-        Plan ID, {planId}, Engine v2.0
-      </p>
 
       {/* STICKY CTA — `bottom-safe-keyboard` rides this above the iOS
           keyboard (inner pb stays for safe-area padding). Hidden on the

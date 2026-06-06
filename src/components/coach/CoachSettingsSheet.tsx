@@ -542,7 +542,7 @@ function Group({ label, children }: { label: string; children: React.ReactNode }
       <p className="px-1 mb-1.5 text-[10px] uppercase tracking-[0.14em] font-bold text-muted-foreground/70">
         {label}
       </p>
-      <div className="rounded-xs bg-card/60 border border-border/50 overflow-hidden">
+      <div className="rounded-xs card-surface overflow-hidden">
         {children}
       </div>
     </section>

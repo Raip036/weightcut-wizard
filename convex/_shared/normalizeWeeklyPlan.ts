@@ -60,6 +60,11 @@ function defaultPhase(
   if (weekCount <= 1) return flow === "cut" ? "fight_week" : "final";
   const isLast = i === weekCount - 1;
   if (isLast) return flow === "cut" ? "fight_week" : "final";
+  // Cut flows reserve the LAST week for fight_week and the week immediately
+  // before it for the single "final" cut week. Everything earlier is
+  // foundation → build → peak by position. (Weight-loss flows have no
+  // fight week, so their last week is the "final" handled above.)
+  if (flow === "cut" && i === weekCount - 2) return "final";
   if (weekCount <= 2) return "build";
   const pct = i / (weekCount - 1);
   if (pct <= 0.2) return "foundation";
@@ -161,11 +166,10 @@ export function normaliseWeeklyPlan(input: NormaliseInput): WeeklyPlanRow[] {
     const carbs_g = pick("carbs_g", input.defaultCarbs);
     const fats_g = pick("fats_g", input.defaultFats);
 
-    const phase: WeekPhase =
-      typeof llm?.phase === "string" &&
-      ["foundation", "build", "peak", "final", "fight_week"].includes(llm.phase)
-        ? (llm.phase as WeekPhase)
-        : defaultPhase(i, weekCount, flow);
+    // Phase is structural/positional, so assign it deterministically rather
+    // than trusting the LLM (which would over-apply "final" to many weeks —
+    // a 17-week plan came back with weeks 9-16 all tagged "Final Week").
+    const phase: WeekPhase = defaultPhase(i, weekCount, flow);
 
     const kgThisWeek = Math.max(0, prevWeight - targetWeight);
     const heroLine = trim(

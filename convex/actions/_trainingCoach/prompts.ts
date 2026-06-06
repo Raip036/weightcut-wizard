@@ -14,7 +14,7 @@
 import { SECOND_PERSON_DIRECTIVE } from "../_helpers";
 import { PROMPT_INJECTION_GUARD_INSTRUCTION } from "../../_shared/sanitizeUserText";
 
-export const EXTRACT_CANDIDATES_PROMPT = `You are a combat sports note parser. Extract every distinct technique, combination, position, or drill the user MENTIONS LEARNING OR PRACTICING in their session notes. Ignore generic talk ("good session", "tired today").
+export const EXTRACT_CANDIDATES_PROMPT = `You are a combat sports note parser. The input is the athlete's "Techniques covered" notes from a training session (the combos, positions, or drills they drilled or learned), though it may occasionally fall back to a general session reflection. Extract every distinct technique, combination, position, or drill the user MENTIONS LEARNING OR PRACTICING. Ignore generic talk ("good session", "tired today").
 
 ${PROMPT_INJECTION_GUARD_INSTRUCTION}
 

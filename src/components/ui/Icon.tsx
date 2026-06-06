@@ -25,7 +25,11 @@ function normalizeSvg(raw: string): string {
 function getSvg(name: IonIconName): string {
   const cached = svgCache.get(name);
   if (cached) return cached;
-  const normalized = normalizeSvg(ionIcons[name] as string);
+  // Defensive: an unknown icon name resolves to `undefined` in the ionicons
+  // module — render nothing rather than crash the whole tree on `.startsWith`.
+  const raw = ionIcons[name] as string | undefined;
+  if (!raw) return "";
+  const normalized = normalizeSvg(raw);
   svgCache.set(name, normalized);
   return normalized;
 }

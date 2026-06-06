@@ -110,8 +110,19 @@ async function handleSessionSave(
     internal.training_paths.getSessionForPlanner,
     { sessionId },
   );
-  if (!session?.notes) return;
-  const candidates = await extractCandidates({ notes: session.notes });
+  if (!session) return;
+  const reflectionNotes = (session.notes ?? "").trim();
+  const techniquesNotes = (session.techniquesNotes ?? "").trim();
+  // Bail only when BOTH note fields are empty.
+  if (!reflectionNotes && !techniquesNotes) return;
+  // Technique extraction prefers the CLEAN "Techniques covered" field, with
+  // the legacy reflection blob as a fallback for older single-field entries.
+  const techniqueSource = techniquesNotes || reflectionNotes;
+  // Stall detection scans the REFLECTION field where struggle language lives
+  // ("couldn't finish", "got countered"); fall back to techniques only when
+  // the reflection field is empty.
+  const stallSource = reflectionNotes || techniquesNotes;
+  const candidates = await extractCandidates({ notes: techniqueSource });
   if (candidates.length > 0) {
     await ctx.runMutation(
       internal.training_paths.upsertProposalsFromCandidates,
@@ -131,10 +142,10 @@ async function handleSessionSave(
     { userId: session.userId },
   );
   for (const p of activePaths) {
-    if (detectStallInNotes(session.notes, p.goal)) {
+    if (detectStallInNotes(stallSource, p.goal)) {
       await ctx.runMutation(internal.training_paths.appendNotesContext, {
         pathId: p._id,
-        excerpt: session.notes,
+        excerpt: stallSource,
       });
       await ctx.scheduler.runAfter(
         0,

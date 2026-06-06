@@ -214,7 +214,7 @@ export function WeightInsightsBlock({
           initial={reduced ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1], delay: 0.08 }}
-          className="rounded-xs border border-border/50 bg-card/40 backdrop-blur-xl p-5"
+          className="rounded-xs card-surface p-5"
         >
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-1.5">

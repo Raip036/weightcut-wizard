@@ -16,6 +16,16 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { WeeklyRecap, type RecapDebrief } from "./WeeklyRecap";
 import { TechniqueLog } from "./TechniqueLog";
 import { WeeklyTimeline } from "./WeeklyTimeline";
+import { ShimmerCrownBadge } from "@/components/subscription/ShimmerCrownBadge";
+import { ProExplainerOverlay } from "@/components/subscription/ProExplainerOverlay";
+
+/** The value story for the weekly recap, shown before the paywall. */
+const RECAP_PERKS = [
+    "A coach-voice debrief of your training week",
+    "The key techniques you drilled, with cues to remember them",
+    "Catches recurring issues before they cost you",
+    "Builds your all-time technique log",
+];
 
 // ─── New shape (weekly recap debrief) ──────────────────────────────────────
 type RecapSummary = {
@@ -81,8 +91,9 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
     // the surface for now so callers don't have to change.
     void customColors;
     const { toast } = useToast();
-    const { openPaywall, handlePaywallError } = useSubscription();
+    const { handlePaywallError } = useSubscription();
     const { hasAccess: hasAiAccess } = useFeatureAccess("AI_TRAINING_SUMMARY");
+    const [recapExplainerOpen, setRecapExplainerOpen] = useState(false);
     const { tasks, addTask, completeTask, failTask, dismissTask } = useAITask();
     const trainingSummaryAction = useAIAction(api.actions.trainingSummary.run, "AI_TRAINING_SUMMARY");
     const upsertSummaryMut = useMutation(api.fight_camp.upsertSummary);
@@ -216,7 +227,7 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
     const handleGenerateOrUpdate = async () => {
         if (sessionsWithNotes.length === 0) return;
         if (!hasAiAccess) {
-            openPaywall();
+            setRecapExplainerOpen(true);
             return;
         }
         abortRef.current?.abort();
@@ -368,6 +379,17 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                             <CheckCircle className="h-3.5 w-3.5 text-func-recovery-green" />
                             Up to date
                         </span>
+                    ) : !hasAiAccess ? (
+                        <button
+                            onClick={handleGenerateOrUpdate}
+                            className="inline-flex items-center gap-2 rounded-xs border border-primary/30 bg-primary/10 px-3 py-2 min-h-[44px] text-[13px] font-semibold text-foreground card-press"
+                        >
+                            <ShimmerCrownBadge size={22} />
+                            <span>{buttonState === "generate" ? "Generate weekly recap" : "Update recap"}</span>
+                            <span className="rounded-full border border-primary/40 bg-primary/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-primary">
+                                Pro
+                            </span>
+                        </button>
                     ) : (
                         <button
                             onClick={handleGenerateOrUpdate}
@@ -478,6 +500,14 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                     </div>
                 </SheetContent>
             </Sheet>
+
+            <ProExplainerOverlay
+                open={recapExplainerOpen}
+                onOpenChange={setRecapExplainerOpen}
+                title="Weekly Recap is a Pro feature"
+                blurb="Your AI corner reads every session note and writes you a coach-voice debrief of the week."
+                perks={RECAP_PERKS}
+            />
         </div>
     );
 }
