@@ -173,11 +173,9 @@ export default function TodayStrip({ adherence, mealsLoggedToday, onMarkRestDay 
             className="flex items-center justify-center gap-1.5 rounded-full border border-func-recovery-green/30 bg-func-recovery-green/12 py-1.5"
             style={{ boxShadow: DONE_GLOW }}
           >
-            <Icon name="sparkles" size={13} className="text-func-recovery-green" />
             <span className="text-[11px] font-semibold tracking-wide text-func-recovery-green">
               Today's log complete
             </span>
-            <Icon name="sparkles" size={13} className="text-func-recovery-green" />
           </motion.div>
         ) : (
           <motion.div
