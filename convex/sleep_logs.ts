@@ -18,9 +18,26 @@ function toClient(row: Doc<"sleep_logs">) {
 }
 
 export const listForUser = query({
-  args: { limit: v.optional(v.number()) },
-  handler: async (ctx, { limit }) => {
+  args: {
+    limit: v.optional(v.number()),
+    // Optional inclusive date range (YYYY-MM-DD). When both are supplied we
+    // fetch exactly that window via the by_user_date index — mirrors
+    // wellness.listCheckins so callers (e.g. the weekly report) get the right
+    // week even for historical reports beyond the default `limit` window.
+    from: v.optional(v.string()),
+    to: v.optional(v.string()),
+  },
+  handler: async (ctx, { limit, from, to }) => {
     const userId = await requireUserId(ctx);
+    if (from && to) {
+      const rows = await ctx.db
+        .query("sleep_logs")
+        .withIndex("by_user_date", (q) =>
+          q.eq("userId", userId).gte("date", from).lte("date", to),
+        )
+        .collect();
+      return rows.map(toClient);
+    }
     const rows = await ctx.db
       .query("sleep_logs")
       .withIndex("by_user_date", (q) => q.eq("userId", userId))

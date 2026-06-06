@@ -30,6 +30,7 @@ import type * as _shared_loadMetrics from "../_shared/loadMetrics.js";
 import type * as _shared_math from "../_shared/math.js";
 import type * as _shared_normalizePlanTopLevel from "../_shared/normalizePlanTopLevel.js";
 import type * as _shared_normalizeWeeklyPlan from "../_shared/normalizeWeeklyPlan.js";
+import type * as _shared_nutrientCategories from "../_shared/nutrientCategories.js";
 import type * as _shared_parseResponse from "../_shared/parseResponse.js";
 import type * as _shared_protocolResearch from "../_shared/protocolResearch.js";
 import type * as _shared_recoveryContext from "../_shared/recoveryContext.js";
@@ -180,6 +181,7 @@ declare const fullApi: ApiFromModules<{
   "_shared/math": typeof _shared_math;
   "_shared/normalizePlanTopLevel": typeof _shared_normalizePlanTopLevel;
   "_shared/normalizeWeeklyPlan": typeof _shared_normalizeWeeklyPlan;
+  "_shared/nutrientCategories": typeof _shared_nutrientCategories;
   "_shared/parseResponse": typeof _shared_parseResponse;
   "_shared/protocolResearch": typeof _shared_protocolResearch;
   "_shared/recoveryContext": typeof _shared_recoveryContext;

@@ -21,7 +21,7 @@
 import { motion, useReducedMotion } from "motion/react";
 import { ArrowRight, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import wizard3D from "@/assets/thoughtful_wizard.png";
+import wizard3D from "@/assets/wizard_3D.png";
 
 type EmptyVariant = "all_caught_up" | "no_posts_yet";
 

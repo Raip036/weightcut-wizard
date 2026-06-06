@@ -27,7 +27,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { ArrowRight, ChevronDown, Check, Dumbbell } from "lucide-react";
-import wizardMascot from "@/assets/thoughtful_wizard.png";
+import wizardMascot from "@/assets/wizard_3D.png";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";

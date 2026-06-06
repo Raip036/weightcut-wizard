@@ -7,6 +7,7 @@ import { callGroqText } from "../_shared/groq";
 import { parseJSON } from "../_shared/parseResponse";
 import { loadAthleteSnapshot, requireUserIdFromAction } from "./_helpers";
 import { enforceFeatureGate } from "../_shared/featureGates";
+import { deriveNutrientCategory } from "../_shared/nutrientCategories";
 
 export const run = action({
   args: {
@@ -89,6 +90,20 @@ Return JSON in EXACTLY this shape (camelCase keys, do NOT rename or omit):
       "vitamins": ["Vitamin D", "B12", "Choline", "Selenium"],
       "reason": "Covers four of your weaker micros in one cheap ingredient you can drop into any meal."
     }
+  ],
+  "foodContributions": [
+    {
+      "food": "Salmon",
+      "mealType": "dinner",
+      "nutrients": [
+        { "name": "Omega-3", "amount": "1.2 g" },
+        { "name": "Vitamin D", "amount": "10 ug" }
+      ]
+    }
+  ],
+  "keyInsights": [
+    { "focus": "performance", "text": "Your iron is low today, which can cap aerobic output in hard rounds." },
+    { "focus": "health", "text": "Add some colour to your plate for antioxidants that aid recovery." }
   ]
 }
 
@@ -100,6 +115,8 @@ Rules:
 - suggestions: 3-5 whole foods that close the biggest gaps. Each must list which "nutrients" it provides.
 - mealAdditions: ONE entry for EACH meal the user logged, in the same order. Each entry has 2-3 specific items the user could ADD or SWAP into THAT meal to raise its nutrient density — keep additions realistic for the meal's flavour profile (don't suggest salmon on porridge). Use imperative phrasing ("Add ...", "Top with ...", "Swap ... for ..."). Each addition must list the nutrients it boosts.
 - vitaminRounders: 2-4 "all-rounder" foods or simple pairings that cover MULTIPLE vitamins/minerals at once, with priority on closing the user's gaps. List every vitamin/mineral each food rounds out.
+- foodContributions: ONE entry per notable food you can identify from the logged meals' ingredients, listing the top 1-3 micronutrients that food supplied. This shows the user where their nutrients came from.
+- keyInsights: 2-4 short takeaways. Tag each with focus "performance" (fighting / training output) or "health" (general wellbeing). Address the user directly.
 - Estimate from USDA food composition data.
 - RDA targets adjusted for an active combat sport athlete (${profile?.sex === "female" ? "female" : "male"}, ${profile?.age || 25} years).
 - percentRDA must be an INTEGER, capped at 100.
@@ -130,18 +147,47 @@ My profile: ${profile?.age || "?"} years, ${profile?.sex || "?"}, ${profile?.cur
 
 Address me directly ("you", "your") in every string field — summary, gap reasons, suggestion reasons.`;
 
-    const content = await callGroqText({
-      model: "openai/gpt-oss-120b",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.1,
-      max_tokens: 3500,
-      response_format: { type: "json_object" },
-    });
-    const raw = parseJSON<Record<string, any>>(content);
-    const analysisData = normaliseAnalysis(raw);
+    // gpt-oss-120b is a reasoning model: with a tight max_tokens it spends the
+    // budget thinking and truncates the JSON, so micronutrients came back empty
+    // and the card showed protein only. Low reasoning effort + a bigger budget
+    // leaves room to finish the JSON. We then retry until micronutrients are
+    // actually present, since that is the whole point of the feature.
+    const MIN_MICROS = 5;
+    const MAX_ATTEMPTS = 3;
+    let analysisData = normaliseAnalysis(null);
+    let lastError: unknown;
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      const sys =
+        attempt === 0
+          ? systemPrompt
+          : `${systemPrompt}\n\nYour previous response had too few micronutrients. You MUST return at least 6 entries in "micronutrients" with integer percentRDA values.`;
+      try {
+        const content = await callGroqText({
+          model: "openai/gpt-oss-120b",
+          messages: [
+            { role: "system", content: sys },
+            { role: "user", content: userPrompt },
+          ],
+          temperature: 0.1,
+          max_tokens: 7000,
+          reasoning_effort: "low",
+          response_format: { type: "json_object" },
+        });
+        const candidate = normaliseAnalysis(parseJSON<Record<string, any>>(content));
+        if (candidate.micronutrients.length >= MIN_MICROS) {
+          analysisData = candidate;
+          break;
+        }
+        if (candidate.micronutrients.length > analysisData.micronutrients.length) {
+          analysisData = candidate;
+        }
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    if (!analysisData.summary && analysisData.micronutrients.length === 0 && lastError) {
+      throw lastError;
+    }
 
     // ── Deterministic numbers (computed here, NOT by the LLM, so they're
     //    always arithmetically correct) ──────────────────────────────────
@@ -200,9 +246,9 @@ Address me directly ("you", "your") in every string field — summary, gap reaso
       if (pAvgGPerKg != null) {
         note =
           pAvgGPerKg < 1.6
-            ? `Your protein has averaged ${pAvgGPerKg} g/kg this week — below the ~2.0 g/kg that protects muscle in a cut.`
+            ? `Your protein has averaged ${pAvgGPerKg} g/kg this week - below the ~2.0 g/kg that protects muscle in a cut.`
             : pAvgGPerKg > 2.6
-              ? `You're averaging ${pAvgGPerKg} g/kg protein this week — plenty to hold muscle while cutting.`
+              ? `You're averaging ${pAvgGPerKg} g/kg protein this week - plenty to hold muscle while cutting.`
               : `Your 7-day protein is on track at ${pAvgGPerKg} g/kg.`;
       } else if (pAvg != null) {
         note = `You're averaging ${pAvg}g protein a day this week.`;
@@ -222,13 +268,30 @@ Address me directly ("you", "your") in every string field — summary, gap reaso
 });
 
 /**
+ * Drop duplicate micronutrients (case-insensitive by name, first wins). The
+ * model occasionally repeats a nutrient, which would collide on React keys and
+ * SVG gradient ids in the rings.
+ */
+function dedupeByName<T extends { name: string }>(items: T[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const item of items) {
+    const key = (item.name || "").trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out;
+}
+
+/**
  * Map common snake_case / aliased keys back to the canonical camelCase
  * shape the React `DietAnalysisCard` expects. Even with a fully-shaped
  * system prompt Groq sometimes returns `meal_name`, `key_nutrients`, or
- * `percent_rda` — without this normaliser the Per Meal / Gaps sections
+ * `percent_rda` - without this normaliser the Per Meal / Gaps sections
  * silently render empty.
  */
-function normaliseAnalysis(raw: Record<string, any> | null | undefined) {
+export function normaliseAnalysis(raw: Record<string, any> | null | undefined) {
   const r = raw ?? {};
   const pick = <T,>(...keys: string[]): T | undefined => {
     for (const k of keys) if (r[k] != null) return r[k] as T;
@@ -261,12 +324,18 @@ function normaliseAnalysis(raw: Record<string, any> | null | undefined) {
         amount: str(n?.amount ?? n?.value ?? n?.qty),
       })),
     })),
-    micronutrients: arr<any>("micronutrients", "micros", "nutrients").map((n) => ({
-      name: str(n?.name ?? n?.nutrient),
-      percentRDA: num(n?.percentRDA ?? n?.percent_rda ?? n?.percent ?? n?.pctRDA),
-      amount: str(n?.amount ?? n?.value),
-      rdaTarget: str(n?.rdaTarget ?? n?.rda_target ?? n?.target ?? n?.rda),
-    })),
+    micronutrients: dedupeByName(
+      arr<any>("micronutrients", "micros", "nutrients").map((n) => {
+        const name = str(n?.name ?? n?.nutrient);
+        return {
+          name,
+          percentRDA: num(n?.percentRDA ?? n?.percent_rda ?? n?.percent ?? n?.pctRDA),
+          amount: str(n?.amount ?? n?.value),
+          rdaTarget: str(n?.rdaTarget ?? n?.rda_target ?? n?.target ?? n?.rda),
+          category: deriveNutrientCategory(name),
+        };
+      }),
+    ),
     gaps: arr<any>("gaps", "deficiencies", "lowNutrients").map((g) => {
       const sev = str(g?.severity).toLowerCase();
       const severity =
@@ -317,5 +386,23 @@ function normaliseAnalysis(raw: Record<string, any> | null | undefined) {
         : [],
       reason: str(v?.reason ?? v?.why ?? v?.note),
     })),
+    foodContributions: arr<any>("foodContributions", "food_contributions", "foods", "sources").map((f) => ({
+      food: str(f?.food ?? f?.name ?? f?.item),
+      mealType: str(f?.mealType ?? f?.meal_type ?? f?.meal),
+      nutrients: (
+        Array.isArray(f?.nutrients) ? f.nutrients :
+        Array.isArray(f?.provides) ? f.provides : []
+      ).map((n: any) => ({
+        name: str(n?.name ?? n?.nutrient),
+        amount: str(n?.amount ?? n?.value ?? n?.qty),
+      })),
+    })),
+    keyInsights: arr<any>("keyInsights", "key_insights", "insights").map((k) => {
+      const focus = str(k?.focus ?? k?.kind ?? k?.type).toLowerCase();
+      return {
+        focus: focus === "performance" ? "performance" : "health",
+        text: str(k?.text ?? k?.insight ?? k?.note),
+      } as { focus: "health" | "performance"; text: string };
+    }),
   };
 }

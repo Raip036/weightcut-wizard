@@ -1,8 +1,12 @@
+export type NutrientCategory = "vitamin" | "mineral" | "fatty_acid" | "other";
+
 export interface MicronutrientData {
   name: string;
   percentRDA: number;
   amount: string;
   rdaTarget: string;
+  /** Derived server-side from a static name map; defaults to "other". */
+  category: NutrientCategory;
 }
 
 export interface NutrientGap {
@@ -48,8 +52,21 @@ export interface VitaminRounder {
   reason: string;
 }
 
+/** Which logged food supplied which nutrients (foods to nutrients mapping). */
+export interface FoodContribution {
+  food: string;
+  mealType?: string;
+  nutrients: { name: string; amount: string }[];
+}
+
+/** A short, tagged takeaway framed for either everyday health or performance. */
+export interface KeyInsight {
+  focus: "health" | "performance";
+  text: string;
+}
+
 /**
- * Today's protein adequacy by bodyweight (g/kg) — computed deterministically
+ * Today's protein adequacy by bodyweight (g/kg) - computed deterministically
  * server-side (not by the LLM) so the numbers are always correct.
  */
 export interface ProteinVerdict {
@@ -57,15 +74,15 @@ export interface ProteinVerdict {
   targetG: number;
   /** Actual grams per kg bodyweight today. */
   gPerKg: number;
-  /** The g/kg target used (≈2.0 for a combat athlete in a cut). */
+  /** The g/kg target used (about 2.0 for a combat athlete in a cut). */
   targetGPerKg: number;
-  /** max(0, targetG − actualG). */
+  /** max(0, targetG - actualG). */
   shortfallG: number;
   verdict: "low" | "on_track" | "high";
 }
 
 /**
- * 7-day macro trend pulled from the athlete snapshot — moves the analysis
+ * 7-day macro trend pulled from the athlete snapshot - moves the analysis
  * beyond a single day so adequacy reads as a pattern, not a one-off.
  */
 export interface WeeklyTrend {
@@ -86,6 +103,10 @@ export interface DietAnalysisResult {
   mealAdditions?: MealAddition[];
   /** Foods that broadly cover multiple vitamin/mineral gaps in one shot. */
   vitaminRounders?: VitaminRounder[];
+  /** Which logged foods supplied which nutrients. */
+  foodContributions?: FoodContribution[];
+  /** 2-4 tagged takeaways (health / performance). */
+  keyInsights?: KeyInsight[];
   /** Today's protein g/kg verdict (computed server-side). */
   proteinVerdict?: ProteinVerdict;
   /** 7-day macro trend from the athlete snapshot. */

@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Training Library — Redesign Mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg:#0f0f0f; --card:#1c1c1e; --card2:#161617;
+    --line:rgba(255,255,255,.09); --line2:rgba(255,255,255,.055);
+    --fg:#f2f2f3; --muted:#9aa0ab; --muted2:#6b717c;
+    --primary:#2e7bf6; --primary-soft:rgba(46,123,246,.14);
+    --bjj:#5b8def; --muay:#e0556b; --boxing:#f5a23d; --wrestling:#e0b13d;
+    --sparring:#b07de0; --strength:#b3b3b3; --run:#54c79a;
+    --protein:#3b82f6; --carbs:#f08439; --fats:#8b5cf6;
+    --green:#10b981; --amber:#fbbf24; --rose:#f43f5e;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; -webkit-font-smoothing:antialiased; }
+  body {
+    background:
+      radial-gradient(1100px 650px at 12% -8%, #14233e 0%, transparent 55%),
+      radial-gradient(900px 600px at 100% 105%, #1e1530 0%, transparent 52%),
+      #08090c;
+    font-family:"Inter",sans-serif; color:var(--fg); padding:56px 40px 80px;
+  }
+  .gallery { display:grid; grid-template-columns:repeat(4,360px); gap:30px; justify-content:center; }
+  .cap { text-align:center; margin-bottom:16px; }
+  .cap .k { font-family:"Sora"; font-weight:700; font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:var(--primary); }
+  .cap .t { font-family:"Sora"; font-weight:700; font-size:17px; margin-top:6px; }
+  .cap .d { font-size:12.5px; color:var(--muted); margin-top:4px; }
+
+  /* phone */
+  .phone { width:340px; height:716px; border-radius:50px; padding:11px;
+    background:linear-gradient(160deg,#3a3a3e,#0c0c0d 40%,#000 80%);
+    box-shadow:0 1px 0 1px rgba(255,255,255,.06) inset, 0 46px 86px -32px rgba(0,0,0,.85), 0 26px 56px -42px rgba(46,123,246,.4);
+    margin:0 auto;
+  }
+  .screen { position:relative; width:100%; height:100%; border-radius:40px; overflow:hidden; background:var(--bg); }
+  .island { position:absolute; top:11px; left:50%; transform:translateX(-50%); width:96px; height:27px; background:#000; border-radius:16px; z-index:50; }
+  .statusbar { position:absolute; top:0; left:0; right:0; height:48px; z-index:40; display:flex; align-items:center; justify-content:space-between; padding:0 24px; font-size:13px; font-weight:700; font-family:"Sora"; }
+  .app { position:absolute; inset:0; padding:50px 0 0; display:flex; flex-direction:column; }
+
+  /* nav header */
+  .nav { display:flex; align-items:center; gap:10px; padding:6px 18px 12px; }
+  .nav .back { font-size:20px; color:var(--muted); }
+  .nav h1 { font-family:"Sora"; font-weight:800; font-size:21px; letter-spacing:-.02em; }
+  .nav .count { margin-left:auto; font-size:11.5px; color:var(--muted2); font-weight:600; }
+
+  /* segmented control */
+  .seg { margin:0 16px 14px; display:flex; background:rgba(255,255,255,.05); border:1px solid var(--line2); border-radius:13px; padding:3px; gap:2px; }
+  .seg div { flex:1; text-align:center; font-size:12px; font-weight:700; font-family:"Sora"; padding:8px 4px; border-radius:10px; color:var(--muted); }
+  .seg div.on { background:var(--primary); color:#fff; box-shadow:0 3px 10px -2px rgba(46,123,246,.5); }
+
+  .scroll { flex:1; overflow:hidden; padding:0 16px 16px; }
+
+  .micro { font-size:9px; letter-spacing:.15em; text-transform:uppercase; color:var(--muted2); font-weight:700; }
+  .row { display:flex; align-items:center; } .between { justify-content:space-between; }
+
+  /* session card */
+  .session { background:var(--card); border:1px solid var(--line); border-radius:18px; padding:13px; margin-bottom:11px; }
+  .sdot { width:7px; height:7px; border-radius:50%; flex:none; }
+  .sbadge { font-size:9.5px; font-weight:700; padding:2px 8px; border-radius:999px; }
+  .thumbs { display:grid; grid-template-columns:repeat(4,1fr); gap:5px; margin-top:11px; }
+  .thumb { aspect-ratio:1; border-radius:10px; position:relative; overflow:hidden; }
+  .more { display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.05); border:1px solid var(--line); font-size:13px; font-weight:700; font-family:"Sora"; color:var(--muted); }
+
+  /* recap */
+  .recap-hero { background:linear-gradient(160deg,rgba(46,123,246,.14),rgba(139,92,246,.07)); border:1px solid rgba(46,123,246,.25); border-radius:20px; padding:16px; margin-bottom:13px; }
+  .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:7px; margin-top:14px; }
+  .stat { background:rgba(255,255,255,.04); border:1px solid var(--line2); border-radius:12px; padding:9px 4px; text-align:center; }
+  .stat b { font-family:"Sora"; font-weight:800; font-size:17px; display:block; }
+  .take { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px; margin-bottom:9px; }
+  .cue { font-size:9.5px; font-weight:700; color:var(--muted); background:rgba(255,255,255,.06); border:1px solid var(--line2); padding:2px 7px; border-radius:6px; }
+  .watch { background:rgba(251,191,36,.1); border:1px solid rgba(251,191,36,.28); border-left:3px solid var(--amber); border-radius:13px; padding:11px 13px; margin-top:4px; }
+
+  /* technique log */
+  .searchbar { display:flex; align-items:center; gap:8px; background:rgba(255,255,255,.05); border:1px solid var(--line); border-radius:12px; padding:10px 12px; margin-bottom:14px; color:var(--muted2); font-size:13px; }
+  .disc-h { font-size:10px; letter-spacing:.14em; text-transform:uppercase; font-weight:800; margin:14px 2px 8px; }
+  .trow { background:var(--card); border:1px solid var(--line); border-radius:13px; padding:11px 12px; margin-bottom:7px; }
+  .times { font-size:9.5px; font-weight:800; font-family:"Sora"; color:var(--muted); background:rgba(255,255,255,.06); padding:2px 7px; border-radius:999px; }
+
+  /* tabbar */
+  .tabbar { height:62px; background:rgba(14,14,15,.85); border-top:1px solid var(--line2); display:flex; align-items:center; justify-content:space-around; padding-bottom:8px; }
+  .tabbar .ti { font-size:10px; color:var(--muted2); display:flex; flex-direction:column; align-items:center; gap:3px; font-weight:600; }
+  .tabbar .ti .ic { font-size:17px; opacity:.55; }
+  .tabbar .ti.on { color:var(--primary); } .tabbar .ti.on .ic { opacity:1; }
+
+  /* lightbox */
+  .lb { position:absolute; inset:0; background:#000; display:flex; flex-direction:column; }
+  .lb-top { display:flex; align-items:center; justify-content:space-between; padding:54px 18px 0; }
+  .lb-btn { width:34px; height:34px; border-radius:50%; background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center; font-size:15px; }
+  .lb-photo { flex:1; display:flex; align-items:center; justify-content:center; }
+  .lb-cap { padding:0 20px 30px; }
+</style>
+</head>
+<body>
+<div class="gallery">
+
+  <!-- ===== TAB 1: GALLERY (grouped by session) ===== -->
+  <div>
+    <div class="cap"><div class="k">Tab 1</div><div class="t">Gallery · grouped by session</div><div class="d">Every clip tied to its training context</div></div>
+    <div class="phone"><div class="screen">
+      <div class="island"></div>
+      <div class="statusbar"><span>9:41</span><span>●●● ▮</span></div>
+      <div class="app">
+        <div class="nav"><span class="back">‹</span><h1>Training</h1><span class="count">14 clips</span></div>
+        <div class="seg"><div class="on">Gallery</div><div>Recaps</div><div>Techniques</div></div>
+        <div class="scroll">
+          <!-- session 1 -->
+          <div class="session">
+            <div class="row" style="gap:8px;">
+              <span class="sdot" style="background:var(--bjj)"></span>
+              <span class="micro" style="color:var(--fg);letter-spacing:.04em;font-size:11px;">Tue 3 Jun</span>
+              <span class="sbadge" style="color:var(--bjj);background:rgba(91,141,239,.16)">BJJ · Sparring</span>
+              <span class="micro" style="margin-left:auto;">45m · RPE 8</span>
+            </div>
+            <div class="thumbs">
+              <div class="thumb" style="background:radial-gradient(circle at 35% 30%,#2c3e63,#0f1730)"></div>
+              <div class="thumb" style="background:radial-gradient(circle at 40% 35%,#3a2f4f,#141021)"></div>
+              <div class="thumb" style="background:radial-gradient(circle at 30% 40%,#274050,#0c1820)"></div>
+              <div class="thumb more">+2</div>
+            </div>
+            <div style="font-size:12.5px;color:var(--muted);margin-top:10px;">"Guard passing — kept the pressure on."</div>
+          </div>
+          <!-- session 2 -->
+          <div class="session">
+            <div class="row" style="gap:8px;">
+              <span class="sdot" style="background:var(--boxing)"></span>
+              <span class="micro" style="color:var(--fg);letter-spacing:.04em;font-size:11px;">Mon 2 Jun</span>
+              <span class="sbadge" style="color:var(--boxing);background:rgba(245,162,61,.16)">Boxing</span>
+              <span class="micro" style="margin-left:auto;">30m · RPE 6</span>
+            </div>
+            <div class="thumbs">
+              <div class="thumb" style="background:radial-gradient(circle at 35% 30%,#5a3a1e,#1f1409)"></div>
+              <div class="thumb" style="background:radial-gradient(circle at 40% 35%,#4a3214,#17100a)"></div>
+            </div>
+            <div style="font-size:12.5px;color:var(--muted);margin-top:10px;">"Counter drills off the jab."</div>
+          </div>
+          <!-- session 3 -->
+          <div class="session">
+            <div class="row" style="gap:8px;">
+              <span class="sdot" style="background:var(--strength)"></span>
+              <span class="micro" style="color:var(--fg);letter-spacing:.04em;font-size:11px;">Sun 1 Jun</span>
+              <span class="sbadge" style="color:#cfcfcf;background:rgba(179,179,179,.16)">S&amp;C · Strength</span>
+              <span class="micro" style="margin-left:auto;">50m</span>
+            </div>
+            <div class="thumbs">
+              <div class="thumb" style="background:radial-gradient(circle at 35% 30%,#33363b,#121316)"></div>
+              <div class="thumb" style="background:radial-gradient(circle at 40% 35%,#2c2f33,#101113)"></div>
+              <div class="thumb" style="background:radial-gradient(circle at 30% 40%,#3a3d42,#15161a)"></div>
+            </div>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="ti"><span class="ic">🏠</span>Home</div>
+          <div class="ti on"><span class="ic">🥊</span>Camp</div>
+          <div class="ti"><span class="ic">👥</span>Community</div>
+          <div class="ti"><span class="ic">🍽️</span>Nutrition</div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ===== TAB 2: RECAPS ===== -->
+  <div>
+    <div class="cap"><div class="k">Tab 2</div><div class="t">Recaps · weekly debrief</div><div class="d">Your coaching summaries, in one home</div></div>
+    <div class="phone"><div class="screen">
+      <div class="island"></div>
+      <div class="statusbar"><span>9:41</span><span>●●● ▮</span></div>
+      <div class="app">
+        <div class="nav"><span class="back">‹</span><h1>Training</h1></div>
+        <div class="seg"><div>Gallery</div><div class="on">Recaps</div><div>Techniques</div></div>
+        <div class="scroll">
+          <div class="recap-hero">
+            <div class="micro" style="color:#9cc0ff;">This week · 27 May – 2 Jun</div>
+            <div style="font-family:'Sora';font-weight:700;font-size:15.5px;line-height:1.32;margin-top:7px;">You drilled with intent — five sessions and your guard passing is clicking.</div>
+            <div class="stats">
+              <div class="stat"><b>5</b><span class="micro">Sessions</span></div>
+              <div class="stat"><b>320</b><span class="micro">Minutes</span></div>
+              <div class="stat"><b style="font-size:13px;color:var(--bjj)">BJJ</b><span class="micro">Top sport</span></div>
+              <div class="stat"><b>7.4</b><span class="micro">Avg RPE</span></div>
+            </div>
+          </div>
+          <div class="micro" style="margin:4px 2px 9px;">Takeaways</div>
+          <div class="take">
+            <div class="row" style="gap:7px;margin-bottom:6px;">
+              <span class="sbadge" style="color:var(--bjj);background:rgba(91,141,239,.16)">BJJ</span>
+              <b style="font-size:13.5px;">Knee-slice pass</b>
+              <span class="cue" style="margin-left:auto;">Pin · slice · drive</span>
+            </div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.45;">Trap the far arm before you slice so they can't reguard.</div>
+          </div>
+          <div class="take">
+            <div class="row" style="gap:7px;margin-bottom:6px;">
+              <span class="sbadge" style="color:var(--boxing);background:rgba(245,162,61,.16)">Boxing</span>
+              <b style="font-size:13.5px;">Pull counter</b>
+              <span class="cue" style="margin-left:auto;">Slip · sit · cross</span>
+            </div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.45;">Load the back leg as you pull so the cross fires instantly.</div>
+          </div>
+          <div class="watch">
+            <div class="micro" style="color:var(--amber);">Watch out</div>
+            <div style="font-size:12px;color:#f3e3b8;margin-top:4px;line-height:1.45;">Your sleep dipped under 6.5h twice — recovery is your limiter this week.</div>
+          </div>
+          <div class="micro" style="margin:15px 2px 8px;">Past weeks</div>
+          <div class="row" style="gap:7px;">
+            <span class="cue">20 May</span><span class="cue">13 May</span><span class="cue">6 May</span><span class="cue">29 Apr</span>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="ti"><span class="ic">🏠</span>Home</div>
+          <div class="ti on"><span class="ic">🥊</span>Camp</div>
+          <div class="ti"><span class="ic">👥</span>Community</div>
+          <div class="ti"><span class="ic">🍽️</span>Nutrition</div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ===== TAB 3: TECHNIQUES ===== -->
+  <div>
+    <div class="cap"><div class="k">Tab 3</div><div class="t">Techniques · all-time log</div><div class="d">Searchable library of everything drilled</div></div>
+    <div class="phone"><div class="screen">
+      <div class="island"></div>
+      <div class="statusbar"><span>9:41</span><span>●●● ▮</span></div>
+      <div class="app">
+        <div class="nav"><span class="back">‹</span><h1>Training</h1><span class="count">23 logged</span></div>
+        <div class="seg"><div>Gallery</div><div>Recaps</div><div class="on">Techniques</div></div>
+        <div class="scroll">
+          <div class="searchbar"><span>🔍</span><span>Search your technique log</span></div>
+          <div class="disc-h" style="color:var(--bjj)">BJJ</div>
+          <div class="trow">
+            <div class="row" style="gap:7px;"><b style="font-size:13.5px;">Knee-slice pass</b><span class="cue">Pin · slice · drive</span><span class="times" style="margin-left:auto;">×4</span></div>
+            <div style="font-size:11.5px;color:var(--muted);margin-top:6px;">Trap the far arm before you slice so they can't reguard.</div>
+          </div>
+          <div class="trow">
+            <div class="row" style="gap:7px;"><b style="font-size:13.5px;">Triangle from guard</b><span class="times" style="margin-left:auto;">×2</span></div>
+            <div style="font-size:11.5px;color:var(--muted);margin-top:6px;">Angle off before locking — straight-on triangles stall.</div>
+          </div>
+          <div class="disc-h" style="color:var(--boxing)">Boxing</div>
+          <div class="trow">
+            <div class="row" style="gap:7px;"><b style="font-size:13.5px;">Pull counter</b><span class="cue">Slip · sit · cross</span><span class="times" style="margin-left:auto;">×3</span></div>
+            <div style="font-size:11.5px;color:var(--muted);margin-top:6px;">Load the back leg as you pull so the cross fires instantly.</div>
+          </div>
+          <div class="disc-h" style="color:var(--muay)">Muay Thai</div>
+          <div class="trow">
+            <div class="row" style="gap:7px;"><b style="font-size:13.5px;">Teep to switch kick</b><span class="times" style="margin-left:auto;">×1</span></div>
+            <div style="font-size:11.5px;color:var(--muted);margin-top:6px;">Use the teep to break rhythm, then switch before they reset.</div>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="ti"><span class="ic">🏠</span>Home</div>
+          <div class="ti on"><span class="ic">🥊</span>Camp</div>
+          <div class="ti"><span class="ic">👥</span>Community</div>
+          <div class="ti"><span class="ic">🍽️</span>Nutrition</div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ===== LIGHTBOX VIEWER ===== -->
+  <div>
+    <div class="cap"><div class="k">Viewer</div><div class="t">Tap a clip → full-screen</div><div class="d">Swipe down to close · no more Tinder deck</div></div>
+    <div class="phone"><div class="screen">
+      <div class="island"></div>
+      <div class="lb">
+        <div class="lb-top">
+          <div class="lb-btn">✕</div>
+          <div style="font-size:12.5px;font-weight:700;color:rgba(255,255,255,.85);">2 / 8</div>
+          <div class="lb-btn">⤓</div>
+        </div>
+        <div class="lb-photo">
+          <div style="width:280px;height:360px;border-radius:18px;background:radial-gradient(60% 55% at 45% 35%,#2c3e63,#0f1730 75%);position:relative;overflow:hidden;">
+            <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(91,141,239,.22),transparent 60%);"></div>
+            <div style="position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);font-size:56px;opacity:.6;">🥋</div>
+          </div>
+        </div>
+        <div class="lb-cap">
+          <div class="row" style="gap:7px;margin-bottom:8px;">
+            <span class="sbadge" style="color:#fff;background:rgba(255,255,255,.16)">BJJ</span>
+            <span class="sbadge" style="color:#fff;background:rgba(255,255,255,.1)">Sparring</span>
+            <span style="font-size:11px;color:rgba(255,255,255,.6);margin-left:auto;">Tue 3 Jun</span>
+          </div>
+          <div style="font-size:14px;color:#fff;line-height:1.4;">"Guard passing — kept the pressure on the whole round."</div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+</div>
+</body>
+</html>

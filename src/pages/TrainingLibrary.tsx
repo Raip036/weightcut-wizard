@@ -1,32 +1,36 @@
 /**
- * Training Library — chronological gallery of every photo + video the
- * user has attached to a logged training session.
+ * Training — the athlete's training hub. Three segmented tabs:
  *
- * Layout (recommended in the brainstorm):
- *  - Sticky discipline chip row at the top: "All / BJJ / Boxing / ..."
- *    populated from the user's actual session_types so we never show a
- *    chip with zero clips behind it.
- *  - Vertical scroll of date-grouped square thumbnails (Apple Photos
- *    pattern). Each tile shows the discipline chip in the corner.
- *  - Tap any tile → MediaLightbox opens at that index, swipe horizontal
- *    to scrub through the rest, swipe down to dismiss.
+ *  • Gallery    — a BeReal-style monthly CALENDAR of training media. Each day
+ *                 cell shows that day's clip, tinted by discipline. Tapping a
+ *                 day opens a detail sheet with the session type, notes, and
+ *                 every clip from that day; tapping a clip opens the full-screen
+ *                 MediaLightbox. The old Tinder-swipe deck was removed.
+ *  • Recaps     — the weekly coach-voice debrief (TrainingSummarySection),
+ *                 pulled out of the buried Calendar page into its own home.
+ *  • Techniques — the all-time, searchable technique log.
  *
- * Shipped intentionally small — the brainstorm proposed a Stories reel,
- * search, and pinned shelf, all of which can stack on this page later
- * without a rewrite (the lightbox already supports start-index).
+ * Recaps & Techniques are Pro features. Free users see the shared animated
+ * ProUpsellScreen (the Recovery-style aurora gate) inside the tab.
  */
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { format, parseISO } from "date-fns";
-import { ChevronLeft, ImageIcon, Play, Trash2 } from "lucide-react";
+import { format, parseISO, getDay, getDaysInMonth } from "date-fns";
+import { ChevronLeft, ImageIcon, Play } from "lucide-react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import type { Id } from "@/../convex/_generated/dataModel";
 import { useUser } from "@/contexts/UserContext";
+import { useSubscription } from "@/hooks/useSubscription";
+import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 import { triggerHapticSelection } from "@/lib/haptics";
+import { disciplineToken, disciplineLabel } from "@/lib/coachColors";
 import { MediaLightbox, type LightboxItem } from "@/components/training/MediaLightbox";
-import { TinderMediaSwiper } from "@/components/training/TinderMediaSwiper";
+import { TrainingSummarySection } from "@/components/fightcamp/TrainingSummarySection";
+import { TechniqueLog } from "@/components/fightcamp/TechniqueLog";
+import { ProUpsellScreen } from "@/components/subscription/ProUpsellScreen";
 import { DashboardSkeleton } from "@/components/ui/skeleton-loader";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -41,6 +45,7 @@ import {
 
 type Tile = {
   id: string;
+  sessionId: string | null;
   url: string | null;
   kind: "photo" | "video";
   caption: string | null;
@@ -50,45 +55,81 @@ type Tile = {
   /** OPTIONAL activity descriptor (Sparring, Strength, …); null when absent. */
   sessionTag?: string | null;
   sessionDate: string;
+  sessionNotes?: string | null;
 };
 
-const ALL_FILTER = "all";
+type SessionGroup = {
+  key: string;
+  sessionType: string | null;
+  sessionTag: string | null;
+  note: string | null;
+  items: Tile[];
+};
 
-function monthLabel(iso: string): string {
+type TabKey = "gallery" | "recaps" | "techniques";
+
+const ALL_FILTER = "all";
+const TABS: { key: TabKey; label: string }[] = [
+  { key: "gallery", label: "Gallery" },
+  { key: "recaps", label: "Recaps" },
+  { key: "techniques", label: "Techniques" },
+];
+// Monday-first week, matching the rest of the app (weekStartsOn: 1).
+const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
+
+/** Day bucket key (yyyy-MM-dd) for a clip — prefers the logged session date,
+ *  falls back to the capture timestamp. */
+function dayKeyOf(t: Tile): string {
+  const sd = t.sessionDate;
+  if (sd && /^\d{4}-\d{2}-\d{2}/.test(sd)) return sd.slice(0, 10);
   try {
-    return format(parseISO(iso), "MMMM yyyy");
+    return format(parseISO(t.capturedAt), "yyyy-MM-dd");
   } catch {
-    return iso.slice(0, 7);
+    return (t.capturedAt ?? "").slice(0, 10);
   }
 }
 
-function dayLabel(iso: string): string {
-  try {
-    return format(parseISO(iso), "EEE, MMM d");
-  } catch {
-    return iso;
+/** Group a day's clips into the sessions they belong to (orphans = solo). */
+function groupBySession(items: Tile[]): SessionGroup[] {
+  const out: SessionGroup[] = [];
+  const index = new Map<string, number>();
+  for (const t of items) {
+    const key = t.sessionId ?? `solo-${t.id}`;
+    let i = index.get(key);
+    if (i === undefined) {
+      i = out.length;
+      index.set(key, i);
+      out.push({
+        key,
+        sessionType: t.sessionType,
+        sessionTag: t.sessionTag ?? null,
+        note: t.sessionNotes ?? t.caption ?? null,
+        items: [],
+      });
+    }
+    out[i].items.push(t);
   }
+  return out;
 }
 
 export default function TrainingLibrary() {
   const navigate = useNavigate();
   const { userId } = useUser();
   const { toast } = useToast();
+  const { openPaywall, isSubscriptionResolved } = useSubscription();
+  const { hasAccess: hasRecapAccess } = useFeatureAccess("AI_TRAINING_SUMMARY");
+
+  const [tab, setTab] = useState<TabKey>("gallery");
   const [filter, setFilter] = useState<string>(ALL_FILTER);
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-  // Tinder swipe mode toggle. The user can launch the throw-card swiper
-  // from the header to "study" their library Tinder-style.
-  const [swiperStart, setSwiperStart] = useState<number | null>(null);
-  // Pending delete confirmation. Holds the tile id while the alert is
-  // open so we can fire `removeSessionMedia` once the user confirms.
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // listMyMediaLibrary now returns a paginated envelope `{ page, isDone,
-  // continueCursor }` after the perf refactor. We only consume the first
-  // page for now; the rest of this file iterates `tiles` so we unwrap to
-  // keep the existing rendering code unchanged. Future enhancement: load
-  // more on scroll via continueCursor.
+  // Stable "this week" anchor for the recap section — `new Date()` inline would
+  // change identity every render and thrash the section's week-fetch effect.
+  const recapDate = useMemo(() => new Date(), []);
+
   const mediaPage = useQuery(
     api.fight_camp.listMyMediaLibrary,
     userId ? { disciplineFilter: filter === ALL_FILTER ? undefined : filter } : "skip",
@@ -106,11 +147,7 @@ export default function TrainingLibrary() {
     try {
       await removeMediaMut({ mediaId: pendingDeleteId as Id<"session_media"> });
       triggerHapticSelection();
-      // Close any open viewers if the deleted clip was the active one —
-      // the lightbox / swiper are uncontrolled past their startIndex
-      // prop, so we pop them rather than try to reindex.
       setLightboxIndex(null);
-      setSwiperStart(null);
     } catch (err: any) {
       toast({
         title: "Couldn't delete",
@@ -123,14 +160,20 @@ export default function TrainingLibrary() {
     }
   };
 
-  const grouped = useMemo(() => {
-    const out = new Map<string, Tile[]>();
+  // Bucket clips by day, then list the months that contain any clips (newest
+  // first) so the calendar can render a full month grid for each.
+  const { dayMap, months } = useMemo(() => {
+    const dm = new Map<string, Tile[]>();
     for (const t of tiles ?? []) {
-      const key = monthLabel(t.capturedAt);
-      if (!out.has(key)) out.set(key, []);
-      out.get(key)!.push(t);
+      const key = dayKeyOf(t);
+      const arr = dm.get(key);
+      if (arr) arr.push(t);
+      else dm.set(key, [t]);
     }
-    return out;
+    const monthSet = new Set<string>();
+    for (const k of dm.keys()) monthSet.add(k.slice(0, 7));
+    const monthList = Array.from(monthSet).sort((a, b) => b.localeCompare(a));
+    return { dayMap: dm, months: monthList };
   }, [tiles]);
 
   const lightboxItems: LightboxItem[] = useMemo(
@@ -147,11 +190,20 @@ export default function TrainingLibrary() {
     [tiles],
   );
 
-  if (!userId) return <DashboardSkeleton />;
-  if (tiles === undefined) return <DashboardSkeleton />;
+  const openClip = (tileId: string) => {
+    const idx = lightboxItems.findIndex((x) => x.id === tileId);
+    if (idx >= 0) {
+      triggerHapticSelection();
+      setSelectedDay(null);
+      setLightboxIndex(idx);
+    }
+  };
 
-  const isEmpty = tiles.length === 0;
+  if (!userId) return <DashboardSkeleton />;
+
   const filterChips = [ALL_FILTER, ...(disciplines ?? [])];
+  const clipCount = tiles?.length ?? 0;
+  const dayGroups = selectedDay ? groupBySession(dayMap.get(selectedDay) ?? []) : [];
 
   return (
     <>
@@ -164,7 +216,7 @@ export default function TrainingLibrary() {
           className="sticky top-0 z-10 bg-background/85 backdrop-blur border-b border-border/40"
           style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)" }}
         >
-          <div className="flex items-center gap-2 px-4 pb-2">
+          <div className="flex items-center gap-2 px-4 pb-3">
             <button
               type="button"
               onClick={() => navigate(-1)}
@@ -173,29 +225,41 @@ export default function TrainingLibrary() {
             >
               <ChevronLeft className="h-5 w-5 text-muted-foreground" />
             </button>
-            <h1 className="text-[20px] font-bold tracking-tight">Library</h1>
-            <span className="ml-auto text-[12px] text-muted-foreground tabular-nums">
-              {tiles.length} {tiles.length === 1 ? "clip" : "clips"}
-            </span>
-            {tiles.length > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHapticSelection();
-                  setSwiperStart(0);
-                }}
-                aria-label="Open swipe mode"
-                className="h-8 px-3 rounded-full bg-primary text-primary-foreground text-[12px] font-semibold active:scale-[0.97] transition-transform"
-              >
-                Swipe
-              </button>
+            <h1 className="text-[21px] font-bold tracking-tight">Training</h1>
+            {tab === "gallery" && clipCount > 0 && (
+              <span className="ml-auto text-[12px] text-muted-foreground tabular-nums">
+                {clipCount} {clipCount === 1 ? "clip" : "clips"}
+              </span>
             )}
           </div>
 
-          {/* Discipline chips. Only render when the user has at least one
-              clip — keeps the page clean for first-time visitors. */}
-          {filterChips.length > 1 && (
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide px-4 pb-2">
+          {/* Segmented control */}
+          <div className="mx-4 mb-3 flex gap-1 rounded-2xl bg-muted/40 border border-border/40 p-1">
+            {TABS.map((t) => {
+              const active = tab === t.key;
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => {
+                    triggerHapticSelection();
+                    setTab(t.key);
+                  }}
+                  className={`flex-1 rounded-xl py-2 text-[13px] font-semibold transition-all active:scale-[0.98] ${
+                    active
+                      ? "bg-primary text-primary-foreground shadow-[0_3px_10px_-2px_hsl(var(--primary)/0.5)]"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Discipline chips — gallery only, and only once the user has clips. */}
+          {tab === "gallery" && filterChips.length > 1 && (
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide px-4 pb-2.5">
               {filterChips.map((d) => {
                 const active = filter === d;
                 return (
@@ -212,7 +276,7 @@ export default function TrainingLibrary() {
                         : "bg-muted/40 text-muted-foreground"
                     }`}
                   >
-                    {d === ALL_FILTER ? "All" : d}
+                    {d === ALL_FILTER ? "All" : disciplineLabel(d)}
                   </button>
                 );
               })}
@@ -220,136 +284,141 @@ export default function TrainingLibrary() {
           )}
         </div>
 
-        {/* Body */}
-        {isEmpty ? (
-          <div className="px-6 py-12 text-center">
-            <div className="mx-auto h-16 w-16 rounded-xs bg-muted/30 flex items-center justify-center mb-4">
-              <ImageIcon className="h-7 w-7 text-muted-foreground/60" />
+        {/* ── GALLERY (BeReal-style calendar) ────────────────────────── */}
+        {tab === "gallery" &&
+          (tiles === undefined ? (
+            <DashboardSkeleton />
+          ) : months.length === 0 ? (
+            <EmptyGallery onOpenCalendar={() => navigate("/training-calendar")} />
+          ) : (
+            <div className="px-4 pt-4 space-y-7">
+              {months.map((ym) => (
+                <MonthCalendar
+                  key={ym}
+                  ym={ym}
+                  dayMap={dayMap}
+                  onOpenDay={(dayKey) => {
+                    triggerHapticSelection();
+                    setSelectedDay(dayKey);
+                  }}
+                />
+              ))}
             </div>
-            <h2 className="text-[16px] font-semibold mb-1">No clips yet</h2>
-            <p className="text-[13px] text-muted-foreground leading-snug max-w-[280px] mx-auto">
-              Add a photo or video when you log a training session and it'll
-              show up here.
-            </p>
-            <button
-              type="button"
-              onClick={() => navigate("/training-calendar")}
-              className="mt-5 h-10 px-4 rounded-xs bg-primary text-primary-foreground text-[13px] font-semibold active:scale-[0.98] transition-transform"
-            >
-              Open training calendar
-            </button>
-          </div>
-        ) : (
-          <div className="px-3 pt-3 space-y-5">
-            {Array.from(grouped.entries()).map(([month, items]) => (
-              <section key={month}>
-                <h2 className="px-1 mb-2 text-[11px] uppercase tracking-widest text-muted-foreground/80 font-semibold">
-                  {month}
-                </h2>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {items.map((t) => {
-                    const idx = lightboxItems.findIndex((x) => x.id === t.id);
-                    return (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => {
-                          triggerHapticSelection();
-                          setLightboxIndex(idx);
-                        }}
-                        className="relative aspect-square rounded-xs overflow-hidden bg-muted/40 active:scale-[0.98] transition-transform"
-                        style={{
-                          // Tiles below the fold get lazy-rendered by the
-                          // browser via content-visibility — keeps the
-                          // initial paint snappy on long libraries.
-                          contentVisibility: "auto",
-                          containIntrinsicSize: "120px 120px",
-                        }}
-                      >
-                        {t.url ? (
-                          t.kind === "video" ? (
-                            <>
-                              <video
-                                src={t.url}
-                                className="w-full h-full object-cover"
-                                muted
-                                playsInline
-                                preload="metadata"
-                              />
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/15">
-                                <div className="h-7 w-7 rounded-full bg-black/55 backdrop-blur flex items-center justify-center">
-                                  <Play className="h-3 w-3 text-white fill-white" />
-                                </div>
-                              </div>
-                            </>
-                          ) : (
-                            <img
-                              src={t.url}
-                              alt={t.caption ?? "Training media"}
-                              className="w-full h-full object-cover"
-                              loading="lazy"
-                            />
-                          )
-                        ) : (
-                          <div className="h-full w-full flex items-center justify-center text-muted-foreground/40">
-                            <ImageIcon className="h-5 w-5" />
-                          </div>
-                        )}
-                        {/* Bottom overlay — discipline + day, only on the
-                            tile so the grid still reads as a gallery. */}
-                        <div className="absolute inset-x-0 bottom-0 px-1.5 py-1 bg-gradient-to-t from-black/55 to-transparent text-left">
-                          <p className="text-[9px] font-semibold uppercase tracking-wider text-white/90 truncate">
-                            {t.sessionType ?? "Session"}
-                          </p>
-                          <p className="text-[9px] text-white/70 tabular-nums truncate">
-                            {t.sessionTag ? `${t.sessionTag} · ` : ""}{dayLabel(t.capturedAt)}
-                          </p>
-                        </div>
-                        {/* Per-tile delete. Stops propagation so tapping
-                            the icon doesn't also open the lightbox. The
-                            confirm dialog at the bottom of the page
-                            handles the actual mutation. */}
-                        <span
-                          role="button"
-                          aria-label="Delete clip"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            triggerHapticSelection();
-                            setPendingDeleteId(t.id);
-                          }}
-                          className="absolute top-1 right-1 h-6 w-6 rounded-full bg-black/60 backdrop-blur text-white flex items-center justify-center active:scale-90 transition-transform"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
-            ))}
-          </div>
+          ))}
+
+        {/* ── RECAPS ─────────────────────────────────────────────────── */}
+        {tab === "recaps" && (
+          <TabGate
+            unlocked={hasRecapAccess}
+            resolved={isSubscriptionResolved}
+            title="Weekly Recaps are a Pro feature"
+            blurb="Your AI corner reads every session note and writes a coach-voice debrief of your training week."
+            perks={[
+              "A coach-voice debrief of your week",
+              "Key techniques you drilled, with cues",
+              "Catches recurring issues early",
+            ]}
+            onUpgrade={openPaywall}
+            onDismiss={() => setTab("gallery")}
+          >
+            <div className="px-4 pt-4">
+              <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70 font-semibold">
+                This week
+              </p>
+              <TrainingSummarySection
+                userId={userId}
+                selectedDate={recapDate}
+                sessionLoggedTrigger={0}
+              />
+            </div>
+          </TabGate>
+        )}
+
+        {/* ── TECHNIQUES ─────────────────────────────────────────────── */}
+        {tab === "techniques" && (
+          <TabGate
+            unlocked={hasRecapAccess}
+            resolved={isSubscriptionResolved}
+            title="The Technique Log is a Pro feature"
+            blurb="Every technique you drill is saved to a searchable, all-time library you build over time."
+            perks={[
+              "All-time, searchable technique library",
+              "Grouped by discipline with quick cues",
+              "Tracks how often you've drilled each one",
+            ]}
+            onUpgrade={openPaywall}
+            onDismiss={() => setTab("gallery")}
+          >
+            <div className="px-4 pt-4">
+              <TechniqueLog />
+            </div>
+          </TabGate>
         )}
       </div>
+
+      {/* Day detail — session type, notes, and that day's clips. */}
+      <Sheet
+        open={selectedDay !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedDay(null);
+        }}
+      >
+        <SheetContent side="bottom" className="rounded-t-3xl max-h-[85vh] overflow-y-auto">
+          {selectedDay && (
+            <>
+              <SheetHeader>
+                <SheetTitle>{format(parseISO(selectedDay), "EEEE, d MMMM")}</SheetTitle>
+              </SheetHeader>
+              <div className="mt-4 space-y-5">
+                {dayGroups.map((g) => {
+                  const token = disciplineToken(g.sessionType ?? "");
+                  const label = g.sessionType ? disciplineLabel(g.sessionType) : "Session";
+                  return (
+                    <section key={g.key}>
+                      <div className="flex items-center gap-2 mb-2.5">
+                        <span
+                          className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
+                          style={{
+                            color: `hsl(var(${token}))`,
+                            backgroundColor: `hsl(var(${token}) / 0.16)`,
+                          }}
+                        >
+                          {label}
+                        </span>
+                        {g.sessionTag && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted/40 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            {g.sessionTag}
+                          </span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {g.items.map((t) => (
+                          <Thumb key={t.id} tile={t} onClick={() => openClip(t.id)} />
+                        ))}
+                      </div>
+                      {g.note && (
+                        <p className="mt-2.5 text-[12.5px] text-muted-foreground leading-snug">
+                          {g.note}
+                        </p>
+                      )}
+                    </section>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
 
       <MediaLightbox
         items={lightboxItems}
         startIndex={lightboxIndex ?? 0}
         open={lightboxIndex !== null}
         onClose={() => setLightboxIndex(null)}
+        onDelete={(item) => setPendingDeleteId(item.id)}
       />
 
-      {/* Tinder swiper — alternative viewer launched from the "Swipe"
-          button in the header. Renders the same items as the lightbox
-          so the user can flip between view modes intuitively. */}
-      <TinderMediaSwiper
-        items={lightboxItems}
-        startIndex={swiperStart ?? 0}
-        open={swiperStart !== null}
-        onClose={() => setSwiperStart(null)}
-      />
-
-      {/* Delete confirm — destructive op, gated by an explicit Delete
-          tap so a stray finger on the trash chip can't wipe a clip. */}
+      {/* Delete confirm — destructive op, gated by an explicit Delete tap. */}
       <AlertDialog
         open={pendingDeleteId !== null}
         onOpenChange={(open) => {
@@ -365,7 +434,9 @@ export default function TrainingLibrary() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="justify-center sm:justify-center">
-            <AlertDialogCancel disabled={deleting} className="flex-1 sm:flex-none">Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting} className="flex-1 sm:flex-none">
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               disabled={deleting}
               onClick={handleDelete}
@@ -377,5 +448,224 @@ export default function TrainingLibrary() {
         </AlertDialogContent>
       </AlertDialog>
     </>
+  );
+}
+
+// ─── Gallery: one BeReal-style month grid ─────────────────────────────────
+function MonthCalendar({
+  ym,
+  dayMap,
+  onOpenDay,
+}: {
+  ym: string;
+  dayMap: Map<string, Tile[]>;
+  onOpenDay: (dayKey: string) => void;
+}) {
+  const monthDate = parseISO(`${ym}-01T00:00:00`);
+  const daysInMonth = getDaysInMonth(monthDate);
+  // getDay: 0=Sun..6=Sat → convert to Monday-first offset.
+  const leadOffset = (getDay(monthDate) + 6) % 7;
+
+  const cells: (number | null)[] = [
+    ...Array.from({ length: leadOffset }, () => null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ];
+
+  return (
+    <section>
+      <h2 className="px-0.5 mb-2.5 text-[13px] font-bold tracking-tight">
+        {format(monthDate, "MMMM yyyy")}
+      </h2>
+      <div className="grid grid-cols-7 gap-1 mb-1.5">
+        {WEEKDAYS.map((d, i) => (
+          <div
+            key={i}
+            className="text-center text-[9px] font-bold uppercase tracking-wider text-muted-foreground/50"
+          >
+            {d}
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {cells.map((day, i) => {
+          if (day === null) return <div key={`pad-${i}`} className="aspect-square" />;
+          const dayKey = `${ym}-${String(day).padStart(2, "0")}`;
+          const items = dayMap.get(dayKey);
+          return (
+            <DayCell
+              key={dayKey}
+              day={day}
+              items={items}
+              onClick={() => onOpenDay(dayKey)}
+            />
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function DayCell({
+  day,
+  items,
+  onClick,
+}: {
+  day: number;
+  items?: Tile[];
+  onClick: () => void;
+}) {
+  // Empty day — faint number on a subtle tile.
+  if (!items || items.length === 0) {
+    return (
+      <div className="aspect-square rounded-lg bg-muted/15 flex items-start justify-end p-1">
+        <span className="text-[9px] font-semibold text-muted-foreground/35 tabular-nums">
+          {day}
+        </span>
+      </div>
+    );
+  }
+
+  const primary = items[0];
+  const token = disciplineToken(primary.sessionType ?? "");
+  const photo = items.find((t) => t.url && t.kind === "photo") ?? primary;
+  const hasVideo = items.some((t) => t.kind === "video");
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="relative aspect-square rounded-lg overflow-hidden bg-muted/40 active:scale-[0.95] transition-transform ring-1"
+      style={{ ["--tw-ring-color" as any]: `hsl(var(${token}) / 0.55)` }}
+    >
+      {photo.url && photo.kind === "photo" ? (
+        <img src={photo.url} alt="" className="w-full h-full object-cover" loading="lazy" />
+      ) : photo.url && photo.kind === "video" ? (
+        <video src={photo.url} className="w-full h-full object-cover" muted playsInline preload="metadata" />
+      ) : (
+        <div
+          className="w-full h-full"
+          style={{ backgroundColor: `hsl(var(${token}) / 0.22)` }}
+        />
+      )}
+      {/* legibility wash for the day number */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/10" />
+      <span className="absolute top-0.5 right-1 text-[9px] font-bold text-white/90 tabular-nums drop-shadow">
+        {day}
+      </span>
+      {/* discipline dot */}
+      <span
+        className="absolute bottom-1 left-1 h-1.5 w-1.5 rounded-full"
+        style={{ backgroundColor: `hsl(var(${token}))` }}
+      />
+      {hasVideo && (
+        <span className="absolute bottom-0.5 right-1">
+          <Play className="h-2.5 w-2.5 text-white fill-white drop-shadow" />
+        </span>
+      )}
+      {items.length > 1 && (
+        <span className="absolute top-0.5 left-1 text-[8px] font-bold text-white/90 tabular-nums drop-shadow">
+          {items.length}
+        </span>
+      )}
+    </button>
+  );
+}
+
+function Thumb({ tile, onClick }: { tile: Tile; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="relative aspect-square rounded-xl overflow-hidden bg-muted/40 active:scale-[0.97] transition-transform"
+    >
+      {tile.url ? (
+        tile.kind === "video" ? (
+          <>
+            <video
+              src={tile.url}
+              className="w-full h-full object-cover"
+              muted
+              playsInline
+              preload="metadata"
+            />
+            <div className="absolute inset-0 flex items-center justify-center bg-black/15">
+              <div className="h-6 w-6 rounded-full bg-black/55 backdrop-blur flex items-center justify-center">
+                <Play className="h-2.5 w-2.5 text-white fill-white" />
+              </div>
+            </div>
+          </>
+        ) : (
+          <img
+            src={tile.url}
+            alt={tile.caption ?? "Training media"}
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
+        )
+      ) : (
+        <div className="h-full w-full flex items-center justify-center text-muted-foreground/40">
+          <ImageIcon className="h-4 w-4" />
+        </div>
+      )}
+    </button>
+  );
+}
+
+function EmptyGallery({ onOpenCalendar }: { onOpenCalendar: () => void }) {
+  return (
+    <div className="px-6 py-12 text-center">
+      <div className="mx-auto h-16 w-16 rounded-2xl bg-muted/30 flex items-center justify-center mb-4">
+        <ImageIcon className="h-7 w-7 text-muted-foreground/60" />
+      </div>
+      <h2 className="text-[16px] font-semibold mb-1">No clips yet</h2>
+      <p className="text-[13px] text-muted-foreground leading-snug max-w-[280px] mx-auto">
+        Add a photo or video when you log a training session and it'll show up
+        here on your training calendar.
+      </p>
+      <button
+        type="button"
+        onClick={onOpenCalendar}
+        className="mt-5 h-10 px-4 rounded-xs bg-primary text-primary-foreground text-[13px] font-semibold active:scale-[0.98] transition-transform"
+      >
+        Open training calendar
+      </button>
+    </div>
+  );
+}
+
+// ─── Pro gate wrapper — shows the animated upsell for free users ───────────
+function TabGate({
+  unlocked,
+  resolved,
+  title,
+  blurb,
+  perks,
+  onUpgrade,
+  onDismiss,
+  children,
+}: {
+  unlocked: boolean;
+  resolved: boolean;
+  title: string;
+  blurb: string;
+  perks: string[];
+  onUpgrade: () => void;
+  onDismiss: () => void;
+  children: React.ReactNode;
+}) {
+  if (!resolved) return <DashboardSkeleton />;
+  if (unlocked) return <>{children}</>;
+  return (
+    <ProUpsellScreen
+      title={title}
+      blurb={blurb}
+      perks={perks}
+      upgradeLabel="Unlock with Pro"
+      onUpgrade={() => {
+        triggerHapticSelection();
+        onUpgrade();
+      }}
+      onDismiss={onDismiss}
+    />
   );
 }

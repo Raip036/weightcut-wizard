@@ -12,8 +12,14 @@
  * established by `actions_internal.fetchRecoveryData`.
  */
 import { v } from "convex/values";
-import { internalMutation, internalQuery, query } from "./_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import type { Id } from "./_generated/dataModel";
 import { normalizeLegacySession } from "./lib/sessionTypes";
 
 // ───────────────────────────────────────────────────────────────────────
@@ -63,6 +69,389 @@ export const upsertByWeek = internalMutation({
       ...args,
       createdAt: Date.now(),
     });
+  },
+});
+
+// ───────────────────────────────────────────────────────────────────────
+// DEV / MOCK SEED — local development only
+// ───────────────────────────────────────────────────────────────────────
+
+/**
+ * DEV-ONLY mock seed. Inserts (or upserts by userId+weekStartIso, mirroring
+ * `upsertByWeek`) a realistic Camp Compass "Sunday report" so the /recovery
+ * page UI can be exercised on localhost without waiting for the Sunday 8pm
+ * cron or paying for a Groq generation.
+ *
+ * This is a `mutation` (public) purely so it can be invoked from the CLI via
+ * `npx convex run` (which has no auth identity). It does NOT touch the real
+ * generation pipeline. Delete this before shipping if you don't want a
+ * mock-seed endpoint exposed. Run with:
+ *
+ *   npx convex run recoveryReports:seedMockRecoveryReport
+ *   npx convex run recoveryReports:seedMockRecoveryReport '{"userEmail":"you@example.com"}'
+ */
+export const seedMockRecoveryReport = mutation({
+  args: { userEmail: v.optional(v.string()) },
+  handler: async (ctx, { userEmail }) => {
+    // Resolve the user to attach the report to. CLI runs have no auth, so we
+    // accept an optional email and fall back to the most-recently-created user.
+    let userId: Id<"users"> | null = null;
+
+    if (userEmail) {
+      // The auth `users` table has an `email` field. Scan a bounded set and
+      // match (no email index is guaranteed to exist, so we read + filter
+      // a small page — fine for a dev seed).
+      const candidates = await ctx.db.query("users").take(200);
+      const match = candidates.find((u) => u.email === userEmail);
+      if (!match) {
+        throw new Error(
+          `seedMockRecoveryReport: no user found with email "${userEmail}". ` +
+            `Run without args to attach to the most recent user instead.`,
+        );
+      }
+      userId = match._id;
+    } else {
+      // Default: most-recently-created user (highest _creationTime).
+      const recent = await ctx.db.query("users").order("desc").first();
+      if (!recent) {
+        throw new Error(
+          "seedMockRecoveryReport: no users exist in this deployment. " +
+            "Sign in to the app at least once to create a user first.",
+        );
+      }
+      userId = recent._id;
+    }
+
+    // Monday of the week just ended.
+    const weekStartIso = "2026-06-01";
+
+    const verdict =
+      "Strong week — you held volume through a rough Thursday and your sleep rebounded by Friday.";
+
+    const breakdown =
+      "You logged 6 sessions for 512 total minutes at an average RPE of 7.4 — right in your build-block sweet spot. " +
+      "The wobble was Thursday: sleep dropped to 5h 20m after a late hard sparring session, and your Hooper score spiked the next morning, which is why Friday's lift felt flat. " +
+      "You recovered well — sleep climbed back to 7h+ over the weekend and soreness settled, so the week reads as a net positive rather than an overreach.";
+
+    const nextWeekActions = [
+      {
+        dayIso: "2026-06-08",
+        action:
+          "Open the week with a controlled technical session (RPE ≤ 6) — bank quality reps before loading intensity midweek.",
+      },
+      {
+        dayIso: "2026-06-10",
+        action:
+          "Hard sparring is fine here, but cap it at 5 rounds and keep lights-out by 10:30pm so you don't repeat last Thursday's sleep dip.",
+      },
+      {
+        dayIso: "2026-06-12",
+        action:
+          "Pull strength volume back ~15% and add 10 minutes of mobility — you're carrying accumulated fatigue into the back half of camp.",
+      },
+    ];
+
+    const campArc =
+      "Week 4 of an 8-week camp: base is built and holding. Next two weeks shift toward sharpening — protect sleep and you'll peak on schedule.";
+
+    // Debug snapshot of the (mock) inputs that "produced" this report.
+    const rawMetrics = {
+      mock: true,
+      generatedBy: "seedMockRecoveryReport (dev)",
+      window: { weekStartIso, weekEndIso: "2026-06-07" },
+      sessions: 6,
+      totalMinutes: 512,
+      avgRpe: 7.4,
+      sleep: {
+        weekMeanHours: 6.8,
+        worstNight: { dateIso: "2026-06-04", hours: 5.3 },
+        rebounded: true,
+      },
+      hooperSpikeDateIso: "2026-06-05",
+    };
+
+    const existing = await ctx.db
+      .query("recoveryReports")
+      .withIndex("by_user_week", (q) =>
+        q.eq("userId", userId!).eq("weekStartIso", weekStartIso),
+      )
+      .unique();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        verdict,
+        breakdown,
+        nextWeekActions,
+        campArc,
+        rawMetrics,
+      });
+      return { reportId: existing._id, userId, weekStartIso, upserted: true };
+    }
+
+    const reportId = await ctx.db.insert("recoveryReports", {
+      userId,
+      weekStartIso,
+      verdict,
+      breakdown,
+      nextWeekActions,
+      campArc,
+      rawMetrics,
+      createdAt: Date.now(),
+    });
+    return { reportId, userId, weekStartIso, upserted: false };
+  },
+});
+
+/**
+ * DEV-ONLY mock seed for the LIVE week data behind the Sunday report.
+ *
+ * The redesigned Camp Compass report card reads live training / sleep /
+ * wellness rows for the report week (Mon 2026-06-01 → Sun 2026-06-07) rather
+ * than only the static prose stored in `recoveryReports`. With no rows for
+ * that week the new sub-cards render empty, so this mutation seeds realistic
+ * data that matches the seeded report's narrative:
+ *   6 sessions · 512 total minutes · avg RPE ≈ 7.4 · Thursday sleep dip to
+ *   ~5h20m after a late hard sparring session · flat Friday lift · weekend
+ *   sleep rebound to 7h+.
+ *
+ * Like `seedMockRecoveryReport` this is a public `mutation` purely so it can
+ * be invoked from the CLI (`npx convex run`) which has no auth identity. It
+ * touches ONLY the three live-data tables (`fight_camp_calendar`,
+ * `sleep_logs`, `daily_wellness_checkins`) — never the real generation
+ * pipeline or cron. It is idempotent: every run first deletes the user's rows
+ * in the 2026-06-01..2026-06-07 window for each table, then re-inserts, so
+ * re-running never duplicates. Delete this before shipping if you don't want a
+ * mock-seed endpoint exposed. Run with:
+ *
+ *   npx convex run recoveryReports:seedMockRecoveryWeek
+ *   npx convex run recoveryReports:seedMockRecoveryWeek '{"userEmail":"you@example.com"}'
+ */
+export const seedMockRecoveryWeek = mutation({
+  args: { userEmail: v.optional(v.string()) },
+  handler: async (ctx, { userEmail }) => {
+    // Resolve the user — identical lookup to seedMockRecoveryReport. CLI runs
+    // have no auth, so accept an optional email and fall back to the
+    // most-recently-created user.
+    let userId: Id<"users"> | null = null;
+    if (userEmail) {
+      const candidates = await ctx.db.query("users").take(200);
+      const match = candidates.find((u) => u.email === userEmail);
+      if (!match) {
+        throw new Error(
+          `seedMockRecoveryWeek: no user found with email "${userEmail}". ` +
+            `Run without args to attach to the most recent user instead.`,
+        );
+      }
+      userId = match._id;
+    } else {
+      const recent = await ctx.db.query("users").order("desc").first();
+      if (!recent) {
+        throw new Error(
+          "seedMockRecoveryWeek: no users exist in this deployment. " +
+            "Sign in to the app at least once to create a user first.",
+        );
+      }
+      userId = recent._id;
+    }
+    const uid = userId!;
+
+    // The report week: Monday 2026-06-01 → Sunday 2026-06-07 (inclusive).
+    const WEEK_START = "2026-06-01";
+    const WEEK_END = "2026-06-07";
+    const inWeek = (iso: string) => iso >= WEEK_START && iso <= WEEK_END;
+
+    // ── Idempotency: delete any existing rows in the week window first ──────
+    const oldSessions = await ctx.db
+      .query("fight_camp_calendar")
+      .withIndex("by_user_date", (q) =>
+        q.eq("userId", uid).gte("date", WEEK_START).lte("date", WEEK_END),
+      )
+      .collect();
+    const oldSleep = await ctx.db
+      .query("sleep_logs")
+      .withIndex("by_user_date", (q) =>
+        q.eq("userId", uid).gte("date", WEEK_START).lte("date", WEEK_END),
+      )
+      .collect();
+    const oldWellness = await ctx.db
+      .query("daily_wellness_checkins")
+      .withIndex("by_user_date", (q) =>
+        q.eq("userId", uid).gte("date", WEEK_START).lte("date", WEEK_END),
+      )
+      .collect();
+    for (const r of [...oldSessions, ...oldSleep, ...oldWellness]) {
+      await ctx.db.delete(r._id);
+    }
+    const deleted = {
+      sessions: oldSessions.length,
+      sleep: oldSleep.length,
+      wellness: oldWellness.length,
+    };
+
+    // ── 6 training sessions: 75+90+60+90+67+130 = 512 min, avg RPE 7.33 ────
+    // (7+8+6+9+6+8)/6 = 7.33 — right at the ~7.4 narrative. Thursday is the
+    // late hard sparring session (RPE 9), Friday is the flat strength day.
+    const sessions: Array<{
+      date: string;
+      sessionType: string;
+      sessionTag?: string;
+      intensity: string;
+      intensityLevel?: number;
+      durationMinutes: number;
+      rpe: number;
+      rounds?: number;
+      notes?: string;
+    }> = [
+      {
+        date: "2026-06-01",
+        sessionType: "BJJ",
+        sessionTag: "Live Grappling",
+        intensity: "Steady",
+        intensityLevel: 3,
+        durationMinutes: 75,
+        rpe: 7,
+        rounds: 5,
+        notes: "Good positional rolls — felt sharp off the back foot.",
+      },
+      {
+        date: "2026-06-02",
+        sessionType: "Boxing",
+        sessionTag: "Sparring",
+        intensity: "Hard",
+        intensityLevel: 4,
+        durationMinutes: 90,
+        rpe: 8,
+        rounds: 8,
+      },
+      {
+        date: "2026-06-03",
+        sessionType: "S&C",
+        sessionTag: "Strength",
+        intensity: "Steady",
+        intensityLevel: 3,
+        durationMinutes: 60,
+        rpe: 6,
+      },
+      {
+        date: "2026-06-04",
+        sessionType: "Boxing",
+        sessionTag: "Sparring",
+        intensity: "Hard",
+        intensityLevel: 5,
+        durationMinutes: 90,
+        rpe: 9,
+        rounds: 9,
+        notes: "Late hard spar — high pace, finished after 9pm.",
+      },
+      {
+        date: "2026-06-05",
+        sessionType: "S&C",
+        sessionTag: "Strength",
+        intensity: "Easy",
+        intensityLevel: 2,
+        durationMinutes: 67,
+        rpe: 6,
+        notes: "Lift felt flat — legs heavy after last night's sparring.",
+      },
+      {
+        date: "2026-06-06",
+        sessionType: "BJJ",
+        sessionTag: "Live Grappling",
+        intensity: "Hard",
+        intensityLevel: 4,
+        durationMinutes: 130,
+        rpe: 8,
+        rounds: 7,
+      },
+    ];
+    for (const s of sessions) {
+      if (!inWeek(s.date)) continue; // safety
+      await ctx.db.insert("fight_camp_calendar", {
+        userId: uid,
+        date: s.date,
+        sessionType: s.sessionType,
+        sessionTag: s.sessionTag,
+        intensity: s.intensity,
+        intensityLevel: s.intensityLevel,
+        durationMinutes: s.durationMinutes,
+        rpe: s.rpe,
+        rounds: s.rounds,
+        notes: s.notes,
+        source: "manual",
+      });
+    }
+
+    // ── 7 sleep logs Mon..Sun: dip → rebound (Thu = 5.3h) ──────────────────
+    const sleepByDay: Record<string, number> = {
+      "2026-06-01": 7.2,
+      "2026-06-02": 6.5,
+      "2026-06-03": 7.0,
+      "2026-06-04": 5.3, // Thursday dip after the late hard spar
+      "2026-06-05": 6.2,
+      "2026-06-06": 7.4,
+      "2026-06-07": 7.6,
+    };
+    for (const [date, hours] of Object.entries(sleepByDay)) {
+      await ctx.db.insert("sleep_logs", { userId: uid, date, hours });
+    }
+
+    // ── 7 daily wellness check-ins Mon..Sun ────────────────────────────────
+    // Survey components are on the 1-7 scale used by WellnessCheckIn
+    // (sleepQuality higher = better; fatigue/soreness/stress higher = worse).
+    // hooperIndex matches the app formula exactly:
+    //   sleepQuality + (8 - stress) + (8 - fatigue) + (8 - soreness)
+    // → range 4..28, higher = better. readinessScore follows the narrative
+    // (dips Thursday, lowest/flat Friday, rebounds over the weekend) and
+    // sleepHours mirrors the sleep_logs above.
+    type WellnessSeed = {
+      date: string;
+      sleepQuality: number;
+      fatigueLevel: number;
+      sorenessLevel: number;
+      stressLevel: number;
+      sleepHours: number;
+      readinessScore: number;
+    };
+    const wellnessSeed: WellnessSeed[] = [
+      { date: "2026-06-01", sleepQuality: 6, fatigueLevel: 3, sorenessLevel: 2, stressLevel: 3, sleepHours: 7.2, readinessScore: 78 },
+      { date: "2026-06-02", sleepQuality: 5, fatigueLevel: 4, sorenessLevel: 3, stressLevel: 3, sleepHours: 6.5, readinessScore: 72 },
+      { date: "2026-06-03", sleepQuality: 6, fatigueLevel: 3, sorenessLevel: 3, stressLevel: 3, sleepHours: 7.0, readinessScore: 75 },
+      { date: "2026-06-04", sleepQuality: 4, fatigueLevel: 5, sorenessLevel: 4, stressLevel: 4, sleepHours: 5.3, readinessScore: 70 },
+      { date: "2026-06-05", sleepQuality: 5, fatigueLevel: 5, sorenessLevel: 5, stressLevel: 5, sleepHours: 6.2, readinessScore: 62 },
+      { date: "2026-06-06", sleepQuality: 6, fatigueLevel: 3, sorenessLevel: 3, stressLevel: 3, sleepHours: 7.4, readinessScore: 74 },
+      { date: "2026-06-07", sleepQuality: 7, fatigueLevel: 2, sorenessLevel: 2, stressLevel: 2, sleepHours: 7.6, readinessScore: 80 },
+    ];
+    for (const w of wellnessSeed) {
+      const hooperIndex =
+        w.sleepQuality +
+        (8 - w.stressLevel) +
+        (8 - w.fatigueLevel) +
+        (8 - w.sorenessLevel);
+      await ctx.db.insert("daily_wellness_checkins", {
+        userId: uid,
+        date: w.date,
+        sleepQuality: w.sleepQuality,
+        fatigueLevel: w.fatigueLevel,
+        sorenessLevel: w.sorenessLevel,
+        stressLevel: w.stressLevel,
+        sleepHours: w.sleepHours,
+        hooperIndex,
+        readinessScore: w.readinessScore,
+      });
+    }
+
+    return {
+      userId: uid,
+      weekStartIso: WEEK_START,
+      weekEndIso: WEEK_END,
+      deleted,
+      inserted: {
+        sessions: sessions.length,
+        totalMinutes: sessions.reduce((a, s) => a + s.durationMinutes, 0),
+        sleep: Object.keys(sleepByDay).length,
+        wellness: wellnessSeed.length,
+      },
+    };
   },
 });
 

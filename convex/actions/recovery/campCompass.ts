@@ -240,7 +240,7 @@ function computeLastMondayIsoUtc(now: Date): string {
 // Prompt construction
 // ───────────────────────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are a combat-sports recovery and performance coach writing a brief weekly recap for a fighter. Tone: direct, fight-culture native, no fluff. NO emojis. Output strict JSON.`;
+const SYSTEM_PROMPT = `You are a combat-sports recovery and performance coach writing a brief weekly recap for a fighter. Tone: direct, fight-culture native, no fluff. NO emojis. Do not use em dashes (—) or en dashes (–) anywhere in your output; use commas, periods, or parentheses instead, and write in plain punctuation. Output strict JSON.`;
 
 type CompassInputs = {
   weekStartIso: string;
@@ -367,6 +367,6 @@ function buildCompassPrompt(args: CompassInputs): string {
     "  ],",
     '  "campArc": "if in camp: 1 sentence comparing this week to camp arc; else omit"',
     "}",
-    "No prose outside the JSON. No emojis.",
+    "No prose outside the JSON. No emojis. No em dashes (—) or en dashes (–); use commas, periods, or parentheses instead.",
   ].join("\n");
 }
