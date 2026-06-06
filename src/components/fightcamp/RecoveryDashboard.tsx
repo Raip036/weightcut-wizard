@@ -30,7 +30,6 @@ import {
   type PillarKey,
 } from "./RecoveryPillarAccordion";
 import { CampCompassCard } from "./CampCompassCard";
-import { PreSessionGreenLight } from "./PreSessionGreenLight";
 import { MiniSparkline } from "./_MiniSparkline";
 import { ReadinessFlexSheet } from "@/components/share/cards/ReadinessFlexSheet";
 import { ComebackSheet } from "@/components/share/cards/ComebackSheet";
@@ -583,10 +582,6 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({
           <StreakProbe onStreak={setStreak} />
         </ErrorBoundary>
       )}
-
-      {/* ── Pre-Session Green Light (Pro, time-sensitive surface) ── */}
-      {/* Only renders when an unsaved calendared session is detected for today. */}
-      <PreSessionGreenLight userId={userId} />
 
       {/* ── Hero card ─────────────────────────────────────────────── */}
       <HeroCard

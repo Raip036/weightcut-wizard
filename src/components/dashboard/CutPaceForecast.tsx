@@ -130,9 +130,28 @@ function daysUntil(iso: string): number {
   return Math.round((target - today) / MS_PER_DAY);
 }
 
-// 8-station status row below the hero. Each dot is tappable and drives the
-// parent's focused-week state. Colors mirror the per-week semantics.
-function DotStrip({
+// Per-week segment fill — the colour IS the status, so the row reads as one
+// continuous progress meter rather than dots on a line. Hollow fills
+// (future / no_data) stay recessive so the completed "weight" of the camp is
+// obvious at a glance.
+function segmentFill(status: CheckpointStatus): string {
+  switch (status) {
+    case "hit":     return "bg-emerald-400";
+    case "close":   return "bg-emerald-400/85";
+    case "missed":  return "bg-orange-400";
+    case "current": return "bg-gradient-to-r from-primary to-cyan-400";
+    case "no_data": return "bg-transparent border border-dashed border-muted-foreground/45";
+    case "future":
+    default:        return "bg-muted-foreground/15";
+  }
+}
+
+// Segmented capsule track — one rounded pill split into per-week segments.
+// Replaces the old dots-on-a-line. The current week claims extra width and a
+// crisp inset ring (no glow/box-shadow — that janks on the native webview);
+// emphasis is carried by size + ring, both transform/paint-cheap. Each segment
+// stays individually tappable and drives the parent's focused-week state.
+function WeekTrack({
   checkpoints,
   focusedWeek,
   onSelect,
@@ -141,49 +160,20 @@ function DotStrip({
   focusedWeek: number | null;
   onSelect: (week: number) => void;
 }) {
-  // Progress fill stops at the current week (or, if the plan window has
-  // passed, at the last completed station) so the two-tone track reads "you
-  // are N of M" without the user parsing a single dot.
   const total = checkpoints.length;
-  const curIdx = checkpoints.findIndex((c) => c.status === "current");
-  const completed = checkpoints.filter(
-    (c) => c.status === "hit" || c.status === "close" || c.status === "missed" || c.status === "no_data",
-  ).length;
-  const progressIdx = curIdx >= 0 ? curIdx : Math.max(0, completed - 1);
-  const fillPct = total > 1 ? (progressIdx / (total - 1)) * 100 : 0;
+  // Thinner bars as the plan grows so a 12-week camp stays a sleek hairline
+  // rather than a chunky ladder.
+  const baseH = total <= 6 ? "h-2.5" : total <= 9 ? "h-2" : "h-1.5";
 
   return (
     <div className="px-1">
-      <div className="relative flex items-start justify-between">
-        {/* Connecting track — muted base line through the dot centres. */}
-        <div
-          className="absolute left-1 right-1 top-[7px] h-[3px] rounded-full bg-muted-foreground/15"
-          aria-hidden="true"
-        />
-        {/* Two-tone progress fill — gradient from the start to the current week. */}
-        <div
-          className="absolute left-1 top-[7px] h-[3px] rounded-full bg-gradient-to-r from-primary to-cyan-400/80 transition-[width] duration-700 ease-out"
-          style={{ width: `calc((100% - 0.5rem) * ${fillPct / 100})` }}
-          aria-hidden="true"
-        />
+      <div className="flex items-start gap-1" role="group" aria-label="Camp week progress">
         {checkpoints.map((c) => {
           const isFocus = focusedWeek === c.week;
-          const dotClass = (() => {
-            switch (c.status) {
-              case "hit":
-              case "close":
-                return "bg-emerald-400 border-emerald-400";
-              case "missed":
-                return "bg-orange-400 border-orange-500/70";
-              case "current":
-                return "bg-primary border-primary ring-2 ring-primary/30 shadow-[0_0_8px_hsl(var(--primary)/0.6)]";
-              case "no_data":
-                return "bg-transparent border-muted-foreground/40 border-dashed";
-              case "future":
-              default:
-                return "bg-transparent border-muted-foreground/35";
-            }
-          })();
+          const isCurrent = c.status === "current";
+          // Current week claims ~1.6× width so "you are here" reads by size,
+          // not by a glow halo.
+          const grow = isCurrent ? 1.6 : 1;
           return (
             <button
               key={c.week}
@@ -193,18 +183,28 @@ function DotStrip({
                 triggerHapticSelection();
                 onSelect(c.week);
               }}
-              className="relative z-10 flex flex-col items-center gap-1.5 py-1 px-0.5 -mx-0.5 active:scale-95 transition-transform"
+              // Generous vertical hit area (py-2) around the thin visual bar so
+              // taps stay comfortable even when segments are slim.
+              className="group relative flex min-w-0 flex-col items-center py-2 active:scale-[0.97] transition-transform"
+              style={{ flexGrow: grow, flexBasis: 0 }}
               aria-label={`Week ${c.week} ${c.status}`}
               aria-pressed={isFocus}
             >
               <span
-                className={`h-2.5 w-2.5 rounded-full border-2 transition-all ${dotClass} ${
-                  isFocus ? "scale-125" : ""
-                }`}
+                className={[
+                  "w-full rounded-full transition-all duration-300",
+                  isFocus ? "h-3.5" : baseH,
+                  segmentFill(c.status),
+                  isFocus
+                    ? "ring-2 ring-inset ring-white/70"
+                    : isCurrent
+                      ? "ring-2 ring-inset ring-primary/40"
+                      : "",
+                ].join(" ")}
               />
-              {/* Fixed-height slot — label shows only for the focused week so
-                  the row isn't an 8-number wall, but spacing stays constant. */}
-              <span className="h-3 text-[10px] font-semibold tabular-nums leading-none text-foreground">
+              {/* Fixed-height label slot — only the focused week prints "W{n}"
+                  so the row never becomes a wall of numbers. */}
+              <span className="mt-1.5 h-3 text-[10px] font-semibold tabular-nums leading-none text-foreground">
                 {isFocus ? `W${c.week}` : ""}
               </span>
             </button>
@@ -396,9 +396,10 @@ export function CutPaceForecast({
 
   return (
     <div className="space-y-2">
-      {/* Dot strip — week timeline sits above the focus card. Kept outside the
-          hero button so taps don't bubble into the /cut-plan navigation. */}
-      <DotStrip
+      {/* Week track — segmented capsule timeline sits above the focus card.
+          Kept outside the hero button so taps don't bubble into the /cut-plan
+          navigation. */}
+      <WeekTrack
         checkpoints={checkpoints}
         focusedWeek={focusCheckpoint.week}
         onSelect={handleDotSelect}

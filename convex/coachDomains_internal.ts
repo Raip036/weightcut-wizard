@@ -24,6 +24,7 @@ import { internalQuery } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { normalizeLegacySession } from "./lib/sessionTypes";
+import { sanitizeUserText } from "./_shared/sanitizeUserText";
 import type {
   DomainBundle,
   TrainingLoadSlice,
@@ -124,16 +125,35 @@ async function buildTrainingLoad(
   }
 
   // Recent sessions list — newest first, skip Rest days, cap at ~7 entries.
+  // Notes (techniques + reflection) are attached ONLY to the most-recent 3
+  // sessions: that's enough for the coach to reference what was drilled / what
+  // the athlete is working on without bloating the prompt. User free-text is
+  // sanitized + length-capped here so the slice carries clean strings.
   const sessions: TrainingLoadSlice["sessions"] = [];
   for (const r of rows) {
     if (sessions.length >= 7) break;
     const { primary } = normalizeLegacySession(r.sessionType, r.sessionTag);
-    sessions.push({
+    const entry: TrainingLoadSlice["sessions"][number] = {
       date: r.date,
       type: r.sessionTag ?? primary,
       durationMin: r.durationMinutes ?? 0,
       ...(r.intensity ? { intensity: r.intensity } : {}),
-    });
+    };
+    if (sessions.length < 3) {
+      const tech = sanitizeUserText(r.techniquesNotes ?? "", {
+        maxLength: 160,
+        raw: true,
+      }).trim();
+      // Reflection notes can carry a leading [RUN_META]{…}[/RUN_META] tag on
+      // run sessions — strip it so only human-readable prose reaches the LLM.
+      const refl = sanitizeUserText(
+        (r.notes ?? "").replace(/^\[RUN_META\][\s\S]*?\[\/RUN_META\]/, ""),
+        { maxLength: 160, raw: true },
+      ).trim();
+      if (tech) entry.techniques = tech;
+      if (refl) entry.reflection = refl;
+    }
+    sessions.push(entry);
   }
 
   // Oldest → newest so the chart reads left-to-right. Each bucket's label is

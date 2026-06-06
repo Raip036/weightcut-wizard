@@ -100,6 +100,22 @@ const SUBSCORE_LABEL: Record<string, string> = {
   weightCut: "Weight Cut",
   wellness: "Wellness",
   nutritionAdherence: "Nutrition",
+  recovery: "Recovery",
+};
+
+// "How this is measured" copy shown in the drill-down dialog so the user
+// understands what actually feeds each pillar. Wellness/recovery spell out the
+// survey → ring link (and the blend) since that's the least obvious of the set.
+const SUBSCORE_EXPLAINER: Record<string, string> = {
+  trainingLoad:
+    "Your training load balance — recent sessions vs. your 4-week baseline. Ramping too fast or sitting idle both pull it down.",
+  sleep: "Hours and consistency from your sleep logs, smoothed over the last week.",
+  weightCut: "How your weight is tracking against a sustainable pace to your target.",
+  wellness:
+    "Driven by your daily check-in — sleep, body, soreness and stress — smoothed over 7 days. A better check-in raises this number, which feeds the ring. When Apple Health recovery (HRV/RHR) is available, the two are blended.",
+  recovery:
+    "Measured from Apple Health — heart-rate variability and resting heart rate vs. your baseline. Blended with your daily wellness check-in when you've logged one.",
+  nutritionAdherence: "How closely your logged meals hit your calorie and protein targets.",
 };
 
 // Icon per sub-score. Matched to TodayStrip where possible so the same
@@ -1044,6 +1060,17 @@ function SubScoreDialogBody({
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground/70 font-medium">
             Contribution to score
           </div>
+        </div>
+      )}
+
+      {SUBSCORE_EXPLAINER[subKey] && (
+        <div className="rounded-xs bg-muted/15 border border-border/40 px-3 py-2.5">
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground/70 font-medium mb-1">
+            How this is measured
+          </div>
+          <p className="text-[12px] leading-snug text-foreground/80">
+            {SUBSCORE_EXPLAINER[subKey]}
+          </p>
         </div>
       )}
 

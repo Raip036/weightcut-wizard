@@ -375,6 +375,109 @@ export const fullRitualDaysCount = query({
 });
 
 /**
+ * Daily-ritual streak stats for the dashboard's gamified streak ring.
+ *
+ * A day "qualifies" toward the streak when the user either completes the
+ * FULL daily ritual (all five pillars: weight, training, sleep, wellness,
+ * meals) OR marks it as a rest/skip day — resting deliberately should never
+ * break a streak. Partial days and untouched days break it. This mirrors
+ * `weeklyCompleteness`'s pillar resolution (training = a completed
+ * `gym_sessions` row OR a non-rest `fight_camp_calendar` entry; rest = a
+ * rest calendar entry or an explicit `marked_skips` row).
+ *
+ * Returns:
+ *   - `current`: consecutive qualifying days ending today, or — if today
+ *     isn't done yet — ending yesterday (so an in-progress day never shows
+ *     the streak as already broken).
+ *   - `best`: longest qualifying run inside the lookback window.
+ *   - `total`: total qualifying days inside the window.
+ *   - `todayComplete`: whether today already qualifies (full ritual or rest).
+ *
+ * Bounded to a 180-day lookback so reads stay cheap; streaks longer than
+ * that are clamped at the window edge (acceptable for a UI counter).
+ */
+export const streakStats = query({
+  args: { date: v.optional(v.string()) },
+  handler: async (ctx, { date }) => {
+    const userId = await optionalUserId(ctx);
+    if (!userId) return null;
+
+    const WINDOW_DAYS = 180;
+    const targetDate = date ?? todayInUtc();
+    const end = new Date(targetDate + "T00:00:00Z");
+    const start = new Date(end);
+    start.setUTCDate(start.getUTCDate() - (WINDOW_DAYS - 1));
+    const startIso = start.toISOString().slice(0, 10);
+
+    const [weights, sleep, wellness, sessions, calendar, meals, skips] = await Promise.all([
+      ctx.db.query("weight_logs").withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", startIso)).collect(),
+      ctx.db.query("sleep_logs").withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", startIso)).collect(),
+      ctx.db.query("daily_wellness_checkins").withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", startIso)).collect(),
+      ctx.db.query("gym_sessions").withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", startIso)).collect(),
+      ctx.db.query("fight_camp_calendar").withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", startIso)).collect(),
+      ctx.db.query("meals").withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", startIso)).collect(),
+      ctx.db.query("marked_skips").withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", startIso)).collect(),
+    ]);
+
+    const setOf = (rows: Array<{ date: string }>) => new Set(rows.map((r) => r.date));
+    const weightDates = setOf(weights);
+    const sleepDates = setOf(sleep);
+    const wellnessDates = setOf(wellness);
+    const mealDates = setOf(meals);
+    const skipDates = setOf(skips);
+    const restDates = new Set(
+      calendar.filter((c) => (c.sessionType ?? "").toLowerCase() === "rest").map((c) => c.date),
+    );
+    const trainingDates = new Set<string>();
+    for (const s of sessions) if (s.status === "completed") trainingDates.add(s.date);
+    for (const c of calendar) if ((c.sessionType ?? "").toLowerCase() !== "rest") trainingDates.add(c.date);
+
+    // Build oldest → newest qualifying flags.
+    const qualifies: boolean[] = [];
+    for (let i = WINDOW_DAYS - 1; i >= 0; i--) {
+      const dd = new Date(end);
+      dd.setUTCDate(dd.getUTCDate() - i);
+      const d = dd.toISOString().slice(0, 10);
+      const isRest = restDates.has(d) || skipDates.has(d);
+      const isFull =
+        weightDates.has(d) &&
+        trainingDates.has(d) &&
+        sleepDates.has(d) &&
+        wellnessDates.has(d) &&
+        mealDates.has(d);
+      qualifies.push(isRest || isFull);
+    }
+
+    // best + total over the window
+    let best = 0;
+    let run = 0;
+    let total = 0;
+    for (const q of qualifies) {
+      if (q) {
+        run += 1;
+        total += 1;
+        if (run > best) best = run;
+      } else {
+        run = 0;
+      }
+    }
+
+    // current streak: walk back from today; if today isn't done, start from
+    // yesterday so an unfinished day doesn't read as already broken.
+    const todayComplete = qualifies[qualifies.length - 1] === true;
+    let current = 0;
+    let idx = qualifies.length - 1;
+    if (!todayComplete) idx -= 1; // skip the in-progress day
+    while (idx >= 0 && qualifies[idx]) {
+      current += 1;
+      idx -= 1;
+    }
+
+    return { current, best, total, todayComplete };
+  },
+});
+
+/**
  * Day-over-day delta for the dashboard's proactive callout. Returns `null`
  * for the unauthenticated case and a stable shape otherwise so the client
  * can decide whether to render the banner without a second round-trip.

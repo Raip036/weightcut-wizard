@@ -474,6 +474,20 @@ export default function WeightProtocol() {
         }))}
         targetWeightKg={targetWeight ?? 0}
       />
+
+      {/* Fuel strategy — eat at maintenance; the cut comes from carbs/water/
+          sodium, not a calorie deficit, so fuel stays high while carbs taper. */}
+      <div className="rounded-2xl border border-primary/20 bg-primary/[0.05] p-4">
+        <p className="text-[13px] font-semibold text-foreground">
+          Eat at maintenance this week
+        </p>
+        <p className="mt-1 text-[12px] leading-snug text-muted-foreground">
+          Fat loss over fight week is negligible — your drop comes from carbs,
+          water and sodium, not calories. Eat around your maintenance calories so
+          you carry maximum fuel into the fight while carbs taper down.
+        </p>
+      </div>
+
       {lockedDays.length > 0 && (
         <LockedDayCard days={lockedDays} onUnlock={openProDialog} />
       )}

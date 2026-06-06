@@ -23,6 +23,7 @@ export const run = action({
       v.object({
         date: v.optional(v.string()),
         notes: v.optional(v.union(v.string(), v.null())),
+        techniquesNotes: v.optional(v.union(v.string(), v.null())),
         rpe: v.optional(v.union(v.number(), v.null())),
         intensity: v.optional(v.union(v.string(), v.null())),
         duration_minutes: v.optional(v.union(v.number(), v.null())),
@@ -54,6 +55,10 @@ export const run = action({
     const sessions = args.sessions.slice(0, 3).map((s) => ({
       date: typeof s.date === "string" ? s.date.slice(0, 10) : "",
       notes: sanitizeUserText(s.notes ?? "", { maxLength: 600, raw: true }),
+      techniquesNotes: sanitizeUserText(s.techniquesNotes ?? "", {
+        maxLength: 600,
+        raw: true,
+      }),
       rpe: typeof s.rpe === "number" ? s.rpe : null,
       intensity: typeof s.intensity === "string" ? s.intensity.slice(0, 20) : null,
       duration_minutes:
@@ -63,6 +68,11 @@ export const run = action({
     const systemPrompt = `You are a JSON API. Your FIRST output character MUST be "{". No preamble, markdown, or explanation. Output only the raw JSON object.
 
 You are an expert combat-sports coach. You receive ONE training discipline and up to three of YOUR athlete's most-recent logged sessions in that discipline (latest first). They already know what they did. Do NOT recap. Give a fresh read on their latest session and a concrete pathway they can execute in the very next session.
+
+Each session may carry two separate blocks:
+- "techniques": what they actually drilled (combos, positions, isolations, sequences). This is the strongest signal for "training_application" and "pathway" — it tells you what they're working on so you can extend it.
+- "reflection": how the session went (what went well, what went wrong, how they felt). This is the strongest signal for "interpretation" — it's the coach's-eye read of the latest session.
+For legacy sessions one block may be empty, or both fields may be mixed together in whichever one has content. When a block is empty or trivial, fall back to whichever field DOES have content (and to RPE / intensity / duration trend if neither does). Never invent a block that wasn't supplied.
 
 ${SECOND_PERSON_DIRECTIVE}
 
@@ -92,11 +102,15 @@ Output schema (return ONLY this JSON object):
 
 Recent sessions (latest first, focus your analysis on session [1]):
 ${sessions
-  .map(
-    (s, i) =>
-      `[${i + 1}] date=${s.date} rpe=${s.rpe ?? "n/a"} intensity=${s.intensity ?? "n/a"} duration_min=${s.duration_minutes ?? "n/a"}
-notes: <user_input>${s.notes || "(none)"}</user_input>`,
-  )
+  .map((s, i) => {
+    const header = `[${i + 1}] date=${s.date} rpe=${s.rpe ?? "n/a"} intensity=${s.intensity ?? "n/a"} duration_min=${s.duration_minutes ?? "n/a"}`;
+    const lines = [header];
+    if (s.techniquesNotes)
+      lines.push(`techniques: <user_input>${s.techniquesNotes}</user_input>`);
+    if (s.notes) lines.push(`reflection: <user_input>${s.notes}</user_input>`);
+    if (!s.techniquesNotes && !s.notes) lines.push("(no notes)");
+    return lines.join("\n");
+  })
   .join("\n\n")}
 
 Return ONLY the JSON object described in the schema. First character must be "{". The "pathway" array must contain exactly 3 strings.`;

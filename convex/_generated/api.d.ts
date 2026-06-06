@@ -69,6 +69,9 @@ import type * as actions_recovery_preSessionBrief from "../actions/recovery/preS
 import type * as actions_recoveryCoach from "../actions/recoveryCoach.js";
 import type * as actions_scanBarcode from "../actions/scanBarcode.js";
 import type * as actions_sendAnnouncementPush from "../actions/sendAnnouncementPush.js";
+import type * as actions_sparringPlan_generate from "../actions/sparringPlan/generate.js";
+import type * as actions_sparringPlan_prompts from "../actions/sparringPlan/prompts.js";
+import type * as actions_sparringPlan_sweep from "../actions/sparringPlan/sweep.js";
 import type * as actions_trainingCoachPlanner from "../actions/trainingCoachPlanner.js";
 import type * as actions_trainingInsights from "../actions/trainingInsights.js";
 import type * as actions_trainingMissions_generate from "../actions/trainingMissions/generate.js";
@@ -137,6 +140,7 @@ import type * as rate_limits from "../rate_limits.js";
 import type * as recoveryReports from "../recoveryReports.js";
 import type * as routines from "../routines.js";
 import type * as sleep_logs from "../sleep_logs.js";
+import type * as sparring_plan from "../sparring_plan.js";
 import type * as techniques from "../techniques.js";
 import type * as training_missions from "../training_missions.js";
 import type * as training_paths from "../training_paths.js";
@@ -215,6 +219,9 @@ declare const fullApi: ApiFromModules<{
   "actions/recoveryCoach": typeof actions_recoveryCoach;
   "actions/scanBarcode": typeof actions_scanBarcode;
   "actions/sendAnnouncementPush": typeof actions_sendAnnouncementPush;
+  "actions/sparringPlan/generate": typeof actions_sparringPlan_generate;
+  "actions/sparringPlan/prompts": typeof actions_sparringPlan_prompts;
+  "actions/sparringPlan/sweep": typeof actions_sparringPlan_sweep;
   "actions/trainingCoachPlanner": typeof actions_trainingCoachPlanner;
   "actions/trainingInsights": typeof actions_trainingInsights;
   "actions/trainingMissions/generate": typeof actions_trainingMissions_generate;
@@ -283,6 +290,7 @@ declare const fullApi: ApiFromModules<{
   recoveryReports: typeof recoveryReports;
   routines: typeof routines;
   sleep_logs: typeof sleep_logs;
+  sparring_plan: typeof sparring_plan;
   techniques: typeof techniques;
   training_missions: typeof training_missions;
   training_paths: typeof training_paths;

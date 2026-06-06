@@ -10,7 +10,7 @@ import { FightFormRing } from "@/components/dashboard/FightFormRing";
 import { FightFormInsightStrip } from "@/components/dashboard/FightFormInsightStrip";
 import { FightFormDeltaBanner } from "@/components/dashboard/FightFormDeltaBanner";
 import TodayStrip from "@/components/dashboard/TodayStrip";
-import CompletenessMeter from "@/components/dashboard/CompletenessMeter";
+import StreakRing from "@/components/dashboard/StreakRing";
 import { FightFormScoreSheet } from "@/components/dashboard/FightFormScoreSheet";
 // Lazy-load recharts wrapper so the ~100KB charts bundle defers until first paint.
 const DashboardWeightChart = lazy(() => import("@/components/charts/DashboardWeightChart"));
@@ -125,28 +125,6 @@ function SubScoreTrendProbe({
   useEffect(() => {
     if (res === undefined) return; // loading
     onResult(res ?? undefined);
-  }, [res, onResult]);
-  return null;
-}
-
-// Probe for weeklyCompleteness — isolated so a missing server function
-// (pre `npx convex dev`) can't crash the Dashboard via the outer ErrorBoundary.
-// Once deployed, the probe writes real data into parent state and the
-// CompletenessMeter renders. Until then it stays undefined → meter renders nothing.
-function WeeklyCompletenessProbe({
-  enabled,
-  onResult,
-}: {
-  enabled: boolean;
-  onResult: (value: import("@/components/dashboard/CompletenessMeter").WeeklyDay[] | null | undefined) => void;
-}) {
-  const res = useQuery(
-    api.fightFormScore.weeklyCompleteness,
-    enabled ? {} : "skip",
-  );
-  useEffect(() => {
-    if (res === undefined) return; // still loading
-    onResult(res);
   }, [res, onResult]);
   return null;
 }
@@ -294,17 +272,6 @@ export default function Dashboard() {
   const ffTrend = useQuery(
     api.fightFormScore.getRecentScores,
     FEATURE_FLAGS.enableFightFormScore ? { days: 14 } : "skip",
-  );
-  // weeklyCompleteness is fetched via WeeklyCompletenessProbe (wrapped in its
-  // own ErrorBoundary below) so a missing server function can't crash the page.
-  const [weeklyCompletenessData, setWeeklyCompletenessData] = useState<
-    import("@/components/dashboard/CompletenessMeter").WeeklyDay[] | null | undefined
-  >(undefined);
-  const handleWeeklyCompleteness = useCallback(
-    (value: import("@/components/dashboard/CompletenessMeter").WeeklyDay[] | null | undefined) => {
-      setWeeklyCompletenessData(value);
-    },
-    [],
   );
   const ffRecompute = useMutation(api.fightFormScore.recomputeNow);
   const markRestDayMutation = useMutation(api.fight_camp.createCalendarEntry);
@@ -961,12 +928,6 @@ export default function Dashboard() {
             onResult={setSubScoreTrend}
           />
         </ErrorBoundary>
-        <ErrorBoundary fallback={null} silent>
-          <WeeklyCompletenessProbe
-            enabled={FEATURE_FLAGS.enableFightFormScore}
-            onResult={handleWeeklyCompleteness}
-          />
-        </ErrorBoundary>
         <div className="dashboard-zoom dashboard-enter-stagger space-y-5 px-5 py-3 sm:p-5 md:p-6 w-full max-w-7xl mx-auto">
           {/* Top row — three columns at the same 40px height:
               [Profile avatar] [Dashboard title] [Days-left tab].
@@ -1155,7 +1116,13 @@ export default function Dashboard() {
           {userId && <GymInvitesBanner />}
           {userId && <NewAnnouncementWidget userId={userId} />}
 
-          <CompletenessMeter days={weeklyCompletenessData ?? undefined} />
+          {/* Streak ring — gamified replacement for the old "Last 7 days"
+              completeness strip. Self-fetches `streakStats`; wrapped so a
+              missing server function (pre `npx convex dev`) can't crash the
+              page, mirroring the other dashboard probes. */}
+          <ErrorBoundary fallback={null} silent>
+            <StreakRing />
+          </ErrorBoundary>
 
           <TodayStrip
             adherence={adherence}

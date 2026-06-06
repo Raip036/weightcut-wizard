@@ -468,7 +468,14 @@ export default defineSchema({
     // Legacy single-media attachment. Kept so existing rows still render.
     // New uploads go into the `session_media` table (multi-attachment).
     mediaStorageId: v.optional(v.id("_storage")),
+    // Reflection notes: "what went well / what to improve". This is the
+    // ORIGINAL freeform notes field — legacy single-blob entries live here.
     notes: v.optional(v.string()),
+    // Techniques covered in the session (combos, positions, drills). Split
+    // out from `notes` so the AI features (summary / coach / missions) read
+    // a clean technique signal instead of inferring it from mixed prose.
+    // Optional: absent on legacy rows and on quick / round-card logs.
+    techniquesNotes: v.optional(v.string()),
     // Denormalised primary-gym id stamped at insert time so the gym
     // leaderboard query can range-scan by_gym_date directly. Optional
     // because historical rows are backfilled lazily (see migrations.ts).
@@ -909,6 +916,40 @@ export default defineSchema({
     .index("by_user_norm", ["userId", "techniqueNormalized"]),
 
   // ────────────────────────────────────────────────────────────────────
+  // SPARRING PLAN — the "sparring to-do list" Pro feature. Each row is one
+  // previously-logged technique enriched by the LLM with how to land it in
+  // LIVE sparring (when to use it, feint/entry setups, opponent counters).
+  // Upsert-keyed per (userId, techniqueNormalized) like training_techniques
+  // so a technique accretes one assignment rather than duplicating. Source:
+  // training_techniques log + extractCandidates over recent techniquesNotes.
+  // ────────────────────────────────────────────────────────────────────
+  sparring_assignments: defineTable({
+    userId: v.id("users"),
+    discipline: v.string(),
+    technique: v.string(),
+    // "<discipline>::<technique>" dedup key (normalizeTechniqueKey).
+    techniqueNormalized: v.string(),
+    // One-line trigger: when in a live round this technique becomes available.
+    whenToUse: v.string(),
+    // 1-2 feint / entry setups to land it on a resisting partner. For grappling
+    // these are grip-fight / level-change / transition fakes, not strikes.
+    setups: v.array(v.string()),
+    // 1-2 realistic opponent-reaction counters.
+    counters: v.array(v.string()),
+    // Checkbox state — "I worked this in sparring". Persists across regen.
+    status: v.union(v.literal("todo"), v.literal("done")),
+    // Hash of the source technique's detail/cue so we only re-roll when the
+    // underlying logged technique materially changed.
+    sourceFingerprint: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    completedAt: v.optional(v.number()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_discipline", ["userId", "discipline"])
+    .index("by_user_norm", ["userId", "techniqueNormalized"]),
+
+  // ────────────────────────────────────────────────────────────────────
   // SKILL TREE
   // ────────────────────────────────────────────────────────────────────
 
@@ -965,6 +1006,10 @@ export default defineSchema({
     hydrationFeeling: v.optional(v.number()),
     hooperIndex: v.optional(v.number()),
     readinessScore: v.optional(v.number()),
+    // Adaptive follow-up: body areas flagged as worst when soreness was high
+    // (e.g. ["Legs", "Back"]). Optional — only captured when the soreness
+    // answer triggers the follow-up. Powers the tailored recovery tip.
+    sorenessAreas: v.optional(v.array(v.string())),
   }).index("by_user_date", ["userId", "date"]),
 
   personal_baselines: defineTable({

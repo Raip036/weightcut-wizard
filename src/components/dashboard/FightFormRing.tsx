@@ -3,6 +3,7 @@ import { Icon } from "@/components/ui/Icon";
 import { cn } from "@/lib/utils";
 import { FightFormRingAtmosphere } from "./FightFormRingAtmosphere";
 import { isScoredState, isStaleState } from "@/lib/fightFormState";
+import { isNativePlatform } from "@/hooks/useIsNative";
 
 type Props = {
   score: number;
@@ -199,7 +200,7 @@ export function FightFormRing({
   // calibProgress so the field literally builds toward unlock.
   // When stale, reduce to off_pace density regardless of actual label.
   const showParticles = isScoredState(state) || isCalib;
-  const particleCount =
+  const rawParticleCount =
     isScoredState(state)
       ? stale
         ? PARTICLE_COUNT_BY_LABEL["off_pace"]
@@ -207,6 +208,11 @@ export function FightFormRing({
       : isCalib
         ? Math.round(CALIB_PARTICLE_MIN + (CALIB_PARTICLE_MAX - CALIB_PARTICLE_MIN) * calibProgress)
         : 0;
+  // iOS: each particle is an absolutely-positioned span running two infinite
+  // animations; the swarm can reach 84 dots ("sharp"). WKWebView can't keep up
+  // with that many simultaneously-animating layers, so cap the field on native.
+  // The orbit reads the same with a denser-looking but cheaper swarm.
+  const particleCount = isNativePlatform ? Math.min(rawParticleCount, 14) : rawParticleCount;
   const labelRgb =
     isScoredState(state)
       ? LABEL_RGB[label]

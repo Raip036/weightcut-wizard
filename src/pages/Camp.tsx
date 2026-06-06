@@ -8,6 +8,7 @@ import { isFighter } from "@/lib/goalType";
 import { triggerHaptic } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
 import { MissionStack } from "@/components/coach/MissionStack";
+import { SparringPlanCard } from "@/components/sparring/SparringPlanCard";
 import { XpSummaryCard } from "@/components/coach/XpSummaryCard";
 import { CampHeroCard } from "@/components/coach/CampHeroCard";
 import { CampProgressPanel } from "@/components/coach/CampProgressPanel";
@@ -17,7 +18,6 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { ShimmerCrownBadge } from "@/components/subscription/ShimmerCrownBadge";
 import { MissionsProDialog } from "@/components/coach/MissionsProDialog";
 import { PostFightDebrief } from "@/components/fightcamp/PostFightDebrief";
-import { CampTrends } from "@/components/fightcamp/CampTrends";
 
 interface CampSection {
   title: string;
@@ -362,16 +362,6 @@ export default function Camp() {
         )}
       </div>
 
-      {/* ── Multi-camp trends ("Cut over cut" — Fight Camp Coach Phase 4).
-          Sits below the active-camp plan area as a longitudinal complement:
-          the plan tracks the current cut, this card tracks the cut fight over
-          fight. Self-fetches + self-gates (Pro → full view, Free → locked
-          teaser → paywall) and renders null when there's no camp history, so
-          it's safe to always mount. ──────────────────────────────────────── */}
-      <ErrorBoundary fallback={null} silent>
-        <CampTrends />
-      </ErrorBoundary>
-
       {/* ── Training Missions — compact upsell for non-Pro zero-missions,
           full MissionStack (+heading) for Pro or anyone with active missions. */}
       {userId && missionFeature !== undefined && missions !== undefined && (
@@ -401,6 +391,12 @@ export default function Camp() {
           </>
         )
       )}
+
+      {/* ── Sparring To-Do List (Pro) — sits directly after Training
+          Missions. Self-gates: non-Pro renders a compact upsell row, Pro
+          renders the grouped, tickable checklist (or a friendly empty
+          state). Component returns null until auth + feature gate resolve. */}
+      <SparringPlanCard userId={userId} />
 
       {/* ── Bento grid of navigation tiles ─────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 auto-rows-[6rem]">

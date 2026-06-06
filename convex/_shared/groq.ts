@@ -158,6 +158,13 @@ export interface GroqCallOptions {
   response_format?: { type: "json_object" };
   reasoning_effort?: "low" | "medium" | "high";
   timeoutMs?: number;
+  /**
+   * Per-call OpenRouter provider-routing override. Replaces the default
+   * throughput-sort routing (see getProviderConfig) for this single call —
+   * e.g. `{ order: ["cerebras"], allow_fallbacks: true }` to pin a model to
+   * Cerebras. Ignored when the active provider is Groq (no routing layer).
+   */
+  providerRouting?: Record<string, unknown>;
 }
 
 /**
@@ -203,6 +210,11 @@ export async function callGroqRaw(opts: GroqCallOptions): Promise<GroqChatComple
         ...(opts.response_format ? { response_format: opts.response_format } : {}),
         ...(opts.reasoning_effort ? { reasoning_effort: opts.reasoning_effort } : {}),
         ...config.extraBody,
+        // Per-call provider-routing override wins over the default (Groq has
+        // no routing layer, so this is a no-op there).
+        ...(provider === "openrouter" && opts.providerRouting
+          ? { provider: opts.providerRouting }
+          : {}),
       }),
       signal: controller.signal,
     });

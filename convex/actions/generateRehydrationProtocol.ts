@@ -21,9 +21,9 @@
  * Idempotent via the `(userId, campId, kind="rehydration")` index on
  * `weight_protocols` — same `upsert` path as before.
  *
- * Provider-conditional model: DeepSeek V3.5 on OpenRouter (preferred) with
- * the canonical Groq heavy-reasoning fallback when `LLM_PROVIDER` is not
- * openrouter. The AI fills hour-by-hour copy + the per-hour litres curve;
+ * Model: gpt-oss-120b served by Cerebras on OpenRouter (pinned via provider
+ * routing), with the same model running natively on Groq when `LLM_PROVIDER`
+ * is not openrouter. The AI fills hour-by-hour copy + the per-hour litres curve;
  * if it fails or returns invalid JSON we fall back to the deterministic
  * `buildRehydrationFallback` curve from `_shared/rehydrationMath.ts`.
  *
@@ -153,19 +153,17 @@ const DEFAULT_DO_NOTS = [
 ];
 
 // ───────────────────────────────────────────────────────────────────────
-// Model selection (unchanged from prior version)
+// Model selection — gpt-oss-120b served by Cerebras
 // ───────────────────────────────────────────────────────────────────────
 
-function deepseekOrFallback(): string {
-  const provider =
-    typeof process !== "undefined" &&
-    process.env?.LLM_PROVIDER?.toLowerCase() === "openrouter"
-      ? "openrouter"
-      : "groq";
-  return provider === "openrouter"
-    ? "deepseek/deepseek-chat"
-    : "openai/gpt-oss-120b";
-}
+// Same model on both providers: Groq runs gpt-oss-120b natively (default),
+// and on OpenRouter we pin the call to Cerebras via CEREBRAS_ROUTING for its
+// very high throughput on this model. Was DeepSeek V3.5 on OpenRouter.
+const PROTOCOL_MODEL = "openai/gpt-oss-120b" as const;
+
+// OpenRouter provider-routing override: prefer Cerebras for gpt-oss-120b,
+// falling back automatically if it's unavailable. No-op on the Groq path.
+const CEREBRAS_ROUTING = { order: ["cerebras"], allow_fallbacks: true };
 
 // ───────────────────────────────────────────────────────────────────────
 // Public action
@@ -294,7 +292,7 @@ async function runCore(
       payload,
       derivedSnapshot: payload.derivedSnapshot,
       approach: undefined,
-      model: deepseekOrFallback(),
+      model: PROTOCOL_MODEL,
     },
   );
 
@@ -390,7 +388,7 @@ async function generateHoursViaAI(args: {
   depletionStrategy: "aggressive" | "moderate";
 }): Promise<RehydrationHour[]> {
   const apiResponse = await callGroqRaw({
-    model: deepseekOrFallback(),
+    model: PROTOCOL_MODEL,
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: buildUserPrompt(args) },
@@ -399,6 +397,7 @@ async function generateHoursViaAI(args: {
     temperature: 0.4,
     max_tokens: 3500,
     timeoutMs: GROQ_TIMEOUT_MS,
+    providerRouting: CEREBRAS_ROUTING,
   });
   const rawContent = apiResponse.choices?.[0]?.message?.content ?? "{}";
   const rawJson = parseJSON(rawContent) as { hours?: unknown };

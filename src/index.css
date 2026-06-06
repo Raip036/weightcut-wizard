@@ -782,6 +782,27 @@ All colors MUST be HSL.
     backdrop-filter: none !important;
   }
 
+  /* CRITICAL iOS win: `.glass-nav` / `.glass-bubble` apply their blur via the
+   * `--glass-blur` (50px!) / `--glass-bubble-blur` (24px) variables, NOT a
+   * Tailwind `backdrop-blur-*` class — so the rule above never touched them.
+   * The floating BottomNav (`.glass-nav`) is `position: fixed` and visible on
+   * every screen, re-sampling + Gaussian-blurring everything behind it on every
+   * composited frame during scroll AND every page transition. That is the
+   * single largest per-frame GPU cost in the app. Drop the backdrop-filter on
+   * native and use the same opaque surfaces the `@supports not` fallback uses
+   * (tuned above) — the frosted look is visually near-identical on a near-black
+   * background, at a fraction of the cost. */
+  .native-app .glass-nav {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background: rgba(8, 12, 20, 0.96);
+  }
+  .native-app .glass-bubble {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background: rgba(8, 13, 32, 0.94);
+  }
+
   /* iOS WebView: `filter: blur(...)` on large surfaces is brutal (60-120ms per
      frame). Strip it on native and reduce the offending element's opacity so
      it doesn't read as a hard-edged glow. Pair this with the `.aurora-glow-native`
@@ -811,6 +832,41 @@ All colors MUST be HSL.
   .native-app .bg-card\/70 { background-color: hsl(var(--card) / 0.95); }
   .native-app .bg-card\/80 { background-color: hsl(var(--card) / 0.97); }
   .native-app .bg-card\/90 { background-color: hsl(var(--card)); }
+
+  /* ---- Fight Form hero ring: native (iOS) cost reductions -----------------
+     The dashboard's centerpiece ring is the heaviest screen in the app. On
+     native we keep the full choreography (rotation, orbit, opacity/scale
+     pulses — all GPU-composited) but strip the three main-thread repaint
+     offenders. `prefers-reduced-motion` already disables these, but iOS users
+     almost never set that flag, so we gate on `.native-app` instead. */
+
+  /* 1. Halo + core glow animate opacity/scale on a `filter: blur(22px|10px)`
+        layer — WKWebView re-rasterizes the blur every frame. The radial
+        gradients already fade softly to transparent, so dropping the blur
+        keeps a near-identical glow without the per-frame raster. */
+  .native-app .ff-ring-halo,
+  .native-app .ff-ring-core {
+    filter: none !important;
+    -webkit-filter: none !important;
+  }
+
+  /* 2. Up to ~84 orbital particles each carry a multi-layer `box-shadow` glow
+        (NOT GPU-composited) and run two infinite loops → up to ~168 box-shadow
+        repaints per frame. Drop the shadow on native; the dots stay bright
+        against the ribbons. (Count is also capped on native in FightFormRing.) */
+  .native-app .ff-ring-particle {
+    box-shadow: none !important;
+  }
+
+  /* 3. Aura ribbons animate `filter: brightness()` (ffRibbonShimmer), forcing a
+        re-raster of the masked conic-gradient each frame. Keep only the
+        composited rotation on native — the ribbons still swirl. */
+  .native-app .ff-ring-ribbon-1 {
+    animation: ffRibbonRotateCW 11s linear infinite !important;
+  }
+  .native-app .ff-ring-ribbon-2 {
+    animation: ffRibbonRotateCCW 17s linear infinite !important;
+  }
 
 
   /* Toast spring entrance — overshoot bounce */

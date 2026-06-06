@@ -248,19 +248,17 @@ export default function TodayStrip({ adherence, mealsLoggedToday, onMarkRestDay 
       <div className="flex items-stretch gap-1.5 w-full pt-1">
         {PILLS.map(({ key, label, href, icon, iconDone }) => {
           const isLogged = logged[key];
-          // The wellness survey is FREE — route into the full-screen check-in
-          // when it's not done yet. Once logged, the "review" target is the
-          // Pro Recovery dashboard, so free users go to /dashboard instead of
-          // a locked page; Pro users get the dashboard as before.
-          // Wellness now lands on the Recovery/Wellness page (href = "/recovery"),
-          // matching the other pills — the page then prompts the daily check-in.
-          // Exception: /recovery is Pro-gated, so free users (who can't open it)
-          // are still routed straight to the free quiz at /recovery/check-in.
+          // Wellness pill routing keys off whether today's check-in is done:
+          //   • not done  → open the full-screen survey at /recovery/check-in
+          //   • done       → the Pro Recovery dashboard (/recovery). Free users
+          //     can't open /recovery (Pro-gated), so they land on /dashboard.
           const finalHref =
             key === "wellness"
-              ? wellnessIsFree
+              ? !isLogged
                 ? "/recovery/check-in"
-                : "/recovery"
+                : wellnessIsFree
+                  ? "/dashboard"
+                  : "/recovery"
               : href;
 
           const pillClassName = cn(

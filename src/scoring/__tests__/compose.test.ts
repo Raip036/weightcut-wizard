@@ -22,13 +22,12 @@ const baseInputs = (overrides: Partial<ScoringInputs> = {}): ScoringInputs => ({
     { date: "2026-04-01", weightKg: 80 },
     { date: "2026-05-01", weightKg: 77.5 },
   ],
-  // Hooper 4 is "fresh" under the new wellness curve (<=5 → 100). The base
-  // fixture is supposed to model "strong signal in every domain"; the prior
-  // value of 8 now lands on the new curve's 0 floor and would drag the
-  // composite down for tests that assume all-strong.
+  // Hooper 28 is the freshest a check-in can be (sleep 7 + calm/fresh/no-soreness
+  // each contributing 7). Under the wellness curve (`(hooper-4)*4.2`) that maps
+  // to 100, so the base fixture models "strong signal in every domain".
   hooperByDate: Array.from({ length: 7 }, (_, i) => {
     const d = new Date("2026-05-01"); d.setDate(d.getDate() - i);
-    return { date: d.toISOString().slice(0, 10), hooper: 4 };
+    return { date: d.toISOString().slice(0, 10), hooper: 28 };
   }),
   meals: Array.from({ length: 7 }, (_, i) => {
     const d = new Date("2026-05-01"); d.setDate(d.getDate() - i);

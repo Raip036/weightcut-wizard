@@ -48,24 +48,66 @@ export function ProtocolProGate({
           triggerHapticSelection();
           onGenerate();
         }}
-        className="w-full text-left card-surface rounded-2xl p-5 active:scale-[0.99] transition border border-primary/30 bg-primary/[0.04]"
+        className="group w-full text-left card-surface rounded-2xl p-5 active:scale-[0.99] transition border border-primary/30 bg-primary/[0.04]"
       >
-        <div className="flex items-start gap-3">
-          <div className="h-11 w-11 shrink-0 rounded-2xl border flex items-center justify-center border-primary/30 bg-primary/10 text-primary">
-            <Icon name="sparklesOutline" size={22} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary/80">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-primary/80">
               Ready when you are
             </p>
-            <p className="mt-0.5 text-[17px] font-bold leading-tight text-foreground">
+            {/* Bolder, sparkle-free headline. */}
+            <p className="mt-1 text-[20px] font-extrabold leading-tight tracking-tight text-foreground">
               Generate your fight plan
             </p>
           </div>
-          <span className="inline-flex items-center gap-1 shrink-0 rounded-full bg-primary text-primary-foreground px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider">
-            Generate
-            <Icon name="chevronForwardOutline" size={14} />
-          </span>
+
+          {/* Dynamic gradient "Generate" pill — shimmer sweep + breathing
+              glow + a nudging arrow. Purely visual (the whole card is the
+              button), so no nested-button issue. */}
+          <motion.span
+            className="relative shrink-0 inline-flex items-center gap-1.5 overflow-hidden rounded-full bg-gradient-to-r from-primary to-secondary px-4 py-2.5 text-[12px] font-extrabold uppercase tracking-wider text-primary-foreground"
+            style={{ boxShadow: "0 8px 22px -8px hsl(var(--primary) / 0.6)" }}
+            animate={
+              prefersReduced
+                ? undefined
+                : {
+                    boxShadow: [
+                      "0 8px 22px -8px hsl(var(--primary) / 0.55)",
+                      "0 8px 30px -6px hsl(var(--primary) / 0.85)",
+                      "0 8px 22px -8px hsl(var(--primary) / 0.55)",
+                    ],
+                  }
+            }
+            transition={
+              prefersReduced
+                ? undefined
+                : { duration: 2.6, repeat: Infinity, ease: "easeInOut" }
+            }
+          >
+            <span className="relative z-10">Generate</span>
+            <motion.span
+              className="relative z-10 flex"
+              animate={prefersReduced ? undefined : { x: [0, 3, 0] }}
+              transition={
+                prefersReduced
+                  ? undefined
+                  : { duration: 1.5, repeat: Infinity, repeatDelay: 1.2, ease: [0.32, 0.72, 0, 1] }
+              }
+            >
+              <Icon name="arrowForwardOutline" size={15} />
+            </motion.span>
+            {/* Shimmer sweep across the pill. */}
+            {!prefersReduced && (
+              <motion.span
+                aria-hidden
+                className="absolute inset-y-0 -left-1/2 w-1/2 bg-white/25"
+                style={{ transform: "skewX(-20deg)" }}
+                initial={{ x: "-120%" }}
+                animate={{ x: "320%" }}
+                transition={{ duration: 1.1, ease: "easeOut", repeat: Infinity, repeatDelay: 2.6, delay: 0.8 }}
+              />
+            )}
+          </motion.span>
         </div>
         <p className="mt-3 text-[12px] text-muted-foreground leading-snug">
           We'll tune the cut + rehydration timeline to your weight, training

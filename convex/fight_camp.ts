@@ -511,7 +511,10 @@ export const createCalendarEntry = mutation({
     // non-contact sessions; the recovery engine reads it for contact load.
     rounds: v.optional(v.number()),
     mediaStorageId: v.optional(v.id("_storage")),
+    // Reflection notes ("what went well / to improve").
     notes: v.optional(v.string()),
+    // Techniques covered ("what was drilled / learned"). Optional.
+    techniquesNotes: v.optional(v.string()),
     // Provenance of the row — set by whichever entry surface created it.
     // Optional so historical callers (legacy QuickLog, manual editor) still
     // type-check while the photo-first round-card flow opts in explicitly.
@@ -535,8 +538,13 @@ export const createCalendarEntry = mutation({
       gymId: membership?.gymId,
       ...args,
     });
-    // Training Coach: schedule note-extraction planner if notes are present.
-    if (args.notes && args.notes.trim().length > 0) {
+    // Training Coach: schedule note-extraction planner if EITHER the
+    // reflection notes or the techniques-covered notes are present. Both feed
+    // the planner (techniques → candidate extraction, reflection → stalls).
+    const hasSessionNotes =
+      (args.notes?.trim().length ?? 0) > 0 ||
+      (args.techniquesNotes?.trim().length ?? 0) > 0;
+    if (hasSessionNotes) {
       await ctx.scheduler.runAfter(
         2_000,
         internal.actions.trainingCoachPlanner._runInternal,
@@ -555,6 +563,18 @@ export const createCalendarEntry = mutation({
         );
       } catch (err) {
         console.warn("missions schedule failed", err);
+      }
+      // Sparring To-Do List — sibling trigger to Training Missions. Same
+      // session-notes signal feeds the per-discipline sparring checklist.
+      // Try-wrapped so a not-yet-deployed action can't break session logging.
+      try {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.actions.sparringPlan.generate.generateSparringPlanIfReady,
+          { userId, sport: args.sessionType },
+        );
+      } catch (err) {
+        console.warn("sparring plan schedule failed", err);
       }
       // Discipline XP — +10 for logging a session with notes. Initial
       // creation only; `updateCalendarEntry` deliberately does NOT award
@@ -612,6 +632,9 @@ export const updateCalendarEntry = mutation({
     // Pass `null` to remove the existing media (deletes the storage object).
     mediaStorageId: v.optional(v.union(v.id("_storage"), v.null())),
     notes: v.optional(v.string()),
+    // Techniques covered ("what was drilled / learned"). Flows through the
+    // generic patch loop via `...rest`; also gates the coach/missions hooks.
+    techniquesNotes: v.optional(v.string()),
   },
   handler: async (ctx, { id, mediaStorageId, sessionTag, ...rest }) => {
     const userId = await requireUserId(ctx);
@@ -644,9 +667,13 @@ export const updateCalendarEntry = mutation({
 
     await ctx.db.patch(id, patch as any);
 
-    // Training Coach: if the notes field was edited (and is non-empty), kick
-    // off the planner. Mirrors createCalendarEntry's hook.
-    if (typeof rest.notes === "string" && rest.notes.trim().length > 0) {
+    // Training Coach: if either notes field was edited (and is non-empty),
+    // kick off the planner. Mirrors createCalendarEntry's hook.
+    const editedNotes =
+      (typeof rest.notes === "string" && rest.notes.trim().length > 0) ||
+      (typeof rest.techniquesNotes === "string" &&
+        rest.techniquesNotes.trim().length > 0);
+    if (editedNotes) {
       await ctx.scheduler.runAfter(
         2_000,
         internal.actions.trainingCoachPlanner._runInternal,
@@ -662,9 +689,16 @@ export const updateCalendarEntry = mutation({
     // session edit.
     const effectiveNotes =
       typeof rest.notes === "string" ? rest.notes : row.notes;
+    const effectiveTechniquesNotes =
+      typeof rest.techniquesNotes === "string"
+        ? rest.techniquesNotes
+        : row.techniquesNotes;
     const effectiveSport =
       typeof rest.sessionType === "string" ? rest.sessionType : row.sessionType;
-    if (effectiveNotes && effectiveNotes.trim().length > 0) {
+    if (
+      (effectiveNotes?.trim().length ?? 0) > 0 ||
+      (effectiveTechniquesNotes?.trim().length ?? 0) > 0
+    ) {
       try {
         await ctx.scheduler.runAfter(
           0,
@@ -673,6 +707,18 @@ export const updateCalendarEntry = mutation({
         );
       } catch (err) {
         console.warn("missions schedule failed", err);
+      }
+      // Sparring To-Do List — sibling trigger to Training Missions, sharing
+      // the same effective-notes / effective-sport signal. Try-wrapped so a
+      // not-yet-deployed action can't break the session edit.
+      try {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.actions.sparringPlan.generate.generateSparringPlanIfReady,
+          { userId, sport: effectiveSport },
+        );
+      } catch (err) {
+        console.warn("sparring plan schedule failed", err);
       }
     }
 
@@ -1207,8 +1253,9 @@ export const listNotesSince = internalQuery({
         (r) =>
           normalizeLegacySession(r.sessionType, r.sessionTag).primary === sport &&
           r._creationTime >= since &&
-          typeof r.notes === "string" &&
-          r.notes.trim().length > 0,
+          ((typeof r.notes === "string" && r.notes.trim().length > 0) ||
+            (typeof r.techniquesNotes === "string" &&
+              r.techniquesNotes.trim().length > 0)),
       )
       .sort((a, b) => a._creationTime - b._creationTime);
   },
@@ -1235,7 +1282,11 @@ export const listSessionPairsWithNotesSince = internalQuery({
     const seen = new Set<string>();
     const pairs: { userId: Id<"users">; sport: string }[] = [];
     for (const r of rows) {
-      if (typeof r.notes !== "string" || r.notes.trim().length === 0) continue;
+      const hasNotes =
+        (typeof r.notes === "string" && r.notes.trim().length > 0) ||
+        (typeof r.techniquesNotes === "string" &&
+          r.techniquesNotes.trim().length > 0);
+      if (!hasNotes) continue;
       if (!r.sessionType) continue;
       const sport = normalizeLegacySession(r.sessionType, r.sessionTag).primary;
       const key = `${r.userId}::${sport}`;

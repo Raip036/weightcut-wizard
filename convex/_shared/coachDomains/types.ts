@@ -24,6 +24,11 @@ export interface TrainingLoadSlice {
     type: string;
     durationMin: number;
     intensity?: string;
+    // Sanitized, length-capped notes — populated for the most-recent few
+    // sessions only so the coach can reference WHAT was drilled and what the
+    // athlete is working on, not just hours. Absent on older / note-less rows.
+    techniques?: string;
+    reflection?: string;
   }[];
   weeklySeries: { x: string; y: number }[];
 }

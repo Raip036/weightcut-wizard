@@ -21,8 +21,8 @@ import type { CoachMessage, CoachBlock } from "@/../convex/_shared/aiSchemas";
 /**
  * Fight Camp Coach data layer.
  *
- * Parallel to `useWizardBackground`, but routes the global floating orb at the
- * rewritten structured coach action (`api.actions.fightCampCoach.run`) which
+ * Routes the global floating orb at the structured coach action
+ * (`api.actions.fightCampCoach.run`) which
  * returns a `CoachMessage` ({ reply, blocks, followups }) rather than the old
  * `{ choices: [{ message: { content } }] }` prose shape.
  *

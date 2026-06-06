@@ -25,6 +25,8 @@ interface TrainingCalendarRow {
   sleep_quality: string | null;
   mobility_done: boolean | null;
   notes: string | null;
+  /** Techniques covered (combos / positions / drills). Optional. */
+  techniques_notes?: string | null;
   media_url: string | null;
   created_at: string | null;
   rounds?: number | null;
@@ -69,6 +71,7 @@ export const SessionCard = memo(function SessionCard({
 
   const hasMedia = !!session.media_url;
   const hasNotes = !!(isRun ? cleanNotes : session.notes);
+  const hasTechniques = !!session.techniques_notes;
   const hasSoreness = (session.soreness_level ?? 0) > 0;
   const hasSleep = (session.sleep_hours ?? 0) > 0;
 
@@ -311,10 +314,20 @@ export const SessionCard = memo(function SessionCard({
                 </button>
               )}
 
-              {/* Notes */}
+              {/* Techniques covered */}
+              {hasTechniques && (
+                <div className="rounded-xs bg-muted/20 px-3 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">Techniques</p>
+                  <p className="mt-1 text-[12px] text-foreground/90 leading-snug whitespace-pre-wrap">
+                    {session.techniques_notes}
+                  </p>
+                </div>
+              )}
+
+              {/* Reflection notes — what went well / to improve */}
               {hasNotes && (
                 <div className="rounded-xs bg-muted/20 px-3 py-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">Notes</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">What went well / to improve</p>
                   <p className="mt-1 text-[12px] text-foreground/90 leading-snug whitespace-pre-wrap">
                     {isRun ? cleanNotes : session.notes}
                   </p>

@@ -200,7 +200,12 @@ export const getSessionForPlanner = internalQuery({
   handler: async (ctx, { sessionId }) => {
     const s = await ctx.db.get(sessionId);
     if (!s) return null;
-    return { notes: s.notes ?? "", date: s.date, userId: s.userId };
+    return {
+      notes: s.notes ?? "",
+      techniquesNotes: s.techniquesNotes ?? "",
+      date: s.date,
+      userId: s.userId,
+    };
   },
 });
 
@@ -226,7 +231,20 @@ export const recentNotesText = internalQuery({
       .query("fight_camp_calendar")
       .withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", cutoff))
       .collect();
-    return rows.map((r) => r.notes ?? "").filter((n) => n.length > 0).join("\n");
+    // Per session, include BOTH the clean "Techniques covered" field and the
+    // reflection notes, each labeled and only when present. Keeps the same
+    // single-string return type the planner stages expect.
+    return rows
+      .map((r) => {
+        const techniques = (r.techniquesNotes ?? "").trim();
+        const reflection = (r.notes ?? "").trim();
+        const parts: string[] = [];
+        if (techniques.length > 0) parts.push(`Techniques: ${techniques}`);
+        if (reflection.length > 0) parts.push(`Reflection: ${reflection}`);
+        return parts.join("\n");
+      })
+      .filter((n) => n.length > 0)
+      .join("\n");
   },
 });
 

@@ -5,6 +5,7 @@ import { Icon } from "@/components/ui/Icon";
 import { triggerHapticSelection } from "@/lib/haptics";
 import Sparkline from "@/components/charts/Sparkline";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
+import { useRecoveryReadiness } from "@/hooks/useRecoveryReadiness";
 import { ShimmerCrownBadge } from "@/components/subscription/ShimmerCrownBadge";
 
 interface ReadinessCardProps {
@@ -36,21 +37,37 @@ export function ReadinessCard({ userId }: ReadinessCardProps) {
     api.wellness.listCheckins,
     userId ? { limit: 14 } : "skip",
   );
+  // Live readiness — the SAME number the Recovery page hero shows. Skip the
+  // compute for free users (they never see the number, just the Pro gate).
+  const { score: liveScore } = useRecoveryReadiness(hasAccess ? userId : null);
 
-  // Keep only check-ins that carry a readiness score, newest-first.
+  const today = new Date().toISOString().split("T")[0];
+
+  // Persisted readiness history (carries each day's score once /recovery has
+  // computed it) — used to draw the multi-day line.
   const scored = (rows ?? []).filter(
     (r): r is typeof r & { readinessScore: number } =>
       typeof r.readinessScore === "number",
   );
-  const asc = [...scored].reverse(); // oldest → newest for the sparkline
-  const recent = asc.slice(-7);
-  const series = recent.map((r) => r.readinessScore);
+  const asc = [...scored].reverse(); // oldest → newest
+  // Build the line from prior days + today's LIVE score so the line always
+  // ends on the number we're displaying (and never double-counts today).
+  const priorScores = asc.filter((r) => r.date !== today).map((r) => r.readinessScore);
+  const series =
+    liveScore != null ? [...priorScores, liveScore].slice(-7) : asc.map((r) => r.readinessScore).slice(-7);
+
+  // Displayed number: prefer the live engine score; fall back to the latest
+  // persisted score; only show a dash when there's genuinely nothing.
   const latest = scored[0] ?? null;
-  const prev = scored[1] ?? null;
+  const displayScore = liveScore != null ? liveScore : latest ? latest.readinessScore : null;
+
+  const prevPersisted = asc.filter((r) => r.date !== today).slice(-1)[0] ?? null;
   const delta =
-    latest && prev ? latest.readinessScore - prev.readinessScore : null;
+    liveScore != null && prevPersisted
+      ? liveScore - prevPersisted.readinessScore
+      : null;
   const hasData = series.length >= 2;
-  const verdict = latest ? verdictFor(latest.readinessScore) : null;
+  const verdict = displayScore != null ? verdictFor(displayScore) : null;
 
   return (
     <button
@@ -79,7 +96,7 @@ export function ReadinessCard({ userId }: ReadinessCardProps) {
         <>
           <div className="mt-2 flex items-baseline gap-1.5">
             <span className="font-display font-bold text-[40px] leading-none text-foreground tabular-nums">
-              {latest ? Math.round(latest.readinessScore) : "—"}
+              {displayScore != null ? Math.round(displayScore) : "—"}
             </span>
             {verdict && (
               <span className={`text-note font-semibold ${verdict.color}`}>

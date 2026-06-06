@@ -40,6 +40,10 @@ export const DOMAIN_KEYWORDS: Record<DomainId, RegExp[]> = {
     /\bspar(ring)?\b|\brolls?\b|\bgrappl|\bdrill(ed|ing)?\b|\brounds?\b/i,
     /\bstrength\b|\bs&c\b|\bconditioning\b|\bcardio\b/i,
     /\bhard week\b|\bovertrain|\btoo much\b|\bgym\b/i,
+    // Technique / skill focus — what they drilled or are working on/struggling
+    // with. Routes "how's my southpaw", "what should I work on", "keep getting
+    // countered" to the training notes now carried in this domain.
+    /\btechniques?\b|\bcombo(s|nation)?\b|\bwork(ing)? on\b|\bimprove\b|\bstruggl|\bgetting countered\b|\bcan'?t (land|finish|get)\b/i,
   ],
 
   // Diet / food intake / macros.

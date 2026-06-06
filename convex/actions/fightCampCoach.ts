@@ -329,7 +329,7 @@ const ARBITER_SYSTEM_PROMPT = `You route a fighter's message to the data domains
 Choose from EXACTLY these domain ids: ${ALL_DOMAINS.join(", ")}.
 - weight: scale / weight-cut progress vs target
 - fight_week: water-load, sodium, rehydration, the fight-week protocol
-- training_load: training volume, sessions, sparring, intensity
+- training_load: training volume, sessions, sparring, intensity, techniques drilled, what they are working on / struggling with
 - nutrition: food, calories, macros, meals
 - fight_score: overall readiness, "how am I doing", limiters
 - recovery: HRV, resting heart rate, soreness, fatigue
@@ -407,7 +407,7 @@ Output ONLY valid JSON matching this shape:
 { "reply": string, "blocks": Block[], "followups"?: string[] }
 
 RULES (non-negotiable):
-- "reply": 1-3 sentences, conversational, reference the REAL numbers in DETERMINISTIC FACTS and DOMAIN DATA below ("you are 0.4 kg over with 3 days out", "training is up 2h on last week"). Never a paragraph.
+- "reply": 1-3 sentences, conversational, reference the REAL numbers in DETERMINISTIC FACTS and DOMAIN DATA below ("you are 0.4 kg over with 3 days out", "training is up 2h on last week"). When DOMAIN DATA shows what the athlete recently drilled or is working on, reference it specifically ("keep sharpening that southpaw entry you drilled"). Never a paragraph.
 - NEVER recompute or emit any metric numbers in blocks. The server computes and merges all data cards (weight_target, chart, metric_row, stat_card, list, score_ring) from the facts and DOMAIN DATA below. Do NOT output those block types - emitting them will be discarded.
 - ${blockGuidance}
 - "followups": 0-3 short suggested questions, each ≤40 chars (e.g. "Plan my water load").

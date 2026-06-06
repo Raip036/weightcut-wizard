@@ -218,7 +218,12 @@ function RoundedFeedCardBase({
             draggable={false}
             onLoad={img.onLoad}
             onError={img.onError}
-            loading={isTop ? "eager" : "lazy"}
+            // Top AND the immediate-next card (stackPosition 1, promoted on
+            // the very next tap) load eagerly so the lazy heuristic can't
+            // defer the next photo's fetch until the moment it's promoted —
+            // that deferral was a source of the on-advance flash. Only the
+            // deep card (position 2) stays lazy to bound bandwidth.
+            loading={isTop || stackPosition === 1 ? "eager" : "lazy"}
             decoding="async"
             width={1000}
             height={1000}

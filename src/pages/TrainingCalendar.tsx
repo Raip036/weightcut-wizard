@@ -60,6 +60,8 @@ interface TrainingCalendarRow {
   sleep_quality: string | null;
   mobility_done: boolean | null;
   notes: string | null;
+  // Techniques covered (combos / positions / drills). Optional. null ⇒ none.
+  techniques_notes: string | null;
   media_url: string | null;
   created_at: string | null;
   // Contact rounds (optional — sparring / live grappling rows only).
@@ -163,6 +165,7 @@ export default function TrainingCalendar() {
     const [hasSoreness, setHasSoreness] = useState(false);
     const [sorenessLevel, setSorenessLevel] = useState([5]);
     const [notes, setNotes] = useState("");
+    const [techniquesNotes, setTechniquesNotes] = useState("");
     const [runDistance, setRunDistance] = useState("");
     const [runTime, setRunTime] = useState("");
     const [runDistanceUnit, setRunDistanceUnit] = useState<"km" | "mi">("km");
@@ -250,6 +253,7 @@ export default function TrainingCalendar() {
                 sleep_quality: r.sleepQuality ?? null,
                 mobility_done: r.mobilityDone ?? null,
                 notes: r.notes ?? null,
+                techniques_notes: r.techniquesNotes ?? null,
                 media_url: r.mediaUrl ?? null,
                 created_at: r._creationTime ? new Date(r._creationTime).toISOString() : null,
                 rounds: typeof r.rounds === "number" ? r.rounds : null,
@@ -345,6 +349,7 @@ export default function TrainingCalendar() {
                 sleep_quality: r.sleepQuality ?? null,
                 mobility_done: r.mobilityDone ?? null,
                 notes: r.notes ?? null,
+                techniques_notes: r.techniquesNotes ?? null,
                 media_url: r.mediaUrl ?? null,
                 created_at: r._creationTime ? new Date(r._creationTime).toISOString() : null,
                 rounds: typeof r.rounds === "number" ? r.rounds : null,
@@ -427,6 +432,7 @@ export default function TrainingCalendar() {
         setHasSoreness(false);
         setSorenessLevel([5]);
         setNotes("");
+        setTechniquesNotes("");
         setRunDistance("");
         setRunTime("");
         setRunDistanceUnit("km");
@@ -485,6 +491,7 @@ export default function TrainingCalendar() {
         );
         const { meta, notes: cleanNotes } = decodeRunMeta(session.notes);
         setNotes(cleanNotes);
+        setTechniquesNotes(session.techniques_notes ?? "");
         if (meta) {
             setRunDistance(meta.distance || "");
             setRunTime(meta.time || "");
@@ -549,6 +556,9 @@ export default function TrainingCalendar() {
               ) || null
             : notes.trim() || null;
 
+        // Techniques covered live on their OWN field (never run-meta encoded).
+        const techniquesToSave = techniquesNotes.trim() || null;
+
         // Rounds is only included for contact sessions, and only when the
         // user actually set a value (rounds !== null). Mirrors the payload
         // logic below so the optimistic row matches what the server stores.
@@ -568,6 +578,7 @@ export default function TrainingCalendar() {
             intensity_level: intensityLevel[0],
             soreness_level: hasSoreness ? sorenessLevel[0] : 0,
             notes: baseNotes,
+            techniques_notes: techniquesToSave,
             fatigue_level: null,
             sleep_quality: null,
             mobility_done: null,
@@ -618,6 +629,7 @@ export default function TrainingCalendar() {
                 intensity_level: intensityLevel[0],
                 soreness_level: hasSoreness ? sorenessLevel[0] : 0,
                 notes: baseNotes,
+                techniques_notes: techniquesToSave,
                 fatigue_level: null,
                 sleep_quality: null,
                 mobility_done: null,
@@ -643,6 +655,7 @@ export default function TrainingCalendar() {
                     rpe: payload!.rpe,
                     sorenessLevel: payload!.soreness_level ?? undefined,
                     notes: payload!.notes ?? undefined,
+                    techniquesNotes: payload!.techniques_notes ?? undefined,
                     ...(isContactSession(sessionType, tagToSave) && rounds != null ? { rounds } : {}),
                 });
             } else {
@@ -656,6 +669,7 @@ export default function TrainingCalendar() {
                     rpe: payload!.rpe,
                     sorenessLevel: payload!.soreness_level ?? undefined,
                     notes: payload!.notes ?? undefined,
+                    techniquesNotes: payload!.techniques_notes ?? undefined,
                     ...(isContactSession(sessionType, tagToSave) && rounds != null ? { rounds } : {}),
                 })) as Id<"fight_camp_calendar">;
             }
@@ -895,6 +909,7 @@ export default function TrainingCalendar() {
             sleep_quality: null,
             mobility_done: null,
             notes: null,
+            techniques_notes: null,
             media_url: null,
             created_at: new Date().toISOString(),
             rounds: null,
@@ -1188,6 +1203,7 @@ export default function TrainingCalendar() {
                                     hasSoreness={hasSoreness} setHasSoreness={setHasSoreness}
                                     sorenessLevel={sorenessLevel} setSorenessLevel={setSorenessLevel}
                                     notes={notes} setNotes={setNotes}
+                                    techniquesNotes={techniquesNotes} setTechniquesNotes={setTechniquesNotes}
                                     runDistance={runDistance} setRunDistance={setRunDistance}
                                     runTime={runTime} setRunTime={setRunTime}
                                     runDistanceUnit={runDistanceUnit} setRunDistanceUnit={setRunDistanceUnit}

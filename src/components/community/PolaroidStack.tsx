@@ -28,6 +28,7 @@ import { Heart } from "lucide-react";
 import { triggerHaptic } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
 import { RoundedFeedCard } from "./RoundedFeedCard";
+import { preloadAndDecodeImages } from "@/hooks/useImageReady";
 import { EmptyStackState } from "./EmptyStackState";
 import type { FeedPost, FeedStatus } from "@/hooks/community/useGymFeed";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -35,6 +36,10 @@ import type { Id } from "../../../convex/_generated/dataModel";
 const EXIT_DURATION_MS = 280;
 const REDUCED_EXIT_DURATION_MS = 110;
 const PREFETCH_TRIGGER = 5;
+// How many upcoming full-res images to fetch + DECODE ahead of the top
+// card. The deck only shows 3 at once, but decoding 6 deep keeps rapid
+// tapping warm so a promoted card never has to decode on screen.
+const DECODE_AHEAD = 6;
 
 // Square deck — the slot matches the photo so the overlays (counter,
 // heart) land on the image corners and the info row sits tight beneath.
@@ -107,14 +112,18 @@ export function PolaroidStack({
     onIndexChange?.(topIndex);
   }, [topIndex, onIndexChange]);
 
-  // Eager preload of the next visible image URLs so they're warm.
+  // Fetch + DECODE the next DECODE_AHEAD full images so a promoted card is
+  // already paint-ready (no decode hitch / opacity fade on advance). Keyed
+  // off the live deck order + the exiting post, so the window re-decodes
+  // forward on every advance. Goes deeper than `visibleSlots` (3) so rapid
+  // tapping stays ahead of the deck.
   useEffect(() => {
-    visibleSlots.forEach((slot) => {
-      if (!slot.url) return;
-      const img = new Image();
-      img.src = slot.url;
-    });
-  }, [visibleSlots]);
+    const upcoming = posts
+      .slice(topIndex, topIndex + DECODE_AHEAD + 1)
+      .filter((p) => p.id !== exitingPost?.id)
+      .map((p) => p.url);
+    preloadAndDecodeImages(upcoming);
+  }, [posts, topIndex, exitingPost]);
 
   // Pagination trigger — fetch more before we run out.
   useEffect(() => {
@@ -149,7 +158,11 @@ export function PolaroidStack({
     return <EmptyStackState onPostClick={onPostClick} />;
   }
   if (isAtEnd && !exitingPost && visibleSlots.length === 0) {
-    return null;
+    // Hold the deck's footprint instead of collapsing to null. The parent
+    // cross-fades this feed branch out while the "all caught up" state fades
+    // in (Community.tsx AnimatePresence); a sudden height collapse here would
+    // make that cross-fade jump. An invisible same-size box keeps it smooth.
+    return <div aria-hidden className="mx-auto" style={{ width: DECK_W, height: DECK_H }} />;
   }
 
   // ── Exit card (separate node so dismissedIds can drop the post from

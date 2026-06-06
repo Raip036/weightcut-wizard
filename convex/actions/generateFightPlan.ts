@@ -22,9 +22,9 @@
  * `weight_protocols` — calling either entry point overwrites the prior row
  * rather than accumulating duplicates.
  *
- * Provider-conditional model: Claude Opus 4.7 on OpenRouter (preferred,
- * superior numerics + adherence) with the canonical Groq fallback when
- * `LLM_PROVIDER` is not set to openrouter.
+ * Model: gpt-oss-120b served by Cerebras on OpenRouter (pinned via provider
+ * routing for high throughput) with the same model running natively on Groq
+ * when `LLM_PROVIDER` is not set to openrouter.
  *
  * Numerics flow:
  *   1. Math module computes the deterministic per-day anchors.
@@ -71,25 +71,18 @@ import { FIGHT_PLAN_RESEARCH } from "../_shared/protocolResearch";
 const GROQ_TIMEOUT_MS = 30_000;
 
 /**
- * Per-provider model pick. OpenRouter gets Opus 4.7 directly (low volume,
- * flagship feature — the quality lift on numeric adherence + copy
- * justifies the cost). Groq fallback uses the canonical heavy-reasoning
- * model so the feature still works when LLM_PROVIDER is unset.
+ * Weight-cut protocol model: gpt-oss-120b served by Cerebras.
+ *
+ * Same model on both providers — Groq runs gpt-oss-120b natively (default
+ * when LLM_PROVIDER is unset); on OpenRouter we pin the call to Cerebras via
+ * `CEREBRAS_ROUTING` for its very high throughput on this model. Was
+ * DeepSeek V3.5 on OpenRouter / gpt-oss-120b on Groq.
  */
-// Swapped from Claude Opus 4.7 to DeepSeek V3.5 — ~55x cheaper, strong on
-// structured-output tasks. Verify the exact model ID against the OpenRouter
-// catalog before deploy; alternate IDs are deepseek/deepseek-v3.2-exp and
-// deepseek/deepseek-chat (which tracks the latest V3 series).
-function deepseekOrFallback(): string {
-  const provider =
-    typeof process !== "undefined" &&
-    process.env?.LLM_PROVIDER?.toLowerCase() === "openrouter"
-      ? "openrouter"
-      : "groq";
-  return provider === "openrouter"
-    ? "deepseek/deepseek-chat"
-    : "openai/gpt-oss-120b";
-}
+const PROTOCOL_MODEL = "openai/gpt-oss-120b" as const;
+
+// OpenRouter provider-routing override: prefer Cerebras for gpt-oss-120b,
+// falling back automatically if it's unavailable. No-op on the Groq path.
+const CEREBRAS_ROUTING = { order: ["cerebras"], allow_fallbacks: true };
 
 // ───────────────────────────────────────────────────────────────────────
 // Public action — generate (or refresh) the user's fight plan
@@ -191,7 +184,7 @@ async function runCore(
   // 4. Build prompt + call the AI for copy.
   const userPrompt = buildUserPrompt(inputs, derived, skeleton, safety);
   const apiResponse = await callGroqRaw({
-    model: deepseekOrFallback(),
+    model: PROTOCOL_MODEL,
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: userPrompt },
@@ -200,6 +193,7 @@ async function runCore(
     temperature: 0.4,
     max_tokens: 4096,
     timeoutMs: GROQ_TIMEOUT_MS,
+    providerRouting: CEREBRAS_ROUTING,
   });
   const rawContent = apiResponse.choices?.[0]?.message?.content ?? "{}";
   const rawJson = parseJSON(rawContent);
@@ -229,7 +223,7 @@ async function runCore(
       payload: merged,
       derivedSnapshot: derived,
       approach: effectiveApproach,
-      model: deepseekOrFallback(),
+      model: PROTOCOL_MODEL,
     },
   );
 

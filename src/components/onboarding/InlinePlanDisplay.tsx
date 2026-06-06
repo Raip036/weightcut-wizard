@@ -78,6 +78,7 @@ interface FightWeekRefeed {
 }
 
 interface PlanData {
+  campName?: string;
   weeklyPlan: WeekRow[];
   phases?: PhaseSummary[];
   personalNote?: string;
@@ -560,11 +561,13 @@ function FightWeekDayStack({
   refeed,
   safetyFlag,
   target,
+  maintenanceCalories,
 }: {
   days: FightWeekDay[];
   refeed?: FightWeekRefeed;
   safetyFlag?: string;
   target?: number;
+  maintenanceCalories?: number;
 }) {
   const prefersReduced = useReducedMotion();
   const [mounted, setMounted] = useState(false);
@@ -600,6 +603,18 @@ function FightWeekDayStack({
           </p>
         </div>
       )}
+
+      {/* Fuel strategy — eat at maintenance; the cut comes from carbs, water and
+          sodium, not a calorie deficit, so fuel stays high while carbs taper. */}
+      <div className="rounded-xs border border-primary/20 bg-primary/[0.05] p-3 mb-2">
+        <p className="text-[12px] font-semibold text-foreground">Eat at maintenance this week</p>
+        <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+          Fat loss over fight week is negligible — your drop comes from carbs, water
+          and sodium, not calories. Eat around your maintenance
+          {maintenanceCalories ? ` (~${(Math.round(maintenanceCalories / 100) * 100).toLocaleString()} kcal)` : ""}
+          {" "}so you carry maximum fuel into the fight while carbs taper down.
+        </p>
+      </div>
 
       {/* Legend — the carb bar is the hero, so name it once. */}
       <div className="flex items-center gap-1.5 px-1 mb-1.5">
@@ -796,6 +811,11 @@ export function InlinePlanDisplay({
     >
       {/* HERO */}
       <div className="text-center mb-1">
+        {planData.campName && planData.campName.trim() !== "" && (
+          <p className="text-[15px] font-bold text-foreground tracking-tight mb-1">
+            {planData.campName}
+          </p>
+        )}
         <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-primary/70">
           {isWeightLoss ? "Your Plan" : "Your Cut"}
         </p>
@@ -847,6 +867,7 @@ export function InlinePlanDisplay({
           target={
             planData.weeklyPlan?.[planData.weeklyPlan.length - 1]?.targetWeight
           }
+          maintenanceCalories={planData.maintenanceCalories}
         />
       )}
 

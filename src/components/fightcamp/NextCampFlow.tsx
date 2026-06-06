@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "motion/react";
-import { Check, Sparkles, Loader2 } from "lucide-react";
+import { Sparkles, Loader2 } from "lucide-react";
 import { useAction, useMutation } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import type { Id } from "@/../convex/_generated/dataModel";
@@ -12,6 +12,8 @@ import { useUser } from "@/contexts/UserContext";
 import { useToast } from "@/hooks/use-toast";
 import { triggerHapticSelection, celebrateSuccess } from "@/lib/haptics";
 import { logger } from "@/lib/logger";
+import { WizardCharacter } from "@/tutorial/WizardCharacter";
+import { NewCampWelcomeCutscene } from "./NewCampWelcomeCutscene";
 
 /**
  * Two-stage flow used everywhere the user starts a new fight camp without
@@ -49,7 +51,18 @@ interface NextCampFlowProps {
   onCreated?: (newCampId: Id<"fight_camps">) => void;
 }
 
-type Stage = "wrapup" | "wizard" | "generating" | "done";
+type Stage = "wrapup" | "wizard";
+
+// Short, punchy one-liners the mascot says alongside each wizard step. Keyed
+// by the step's `key` so they stay in sync if the step order ever changes.
+const STEP_PROMPTS: Record<string, string> = {
+  name: "Let's name this camp.",
+  fightDate: "When's fight night?",
+  targetWeightKg: "What do you weigh in at?",
+  walkAroundWeightKg: "Your walk-around weight?",
+  weighInTiming: "How's the weigh-in run?",
+  currentWeightKg: "And today's weight?",
+};
 
 const PERFORMANCE_CHIPS = [
   { value: "won_strong",   label: "Won, felt strong" },
@@ -111,6 +124,28 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
   });
   const [walkAroundAuto, setWalkAroundAuto] = useState(true);
   const [creating, setCreating] = useState(false);
+
+  // Full-screen welcome cutscene state. Once `welcome` is set, the sheet is
+  // closed and the cutscene overlay takes over while the cut plan generates
+  // in the background. `planReady` flips true in the `finally` of the
+  // generation pipeline so the cutscene's CTA enables whether the plan
+  // succeeded or failed.
+  const [welcome, setWelcome] = useState<{
+    campName: string;
+    targets: {
+      currentWeight: number;
+      targetWeight: number;
+      weightToCut: number;
+      daysToFight: number;
+      weeks: number;
+    };
+  } | null>(null);
+  const [planReady, setPlanReady] = useState(false);
+
+  const handleSeePlan = () => {
+    setWelcome(null);
+    navigate("/cut-plan");
+  };
   useEffect(() => {
     if (!open) return;
     setStep(0);
@@ -213,30 +248,49 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
       ? walkAroundWeightRaw
       : Math.round(targetWeight * 1.055 * 10) / 10;
 
+    const campName = wizardData.name.trim();
+
     setCreating(true);
     try {
       // (a) Create the camp first — cheap, transactional.
       const newId = await createCampMut({
-        name: wizardData.name.trim(),
+        name: campName,
         fightDate: wizardData.fightDate,
         weighInTiming: wizardData.weighInTiming || undefined,
         startingWeightKg: wizardData.currentWeightKg ? currentWeight : undefined,
       });
       celebrateSuccess();
       onCreated?.(newId as Id<"fight_camps">);
-
-      // Switch to the generating screen so the user has visible feedback
-      // while the Convex action does its run (~5-8s typically). The dialog
-      // stays open through the whole sequence so the user can tap the plan
-      // preview the moment it lands.
-      setStage("generating");
+    } catch (err) {
+      logger.warn("Create camp from wizard failed", { error: err });
+      toast({ title: "Couldn't start camp", description: "Check your connection and try again.", variant: "destructive" });
       setCreating(false);
+      return;
+    }
+    setCreating(false);
 
-      const age = profile?.age ?? 25;
-      const sex: "male" | "female" = (profile?.sex === "female" ? "female" : "male");
-      const heightCm = profile?.height_cm ?? 175;
-      const activityLevel = profile?.activity_level ?? "moderately_active";
+    // Camp exists — compute the headline targets from the wizard inputs (all
+    // available immediately) and hand off to the full-screen welcome cutscene.
+    // The cut plan keeps generating in the background; the cutscene's CTA
+    // enables once `planReady` flips true.
+    const daysToFight = Math.max(
+      1,
+      Math.ceil((Date.parse(wizardData.fightDate) - Date.now()) / 86400000),
+    );
+    const weeks = Math.max(1, Math.min(20, Math.ceil(daysToFight / 7)));
+    const weightToCut = Math.max(0, Math.round((currentWeight - targetWeight) * 10) / 10);
+    const targets = { currentWeight, targetWeight, weightToCut, daysToFight, weeks };
 
+    setPlanReady(false);
+    setWelcome({ campName, targets });
+    onOpenChange(false); // close the sheet so the cutscene takes over
+
+    const age = profile?.age ?? 25;
+    const sex: "male" | "female" = (profile?.sex === "female" ? "female" : "male");
+    const heightCm = profile?.height_cm ?? 175;
+    const activityLevel = profile?.activity_level ?? "moderately_active";
+
+    try {
       // (b) Generate the cut plan BEFORE writing new targets to the profile.
       // If this fails, we don't want the profile to be left pointing at the
       // new fight while still carrying the old plan — better to keep the
@@ -261,6 +315,7 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
       const planPayload = plan?.weeklyPlan
         ? {
             ...plan,
+            campName,
             currentWeight,
             goalWeight: targetWeight,
             targetDate: wizardData.fightDate,
@@ -298,48 +353,39 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
             title: "Targets and cut plan saved",
             description: "Your new fight weights and plan are on your profile.",
           });
+        } else {
+          // Plan generation failed — camp + targets are saved, user can re-run
+          // generation from the Goals page.
+          toast({
+            title: "New camp started",
+            description: `${campName} — ${wizardData.fightDate}`,
+          });
         }
       } catch (saveErr) {
         logger.warn("Save targets + cut plan to profile failed", { error: saveErr });
       }
-
-      if (planPayload) {
-        setStage("done");
-        // Close the dialog and drop the user on /cut-plan so they actually
-        // see the freshly-generated plan. A brief delay lets the success
-        // animation play before the route change.
-        setTimeout(() => {
-          onOpenChange(false);
-          navigate("/cut-plan");
-        }, 800);
-      } else {
-        // Plan generation failed — camp + targets are saved, user can re-run
-        // generation from the Goals page.
-        toast({
-          title: "New camp started",
-          description: `${wizardData.name} — ${wizardData.fightDate}`,
-        });
-        setStage("done");
-        setTimeout(() => onOpenChange(false), 1100);
-      }
-    } catch (err) {
-      logger.warn("Create camp from wizard failed", { error: err });
-      toast({ title: "Couldn't start camp", description: "Check your connection and try again.", variant: "destructive" });
-      setCreating(false);
+    } finally {
+      // Enable the cutscene's "See plan" CTA whether the plan succeeded or
+      // failed — the camp + targets are already saved either way.
+      setPlanReady(true);
     }
   };
 
   const todayIso = new Date().toISOString().slice(0, 10);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-1.5rem)] max-w-[420px] max-h-[calc(100vh-var(--keyboard-inset,0px)-4rem)] overflow-y-auto rounded-[28px] p-0 border-0 bg-card/95 backdrop-blur-xl gap-0">
+    <>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="bottom"
+        className="max-h-[92vh] p-0 border-t border-border/50 bg-card/95 backdrop-blur-xl gap-0"
+      >
         <div className="px-5 pt-5 pb-2">
-          <DialogHeader>
-            <DialogTitle className="text-[17px] font-semibold tracking-tight text-center">
-              {stage === "wrapup" ? "Wrap up your camp" : stage === "wizard" ? "Start your next camp" : "All set"}
-            </DialogTitle>
-          </DialogHeader>
+          <SheetHeader>
+            <SheetTitle className="text-[17px] font-semibold tracking-tight text-center">
+              {stage === "wrapup" ? "Wrap up your camp" : "Start your next camp"}
+            </SheetTitle>
+          </SheetHeader>
         </div>
 
         <AnimatePresence mode="wait" initial={false}>
@@ -441,23 +487,44 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
               transition={{ type: "spring", damping: 26, stiffness: 320 }}
               className="px-5 pb-5 space-y-4"
             >
-              {/* Progress dots */}
-              <div className="flex items-center justify-center gap-1.5">
-                {wizardSteps.map((_, i) => (
-                  <div
-                    key={i}
-                    className={`h-1.5 rounded-full transition-all duration-300 ${
-                      i < step ? "w-6 bg-primary" : i === step ? "w-6 bg-primary" : "w-1.5 bg-muted-foreground/25"
-                    }`}
+              {/* Slim gradient progress bar + step counter */}
+              <div className="space-y-1.5">
+                <div className="h-1.5 w-full rounded-full bg-muted-foreground/15 overflow-hidden">
+                  <motion.div
+                    className="h-full rounded-full bg-gradient-to-r from-brand-spirit-blue to-primary"
+                    initial={false}
+                    animate={{ width: `${((step + 1) / wizardSteps.length) * 100}%` }}
+                    transition={{ type: "spring", damping: 24, stiffness: 280 }}
                   />
-                ))}
+                </div>
+                <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-muted-foreground/70 text-center">
+                  Step {step + 1} of {wizardSteps.length}
+                </p>
+              </div>
+
+              {/* Mascot companion + encouraging one-liner */}
+              <div className="flex items-center gap-2.5">
+                <div className="relative h-[52px] w-[52px] shrink-0 overflow-visible">
+                  <div className="absolute inset-0 flex items-center justify-center scale-[0.37] origin-center">
+                    <WizardCharacter pose={step === wizardSteps.length - 1 ? "point" : "idle"} />
+                  </div>
+                </div>
+                <AnimatePresence mode="wait">
+                  <motion.p
+                    key={currentStep.key}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.22 }}
+                    className="text-[14px] font-semibold text-foreground/90 leading-snug"
+                  >
+                    {STEP_PROMPTS[currentStep.key] ?? currentStep.label}
+                  </motion.p>
+                </AnimatePresence>
               </div>
 
               <div className="min-h-[120px] flex flex-col justify-center">
-                <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-muted-foreground/70 text-center">
-                  {step + 1} of {wizardSteps.length}
-                </p>
-                <h3 className="text-[20px] font-bold tracking-tight text-foreground text-center mt-1">
+                <h3 className="text-[20px] font-bold tracking-tight text-foreground text-center">
                   {currentStep.label}
                 </h3>
 
@@ -587,14 +654,16 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
                   type="button"
                   disabled={!canAdvance() || creating}
                   onClick={advance}
-                  className="flex-1 h-11 rounded-xs"
+                  className={`flex-1 rounded-xs ${
+                    isLastStep ? "h-12 text-[15px] font-bold shadow-lg shadow-primary/20" : "h-11"
+                  }`}
                 >
                   {creating ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : isLastStep ? (
                     <span className="inline-flex items-center gap-1.5">
                       <Sparkles className="h-4 w-4" />
-                      Start camp
+                      Create my camp
                     </span>
                   ) : (
                     "Next"
@@ -603,44 +672,20 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
               </div>
             </motion.div>
           )}
-
-          {stage === "generating" && (
-            <motion.div
-              key="generating"
-              initial={{ opacity: 0, x: 24 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -24 }}
-              transition={{ type: "spring", damping: 26, stiffness: 320 }}
-              className="px-5 pb-7 pt-2 flex flex-col items-center gap-3 text-center"
-            >
-              <div className="h-12 w-12 rounded-full bg-primary/15 flex items-center justify-center">
-                <Loader2 className="h-6 w-6 text-primary animate-spin" strokeWidth={2.4} />
-              </div>
-              <div className="space-y-0.5">
-                <p className="text-[15px] font-semibold text-foreground">Generating your cut plan</p>
-                <p className="text-[12px] text-muted-foreground">Tailored to your fight date and target weight. Saving to your profile.</p>
-              </div>
-            </motion.div>
-          )}
-
-          {stage === "done" && (
-            <motion.div
-              key="done"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ type: "spring", damping: 22, stiffness: 320 }}
-              className="px-5 pb-7 pt-2 flex flex-col items-center gap-2 text-center"
-            >
-              <div className="h-12 w-12 rounded-full bg-func-recovery-green/20 flex items-center justify-center">
-                <Check className="h-6 w-6 text-func-recovery-green" strokeWidth={2.6} />
-              </div>
-              <p className="text-[15px] font-semibold text-foreground">Camp ready</p>
-              <p className="text-[12px] text-muted-foreground">Targets and dashboard are updated.</p>
-            </motion.div>
-          )}
         </AnimatePresence>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
+
+    {/* Full-screen welcome cutscene — renders its own fixed portal and takes
+        over once the sheet closes. CTA enables when `planReady` flips true. */}
+    {welcome && (
+      <NewCampWelcomeCutscene
+        campName={welcome.campName}
+        targets={welcome.targets}
+        planReady={planReady}
+        onSeePlan={handleSeePlan}
+      />
+    )}
+    </>
   );
 }

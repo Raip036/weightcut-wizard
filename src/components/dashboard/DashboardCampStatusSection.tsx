@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { CutPaceForecast, type PlanData } from "@/components/dashboard/CutPaceForecast";
 import { PhaseCoachCard } from "@/components/dashboard/PhaseCoachCard";
+import { useInView } from "@/hooks/useInView";
 
 interface DashboardCampStatusSectionProps {
   weightLogs: Parameters<typeof CutPaceForecast>[0]["weightLogs"];
@@ -21,8 +22,15 @@ export const DashboardCampStatusSection = memo(function DashboardCampStatusSecti
   daysUntilFight,
   plan,
 }: DashboardCampStatusSectionProps) {
+  // This section sits below the fold, so the dashboard's mount-time
+  // entrance animation would fade the widgets up while they're still out
+  // of sight. Gate the reveal on the section actually scrolling into view
+  // so the user sees the motion. `dashboard-enter-stagger` then staggers
+  // the heading + cards; `opacity-0` keeps them hidden until then.
+  const { ref, inView } = useInView<HTMLDivElement>();
+
   return (
-    <>
+    <div ref={ref} className={inView ? "dashboard-enter-stagger" : "opacity-0"}>
       <div className="pt-3 flex items-baseline justify-between">
         <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/80">Camp Status</p>
       </div>
@@ -43,7 +51,7 @@ export const DashboardCampStatusSection = memo(function DashboardCampStatusSecti
           targetDateISO={targetDate}
         />
       </div>
-    </>
+    </div>
   );
 });
 

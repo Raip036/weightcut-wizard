@@ -108,5 +108,27 @@ export function summarizeTrainingLoad(slice: TrainingLoadSlice): string {
     parts.push("no sessions logged");
   }
 
+  // Surface the athlete's own recent notes so the coach can reference the
+  // SPECIFIC techniques they drilled and what they are working on, not just
+  // volume. These are user free-text (already sanitized upstream) so they are
+  // wrapped in <user_input> tags — the coach prompt's injection guard treats
+  // anything inside those tags as quoted data, never as instructions.
+  const drilled = sessions
+    .map((s) => s.techniques)
+    .filter((t): t is string => !!t);
+  const working = sessions
+    .map((s) => s.reflection)
+    .filter((r): r is string => !!r);
+  if (drilled.length > 0) {
+    parts.push(
+      `recently drilled <user_input>${drilled.join(" | ").slice(0, 220)}</user_input>`,
+    );
+  }
+  if (working.length > 0) {
+    parts.push(
+      `working on <user_input>${working.join(" | ").slice(0, 220)}</user_input>`,
+    );
+  }
+
   return `${parts.join("; ")}.`;
 }

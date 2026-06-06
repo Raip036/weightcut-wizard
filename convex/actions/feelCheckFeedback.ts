@@ -1,8 +1,9 @@
 /**
  * Feel-check AI feedback — one short actionable line per logged check.
  *
- * Cheap-and-fast: llama-3.1-8b-instant on Groq, or DeepSeek on OpenRouter.
- * ~$0.0001 per call. Fires on every feel-check value change.
+ * gpt-oss-120b at low reasoning effort — served by Cerebras on OpenRouter
+ * (pinned via provider routing for speed), native on Groq. Fires on every
+ * feel-check value change.
  *
  * The mutation `recordFeelCheck` clears the stored `aiFeedback` field when
  * a new value lands; the client triggers this action right after, and the
@@ -14,11 +15,11 @@ import { action } from "../_generated/server";
 import { api } from "../_generated/api";
 import { callGroqRaw } from "../_shared/groq";
 
-const FAST_MODEL =
-  typeof process !== "undefined" &&
-  process.env?.LLM_PROVIDER?.toLowerCase() === "openrouter"
-    ? "deepseek/deepseek-chat"
-    : "llama-3.1-8b-instant";
+// gpt-oss-120b on both providers; on OpenRouter we pin the call to Cerebras
+// via CEREBRAS_ROUTING for its very high throughput. reasoning_effort "low"
+// (set at the call site) keeps this short single-line output snappy.
+const FAST_MODEL = "openai/gpt-oss-120b" as const;
+const CEREBRAS_ROUTING = { order: ["cerebras"], allow_fallbacks: true };
 
 const FEEL_CHECK_LABELS: Record<string, string> = {
   urine_colour: "urine colour (1=clear, 8=dark amber)",
@@ -54,8 +55,12 @@ export const generate = action({
           { role: "user", content: userPrompt },
         ],
         temperature: 0.4,
-        max_tokens: 80,
+        // Headroom for gpt-oss-120b's hidden reasoning tokens (kept minimal
+        // by reasoning_effort "low") plus the ≤120-char instruction itself.
+        max_tokens: 256,
+        reasoning_effort: "low",
         timeoutMs: 8_000,
+        providerRouting: CEREBRAS_ROUTING,
       });
       feedback = String(res.choices?.[0]?.message?.content ?? "").trim();
       // Strip any wrapping quotes the model loves to add.

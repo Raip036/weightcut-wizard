@@ -30,17 +30,12 @@ import { requireUserIdFromAction } from "../_helpers";
 import { enforceFeatureGate } from "../../_shared/featureGates";
 import { parseJSON } from "../../_shared/parseResponse";
 
-// Per-provider model pick. Recovery features get OpenRouter models directly
-// (not via the shared OPENROUTER_MODEL_MAP) so other features keep their
-// current routing. Falls back to the canonical Groq model when LLM_PROVIDER
-// is not openrouter.
-//   - Weekly Sunday narrative report → DeepSeek V3.5 (strong reasoning,
-//     ~30x cheaper than Claude Sonnet 4.5 for narrative+JSON output).
-//     Verify the exact OpenRouter model ID before deploy.
-const MODEL =
-  (typeof process !== "undefined" && process.env?.LLM_PROVIDER?.toLowerCase() === "openrouter")
-    ? "deepseek/deepseek-chat"
-    : "openai/gpt-oss-120b";
+// gpt-oss-120b on both providers; on OpenRouter we pin the call to Cerebras
+// via CEREBRAS_ROUTING for its very high throughput on this weekly narrative
+// report. Default reasoning effort (no override) — quality matters here and
+// the 30s timeout leaves room for it.
+const MODEL = "openai/gpt-oss-120b" as const;
+const CEREBRAS_ROUTING = { order: ["cerebras"], allow_fallbacks: true };
 const GROQ_TIMEOUT_MS = 30_000;
 const CRON_BATCH_SIZE = 5;
 
@@ -109,6 +104,7 @@ export const generateWeeklyReport = action({
       temperature: 0.5,
       max_tokens: 1200,
       timeoutMs: GROQ_TIMEOUT_MS,
+      providerRouting: CEREBRAS_ROUTING,
     });
 
     const rawContent = response.choices?.[0]?.message?.content;

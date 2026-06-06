@@ -36,6 +36,7 @@ import { useMyGyms, type MyGymRow } from "@/hooks/coach/useMyGyms";
 import { useGymFeed, type FeedPost } from "@/hooks/community/useGymFeed";
 import { usePolaroidStack } from "@/hooks/community/usePolaroidStack";
 import { GymHeader } from "@/components/community/GymHeader";
+import { JoinGymGate } from "@/components/community/JoinGymGate";
 import { GymProfileSheet } from "@/components/community/GymProfileSheet";
 import { PolaroidStack } from "@/components/community/PolaroidStack";
 import { SessionInfoCard } from "@/components/community/SessionInfoCard";
@@ -250,14 +251,13 @@ export default function Community() {
   // them on a different route, and stop the tutorial state machine.
   // We render an inline empty state instead.
   const { isActive: isTutorialActive } = useTutorial();
-  const shouldRedirectToJoin = !gymsLoading && !primaryGym && !isTutorialActive;
-  useEffect(() => {
-    if (shouldRedirectToJoin) {
-      navigate("/join", { replace: true });
-    }
-  }, [shouldRedirectToJoin, navigate]);
-  if (shouldRedirectToJoin) {
-    return null;
+  // No gym yet → show the animated in-page "Join a gym" gate (The Locker Room)
+  // instead of bouncing to /join. It owns the gym-code entry + live preview +
+  // join flow inline. During the onboarding tutorial we hold the existing
+  // inline beat below so the tour isn't interrupted.
+  const showJoinGate = !gymsLoading && !primaryGym && !isTutorialActive;
+  if (showJoinGate) {
+    return <JoinGymGate />;
   }
 
   return (
@@ -326,9 +326,14 @@ export default function Community() {
         {/* Content area — branches on member-count threshold + load state.
             Wrapped in AnimatePresence so the swap between the feed and
             the "all caught up" empty state cross-fades smoothly when the
-            user swipes the last polaroid (or when posts refill). */}
+            user swipes the last polaroid (or when posts refill).
+
+            mode="popLayout" (not "wait") so the outgoing feed and incoming
+            empty state animate CONCURRENTLY — a true cross-fade. "wait" held
+            the new state out until the old one finished its exit, leaving a
+            ~240ms dead gap that read as a flash right before "all caught up". */}
         <main className="px-5 pb-20 md:pb-8 pt-2">
-          <AnimatePresence mode="wait" initial={false}>
+          <AnimatePresence mode="popLayout" initial={false}>
             {(() => {
               const branch =
                 !primaryGym && !gymsLoading
@@ -372,9 +377,12 @@ export default function Community() {
                 return (
                   <motion.div
                     key="empty"
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
+                    // Pure in-place opacity cross-fade (no y-slide) so the
+                    // "all caught up" state fades in exactly where the deck
+                    // was, concurrently with the feed fading out — no jump.
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
                     transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
                   >
                     <EmptyFeed
@@ -389,7 +397,10 @@ export default function Community() {
                   key="feed"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  exit={{ opacity: 0, scale: 0.98 }}
+                  // Opacity-only exit (was scale: 0.98). The zoom-out read as
+                  // a flash/refresh as the last card cleared; a flat fade
+                  // cross-fades cleanly into the empty state.
+                  exit={{ opacity: 0 }}
                   transition={{ duration: 0.24, ease: [0.32, 0.72, 0, 1] }}
                 >
                   <WeeklyHighlightCard />

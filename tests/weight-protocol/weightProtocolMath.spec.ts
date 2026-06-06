@@ -261,7 +261,7 @@ describe("buildSafetyWarnings", () => {
 // ──────────────────────────────────────────────────────────────────────────
 
 describe("buildFightPlanSkeleton", () => {
-  it("75kg male, 7-day window, standard → matches spec anchor table", () => {
+  it("75kg male, 7-day window, standard → body-weight carb restriction + spec water/sodium", () => {
     const plan = buildFightPlanSkeleton(
       baseDerived({ daysToWeighIn: 7, currentWeightKg: 75, cutDepthKg: 3.75 }),
       "standard",
@@ -269,58 +269,74 @@ describe("buildFightPlanSkeleton", () => {
     // 8 days expected: dtw 7..0
     expect(plan.days.length).toBe(8);
     const byDtw = Object.fromEntries(plan.days.map((d) => [d.daysToWeighIn, d]));
-    // T-7: 3 g/kg * 75 = 225g carbs ; 100mL/kg * 75 = 7.5L water ; 2500mg sodium
-    expect(byDtw[7].carbsGrams).toBe(225);
+    // T-7: early step-down 2 g/kg * 75 = 150g ; 100mL/kg * 75 = 7.5L ; 2500mg sodium
+    expect(byDtw[7].carbsGrams).toBe(150);
     expect(byDtw[7].waterLitres).toBeCloseTo(7.5, 2);
     expect(byDtw[7].sodiumMg).toBe(2500);
     expect(byDtw[7].fibreNote).toBe("normal");
-    // T-4: 1 g/kg → 75g carbs ; 75mL/kg → 5.625L (rounded to 2dp = 5.63)
-    expect(byDtw[4].carbsGrams).toBe(75);
+    // T-4: restriction 0.5 g/kg → round(37.5) = 38g (under 50g) ; 75mL/kg → 5.63L
+    expect(byDtw[4].carbsGrams).toBe(38);
     expect(byDtw[4].waterLitres).toBeCloseTo(5.63, 2);
     expect(byDtw[4].fibreNote).toBe("eliminate");
-    // Weigh-in day (dtw=0)
+    // Weigh-in day (dtw=0): fixed 30g
     expect(byDtw[0].dayLabel).toBe("Weigh-in");
-    expect(byDtw[0].carbsGrams).toBe(0);
+    expect(byDtw[0].carbsGrams).toBe(30);
   });
 
-  it("60kg female scales carbs/water/sodium proportionally (scale = 60/75)", () => {
+  it("60kg female: carbs scale with bodyweight; water/sodium scale by 60/75", () => {
     const plan = buildFightPlanSkeleton(
       baseDerived({ currentWeightKg: 60, cutDepthKg: 3, daysToWeighIn: 7 }),
       "standard",
     );
     const t7 = plan.days.find((d) => d.daysToWeighIn === 7)!;
-    // carbs at per-kg use currentWeight directly: 3 * 60 = 180
-    expect(t7.carbsGrams).toBe(180);
+    // early step-down 2 g/kg * 60 = 120
+    expect(t7.carbsGrams).toBe(120);
     // water 100mL/kg * 60 = 6L
     expect(t7.waterLitres).toBeCloseTo(6.0, 2);
     // sodium scaled by 60/75 = 0.8 → 2500 * 0.8 = 2000
     expect(t7.sodiumMg).toBe(2000);
+    // restriction day (T-3): 0.5 g/kg * 60 = 30g
+    const t3 = plan.days.find((d) => d.daysToWeighIn === 3)!;
+    expect(t3.carbsGrams).toBe(30);
   });
 
-  it("approach 'gradual' shifts curve right by 1 day (lighter today)", () => {
-    const baseStd = buildFightPlanSkeleton(
-      baseDerived({ daysToWeighIn: 4, currentWeightKg: 75, cutDepthKg: 3 }),
+  it("approach 'gradual' shifts the carb curve right by a day (more carbs at the boundary)", () => {
+    const std = buildFightPlanSkeleton(
+      baseDerived({ daysToWeighIn: 5, currentWeightKg: 75, cutDepthKg: 3 }),
       "standard",
-    );
-    const baseGradual = buildFightPlanSkeleton(
-      baseDerived({ daysToWeighIn: 4, currentWeightKg: 75, cutDepthKg: 3 }),
+    ).days.find((d) => d.daysToWeighIn === 5)!;
+    const grad = buildFightPlanSkeleton(
+      baseDerived({ daysToWeighIn: 5, currentWeightKg: 75, cutDepthKg: 3 }),
       "gradual",
-    );
-    // At dtw=4, standard anchor is 1.0 g/kg → 75g; gradual reads dtw=5 anchor
-    // (2.0 g/kg → 150g) — i.e., today's number is LIGHTER on the cut (more carbs).
-    const stdT4 = baseStd.days.find((d) => d.daysToWeighIn === 4)!;
-    const gradT4 = baseGradual.days.find((d) => d.daysToWeighIn === 4)!;
-    expect(stdT4.carbsGrams).toBe(75);
-    expect(gradT4.carbsGrams).toBe(150);
+    ).days.find((d) => d.daysToWeighIn === 5)!;
+    // standard at T-5 is in the restriction band (0.5 g/kg → 38g); gradual reads
+    // T-6 (early step-down, 2 g/kg → 150g) — lighter on the cut today.
+    expect(std.carbsGrams).toBe(38);
+    expect(grad.carbsGrams).toBe(150);
   });
 
-  it("approach 'aggressive' shifts curve left by 1 day (harsher today)", () => {
-    const aggT4 = buildFightPlanSkeleton(
-      baseDerived({ daysToWeighIn: 4, currentWeightKg: 75, cutDepthKg: 3 }),
+  it("approach 'aggressive' shifts the carb curve left by a day (harsher at the boundary)", () => {
+    const std = buildFightPlanSkeleton(
+      baseDerived({ daysToWeighIn: 6, currentWeightKg: 75, cutDepthKg: 3 }),
+      "standard",
+    ).days.find((d) => d.daysToWeighIn === 6)!;
+    const agg = buildFightPlanSkeleton(
+      baseDerived({ daysToWeighIn: 6, currentWeightKg: 75, cutDepthKg: 3 }),
       "aggressive",
-    ).days.find((d) => d.daysToWeighIn === 4)!;
-    // aggressive at dtw=4 reads dtw=3 anchor: 50g absolute carbs
-    expect(aggT4.carbsGrams).toBe(50);
+    ).days.find((d) => d.daysToWeighIn === 6)!;
+    // standard at T-6 is the early step-down (2 g/kg → 150g); aggressive reads
+    // T-5 (restriction, 0.5 g/kg → 38g) — harsher today.
+    expect(std.carbsGrams).toBe(150);
+    expect(agg.carbsGrams).toBe(38);
+  });
+
+  it("carb restriction stays strictly under 50g (100kg → 49g cap)", () => {
+    const t3 = buildFightPlanSkeleton(
+      baseDerived({ daysToWeighIn: 5, currentWeightKg: 100, cutDepthKg: 5 }),
+      "standard",
+    ).days.find((d) => d.daysToWeighIn === 3)!;
+    // 0.5 * 100 = 50 → capped to 49g (strictly under 50)
+    expect(t3.carbsGrams).toBe(49);
   });
 
   it("1 day to weigh-in → produces 2 days (T-1 and Weigh-in)", () => {

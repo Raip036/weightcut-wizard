@@ -291,8 +291,6 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
     cfg,
   );
   const recoveryHasSignal = (inputs.healthSignals ?? null) !== null && recovery.confidence > 0;
-  const wellnessWeight = recoveryHasSignal ? 0 : weights.wellness;
-  const recoveryWeight = recoveryHasSignal ? weights.wellness : 0;
 
   // Build a windowed pillar: read it at its last-log date, gate presence on
   // cold-start AND staleness horizon, then ease the value toward neutral by
@@ -320,11 +318,33 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
     };
   };
 
+  // Wellness pillar: build at the full phase weight first. `buildWindowedPillar`
+  // zeroes the weight internally when there's no usable check-in (cold start /
+  // stale), so a non-zero weight here means the survey actually has data.
+  const wellnessPillar = buildWindowedPillar("wellness", weights.wellness);
+  const wellnessHasData = wellnessPillar.weight > 0;
+
+  // Blend policy: the self-reported survey ALWAYS contributes once it's been
+  // logged. When HealthKit recovery signals are also present, split the wellness
+  // slot 50/50 between the survey and the device-measured recovery — both move
+  // the ring without inflating the recovery dimension's total weight. If only
+  // one side has data, it takes the whole slot.
+  let wellnessWeight = wellnessPillar.weight;
+  let recoveryWeight = 0;
+  if (recoveryHasSignal) {
+    if (wellnessHasData) {
+      wellnessWeight = weights.wellness * 0.5;
+      recoveryWeight = weights.wellness * 0.5;
+    } else {
+      recoveryWeight = weights.wellness;
+    }
+  }
+
   const subScores: FightFormScore["subScores"] = {
     trainingLoad: buildWindowedPillar("trainingLoad", weights.trainingLoad),
     sleep: buildWindowedPillar("sleep", weights.sleep),
     weightCut: buildWindowedPillar("weightCut", weights.weightCut),
-    wellness: buildWindowedPillar("wellness", wellnessWeight),
+    wellness: { ...wellnessPillar, weight: wellnessWeight },
     nutritionAdherence: buildWindowedPillar("nutritionAdherence", weights.nutritionAdherence),
     recovery: {
       value: recovery.value,
@@ -350,9 +370,15 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
       completeness: subScores[k].completeness ?? 0,
     })),
   );
-  const activePillars = present.length;
-  // Pillars eligible this phase (recovery takes the wellness slot 1:1, so the
-  // count is invariant whether or not HealthKit signals are present).
+  // When the survey + HealthKit recovery are blended, both occupy the single
+  // "recovery dimension" slot — collapse them to one for the X-of-Y signal
+  // count so a blended day reads as N/5, not (N+1)/5.
+  const blendDouble =
+    subScores.wellness.weight > 0 && subScores.recovery.weight > 0 ? 1 : 0;
+  const activePillars = present.length - blendDouble;
+  // Pillars eligible this phase. Recovery shares the wellness slot (it has no
+  // standalone phase weight), so the eligible count is invariant whether or not
+  // HealthKit signals are present.
   const phaseKeys = (Object.keys(weights) as SubScoreKey[]).filter((k) => weights[k] > 0);
   const totalPillars = phaseKeys.length;
   const dataAgeDays = (Object.keys(subScores) as SubScoreKey[])
