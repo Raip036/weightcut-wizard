@@ -41,7 +41,6 @@ import { GymProfileSheet } from "@/components/community/GymProfileSheet";
 import { PolaroidStack } from "@/components/community/PolaroidStack";
 import { SessionInfoCard } from "@/components/community/SessionInfoCard";
 import { ActivitySheet } from "@/components/community/ActivitySheet";
-import { WeeklyHighlightCard } from "@/components/community/WeeklyHighlightCard";
 import { CommentsSheet } from "@/components/gym-feed/CommentsSheet";
 import { useFeedEngagement } from "@/hooks/useFeedEngagement";
 import { logger } from "@/lib/logger";
@@ -403,7 +402,6 @@ export default function Community() {
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.24, ease: [0.32, 0.72, 0, 1] }}
                 >
-                  <WeeklyHighlightCard />
                   <CommunityFeedSection
                     posts={effectivePosts}
                     status={status}

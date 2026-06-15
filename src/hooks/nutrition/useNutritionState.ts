@@ -10,7 +10,7 @@ interface PersistedMacroGoals {
   dailyCalorieTarget?: number;
 }
 
-export function useNutritionState() {
+export function useNutritionState(initialDate?: string) {
   const { userId } = useUser();
   const today = format(new Date(), "yyyy-MM-dd");
   // Initialize meals from cache to prevent empty→loaded flicker on navigation.
@@ -25,7 +25,11 @@ export function useNutritionState() {
     return sanitizeMealRows<Meal>(cached);
   });
   const [mealPlanIdeas, setMealPlanIdeas] = useState<Meal[]>([]);
-  const [selectedDate, setSelectedDate] = useState(today);
+  // Seed the initial selected date from the optional deep-link arg (e.g. the
+  // dashboard catch-up sheet's `?date=` param), falling back to today. Lazy
+  // init runs ONCE on mount, so the user can still tap other dates afterward —
+  // we never reactively overwrite their manual date-strip selection.
+  const [selectedDate, setSelectedDate] = useState(() => initialDate ?? today);
   // Seed from last-known-good macro goals cached in localStorage so the ring
   // always has a non-zero target on cold-start and survives mid-session state
   // resets (e.g. a profile refetch returning briefly empty).

@@ -807,12 +807,12 @@ export const scheduleDailyRecomputeAcrossUsers = internalAction({
 // later schedule has pushed the fire time further out, leaving exactly
 // one recompute per coalescing window.
 
-const DEFAULT_RECOMPUTE_DELAY_MS = 5_000;
+const DEFAULT_RECOMPUTE_DELAY_MS = 1_200;
 
 /**
  * Idempotent coalescer entry point. Called from every mutation that
  * changes scoring-relevant data; collapses bursts of writes onto a single
- * recompute. `delayMs` defaults to 5s — pass 10s from the Apple Health
+ * recompute. `delayMs` defaults to 1.2s — pass 10s from the Apple Health
  * roll-up chain to give the rollup itself time to settle.
  */
 export const scheduleRecompute = internalMutation({

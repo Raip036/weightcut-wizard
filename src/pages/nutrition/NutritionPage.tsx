@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { nutritionLogSchema } from "@/lib/validation";
+import { readDateParam } from "@/lib/dateParam";
 import { useUser } from "@/contexts/UserContext";
 import { logger } from "@/lib/logger";
 import { useAITask } from "@/contexts/AITaskContext";
@@ -49,7 +50,12 @@ export default function NutritionPage() {
   const { userId } = useUser();
 
   // ── Shared state ──
-  const state = useNutritionState();
+  // Deep-link support: the dashboard catch-up sheet links here with
+  // `?date=YYYY-MM-DD` to open Nutrition on a past day. Parse + validate via
+  // the shared helper and seed it as the INITIAL selected date only (the hook
+  // uses a lazy `useState` initializer, so manual date-strip taps still win).
+  const initialDate = useMemo(() => readDateParam(searchParams), [searchParams]);
+  const state = useNutritionState(initialDate);
   const {
     meals, setMeals, mealPlanIdeas, setMealPlanIdeas,
     selectedDate, setSelectedDate,

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { computeWeightCut } from "../subScores/weightCut";
+import { resolvePlanWeek } from "../planWeek";
 import { ScoringConfigV1 } from "../config/v1";
 
 const cfg = ScoringConfigV1;
@@ -164,6 +165,42 @@ describe("computeWeightCut (weekly-plan adherence)", () => {
         w7Date, cfg,
       );
       expect(r.value).toBe(100);
+    });
+
+    it("anchors the week on fightDate (not campStartDate) so the target matches the Camp Status widget", () => {
+      // Regression for the cross-app non-uniformity bug: the score used to
+      // anchor the week index on the earliest weight-log date (campStartDate),
+      // while the dashboard Camp Status widget anchors on fightDate −
+      // totalWeeks×7. Here the user logged their first weight LATE (mid-camp),
+      // so the two anchors diverge:
+      //   fight-date anchor  → planStart 2026-04-24, asOf +14d → week 3 (76.0)
+      //   campStart anchor   → campStart 2026-05-08, asOf +0d  → week 1 (79.0)
+      // The score must use the fight-date anchor (76.0), matching the widget.
+      const lateCampStart = "2026-05-08"; // first logged weight = asOf
+      const r = computeWeightCut(
+        {
+          ...baseEnv,
+          campStartDate: lateCampStart,
+          weights: [{ date: asOf, weightKg: 76.0 }],
+        },
+        asOf, cfg,
+      );
+      // 76.0 is exactly week 3's target → on-target (100). Were it still using
+      // the campStart anchor it would grade against week 1 (79.0): delta -3 → 0.
+      expect(r.value).toBe(100);
+      expect(r.meta?.targetKg).toBe(76.0);
+      expect(r.meta?.weekNumber).toBe(3);
+
+      // ...and it equals what the widget's shared resolver returns for the
+      // same inputs — one source of truth.
+      const widget = resolvePlanWeek({
+        asOfDate: asOf,
+        fightDate: baseEnv.fightDate,
+        weeklyPlan: plan.weeklyPlan,
+        totalWeeks: plan.totalWeeks,
+      });
+      expect(widget?.targetWeight).toBe(r.meta?.targetKg);
+      expect(widget?.week).toBe(r.meta?.weekNumber);
     });
 
     it("falls back to linear interp from start→goal when plan is missing", () => {

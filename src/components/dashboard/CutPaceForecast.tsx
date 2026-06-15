@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@/components/ui/Icon";
 import { triggerHapticSelection } from "@/lib/haptics";
+import { planStartIso, isoShift, resolveTotalWeeks } from "@/scoring/planWeek";
 import { DeltaPill } from "./DeltaPill";
 
 interface WeightLog {
@@ -105,11 +106,6 @@ function loadPlan(): PlanData | null {
   } catch {
     return null;
   }
-}
-
-function isoDateNDaysFrom(base: Date, days: number): string {
-  const d = new Date(base.getTime() + days * MS_PER_DAY);
-  return d.toISOString().slice(0, 10);
 }
 
 // 'Sun May 31' — UTC-anchored so the weekday matches the plan-week boundary.
@@ -238,8 +234,9 @@ export function CutPaceForecast({
     const fightDate = new Date(fightDateIso + "T00:00:00");
     if (Number.isNaN(fightDate.getTime())) return null;
 
-    const totalWeeks = plan.totalWeeks ?? plan.weeklyPlan.length;
-    const planStart = new Date(fightDate.getTime() - totalWeeks * 7 * MS_PER_DAY);
+    const totalWeeks = resolveTotalWeeks(plan.weeklyPlan, plan.totalWeeks);
+    if (totalWeeks <= 0) return null;
+    const planStartIsoStr = planStartIso(fightDateIso, totalWeeks);
 
     // "Before dehydration" target = last non-fight-week row.
     const nonDehydrationWeeks = plan.weeklyPlan.filter((w) => w.phase !== "fight_week");
@@ -254,8 +251,8 @@ export function CutPaceForecast({
       .sort((a, b) => a.date.localeCompare(b.date));
 
     const checkpoints: Checkpoint[] = plan.weeklyPlan.map((row) => {
-      const weekStartIso = isoDateNDaysFrom(planStart, (row.week - 1) * 7);
-      const weekEndIso = isoDateNDaysFrom(planStart, row.week * 7 - 1);
+      const weekStartIso = isoShift(planStartIsoStr, (row.week - 1) * 7);
+      const weekEndIso = isoShift(planStartIsoStr, row.week * 7 - 1);
 
       // End-of-week weight: latest log in the week's window.
       const inWindow = logsAsc.filter((l) => l.date >= weekStartIso && l.date <= weekEndIso);
