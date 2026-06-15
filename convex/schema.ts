@@ -283,6 +283,25 @@ export default defineSchema({
     mealId: v.id("meals"),
   }).index("by_user_key", ["userId", "key"]),
 
+  food_recents: defineTable({
+    userId: v.id("users"),
+    foodId: v.optional(v.id("foods")), // catalog FK when known; stored opportunistically
+    name: v.string(),
+    brand: v.optional(v.string()),
+    caloriesPer100g: v.number(),
+    proteinPer100g: v.number(),
+    carbsPer100g: v.number(),
+    fatsPer100g: v.number(),
+    servingSize: v.optional(v.string()),
+    servingGrams: v.optional(v.number()),
+    lastPortionGrams: v.optional(v.number()),
+    kind: v.string(), // "logged" | "searched"
+    logCount: v.number(),
+    lastUsedAt: v.number(), // epoch ms
+  })
+    .index("by_user_lastUsed", ["userId", "lastUsedAt"])
+    .index("by_user_name", ["userId", "name"]),
+
   meal_plans: defineTable({
     userId: v.id("users"),
     planName: v.string(),
