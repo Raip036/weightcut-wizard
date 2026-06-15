@@ -875,6 +875,7 @@ export default function Onboarding() {
                 heightCm: parseFloat(formData.height_cm),
                 activityLevel,
                 weighInTiming: formData.weigh_in_timing || "day_before",
+                gate: "onboarding",
               });
             } catch (planError) {
               logger.warn("Cut plan generation failed", { error: planError });
@@ -919,6 +920,7 @@ export default function Onboarding() {
                 heightCm: parseFloat(formData.height_cm),
                 activityLevel,
                 goalType: formData.goal_type,
+                gate: "onboarding",
               });
             } catch (planError) {
               logger.warn("Weight plan generation failed", { error: planError });

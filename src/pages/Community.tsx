@@ -48,6 +48,7 @@ import { useTutorial } from "@/tutorial/useTutorial";
 import { AnnouncementsSection } from "@/components/coach/AnnouncementsSection";
 import { LeaderboardSection } from "@/components/leaderboard/LeaderboardSection";
 import { GymLogoAvatar } from "@/components/coach/GymLogoAvatar";
+import { StaggerContainer, StaggerItem } from "@/components/community/communityStagger";
 import {
   Sheet,
   SheetContent,
@@ -130,6 +131,19 @@ export default function Community() {
     () => posts.filter((p) => !dismissedIds.has(p.id as string)),
     [posts, dismissedIds],
   );
+
+  // ── Orchestrated entrance gate ──────────────────────────────────────
+  // "Core ready" = gyms resolved AND (no gym, or the feed's first page has
+  // resolved — empty or not). Hold one soft loader until then, then cascade
+  // every section in together so nothing pops in piecemeal.
+  const coreReady = !gymsLoading && (!gymId || status !== "LoadingFirstPage");
+  // Sticky: once revealed we never drop back to the full-page loader. A later
+  // gym-switch reload is handled locally by the feed's inner AnimatePresence,
+  // so switching gyms does NOT re-trigger the whole-page cascade.
+  const [revealed, setRevealed] = useState(false);
+  useEffect(() => {
+    if (coreReady) setRevealed(true);
+  }, [coreReady]);
 
   // Stack state — only motion primitives are used; topIndex/advance
   // from the hook are intentionally ignored since dismissedIds drives
@@ -270,168 +284,191 @@ export default function Community() {
        Fragment wraps motion.div + the sheets so we keep them as
        siblings without re-adding an outer div. */
     <>
-    <motion.div
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
-      className="min-h-screen w-full bg-background text-foreground"
-    >
-      {/* Page header */}
-      <header className="px-5 py-3 sm:p-5 md:p-6 pb-2">
-        <p className="text-micro uppercase tracking-[0.15em] text-muted-foreground/70 font-bold">Your</p>
-        <h1 className="text-title font-semibold leading-tight">Community</h1>
-      </header>
-
-        {/* Announcements — coach broadcasts + fight offers across every
-            gym the user belongs to. Scoped here (not to the active gym)
-            because announcements are user-level: a fight offer from any
-            coach should always surface. Renders nothing when empty. */}
-        {gyms.length > 0 && (
-          <div className="px-5 pb-2">
-            <AnnouncementsSection gymIds={gyms.map((g) => g.gym_id)} />
-          </div>
-        )}
-
-        {primaryGym && (
-          <>
-            <GymHeader
-              gymId={primaryGym.gym_id as Id<"gyms">}
-              gymName={primaryGym.gym_name}
-              logoUrl={primaryGym.gym_logo_url}
-              memberCount={null}
-              onInviteClick={() => navigate("/my-gym")}
-              onActivityClick={() => setActivityOpen(true)}
-              onProfileOpen={() => setProfileSheetOpen(true)}
+    <div className="min-h-screen w-full bg-background text-foreground">
+      <AnimatePresence mode="wait" initial={false}>
+        {!revealed ? (
+          <motion.div
+            key="community-loader"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, transition: { duration: 0.12 } }}
+            transition={{ duration: 0.18 }}
+            className="min-h-[60vh] flex items-center justify-center"
+          >
+            <div
+              className="h-7 w-7 rounded-full border-2 border-muted-foreground/20 border-t-primary animate-spin"
+              aria-label="Loading community"
             />
-            {/* Switcher affordance — shown only when the user belongs to
-                multiple gyms. Sits as a discreet pill under the header so
-                the header tap still opens the gym profile sheet (with
-                share-data + leave-gym surfaces), and the pill provides a
-                separate path to swap between gyms. */}
-            {isMultiGym && (
-              <button
-                type="button"
-                onClick={() => setSwitcherOpen(true)}
-                className="mx-5 mb-2 inline-flex items-center gap-1 rounded-full bg-muted/40 border border-border/40 px-2.5 py-1 text-[11px] font-medium text-muted-foreground active:scale-[0.98] transition-transform"
-                aria-label="Switch gym"
-              >
-                Switch gym
-                <ChevronDown className="h-3 w-3" />
-              </button>
+          </motion.div>
+        ) : (
+          <StaggerContainer key="community-content">
+            {/* Page header */}
+            <StaggerItem>
+              <header className="px-5 py-3 sm:p-5 md:p-6 pb-2">
+                <p className="text-micro uppercase tracking-[0.15em] text-muted-foreground/70 font-bold">Your</p>
+                <h1 className="text-title font-semibold leading-tight">Community</h1>
+              </header>
+            </StaggerItem>
+
+            {/* Announcements — coach broadcasts + fight offers across every
+                gym the user belongs to. Scoped here (not to the active gym)
+                because announcements are user-level: a fight offer from any
+                coach should always surface. Renders nothing when empty. */}
+            {gyms.length > 0 && (
+              <StaggerItem className="px-5 pb-2">
+                <AnnouncementsSection gymIds={gyms.map((g) => g.gym_id)} />
+              </StaggerItem>
             )}
-          </>
-        )}
 
-        {/* Content area — branches on member-count threshold + load state.
-            Wrapped in AnimatePresence so the swap between the feed and
-            the "all caught up" empty state cross-fades smoothly when the
-            user swipes the last polaroid (or when posts refill).
+            {/* Gym header + multi-gym switch pill */}
+            {primaryGym && (
+              <StaggerItem>
+                <GymHeader
+                  gymId={primaryGym.gym_id as Id<"gyms">}
+                  gymName={primaryGym.gym_name}
+                  logoUrl={primaryGym.gym_logo_url}
+                  memberCount={null}
+                  onInviteClick={() => navigate("/my-gym")}
+                  onActivityClick={() => setActivityOpen(true)}
+                  onProfileOpen={() => setProfileSheetOpen(true)}
+                />
+                {/* Switcher affordance — shown only when the user belongs to
+                    multiple gyms. Sits as a discreet pill under the header so
+                    the header tap still opens the gym profile sheet (with
+                    share-data + leave-gym surfaces), and the pill provides a
+                    separate path to swap between gyms. */}
+                {isMultiGym && (
+                  <button
+                    type="button"
+                    onClick={() => setSwitcherOpen(true)}
+                    className="mx-5 mb-2 inline-flex items-center gap-1 rounded-full bg-muted/40 border border-border/40 px-2.5 py-1 text-[11px] font-medium text-muted-foreground active:scale-[0.98] transition-transform"
+                    aria-label="Switch gym"
+                  >
+                    Switch gym
+                    <ChevronDown className="h-3 w-3" />
+                  </button>
+                )}
+              </StaggerItem>
+            )}
 
-            mode="popLayout" (not "wait") so the outgoing feed and incoming
-            empty state animate CONCURRENTLY — a true cross-fade. "wait" held
-            the new state out until the old one finished its exit, leaving a
-            ~240ms dead gap that read as a flash right before "all caught up". */}
-        <main className="px-5 pb-20 md:pb-8 pt-2">
-          <AnimatePresence mode="popLayout" initial={false}>
-            {(() => {
-              const branch =
-                !primaryGym && !gymsLoading
-                  ? "empty"
-                  : !gymId || gymsLoading
-                    ? "loading"
-                    : status === "LoadingFirstPage"
-                      ? "loading"
-                      : posts.length === 0
+            {/* Content area — branches on member-count threshold + load state.
+                Wrapped in AnimatePresence so the swap between the feed and
+                the "all caught up" empty state cross-fades smoothly when the
+                user swipes the last polaroid (or when posts refill).
+
+                mode="popLayout" (not "wait") so the outgoing feed and incoming
+                empty state animate CONCURRENTLY — a true cross-fade. "wait" held
+                the new state out until the old one finished its exit, leaving a
+                ~240ms dead gap that read as a flash right before "all caught up". */}
+            <StaggerItem>
+              <main className={`px-5 pt-2 ${gymId ? "" : "pb-20 md:pb-8"}`}>
+                <AnimatePresence mode="popLayout" initial={false}>
+                  {(() => {
+                    const branch =
+                      !primaryGym && !gymsLoading
                         ? "empty"
-                        : effectivePosts.length === 0
-                          ? "empty"
-                          : "feed";
+                        : !gymId || gymsLoading
+                          ? "loading"
+                          : status === "LoadingFirstPage"
+                            ? "loading"
+                            : posts.length === 0
+                              ? "empty"
+                              : effectivePosts.length === 0
+                                ? "empty"
+                                : "feed";
 
-              if (branch === "loading") {
-                // Neutral loader instead of the polaroid-shaped skeleton —
-                // when the feed resolves empty, the user previously saw a
-                // polaroid flash before the EmptyFeed appeared. A soft,
-                // non-card-shaped loader avoids implying a card will land
-                // there and matches the smooth-load feel of the rest of
-                // the app.
-                return (
-                  <motion.div
-                    key="loading"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    // Near-instant exit so `mode="wait"` hands off to the feed
-                    // the moment posts arrive — otherwise the spinner's fade-out
-                    // inserts a ~180ms dead gap before the polaroid drop-in can
-                    // even mount. The enter fade stays soft via `transition`.
-                    exit={{ opacity: 0, transition: { duration: 0.05 } }}
-                    transition={{ duration: 0.18 }}
-                    className="mt-10 flex items-center justify-center min-h-[280px]"
-                  >
-                    <div className="h-7 w-7 rounded-full border-2 border-muted-foreground/20 border-t-primary animate-spin" aria-label="Loading feed" />
-                  </motion.div>
-                );
-              }
+                    if (branch === "loading") {
+                      // Neutral loader instead of the polaroid-shaped skeleton —
+                      // when the feed resolves empty, the user previously saw a
+                      // polaroid flash before the EmptyFeed appeared. A soft,
+                      // non-card-shaped loader avoids implying a card will land
+                      // there and matches the smooth-load feel of the rest of
+                      // the app.
+                      return (
+                        <motion.div
+                          key="loading"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          // Near-instant exit so `mode="wait"` hands off to the feed
+                          // the moment posts arrive — otherwise the spinner's fade-out
+                          // inserts a ~180ms dead gap before the polaroid drop-in can
+                          // even mount. The enter fade stays soft via `transition`.
+                          exit={{ opacity: 0, transition: { duration: 0.05 } }}
+                          transition={{ duration: 0.18 }}
+                          className="mt-10 flex items-center justify-center min-h-[280px]"
+                        >
+                          <div className="h-7 w-7 rounded-full border-2 border-muted-foreground/20 border-t-primary animate-spin" aria-label="Loading feed" />
+                        </motion.div>
+                      );
+                    }
 
-              if (branch === "empty") {
-                return (
-                  <motion.div
-                    key="empty"
-                    // Pure in-place opacity cross-fade (no y-slide) so the
-                    // "all caught up" state fades in exactly where the deck
-                    // was, concurrently with the feed fading out — no jump.
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
-                  >
-                    <EmptyFeed
-                      onLogSessionClick={() => navigate("/training-calendar")}
-                    />
-                  </motion.div>
-                );
-              }
+                    if (branch === "empty") {
+                      return (
+                        <motion.div
+                          key="empty"
+                          // Pure in-place opacity cross-fade (no y-slide) so the
+                          // "all caught up" state fades in exactly where the deck
+                          // was, concurrently with the feed fading out — no jump.
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
+                        >
+                          <EmptyFeed
+                            onLogSessionClick={() => navigate("/training-calendar")}
+                          />
+                        </motion.div>
+                      );
+                    }
 
-              return (
-                <motion.div
-                  key="feed"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  // Opacity-only exit (was scale: 0.98). The zoom-out read as
-                  // a flash/refresh as the last card cleared; a flat fade
-                  // cross-fades cleanly into the empty state.
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.24, ease: [0.32, 0.72, 0, 1] }}
-                >
-                  <CommunityFeedSection
-                    posts={effectivePosts}
-                    status={status}
-                    loadMore={loadMore}
-                    topIndex={0}
-                    advance={handleAdvance}
-                    onOpenProfile={handleOpenProfile}
-                    onOpenComments={openComments}
-                    onPostSwiped={handlePostSwiped}
-                    onPostClick={handlePostClick}
-                    seenCount={dismissedIds.size}
-                    totalCount={posts.length}
-                  />
-                </motion.div>
-              );
-            })()}
-          </AnimatePresence>
+                    return (
+                      <motion.div
+                        key="feed"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        // Opacity-only exit (was scale: 0.98). The zoom-out read as
+                        // a flash/refresh as the last card cleared; a flat fade
+                        // cross-fades cleanly into the empty state.
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.24, ease: [0.32, 0.72, 0, 1] }}
+                      >
+                        <CommunityFeedSection
+                          posts={effectivePosts}
+                          status={status}
+                          loadMore={loadMore}
+                          topIndex={0}
+                          advance={handleAdvance}
+                          onOpenProfile={handleOpenProfile}
+                          onOpenComments={openComments}
+                          onPostSwiped={handlePostSwiped}
+                          onPostClick={handlePostClick}
+                          seenCount={dismissedIds.size}
+                          totalCount={posts.length}
+                        />
+                      </motion.div>
+                    );
+                  })()}
+                </AnimatePresence>
+              </main>
+            </StaggerItem>
 
-          {/* Inline weekly leaderboard for the active gym. Sits below
-              the feed deck so the user still gets a podium / ranked-list
-              snapshot without having to navigate over to MyGym. Mounted
-              only once gymId is resolved so we don't fire an empty query
-              during the first paint. */}
-          {gymId && (
-            <section className="mt-8" data-tutorial="community-leaderboard">
-              <LeaderboardSection gymId={gymId} viewer="athlete" />
-            </section>
-          )}
-        </main>
-      </motion.div>
+            {/* Inline weekly leaderboard for the active gym. Sits below
+                the feed deck so the user still gets a podium / ranked-list
+                snapshot without having to navigate over to MyGym. Mounted
+                only once gymId is resolved so we don't fire an empty query
+                during the first paint. Carries the bottom-nav clearance
+                (pb-20) since it's now the last cascade step below main. */}
+            {gymId && (
+              <StaggerItem className="px-5 pb-20 md:pb-8">
+                <section className="mt-8" data-tutorial="community-leaderboard">
+                  <LeaderboardSection gymId={gymId} viewer="athlete" />
+                </section>
+              </StaggerItem>
+            )}
+          </StaggerContainer>
+        )}
+      </AnimatePresence>
+    </div>
 
       {/* Activity sheet — opens from the bell in the header. */}
       <ActivitySheet

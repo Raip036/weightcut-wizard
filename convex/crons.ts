@@ -88,4 +88,21 @@ crons.weekly(
   internal.actions.recovery.campCompass.runWeeklyForAllProUsers,
 );
 
+// ──────────────────────────────────────────────────────────────────────
+// Subscription reconciliation — daily 03:00 UTC safety net (fix F6).
+//
+// Re-verifies, against the RevenueCat REST API, the subscriptions of users
+// whose stored `subscriptionExpiresAt` sits near the boundary (expired ≤2d
+// ago, or expiring ≤1d ahead). Catches MISSED `RENEWAL` webhooks so a paying
+// user self-heals without reopening the app, and confirms genuine
+// expirations. Idempotent — `activatePremiumVerified`'s stale-expiry guard
+// makes a re-run a no-op when nothing changed. Runs at 03:00 UTC, a low-
+// traffic hour not already used by the 00:00 / 04:00 / 04:30 jobs above.
+// ──────────────────────────────────────────────────────────────────────
+crons.cron(
+  "reconcile-subscriptions-daily",
+  "0 3 * * *",
+  internal.actions.reconcileSubscriptions.runDaily,
+);
+
 export default crons;

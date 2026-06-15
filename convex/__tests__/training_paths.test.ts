@@ -23,7 +23,14 @@ async function seedUser(
       activityLevel: "moderate",
       goalType: "weight_loss",
       role: "fighter",
-      subscriptionTier: tier,
+      // Store a real stored tier + future expiry for Pro (the materialized
+      // shape RevenueCat writes). A bare "pro" with no expiry is no longer a
+      // valid Pro state — effectiveTier requires a finite future expiry for
+      // any non-lifetime tier (bounded-expiry invariant, F1).
+      subscriptionTier: tier === "pro" ? "premium_annual" : "free",
+      ...(tier === "pro"
+        ? { subscriptionExpiresAt: Date.now() + 365 * 24 * 60 * 60 * 1000 }
+        : {}),
     } as any);
     return userId;
   });

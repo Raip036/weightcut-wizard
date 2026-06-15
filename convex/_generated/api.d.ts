@@ -65,6 +65,7 @@ import type * as actions_hydrationInsights from "../actions/hydrationInsights.js
 import type * as actions_lookupIngredient from "../actions/lookupIngredient.js";
 import type * as actions_mealPlanner from "../actions/mealPlanner.js";
 import type * as actions_reconcileAiOutcomes from "../actions/reconcileAiOutcomes.js";
+import type * as actions_reconcileSubscriptions from "../actions/reconcileSubscriptions.js";
 import type * as actions_recovery_campCompass from "../actions/recovery/campCompass.js";
 import type * as actions_recovery_preSessionBrief from "../actions/recovery/preSessionBrief.js";
 import type * as actions_recoveryCoach from "../actions/recoveryCoach.js";
@@ -216,6 +217,7 @@ declare const fullApi: ApiFromModules<{
   "actions/lookupIngredient": typeof actions_lookupIngredient;
   "actions/mealPlanner": typeof actions_mealPlanner;
   "actions/reconcileAiOutcomes": typeof actions_reconcileAiOutcomes;
+  "actions/reconcileSubscriptions": typeof actions_reconcileSubscriptions;
   "actions/recovery/campCompass": typeof actions_recovery_campCompass;
   "actions/recovery/preSessionBrief": typeof actions_recovery_preSessionBrief;
   "actions/recoveryCoach": typeof actions_recoveryCoach;

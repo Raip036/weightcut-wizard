@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "motion/react";
 import { Sparkles, Loader2 } from "lucide-react";
-import { useAction, useMutation } from "convex/react";
+import { useMutation } from "convex/react";
+import { useAIAction } from "@/hooks/useAIAction";
 import { api } from "@/../convex/_generated/api";
 import type { Id } from "@/../convex/_generated/dataModel";
 import { useUser } from "@/contexts/UserContext";
@@ -87,9 +88,17 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
   const createCampMut = useMutation(api.fight_camp.createCampFromOnboarding);
   // After the camp is created we also (a) generate a fresh cut plan from the
   // wizard data, (b) persist it on the profile, and (c) cache it locally so
-  // the iOS WebView's occasional storage wipe doesn't lose it. Identical
-  // pattern to the first-time onboarding flow so the two flows stay aligned.
-  const generateCutPlanAction = useAction(api.actions.generateCutPlan.run);
+  // the iOS WebView's occasional storage wipe doesn't lose it.
+  //
+  // Unlike first-time onboarding (which is FREE), regenerating a plan for the
+  // NEXT camp is a Pro feature — gated under AI_CUT_PLAN. `useAIAction` opens
+  // the paywall upfront for free users (and recovers stale-profile pro users),
+  // and the call below passes `gate: "regenerate"` so the server enforces the
+  // Pro key rather than the free onboarding key.
+  const generateCutPlanAction = useAIAction(
+    api.actions.generateCutPlan.run,
+    "AI_CUT_PLAN",
+  );
   const updateGoalsMut = useMutation(api.profiles.updateGoals);
 
   // Only show the wrap-up stage when there's an actually-incomplete camp.
@@ -328,6 +337,7 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
           heightCm,
           activityLevel,
           weighInTiming: wizardData.weighInTiming || undefined,
+          gate: "regenerate",
         });
       } catch (planError) {
         logger.warn("Cut plan generation failed in NextCampFlow", { error: planError });

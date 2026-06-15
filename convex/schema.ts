@@ -160,19 +160,30 @@ export default defineSchema({
     .index("by_revenuecat_customer", ["revenuecatCustomerId"]),
 
   /**
-   * RevenueCat webhook event ledger. Used purely for idempotency — we drop
-   * any inbound event whose `eventId` we've already processed so the same
-   * `INITIAL_PURCHASE` replay can't double-grant premium. The row records
-   * the outcome so support can audit a missed/duplicate event without
-   * trawling Convex logs.
+   * RevenueCat webhook event ledger. Two jobs:
+   *  1. Idempotency — we drop any inbound event whose `eventId` we've already
+   *     processed so the same `INITIAL_PURCHASE` replay can't double-grant
+   *     premium (`by_event`).
+   *  2. Ordering — `eventTimestampMs` (RevenueCat's `event_timestamp_ms`)
+   *     records when the event actually happened. Combined with the
+   *     `by_user` index we can find the newest event we've processed for a
+   *     user and ignore any strictly-older replay (e.g. a late CANCELLATION
+   *     arriving after a newer RENEWAL).
+   * The row also records the outcome so support can audit a
+   * missed/duplicate event without trawling Convex logs.
    */
   revenuecat_webhook_events: defineTable({
     eventId: v.string(),
     eventType: v.string(),
     appUserId: v.string(),
+    /** RevenueCat `event_timestamp_ms` — when the event occurred. Optional
+     *  for legacy/back-compat rows that predate ordering support. */
+    eventTimestampMs: v.optional(v.number()),
     receivedAt: v.number(),
-    outcome: v.string(), // "applied" | "stale-expiry" | "profile-not-found" | "unknown-event" | "duplicate"
-  }).index("by_event", ["eventId"]),
+    outcome: v.string(), // "applied" | "stale-expiry" | "profile-not-found" | "unknown-event" | "duplicate" | "out-of-order"
+  })
+    .index("by_event", ["eventId"])
+    .index("by_user", ["appUserId"]),
 
   // ────────────────────────────────────────────────────────────────────
   // DAILY LOGS

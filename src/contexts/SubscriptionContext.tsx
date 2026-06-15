@@ -130,6 +130,45 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const profileRef = useRef(profile);
   useEffect(() => { profileRef.current = profile; }, [profile]);
 
+  // Guards for the server-verified reconcile path (cold-start + resume).
+  //  - `verifyInFlightRef`: skip overlapping verifies.
+  //  - `lastVerifyAtRef`: throttle to at most once per RECONCILE_THROTTLE_MS.
+  const verifyInFlightRef = useRef(false);
+  const lastVerifyAtRef = useRef(0);
+
+  // Shared server-verified reconcile. Reads RC `customerInfo`; if it looks
+  // premium, runs the server-verified `activatePremium` action (the SOLE
+  // legitimate client-initiated write path) then refreshes the profile.
+  // Otherwise just refreshes. Throttled + in-flight guarded so reopen storms
+  // / rapid visibility flips don't spam RC or the action. Native-only.
+  const RECONCILE_THROTTLE_MS = 30_000;
+  const reconcileEntitlement = useCallback(async (force = false) => {
+    if (!Capacitor.isNativePlatform()) return;
+    if (verifyInFlightRef.current) return;
+    if (!force && Date.now() - lastVerifyAtRef.current < RECONCILE_THROTTLE_MS) return;
+    verifyInFlightRef.current = true;
+    lastVerifyAtRef.current = Date.now();
+    try {
+      const info = await getCustomerInfo();
+      if (info && isPremiumFromCustomerInfo(info)) {
+        try {
+          await activatePremium({});
+          await refreshProfile();
+        } catch (err) {
+          logger.info("Reconcile: activatePremium did not confirm entitlement", {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      } else {
+        // RC says not premium (or unavailable). Nothing to grant locally —
+        // the reactive profile query is the source of truth.
+        await refreshProfile();
+      }
+    } finally {
+      verifyInFlightRef.current = false;
+    }
+  }, [activatePremium, refreshProfile]);
+
   // Tier + expiry derive PURELY from the reactive Convex profile query.
   // No client override, no localStorage hydration, no optimistic flip.
   // The only writers to `profile.subscription_tier` are the server-verified
@@ -139,22 +178,29 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const expiresAt = profile?.subscription_expires_at
     ? new Date(profile.subscription_expires_at)
     : null;
-  const subscriptionPremium =
-    rawTier !== "free" && (expiresAt === null || expiresAt > new Date());
 
-  // Trial: schema-ready, UX not yet shipped. `trial_ends_at` is currently
-  // undefined for every profile in production; `isInTrial` therefore stays
-  // false. When the trial flow lands, populating that column flips this on
-  // without touching every consumer.
+  // Bounded-expiry rule (mirrors the server `effectiveTier` core invariant):
+  // a non-"free" tier with a null `subscription_expires_at` is treated as
+  // premium ONLY when it's the lifetime tier. Any other non-free tier requires
+  // a finite, future expiry. The server is authoritative — this just keeps the
+  // client from rendering Pro for an unbounded non-lifetime tier.
+  const isLifetimeTier = rawTier === "premium_lifetime";
+  const isPremium =
+    rawTier !== "free" &&
+    (isLifetimeTier
+      ? expiresAt === null || expiresAt > new Date()
+      : expiresAt !== null && expiresAt > new Date());
+
+  // Effective tier exposed to feature-gate checks.
+  const tier: Tier = isPremium ? "pro" : "free";
+
+  // Trial fields remain exposed as INFORMATIONAL ONLY (analytics / display).
+  // They MUST NOT grant `isPremium` or `tier === "pro"` — the device-clock
+  // `trial_ends_at` is no longer a source of truth for entitlement (see F4).
+  // Pro derives solely from the server-written tier + expiry above.
   const trialEndsAtMs = parseTrialEndsAt((profile as ProfileSubscriptionShape)?.trial_ends_at);
   const trialEndsAt = trialEndsAtMs !== null ? new Date(trialEndsAtMs) : null;
   const isInTrial = trialEndsAtMs !== null && trialEndsAtMs > Date.now();
-
-  // A user counts as premium if they have an active subscription OR are in trial.
-  const isPremium = subscriptionPremium || isInTrial;
-
-  // Effective tier exposed to feature-gate checks. Trial users get "pro".
-  const tier: Tier = isPremium ? "pro" : "free";
 
   const wasPremiumRef = useRef(isPremium);
 
@@ -228,22 +274,9 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       // client-initiated write path. If the user is genuinely premium on RC
       // but Convex hasn't seen the webhook yet, this catches them up in one
       // round-trip. If RC says not-entitled, the action throws and we do
-      // nothing — no local state flip.
-      const info = await getCustomerInfo();
-      if (info && isPremiumFromCustomerInfo(info)) {
-        try {
-          await activatePremium({});
-          await refreshProfile();
-        } catch (err) {
-          logger.info("Startup: activatePremium did not confirm entitlement", {
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
-      } else if (info) {
-        // RC says not premium. Nothing to clear locally — the reactive
-        // profile query is the source of truth and updates on its own.
-        await refreshProfile();
-      }
+      // nothing — no local state flip. `force` bypasses the resume throttle so
+      // cold-start always runs once.
+      await reconcileEntitlement(true);
     };
 
     let cancelled = false;
@@ -258,19 +291,28 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       removeListener?.();
     };
-  }, [userId, refreshProfile, activatePremium]);
+  }, [userId, refreshProfile, reconcileEntitlement]);
 
-  // On app resume: nudge the reactive profile query so the UI catches any
-  // webhook-driven tier change that arrived while the app was backgrounded.
-  // Critically — we do NOT call `getCustomerInfo()` here to grant premium.
+  // On app resume (visibility → visible): re-run the SAME server-verified
+  // reconcile used at cold start. This lets a paying user whose RENEWAL
+  // webhook was missed self-heal on reopen — `reconcileEntitlement` reads RC
+  // `customerInfo` and, only if it looks premium, calls the server-verified
+  // `activatePremium` action (which hits the RC REST API) before refreshing
+  // the profile. It NEVER grants premium client-side, and is throttled +
+  // in-flight guarded so rapid foreground/background flips don't spam RC or
+  // the action. Falls back to a plain `refreshProfile()` when not premium.
   useEffect(() => {
     if (!userId || !Capacitor.isNativePlatform()) return;
     const onVisibility = () => {
-      if (document.visibilityState === "visible") refreshProfile();
+      if (document.visibilityState === "visible") {
+        reconcileEntitlement().catch((err) =>
+          logger.warn("Resume reconcile failed", { error: String(err) }),
+        );
+      }
     };
     document.addEventListener("visibilitychange", onVisibility);
     return () => document.removeEventListener("visibilitychange", onVisibility);
-  }, [userId, refreshProfile]);
+  }, [userId, reconcileEntitlement]);
 
   const openPaywall = useCallback(() => {
     if (isPremium) return;

@@ -3,9 +3,18 @@
  *
  * Only two tiers exist for now:
  *   - "free": default. Cannot invoke pro-gated features.
- *   - "pro":  paid subscription (monthly/annual/lifetime) OR an active free
- *             trial. Trial state is read off the `trialEndsAt` profile
- *             column which is populated when (if) the trial flow ships.
+ *   - "pro":  paid subscription (monthly/annual/lifetime). A free trial is
+ *             represented the same way — as an *active RevenueCat
+ *             entitlement* with a finite future `subscriptionExpiresAt` (the
+ *             trial end). There is no separate device-clock trial source: the
+ *             `trialEndsAt` / `trialStartedAt` columns are analytics-only and
+ *             MUST NOT grant Pro.
+ *
+ * Core invariant: a non-lifetime entitlement MUST always carry a finite,
+ * future expiry. A null/absent expiry grants Pro ONLY for
+ * `premium_lifetime`. Any other non-free tier with a missing or past expiry
+ * resolves to "free" — this is the defensive read guard that stops a
+ * malformed write from granting "Pro forever, free".
  *
  * `effectiveTier(profile)` is the single source of truth. Every code path
  * that needs to know "is this user pro?" funnels through here so adding a
@@ -33,8 +42,14 @@ export type TierProfileShape = Pick<
   trialEndsAt?: number | null;
 };
 
-/** Returns `"pro"` if the user has an active paid subscription OR an active
- *  trial; otherwise `"free"`. */
+/** Returns `"pro"` if the user has an active paid entitlement; otherwise
+ *  `"free"`.
+ *
+ *  Bounded-expiry rule (F1): a null/undefined `subscriptionExpiresAt` grants
+ *  Pro ONLY for `premium_lifetime`. Every other non-free tier requires a
+ *  finite, future expiry (`typeof expiresAt === "number" && expiresAt >
+ *  nowMs`). A trial is just an active non-lifetime entitlement whose expiry
+ *  is the trial end — there is no `trialEndsAt` branch (F4). */
 export function effectiveTier(
   profile: TierProfileShape | null | undefined,
   nowMs: number = Date.now(),
@@ -43,15 +58,21 @@ export function effectiveTier(
 
   const tier = profile.subscriptionTier;
   const expiresAt = profile.subscriptionExpiresAt;
-  const hasPaidEntitlement =
-    typeof tier === "string" &&
-    tier.length > 0 &&
-    tier !== "free" &&
-    (!expiresAt || expiresAt > nowMs);
-  if (hasPaidEntitlement) return "pro";
 
-  const trialEndsAt = profile.trialEndsAt;
-  if (typeof trialEndsAt === "number" && trialEndsAt > nowMs) return "pro";
+  const isNonFreeTier =
+    typeof tier === "string" && tier.length > 0 && tier !== "free";
+  if (!isNonFreeTier) return "free";
+
+  // Lifetime is the only tier permitted to have no expiry.
+  if (tier === "premium_lifetime") {
+    if (expiresAt == null) return "pro";
+    // A lifetime row carrying an expiry is unusual, but honour it: still
+    // Pro while the expiry is in the future.
+    return typeof expiresAt === "number" && expiresAt > nowMs ? "pro" : "free";
+  }
+
+  // All other non-free tiers REQUIRE a finite, future expiry.
+  if (typeof expiresAt === "number" && expiresAt > nowMs) return "pro";
 
   return "free";
 }
