@@ -1200,7 +1200,6 @@ export default function Dashboard() {
                   <Sparkline data={chartData.map((d) => d.weight)} className="h-full w-full" />
                 ) : (
                   <div className="flex flex-col items-center justify-end h-full text-center pb-0.5">
-                    <Icon name="trendingDownOutline" size={20} className="text-muted-foreground/40 mb-1" />
                     <p className="text-note text-muted-foreground">No data yet</p>
                   </div>
                 )}

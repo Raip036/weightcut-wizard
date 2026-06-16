@@ -54,6 +54,7 @@ import type * as actions_dailyWisdom from "../actions/dailyWisdom.js";
 import type * as actions_deleteAccount from "../actions/deleteAccount.js";
 import type * as actions_feelCheckFeedback from "../actions/feelCheckFeedback.js";
 import type * as actions_fightCampCoach from "../actions/fightCampCoach.js";
+import type * as actions_fightFormCoach from "../actions/fightFormCoach.js";
 import type * as actions_fightWeekAnalysis from "../actions/fightWeekAnalysis.js";
 import type * as actions_foodSearch from "../actions/foodSearch.js";
 import type * as actions_generateCutPlan from "../actions/generateCutPlan.js";
@@ -208,6 +209,7 @@ declare const fullApi: ApiFromModules<{
   "actions/deleteAccount": typeof actions_deleteAccount;
   "actions/feelCheckFeedback": typeof actions_feelCheckFeedback;
   "actions/fightCampCoach": typeof actions_fightCampCoach;
+  "actions/fightFormCoach": typeof actions_fightFormCoach;
   "actions/fightWeekAnalysis": typeof actions_fightWeekAnalysis;
   "actions/foodSearch": typeof actions_foodSearch;
   "actions/generateCutPlan": typeof actions_generateCutPlan;

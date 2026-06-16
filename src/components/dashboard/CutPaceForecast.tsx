@@ -365,10 +365,6 @@ export function CutPaceForecast({
 
   // No log in the current calendar week → drives the inline CTA below.
   const noLogThisWeek = isCurrentWeek && focusCheckpoint.actualWeight == null;
-  const kgToFinal = displayActual != null
-    ? Math.max(0, displayActual - finalTarget.targetWeight)
-    : null;
-  const weeksLeftFromFocus = Math.max(0, finalTarget.week - focusCheckpoint.week);
 
   // Delta value for the "You:" line. Positive = behind/heavy. The colour
   // now lives in <DeltaPill> (unified ramp), so no local tone needed.
@@ -492,20 +488,6 @@ export function CutPaceForecast({
                     </div>
                   </div>
                 )}
-                {/* Context line — capped at 2 facts (the chip already shows
-                    days-left, so it's dropped here). */}
-                <p className="text-[11.5px] text-muted-foreground">
-                  {(() => {
-                    const parts: string[] = [];
-                    if (kgToFinal != null && kgToFinal > 0) {
-                      parts.push(`${kgToFinal.toFixed(1)} kg to pre-dehydration`);
-                    }
-                    if (weeksLeftFromFocus > 0) {
-                      parts.push(`${weeksLeftFromFocus} ${weeksLeftFromFocus === 1 ? "week" : "weeks"} left`);
-                    }
-                    return parts.join(" · ");
-                  })()}
-                </p>
               </>
             ) : isFutureWeek ? (
               <p className="text-[11.5px] text-muted-foreground">
