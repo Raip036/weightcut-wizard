@@ -8,9 +8,9 @@
  *
  * Wire format note: Convex rejects emoji characters as object/record
  * keys, so the server stores ASCII SLUGS (`heart` / `fire` / `muscle` /
- * `praise` / `clap`) on the wire. This component owns the single source
- * of truth for the slug → emoji mapping (`REACTION_KEYS` below) — the
- * emoji is purely a presentation concern. `onReact` is called with the
+ * `praise` / `clap`) on the wire. The slug to emoji mapping is the
+ * shared module `./reactionEmoji` (`REACTION_EMOJI`) so the bar and the
+ * activity feed share one source of truth. `onReact` is called with the
  * SLUG, never the emoji character.
  *
  * Lives OUTSIDE the draggable area so taps don't fight the swipe
@@ -20,16 +20,9 @@ import { useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { triggerHaptic } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
+import { REACTION_EMOJI, REACTION_KEYS_IN_ORDER } from "./reactionEmoji";
 
-const REACTION_KEYS = {
-  heart: "❤️",
-  fire: "🔥",
-  muscle: "💪",
-  praise: "🙌",
-  clap: "👏",
-} as const;
-type ReactionKey = keyof typeof REACTION_KEYS;
-const KEYS_IN_ORDER: ReactionKey[] = ["heart", "fire", "muscle", "praise", "clap"];
+const KEYS_IN_ORDER = REACTION_KEYS_IN_ORDER;
 
 interface EmojiReactionBarProps {
   /** Server-cached slug → count map. Currently unused in the UI but kept
@@ -106,7 +99,7 @@ export function EmojiReactionBar({
       </div>
 
       {KEYS_IN_ORDER.map((key) => {
-        const emoji = REACTION_KEYS[key];
+        const emoji = REACTION_EMOJI[key];
         const active = viewerReactions.includes(key);
         return (
           <motion.button
