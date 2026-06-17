@@ -33,6 +33,39 @@ const OPTIONS: ReadonlyArray<{ key: CutApproach; label: string }> = [
   { key: "aggressive", label: "Aggressive" },
 ];
 
+// Per-approach explainer shown inline beneath the segmented control. A short
+// summary line + three labeled rows (Water / Carbs / Risk) reads far clearer
+// than the old single run-on sentence — and avoids em dashes entirely.
+const APPROACH_DESC: Record<
+  CutApproach,
+  { summary: string; rows: ReadonlyArray<readonly [string, string]> }
+> = {
+  gradual: {
+    summary: "Gentler taper that protects performance.",
+    rows: [
+      ["Water", "Hold water longer"],
+      ["Carbs", "Slow depletion"],
+      ["Risk", "Lower risk, slower drop"],
+    ],
+  },
+  standard: {
+    summary: "Balanced taper.",
+    rows: [
+      ["Water", "Full load, then flush"],
+      ["Carbs", "Gradual depletion"],
+      ["Risk", "Moderate, recommended"],
+    ],
+  },
+  aggressive: {
+    summary: "Steep flush for the fastest drop.",
+    rows: [
+      ["Water", "Front-loaded, hard pull"],
+      ["Carbs", "Sharp cut"],
+      ["Risk", "Higher risk, faster drop"],
+    ],
+  },
+};
+
 export function CutApproachSelector({
   value,
   onChange,
@@ -43,6 +76,7 @@ export function CutApproachSelector({
   const prefersReduced = useReducedMotion();
   const [tooltipOpen, setTooltipOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
+  const desc = APPROACH_DESC[value];
 
   const handleSelect = (next: CutApproach) => {
     if (disabled) return;
@@ -137,6 +171,25 @@ export function CutApproachSelector({
       ) : (
         segmented
       )}
+
+      {/* Inline explainer for the selected approach — clear, structured,
+          no em dashes. Updates live as the segment changes. */}
+      <div className="mt-2.5 rounded-xl border border-border/30 bg-muted/20 px-3.5 py-3">
+        <p className="text-[12.5px] font-semibold tracking-tight text-foreground">
+          {desc.summary}
+        </p>
+        <div className="mt-2 flex flex-col gap-1.5">
+          {desc.rows.map(([k, v]) => (
+            <div key={k} className="flex items-center gap-3">
+              <span className="w-12 shrink-0 text-[9.5px] font-bold uppercase tracking-[0.1em] text-muted-foreground/70">
+                {k}
+              </span>
+              <span className="text-[12px] font-medium text-foreground/85">{v}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <ApproachInfoSheet open={infoOpen} onOpenChange={setInfoOpen} />
     </section>
   );

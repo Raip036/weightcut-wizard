@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { Icon, type IonIconName } from "@/components/ui/Icon";
 
@@ -13,14 +13,39 @@ interface CompleteCelebrationProps {
   subtitle: string;
   /** Ion icon rendered inside the badge ring. Defaults to a trophy. */
   icon?: IonIconName;
+  /**
+   * Optional discipline CSS custom-property token (e.g. "--coach-bjj"). When
+   * provided, the badge / eyebrow / XP pill carry the discipline colour with a
+   * glow ring instead of the default recovery-green. Falls back to green.
+   */
+  accentToken?: string;
+  /** Optional XP total to splash with a count-up. Omit to hide the XP pill. */
+  xp?: number;
+}
+
+/** Eased count-up to `target` once mounted (instant under reduced-motion). */
+function useCountUp(target: number, reduced: boolean | null, ms = 700): number {
+  const [n, setN] = useState(reduced ? target : 0);
+  useEffect(() => {
+    if (reduced) { setN(target); return; }
+    let raf = 0;
+    const start = performance.now();
+    const tick = (t: number) => {
+      const p = Math.min(1, (t - start) / ms);
+      setN(Math.round(target * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, reduced, ms]);
+  return n;
 }
 
 /**
- * Full-screen takeover celebration shown once when the user finishes the LAST
- * item in a checklist (training missions, sparring to-do list, …). Uses the
- * repo's deterministic motion-based confetti fan-out and honours reduced-motion.
- * Auto-dismissal is driven by the parent so it can smoothly settle back into
- * whatever empty/idle state should follow.
+ * Full-screen takeover celebration shown when the user finishes a checklist
+ * (a training mission's items, the sparring to-do list, …). Deterministic
+ * motion-based confetti fan-out; honours reduced-motion. Auto-dismissal is
+ * driven by the parent so it can settle back into the following state.
  */
 export function CompleteCelebration({
   prefersReduced,
@@ -28,6 +53,8 @@ export function CompleteCelebration({
   title,
   subtitle,
   icon = "trophyOutline",
+  accentToken,
+  xp,
 }: CompleteCelebrationProps) {
   const pieces = useMemo(
     () =>
@@ -45,6 +72,9 @@ export function CompleteCelebration({
       }),
     [],
   );
+
+  const xpCount = useCountUp(xp ?? 0, prefersReduced);
+  const accent = accentToken ? `hsl(var(${accentToken}))` : null;
 
   return (
     <motion.div
@@ -85,10 +115,24 @@ export function CompleteCelebration({
             : { type: "spring", stiffness: 360, damping: 22, mass: 0.7 }
         }
       >
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-func-recovery-green/15 ring-2 ring-func-recovery-green/40">
-          <Icon name={icon} size={30} className="text-func-recovery-green" />
-        </div>
-        <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-func-recovery-green">
+        {accent ? (
+          <div
+            className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full"
+            style={{ backgroundColor: `hsl(var(${accentToken}) / 0.16)`, boxShadow: `0 0 0 2px hsl(var(${accentToken}) / 0.4), 0 0 40px hsl(var(${accentToken}) / 0.35)` }}
+          >
+            <span style={{ color: accent }}>
+              <Icon name={icon} size={30} />
+            </span>
+          </div>
+        ) : (
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-func-recovery-green/15 ring-2 ring-func-recovery-green/40">
+            <Icon name={icon} size={30} className="text-func-recovery-green" />
+          </div>
+        )}
+        <p
+          className={accent ? "text-[11px] font-bold uppercase tracking-[0.22em]" : "text-[11px] font-bold uppercase tracking-[0.22em] text-func-recovery-green"}
+          style={accent ? { color: accent } : undefined}
+        >
           {eyebrow}
         </p>
         <h2 className="mt-1 text-2xl font-bold tracking-tight text-foreground">
@@ -97,6 +141,17 @@ export function CompleteCelebration({
         <p className="mt-2 text-[13px] text-muted-foreground leading-snug">
           {subtitle}
         </p>
+        {xp != null && xp > 0 && (
+          <div
+            className="mt-3 inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-[15px] font-extrabold tabular-nums"
+            style={{
+              backgroundColor: accent ? `hsl(var(${accentToken}) / 0.16)` : "hsl(var(--func-recovery-green) / 0.16)",
+              color: accent ?? "hsl(var(--func-recovery-green))",
+            }}
+          >
+            <Icon name="flashOutline" size={15} /> +{xpCount} XP
+          </div>
+        )}
       </motion.div>
     </motion.div>
   );

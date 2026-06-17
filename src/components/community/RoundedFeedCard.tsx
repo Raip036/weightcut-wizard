@@ -35,6 +35,13 @@ const DEVELOP_META_END_MS = 700;
 const DEVELOP_REDUCED_DURATION_MS = 200;
 const EASE_OUT: [number, number, number, number] = [0.4, 0, 0.2, 1];
 
+// Promotion easing — must MATCH the exit card's fly-off curve (FLY_EASE in
+// PolaroidStack) so the revealed card and the departing card move on the
+// same curve, eliminating the spring-vs-ease double-motion stutter.
+const PROMOTE_EASE: [number, number, number, number] = [0.32, 0.72, 0, 1];
+const PROMOTE_DURATION_MS = 280;
+const PROMOTE_REDUCED_DURATION_MS = 110;
+
 export function streakRingClass(days: number): string {
   if (days >= 60) return "ring-2 ring-yellow-300";
   if (days >= 30) return "ring-2 ring-pink-500";
@@ -67,6 +74,10 @@ interface RoundedFeedCardProps {
   developing?: boolean;
   /** Drag-progress driver from the parent (position-1 background only). */
   progress?: MotionValue<number>;
+  /** True while this card is being promoted to top during an advance —
+   *  match the exit card's easing/duration so the reveal completes in
+   *  lockstep, no stutter. */
+  promoting?: boolean;
   /** Accepted for parity with PolaroidCard; this variant ignores it so
    *  the PolaroidStack → RoundedFeedCard import swap is zero-touch. */
   gymBrand?: {
@@ -77,8 +88,10 @@ interface RoundedFeedCardProps {
 
 const STACK_OFFSETS: Record<0 | 1 | 2, { scale: number; y: number; opacity: number; z: number }> = {
   0: { scale: 1, y: 0, opacity: 1, z: 30 },
-  1: { scale: 0.96, y: 10, opacity: 0.7, z: 20 },
-  2: { scale: 0.92, y: 20, opacity: 0.4, z: 10 },
+  // Tightened so the promotion travel (pos 1 → pos 0) is subtle, reducing
+  // any residual mismatch with the exit card's curve.
+  1: { scale: 0.97, y: 8, opacity: 0.85, z: 20 },
+  2: { scale: 0.93, y: 16, opacity: 0.5, z: 10 },
 };
 
 function RoundedFeedCardBase({
@@ -90,6 +103,7 @@ function RoundedFeedCardBase({
   developing = false,
   progress,
   hideCaption = false,
+  promoting = false,
 }: RoundedFeedCardProps) {
   // Use the SAME source for background and top cards. The stack already
   // preloads every visible card's full URL, so a background card has already
@@ -192,7 +206,16 @@ function RoundedFeedCardBase({
           ? developWrapperTransition
           : useProgress
             ? undefined
-            : { type: "spring", stiffness: 220, damping: 28, mass: 1 }
+            : promoting
+              ? {
+                  // Match the exit card's curve so the reveal lands in lockstep.
+                  duration:
+                    (prefersReducedMotion
+                      ? PROMOTE_REDUCED_DURATION_MS
+                      : PROMOTE_DURATION_MS) / 1000,
+                  ease: prefersReducedMotion ? "linear" : PROMOTE_EASE,
+                }
+              : { type: "spring", stiffness: 220, damping: 28, mass: 1 }
       }
     >
       <div className="relative aspect-square overflow-hidden rounded-2xl bg-black select-none">
@@ -350,7 +373,8 @@ function areEqual(prev: RoundedFeedCardProps, next: RoundedFeedCardProps): boole
     (prev.post.authorState ?? "active") === (next.post.authorState ?? "active") &&
     prev.developing === next.developing &&
     prev.progress === next.progress &&
-    prev.hideCaption === next.hideCaption
+    prev.hideCaption === next.hideCaption &&
+    prev.promoting === next.promoting
   );
 }
 

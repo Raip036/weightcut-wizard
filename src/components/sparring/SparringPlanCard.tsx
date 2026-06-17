@@ -28,6 +28,10 @@ interface SparringPlanCardProps {
 // tap "Show all" — keeps the surface scoped to "this session's focus".
 const DEFAULT_TODO_VISIBLE = 4;
 
+// XP awarded per assignment completed (mirrors the `toggleAssignment`
+// mutation's `awardXp` amount). Used for the all-clear celebration splash.
+const SPARRING_XP_PER_ITEM = 15;
+
 /**
  * Per-discipline block: an accent header pill (with an optional refresh
  * affordance) followed by its sparring assignment rows. By default it shows
@@ -45,9 +49,40 @@ function DisciplineGroup({
   const token = disciplineToken(discipline);
   const label = disciplineLabel(discipline);
   const regenerate = useMutation(api.sparring_plan.regenerateDiscipline);
-  const [expanded, setExpanded] = useState(false);
-  const [minimised, setMinimised] = useState(false);
+
+  // Persist collapse state per-discipline so it survives navigation.
+  const minKey = `wcw_sparring_min_${discipline}`;
+  const showAllKey = `wcw_sparring_showall_${discipline}`;
+  const [expanded, setExpanded] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(showAllKey) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const [minimised, setMinimised] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(minKey) === "1";
+    } catch {
+      return false;
+    }
+  });
   const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(minKey, minimised ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, [minimised, minKey]);
+  useEffect(() => {
+    try {
+      localStorage.setItem(showAllKey, expanded ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, [expanded, showAllKey]);
 
   // Default view = the first N todo rows (this session's focus). Expanded =
   // everything, todo first then done so completed work sinks to the bottom.
@@ -74,14 +109,11 @@ function DisciplineGroup({
 
   return (
     <div className="space-y-2">
-      {/* Discipline header — accent pill + refresh affordance. */}
+      {/* Discipline header — plain coloured label + refresh affordance. */}
       <div className="flex items-center gap-2">
         <span
-          className="inline-flex items-center h-5 px-2 rounded-full flex-shrink-0 text-[10px] font-bold uppercase tracking-wider"
-          style={{
-            backgroundColor: `hsl(var(${token}) / 0.15)`,
-            color: `hsl(var(${token}))`,
-          }}
+          className="flex-shrink-0 text-[10px] font-bold uppercase tracking-wider"
+          style={{ color: `hsl(var(${token}))` }}
         >
           {label}
         </span>
@@ -209,6 +241,10 @@ export function SparringPlanCard({ userId }: SparringPlanCardProps) {
   // Training Missions behaviour.
   const prefersReduced = useReducedMotion();
   const [celebrating, setCelebrating] = useState(false);
+  // Total XP splashed in the celebration — captured at clear-time so the
+  // count-up is stable. Mirrors the 15-XP-per-assignment award in
+  // `sparring_plan.toggleAssignment`.
+  const [celebrationXp, setCelebrationXp] = useState(0);
   const prevTodoCountRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -217,6 +253,7 @@ export function SparringPlanCard({ userId }: SparringPlanCardProps) {
     const prev = prevTodoCountRef.current;
     prevTodoCountRef.current = count;
     if (prev != null && prev > 0 && count === 0) {
+      setCelebrationXp(assignments.length * SPARRING_XP_PER_ITEM);
       setCelebrating(true);
       void triggerHapticSuccess();
     }
@@ -324,6 +361,8 @@ export function SparringPlanCard({ userId }: SparringPlanCardProps) {
         {celebrating && (
           <CompleteCelebration
             prefersReduced={prefersReduced}
+            accentToken="--coach-sparring"
+            xp={celebrationXp}
             eyebrow="Sparring ready"
             title="To-do list cleared"
             subtitle="Every sparring focus ticked off. Log more techniques to refresh your list."

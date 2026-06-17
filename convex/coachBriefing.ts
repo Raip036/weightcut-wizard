@@ -35,6 +35,36 @@ import { CURRENT_CONFIG } from "../src/scoring/config";
 
 // ── Public return shape (the card imports this with `import type`) ─────────
 
+/**
+ * The context-aware action the speech bubble surfaces as its primary CTA. The
+ * intent is decided here (where we already know WHY each message fires), so the
+ * bubble never has to parse the text to pick a button/route.
+ */
+export type CoachActionKind =
+  | "weighIn"
+  | "nutrition"
+  | "training"
+  | "hydration"
+  | "recovery";
+
+export interface CoachAction {
+  kind: CoachActionKind;
+  label: string;
+  route: string;
+}
+
+const ACTIONS: Record<CoachActionKind, CoachAction> = {
+  weighIn: { kind: "weighIn", label: "Log weigh-in", route: "/weight" },
+  nutrition: { kind: "nutrition", label: "Log a meal", route: "/nutrition" },
+  training: {
+    kind: "training",
+    label: "Log session",
+    route: "/training-calendar?openLogSession=true",
+  },
+  hydration: { kind: "hydration", label: "Open protocol", route: "/weight-protocol" },
+  recovery: { kind: "recovery", label: "Check in", route: "/recovery/check-in" },
+};
+
 export interface CoachBriefing {
   greeting: string | null; // short, like the cockpit greeting (or null)
   phase: "build" | "peak" | "fightWeek" | null;
@@ -43,6 +73,9 @@ export interface CoachBriefing {
   onTrack: boolean | null;
   priorityAction: string | null; // the ONE thing to do today (≤80 chars)
   redFlag: string | null; // a safety/urgency warning if any (≤100 chars), else null
+  // The action for the winning message (redFlag → priorityAction priority).
+  // null when only a greeting is available (bubble falls back to "Chat").
+  action: CoachAction | null;
 }
 
 const EMPTY_BRIEFING: CoachBriefing = {
@@ -53,6 +86,7 @@ const EMPTY_BRIEFING: CoachBriefing = {
   onTrack: null,
   priorityAction: null,
   redFlag: null,
+  action: null,
 };
 
 // ── Small pure helpers ────────────────────────────────────────────────────
@@ -126,39 +160,44 @@ function derivePriorityAction(opts: {
   delta: number | null;
   onTrack: boolean | null;
   hasRecentWeightLog: boolean;
-}): string | null {
+}): { text: string; action: CoachAction } | null {
   const { phase, days, delta, onTrack, hasRecentWeightLog } = opts;
 
   // 1. Fight week — the day's key step keyed off days-to-weigh-in.
   if (phase === "fightWeek") {
     if (days != null) {
-      if (days <= 0) return "Weigh-in today. One last check, then it's rehydrate time";
-      if (days === 1) return "Last sweat-out tonight if needed. Sip only, go easy on meals";
-      if (days === 2) return "Water-load day. Could start with 1L now, then keep it steady";
-      if (days === 3) return "Good day to start water-loading. ~6-8L, ease off the salt";
+      if (days <= 0)
+        return { text: "Weigh-in today. One last check, then it's rehydrate time", action: ACTIONS.weighIn };
+      if (days === 1)
+        return { text: "Last sweat-out tonight if needed. Sip only, go easy on meals", action: ACTIONS.hydration };
+      if (days === 2)
+        return { text: "Water-load day. Could start with 1L now, then keep it steady", action: ACTIONS.hydration };
+      if (days === 3)
+        return { text: "Good day to start water-loading. ~6-8L, ease off the salt", action: ACTIONS.hydration };
     }
-    return "Want to log your weight? Then water-loading can begin";
+    return { text: "Want to log your weight? Then water-loading can begin", action: ACTIONS.weighIn };
   }
 
   // 2. Coaching blind — get a weight in first.
-  if (!hasRecentWeightLog) return "A quick weigh-in helps me keep you on plan, whenever suits";
+  if (!hasRecentWeightLog)
+    return { text: "A quick weigh-in helps me keep you on plan, whenever suits", action: ACTIONS.weighIn };
 
-  // 3. Over plan.
+  // 3. Over plan → tighten via nutrition.
   if (delta != null && delta > 0.2) {
     // ~7700 kcal per kg; a 1-day nudge ≈ a fraction of the gap. Keep the
     // ask small and actionable when only modestly over.
     if (delta <= 2) {
       const kcal = Math.max(100, Math.round((delta * 200) / 50) * 50);
-      return `Trimming ~${kcal} kcal today would keep you on the glide path`;
+      return { text: `Trimming ~${kcal} kcal today would keep you on the glide path`, action: ACTIONS.nutrition };
     }
-    return `${round1(delta)}kg over. Worth tightening the plan a bit, your call`;
+    return { text: `${round1(delta)}kg over. Worth tightening the plan a bit, your call`, action: ACTIONS.nutrition };
   }
 
   // 4. On track / positive nudge.
   if (onTrack === true || (delta != null && delta <= 0.2)) {
-    return "Right on plan. Hold the line, a weight + meals log keeps it tight";
+    return { text: "Right on plan. Hold the line, a weight + meals log keeps it tight", action: ACTIONS.weighIn };
   }
-  return "A quick weigh-in helps me keep you on plan, whenever suits";
+  return { text: "A quick weigh-in helps me keep you on plan, whenever suits", action: ACTIONS.weighIn };
 }
 
 /**
@@ -172,7 +211,7 @@ function derivePriorityAction(opts: {
 function deriveRedFlag(opts: {
   weightSeriesDesc: Array<{ date: string; weight_kg: number }>;
   days: number | null;
-}): string | null {
+}): { text: string; action: CoachAction } | null {
   const { weightSeriesDesc, days } = opts;
 
   // (a) Rate-of-loss check — chronological window of the last 7 days.
@@ -196,7 +235,10 @@ function deriveRedFlag(opts: {
         const perWeek = (dropKg / spanDays) * 7;
         if (perWeek > bw * 0.015) {
           const pct = round1((perWeek / bw) * 100);
-          return `Heads up: ~${pct}%/wk is past the safe pace. Worth easing off and rehydrating`;
+          return {
+            text: `Heads up: ~${pct}%/wk is past the safe pace. Worth easing off and rehydrating`,
+            action: ACTIONS.hydration,
+          };
         }
       }
     }
@@ -209,7 +251,10 @@ function deriveRedFlag(opts: {
       (Date.parse(todayIso()) - Date.parse(newest.date)) / MS_PER_DAY,
     );
     if (sinceDays >= 2) {
-      return `It's been ${sinceDays} days since a weigh-in. A quick log keeps your plan honest`;
+      return {
+        text: `It's been ${sinceDays} days since a weigh-in. A quick log keeps your plan honest`,
+        action: ACTIONS.weighIn,
+      };
     }
   }
 
@@ -347,14 +392,19 @@ export const getBriefing = query({
       days: derived.daysOut,
     });
 
+    // The bubble shows redFlag → priorityAction → greeting; its CTA follows the
+    // same priority. A greeting carries no action (falls back to "Chat").
+    const action = redFlag?.action ?? priorityAction?.action ?? null;
+
     return {
       greeting,
       phase,
       daysToWeighIn: derived.daysOut,
       deltaKg: derived.deltaKg,
       onTrack: derived.onTrack,
-      priorityAction: priorityAction ? priorityAction.slice(0, 80) : null,
-      redFlag: redFlag ? redFlag.slice(0, 100) : null,
+      priorityAction: priorityAction ? priorityAction.text.slice(0, 80) : null,
+      redFlag: redFlag ? redFlag.text.slice(0, 100) : null,
+      action,
     };
   },
 });

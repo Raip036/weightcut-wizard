@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import { Utensils, Weight, Dumbbell, Loader2, ChevronLeft, Activity, Zap, Camera as CameraIcon, X } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -42,6 +43,17 @@ const INTENSITY_PRESETS = [
   { label: "Max", level: 5, intensity: "high", rpe: 10 },
 ] as const;
 
+// Color ramp for the intensity dial — Easy (health green) → Max (red).
+// Index-aligned with INTENSITY_PRESETS so the dial fill + center label can
+// be tinted purely from `selectedIntensityIdx`.
+const INTENSITY_COLORS = [
+  "hsl(152 69% 46%)", // Easy — health green
+  "hsl(199 89% 52%)", // Steady — cyan
+  "hsl(24 95% 56%)", // Hard — energy orange
+  "hsl(14 90% 55%)", // Battle — orange-red
+  "hsl(0 72% 55%)", // Max — red
+] as const;
+
 const RECENT_SESSION_KEY = "wcw_quicklog_recent_session";
 
 export function QuickLogDialog({ open, onOpenChange, onLogFood, onLogWeight, onLogTraining, onLogGym }: QuickLogDialogProps) {
@@ -52,6 +64,7 @@ export function QuickLogDialog({ open, onOpenChange, onLogFood, onLogWeight, onL
   const updateCurrentWeightMut = useMutation(api.profiles.updateCurrentWeight);
   const createTrainingMut = useMutation(api.fight_camp.createCalendarEntry);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
+  const shouldReduceMotion = useReducedMotion();
 
   // Smart defaults supply a sensible default activity tag for the quick
   // log. Cheap reactive query; gated on a real signed-in user.
@@ -497,65 +510,145 @@ export function QuickLogDialog({ open, onOpenChange, onLogFood, onLogWeight, onL
               </div>
             </div>
 
-            {/* Intensity strip */}
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/60 mb-1.5 px-1">
-                How'd it feel?
-              </p>
-              <div className="flex gap-1">
-                {INTENSITY_PRESETS.map((p, i) => {
-                  const active = selectedIntensityIdx === i;
-                  return (
-                    <button
-                      key={p.label}
-                      type="button"
-                      onClick={() => { setSelectedIntensityIdx(i); triggerHapticSelection(); }}
-                      aria-pressed={active}
-                      className={`flex-1 h-10 rounded-xs text-[11.5px] font-semibold active:scale-[0.97] transition-all ${
-                        active
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-muted-foreground/85"
-                      }`}
-                    >
-                      {p.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            {/* Intensity dial (HERO) — a tap-only animated SVG ring. The fill
+                arc sweeps from Easy up to and including the selected level,
+                animating via a motion.circle strokeDashoffset spring. The 5
+                tick buttons below are the tap targets so the dial never
+                fights the sheet's scroll. */}
+            {(() => {
+              // Dial geometry — kept in the render so it's co-located with the
+              // SVG that consumes it. r/circumference are pure constants.
+              const DIAL = 160;
+              const STROKE = 12;
+              const R = (DIAL - STROKE) / 2;
+              const C = 2 * Math.PI * R;
+              const fraction = (selectedIntensityIdx + 1) / INTENSITY_PRESETS.length;
+              const fillOffset = C * (1 - fraction);
+              const active = INTENSITY_PRESETS[selectedIntensityIdx];
+              const color = INTENSITY_COLORS[selectedIntensityIdx];
 
-            {/* Optional selfie — opens the front camera so the user can
-                snap a post-session shot in one tap. The thumbnail row sits
-                above the primary CTA so it feels like an attachment, not
-                a blocking step. */}
+              return (
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/60 mb-1.5 px-1">
+                    Intensity
+                  </p>
+
+                  {/* Dial readout */}
+                  <div className="flex justify-center pt-1 pb-2">
+                    <div className="relative" style={{ width: DIAL, height: DIAL }}>
+                      <svg
+                        width={DIAL}
+                        height={DIAL}
+                        viewBox={`0 0 ${DIAL} ${DIAL}`}
+                        className="-rotate-90"
+                        aria-hidden
+                      >
+                        {/* Track */}
+                        <circle
+                          cx={DIAL / 2}
+                          cy={DIAL / 2}
+                          r={R}
+                          fill="none"
+                          strokeWidth={STROKE}
+                          stroke="hsl(0 0% 100% / 0.07)"
+                          strokeLinecap="round"
+                        />
+                        {/* Animated fill arc */}
+                        <motion.circle
+                          cx={DIAL / 2}
+                          cy={DIAL / 2}
+                          r={R}
+                          fill="none"
+                          strokeWidth={STROKE}
+                          strokeLinecap="round"
+                          strokeDasharray={C}
+                          initial={false}
+                          animate={{ strokeDashoffset: fillOffset, stroke: color }}
+                          transition={
+                            shouldReduceMotion
+                              ? { duration: 0 }
+                              : { type: "spring", stiffness: 260, damping: 30 }
+                          }
+                        />
+                      </svg>
+                      {/* Center label */}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <motion.span
+                          key={active.label}
+                          initial={shouldReduceMotion ? false : { opacity: 0, y: 4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
+                          className="text-[26px] font-bold tracking-tight leading-none"
+                          style={{ color }}
+                        >
+                          {active.label}
+                        </motion.span>
+                        <span className="mt-1 text-[11px] font-semibold tabular-nums text-muted-foreground/70">
+                          RPE {active.rpe}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Tick buttons — the tap targets that set the level */}
+                  <div className="flex gap-1">
+                    {INTENSITY_PRESETS.map((p, i) => {
+                      const isActive = selectedIntensityIdx === i;
+                      return (
+                        <button
+                          key={p.label}
+                          type="button"
+                          onClick={() => { setSelectedIntensityIdx(i); triggerHapticSelection(); }}
+                          aria-pressed={isActive}
+                          aria-label={`Intensity ${p.label}`}
+                          className="flex-1 h-9 rounded-xs text-[11.5px] font-semibold active:scale-[0.97] transition-all border"
+                          style={
+                            isActive
+                              ? { backgroundColor: INTENSITY_COLORS[i], borderColor: INTENSITY_COLORS[i], color: "hsl(0 0% 100%)" }
+                              : { backgroundColor: "hsl(0 0% 100% / 0.05)", borderColor: "hsl(220 10% 18% / 0.5)", color: "hsl(220 15% 65%)" }
+                          }
+                        >
+                          {p.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Optional selfie — slimmed to an "Attach photo" chip so the
+                dial stays the hero. Once a photo exists it swaps to a small
+                thumbnail with a remove X. Camera/file-input flow unchanged. */}
             <div>
-              <p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/60 mb-1.5 px-1">
-                Photo (optional)
-              </p>
               {trainingPhoto ? (
-                <div className="relative inline-block">
-                  <img
-                    src={trainingPhoto.previewUrl}
-                    alt="Training photo"
-                    className="h-20 w-20 rounded-xs object-cover border border-border/40"
-                  />
-                  <button
-                    type="button"
-                    onClick={clearTrainingPhoto}
-                    aria-label="Remove photo"
-                    className="absolute -top-1.5 -right-1.5 h-6 w-6 rounded-full bg-black/70 text-white flex items-center justify-center active:scale-90 transition-transform"
-                  >
-                    <X className="h-3.5 w-3.5" strokeWidth={2.5} />
-                  </button>
+                <div className="flex items-center gap-2.5">
+                  <div className="relative inline-block">
+                    <img
+                      src={trainingPhoto.previewUrl}
+                      alt="Training photo"
+                      className="h-12 w-12 rounded-xs object-cover border border-border/40"
+                    />
+                    <button
+                      type="button"
+                      onClick={clearTrainingPhoto}
+                      aria-label="Remove photo"
+                      className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-black/70 text-white flex items-center justify-center active:scale-90 transition-transform"
+                    >
+                      <X className="h-3 w-3" strokeWidth={2.5} />
+                    </button>
+                  </div>
+                  <span className="text-[12px] font-medium text-muted-foreground/70">Photo attached</span>
                 </div>
               ) : (
                 <button
                   type="button"
                   onClick={handleTakeTrainingPhoto}
-                  className="h-20 w-20 rounded-xs border border-dashed border-border/60 bg-muted/30 dark:bg-white/[0.04] flex flex-col items-center justify-center gap-1 text-muted-foreground/85 active:scale-[0.97] transition-transform"
+                  className="w-full h-10 px-3 rounded-xs border border-dashed border-border/60 bg-muted/30 dark:bg-white/[0.04] flex items-center justify-center gap-2 text-muted-foreground/85 active:scale-[0.98] transition-transform"
                 >
-                  <CameraIcon className="h-5 w-5" strokeWidth={1.9} />
-                  <span className="text-[10px] font-semibold">Photo</span>
+                  <CameraIcon className="h-4 w-4" strokeWidth={1.9} />
+                  <span className="text-[12px] font-semibold">Attach photo</span>
+                  <span className="text-[11px] font-medium text-muted-foreground/50">· optional</span>
                 </button>
               )}
               <input

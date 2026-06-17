@@ -361,7 +361,7 @@ export default function Community() {
                 the new state out until the old one finished its exit, leaving a
                 ~240ms dead gap that read as a flash right before "all caught up". */}
             <StaggerItem>
-              <main className={`px-5 pt-2 ${gymId ? "" : "pb-20 md:pb-8"}`}>
+              <main className={`px-5 pt-2 min-h-[460px] ${gymId ? "" : "pb-20 md:pb-8"}`}>
                 <AnimatePresence mode="popLayout" initial={false}>
                   {(() => {
                     const branch =
@@ -406,11 +406,12 @@ export default function Community() {
                       return (
                         <motion.div
                           key="empty"
-                          // Pure in-place opacity cross-fade (no y-slide) so the
-                          // "all caught up" state fades in exactly where the deck
-                          // was, concurrently with the feed fading out — no jump.
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
+                          // Pure in-place cross-fade (no y-slide) so the "all
+                          // caught up" state appears exactly where the deck was,
+                          // concurrently with the feed fading out — no jump. A
+                          // subtle scale-in gives the reveal intent.
+                          initial={{ opacity: 0, scale: 0.96 }}
+                          animate={{ opacity: 1, scale: 1 }}
                           exit={{ opacity: 0 }}
                           transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
                         >

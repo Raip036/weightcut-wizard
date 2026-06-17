@@ -328,7 +328,8 @@ export const AiFightPlanResponseSchema = z.object({
       }),
     )
     .min(0)
-    .max(21),
+    .max(21)
+    .optional(),
 
   rolling: z
     .object({

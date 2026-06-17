@@ -7,7 +7,7 @@
  * the `fight_camp.create` + `uploadSessionMediaV2` pipeline; this
  * component only emits a `ReviewDecision` or fires `onDiscard()`.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { forwardRef, useCallback, useEffect, useMemo, useState } from "react";
 import { ImpactStyle } from "@capacitor/haptics";
 import { ArrowRight, ChevronDown, Loader2 } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -88,6 +88,17 @@ const INTENSITY_PRESETS: readonly IntensityPreset[] = [
   { label: "Max", level: 5, intensity: "high", rpe: 10 },
 ] as const;
 
+// Health → energy → red ramp, indexed to match INTENSITY_PRESETS. Inline
+// hsl() values mirror the design tokens (health/hydration/energy/red) so
+// the dot reads as a heat scale without pulling extra CSS vars.
+const INTENSITY_DOT_COLORS: readonly string[] = [
+  "hsl(152 69% 46%)", // Easy   — health green
+  "hsl(199 89% 52%)", // Steady — hydration cyan
+  "hsl(24 95% 56%)", // Hard   — energy amber
+  "hsl(14 90% 55%)", // Battle — orange-red (energy↦red blend)
+  "hsl(0 72% 55%)", // Max    — red
+] as const;
+
 /* ── Component ──────────────────────────────────────────────────── */
 
 export function ReviewSheet({
@@ -157,6 +168,8 @@ export function ReviewSheet({
       },
       session: null,
       likeCount: 0,
+      reactionCounts: {},
+      viewerReactions: [],
       commentCount: 0,
       viewerLiked: false,
       thumbDataUrl: null,
@@ -273,7 +286,7 @@ export function ReviewSheet({
               `pb-14` (56px) on the outer wrapper so the gym banner
               below never visually collides with the polaroid frame
               or its ±4° developing shake. */}
-          <div className="mx-auto mt-2 w-full max-w-[240px] pb-14">
+          <div className="mx-auto mt-2 w-full max-w-[220px] pb-14">
             <div className="relative aspect-square w-full">
               <PolaroidCard
                 post={previewPost}
@@ -290,111 +303,155 @@ export function ReviewSheet({
             </div>
           </div>
 
-          {/* Gym banner — static read of `gymName`, not editable in v1.
+          {/* Session summary stat card. One cohesive labeled card (Apple
+              Fitness aesthetic) replacing the loose pill row. A slim full-
+              width "Gym" header sits atop a 2×2 grid of tappable cells —
+              each cell is a ChipPopover trigger reusing the exact same
+              selection logic as the legacy pills.
+
               `mt-7` (28px) gives breathing room on top of the polaroid
               wrapper's reserved overflow (`pb-14`) so the polaroid's
-              shadow + ±4° developing shake never visually touch the
-              banner below. */}
-          <div
-            className={cn(
-              "mt-7 flex items-center justify-between rounded-xs px-4 py-2.5",
-              "bg-muted/40 dark:bg-white/[0.04] border border-border/40",
-            )}
-          >
-            <span className="text-[11px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/70">
-              Gym
-            </span>
-            <span className="text-[14px] font-semibold text-foreground/90 truncate ml-3">
-              {gymLabel}
-            </span>
-          </div>
+              shadow + ±4° developing shake never visually touch the card. */}
+          <div className="mt-7 rounded-2xl border border-border/50 bg-muted/40 dark:bg-white/[0.04] overflow-hidden">
+            {/* Slim Gym header — static read of `gymName`, not editable. */}
+            <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-border/40">
+              <span className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/60">
+                Gym
+              </span>
+              <span className="text-[14px] font-semibold text-foreground/90 truncate ml-3">
+                {gymLabel}
+              </span>
+            </div>
 
-          {/* "Tap to edit" hint above chips — the chevrons reinforce
-              it visually, but a one-liner removes any doubt. */}
-          <div className="mt-3 mb-1.5 flex items-center justify-between px-1">
-            <span className="text-[10px] uppercase tracking-[0.14em] font-semibold text-muted-foreground/60">
-              Session
-            </span>
-            <span className="text-[10px] uppercase tracking-[0.12em] font-medium text-muted-foreground/50">
-              Tap to edit
-            </span>
-          </div>
-
-          {/* Chips — each shows a ChevronDown to read as a dropdown,
-              not a static badge. */}
-          <div className="flex flex-wrap gap-2">
-            <ChipPopover
-              label={sessionType}
-              ariaLabel="Session type"
-              disabled={submitting}
-              renderContent={(close) => (
-                <ChipList
-                  options={SESSION_TYPES.map((t) => ({ value: t, label: t }))}
-                  selected={sessionType}
-                  onSelect={(value) => {
-                    setSessionType(value);
-                    close();
-                  }}
-                />
-              )}
-            />
-            {tagOptions.length > 0 && (
+            {/* 2×2 grid of editable stat cells with hairline dividers.
+                Each cell IS a ChipPopover trigger via `renderTrigger`. */}
+            <div className="grid grid-cols-2">
               <ChipPopover
-                label={sessionTag ?? "No tag"}
-                ariaLabel="Activity tag"
-                secondary
+                label={sessionType}
+                ariaLabel="Session type"
                 disabled={submitting}
+                renderTrigger={({ open }) => (
+                  <StatCell
+                    cellLabel="Discipline"
+                    value={sessionType}
+                    ariaLabel="Session type"
+                    disabled={submitting}
+                    open={open}
+                    className="border-r border-b border-border/40"
+                  />
+                )}
                 renderContent={(close) => (
                   <ChipList
-                    options={[
-                      { value: "", label: "None" },
-                      ...tagOptions.map((t) => ({ value: t.id, label: t.id })),
-                    ]}
-                    selected={sessionTag ?? ""}
+                    options={SESSION_TYPES.map((t) => ({ value: t, label: t }))}
+                    selected={sessionType}
                     onSelect={(value) => {
-                      setSessionTag(value ? value : null);
+                      setSessionType(value);
                       close();
                     }}
                   />
                 )}
               />
-            )}
-            <ChipPopover
-              label={`${durationMinutes} min`}
-              ariaLabel="Duration"
-              disabled={submitting}
-              renderContent={(close) => (
-                <ChipList
-                  options={DURATION_OPTIONS.map((d) => ({
-                    value: d,
-                    label: `${d} min`,
-                  }))}
-                  selected={durationMinutes}
-                  onSelect={(value) => {
-                    setDurationMinutes(value);
-                    close();
-                  }}
+
+              {tagOptions.length > 0 ? (
+                <ChipPopover
+                  label={sessionTag ?? "None"}
+                  ariaLabel="Activity tag"
+                  disabled={submitting}
+                  renderTrigger={({ open }) => (
+                    <StatCell
+                      cellLabel="Activity"
+                      value={sessionTag ?? "None"}
+                      ariaLabel="Activity tag"
+                      disabled={submitting}
+                      open={open}
+                      className="border-b border-border/40"
+                    />
+                  )}
+                  renderContent={(close) => (
+                    <ChipList
+                      options={[
+                        { value: "", label: "None" },
+                        ...tagOptions.map((t) => ({ value: t.id, label: t.id })),
+                      ]}
+                      selected={sessionTag ?? ""}
+                      onSelect={(value) => {
+                        setSessionTag(value ? value : null);
+                        close();
+                      }}
+                    />
+                  )}
+                />
+              ) : (
+                // Keep the 2×2 shape when no tags exist for this discipline:
+                // render a disabled, greyed cell showing "—".
+                <StatCell
+                  cellLabel="Activity"
+                  value="—"
+                  ariaLabel="Activity tag (unavailable)"
+                  disabled
+                  muted
+                  className="border-b border-border/40"
                 />
               )}
-            />
-            <ChipPopover
-              label={activeIntensityLabel}
-              ariaLabel="Intensity"
-              disabled={submitting}
-              renderContent={(close) => (
-                <ChipList
-                  options={INTENSITY_PRESETS.map((p, i) => ({
-                    value: i,
-                    label: p.label,
-                  }))}
-                  selected={intensityIdx}
-                  onSelect={(value) => {
-                    setIntensityIdx(value);
-                    close();
-                  }}
-                />
-              )}
-            />
+
+              <ChipPopover
+                label={`${durationMinutes} min`}
+                ariaLabel="Duration"
+                disabled={submitting}
+                renderTrigger={({ open }) => (
+                  <StatCell
+                    cellLabel="Duration"
+                    value={`${durationMinutes} min`}
+                    ariaLabel="Duration"
+                    disabled={submitting}
+                    open={open}
+                    className="border-r border-border/40"
+                  />
+                )}
+                renderContent={(close) => (
+                  <ChipList
+                    options={DURATION_OPTIONS.map((d) => ({
+                      value: d,
+                      label: `${d} min`,
+                    }))}
+                    selected={durationMinutes}
+                    onSelect={(value) => {
+                      setDurationMinutes(value);
+                      close();
+                    }}
+                  />
+                )}
+              />
+
+              <ChipPopover
+                label={activeIntensityLabel}
+                ariaLabel="Intensity"
+                disabled={submitting}
+                renderTrigger={({ open }) => (
+                  <StatCell
+                    cellLabel="Intensity"
+                    value={activeIntensityLabel}
+                    ariaLabel="Intensity"
+                    disabled={submitting}
+                    open={open}
+                    dotColor={INTENSITY_DOT_COLORS[intensityIdx]}
+                  />
+                )}
+                renderContent={(close) => (
+                  <ChipList
+                    options={INTENSITY_PRESETS.map((p, i) => ({
+                      value: i,
+                      label: p.label,
+                    }))}
+                    selected={intensityIdx}
+                    onSelect={(value) => {
+                      setIntensityIdx(value);
+                      close();
+                    }}
+                  />
+                )}
+              />
+            </div>
           </div>
 
           {/* Single-line caption — Enter submits primary CTA. */}
@@ -470,18 +527,29 @@ interface ChipPopoverProps {
   ariaLabel: string;
   disabled?: boolean;
   /** Lighter treatment for the optional activity-tag chip so the two
-   *  session levels read as visually distinct. */
+   *  session levels read as visually distinct. Pill variant only. */
   secondary?: boolean;
+  /** Optional custom trigger renderer. When supplied the popover renders
+   *  this instead of the default pill button, letting the same open-state
+   *  + content logic back a stat-grid cell. The returned node must accept
+   *  ref/props from PopoverTrigger (it is wrapped in `asChild`), so render
+   *  a single focusable element (e.g. a <button>). `open` lets the trigger
+   *  reflect its expanded state; the click/keyboard wiring is handled by
+   *  Radix. Default = the legacy pill. */
+  renderTrigger?: (props: { label: string; open: boolean }) => React.ReactNode;
   renderContent: (close: () => void) => React.ReactNode;
 }
 
-// Pill-shaped chip + popover panel. Each chip owns its own open-state
-// so a selection in one dismisses only that popover.
+// Chip/cell + popover panel. Each instance owns its own open-state so a
+// selection in one dismisses only that popover. The trigger's visual
+// presentation is pluggable via `renderTrigger`; the popover logic and
+// content are identical across the pill and stat-cell forms.
 function ChipPopover({
   label,
   ariaLabel,
   disabled,
   secondary = false,
+  renderTrigger,
   renderContent,
 }: ChipPopoverProps): JSX.Element {
   const [open, setOpen] = useState(false);
@@ -496,21 +564,25 @@ function ChipPopover({
       }}
     >
       <PopoverTrigger asChild>
-        <button
-          type="button"
-          aria-label={ariaLabel}
-          disabled={disabled}
-          className={cn(
-            "rounded-full font-semibold flex items-center gap-1.5 active:scale-[0.97] transition-all",
-            "disabled:opacity-50 disabled:active:scale-100",
-            secondary
-              ? "h-9 pl-3.5 pr-2.5 text-[12px] text-muted-foreground bg-muted/40 dark:bg-white/[0.05] border border-border/40"
-              : "h-10 pl-4 pr-3 text-[13px] text-foreground/90 bg-primary/10 dark:bg-primary/15 border border-primary/30",
-          )}
-        >
-          <span>{label}</span>
-          <ChevronDown className="h-3.5 w-3.5 opacity-70" aria-hidden />
-        </button>
+        {renderTrigger ? (
+          renderTrigger({ label, open })
+        ) : (
+          <button
+            type="button"
+            aria-label={ariaLabel}
+            disabled={disabled}
+            className={cn(
+              "rounded-full font-semibold flex items-center gap-1.5 active:scale-[0.97] transition-all",
+              "disabled:opacity-50 disabled:active:scale-100",
+              secondary
+                ? "h-9 pl-3.5 pr-2.5 text-[12px] text-muted-foreground bg-muted/40 dark:bg-white/[0.05] border border-border/40"
+                : "h-10 pl-4 pr-3 text-[13px] text-foreground/90 bg-primary/10 dark:bg-primary/15 border border-primary/30",
+            )}
+          >
+            <span>{label}</span>
+            <ChevronDown className="h-3.5 w-3.5 opacity-70" aria-hidden />
+          </button>
+        )}
       </PopoverTrigger>
       <PopoverContent align="start" sideOffset={6} className="w-56 p-1.5 rounded-xs">
         {renderContent(() => setOpen(false))}
@@ -518,6 +590,70 @@ function ChipPopover({
     </Popover>
   );
 }
+
+/* ── Stat-card cell ─────────────────────────────────────────────────
+ * Tappable grid cell used as a ChipPopover trigger. Renders a small
+ * uppercase label, a bold value (optionally prefixed with a colored
+ * intensity dot), and a corner chevron to read as "tap to edit".
+ * Hairline dividers are applied by the parent grid via border utilities.
+ */
+interface StatCellProps {
+  cellLabel: string;
+  value: string;
+  ariaLabel: string;
+  disabled?: boolean;
+  /** Inline hsl() color for the leading dot (intensity ramp). */
+  dotColor?: string;
+  /** Visually muted (e.g. no activity tags available). */
+  muted?: boolean;
+  className?: string;
+  open?: boolean;
+}
+
+const StatCell = forwardRef<HTMLButtonElement, StatCellProps>(function StatCell(
+  { cellLabel, value, ariaLabel, disabled, dotColor, muted, className, open, ...rest },
+  ref,
+) {
+  return (
+    <button
+      ref={ref}
+      type="button"
+      aria-label={ariaLabel}
+      aria-expanded={open}
+      disabled={disabled}
+      className={cn(
+        "relative flex flex-col items-start gap-1 px-3.5 py-3 text-left transition-colors",
+        "active:scale-[0.98] active:bg-white/[0.02]",
+        "disabled:opacity-60 disabled:active:scale-100 disabled:cursor-default",
+        className,
+      )}
+      {...rest}
+    >
+      <span className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/60">
+        {cellLabel}
+      </span>
+      <span
+        className={cn(
+          "flex items-center gap-1.5 text-[15px] font-semibold",
+          muted ? "text-muted-foreground/50" : "text-foreground",
+        )}
+      >
+        {dotColor && (
+          <span
+            aria-hidden
+            className="h-2 w-2 rounded-full shrink-0"
+            style={{ backgroundColor: dotColor }}
+          />
+        )}
+        <span className="truncate">{value}</span>
+      </span>
+      <ChevronDown
+        aria-hidden
+        className="absolute top-2.5 right-2.5 h-3 w-3 text-muted-foreground/40"
+      />
+    </button>
+  );
+});
 
 interface ChipListProps<T extends string | number> {
   options: ReadonlyArray<{ value: T; label: string }>;

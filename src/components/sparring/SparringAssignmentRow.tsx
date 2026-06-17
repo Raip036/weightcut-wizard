@@ -1,65 +1,15 @@
-import { useState, type ReactNode } from "react";
-import { Icon } from "@/components/ui/Icon";
+import { useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { ChevronDown } from "lucide-react";
 import { useMutation } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import { triggerHapticSelection } from "@/lib/haptics";
-import { cn } from "@/lib/utils";
+import { stripDashes } from "@/lib/utils";
+import { AnimatedCheckbox, XpFloat } from "@/components/coach/TickReward";
 
-// Combat-sports terms worth emphasising inside setup/counter prose. Listed
-// longest-first so multi-word techniques win over their single-word parts
-// (e.g. "roundhouse kick" before "kick") during ordered regex alternation.
-const SPARRING_KEYWORDS = [
-  // Grappling (multi-word first)
-  "rear naked choke", "front headlock", "side control", "back control",
-  "closed guard", "half guard", "open guard", "guard pass", "wrist control",
-  "collar tie", "level change", "double leg", "single leg", "back take",
-  "duck under", "snap down", "arm drag", "ankle lock", "heel hook",
-  "leg lock", "takedown", "guillotine", "kimura", "triangle", "armbar",
-  "kneebar", "sprawl", "underhook", "overhook", "hip escape", "shrimp",
-  "guard", "mount", "bridge", "frame", "grip", "shot",
-  // Strikes
-  "question mark kick", "straight punch", "roundhouse kick", "switch kick",
-  "head kick", "body kick", "leg kick", "low kick", "push kick",
-  "front kick", "roundhouse", "lead hook", "rear hook", "body hook",
-  "overhand", "uppercut", "flying knee", "straight knee", "1-2",
-  "combination", "combo", "teep", "hook", "cross", "jab", "kick", "knee",
-  // Elbows
-  "horizontal elbow", "spinning elbow", "rear elbow", "elbow",
-  // Clinch / defense / movement
-  "off-balance", "pummeling", "pummel", "clinch", "plum", "sweep", "dump",
-  "check", "shin", "feint", "slip", "parry", "block", "counter", "pivot",
-  "angle",
-];
-
-const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-const KEYWORD_REGEX = new RegExp(
-  `\\b(${SPARRING_KEYWORDS.map(escapeRegExp).join("|")})\\b`,
-  "gi",
-);
-
-/**
- * Splits a setup/counter line into plain text + bolded technique keywords so
- * the important moves stand out from the connective prose. Returns React nodes
- * ready to render; matching is case-insensitive and whole-word.
- */
-function highlightKeywords(text: string): ReactNode[] {
-  const nodes: ReactNode[] = [];
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-  KEYWORD_REGEX.lastIndex = 0;
-  while ((match = KEYWORD_REGEX.exec(text)) !== null) {
-    if (match.index > lastIndex) nodes.push(text.slice(lastIndex, match.index));
-    nodes.push(
-      <strong key={match.index} className="font-semibold text-foreground/90">
-        {match[0]}
-      </strong>,
-    );
-    lastIndex = match.index + match[0].length;
-  }
-  if (lastIndex < text.length) nodes.push(text.slice(lastIndex));
-  return nodes;
-}
+/** XP awarded per sparring assignment completed (mirrors the
+ *  `toggleAssignment` mutation's `awardXp` amount). */
+const SPARRING_XP_PER_ITEM = 15;
 
 /** Shape of a single sparring assignment row, mirroring the
  *  `api.sparring_plan.listSparringAssignments` query contract. */
@@ -81,23 +31,31 @@ interface SparringAssignmentRowProps {
 }
 
 /**
- * A single tappable sparring to-do. The whole row is a button — tapping it
- * flips the todo/done status via `toggleAssignment`. Done rows render the
- * technique struck-through with a filled, accent-coloured checkbox.
+ * A single tappable sparring to-do. The main tap area (checkbox + technique +
+ * when-to-use) flips the todo/done status via `toggleAssignment`. A separate
+ * "Setups & counters" disclosure (collapsed by default) reveals the detail
+ * without it ever toggling the row's done state.
  *
  * Convex reactivity drives the visual update once the mutation resolves; a
- * short `pending` guard prevents double-fires on rapid taps.
+ * short `pending` guard prevents double-fires on rapid taps. On a tick-on we
+ * bump a local `floatKey` so the "+XP" float retriggers.
  */
 export function SparringAssignmentRow({
   assignment,
   token,
 }: SparringAssignmentRowProps) {
+  const reduced = useReducedMotion();
   const toggleAssignment = useMutation(api.sparring_plan.toggleAssignment);
   const [pending, setPending] = useState(false);
+  const [floatKey, setFloatKey] = useState(0);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const done = assignment.status === "done";
+  const hasDetails =
+    assignment.setups.length > 0 || assignment.counters.length > 0;
 
   const handleToggle = async () => {
     if (pending) return;
+    if (!done) setFloatKey((k) => k + 1);
     setPending(true);
     triggerHapticSelection();
     try {
@@ -110,103 +68,142 @@ export function SparringAssignmentRow({
   };
 
   return (
-    <button
-      type="button"
-      disabled={pending}
-      onClick={handleToggle}
-      aria-pressed={done}
-      aria-label={
-        done
-          ? `Untick: ${assignment.technique}`
-          : `Mark done: ${assignment.technique}`
-      }
-      className={cn(
-        "w-full flex items-start gap-2.5 px-2.5 py-2 rounded-xs text-left",
-        "transition-colors active:scale-[0.995]",
-        done
-          ? "bg-muted/15 active:bg-muted/25"
-          : "bg-muted/8 hover:bg-muted/20 active:bg-muted/25",
-      )}
+    <motion.div
+      layout
+      className="relative rounded-lg overflow-hidden"
+      animate={{
+        backgroundColor: done
+          ? `hsl(var(${token}) / 0.06)`
+          : "hsla(0,0%,100%,0.03)",
+      }}
     >
-      {/* Checkbox — filled with the discipline accent when done. */}
-      <span
-        className={cn(
-          "h-4 w-4 rounded-xs border flex items-center justify-center flex-shrink-0 mt-[1px] transition-colors",
-          done ? "" : "border-border",
+      {/* Brief accent flash on completion. */}
+      <AnimatePresence>
+        {done && !reduced && (
+          <motion.span
+            key="flash"
+            className="absolute inset-0 pointer-events-none"
+            style={{ background: `hsl(var(${token}) / 0.18)` }}
+            initial={{ opacity: 0.5 }}
+            animate={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+            aria-hidden
+          />
         )}
-        style={
+      </AnimatePresence>
+
+      {/* Main tap area — toggles done. */}
+      <motion.button
+        type="button"
+        disabled={pending}
+        onClick={handleToggle}
+        whileTap={{ scale: 0.99 }}
+        aria-pressed={done}
+        aria-label={
           done
-            ? {
-                backgroundColor: `hsl(var(${token}))`,
-                borderColor: `hsl(var(${token}))`,
-              }
-            : undefined
+            ? `Untick: ${assignment.technique}`
+            : `Mark done: ${assignment.technique}`
         }
-        aria-hidden
+        className="relative w-full flex items-start gap-2.5 px-2.5 py-2 text-left"
       >
-        {done && (
-          <Icon name="checkmarkOutline" size={11} className="text-background" />
-        )}
-      </span>
+        <AnimatedCheckbox done={done} token={token} />
+        <div className="flex-1 min-w-0">
+          {/* Technique name with a strikethrough sweep on done. */}
+          <span className="relative inline-block max-w-full">
+            <motion.span
+              className="block text-[13px] font-semibold leading-snug break-words"
+              animate={{
+                color: done
+                  ? "hsl(var(--muted-foreground))"
+                  : "hsl(var(--foreground))",
+              }}
+            >
+              {assignment.technique}
+            </motion.span>
+            <motion.span
+              className="absolute left-0 top-1/2 h-[1.5px] origin-left"
+              style={{ background: "hsl(var(--muted-foreground))", width: "100%" }}
+              initial={false}
+              animate={{ scaleX: done ? 1 : 0 }}
+              transition={{ duration: reduced ? 0 : 0.3, ease: "easeOut" }}
+              aria-hidden
+            />
+          </span>
 
-      <div className="flex-1 min-w-0 space-y-1">
-        {/* Technique name */}
-        <p
-          className={cn(
-            "text-[13px] font-semibold leading-snug break-words",
-            done ? "text-muted-foreground line-through" : "text-foreground",
+          {/* When to use — single muted line. */}
+          {assignment.whenToUse && (
+            <p className="text-[11px] text-muted-foreground leading-snug mt-0.5 line-clamp-1">
+              {stripDashes(assignment.whenToUse)}
+            </p>
           )}
-        >
-          {assignment.technique}
-        </p>
+        </div>
+        <XpFloat
+          floatKey={floatKey}
+          token={token}
+          amount={SPARRING_XP_PER_ITEM}
+        />
+      </motion.button>
 
-        {/* When to use */}
-        {assignment.whenToUse && (
-          <p className="text-[11px] text-muted-foreground leading-snug">
-            {highlightKeywords(assignment.whenToUse)}
-          </p>
-        )}
-
-        {/* Setups */}
-        {assignment.setups.length > 0 && (
-          <div className="space-y-1 pt-0.5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground/70">
-              Setups
-            </p>
-            {assignment.setups.map((s, i) => (
-              <div
-                key={`setup-${i}`}
-                className="flex gap-1.5 text-[11px] text-muted-foreground/90 leading-snug"
+      {/* Per-row disclosure for setups / counters — collapsed by default and
+          fully independent of the done toggle. */}
+      {hasDetails && (
+        <div className="px-2.5 pb-2 -mt-1">
+          <button
+            type="button"
+            onClick={() => setDetailsOpen((o) => !o)}
+            aria-expanded={detailsOpen}
+            className="ml-[28px] inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 active:text-foreground"
+          >
+            Setups &amp; counters
+            <ChevronDown
+              className={`h-3 w-3 transition-transform ${
+                detailsOpen ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+          <AnimatePresence initial={false}>
+            {detailsOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden ml-[28px] mt-1.5 space-y-1.5"
               >
-                <span className="text-muted-foreground/50 select-none" aria-hidden>
-                  ·
-                </span>
-                <span className="flex-1 min-w-0">{highlightKeywords(s)}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Counters */}
-        {assignment.counters.length > 0 && (
-          <div className="space-y-1 pt-0.5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground/70">
-              Counters
-            </p>
-            {assignment.counters.map((c, i) => (
-              <div
-                key={`counter-${i}`}
-                className="flex gap-1.5 text-[11px] text-muted-foreground/90 leading-snug"
-              >
-                <span className="text-muted-foreground/50 select-none" aria-hidden>
-                  ·
-                </span>
-                <span className="flex-1 min-w-0">{highlightKeywords(c)}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </button>
+                {assignment.setups.length > 0 && (
+                  <div>
+                    <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground/60 mb-0.5">
+                      Setups
+                    </p>
+                    {assignment.setups.map((s, i) => (
+                      <p
+                        key={`setup-${i}`}
+                        className="text-[11px] text-muted-foreground/90 leading-snug"
+                      >
+                        · {stripDashes(s)}
+                      </p>
+                    ))}
+                  </div>
+                )}
+                {assignment.counters.length > 0 && (
+                  <div>
+                    <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground/60 mb-0.5">
+                      Counters
+                    </p>
+                    {assignment.counters.map((c, i) => (
+                      <p
+                        key={`counter-${i}`}
+                        className="text-[11px] text-muted-foreground/90 leading-snug"
+                      >
+                        · {stripDashes(c)}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+    </motion.div>
   );
 }

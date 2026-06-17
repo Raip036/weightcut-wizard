@@ -11,12 +11,18 @@
 // page owns the data fetch, the approach selector local state, and the
 // regenerate action.
 import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAction, useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import { useUser } from "@/contexts/UserContext";
 import { useSubscription } from "@/hooks/useSubscription";
+import { triggerHapticSelection } from "@/lib/haptics";
+import { ProUpsellScreen } from "@/components/subscription/ProUpsellScreen";
 
+import { ProtocolCountdownAnchor } from "@/components/protocol/ProtocolCountdownAnchor";
+import { ProtocolCompleteCutscene } from "@/components/protocol/ProtocolCompleteCutscene";
 import { ProtocolSummaryCard } from "@/components/protocol/ProtocolSummaryCard";
+import { SealedRehydrationCard } from "@/components/protocol/SealedRehydrationCard";
 import { ProtocolProGate } from "@/components/protocol/ProtocolProGate";
 import { WeightProtocolProDialog } from "@/components/protocol/WeightProtocolProDialog";
 import {
@@ -78,7 +84,8 @@ const FEEL_CHECK_METRICS: ReadonlyArray<FeelCheckMetric> = [
 
 export default function WeightProtocol() {
   const { userId, profile } = useUser();
-  const { isPremium: subIsPremium } = useSubscription();
+  const { isPremium: subIsPremium, openPaywall } = useSubscription();
+  const navigate = useNavigate();
   // DEV-ONLY: drop the Pro gate on the dev server so the full protocol +
   // rehydration output is visible while iterating on the UI. `import.meta.env.DEV`
   // is false in production builds, so the paywall stays intact in prod.
@@ -176,6 +183,31 @@ export default function WeightProtocol() {
   // ── Top-level states ──────────────────────────────────────────────
   if (protocol === undefined) return <ProtocolPageSkeleton />;
   if (protocol === null) return <NoFightCampEmptyState />;
+
+  // Non-Pro users get the full-screen upgrade wall — the shared, animated
+  // ProUpsellScreen used across Recovery / Missions — instead of the
+  // protocol body. `isPremium` is forced true on the dev server (see above),
+  // so this only gates real production free users.
+  if (!isPremium) {
+    return (
+      <ProUpsellScreen
+        title="Your Weight Protocol is a Pro feature"
+        blurb="A day-by-day cut and a rehydration plan, tuned to your body, training load, and weigh-in window."
+        perks={[
+          "Day-by-day carb, water and sodium taper",
+          "Rehydration timeline and ORS recipe after weigh-in",
+          "Tuned to your camp history and weigh-in gap",
+          "Auto-adjusts as you log your weight",
+        ]}
+        upgradeLabel="Upgrade to Pro"
+        onUpgrade={() => {
+          triggerHapticSelection();
+          openPaywall();
+        }}
+        onDismiss={() => navigate(-1)}
+      />
+    );
+  }
 
   // ── Destructure once for readability ──────────────────────────────
   const {
@@ -283,10 +315,25 @@ export default function WeightProtocol() {
     },
     {
       label: "Weight",
+      // Structured start→target: muted start, bold target, baseline-aligned
+      // unit so the from→to reads cleanly at a glance.
       value:
-        currentWeight && targetWeight != null
-          ? `${currentWeight.toFixed(1)} → ${targetWeight.toFixed(1)} kg`
-          : "—",
+        currentWeight && targetWeight != null ? (
+          <span className="inline-flex items-baseline gap-1.5">
+            <span className="font-semibold text-muted-foreground">
+              {currentWeight.toFixed(1)}
+            </span>
+            <span className="text-muted-foreground/70">→</span>
+            <span className="font-bold text-foreground">
+              {targetWeight.toFixed(1)}
+            </span>
+            <span className="text-[11px] font-medium text-muted-foreground">
+              kg
+            </span>
+          </span>
+        ) : (
+          "—"
+        ),
       iconName: "scaleOutline",
     },
     {
@@ -403,8 +450,78 @@ export default function WeightProtocol() {
   // ── Approach selector lock — too close to weigh-in to change track ─
   const approachLocked = daysToWeighIn <= 2;
 
+  // Flow C "weigh-in pivot": the rehydration plan stays SEALED while the
+  // athlete is still cutting (prep / cut) and unlocks the moment the
+  // protocol enters the weigh-in window. The sweat-loss entry then becomes
+  // the prominent hinge that generates it.
+  const rehydrationUnlocked =
+    phaseTyped === "weigh-in" ||
+    phaseTyped === "refeed" ||
+    phaseTyped === "pre-fight";
+
+  // Finale: the cut is behind them — pre-fight window with a generated
+  // rehydration plan. Shows the celebratory "made weight & refueled"
+  // cutscene at the top (and suppresses the countdown anchor, which would
+  // otherwise read "weigh-in today" post-scale).
+  const showFinale = phaseTyped === "pre-fight" && !!rhPayload;
+  const finaleLitres =
+    (rhPayload?.derivedSnapshot?.totalLitresTarget as number | undefined) ??
+    (rhPayload?.orsRecipe?.totalLitresTarget as number | undefined) ??
+    null;
+
+  // Pre-formatted weigh-in date for the countdown anchor, from the D-0
+  // skeleton day's ISO when present.
+  const weighInDateLabel = (() => {
+    const iso = weighInDay?.dayIso as string | undefined;
+    if (!iso) return null;
+    const d = new Date(`${iso}T00:00:00`);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toLocaleDateString(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    });
+  })();
+
   return (
     <div className="animate-page-in space-y-3 px-5 py-3 sm:p-5 md:p-6 max-w-7xl mx-auto pb-16 md:pb-6">
+      {/* 0a. Completion finale — celebratory "made weight & refueled" cutscene
+            once the cut is done (pre-fight + rehydration generated). */}
+      {showFinale && (
+        <ProtocolCompleteCutscene
+          stats={[
+            ...(targetWeight != null
+              ? [
+                  {
+                    label: "Made weight",
+                    value: `${targetWeight.toFixed(1)} kg`,
+                    tone: "health" as const,
+                  },
+                ]
+              : []),
+            ...(finaleLitres != null
+              ? [
+                  {
+                    label: "Rehydrated with",
+                    value: `≈${finaleLitres.toFixed(1)} L`,
+                    tone: "hydration" as const,
+                  },
+                ]
+              : []),
+            { label: "Fight night", value: "Full and strong" },
+          ]}
+        />
+      )}
+
+      {/* 0b. Weigh-in countdown anchor — the pivot the whole flow hinges on.
+            Suppressed once the finale is showing. */}
+      {!showFinale && (
+        <ProtocolCountdownAnchor
+          daysToWeighIn={daysToWeighIn}
+          dateLabel={weighInDateLabel}
+        />
+      )}
+
       {/* 1. Summary card — cut-depth ring, taper sparkline, on-track pill */}
       <ProtocolSummaryCard
         cutDepthPct={cutDepthPctRaw ?? 0}
@@ -524,19 +641,26 @@ export default function WeightProtocol() {
         <LockedDayCard days={[weighInDay]} onUnlock={openProDialog} />
       )}
 
-      {/* 9. Section divider — the post-weigh-in rehydration / refuel window. */}
-      <ProtocolSectionDivider label="After the scale · Rehydration" />
-      <p className="-mt-1 text-[12px] text-muted-foreground/80 leading-snug">
-        Your refuel plan for once you step off the weigh-in scale — how to
-        rehydrate and reload before fight night.
-      </p>
-
-      {/* 10/11. Rehydration — only meaningful once the carb-cut plan exists.
-            Premium athletes either see the generated ORS recipe + hourly
-            timeline, or the manual sweat-loss entry card that drives a fresh
-            generation. Free users see the single locked teaser. */}
-      {fpPayload && (
+      {/* 9–13. After the scale — SEALED while the athlete is still cutting,
+            unlocking into the live rehydration plan at the weigh-in window. */}
+      {fpPayload && !rehydrationUnlocked && (
         <>
+          <ProtocolSectionDivider label="After the scale · Rehydration" />
+          <SealedRehydrationCard daysToWeighIn={daysToWeighIn} />
+        </>
+      )}
+
+      {fpPayload && rehydrationUnlocked && (
+        <>
+          <ProtocolSectionDivider label="After the scale · Rehydration" />
+          <p className="-mt-1 text-[12px] text-muted-foreground/80 leading-snug">
+            Your refuel plan for once you step off the weigh-in scale. How to
+            rehydrate and reload before fight night.
+          </p>
+
+          {/* Premium athletes either see the generated ORS recipe + hourly
+              timeline, or the manual sweat-loss entry card — the weigh-in
+              hinge that drives a fresh generation. */}
           {isPremium ? (
             rhPayload && !editingSweat ? (
               <>
@@ -575,27 +699,27 @@ export default function WeightProtocol() {
               />
             )
           ) : (
-            // Single locked card stands in for the full rehydration section
-            // for free users — keeps the page silhouette consistent.
             <LockedDayCard
               days={[]}
               onUnlock={openProDialog}
               teaser="the rehydration timeline + ORS recipe"
             />
           )}
+
+          {/* Do-not callouts */}
+          <DoNotCallouts
+            items={(rhPayload?.doNots as string[] | undefined) ?? []}
+          />
+
+          {/* Feel checks — only during the rehydration window */}
+          {showFeelChecks && (
+            <FeelChecksList
+              campId={campId}
+              cutDepthKg={fpPayload?.cutDepthKg}
+              checks={feelCheckList}
+            />
+          )}
         </>
-      )}
-
-      {/* 12. Do-not callouts */}
-      <DoNotCallouts items={(rhPayload?.doNots as string[] | undefined) ?? []} />
-
-      {/* 13. Feel checks — only during the rehydration window */}
-      {showFeelChecks && (
-        <FeelChecksList
-          campId={campId}
-          cutDepthKg={fpPayload?.cutDepthKg}
-          checks={feelCheckList}
-        />
       )}
 
       {/* Regenerate button + error */}

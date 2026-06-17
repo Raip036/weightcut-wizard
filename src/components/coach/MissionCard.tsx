@@ -1,14 +1,16 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Icon } from "@/components/ui/Icon";
 import { useMutation, useQuery } from "convex/react";
 import type { Doc, Id } from "@/../convex/_generated/dataModel";
 import { api } from "@/../convex/_generated/api";
-import { triggerHapticSelection } from "@/lib/haptics";
+import { triggerHapticSelection, triggerHapticSuccess } from "@/lib/haptics";
 import { disciplineLabel, disciplineToken } from "@/lib/coachColors";
 import { levelFromXp } from "@/lib/xp";
-import { cn } from "@/lib/utils";
+import { cn, stripDashes } from "@/lib/utils";
+import { CompleteCelebration } from "@/components/motion";
+import { AnimatedCheckbox, XpFloat } from "@/components/coach/TickReward";
 import { LevelRing } from "./LevelRing";
-import { MissionCompleteDialog } from "./MissionCompleteDialog";
 
 type Mission = Doc<"training_missions"> & {
   items: Doc<"training_mission_items">[];
@@ -25,6 +27,9 @@ interface MissionCardProps {
 
 const COLLAPSED_ITEM_COUNT = 5;
 
+/** XP awarded per item tick (backend constant — render-time mirror only). */
+const XP_PER_ITEM = 20;
+
 /**
  * Normalise AI-generated advice so every item reads with identical
  * indentation: collapse stray whitespace/newlines and strip any leading
@@ -40,16 +45,104 @@ function cleanAdvice(text: string): string {
 }
 
 /**
+ * A single checklist row with the full tick-reward animation: a background
+ * that fades to the discipline accent, a one-shot flash overlay, the animated
+ * checkbox, a strikethrough sweep over the text, and a "+20 XP" float on tick.
+ * Holds its own `floatKey` so the float retriggers per tick-on (mirrors the
+ * approved mockup's TickRow). Tap logic is delegated to the parent's handler.
+ */
+function TickRow({
+  item,
+  token,
+  disabled,
+  onTick,
+}: {
+  item: Doc<"training_mission_items">;
+  token: string;
+  disabled: boolean;
+  onTick: (itemId: Id<"training_mission_items">, currentlyCompleted: boolean) => void;
+}) {
+  const reduced = useReducedMotion();
+  const [floatKey, setFloatKey] = useState(0);
+  const done = item.completed;
+
+  const handle = () => {
+    if (disabled) return;
+    // Float only when ticking ON, never on untick.
+    if (!done) setFloatKey((k) => k + 1);
+    onTick(item._id, done);
+  };
+
+  return (
+    <motion.button
+      type="button"
+      onClick={handle}
+      disabled={disabled}
+      layout
+      className="relative w-full min-h-[36px] flex items-start gap-2.5 px-2.5 py-2 rounded-xs text-left overflow-hidden"
+      animate={{
+        backgroundColor: done
+          ? `hsl(var(${token}) / 0.06)`
+          : "hsla(0,0%,100%,0.03)",
+      }}
+      whileTap={{ scale: 0.99 }}
+      aria-pressed={done}
+      aria-label={done ? `Untick: ${item.text}` : `Mark complete: ${item.text}`}
+    >
+      <AnimatePresence>
+        {done && !reduced && (
+          <motion.span
+            key="flash"
+            className="absolute inset-0 pointer-events-none"
+            style={{ background: `hsl(var(${token}) / 0.18)` }}
+            initial={{ opacity: 0.5 }}
+            animate={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatedCheckbox done={done} token={token} />
+
+      <div className="flex-1 min-w-0">
+        <span className="relative inline-block">
+          <motion.span
+            className="block text-[12px] leading-snug line-clamp-2"
+            animate={{
+              color: done
+                ? "hsl(var(--muted-foreground))"
+                : "hsl(var(--foreground))",
+            }}
+          >
+            {stripDashes(cleanAdvice(item.text))}
+          </motion.span>
+          <motion.span
+            className="absolute left-0 top-1/2 h-[1.5px] origin-left"
+            style={{ background: "hsl(var(--muted-foreground))", width: "100%" }}
+            initial={false}
+            animate={{ scaleX: done ? 1 : 0 }}
+            transition={{ duration: reduced ? 0 : 0.3, ease: "easeOut" }}
+          />
+        </span>
+      </div>
+
+      <XpFloat floatKey={floatKey} token={token} amount={XP_PER_ITEM} />
+    </motion.button>
+  );
+}
+
+/**
  * Single Training Mission. The card is an accordion item — the header
- * is always visible (discipline pill, title, progress, chevron) and the
- * body (rationale + checklist) appears only when `expanded` is true.
+ * is always visible (discipline label, level, title, progress, chevron) and
+ * the body (rationale disclosure + checklist) appears only when `expanded`.
  *
- * Items support tick AND untick (in case of accidental taps). Ticking
- * the final unchecked item still fires the Mission Complete dialog.
+ * Items support tick AND untick (in case of accidental taps). Ticking the
+ * final unchecked item fires a full-screen completion celebration.
  */
 export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
   const token = disciplineToken(mission.sport);
   const label = disciplineLabel(mission.sport);
+  const prefersReduced = useReducedMotion();
 
   const items = mission.items;
   const totalCount = items.length;
@@ -59,9 +152,29 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
   );
   const progressPct = totalCount > 0 ? (doneCount / totalCount) * 100 : 0;
 
-  const [itemsExpanded, setItemsExpanded] = useState(
-    totalCount <= COLLAPSED_ITEM_COUNT,
-  );
+  // "Why this mission" rationale disclosure — collapsed by default.
+  const [showWhy, setShowWhy] = useState(false);
+
+  // Item collapse state persists across navigation via localStorage.
+  const itemsExpandedKey = `wcw_mission_items_expanded_${mission._id}`;
+  const [itemsExpanded, setItemsExpanded] = useState<boolean>(() => {
+    try {
+      const raw = localStorage.getItem(itemsExpandedKey);
+      if (raw === "1") return true;
+      if (raw === "0") return false;
+    } catch {
+      /* ignore */
+    }
+    return totalCount <= COLLAPSED_ITEM_COUNT;
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(itemsExpandedKey, itemsExpanded ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, [itemsExpanded, itemsExpandedKey]);
+
   const visibleItems = itemsExpanded
     ? items
     : items.slice(0, COLLAPSED_ITEM_COUNT);
@@ -73,19 +186,17 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
   const [completionAward, setCompletionAward] = useState<{
     xpAwarded: number;
     leveledUp: boolean;
-  }>({ xpAwarded: 0, leveledUp: false });
+    newLevel: number;
+  }>({ xpAwarded: 0, leveledUp: false, newLevel: 1 });
 
   // Per-discipline XP — drives the LevelRing on the card header. Lives behind a
   // dedicated query so the header still renders instantly when this comes back
   // `undefined` (initial load); we just show level 1 / progress 0 in that case.
-  const disciplineXp = useQuery(
-    api.user_discipline_xp.getForSport,
-    { sport: mission.sport },
-  );
+  const disciplineXp = useQuery(api.user_discipline_xp.getForSport, {
+    sport: mission.sport,
+  });
   const xpLevel = disciplineXp?.level ?? 1;
   const xpProgress = disciplineXp?.progress ?? 0;
-  const xpCurrent = disciplineXp?.currentLevelXp ?? 0;
-  const xpNext = disciplineXp?.nextLevelXp ?? 50;
   const xpTotal = disciplineXp?.totalXp ?? 0;
 
   const markItemCompleted = useMutation(api.training_missions.markItemCompleted);
@@ -105,15 +216,14 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
         itemId,
         completed: !currentlyCompleted,
       });
-      // Only show the Mission Complete dialog when we just transitioned
+      // Only show the completion celebration when we just transitioned
       // TO completed (tick), never on an untick.
       if (!currentlyCompleted && result.missionCompleted) {
         const awarded = result.xpAwarded ?? 0;
+        const newLevel = levelFromXp(prevTotalXp + awarded).level;
         const leveledUp =
-          awarded > 0 &&
-          levelFromXp(prevTotalXp + awarded).level >
-            levelFromXp(prevTotalXp).level;
-        setCompletionAward({ xpAwarded: awarded, leveledUp });
+          awarded > 0 && newLevel > levelFromXp(prevTotalXp).level;
+        setCompletionAward({ xpAwarded: awarded, leveledUp, newLevel });
         setCompleteOpen(true);
       }
     } catch (err) {
@@ -122,6 +232,18 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
       setPending(null);
     }
   };
+
+  // Fire success haptic + auto-dismiss the celebration. Auto-dismiss runs
+  // shorter under reduced motion; a tap also closes it (see overlay button).
+  useEffect(() => {
+    if (!completeOpen) return;
+    void triggerHapticSuccess();
+    const t = setTimeout(
+      () => setCompleteOpen(false),
+      prefersReduced ? 1600 : 2600,
+    );
+    return () => clearTimeout(t);
+  }, [completeOpen, prefersReduced]);
 
   return (
     <>
@@ -132,7 +254,7 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
         />
         {/* ────────────────────────────────────────────────────────────
             Header — always visible, tap to expand/collapse.
-            Layout: [ring] [discipline + Lv chip + title] [XP] [chevron]
+            Layout: [ring] [discipline + Lv + title] [done/total] [chevron]
             ──────────────────────────────────────────────────────────── */}
         <button
           type="button"
@@ -143,8 +265,8 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
           aria-expanded={expanded}
           className="relative w-full min-h-[72px] px-4 py-3 flex items-center gap-3 text-left active:bg-muted/15 transition-colors"
         >
-          {/* Level ring — replaces the old accent stripe. Renders with level
-              1 / progress 0 while the per-sport XP query is loading. */}
+          {/* Level ring — renders with level 1 / progress 0 while the
+              per-sport XP query is loading. */}
           <LevelRing
             token={token}
             level={xpLevel}
@@ -152,25 +274,16 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
             size={44}
           />
 
-          {/* Discipline + level chip stacked above the mission title. */}
+          {/* Discipline + level (plain coloured text) above the mission title. */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 mb-0.5">
+            <div className="flex items-center gap-2 mb-0.5">
               <span
-                className={cn(
-                  "inline-flex items-center h-5 px-2 rounded-full flex-shrink-0",
-                  "text-[10px] font-bold uppercase tracking-wider",
-                )}
-                style={{
-                  backgroundColor: `hsl(var(${token}) / 0.15)`,
-                  color: `hsl(var(${token}))`,
-                }}
+                className="text-[10px] font-bold uppercase tracking-wider"
+                style={{ color: `hsl(var(${token}))` }}
               >
                 {label}
               </span>
-              <span
-                className="inline-flex items-center h-5 px-1.5 rounded-full bg-muted/25 text-[10px] font-bold uppercase tracking-wider tabular-nums"
-                style={{ color: `hsl(var(${token}))` }}
-              >
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
                 Lv {xpLevel}
               </span>
             </div>
@@ -179,11 +292,17 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
             </p>
           </div>
 
-          {/* XP "240 / 450" — tabular, muted, right-aligned before the chevron. */}
-          <span className="text-micro tabular-nums font-bold text-muted-foreground/70 flex-shrink-0">
-            {xpCurrent}
-            <span className="text-muted-foreground/40"> / </span>
-            {xpNext}
+          {/* Mission item count "3/7" — coloured once the user has started. */}
+          <span
+            className="text-[12px] tabular-nums font-bold flex-shrink-0"
+            style={{
+              color:
+                doneCount > 0
+                  ? `hsl(var(${token}))`
+                  : "hsl(var(--muted-foreground))",
+            }}
+          >
+            {doneCount}/{totalCount}
           </span>
 
           {/* Chevron */}
@@ -197,133 +316,70 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
           />
         </button>
 
+        {/* Single thin progress bar directly under the header. */}
+        <div className="px-4">
+          <div className="h-1 rounded-full bg-muted/40 overflow-hidden">
+            <motion.div
+              className="h-full rounded-full"
+              style={{ background: `hsl(var(${token}))` }}
+              animate={{ width: `${progressPct}%` }}
+              transition={{ duration: prefersReduced ? 0 : 0.5 }}
+            />
+          </div>
+        </div>
+
         {/* ────────────────────────────────────────────────────────────
             Body — only rendered when expanded.
             ──────────────────────────────────────────────────────────── */}
         {expanded && (
-          <div className="relative pl-4 pr-4 pb-4 space-y-3.5 animate-in fade-in slide-in-from-top-1 duration-200">
-            {/* Rationale */}
+          <div className="relative pl-4 pr-4 pt-3 pb-4 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+            {/* "Why this mission" — collapsed by default. */}
             {mission.rationale && (
-              <p className="text-note text-muted-foreground leading-snug">
-                {cleanAdvice(mission.rationale)}
-              </p>
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowWhy((w) => !w)}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground/70 active:text-foreground"
+                  aria-expanded={showWhy}
+                >
+                  <Icon name="informationCircleOutline" size={12} />
+                  Why this mission
+                  <Icon
+                    name="chevronDownOutline"
+                    size={12}
+                    className={cn(
+                      "transition-transform",
+                      showWhy && "rotate-180",
+                    )}
+                  />
+                </button>
+                <AnimatePresence initial={false}>
+                  {showWhy && (
+                    <motion.p
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden text-note text-muted-foreground leading-snug mt-1.5"
+                    >
+                      {stripDashes(cleanAdvice(mission.rationale))}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+              </div>
             )}
 
-            {/* Mission progress — per-item progress for this mission, distinct
-                from the level XP ring shown in the header. */}
-            <div className="space-y-1.5">
-              <div className="h-1.5 rounded-full bg-muted/40 overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{
-                    width: `${progressPct}%`,
-                    backgroundColor: `hsl(var(${token}))`,
-                  }}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <p className="text-micro uppercase tracking-wider text-muted-foreground/70 font-semibold">
-                  Mission progress
-                </p>
-                <p className="text-micro tabular-nums font-bold text-muted-foreground/80">
-                  {doneCount}/{totalCount}
-                </p>
-              </div>
-            </div>
-
-            {/* Items */}
-            <ul className="space-y-2" role="list">
-              {visibleItems.map((item) => {
-                const isPending = pending === item._id;
-                return (
-                  <li key={item._id}>
-                    <button
-                      type="button"
-                      disabled={isPending}
-                      onClick={() => handleTick(item._id, item.completed)}
-                      className={cn(
-                        "w-full min-h-[36px] flex items-start gap-2.5 px-2.5 py-1.5 rounded-xs text-left",
-                        "transition-colors active:scale-[0.995]",
-                        item.completed
-                          ? "bg-muted/15 active:bg-muted/25"
-                          : "bg-muted/8 hover:bg-muted/20 active:bg-muted/25",
-                      )}
-                      aria-pressed={item.completed}
-                      aria-label={
-                        item.completed
-                          ? `Untick: ${item.text}`
-                          : `Mark complete: ${item.text}`
-                      }
-                    >
-                      {/* Checkbox */}
-                      <span
-                        className={cn(
-                          "h-4 w-4 rounded-xs border flex items-center justify-center flex-shrink-0 mt-[1px] transition-colors",
-                          item.completed ? "" : "border-border",
-                        )}
-                        style={
-                          item.completed
-                            ? {
-                                backgroundColor: `hsl(var(${token}))`,
-                                borderColor: `hsl(var(${token}))`,
-                              }
-                            : undefined
-                        }
-                        aria-hidden
-                      >
-                        {item.completed && (
-                          <Icon
-                            name="checkmarkOutline"
-                            size={11}
-                            className="text-background"
-                          />
-                        )}
-                      </span>
-
-                      <div className="flex-1 min-w-0 space-y-0.5">
-                        <p
-                          className={cn(
-                            "text-[12px] leading-snug",
-                            item.completed
-                              ? "text-muted-foreground line-through"
-                              : "text-foreground",
-                          )}
-                        >
-                          {cleanAdvice(item.text)}
-                        </p>
-                        {(item.technique ||
-                          item.drillType ||
-                          item.durationMin) && (
-                          <div className="flex flex-wrap items-center gap-1">
-                            {item.technique && (
-                              <span className="text-[9px] uppercase tracking-wide font-bold text-muted-foreground/80 bg-muted/30 rounded-xs px-1 py-px">
-                                {item.technique}
-                              </span>
-                            )}
-                            {item.drillType && (
-                              <span
-                                className="text-[9px] uppercase tracking-wide font-bold rounded-xs px-1 py-px"
-                                style={{
-                                  color: `hsl(var(${token}))`,
-                                  backgroundColor: `hsl(var(${token}) / 0.12)`,
-                                }}
-                              >
-                                {item.drillType}
-                              </span>
-                            )}
-                            {item.durationMin && (
-                              <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-muted-foreground/80">
-                                <Icon name="timeOutline" size={10} />
-                                {item.durationMin}m
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  </li>
-                );
-              })}
+            {/* Items — text only, with the full tick-reward animation. */}
+            <ul className="space-y-1.5" role="list">
+              {visibleItems.map((item) => (
+                <li key={item._id}>
+                  <TickRow
+                    item={item}
+                    token={token}
+                    disabled={pending === item._id}
+                    onTick={handleTick}
+                  />
+                </li>
+              ))}
             </ul>
 
             {/* Show all / collapse items toggle */}
@@ -336,9 +392,7 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
                 }}
                 className="w-full min-h-[36px] flex items-center justify-center gap-1.5 text-note font-semibold text-muted-foreground/80 active:text-foreground"
               >
-                {itemsExpanded
-                  ? "Show fewer"
-                  : `Show all ${totalCount} items`}
+                {itemsExpanded ? "Show fewer" : `Show all ${totalCount} items`}
                 <Icon
                   name="chevronForwardOutline"
                   size={14}
@@ -353,14 +407,30 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
         )}
       </div>
 
-      <MissionCompleteDialog
-        open={completeOpen}
-        onOpenChange={setCompleteOpen}
-        missionTitle={mission.title}
-        sport={mission.sport}
-        xpAwarded={completionAward.xpAwarded}
-        leveledUp={completionAward.leveledUp}
-      />
+      {/* Full-screen completion celebration — replaces the old modal. */}
+      <AnimatePresence>
+        {completeOpen && (
+          <button
+            type="button"
+            onClick={() => setCompleteOpen(false)}
+            aria-label="Dismiss"
+            className="fixed inset-0 z-[100] cursor-default"
+          >
+            <CompleteCelebration
+              prefersReduced={prefersReduced}
+              accentToken={token}
+              xp={completionAward.xpAwarded}
+              eyebrow={completionAward.leveledUp ? "Level up" : "Mission complete"}
+              title={
+                completionAward.leveledUp
+                  ? `Level ${completionAward.newLevel} reached`
+                  : "Every drill ticked"
+              }
+              subtitle="Log your next session to unlock your next mission."
+            />
+          </button>
+        )}
+      </AnimatePresence>
     </>
   );
 }
