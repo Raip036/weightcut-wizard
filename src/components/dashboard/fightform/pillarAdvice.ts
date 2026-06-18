@@ -272,7 +272,7 @@ function recoveryAdvice(sub: SubScore): PillarAdvice {
     return {
       headline: "Connect Apple Health to read recovery.",
       actions: [
-        { label: "Enable Apple Health", route: "/recovery" },
+        { label: "Connect Apple Health", route: "settings:apple-health" },
         { label: "Do today's 4-tap check-in", route: "/recovery/check-in" },
       ],
     };

@@ -88,10 +88,55 @@ export function CoachingCard({ context, onNavigate }: Props) {
             {...reveal}
             className="mt-3 space-y-3"
           >
-            <p className="text-body-sm text-foreground/90 leading-snug">
-              {coaching.summary}
-            </p>
+            {/* Derivation — why the score is what it is, in real points.
+                Falls back to plain `summary` when the prose fallback path ran. */}
+            {coaching.derivation ? (
+              <p className="text-body-sm text-foreground font-medium leading-snug">
+                {coaching.derivation}
+              </p>
+            ) : coaching.summary ? (
+              <p className="text-body-sm text-foreground/90 leading-snug">
+                {coaching.summary}
+              </p>
+            ) : null}
 
+            {/* What's working vs what's limiting. */}
+            {(coaching.working || coaching.limiting) && (
+              <div className="space-y-1.5">
+                {coaching.working && (
+                  <div className="flex items-start gap-2">
+                    <Icon
+                      name="checkmarkOutline"
+                      size={15}
+                      className="text-func-recovery-green shrink-0 mt-px"
+                    />
+                    <p className="text-[12px] text-foreground/90 leading-snug">
+                      <span className="font-semibold text-func-recovery-green">
+                        Working.{" "}
+                      </span>
+                      {coaching.working}
+                    </p>
+                  </div>
+                )}
+                {coaching.limiting && (
+                  <div className="flex items-start gap-2">
+                    <Icon
+                      name="trendingDownOutline"
+                      size={15}
+                      className="text-func-danger-red shrink-0 mt-px"
+                    />
+                    <p className="text-[12px] text-foreground/90 leading-snug">
+                      <span className="font-semibold text-func-danger-red">
+                        Limiting.{" "}
+                      </span>
+                      {coaching.limiting}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Ranked fixes — biggest point gain first, each with its payoff. */}
             {coaching.actions.length > 0 && (
               <ul className="space-y-1.5">
                 {coaching.actions.map((a, i) => {
@@ -99,25 +144,44 @@ export function CoachingCard({ context, onNavigate }: Props) {
                   return (
                     <li
                       key={`${a.pillar}-${i}`}
-                      className="flex items-start gap-2.5 rounded-xs border border-border/40 bg-muted/15 px-3 py-2.5"
+                      className="rounded-xs border border-border/40 bg-muted/15 px-3 py-2.5"
                     >
-                      <Icon
-                        name="arrowForwardOutline"
-                        size={14}
-                        className="text-primary shrink-0 mt-0.5"
-                      />
-                      <span className="min-w-0">
-                        <span className="block text-[10px] uppercase tracking-wide font-semibold text-muted-foreground/80">
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        {i === 0 && (
+                          <span className="text-[9px] font-bold uppercase tracking-wide text-primary bg-primary/15 rounded px-1 py-px">
+                            Fix first
+                          </span>
+                        )}
+                        <span className="text-[10px] uppercase tracking-wide font-semibold text-muted-foreground/80">
                           {pillarLabel}
                         </span>
-                        <span className="block text-body-sm text-foreground/90 leading-snug">
-                          {a.action}
-                        </span>
+                        {typeof a.pointsToGain === "number" && a.pointsToGain > 0 && (
+                          <span className="ml-auto text-[10px] font-bold tabular-nums text-primary shrink-0">
+                            +{a.pointsToGain} pts
+                          </span>
+                        )}
+                      </div>
+                      <span className="block text-body-sm text-foreground/90 leading-snug">
+                        {a.action}
                       </span>
                     </li>
                   );
                 })}
               </ul>
+            )}
+
+            {/* Active ceiling — a rule is capping the score. */}
+            {coaching.ceiling && (
+              <div className="flex items-start gap-2 rounded-xs border border-func-warning-yellow/30 bg-func-warning-yellow/10 px-3 py-2">
+                <Icon
+                  name="alertCircleOutline"
+                  size={15}
+                  className="text-func-warning-yellow shrink-0 mt-px"
+                />
+                <p className="text-[12px] text-foreground/90 leading-snug">
+                  {coaching.ceiling}
+                </p>
+              </div>
             )}
 
             <button
@@ -171,8 +235,8 @@ export function CoachingCard({ context, onNavigate }: Props) {
           <motion.div key="idle" {...reveal} className="mt-3 space-y-3">
             <p className="text-body-sm text-muted-foreground leading-snug">
               {isPro
-                ? "A holistic read on your camp — what's working, and the few things to fix next."
-                : "Unlock a holistic read on your camp — what's working, and the few things to fix next."}
+                ? "A holistic read on your camp, what's working and the few things to fix next."
+                : "Unlock a holistic read on your camp, what's working and the few things to fix next."}
             </p>
             <button
               type="button"

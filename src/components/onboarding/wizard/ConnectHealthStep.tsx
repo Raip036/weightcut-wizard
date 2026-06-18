@@ -99,7 +99,7 @@ function ConnectHealthStepErrorFallback({
         Couldn't load Apple Health setup
       </p>
       <p className="text-[12px] leading-snug text-muted-foreground">
-        You can connect Apple Health later from Profile → Apple Health.
+        You can connect Apple Health later from Settings → Apple Health.
       </p>
       <button
         type="button"

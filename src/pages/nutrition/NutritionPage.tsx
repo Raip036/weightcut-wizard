@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 import { CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -33,7 +35,7 @@ import { TrainingWisdomSheet } from "./TrainingWisdomSheet";
 import { EmptyMealsBanner } from "./EmptyMealsBanner";
 import { AiTaskBanner } from "./AiTaskBanner";
 import { QuickAddDialog } from "./dialogs/QuickAddDialog";
-import { AiMealPlanDialog } from "./dialogs/AiMealPlanDialog";
+import { MealPlanSheet } from "./MealPlanSheet";
 import { EditTargetsDialog } from "./dialogs/EditTargetsDialog";
 import { ManualNutritionDialog } from "./dialogs/ManualNutritionDialog";
 import { FavoritesSheet } from "./dialogs/FavoritesSheet";
@@ -70,7 +72,6 @@ export default function NutritionPage() {
   const [quickAddTab, setQuickAddTab] = useState<"ai" | "manual">("ai");
   const [pendingCaptionFromDial, setPendingCaptionFromDial] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
-  const [expandedMealIdeas, setExpandedMealIdeas] = useState<Set<string>>(new Set());
   const [isEditTargetsDialogOpen, setIsEditTargetsDialogOpen] = useState(false);
   const [editingTargets, setEditingTargets] = useState({ calories: "", protein: "", carbs: "", fats: "" });
   const [showMealSuccess, setShowMealSuccess] = useState(false);
@@ -100,10 +101,43 @@ export default function NutritionPage() {
     setIsQuickAddSheetOpen,
     setQuickAddTab,
   });
+
+  // Effective macro goals: AI values when available, otherwise derive from calorie target
+  const effectiveMacroGoals = useMemo(() => {
+    if (aiMacroGoals) return aiMacroGoals;
+    return {
+      proteinGrams: Math.round((dailyCalorieTarget * 0.30) / 4),
+      carbsGrams: Math.round((dailyCalorieTarget * 0.40) / 4),
+      fatsGrams: Math.round((dailyCalorieTarget * 0.30) / 9),
+      recommendedCalories: dailyCalorieTarget,
+    };
+  }, [aiMacroGoals, dailyCalorieTarget]);
+
+  // Day-plan targets fed into the meal-plan generator.
+  const mealTargets = useMemo(() => ({
+    kcal: dailyCalorieTarget,
+    protein: effectiveMacroGoals.proteinGrams,
+    carbs: effectiveMacroGoals.carbsGrams,
+    fats: effectiveMacroGoals.fatsGrams,
+  }), [dailyCalorieTarget, effectiveMacroGoals]);
+
+  // Today's planned training session — drives meal timing/structure in the
+  // day-plan prompt. Rest days (or no session) contribute no context.
+  const todaySessions = useQuery(
+    api.fight_camp.listCalendar,
+    userId ? { from: selectedDate, to: selectedDate } : "skip",
+  );
+  const trainingContext = useMemo(() => {
+    const s = todaySessions?.[0];
+    if (!s || s.sessionType === "Rest") return null;
+    return { sessionType: s.sessionType, sessionTag: s.sessionTag ?? undefined };
+  }, [todaySessions]);
+
   const mealPlan = useMealPlanGeneration({
     selectedDate, dailyCalorieTarget, setDailyCalorieTarget,
     safetyStatus, setSafetyStatus, safetyMessage, setSafetyMessage,
     mealPlanIdeas, setMealPlanIdeas, aiAbortRef: aiMeal.aiAbortRef,
+    targets: mealTargets, trainingContext,
   });
   const dietAnalysisHook = useDietAnalysis({
     meals, selectedDate, dailyCalorieTarget, aiMacroGoals,
@@ -127,17 +161,6 @@ export default function NutritionPage() {
   const loading = mealPlan.generatingPlan || mealOps.loggingMeal !== null || mealOps.savingAllMeals;
 
   const handleDeleteMeal = useCallback((meal: Meal) => { mealOps.initiateDeleteMeal(meal); }, [mealOps.initiateDeleteMeal]);
-
-  // Effective macro goals: AI values when available, otherwise derive from calorie target
-  const effectiveMacroGoals = useMemo(() => {
-    if (aiMacroGoals) return aiMacroGoals;
-    return {
-      proteinGrams: Math.round((dailyCalorieTarget * 0.30) / 4),
-      carbsGrams: Math.round((dailyCalorieTarget * 0.40) / 4),
-      fatsGrams: Math.round((dailyCalorieTarget * 0.30) / 9),
-      recommendedCalories: dailyCalorieTarget,
-    };
-  }, [aiMacroGoals, dailyCalorieTarget]);
 
   // Meals come pre-sorted by `_creationTime asc` from `meals.listWithTotals`,
   // so the flat array is already chronological. No client-side grouping.
@@ -498,16 +521,8 @@ export default function NutritionPage() {
         </div>
 
         <MealIdeasSection
-          mealPlanIdeas={mealPlanIdeas}
-          setIsAiDialogOpen={mealPlan.setIsAiDialogOpen}
-          generatingPlan={mealPlan.generatingPlan}
-          savingAllMeals={mealOps.savingAllMeals}
-          loggingMealId={mealOps.loggingMeal}
-          expandedMealIdeas={expandedMealIdeas}
-          setExpandedMealIdeas={setExpandedMealIdeas}
-          onSaveAll={mealOps.saveMealIdeasToDatabase}
-          onClear={mealOps.clearMealIdeas}
-          onLogIdea={mealOps.handleLogMealIdea}
+          onOpen={() => mealPlan.setIsAiDialogOpen(true)}
+          lastPlanSummary={mealPlan.dayPlan ? `${mealPlan.dayPlan.meals.length} meals · ${Math.round(mealPlan.dayPlan.totals.kcal)} kcal` : null}
         />
 
         <Suspense fallback={null}>
@@ -543,14 +558,21 @@ export default function NutritionPage() {
           initialPendingCaption={pendingCaptionFromDial}
         />
 
-        <AiMealPlanDialog
+        <MealPlanSheet
           open={mealPlan.isAiDialogOpen}
-          onOpenChange={(open) => mealPlan.setIsAiDialogOpen(open)}
-          selectedDate={selectedDate}
+          onClose={() => mealPlan.setIsAiDialogOpen(false)}
+          targets={mealTargets}
+          dayPlan={mealPlan.dayPlan}
           aiPrompt={mealPlan.aiPrompt}
           setAiPrompt={mealPlan.setAiPrompt}
+          mealCount={mealPlan.mealCount}
+          setMealCount={mealPlan.setMealCount}
           generatingPlan={mealPlan.generatingPlan}
-          onGenerate={mealPlan.handleGenerateMealPlan}
+          generateDayPlan={mealPlan.generateDayPlan}
+          swapMeal={mealPlan.swapMeal}
+          targetsChanged={mealPlan.targetsChanged}
+          onLogMeal={(m) => mealOps.logSingleMeal(m, selectedDate)}
+          onLogDay={(meals) => mealOps.logWholeDay(meals, selectedDate)}
         />
 
         <ManualNutritionDialog

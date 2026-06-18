@@ -12,7 +12,7 @@
  *   - Web build: shows "Only available in the iOS app" panel (spec §10.10).
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -62,23 +62,46 @@ type Tier = "tier_0" | "tier_1" | "tier_2" | null;
 
 interface HealthSettingsCardProps {
   className?: string;
+  /**
+   * How the connect explainer is presented when the user taps "Connect".
+   *  - "sheet" (default): the explainer opens in a shadcn `<Sheet>` portal.
+   *    Used on the Profile page.
+   *  - "inline": the explainer replaces the card body in place. Required
+   *    inside the Settings modal, whose `z-[10002]` sits ABOVE the Sheet
+   *    portal's `z-50` — a Sheet here would render behind the modal.
+   */
+  connectMode?: "sheet" | "inline";
+  /**
+   * When true (and the user is NOT connected), open the connect explainer
+   * immediately on mount. Only meaningful for `connectMode === "inline"`
+   * — lets a deep-link land the user straight on the connect screen.
+   */
+  autoOpenConnect?: boolean;
 }
 
 export function HealthSettingsCard({
   className,
+  connectMode = "sheet",
+  autoOpenConnect = false,
 }: HealthSettingsCardProps): JSX.Element {
   // Wrap the inner card in an ErrorBoundary so a future Convex/render error
   // here degrades into a small inline fallback instead of unwinding to the
   // page-level boundary (which crashes the entire Profile/Recovery screen).
   return (
     <ErrorBoundary fallback={<HealthCardErrorFallback className={className} />}>
-      <HealthSettingsCardInner className={className} />
+      <HealthSettingsCardInner
+        className={className}
+        connectMode={connectMode}
+        autoOpenConnect={autoOpenConnect}
+      />
     </ErrorBoundary>
   );
 }
 
 function HealthSettingsCardInner({
   className,
+  connectMode = "sheet",
+  autoOpenConnect = false,
 }: HealthSettingsCardProps): JSX.Element {
   const { userId } = useUser();
   const [available, setAvailable] = useState<boolean | null>(null);
@@ -142,6 +165,25 @@ function HealthSettingsCardInner({
   const handleConnected = useCallback(() => {
     setSheetOpen(false);
   }, []);
+
+  // Inline deep-link: when asked to auto-open the connect explainer, surface
+  // it immediately — but only for a user who isn't connected. We must wait for
+  // the tier query to RESOLVE (`tierInfoRaw !== undefined`) before deciding,
+  // otherwise the loading state reads as "not connected" and a connected user
+  // would get stuck on the explainer. Fire once per mount via a ref so a later
+  // Disconnect tap doesn't re-pop the explainer.
+  const autoOpenedRef = useRef(false);
+  useEffect(() => {
+    if (autoOpenedRef.current) return;
+    if (
+      autoOpenConnect &&
+      connectMode === "inline" &&
+      tierInfoRaw !== undefined
+    ) {
+      autoOpenedRef.current = true;
+      if (!isConnected) setSheetOpen(true);
+    }
+  }, [autoOpenConnect, connectMode, tierInfoRaw, isConnected]);
 
   const handleDisconnect = useCallback(async () => {
     if (disconnecting) return;
@@ -226,6 +268,60 @@ function HealthSettingsCardInner({
           Only available in the iOS app. Open FightCamp on your iPhone to
           link Apple Health.
         </p>
+      </Card>
+    );
+  }
+
+  // ─── Inline mode (spec: Settings modal) ─────────────────────────
+  // The shadcn `<Sheet>` portal is `z-50`, which is BELOW the Settings
+  // modal's `z-[10002]`, so the explainer must render in-place rather
+  // than via the portal. When `sheetOpen`, swap the card body for the
+  // explainer; otherwise render the normal card.
+  if (connectMode === "inline") {
+    if (sheetOpen) {
+      return (
+        <div className="h-[72dvh]">
+          <ConnectAppleHealthSheet
+            context="settings"
+            onConnected={handleConnected}
+            onSkip={() => setSheetOpen(false)}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <Card
+        className={cn(
+          "rounded-xs card-surface p-4 space-y-3",
+          className,
+        )}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <HeartPulse className="h-4 w-4 text-func-danger-red" />
+            <h3 className="text-[14px] font-semibold tracking-tight">
+              Apple Health
+            </h3>
+          </div>
+          <TierPill {...tierBadge} />
+        </div>
+
+        {isConnected ? (
+          <ConnectedBody
+            grantedMetrics={grantedMetrics}
+            lastSyncAt={lastSyncAt}
+            connectedAt={connectedAt}
+            onOpenHealthSettings={handleOpenHealthSettings}
+            openingSettings={openingSettings}
+            onDisconnect={handleDisconnect}
+            disconnecting={disconnecting}
+            onManualSync={handleManualSync}
+            syncing={syncing}
+          />
+        ) : (
+          <DisconnectedBody onConnect={() => setSheetOpen(true)} />
+        )}
       </Card>
     );
   }

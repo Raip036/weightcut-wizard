@@ -20,6 +20,7 @@ import {
   ceilingLabel,
 } from "./fightform/constants";
 import { pillarAdvice } from "./fightform/pillarAdvice";
+import { openSettings, type SettingsFocus } from "@/lib/openSettings";
 import { ScoreHero } from "./fightform/ScoreHero";
 import { ContributionBreakdown } from "./fightform/ContributionBreakdown";
 import { PillarDetailDialog } from "./fightform/PillarDetailDialog";
@@ -145,7 +146,17 @@ export function FightFormScoreSheet(p: Props) {
   );
 
   const handleNavigate = (route: string) => {
+    // Close the per-pillar drill-down dialog AND the score sheet first so
+    // neither overlaps whatever opens next.
+    setSelectedPillar(null);
     p.onClose();
+    if (route.startsWith("settings:")) {
+      const focus = route.slice("settings:".length) as SettingsFocus;
+      // Wait for the bottom sheet's close animation (~250ms) to finish before
+      // opening the Apple Health settings sheet, so the two never overlap.
+      window.setTimeout(() => openSettings(focus), 280);
+      return;
+    }
     navigate(route);
   };
 

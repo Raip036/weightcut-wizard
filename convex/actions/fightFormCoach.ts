@@ -24,21 +24,43 @@ import { PROMPT_INJECTION_GUARD_INSTRUCTION } from "../_shared/sanitizeUserText"
 
 const MODEL = "openai/gpt-oss-120b";
 
-/** Structured return shape. `summary` is prose; `actions` tie to pillars. */
+/**
+ * Structured return shape. The model writes PROSE over server-supplied numbers:
+ *  - derivation: one line on WHY the score is what it is (real points).
+ *  - working / limiting: the top driver to protect vs the top limiter (the gap).
+ *  - actions: ranked fixes, each carrying the pillar's recoverable points.
+ *  - ceiling: present only when a rule is actively capping the score.
+ */
 const FightFormCoachSchema = z.object({
-  summary: z.string().min(1).max(400),
+  derivation: z.string().min(1).max(280),
+  working: z.string().min(1).max(200),
+  limiting: z.string().min(1).max(200),
   actions: z
     .array(
       z.object({
         pillar: z.string().min(1).max(60),
-        action: z.string().min(1).max(200),
+        action: z.string().min(1).max(220),
+        pointsToGain: z.number().optional(),
       }),
     )
-    .min(0)
+    .min(1)
     .max(4),
+  ceiling: z.string().max(220).optional(),
 });
 
-type FightFormCoaching = z.infer<typeof FightFormCoachSchema>;
+/**
+ * The action's return type is broader than the strict structured schema so the
+ * plain-prose fallback (which only has `summary`) is still assignable.
+ */
+type FightFormCoaching = {
+  derivation?: string;
+  working?: string;
+  limiting?: string;
+  actions: Array<{ pillar: string; action: string; pointsToGain?: number }>;
+  ceiling?: string | null;
+  /** Fallback-only plain prose when the structured path fails. */
+  summary?: string;
+};
 
 export const run = action({
   args: {
@@ -69,7 +91,7 @@ export const run = action({
     await enforceFeatureGate(ctx, userId, "AI_FIGHT_CAMP_COACH");
 
     const facts = buildFacts(args);
-    const systemPrompt = buildSystemPrompt(facts);
+    const systemPrompt = buildSystemPrompt(facts, args.phase);
 
     // ── Structured call → validated FightFormCoaching ───────────────────
     try {
@@ -126,17 +148,39 @@ function buildFacts(args: {
   if (args.topDriver) lines.push(`TOP DRIVER: ${args.topDriver}`);
   if (args.topLimiter) lines.push(`TOP LIMITER: ${args.topLimiter}`);
 
+  // Per-pillar derivation maths, computed server-side so the model never does
+  // arithmetic: a pillar's MAX points = its weight (when it scores 100), so the
+  // recoverable gap = weight - points contributed. These are the only figures
+  // the model may quote for "X of Y points" and "+N to gain".
+  const enriched = args.pillars.map((p) => {
+    const maxPts = Math.round(p.weightPct);
+    const toGain = Math.max(0, Math.round(p.weightPct - p.contributionPts));
+    return { ...p, maxPts, toGain };
+  });
+
   lines.push("");
-  lines.push("PILLARS (value, weight, points contributed):");
-  for (const p of args.pillars) {
+  lines.push("PILLARS (each: points now of max, points left to gain, pillar score):");
+  for (const p of enriched) {
     lines.push(
-      `- ${p.label}: value ${p.value}, weight ${p.weightPct}%, contributes ${p.contributionPts} pts. ${p.reason}`,
+      `- ${p.label}: ${Math.round(p.contributionPts)} of ${p.maxPts} pts (${p.toGain} to gain), pillar score ${p.value}/100. ${p.reason}`,
     );
+  }
+
+  // Ranked priority list — the order the model must follow for actions.
+  const ranked = [...enriched]
+    .filter((p) => p.toGain > 0)
+    .sort((a, b) => b.toGain - a.toGain);
+  if (ranked.length > 0) {
+    lines.push("");
+    lines.push("BIGGEST RECOVERABLE GAPS (most score points you can still gain), ranked:");
+    ranked.forEach((p, i) => {
+      lines.push(`${i + 1}. ${p.label}: ${p.toGain} pts to gain`);
+    });
   }
 
   if (args.ceilings && args.ceilings.length > 0) {
     lines.push("");
-    lines.push("ACTIVE CEILINGS (a rule is capping the score):");
+    lines.push("ACTIVE CEILINGS (a rule is capping the score, easing it unlocks the top end):");
     for (const c of args.ceilings) {
       lines.push(`- ${c.ruleId}: caps score at ${c.cap}`);
     }
@@ -145,24 +189,47 @@ function buildFacts(args: {
   return lines.join("\n");
 }
 
+/** Phase-specific coaching directive so advice fits where the athlete is. */
+function phaseDirective(phase: string | null): string {
+  switch (phase) {
+    case "build":
+      return "PHASE COACHING: Build phase. Capacity and consistency are fair game, ramp load sensibly and lock in habits.";
+    case "peak":
+      return "PHASE COACHING: Peak phase. Sharpen and protect, hold training load steady, prioritise sleep and recovery, add no big new stimulus.";
+    case "fightWeek":
+      return "PHASE COACHING: Fight week. Taper, do not chase load, focus on hydration, weight execution and recovery. Never advise harder training.";
+    default:
+      return "";
+  }
+}
+
 // ── Prompt builder ──────────────────────────────────────────────────────────
 
-function buildSystemPrompt(facts: string): string {
-  return `You are the "Fight Form Coach" - a concise fight-camp readiness coach reading an athlete's FightForm readiness score.
+function buildSystemPrompt(facts: string, phase: string | null): string {
+  const phaseLine = phaseDirective(phase);
+  return `You are the "Fight Form Coach", a concise fight-camp readiness coach explaining an athlete's FightForm readiness score.
 
 ${SECOND_PERSON_DIRECTIVE}
 
 ${PROMPT_INJECTION_GUARD_INSTRUCTION}
 
+YOUR JOB: explain WHY the score is what it is (what it is derived from) and HOW to raise it fastest, using ONLY the numbers given.
+
 Output ONLY valid JSON matching this shape:
-{ "summary": string, "actions": [{ "pillar": string, "action": string }] }
+{ "derivation": string, "working": string, "limiting": string, "actions": [{ "pillar": string, "action": string, "pointsToGain": number }], "ceiling": string }
 
 RULES (non-negotiable):
-- Use ONLY the numbers in DETERMINISTIC FACTS below. NEVER invent, estimate, or recompute any figure. Quote the real values ("recovery is contributing only 6 of 30 points").
-- "summary": 1-2 sentences on what is DRIVING and LIMITING the score this phase. Reference the TOP DRIVER and TOP LIMITER and the phase / days to fight when present. Never more than 2 sentences.
-- "actions": 2-4 specific, concrete next-actions tied to the WEAKEST pillars (the TOP LIMITER and the lowest-contribution pillars). Each has a "pillar" (the pillar label it targets) and a one-sentence "action" the athlete can do next. Make them concrete, not generic.
-- If an ACTIVE CEILING is present, call it out in the summary as the thing holding the score down and make an action address it directly.
-- BANNED: paragraphs, motivational fluff, repeating raw figures inside every action, em-dashes (—) or en-dashes (–) anywhere. Use commas or periods.
+- Use ONLY the numbers in DETERMINISTIC FACTS below. NEVER invent, estimate, or recompute any figure. Every number you write must appear verbatim in the facts.
+- "derivation": exactly 1 sentence on what the score is built from, using the "points now of max" figures, e.g. "Your 74 is built mostly on training load, 27 of 30 points, while sleep is only 11 of 20." Name 2 to 3 pillars.
+- "working": 1 short sentence on the TOP DRIVER, what to keep doing to protect it, appropriate to the phase. Reinforce the win.
+- "limiting": 1 short sentence naming the TOP LIMITER as the biggest gap, with its real point figures.
+- "actions": 2 to 4 items, ORDERED to match BIGGEST RECOVERABLE GAPS (largest points first). Each targets one pillar:
+    - "pillar": the pillar label exactly as written in the facts.
+    - "action": one specific, concrete next-action, not generic, appropriate to the phase.
+    - "pointsToGain": that pillar's "points left to gain" number, copied verbatim from the facts.
+- "ceiling": include this field ONLY if an ACTIVE CEILING is present, one sentence naming the cap value and that easing it unlocks the top end. If no ceiling is active, OMIT the field entirely.
+${phaseLine ? `- ${phaseLine}\n` : ""}- SAFETY (critical): NEVER advise a faster or more aggressive weight cut, dehydration, water cutting, or training through under-recovery. If a weight-cut ceiling is active, the FIRST action MUST be to slow or ease the cut, never accelerate it. Sleep and recovery gaps are fixed by resting more, not training more.
+- BANNED: paragraphs, motivational fluff, headers, repeating the same figure in every action, em-dashes (—) or en-dashes (–) anywhere. Use commas or periods.
 
 DETERMINISTIC FACTS (use verbatim, never recompute):
 ${facts}`;

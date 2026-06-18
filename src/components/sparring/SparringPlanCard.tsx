@@ -5,14 +5,12 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import { cn } from "@/lib/utils";
 import {
-  triggerHaptic,
   triggerHapticSelection,
   triggerHapticSuccess,
 } from "@/lib/haptics";
-import { ImpactStyle } from "@capacitor/haptics";
 import { disciplineLabel, disciplineToken } from "@/lib/coachColors";
-import { useSubscription } from "@/hooks/useSubscription";
 import { ShimmerCrownBadge } from "@/components/subscription/ShimmerCrownBadge";
+import { LockedSparringCard } from "./LockedSparringCard";
 import { CompleteCelebration } from "@/components/motion";
 import {
   SparringAssignmentRow,
@@ -210,7 +208,6 @@ function DisciplineGroup({
  *   - Pro, with rows                  → grouped-by-discipline checklist.
  */
 export function SparringPlanCard({ userId }: SparringPlanCardProps) {
-  const { openPaywall } = useSubscription();
 
   const featureStatus = useQuery(
     api.sparring_plan.getSparringFeatureStatus,
@@ -271,28 +268,9 @@ export function SparringPlanCard({ userId }: SparringPlanCardProps) {
   // Wait for auth + feature gate before deciding what to render.
   if (!userId || featureStatus === undefined) return null;
 
-  // ── Non-Pro upsell row — mirrors the Training Missions upsell. ──────────
+  // ── Non-Pro — full Pro wall, mirrors the Training Missions LockedMissionCard. ──
   if (!isPro) {
-    return (
-      <button
-        type="button"
-        onClick={() => {
-          triggerHaptic(ImpactStyle.Light);
-          openPaywall();
-        }}
-        className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border border-primary/30 bg-primary/10 active:brightness-110 transition-[filter]"
-      >
-        <span className="flex items-center gap-2.5 min-w-0">
-          <ShimmerCrownBadge size={26} />
-          <span className="text-body-sm font-semibold text-foreground truncate">
-            Unlock sparring to-do list
-          </span>
-        </span>
-        <span className="inline-flex items-center gap-0.5 rounded-full border border-primary/40 bg-primary/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-primary shrink-0">
-          Pro
-        </span>
-      </button>
-    );
+    return <LockedSparringCard />;
   }
 
   // ── Pro: section heading + body ─────────────────────────────────────────

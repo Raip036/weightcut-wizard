@@ -39,10 +39,20 @@ export interface FightFormCoachContext {
   ceilings?: Array<{ ruleId: string; cap: number }>;
 }
 
-/** Prose-only coaching the action returns. */
+/**
+ * Coaching the action returns. The structured path returns a derivation +
+ * working/limiting split + ranked fixes (each with recoverable points) + an
+ * optional ceiling callout. The plain-prose fallback returns `summary` only,
+ * so every field is optional except `actions`.
+ */
 export interface FightFormCoaching {
-  summary: string;
-  actions: Array<{ pillar: string; action: string }>;
+  derivation?: string;
+  working?: string;
+  limiting?: string;
+  ceiling?: string | null;
+  actions: Array<{ pillar: string; action: string; pointsToGain?: number }>;
+  /** Fallback-only plain prose when the structured path fails. */
+  summary?: string;
 }
 
 /** AIPersistence `type` namespace for this feature's cache entries. */
@@ -91,7 +101,7 @@ export function useFightFormCoach(): UseFightFormCoach {
       // Cache check — one call/day per score. AIPersistence handles TTL expiry.
       const key = cacheKey(context.score);
       const cached = AIPersistence.load(userId, key) as FightFormCoaching | null;
-      if (cached && typeof cached.summary === "string") {
+      if (cached && (cached.derivation || cached.summary) && Array.isArray(cached.actions)) {
         setCoaching(cached);
         setError(null);
         return;

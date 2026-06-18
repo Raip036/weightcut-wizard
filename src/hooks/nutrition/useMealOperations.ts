@@ -18,7 +18,7 @@ import {
 } from "@/lib/buildMealRpcArgs";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
-import type { Meal, Ingredient } from "@/pages/nutrition/types";
+import type { Meal, Ingredient, DayPlanMeal } from "@/pages/nutrition/types";
 
 // Re-export the helper so the tester's gate can pull it from this module.
 export { buildCreateMealRpcArgs } from "@/lib/buildMealRpcArgs";
@@ -517,6 +517,37 @@ export function useMealOperations(params: UseMealOperationsParams) {
     });
   }, [userId, selectedDate, runInsertFlow]);
 
+  // ── Insert path 5: log a single day-plan meal ──
+  // Day-plan meals (`DayPlanMeal`) carry their own pre-priced ingredients in
+  // camelCase-adjacent snake_case (`protein_g`, etc.), so we map straight to
+  // the Convex mutation's item shape rather than going through the legacy
+  // RPC/food_id pipeline. The idempotency key is derived from the plan so a
+  // doubled tap (or a "log whole day" re-run) collapses server-side.
+  // `refresh` is suppressed by `logWholeDay` so a multi-meal log reloads the
+  // list once at the end rather than once per meal.
+  const logSingleMeal = useCallback(async (meal: DayPlanMeal, dateIso: string, refresh = true) => {
+    const items = meal.ingredients.map((g) => ({
+      name: g.name, grams: g.grams, calories: g.calories,
+      proteinG: g.protein_g, carbsG: g.carbs_g, fatsG: g.fats_g,
+    }));
+    await createMealMut({
+      date: dateIso, mealType: meal.type, mealName: meal.name || meal.timingLabel,
+      isAiGenerated: true, items, idempotencyKey: `dayplan_${dateIso}_${meal.id}`,
+    });
+    // The meal list is loaded one-shot per date (not reactive), so pull a fresh
+    // copy after inserting into the currently-displayed day.
+    if (refresh && dateIso === selectedDate) await loadMeals(true);
+  }, [createMealMut, selectedDate, loadMeals]);
+
+  // ── Insert path 6: log every meal in a day plan ──
+  const logWholeDay = useCallback(async (meals: DayPlanMeal[], dateIso: string) => {
+    const results = await Promise.allSettled(meals.map((m) => logSingleMeal(m, dateIso, false)));
+    const ok = results.filter((r) => r.status === "fulfilled").length;
+    if (ok > 0 && dateIso === selectedDate) await loadMeals(true);
+    toast({ title: `Logged ${ok}/${meals.length} meals` });
+    return ok;
+  }, [logSingleMeal, selectedDate, loadMeals, toast]);
+
   return {
     loggingMeal,
     savingAllMeals,
@@ -533,5 +564,8 @@ export function useMealOperations(params: UseMealOperationsParams) {
     initiateDeleteMeal,
     handleDeleteMeal,
     handleFoodSearchSelected,
+    // ── New (additive) day-plan logging API ──
+    logSingleMeal,
+    logWholeDay,
   };
 }

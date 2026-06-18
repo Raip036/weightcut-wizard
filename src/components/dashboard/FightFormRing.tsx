@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { cn } from "@/lib/utils";
 import { FightFormRingAtmosphere } from "./FightFormRingAtmosphere";
@@ -46,15 +46,8 @@ const LABEL_COPY = {
   at_risk: "At Risk",
 };
 
-const LABEL_STROKE = {
-  sharp: "stroke-func-recovery-green",
-  sharpening: "stroke-func-warning-yellow",
-  off_pace: "stroke-func-carbs-orange",
-  at_risk: "stroke-func-danger-red",
-};
-
-// RGB triplets used by the halo + particles so we can vary opacity in CSS
-// without re-declaring full color values. Matches the Tailwind palette above.
+// RGB triplets used by the core glow + particles + arc gradient so we can
+// vary opacity without re-declaring full color values. Matches the palette.
 const LABEL_RGB = {
   sharp: "16, 185, 129",       // emerald-500
   sharpening: "251, 191, 36",  // amber-400
@@ -62,25 +55,13 @@ const LABEL_RGB = {
   at_risk: "244, 63, 94",      // rose-500
 };
 
-// Pulse cadence reacts to the label. Sharper form earns a livelier halo;
-// At Risk drifts almost-still so the UI doesn't celebrate a bad state.
-const HALO_DURATION = {
-  sharp: "3.4s",
-  sharpening: "5.2s",
-  off_pace: "7s",
-  at_risk: "9s",
-};
-
-// Peak halo intensity at each label — narrower range at At Risk so the
-// halo recedes when the score isn't earned. Values were ~40% lower before;
-// bumped so the ring reads as alive on iOS Capacitor where Tailwind's color
-// stack tends to wash out blur'd radial gradients.
-const HALO_PEAK = {
-  sharp: 0.78,
-  sharpening: 0.55,
-  off_pace: 0.32,
-  at_risk: 0.2,
-};
+// Deep end of the containment-arc gradient — a darkened version of the active
+// colour so the stroke reads as a polished gradient (deep → bright) rather
+// than a flat band. Works for tier colours and the calibrating cyan alike.
+function deepStop(rgb: string): string {
+  const [r, g, b] = rgb.split(",").map((x) => parseInt(x.trim(), 10));
+  return `rgb(${Math.round((r || 148) * 0.22)}, ${Math.round((g || 163) * 0.22)}, ${Math.round((b || 184) * 0.22)})`;
+}
 
 // Density tuned per label so the orbit feels alive without overwhelming
 // the score readout. Sharp + Sharpening earn the densest swarm; Off Pace
@@ -97,10 +78,6 @@ const PARTICLE_COUNT_BY_LABEL = {
 // state reads as a distinct phase, then saturates toward the eventual label
 // color as days complete. Until then, the ring uses this base.
 const CALIB_RGB = "56, 189, 248";
-// Cap calibration halo below sharp's peak — even at full saturation the
-// calibrating state should read as "building" rather than "earned".
-const CALIB_HALO_PEAK_MAX = 0.45;
-const CALIB_HALO_DURATION = "4.6s";
 // Density window for the calibration particle field. Floor + ceiling tuned
 // to read as a continuous flow (matching sharpening density) rather than a
 // sparse marching line, while keeping calibration distinct from sharp.
@@ -213,22 +190,17 @@ export function FightFormRing({
   // with that many simultaneously-animating layers, so cap the field on native.
   // The orbit reads the same with a denser-looking but cheaper swarm.
   const particleCount = isNativePlatform ? Math.min(rawParticleCount, 14) : rawParticleCount;
+  // Active colour drives the core glow, particles and the arc gradient: tier
+  // colour when scored, cyan while calibrating, slate as a fallback. When
+  // stale we desaturate to slate so the reactor reads as "cold".
   const labelRgb =
     isScoredState(state)
-      ? LABEL_RGB[label]
+      ? stale
+        ? "148, 163, 184" // slate-400
+        : LABEL_RGB[label]
       : isCalib
         ? CALIB_RGB
-        : "148, 163, 184"; // slate-400 fallback
-  const haloDuration =
-    isScoredState(state) ? HALO_DURATION[label] : isCalib ? CALIB_HALO_DURATION : "10s";
-  const haloPeak =
-    isScoredState(state)
-      ? stale
-        ? HALO_PEAK["off_pace"]
-        : HALO_PEAK[label]
-      : isCalib
-        ? CALIB_HALO_PEAK_MAX * calibProgress
-        : 0.1;
+        : "148, 163, 184";
 
   // Rotating signal phrase + day-completion ping. Both gated to calibrating
   // so the timers don't run when the ring is in any other state.
@@ -245,6 +217,12 @@ export function FightFormRing({
   // (any-signal days), which over-fired the celebration.
   const prevRitualDaysRef = useRef(ritualDaysCount ?? 0);
   const prevStateRef = useRef(state);
+
+  // Containment-arc gradient id (sanitised — useId() contains colons which are
+  // invalid inside an SVG url(#...) reference).
+  const gradId = `ffgrad-${useId().replace(/:/g, "")}`;
+  const glintRef = useRef<SVGCircleElement | null>(null);
+  const glintFracRef = useRef(0);
 
   // Unlock victory lap: fires once when state transitions calibrating→ok.
   // Three beats over ~1500ms — (1) the comet does one accelerating finale
@@ -265,7 +243,10 @@ export function FightFormRing({
     setUnlockProgress(0);
 
     const start = performance.now();
-    const cometFinaleMs = 500;
+    // Short hold before the arc grows (the old cyan comet finale lived here;
+    // the Energy Core hands off straight from the cyan charge arc to the
+    // tier-coloured score arc growing from zero).
+    const cometFinaleMs = 150;
     const arcGrowMs = 950;
     let raf = 0;
 
@@ -326,6 +307,8 @@ export function FightFormRing({
   const progress = unlocking && isScoredState(state) ? baseProgress * unlockProgress : baseProgress;
   const dash = circumference * progress;
   const displayedScore = unlocking && isScoredState(state) ? Math.round(score * unlockProgress) : score;
+  // Glint rides the displayed arc fraction so it follows the unlock grow.
+  glintFracRef.current = progress;
 
   // Score-arc resume — paint the cached dash length on first paint after a
   // remount, then swap to the live `dash` on the next frame. The existing
@@ -344,16 +327,45 @@ export function FightFormRing({
     cachedDashLen = circumference * baseProgress;
     cachedCircumference = circumference;
   }, [baseProgress, circumference, unlocking]);
+
+  // Traveling glint — a short bright streak glides along the FILLED arc on an
+  // eased loop with a soft fade-in/out so it never pops. Pure dashoffset +
+  // opacity on one element, no blur filter (native-safe). Reads the live arc
+  // fraction via a ref so the loop never re-subscribes.
+  useEffect(() => {
+    const el = glintRef.current;
+    if (!el) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      el.style.opacity = "0";
+      return;
+    }
+    const LOOP = 2600;
+    let raf = 0;
+    const frame = (now: number) => {
+      const frac = Math.max(0, Math.min(1, glintFracRef.current));
+      if (frac <= 0.03) {
+        el.style.opacity = "0";
+      } else {
+        const filled = circumference * frac;
+        const glint = Math.min(circumference * 0.05, filled * 0.45);
+        const t = (now % LOOP) / LOOP;
+        const travel = 0.5 - 0.5 * Math.cos(t * Math.PI); // easeInOutSine
+        const head = glint + travel * (filled - glint);
+        el.style.strokeDasharray = `${glint} ${circumference * 2}`;
+        el.style.strokeDashoffset = `${-(head - glint)}`;
+        const env = Math.min(1, t / 0.16) * Math.min(1, (1 - t) / 0.16);
+        el.style.opacity = (0.8 * env).toFixed(3);
+      }
+      raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, [circumference]);
   const renderedDash = arcReady
     ? dash
     : cachedDashLen != null && cachedCircumference === circumference
       ? cachedDashLen
       : 0;
-  // Keep the comet visible through the first beat of the unlock so it can
-  // do its finale fade before dissolving. The finale class swaps in below
-  // when unlocking is true.
-  const showCalibSweep = isCalib || unlocking;
-
   // Outer ring treatment per camp phase. Build gets no extra border so the
   // hero ring stays clean during the bulk of camp; Peak adds a dashed orbit;
   // Fight Week pulses a faint colored outline so the user sees the weeks-to-
@@ -385,13 +397,20 @@ export function FightFormRing({
         showParticles={showParticles}
         isCalib={isCalib}
         labelRgb={labelRgb}
-        haloDuration={haloDuration}
-        haloPeak={haloPeak}
+        fraction={baseProgress}
         particleCount={particleCount}
+        size={size}
         radius={radius}
       />
 
       <svg width={size} height={size} className="-rotate-90 relative">
+        <defs>
+          {/* Containment-arc gradient: deep → bright in the active colour. */}
+          <linearGradient id={gradId} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor={deepStop(labelRgb)} />
+            <stop offset="100%" stopColor={`rgb(${labelRgb})`} />
+          </linearGradient>
+        </defs>
         {/* Phase border (outer). Build = none. Peak = dashed orbit. Fight
             Week = colored pulse. Sits outside the main track so it never
             competes with the score arc for the eye. */}
@@ -483,10 +502,10 @@ export function FightFormRing({
             cx={size / 2}
             cy={size / 2}
             r={radius}
-            stroke={showCalibSweep ? "hsl(var(--muted-foreground))" : "hsl(var(--muted))"}
+            stroke={isCalib ? "hsl(var(--muted-foreground))" : "hsl(var(--muted))"}
             strokeWidth={10}
             fill="none"
-            className={showCalibSweep ? "ff-ring-calib-track" : undefined}
+            className={isCalib ? "ff-ring-calib-track" : undefined}
           />
         )}
         {/* Ghost arc — what the user WOULD have scored without the cap.
@@ -505,10 +524,10 @@ export function FightFormRing({
             strokeDashoffset={`${-dash}`}
           />
         )}
-        {/* Score arc — `renderedDash` resumes from the module-cached value
-            on remount, then the duration-700 transition smoothly tweens
-            to the live `dash` on the next frame.
-            When stale, override stroke to a muted slate-blended color. */}
+        {/* Containment arc — `renderedDash` resumes from the module-cached
+            value on remount, then the duration-700 transition tweens to the
+            live `dash`. Gradient stroke (deep → bright active colour); slate
+            when stale. */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -517,67 +536,24 @@ export function FightFormRing({
           fill="none"
           strokeLinecap="round"
           strokeDasharray={`${renderedDash} ${circumference}`}
-          {...(stale
-            ? { stroke: "rgba(148,163,184,0.85)" }
-            : {}
-          )}
-          className={cn(
-            "transition-all duration-700",
-            isScoredState(state) && !stale ? LABEL_STROKE[label] : !isScoredState(state) ? "stroke-muted-foreground/40" : undefined,
-          )}
+          stroke={stale ? "rgba(148,163,184,0.85)" : `url(#${gradId})`}
+          className="transition-all duration-700"
         />
-        {/* Calibrating comet — four stacked arcs share the same rotation so
-            they read as a single streak with a bright head and fading tail.
-            Blur halo → wide tail → mid body → sharp head, all monochrome.
-            Stays cyan even during unlock so the finale visually hands off
-            from cyan-comet → emerald-arc instead of all going one color. */}
-        {showCalibSweep && (
-          <>
-            {/* Blur halo behind the streak */}
-            <circle
-              cx={size / 2} cy={size / 2} r={radius}
-              stroke={`rgba(${CALIB_RGB}, 0.07)`}
-              strokeWidth={18}
-              fill="none"
-              strokeLinecap="round"
-              strokeDasharray={`${circumference * 0.32} ${circumference * 0.68}`}
-              className={cn("ff-ring-calib-sweep", unlocking && "ff-ring-unlock-comet-finale")}
-              style={{ transformOrigin: `${size / 2}px ${size / 2}px`, filter: "blur(6px)" }}
-            />
-            {/* Tail — long, faint */}
-            <circle
-              cx={size / 2} cy={size / 2} r={radius}
-              stroke={`rgba(${CALIB_RGB}, 0.18)`}
-              strokeWidth={7}
-              fill="none"
-              strokeLinecap="round"
-              strokeDasharray={`${circumference * 0.22} ${circumference * 0.78}`}
-              className={cn("ff-ring-calib-sweep", unlocking && "ff-ring-unlock-comet-finale")}
-              style={{ transformOrigin: `${size / 2}px ${size / 2}px` }}
-            />
-            {/* Body — medium */}
-            <circle
-              cx={size / 2} cy={size / 2} r={radius}
-              stroke={`rgba(${CALIB_RGB}, 0.45)`}
-              strokeWidth={8}
-              fill="none"
-              strokeLinecap="round"
-              strokeDasharray={`${circumference * 0.09} ${circumference * 0.91}`}
-              className={cn("ff-ring-calib-sweep", unlocking && "ff-ring-unlock-comet-finale")}
-              style={{ transformOrigin: `${size / 2}px ${size / 2}px` }}
-            />
-            {/* Head — short, bright */}
-            <circle
-              cx={size / 2} cy={size / 2} r={radius}
-              stroke={`rgba(${CALIB_RGB}, 0.9)`}
-              strokeWidth={9}
-              fill="none"
-              strokeLinecap="round"
-              strokeDasharray={`${circumference * 0.03} ${circumference * 0.97}`}
-              className={cn("ff-ring-calib-sweep", unlocking && "ff-ring-unlock-comet-finale")}
-              style={{ transformOrigin: `${size / 2}px ${size / 2}px` }}
-            />
-          </>
+        {/* Traveling glint — bright streak gliding along the filled arc (its
+            dashoffset/opacity are driven by the rAF loop above). */}
+        {!stale && (
+          <circle
+            ref={glintRef}
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            stroke="#ffffff"
+            strokeWidth={6}
+            fill="none"
+            strokeLinecap="round"
+            opacity={0}
+            style={{ pointerEvents: "none" }}
+          />
         )}
       </svg>
 
@@ -612,6 +588,22 @@ export function FightFormRing({
           </div>
         </div>
       )}
+
+      {/* Legibility scrim — a soft dark disc that keeps the score number
+          crisp over the core glow without a hard edge. */}
+      <div
+        aria-hidden
+        className="absolute pointer-events-none rounded-full"
+        style={{
+          width: radius * 1.15,
+          height: radius * 1.15,
+          left: "50%",
+          top: "50%",
+          transform: "translate(-50%, -50%)",
+          background:
+            "radial-gradient(closest-side, rgba(2,4,8,0.6), rgba(2,4,8,0.28) 56%, transparent 80%)",
+        }}
+      />
 
       {/* Center content */}
       <div className="absolute inset-0 flex flex-col items-center justify-center">
