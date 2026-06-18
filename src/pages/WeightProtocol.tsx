@@ -20,6 +20,8 @@ import { triggerHapticSelection } from "@/lib/haptics";
 import { ProUpsellScreen } from "@/components/subscription/ProUpsellScreen";
 
 import { ProtocolCountdownAnchor } from "@/components/protocol/ProtocolCountdownAnchor";
+import { ProtocolJourneySpine } from "@/components/protocol/ProtocolJourneySpine";
+import { ProtocolPlanIntro } from "@/components/protocol/ProtocolPlanIntro";
 import { ProtocolCompleteCutscene } from "@/components/protocol/ProtocolCompleteCutscene";
 import { ProtocolSummaryCard } from "@/components/protocol/ProtocolSummaryCard";
 import { SealedRehydrationCard } from "@/components/protocol/SealedRehydrationCard";
@@ -483,8 +485,43 @@ export default function WeightProtocol() {
     });
   })();
 
+  // Active chapter for the journey spine (Plan → Cut → Scale → Rehydrate →
+  // Walkout). Derived from the real phase + generation state, never a manual
+  // stepper: no plan yet → Plan; cutting → Cut; weigh-in window awaiting the
+  // sweat-loss entry → Scale; rehydration generated → Rehydrate; finale → Walkout.
+  const journeyActive = showFinale
+    ? 4
+    : rehydrationUnlocked && rhPayload && !editingSweat
+      ? 3
+      : rehydrationUnlocked
+        ? 2
+        : fpPayload
+          ? 1
+          : 0;
+
   return (
     <div className="animate-page-in space-y-3 px-5 py-3 sm:p-5 md:p-6 max-w-7xl mx-auto pb-16 md:pb-6">
+      {/* 0. Journey spine — the story map (Plan → Cut → Scale → Rehydrate →
+            Walkout). Shows the athlete where they are in the arc. */}
+      <ProtocolJourneySpine active={journeyActive} />
+
+      {!fpPayload ? (
+        /* ── Chapter 01 · The Plan — clean intro shown before generation.
+              The athlete's weight, target and profile are already known, so
+              this is just the read + the one Generate action (no crowded
+              taper / inputs / approach until a plan exists). */
+        isGeneratingProtocol ? (
+          <ProtocolGeneratingOverlay tone={tier} />
+        ) : (
+          <ProtocolPlanIntro
+            startKg={currentWeight}
+            targetKg={targetWeight}
+            daysToWeighIn={daysToWeighIn}
+            onGenerate={handleRegenerate}
+          />
+        )
+      ) : (
+      <>
       {/* 0a. Completion finale — celebratory "made weight & refueled" cutscene
             once the cut is done (pre-fight + rehydration generated). */}
       {showFinale && (
@@ -562,6 +599,21 @@ export default function WeightProtocol() {
           title={critical.code.replace(/_/g, " ")}
           body={critical.message}
         />
+      )}
+
+      {/* The Cut — chapter framing for the taper plan (story flow). Only once a
+          plan exists and before the rehydration window opens. */}
+      {fpPayload && !rehydrationUnlocked && (
+        <div className="pt-1">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/80">
+            The Cut
+          </p>
+          {targetWeight != null && (
+            <p className="text-[15px] font-semibold text-foreground leading-tight">
+              Taper to {targetWeight.toFixed(1)} kg
+            </p>
+          )}
+        </div>
       )}
 
       {/* 4. Inputs-used chips */}
@@ -652,11 +704,26 @@ export default function WeightProtocol() {
 
       {fpPayload && rehydrationUnlocked && (
         <>
-          <ProtocolSectionDivider label="After the scale · Rehydration" />
-          <p className="-mt-1 text-[12px] text-muted-foreground/80 leading-snug">
-            Your refuel plan for once you step off the weigh-in scale. How to
-            rehydrate and reload before fight night.
-          </p>
+          {/* Chapter eyebrow — phase-appropriate framing that mirrors the cut's
+              "The Cut" eyebrow. Becomes "The Scale" while the athlete still has
+              to weigh in (sweat-loss hinge), then "Rehydrate" once the generated
+              refuel plan is showing. The locked free teaser keeps "Rehydrate". */}
+          {(() => {
+            const rehydEyebrow =
+              isPremium && (!rhPayload || editingSweat)
+                ? { k: "The Scale", t: "Step on the scale" }
+                : { k: "Rehydrate", t: "After the scale" };
+            return (
+              <div className="pt-1">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/80">
+                  {rehydEyebrow.k}
+                </p>
+                <p className="text-[15px] font-semibold text-foreground leading-tight">
+                  {rehydEyebrow.t}
+                </p>
+              </div>
+            );
+          })()}
 
           {/* Premium athletes either see the generated ORS recipe + hourly
               timeline, or the manual sweat-loss entry card — the weigh-in
@@ -735,6 +802,8 @@ export default function WeightProtocol() {
 
       {/* Floating back-to-top */}
       <BackToTopFAB />
+      </>
+      )}
 
       {/* Single shared upgrade explainer — opened by the top gate and every
           locked preview below. Shows the value story before the paywall. */}
