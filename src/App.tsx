@@ -75,6 +75,7 @@ const TodayLogLab = lazy(() => import("./pages/TodayLogLab"));
 const WeightProtocolStoryLab = lazy(() => import("./pages/WeightProtocolStoryLab"));
 const ProtocolLoaderLab = lazy(() => import("./pages/ProtocolLoaderLab"));
 const PlanCardLab = lazy(() => import("./pages/PlanCardLab"));
+const MealPlanSheetLab = lazy(() => import("./pages/MealPlanSheetLab"));
 
 // Prioritized idle preloading — critical routes first, rest deferred
 const _idle = window.requestIdleCallback || ((cb: IdleRequestCallback) => setTimeout(cb, 50));
@@ -380,6 +381,7 @@ const App = () => (
                 <Route path="/protocol-story-lab" element={<Suspense fallback={null}><WeightProtocolStoryLab /></Suspense>} />
                 <Route path="/protocol-loader-lab" element={<Suspense fallback={null}><ProtocolLoaderLab /></Suspense>} />
                 <Route path="/plan-card-lab" element={<Suspense fallback={null}><PlanCardLab /></Suspense>} />
+                <Route path="/mealplan-sheet-lab" element={<Suspense fallback={null}><MealPlanSheetLab /></Suspense>} />
                 <Route path="/onboarding" element={
                   <ProtectedRoute>
                     <Onboarding />
