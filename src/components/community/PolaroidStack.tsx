@@ -97,6 +97,9 @@ export function PolaroidStack({
   const exitDirRef = useRef<1 | -1>(1);
   // Alternates each commit so consecutive cards peel off opposite sides.
   const flyDirRef = useRef<1 | -1>(1);
+  // Backstop timer — only fires when the tab is backgrounded and Motion
+  // never delivers onAnimationComplete (see commitAdvance / handleExitComplete).
+  const exitTimerRef = useRef<number | null>(null);
 
   // ── Visible slice — at most 3 real posts, no sentinel filler ───────
   const visibleSlots: FeedPost[] = useMemo(() => {
@@ -146,12 +149,39 @@ export function PolaroidStack({
     onSwipeCommit?.(topPost.id);
     triggerHaptic(ImpactStyle.Light);
 
+    // Cleanup is animation-driven (onAnimationComplete on the exit card —
+    // see handleExitComplete). This timer is ONLY a backstop for when the
+    // tab is backgrounded and Motion never fires onAnimationComplete; the
+    // extra ~140ms keeps it from racing the animation's natural finish.
     const exitMs = prefersReducedMotion ? REDUCED_EXIT_DURATION_MS : EXIT_DURATION_MS;
-    window.setTimeout(() => {
+    if (exitTimerRef.current) window.clearTimeout(exitTimerRef.current);
+    exitTimerRef.current = window.setTimeout(() => {
+      exitTimerRef.current = null;
       setExitingPost(null);
       advance();
-    }, exitMs);
+    }, exitMs + 140);
   }, [topPost, exitingPost, advance, onSwipeCommit, prefersReducedMotion]);
+
+  // PRIMARY cleanup path — fires the instant the exit card's fly-off
+  // animation completes, so the promotion happens in lockstep with the
+  // actual Motion frame (no wall-clock drift / unmount pop). Clears the
+  // backstop timer so it can't double-run.
+  const handleExitComplete = useCallback(() => {
+    if (exitTimerRef.current) {
+      window.clearTimeout(exitTimerRef.current);
+      exitTimerRef.current = null;
+    }
+    setExitingPost(null);
+    advance();
+  }, [advance]);
+
+  // Clear the backstop timer on unmount.
+  useEffect(
+    () => () => {
+      if (exitTimerRef.current) window.clearTimeout(exitTimerRef.current);
+    },
+    [],
+  );
 
   // ── Empty + post-last-card states ──────────────────────────────────
   if (posts.length === 0 && !exitingPost) {
@@ -178,6 +208,7 @@ export function PolaroidStack({
         key={exitingPost.id}
         className="absolute inset-0"
         style={{ zIndex: 40, willChange: "transform, opacity", pointerEvents: "none" }}
+        onAnimationComplete={handleExitComplete}
         initial={{ x: 0, y: 0, rotate: baseRotation, scale: 0.97, opacity: 1 }}
         animate={{
           x: dir * DECK_W * FLY_SIDE_MULT,
@@ -252,6 +283,10 @@ export function PolaroidStack({
               stackPosition={stackPos}
               isTop={false}
               rotationDeg={rotationDeg}
+              // The card at idx 0 while a card is exiting is the one being
+              // PROMOTED to top — match the exit card's easing/duration so
+              // the reveal lands in lockstep, no double-motion stutter.
+              promoting={idx === 0 && !!exitingPost}
             />
           );
         })}

@@ -1,5 +1,10 @@
-/** Generate weight plan — free for everyone, card-timeline shape.
- *  Sibling of generateCutPlan for the non-fighter flow. */
+/** Generate weight plan — card-timeline shape.
+ *  Sibling of generateCutPlan for the non-fighter flow.
+ *
+ *  Gating (F8): onboarding's first-time generation is free
+ *  (AI_ONBOARDING_PLAN); any non-onboarding regeneration is Pro
+ *  (AI_WEIGHT_PROTOCOL). Caller picks via the `gate` arg (default onboarding).
+ */
 "use node";
 
 import { v } from "convex/values";
@@ -9,6 +14,7 @@ import { CutPlanAiSchema, type WeekPhase } from "../_shared/aiSchemas";
 import { mifflinStJeor, requiredDeficit, macroSplit } from "../_shared/math";
 import { normaliseWeeklyPlan } from "../_shared/normalizeWeeklyPlan";
 import { normalisePlanTopLevel } from "../_shared/normalizePlanTopLevel";
+import { enforceFeatureGate } from "../_shared/featureGates";
 import {
   loadAthleteSnapshot,
   logDecision,
@@ -26,9 +32,21 @@ export const run = action({
     sex: v.union(v.literal("male"), v.literal("female")),
     activityLevel: v.optional(v.string()),
     goalType: v.optional(v.string()),
+    // Which feature gate to enforce. Onboarding → free (AI_ONBOARDING_PLAN);
+    // everything else → Pro (AI_WEIGHT_PROTOCOL). FAIL-CLOSED: only an explicit
+    // `gate: "onboarding"` gets the free gate; omitted/unknown defaults to Pro.
+    gate: v.optional(
+      v.union(v.literal("onboarding"), v.literal("regenerate")),
+    ),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserIdFromAction(ctx);
+    // Gate: explicit onboarding → free; anything else → Pro. Fail-closed.
+    await enforceFeatureGate(
+      ctx,
+      userId,
+      args.gate === "onboarding" ? "AI_ONBOARDING_PLAN" : "AI_WEIGHT_PROTOCOL",
+    );
     const snap = await loadAthleteSnapshot(ctx, userId);
     const primaryStruggle: string | undefined =
       typeof snap.profile?.primaryStruggle === "string"

@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useAIAction } from "@/hooks/useAIAction";
 import { api } from "@/../convex/_generated/api";
 import { useToast } from "@/hooks/use-toast";
@@ -9,8 +9,9 @@ import { useAITask } from "@/contexts/AITaskContext";
 import { AIPersistence } from "@/lib/aiPersistence";
 import { createAIAbortController } from "@/lib/timeoutWrapper";
 import { logger } from "@/lib/logger";
+import { clampMealCount, computePlanTotals, isOnTarget } from "@/lib/mealPlan";
 import { Activity, Utensils, CheckCircle } from "lucide-react";
-import type { Meal } from "@/pages/nutrition/types";
+import type { Meal, DayPlan, DayPlanMeal, MealTargets } from "@/pages/nutrition/types";
 
 interface UseMealPlanGenerationParams {
   selectedDate: string;
@@ -23,6 +24,11 @@ interface UseMealPlanGenerationParams {
   mealPlanIdeas: Meal[];
   setMealPlanIdeas: React.Dispatch<React.SetStateAction<Meal[]>>;
   aiAbortRef: React.MutableRefObject<AbortController | null>;
+  // ── New (additive) inputs for the day-plan flow. All optional so the
+  // existing single call site keeps compiling unchanged; a later unit wires
+  // these through. ──
+  targets?: MealTargets;
+  trainingContext?: { sessionType: string; sessionTag?: string } | null;
 }
 
 export function useMealPlanGeneration(params: UseMealPlanGenerationParams) {
@@ -30,6 +36,7 @@ export function useMealPlanGeneration(params: UseMealPlanGenerationParams) {
     selectedDate, dailyCalorieTarget, setDailyCalorieTarget,
     safetyStatus, setSafetyStatus, safetyMessage, setSafetyMessage,
     mealPlanIdeas, setMealPlanIdeas, aiAbortRef,
+    targets, trainingContext,
   } = params;
 
   const { isSessionValid, checkSessionValidity, refreshSession, userId, profile: contextProfile } = useUser();
@@ -43,6 +50,9 @@ export function useMealPlanGeneration(params: UseMealPlanGenerationParams) {
   const [generatingPlan, setGeneratingPlan] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const [isAiDialogOpen, setIsAiDialogOpen] = useState(false);
+  // ── New (additive) state for the day-plan flow. ──
+  const [mealCount, setMealCount] = useState(4);
+  const [dayPlan, setDayPlan] = useState<DayPlan | null>(null);
 
   const handleGenerateMealPlan = useCallback(async () => {
     if (!aiPrompt.trim()) {
@@ -242,10 +252,99 @@ export function useMealPlanGeneration(params: UseMealPlanGenerationParams) {
     }
   }, [aiPrompt, isSessionValid, checkSessionValidity, userId, profile, selectedDate, dailyCalorieTarget, safetyStatus, safetyMessage, mealPlanIdeas, setMealPlanIdeas, setDailyCalorieTarget, setSafetyStatus, setSafetyMessage, aiAbortRef, refreshSession, toast, hasAiAccess, openPaywall, handlePaywallError, addTask, completeTask, failTask, mealPlannerAction]);
 
+  // ── New (additive): day-plan generation. Mirrors the existing
+  // paywall/error handling so Pro gating stays consistent, but writes to the
+  // new `dayPlan` state and `meal_day_plan` cache rather than the legacy
+  // `mealPlanIdeas` flow. Does NOT touch `handleGenerateMealPlan`. ──
+  const generateDayPlan = useCallback(async () => {
+    if (!targets || !userId) return;
+
+    if (!hasAiAccess) {
+      openPaywall();
+      return;
+    }
+
+    setGeneratingPlan(true);
+    try {
+      let plan: DayPlan;
+      try {
+        plan = (await mealPlannerAction({
+          prompt: aiPrompt,
+          action: "day_plan",
+          mealCount: clampMealCount(mealCount),
+          targets,
+          trainingContext: trainingContext ?? undefined,
+        })) as DayPlan;
+      } catch (err: any) {
+        if (await handlePaywallError(err)) return;
+        throw new Error(err?.message || "Failed to generate meal plan");
+      }
+
+      setDayPlan(plan);
+      AIPersistence.save(userId, "meal_day_plan", {
+        generatedAt: Date.now(), dateIso: selectedDate, targetsSnapshot: targets,
+        prompt: aiPrompt, mealCount, plan,
+      }, 24);
+    } catch (error: any) {
+      logger.error("Error generating day plan", error);
+      toast({ title: "Error generating meal plan", description: error?.message || "Failed to generate meal plan", variant: "destructive" });
+    } finally {
+      setGeneratingPlan(false);
+    }
+  }, [targets, userId, aiPrompt, mealCount, trainingContext, selectedDate, mealPlannerAction, hasAiAccess, openPaywall, handlePaywallError, toast]);
+
+  // ── New (additive): swap a single meal in the current day plan. ──
+  const swapMeal = useCallback(async (mealId: string) => {
+    if (!dayPlan || !targets || !userId) return;
+    const target = dayPlan.meals.find((m) => m.id === mealId);
+    if (!target) return;
+    const otherMeals = dayPlan.meals.filter((m) => m.id !== mealId)
+      .map((m) => ({ protein: m.protein, carbs: m.carbs, fats: m.fats }));
+    const res = (await mealPlannerAction({
+      action: "swap", prompt: aiPrompt, targets,
+      slot: { type: target.type, timingLabel: target.timingLabel }, otherMeals,
+    })) as { meal: DayPlanMeal };
+    const meals = dayPlan.meals.map((m) => (m.id === mealId ? { ...res.meal, id: mealId } : m));
+    const totals = computePlanTotals(meals);
+    const next: DayPlan = { ...dayPlan, meals, totals, onTarget: isOnTarget(totals, targets) };
+    setDayPlan(next);
+    AIPersistence.save(userId, "meal_day_plan", {
+      generatedAt: Date.now(), dateIso: selectedDate, targetsSnapshot: targets,
+      prompt: aiPrompt, mealCount, plan: next,
+    }, 24);
+  }, [dayPlan, targets, userId, aiPrompt, selectedDate, mealCount, mealPlannerAction]);
+
+  // ── New (additive): restore a cached day plan when the sheet opens, only
+  // if no plan is loaded yet and the cache is for the same date. ──
+  useEffect(() => {
+    if (!isAiDialogOpen || dayPlan || !userId) return;
+    const cached = AIPersistence.load(userId, "meal_day_plan");
+    if (cached?.plan && cached.dateIso === selectedDate) {
+      setDayPlan(cached.plan);
+      setAiPrompt(cached.prompt ?? "");
+      setMealCount(cached.mealCount ?? 4);
+    }
+  }, [isAiDialogOpen, userId, selectedDate]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── New (additive): true when a plan exists but live targets have drifted
+  // from the targets the plan was generated against. ──
+  const targetsChanged = !!dayPlan && !!targets && (
+    dayPlan.targets.kcal !== targets.kcal ||
+    dayPlan.targets.protein !== targets.protein ||
+    dayPlan.targets.carbs !== targets.carbs ||
+    dayPlan.targets.fats !== targets.fats
+  );
+
   return {
     generatingPlan, setGeneratingPlan,
     aiPrompt, setAiPrompt,
     isAiDialogOpen, setIsAiDialogOpen,
     handleGenerateMealPlan,
+    // ── New (additive) day-plan API ──
+    dayPlan, setDayPlan,
+    mealCount, setMealCount,
+    generateDayPlan,
+    swapMeal,
+    targetsChanged,
   };
 }

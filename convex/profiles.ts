@@ -599,6 +599,32 @@ export const activatePremiumVerified = internalMutation({
       effectiveExpiresAtMs = existing.subscriptionExpiresAt;
     }
 
+    // Bounded-expiry guard (F1). A non-lifetime tier MUST resolve to a
+    // finite, future expiry. If we'd otherwise persist a non-lifetime tier
+    // with a null/undefined/expired expiry, fall back to "free" + clear the
+    // expiry rather than minting "Pro forever, free". Lifetime is exempt.
+    const isLifetime = effectiveTier === "premium_lifetime";
+    const now = Date.now();
+    const hasFiniteFutureExpiry =
+      typeof effectiveExpiresAtMs === "number" && effectiveExpiresAtMs > now;
+    if (!isLifetime && !hasFiniteFutureExpiry) {
+      console.warn(
+        "[activatePremiumVerified] non-lifetime tier without finite future expiry — refusing to grant Pro, downgrading to free",
+        {
+          userId,
+          tier: effectiveTier,
+          expiresAtMs: effectiveExpiresAtMs,
+        },
+      );
+      await ctx.db.patch(existing._id, {
+        subscriptionTier: "free",
+        subscriptionExpiresAt: undefined,
+        subscriptionUpdatedAt: now,
+        updatedAt: now,
+      });
+      return { tier: "free", expiresAt: null };
+    }
+
     const patch: Partial<Doc<"profiles">> = {
       subscriptionTier: effectiveTier,
       subscriptionUpdatedAt: Date.now(),
@@ -624,27 +650,59 @@ export const activatePremiumVerified = internalMutation({
  *  `app_user_id`).
  *
  *  Hardening rules:
- *   - Idempotent: replaying the same event yields the same final state.
- *   - Out-of-order guard: a stale webhook carrying an `expirationAtMs`
+ *   - Idempotent: replaying the same event (`eventId`) is a no-op — we record
+ *     every processed event in `revenuecat_webhook_events` and skip on a
+ *     repeat (F3).
+ *   - Event-timestamp ordering: an event strictly OLDER than the newest
+ *     event we've already processed for this user is ignored, so a replayed
+ *     CANCELLATION can't clobber a newer RENEWAL (F3). EXPIRATION is exempt —
+ *     it stays authoritative and always clears.
+ *   - Out-of-order expiry guard: a stale webhook carrying an `expirationAtMs`
  *     older than what we already have on file MUST NOT downgrade the user.
  *     Applies to RENEWAL / UNCANCELLATION / PRODUCT_CHANGE / CANCELLATION.
  *     EXPIRATION is allowed to clear regardless — that's the canonical
  *     "subscription is over" signal.
+ *   - Bounded-expiry guard (F1): never persist a non-lifetime tier without a
+ *     finite future expiry. A write that would do so falls back to "free".
  *   - Never set `subscriptionExpiresAt` to `undefined` unless we mean to
  *     wipe it (only EXPIRATION wipes it).
- *   - CANCELLATION keeps the tier untouched (the user keeps premium until
- *     the existing expiry fires; only the expiry timestamp can move).
- *   - BILLING_ISSUE is a grace period — touch nothing.
+ *   - CANCELLATION / PRODUCT_CHANGE keep the tier untouched and, if no fresh
+ *     expiry arrives, keep the existing stored expiry rather than leaving the
+ *     tier unbounded (F5). BILLING_ISSUE is a grace period — touch nothing.
  *   - Unknown event types are logged via `console.info` and treated as a
- *     no-op so we can spot new RevenueCat events without breaking. */
+ *     no-op so we can spot new RevenueCat events without breaking.
+ *
+ *  `eventId` / `eventTimestampMs` are OPTIONAL so existing callers/tests that
+ *  predate the ledger still typecheck; `http.ts` always supplies them. */
 export const updateSubscriptionFromRevenueCat = internalMutation({
   args: {
     appUserId: v.string(),
     eventType: v.string(),
     productId: v.optional(v.string()),
     expirationAtMs: v.optional(v.number()),
+    /** RevenueCat unique event id — dedupe key for idempotent replay. */
+    eventId: v.optional(v.string()),
+    /** RevenueCat `event_timestamp_ms` — used for per-user ordering. */
+    eventTimestampMs: v.optional(v.number()),
   },
-  handler: async (ctx, { appUserId, eventType, productId, expirationAtMs }) => {
+  handler: async (
+    ctx,
+    { appUserId, eventType, productId, expirationAtMs, eventId, eventTimestampMs },
+  ) => {
+    // ── Idempotency (F3) ─────────────────────────────────────────────────
+    // If we've already recorded this exact event id, replaying it is a
+    // no-op. This runs BEFORE the profile lookup so a replay against a
+    // since-deleted user is still cheaply absorbed.
+    if (eventId) {
+      const seen = await ctx.db
+        .query("revenuecat_webhook_events")
+        .withIndex("by_event", (q) => q.eq("eventId", eventId))
+        .unique();
+      if (seen) {
+        return { ok: true, skipped: "duplicate" as const };
+      }
+    }
+
     // RevenueCat's app_user_id is the Convex `users._id` we configured at
     // login. Look up the profile by that user id.
     const profile = await ctx.db
@@ -652,6 +710,41 @@ export const updateSubscriptionFromRevenueCat = internalMutation({
       .withIndex("by_user", (q) => q.eq("userId", appUserId as any))
       .unique();
     if (!profile) return { ok: false, reason: "profile-not-found" as const };
+
+    // ── Ordering (F3) ────────────────────────────────────────────────────
+    // Ignore events strictly older than the newest event we've already
+    // processed for this user — prevents a replayed/late CANCELLATION from
+    // clobbering a newer RENEWAL. EXPIRATION stays authoritative (it must be
+    // able to clear regardless of ordering), matching the existing
+    // stale-expiry exemption below.
+    if (typeof eventTimestampMs === "number" && eventType !== "EXPIRATION") {
+      const priorEvents = await ctx.db
+        .query("revenuecat_webhook_events")
+        .withIndex("by_user", (q) => q.eq("appUserId", appUserId))
+        .collect();
+      let newestProcessedMs = -Infinity;
+      for (const ev of priorEvents) {
+        if (typeof ev.eventTimestampMs === "number" && ev.eventTimestampMs > newestProcessedMs) {
+          newestProcessedMs = ev.eventTimestampMs;
+        }
+      }
+      if (newestProcessedMs > eventTimestampMs) {
+        console.info("[revenuecat-webhook] ignoring out-of-order event", {
+          appUserId,
+          eventType,
+          eventTimestampMs,
+          newestProcessedMs,
+        });
+        await recordWebhookEvent(ctx, {
+          eventId,
+          eventType,
+          appUserId,
+          eventTimestampMs,
+          outcome: "out-of-order",
+        });
+        return { ok: true, skipped: "out-of-order" as const };
+      }
+    }
 
     const tierFromProduct = (pid?: string): string => {
       if (!pid) {
@@ -698,6 +791,13 @@ export const updateSubscriptionFromRevenueCat = internalMutation({
         subscriptionUpdatedAt: Date.now(),
         updatedAt: Date.now(),
       });
+      await recordWebhookEvent(ctx, {
+        eventId,
+        eventType,
+        appUserId,
+        eventTimestampMs,
+        outcome: "stale-expiry",
+      });
       return { ok: true, skipped: "stale-expiry" as const };
     }
 
@@ -707,16 +807,33 @@ export const updateSubscriptionFromRevenueCat = internalMutation({
       updatedAt: Date.now(),
     };
 
+    let outcome = "applied";
     switch (eventType) {
       case "INITIAL_PURCHASE":
       case "RENEWAL":
-      case "PRODUCT_CHANGE":
       case "UNCANCELLATION":
         patch.subscriptionTier = tierFromProduct(productId);
         // Only write expiry when RevenueCat actually supplied one. Don't
         // wipe an existing expiry with undefined on a malformed event.
         if (typeof expirationAtMs === "number") {
           patch.subscriptionExpiresAt = expirationAtMs;
+        }
+        break;
+      case "PRODUCT_CHANGE":
+        // Monthly ↔ annual etc. Update the tier, but never leave it
+        // unbounded (F5): if no fresh expiry arrives, keep the existing
+        // stored expiry rather than nulling it. The bounded-expiry guard
+        // below still demotes to free if there is no finite future expiry
+        // at all.
+        patch.subscriptionTier = tierFromProduct(productId);
+        if (typeof expirationAtMs === "number") {
+          patch.subscriptionExpiresAt = expirationAtMs;
+        } else {
+          console.warn(
+            "[revenuecat-webhook] PRODUCT_CHANGE without expiry — keeping existing stored expiry",
+            { appUserId, existingExpiresAtMs: profile.subscriptionExpiresAt },
+          );
+          // No expiry write → existing `subscriptionExpiresAt` is preserved.
         }
         break;
       case "EXPIRATION":
@@ -728,9 +845,16 @@ export const updateSubscriptionFromRevenueCat = internalMutation({
         break;
       case "CANCELLATION":
         // User cancelled but keeps access until expiry — DO NOT change
-        // tier. Only update the expiry if we got a fresh value.
+        // tier. Only update the expiry if we got a fresh value; otherwise
+        // keep the existing stored expiry (F5), never leaving it unbounded.
         if (typeof expirationAtMs === "number") {
           patch.subscriptionExpiresAt = expirationAtMs;
+        } else {
+          console.warn(
+            "[revenuecat-webhook] CANCELLATION without expiry — keeping existing stored expiry",
+            { appUserId, existingExpiresAtMs: profile.subscriptionExpiresAt },
+          );
+          // No expiry write → existing `subscriptionExpiresAt` is preserved.
         }
         break;
       case "BILLING_ISSUE":
@@ -743,10 +867,75 @@ export const updateSubscriptionFromRevenueCat = internalMutation({
           "[revenuecat-webhook] unknown event type",
           { appUserId, eventType, productId },
         );
+        outcome = "unknown-event";
         break;
     }
 
+    // Bounded-expiry guard (F1). Compute the tier/expiry this write would
+    // result in (the patch value if present, else what's already stored) and
+    // refuse to leave a non-lifetime tier without a finite future expiry.
+    const resultingTier =
+      (patch.subscriptionTier as string | undefined) ?? profile.subscriptionTier;
+    const resultingExpiry = Object.prototype.hasOwnProperty.call(
+      patch,
+      "subscriptionExpiresAt",
+    )
+      ? (patch.subscriptionExpiresAt as number | undefined)
+      : profile.subscriptionExpiresAt;
+    const isNonFree =
+      typeof resultingTier === "string" &&
+      resultingTier.length > 0 &&
+      resultingTier !== "free";
+    const isLifetime = resultingTier === "premium_lifetime";
+    const now = Date.now();
+    const hasFiniteFutureExpiry =
+      typeof resultingExpiry === "number" && resultingExpiry > now;
+    if (isNonFree && !isLifetime && !hasFiniteFutureExpiry) {
+      console.warn(
+        "[revenuecat-webhook] non-lifetime tier without finite future expiry — downgrading to free",
+        { appUserId, eventType, resultingTier, resultingExpiry },
+      );
+      patch.subscriptionTier = "free";
+      patch.subscriptionExpiresAt = undefined;
+    }
+
     await ctx.db.patch(profile._id, patch as any);
+    await recordWebhookEvent(ctx, {
+      eventId,
+      eventType,
+      appUserId,
+      eventTimestampMs,
+      outcome,
+    });
     return { ok: true };
   },
 });
+
+/**
+ * Append a row to the RevenueCat webhook event ledger (F3). A no-op when no
+ * `eventId` is supplied (legacy callers / tests that don't pass one) so
+ * idempotency/ordering features degrade gracefully. Best-effort: a ledger
+ * write failure must not roll back an already-applied subscription patch in
+ * the same mutation, but since both run in the same transaction we simply
+ * insert and let Convex handle atomicity.
+ */
+async function recordWebhookEvent(
+  ctx: any,
+  args: {
+    eventId?: string;
+    eventType: string;
+    appUserId: string;
+    eventTimestampMs?: number;
+    outcome: string;
+  },
+): Promise<void> {
+  if (!args.eventId) return;
+  await ctx.db.insert("revenuecat_webhook_events", {
+    eventId: args.eventId,
+    eventType: args.eventType,
+    appUserId: args.appUserId,
+    eventTimestampMs: args.eventTimestampMs,
+    receivedAt: Date.now(),
+    outcome: args.outcome,
+  });
+}

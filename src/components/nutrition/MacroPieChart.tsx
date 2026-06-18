@@ -171,11 +171,28 @@ export const MacroPieChart = memo(function MacroPieChart({
                             aria-hidden="true"
                         />
                         <AnimatedNumber value={calories} className="text-[52px] font-bold tabular-nums leading-none tracking-tight text-foreground" />
-                        <span className="text-[11px] text-muted-foreground/60 mt-1.5 tabular-nums font-medium">
-                            {calorieTarget > 0
-                                ? `of ${calorieTarget.toLocaleString()} kcal`
-                                : "kcal today"}
-                        </span>
+                        {/* No target set → keep a unit label (no "left" pill in
+                            this case). When a target exists, the "left" pill below
+                            carries the context, so the old "of X kcal" line is dropped. */}
+                        {calorieTarget <= 0 && (
+                            <span className="text-[11px] text-muted-foreground/60 mt-1.5 tabular-nums font-medium">
+                                kcal today
+                            </span>
+                        )}
+                        {/* Remaining-calories pill — surfaces how many kcal are
+                            left without crowding the gauge. Clamped at 0 so going
+                            over reads "0 left" (the arc + number already turn red). */}
+                        {calorieTarget > 0 && (
+                            <span
+                                className={`mt-1.5 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums ${
+                                    isOver
+                                        ? "bg-destructive/10 text-destructive"
+                                        : "bg-primary/10 text-primary"
+                                }`}
+                            >
+                                {Math.max(0, calorieTarget - calories).toLocaleString()} left
+                            </span>
+                        )}
                     </div>
                 </div>
             </div>

@@ -1200,37 +1200,29 @@ export default function Dashboard() {
                   <Sparkline data={chartData.map((d) => d.weight)} className="h-full w-full" />
                 ) : (
                   <div className="flex flex-col items-center justify-end h-full text-center pb-0.5">
-                    <Icon name="trendingDownOutline" size={20} className="text-muted-foreground/40 mb-1" />
                     <p className="text-note text-muted-foreground">No data yet</p>
                   </div>
                 )}
               </div>
 
-              {/* Footer — date stays bottom-left; the trend arrow + delta is
-                  pinned to the card's bottom-right corner (below). */}
-              <div className="mt-1.5">
-                <span className="text-micro text-muted-foreground">
+              {/* Footer row: date (left) + signed delta (right) */}
+              <div className="mt-1.5 flex items-center justify-between">
+                <span className="text-micro text-muted-foreground tabular-nums">
                   {chartData.length >= 2 ? chartData[chartData.length - 1].date : ""}
                 </span>
+                {chartData.length >= 2 && (() => {
+                  const last = chartData[chartData.length - 1];
+                  const prev = chartData[chartData.length - 2];
+                  const delta = last.weight - prev.weight; // raw delta in stored units
+                  const displayDelta = convertWeight(last.weight) - convertWeight(prev.weight);
+                  const isDown = delta < 0; // weight loss is good
+                  return (
+                    <span className={`text-micro font-semibold tabular-nums leading-none ${isDown ? "text-func-recovery-green" : "text-func-danger-red"}`}>
+                      {isDown ? "−" : "+"}{Math.abs(displayDelta).toFixed(1)}
+                    </span>
+                  );
+                })()}
               </div>
-
-              {/* Trend arrow + delta — anchored to the bottom-right corner. */}
-              {chartData.length >= 2 && (() => {
-                const last = chartData[chartData.length - 1];
-                const prev = chartData[chartData.length - 2];
-                const delta = last.weight - prev.weight;
-                const isDown = delta < 0;
-                return (
-                  <div className={`absolute bottom-3 right-3 flex items-center gap-0.5 text-micro font-medium tabular-nums ${isDown ? "text-func-recovery-green" : "text-func-danger-red"}`}>
-                    <Icon
-                      name="trendingDownOutline"
-                      size={12}
-                      className={isDown ? "" : "rotate-180"}
-                    />
-                    <span>{Math.abs(delta).toFixed(1)}</span>
-                  </div>
-                );
-              })()}
             </button>
             {userId && <TrainingWeekWidget userId={userId} compact />}
             {userId && <SleepCard userId={userId} />}

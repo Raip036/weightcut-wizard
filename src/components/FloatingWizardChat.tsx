@@ -37,6 +37,87 @@ function loadSavedPosition(): { x: number; y: number } | null {
   } catch { return null; }
 }
 
+/* ── Coach bubble anti-annoyance frequency engine ─────────────────────────────
+   The bubble used to re-appear on every load (single 4h dismiss cooldown). The
+   engine below keeps it from nagging:
+     • once per browser session (sessionStorage)
+     • per-message cooldown after an outcome (dismiss 8h / chat 8h / act 24h /
+       auto-collapse "ignore" 2h), keyed by message hash so the SAME nudge
+       won't repeat
+     • hard daily cap (3) — red flags are exempt for safety and also bypass the
+       session + daily limits (but are still deduped by hash)
+   The bubble also auto-collapses after a short peek so it never sits there. */
+const BUBBLE_STATE_KEY = "wcw_bubble_state";
+const BUBBLE_SESSION_KEY = "wcw_bubble_session_shown";
+const BUBBLE_DAILY_CAP = 3;
+const HOUR_MS = 60 * 60 * 1000;
+const BUBBLE_COOLDOWN_MS: Record<"dismiss" | "act" | "chat" | "ignore", number> = {
+  dismiss: 8 * HOUR_MS,
+  act: 24 * HOUR_MS,
+  chat: 8 * HOUR_MS,
+  ignore: 2 * HOUR_MS,
+};
+const BUBBLE_AUTO_COLLAPSE_MS = 10_000;
+
+type BubbleState = { until: number; lastHash: string; day: string; count: number };
+
+function bubbleDayKey(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function hashText(s: string): string {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return String(h);
+}
+
+function readBubbleState(): BubbleState {
+  try {
+    const raw = localStorage.getItem(BUBBLE_STATE_KEY);
+    if (raw) {
+      const p = JSON.parse(raw);
+      return {
+        until: Number(p.until) || 0,
+        lastHash: String(p.lastHash || ""),
+        day: String(p.day || ""),
+        count: Number(p.count) || 0,
+      };
+    }
+  } catch { /* ignore */ }
+  return { until: 0, lastHash: "", day: "", count: 0 };
+}
+
+function writeBubbleState(s: BubbleState): void {
+  try { localStorage.setItem(BUBBLE_STATE_KEY, JSON.stringify(s)); } catch { /* ignore */ }
+}
+
+/** Decide whether a freshly-derived nudge is allowed to show right now. */
+function canShowBubble(hash: string, isRedFlag: boolean): boolean {
+  const st = readBubbleState();
+  const now = Date.now();
+  // Same message still cooling down → never (applies to red flags too).
+  if (st.lastHash === hash && now < st.until) return false;
+  // Red flags are safety-critical: bypass session + daily caps.
+  if (isRedFlag) return true;
+  try { if (sessionStorage.getItem(BUBBLE_SESSION_KEY)) return false; } catch { /* ignore */ }
+  if (st.day === bubbleDayKey() && st.count >= BUBBLE_DAILY_CAP) return false;
+  return true;
+}
+
+/** Record that a nudge was shown (session flag + daily counter). */
+function recordBubbleShown(): void {
+  try { sessionStorage.setItem(BUBBLE_SESSION_KEY, "1"); } catch { /* ignore */ }
+  const st = readBubbleState();
+  const day = bubbleDayKey();
+  writeBubbleState({ ...st, day, count: st.day === day ? st.count + 1 : 1 });
+}
+
+/** Record the user's response so the same nudge cools down accordingly. */
+function recordBubbleOutcome(hash: string, kind: keyof typeof BUBBLE_COOLDOWN_MS): void {
+  const st = readBubbleState();
+  writeBubbleState({ ...st, lastHash: hash, until: Date.now() + BUBBLE_COOLDOWN_MS[kind] });
+}
+
 export function FloatingWizardChat() {
   const { messages, isLoading, sendMessage, clearChat } = useFightCampCoach();
   const { userId } = useUser();
@@ -70,10 +151,21 @@ export function FloatingWizardChat() {
     const cleaned = raw.replace(/\s*[—–]\s*/g, ", ").trim();
     return cleaned.length > 130 ? `${cleaned.slice(0, 127)}...` : cleaned;
   }, [briefing]);
+  // Tier drives the bubble's accent; action is the context-aware CTA (or null
+  // for a bare greeting → "Chat").
+  const bubbleTier: "redFlag" | "priority" | "greeting" = briefing?.redFlag
+    ? "redFlag"
+    : briefing?.priorityAction
+      ? "priority"
+      : "greeting";
+  const bubbleAction = briefing?.action ?? null;
   const [fabPos, setFabPos] = useState<{ x: number; y: number } | null>(null);
   const [dragging, setDragging] = useState(false);
   const [bubbleReady, setBubbleReady] = useState(false);
-  const [bubbleDismissed, setBubbleDismissed] = useState(false);
+  const [bubbleVisible, setBubbleVisible] = useState(false);
+  const bubbleDecidedRef = useRef(false);
+  const bubbleHashRef = useRef("");
+  const autoCollapseRef = useRef<number | null>(null);
 
   const [open, setOpen] = useState(false);
   const [tutorialPulse, setTutorialPulse] = useState(false);
@@ -126,36 +218,39 @@ export function FloatingWizardChat() {
     setFabPos({ ...posRef.current });
   }, [open]);
 
-  // Bubble gating: respect a dismiss cooldown, and only surface after a short
-  // beat so it reads as a deliberate nudge rather than a flash on load.
+  // Only surface after a short beat so it reads as a deliberate nudge rather
+  // than a flash on load.
   useEffect(() => {
-    try {
-      const until = Number(localStorage.getItem("wcw_bubble_dismissed_until") || 0);
-      if (until && Date.now() < until) setBubbleDismissed(true);
-    } catch {
-      /* ignore */
-    }
     const t = window.setTimeout(() => setBubbleReady(true), 1400);
-    return () => window.clearTimeout(t);
+    return () => {
+      window.clearTimeout(t);
+      if (autoCollapseRef.current) window.clearTimeout(autoCollapseRef.current);
+    };
   }, []);
+
+  // Decide ONCE whether to show the nudge (anti-annoyance engine). Runs when the
+  // briefing text first resolves. If shown, it auto-collapses after a peek so it
+  // never sits there nagging.
+  useEffect(() => {
+    if (!bubbleReady || !bubbleText || bubbleDecidedRef.current) return;
+    bubbleDecidedRef.current = true;
+    const hash = hashText(bubbleText);
+    bubbleHashRef.current = hash;
+    if (canShowBubble(hash, bubbleTier === "redFlag")) {
+      setBubbleVisible(true);
+      recordBubbleShown();
+      autoCollapseRef.current = window.setTimeout(() => {
+        setBubbleVisible(false);
+        recordBubbleOutcome(hash, "ignore");
+      }, BUBBLE_AUTO_COLLAPSE_MS);
+    }
+  }, [bubbleReady, bubbleText, bubbleTier]);
 
   // Keep the bubble anchored to the orb across viewport changes (rotate/resize).
   useEffect(() => {
     const onResize = () => setFabPos({ ...posRef.current });
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, []);
-
-  const dismissBubble = useCallback(() => {
-    setBubbleDismissed(true);
-    try {
-      localStorage.setItem(
-        "wcw_bubble_dismissed_until",
-        String(Date.now() + 4 * 60 * 60 * 1000),
-      );
-    } catch {
-      /* ignore */
-    }
   }, []);
 
   const snapToEdge = useCallback(() => {
@@ -169,7 +264,7 @@ export function FloatingWizardChat() {
     el.style.transition = SNAP_SPRING;
     el.style.transform = `translate(${snappedX}px, ${clampedY}px)`;
     setFabPos({ x: snappedX, y: clampedY });
-    try { localStorage.setItem(FAB_POS_KEY, JSON.stringify(posRef.current)); } catch {}
+    try { localStorage.setItem(FAB_POS_KEY, JSON.stringify(posRef.current)); } catch { /* ignore */ }
     setTimeout(() => { if (el) el.style.transition = "none"; }, 350);
   }, []);
 
@@ -182,6 +277,36 @@ export function FloatingWizardChat() {
     });
     setOpen(true);
   }, []);
+
+  // Coach-bubble responses — each clears the auto-collapse timer, hides the
+  // bubble, and records the outcome so the same nudge cools down accordingly.
+  const clearAutoCollapse = useCallback(() => {
+    if (autoCollapseRef.current) {
+      window.clearTimeout(autoCollapseRef.current);
+      autoCollapseRef.current = null;
+    }
+  }, []);
+
+  const dismissBubble = useCallback(() => {
+    clearAutoCollapse();
+    setBubbleVisible(false);
+    recordBubbleOutcome(bubbleHashRef.current, "dismiss");
+  }, [clearAutoCollapse]);
+
+  const chatFromBubble = useCallback(() => {
+    clearAutoCollapse();
+    setBubbleVisible(false);
+    recordBubbleOutcome(bubbleHashRef.current, "chat");
+    handleFabPress();
+  }, [clearAutoCollapse, handleFabPress]);
+
+  const actFromBubble = useCallback(() => {
+    clearAutoCollapse();
+    setBubbleVisible(false);
+    recordBubbleOutcome(bubbleHashRef.current, "act");
+    triggerHapticSelection();
+    if (bubbleAction) navigate(bubbleAction.route);
+  }, [clearAutoCollapse, bubbleAction, navigate]);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     const touch = e.touches[0];
@@ -356,7 +481,7 @@ export function FloatingWizardChat() {
       {/* Proactive coach speech bubble — pops out of the orb (chat closed) and
           "speaks" the coach's current read to entice a tap. Positioned above
           the orb, tail pointing to whichever edge it snapped to. */}
-      {!open && bubbleReady && !bubbleDismissed && !dragging && bubbleText && fabPos && (() => {
+      {!open && bubbleVisible && !dragging && bubbleText && fabPos && (() => {
         const side: "left" | "right" =
           fabPos.x + FAB_SIZE / 2 > window.innerWidth / 2 ? "right" : "left";
         // Horizontal: anchor to the orb's edge so the bubble grows INTO the
@@ -378,12 +503,12 @@ export function FloatingWizardChat() {
           >
             <CoachSpeechBubble
               text={bubbleText}
+              tier={bubbleTier}
+              action={bubbleAction}
               side={side}
               placement={placeBelow ? "below" : "above"}
-              onTap={() => {
-                dismissBubble();
-                handleFabPress();
-              }}
+              onAct={actFromBubble}
+              onChat={chatFromBubble}
               onDismiss={dismissBubble}
             />
           </div>

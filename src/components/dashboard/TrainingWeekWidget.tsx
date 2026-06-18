@@ -352,11 +352,11 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
             </span>
             {deltaMin != null && deltaDisplay != null && (
               deltaMin === 0 ? (
-                <span className="ml-auto text-[10px] font-semibold tabular-nums leading-none text-muted-foreground/70">
+                <span className="ml-auto text-micro font-semibold tabular-nums leading-none text-muted-foreground/70">
                   ±0{deltaUnitSuffix}
                 </span>
               ) : (
-                <span className={`ml-auto text-[10px] font-semibold tabular-nums leading-none ${deltaMin > 0 ? "text-func-recovery-green" : "text-func-danger-red"}`}>
+                <span className={`ml-auto text-micro font-semibold tabular-nums leading-none ${deltaMin > 0 ? "text-func-recovery-green" : "text-func-danger-red"}`}>
                   {deltaMin > 0 ? "+" : "−"}{Math.abs(deltaDisplay)}{deltaUnitSuffix}
                 </span>
               )

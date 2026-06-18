@@ -271,7 +271,7 @@ export const createMealWithItems = mutation({
       });
     }
 
-    await ctx.scheduler.runAfter(5_000, internal.fightFormScore.recomputeForUserDate, {
+    await ctx.runMutation(internal.fightFormScore.scheduleRecompute, {
       userId,
       date: args.date,
     });

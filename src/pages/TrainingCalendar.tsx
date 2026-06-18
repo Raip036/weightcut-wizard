@@ -11,6 +11,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import type { Id } from "@/../convex/_generated/dataModel";
 import { localCache } from "@/lib/localCache";
+import { readDateParam } from "@/lib/dateParam";
 import { useUser } from "@/contexts/UserContext";
 import { useToast } from "@/hooks/use-toast";
 import { useSafeAsync } from "@/hooks/useSafeAsync";
@@ -138,8 +139,15 @@ export default function TrainingCalendar() {
     const createCalendarMut = useMutation(api.fight_camp.createCalendarEntry);
     const updateCalendarMut = useMutation(api.fight_camp.updateCalendarEntry);
     const deleteCalendarMut = useMutation(api.fight_camp.deleteCalendarEntry);
-    const [currentDate, setCurrentDate] = useState(new Date());
-    const [selectedDate, setSelectedDate] = useState(new Date());
+    // Seed the calendar from a `?date=YYYY-MM-DD` deep-link (used by the
+    // dashboard catch-up sheet) so the page opens on the targeted past day
+    // rather than today. Validated/clamped by the shared helper; absent ⇒
+    // today. Parsed at local midnight to match the file's date-fns `format(…,
+    // "yyyy-MM-dd")` convention used for session keys/lookups. Lazy
+    // initializers seed ONCE on mount — the user can navigate freely after.
+    const initialDate = readDateParam(searchParams);
+    const [currentDate, setCurrentDate] = useState(() => new Date(initialDate + "T00:00:00"));
+    const [selectedDate, setSelectedDate] = useState(() => new Date(initialDate + "T00:00:00"));
     const [sessions, setSessions] = useState<TrainingCalendarRow[]>(() => {
         // Hydrate from in-memory cache synchronously so first paint has data
         const ws = userId ? monthMemCache.get(`${userId}:${format(new Date(), "yyyy-MM")}`) : null;

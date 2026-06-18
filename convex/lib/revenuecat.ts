@@ -125,22 +125,34 @@ export async function verifyEntitlement(
         : NaN;
   if (!Number.isFinite(purchaseDateMs)) return null;
 
+  const productId =
+    typeof entitlement.product_identifier === "string" ? entitlement.product_identifier : "";
+  const tier = tierFromProductId(productId);
+  const isLifetime = tier === "premium_lifetime";
+
   let expiresAtMs: number | undefined;
   if (entitlement.expires_date_ms != null || entitlement.expires_date != null) {
     const ms =
       typeof entitlement.expires_date_ms === "number"
         ? entitlement.expires_date_ms
         : Date.parse(entitlement.expires_date as string);
-    if (!Number.isFinite(ms)) return null;
+    if (!Number.isFinite(ms)) {
+      // Unparseable expiry. Lifetime may legitimately have no expiry, but a
+      // garbage value is never trustworthy → not entitled.
+      return null;
+    }
     if (ms <= Date.now()) return null; // expired
     expiresAtMs = ms;
   }
-  // If both expires_date fields are null/missing → lifetime, expiresAtMs stays undefined.
 
-  const productId =
-    typeof entitlement.product_identifier === "string" ? entitlement.product_identifier : "";
+  // Bounded-expiry guard (F1): a NON-lifetime entitlement MUST carry a
+  // finite, future expiry. If RC returned no parseable `expires_date` for a
+  // monthly/annual product, treat the user as NOT entitled rather than
+  // minting an entitlement with an undefined (=unbounded) expiry.
+  if (!isLifetime && expiresAtMs === undefined) return null;
+
   return {
-    tier: tierFromProductId(productId),
+    tier,
     expiresAtMs,
     productId,
     purchaseDateMs,

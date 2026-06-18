@@ -69,6 +69,13 @@ const MyGym = lazy(() => import("./pages/MyGym"));
 const Community = lazy(() => import("./pages/Community"));
 const Profile = lazy(() => import("./pages/Profile"));
 const CommunityModeration = lazy(() => import("./pages/community/Moderation"));
+const CoachBubbleLab = lazy(() => import("./pages/CoachBubbleLab"));
+const MissionsLab = lazy(() => import("./pages/MissionsLab"));
+const TodayLogLab = lazy(() => import("./pages/TodayLogLab"));
+const WeightProtocolStoryLab = lazy(() => import("./pages/WeightProtocolStoryLab"));
+const ProtocolLoaderLab = lazy(() => import("./pages/ProtocolLoaderLab"));
+const PlanCardLab = lazy(() => import("./pages/PlanCardLab"));
+const MealPlanSheetLab = lazy(() => import("./pages/MealPlanSheetLab"));
 
 // Prioritized idle preloading — critical routes first, rest deferred
 const _idle = window.requestIdleCallback || ((cb: IdleRequestCallback) => setTimeout(cb, 50));
@@ -368,6 +375,13 @@ const App = () => (
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/coach/login" element={<Suspense fallback={<DashboardSkeleton />}><CoachLogin /></Suspense>} />
                 <Route path="/legal" element={<Suspense fallback={null}><Legal /></Suspense>} />
+                <Route path="/coach-bubble-lab" element={<Suspense fallback={null}><CoachBubbleLab /></Suspense>} />
+                <Route path="/missions-lab" element={<Suspense fallback={null}><MissionsLab /></Suspense>} />
+                <Route path="/todaylog-lab" element={<Suspense fallback={null}><TodayLogLab /></Suspense>} />
+                <Route path="/protocol-story-lab" element={<Suspense fallback={null}><WeightProtocolStoryLab /></Suspense>} />
+                <Route path="/protocol-loader-lab" element={<Suspense fallback={null}><ProtocolLoaderLab /></Suspense>} />
+                <Route path="/plan-card-lab" element={<Suspense fallback={null}><PlanCardLab /></Suspense>} />
+                <Route path="/mealplan-sheet-lab" element={<Suspense fallback={null}><MealPlanSheetLab /></Suspense>} />
                 <Route path="/onboarding" element={
                   <ProtectedRoute>
                     <Onboarding />

@@ -323,7 +323,7 @@ export function CatchUpSheet({ targetDate, open, onOpenChange, onEmpty }: Props)
                       icon={<Icon name="barbellOutline" size={16} />}
                     >
                       <Link
-                        to="/training-calendar"
+                        to={`/training-calendar?date=${targetDate}`}
                         onClick={() => onOpenChange(false)}
                         className={cn(
                           "inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors",
@@ -364,7 +364,7 @@ export function CatchUpSheet({ targetDate, open, onOpenChange, onEmpty }: Props)
                     >
                       <SkipButton onClick={() => void handleSkip("wellness")} />
                       <Link
-                        to="/recovery/check-in"
+                        to={`/recovery/check-in?date=${targetDate}`}
                         onClick={() => onOpenChange(false)}
                         className={cn(
                           "inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors",
@@ -388,7 +388,7 @@ export function CatchUpSheet({ targetDate, open, onOpenChange, onEmpty }: Props)
                     >
                       <SkipButton onClick={() => void handleSkip("nutrition")} />
                       <Link
-                        to="/nutrition"
+                        to={`/nutrition?date=${targetDate}`}
                         onClick={() => onOpenChange(false)}
                         className={cn(
                           "inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors",

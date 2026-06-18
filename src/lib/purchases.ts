@@ -17,6 +17,13 @@ export const PRODUCT_IDS = {
 let rcPromise: Promise<void> | null = null;
 let rcUIPromise: Promise<void> | null = null;
 
+// The RC SDK may be `configure`d only ONCE per app process — configuring a
+// second time is unsupported. We track the configured state + the appUserID
+// it was configured for so an account switch (without an app restart) routes
+// through `logIn(userId)` instead of a second `configure()`.
+let rcConfigured = false;
+let rcConfiguredUserId: string | null = null;
+
 async function loadRC() {
   if (Purchases) return;
   if (!Capacitor.isNativePlatform()) return;
@@ -55,17 +62,56 @@ export async function initializePurchases(userId: string): Promise<void> {
   if (!Purchases) return;
 
   try {
-    await Purchases.configure({
-      apiKey: RC_API_KEY_IOS,
-      appUserID: userId,
-    });
-    // Enable debug logs in development
-    if (import.meta.env.DEV) {
-      await Purchases.setLogLevel({ level: LOG_LEVEL?.DEBUG ?? 4 });
+    if (!rcConfigured) {
+      // First configure in this process.
+      await Purchases.configure({
+        apiKey: RC_API_KEY_IOS,
+        appUserID: userId,
+      });
+      rcConfigured = true;
+      rcConfiguredUserId = userId;
+      // Enable debug logs in development
+      if (import.meta.env.DEV) {
+        await Purchases.setLogLevel({ level: LOG_LEVEL?.DEBUG ?? 4 });
+      }
+      logger.info("RevenueCat initialized", { userId });
+    } else if (rcConfiguredUserId !== userId) {
+      // Already configured for a different user (account switch without an
+      // app restart). Re-`configure` is unsupported — log the new user in.
+      await Purchases.logIn(userId);
+      rcConfiguredUserId = userId;
+      logger.info("RevenueCat re-identified via logIn", { userId });
     }
-    logger.info("RevenueCat initialized", { userId });
+    // Same user, already configured — nothing to do.
   } catch (err) {
     logger.error("RevenueCat configure failed", err);
+  }
+}
+
+// ─── Log out (account switch / sign-out) ───
+
+/**
+ * Log the current user out of RevenueCat so a different user on the same
+ * device cannot inherit the previous user's entitlements. The RC SDK reverts
+ * to an anonymous appUserID after this. Native-only; failures are swallowed.
+ *
+ * NOTE: `Purchases.logOut()` throws if invoked while already anonymous — that
+ * is benign, so we catch and log at warn level rather than surfacing it.
+ */
+export async function logOutPurchases(): Promise<void> {
+  if (!Capacitor.isNativePlatform()) return;
+  await loadRC();
+  if (!Purchases) return;
+
+  try {
+    await Purchases.logOut();
+    rcConfiguredUserId = null;
+    logger.info("RevenueCat logged out");
+  } catch (err) {
+    // RC throws when logging out an anonymous user — swallow it.
+    logger.warn("RevenueCat logOut failed (likely already anonymous)", {
+      error: String(err),
+    });
   }
 }
 

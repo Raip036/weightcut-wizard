@@ -94,6 +94,101 @@ function CompletionConfetti({ fireKey }: { fireKey: number }) {
   );
 }
 
+/**
+ * The five logging tiles. Shared by the in-progress strip and the expanded
+ * complete state so the deep-links + wellness routing live in one place.
+ */
+function PillsRow({
+  logged,
+  wellnessIsFree,
+  prefersReduced,
+}: {
+  logged: Record<PillKey, boolean>;
+  wellnessIsFree: boolean;
+  prefersReduced: boolean | null;
+}) {
+  const tutorialAttr: Partial<Record<PillKey, string>> = {
+    weight: "today-weight",
+    sleep: "today-sleep",
+    wellness: "today-wellness",
+  };
+
+  return (
+    <div className="flex items-stretch gap-1.5 w-full">
+      {PILLS.map(({ key, label, href, icon, iconDone }) => {
+        const isLogged = logged[key];
+        // Wellness pill routing keys off whether today's check-in is done:
+        //   • not done  → open the full-screen survey at /recovery/check-in
+        //   • done       → the Pro Recovery dashboard (/recovery). Free users
+        //     can't open /recovery (Pro-gated), so they land on /dashboard.
+        const finalHref =
+          key === "wellness"
+            ? !isLogged
+              ? "/recovery/check-in"
+              : wellnessIsFree
+                ? "/dashboard"
+                : "/recovery"
+            : href;
+
+        return (
+          <Link
+            key={key}
+            to={finalHref}
+            data-tutorial={tutorialAttr[key]}
+            onClick={() => { void triggerHaptic(ImpactStyle.Light); }}
+            className={cn(
+              "card-press relative flex-1 min-h-[52px] rounded-md flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 transition-colors",
+              isLogged
+                ? "border border-func-recovery-green/40 bg-func-recovery-green/12 text-func-recovery-green"
+                : "border border-border/60 text-muted-foreground active:bg-muted/40",
+            )}
+            style={{ boxShadow: isLogged ? DONE_GLOW : undefined }}
+            aria-label={`${label}${isLogged ? " logged" : " not logged"}`}
+          >
+            <AnimatePresence initial={false}>
+              {isLogged && (
+                <motion.span
+                  key="badge"
+                  initial={prefersReduced ? false : { scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0, opacity: 0 }}
+                  transition={springs.bouncy}
+                  className="absolute -top-1.5 -right-1.5 flex h-[16px] w-[16px] items-center justify-center rounded-full bg-func-recovery-green ring-2 ring-background"
+                >
+                  <Icon name="checkmarkOutline" size={10} className="text-background" />
+                </motion.span>
+              )}
+            </AnimatePresence>
+
+            <motion.span
+              key={isLogged ? "on" : "off"}
+              initial={prefersReduced ? false : { scale: 0.6, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={springs.responsive}
+              className="leading-none"
+            >
+              <Icon
+                name={isLogged ? iconDone : icon}
+                size={17}
+                className={isLogged ? "text-func-recovery-green" : "text-muted-foreground"}
+              />
+            </motion.span>
+
+            <span
+              className={cn(
+                "text-[10px] font-semibold leading-none tracking-tight",
+                isLogged ? "text-func-recovery-green" : "text-muted-foreground",
+              )}
+            >
+              {label}
+            </span>
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function TodayStrip({ adherence, mealsLoggedToday, onMarkRestDay }: Props) {
   const prefersReduced = useReducedMotion();
   const { checkFeatureAccess, isSubscriptionResolved } = useSubscription();
@@ -120,19 +215,30 @@ export default function TodayStrip({ adherence, mealsLoggedToday, onMarkRestDay 
   const allSet = doneCount === total;
   const pct = (doneCount / total) * 100;
 
-  // ── Once-per-day completion celebration ───────────────────────────
-  // Fires the first time the strip renders fully logged on a given local
-  // day. Gating on `allSet && !celebratedToday` (rather than a strict
-  // <5→5 transition) catches the common flow where the user logs the
-  // final section on another screen and returns already complete.
+  // ── Complete-state collapse + once-per-day celebration ─────────────
+  // When complete, the strip collapses to a slim bar. The FIRST time the
+  // dashboard sees a fully-logged day (gated on the local day-key, which
+  // also catches "logged the last section elsewhere, then returned"), it
+  // plays a short flourish (confetti + the tiles briefly expanded) and then
+  // AUTO-MINIMISES into the slim bar. `userExpanded` lets the user reopen the
+  // tiles to edit; it's ephemeral, so returning always rests collapsed.
   const [confettiKey, setConfettiKey] = useState(0);
+  const [celebrating, setCelebrating] = useState(false);
+  const [userExpanded, setUserExpanded] = useState(false);
+  const tilesOpen = celebrating || userExpanded;
+
   useEffect(() => {
     if (!allSet) return;
     const dayKey = `today_log_celebrated_${format(new Date(), "yyyy-MM-dd")}`;
-    if (localStorage.getItem(dayKey)) return;
+    if (localStorage.getItem(dayKey)) return; // already celebrated today → rest collapsed
     localStorage.setItem(dayKey, "true");
     void triggerHapticSuccess();
-    if (!prefersReduced) setConfettiKey((k) => k + 1);
+    if (prefersReduced) return; // no flourish under reduced-motion; stay collapsed
+    setConfettiKey((k) => k + 1);
+    // Play the tiles-expanded flourish, then auto-minimise to the slim bar.
+    setCelebrating(true);
+    const t = setTimeout(() => setCelebrating(false), 1900);
+    return () => clearTimeout(t);
   }, [allSet, prefersReduced]);
 
   // Auto-unmount the burst once it has played so it doesn't linger.
@@ -148,43 +254,87 @@ export default function TodayStrip({ adherence, mealsLoggedToday, onMarkRestDay 
         {confettiKey > 0 && <CompletionConfetti fireKey={confettiKey} />}
       </AnimatePresence>
 
-      {/* Header row — label + count */}
-      <div className="flex items-center justify-between">
-        <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/80">Today's log</p>
-        <p className={cn(
-          "text-note font-semibold tabular-nums transition-colors",
-          allSet ? "text-func-recovery-green" : "text-muted-foreground",
-        )}>
-          {doneCount} / {total}
-          {allSet && <Icon name="checkmarkOutline" size={14} className="inline ml-1 mb-0.5" />}
-        </p>
-      </div>
-
-      {/* Progress region — animated bar while in-progress, celebratory
-          banner once everything is logged. */}
-      <AnimatePresence mode="wait" initial={false}>
-        {allSet ? (
-          <motion.div
-            key="banner"
-            initial={prefersReduced ? false : { opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            transition={springs.gentle}
-            className="flex items-center justify-center gap-1.5 rounded-full border border-func-recovery-green/30 bg-func-recovery-green/12 py-1.5"
+      {allSet ? (
+        /* ── COMPLETE — slim bar that auto-minimises, tap to expand ── */
+        <>
+          <motion.button
+            type="button"
+            onClick={() => setUserExpanded((e) => !e)}
+            aria-expanded={tilesOpen}
+            aria-label="Today's log complete, tap to view sections"
+            className="w-full flex items-center gap-2.5 rounded-full border border-func-recovery-green/30 bg-func-recovery-green/12 px-3 py-2 text-left"
             style={{ boxShadow: DONE_GLOW }}
+            initial={prefersReduced ? false : { opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={springs.gentle}
           >
-            <span className="text-[11px] font-semibold tracking-wide text-func-recovery-green">
+            <motion.span
+              className="flex h-5 w-5 items-center justify-center rounded-full bg-func-recovery-green shrink-0"
+              initial={celebrating && !prefersReduced ? { scale: 0 } : false}
+              animate={{ scale: 1 }}
+              transition={springs.bouncy}
+            >
+              <Icon name="checkmarkOutline" size={12} className="text-background" />
+            </motion.span>
+
+            <span className="text-[13px] font-semibold tracking-wide text-func-recovery-green">
               Today's log complete
             </span>
-          </motion.div>
-        ) : (
-          <motion.div
-            key="bar"
-            initial={prefersReduced ? false : { opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="h-2 w-full rounded-full bg-muted/50 overflow-hidden"
-          >
+
+            <span className="ml-auto flex items-center gap-2">
+              {/* The five collected pillars as tiny glyphs — a glanceable trophy
+                  shelf. They pop in (staggered) during the completion flourish. */}
+              <span className="flex items-center gap-1.5">
+                {PILLS.map((p, i) => (
+                  <motion.span
+                    key={p.key}
+                    initial={celebrating && !prefersReduced ? { scale: 0, opacity: 0 } : false}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ ...springs.bouncy, delay: celebrating ? 0.18 + i * 0.06 : 0 }}
+                    className="leading-none"
+                  >
+                    <Icon name={p.iconDone} size={14} className="text-func-recovery-green" />
+                  </motion.span>
+                ))}
+              </span>
+              <Icon
+                name="chevronDownOutline"
+                size={16}
+                className={cn("text-muted-foreground transition-transform", tilesOpen && "rotate-180")}
+              />
+            </span>
+          </motion.button>
+
+          {/* Expandable tiles — shown during the flourish, then folded away;
+              re-openable by tapping the bar. */}
+          <AnimatePresence initial={false}>
+            {tilesOpen && (
+              <motion.div
+                key="tiles"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={springs.gentle}
+                className="overflow-hidden"
+              >
+                <div className="pt-1.5">
+                  <PillsRow logged={logged} wellnessIsFree={wellnessIsFree} prefersReduced={prefersReduced} />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </>
+      ) : (
+        /* ── IN PROGRESS — header + progress bar + rest-day + tiles ── */
+        <>
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/80">Today's log</p>
+            <p className="text-note font-semibold tabular-nums text-muted-foreground">
+              {doneCount} / {total}
+            </p>
+          </div>
+
+          <div className="h-2 w-full rounded-full bg-muted/50 overflow-hidden">
             <motion.div
               className="relative h-full rounded-full bg-primary overflow-hidden"
               initial={prefersReduced ? false : { width: 0 }}
@@ -202,135 +352,49 @@ export default function TodayStrip({ adherence, mealsLoggedToday, onMarkRestDay 
                 />
               )}
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
 
-      {/* Rest-day shortcut — visible only when training is not yet logged
-          and the parent has wired the mutation handler. */}
-      <AnimatePresence initial={false}>
-        {onMarkRestDay && !logged.training && (
-          <motion.div
-            key="rest-day-row"
-            initial={prefersReduced ? false : { opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={springs.gentle}
-            className="flex justify-center"
-          >
-            <button
-              type="button"
-              disabled={restPending}
-              aria-label="Mark today as a rest day"
-              onClick={async () => {
-                void triggerHaptic(ImpactStyle.Light);
-                setRestPending(true);
-                try {
-                  await onMarkRestDay();
-                } finally {
-                  setRestPending(false);
-                }
-              }}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-md text-muted-foreground/70 hover:text-muted-foreground active:text-muted-foreground/50 transition-colors disabled:opacity-50"
-            >
-              <Icon name={restPending ? "refreshOutline" : "moonOutline"} size={13} className={restPending ? "animate-spin" : ""} />
-              <span className="text-[11px] tracking-[0.12em] font-medium">
-                {restPending ? "Saving…" : "Mark today as a rest day"}
-              </span>
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Pills */}
-      <div className="flex items-stretch gap-1.5 w-full pt-1">
-        {PILLS.map(({ key, label, href, icon, iconDone }) => {
-          const isLogged = logged[key];
-          // Wellness pill routing keys off whether today's check-in is done:
-          //   • not done  → open the full-screen survey at /recovery/check-in
-          //   • done       → the Pro Recovery dashboard (/recovery). Free users
-          //     can't open /recovery (Pro-gated), so they land on /dashboard.
-          const finalHref =
-            key === "wellness"
-              ? !isLogged
-                ? "/recovery/check-in"
-                : wellnessIsFree
-                  ? "/dashboard"
-                  : "/recovery"
-              : href;
-
-          const pillClassName = cn(
-            "card-press relative flex-1 min-h-[52px] rounded-md flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 transition-colors",
-            isLogged
-              ? "border border-func-recovery-green/40 bg-func-recovery-green/12 text-func-recovery-green"
-              : "border border-border/60 text-muted-foreground active:bg-muted/40",
-          );
-
-          const pillInner = (
-            <>
-              {/* Completed check badge — pops in when the section is logged. */}
-              <AnimatePresence initial={false}>
-                {isLogged && (
-                  <motion.span
-                    key="badge"
-                    initial={prefersReduced ? false : { scale: 0, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0, opacity: 0 }}
-                    transition={springs.bouncy}
-                    className="absolute -top-1.5 -right-1.5 flex h-[16px] w-[16px] items-center justify-center rounded-full bg-func-recovery-green ring-2 ring-background"
-                  >
-                    <Icon name="checkmarkOutline" size={10} className="text-background" />
-                  </motion.span>
-                )}
-              </AnimatePresence>
-
-              {/* Icon — fades / scales between outline and filled on state change. */}
-              <motion.span
-                key={isLogged ? "on" : "off"}
-                initial={prefersReduced ? false : { scale: 0.6, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={springs.responsive}
-                className="leading-none"
+          {/* Rest-day shortcut — visible only when training is not yet logged
+              and the parent has wired the mutation handler. */}
+          <AnimatePresence initial={false}>
+            {onMarkRestDay && !logged.training && (
+              <motion.div
+                key="rest-day-row"
+                initial={prefersReduced ? false : { opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={springs.gentle}
+                className="flex justify-center"
               >
-                <Icon
-                  name={isLogged ? iconDone : icon}
-                  size={17}
-                  className={isLogged ? "text-func-recovery-green" : "text-muted-foreground"}
-                />
-              </motion.span>
+                <button
+                  type="button"
+                  disabled={restPending}
+                  aria-label="Mark today as a rest day"
+                  onClick={async () => {
+                    void triggerHaptic(ImpactStyle.Light);
+                    setRestPending(true);
+                    try {
+                      await onMarkRestDay();
+                    } finally {
+                      setRestPending(false);
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-md text-muted-foreground/70 hover:text-muted-foreground active:text-muted-foreground/50 transition-colors disabled:opacity-50"
+                >
+                  <Icon name={restPending ? "refreshOutline" : "moonOutline"} size={13} className={restPending ? "animate-spin" : ""} />
+                  <span className="text-[11px] tracking-[0.12em] font-medium">
+                    {restPending ? "Saving…" : "Mark today as a rest day"}
+                  </span>
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-              <span
-                className={cn(
-                  "text-[10px] font-semibold leading-none tracking-tight",
-                  isLogged ? "text-func-recovery-green" : "text-muted-foreground",
-                )}
-              >
-                {label}
-              </span>
-            </>
-          );
-
-          const tutorialAttr: Partial<Record<PillKey, string>> = {
-            weight: "today-weight",
-            sleep: "today-sleep",
-            wellness: "today-wellness",
-          };
-
-          return (
-            <Link
-              key={key}
-              to={finalHref}
-              data-tutorial={tutorialAttr[key]}
-              onClick={() => { void triggerHaptic(ImpactStyle.Light); }}
-              className={pillClassName}
-              style={{ boxShadow: isLogged ? DONE_GLOW : undefined }}
-              aria-label={`${label}${isLogged ? " logged" : " not logged"}`}
-            >
-              {pillInner}
-            </Link>
-          );
-        })}
-      </div>
+          <div className="pt-1">
+            <PillsRow logged={logged} wellnessIsFree={wellnessIsFree} prefersReduced={prefersReduced} />
+          </div>
+        </>
+      )}
     </div>
   );
 }

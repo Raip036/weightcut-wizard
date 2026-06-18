@@ -5,14 +5,16 @@ import { Input } from "@/components/ui/input";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { Search, Loader2, Mic, ChevronRight, Minus, Plus, X, PlusCircle, Trash2 } from "lucide-react";
 import { motion, LayoutGroup, AnimatePresence } from "motion/react";
-import { useAction } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/hooks/use-toast";
 import { triggerHapticSelection } from "@/lib/haptics";
 
 interface FoodSearchResult {
   id: string;
+  foodId?: string;
   name: string;
   brand: string;
   calories_per_100g: number;
@@ -44,7 +46,6 @@ interface FoodSearchDialogProps {
 
 const SERVING_PRESETS = [50, 100, 150, 200, 250];
 const SWIPE_THRESHOLD = 70;
-const HIDDEN_RECENTS_KEY = "wcw_hidden_recent_meals";
 
 const MEAL_TYPE_OPTIONS = [
   { value: "breakfast", label: "Breakfast" },
@@ -58,17 +59,6 @@ type MealTypeValue = (typeof MEAL_TYPE_OPTIONS)[number]["value"];
 function normalizeMealType(v: string | undefined): MealTypeValue {
   const lower = (v || "").toLowerCase();
   return MEAL_TYPE_OPTIONS.some((o) => o.value === lower) ? (lower as MealTypeValue) : "snack";
-}
-
-function getHiddenRecents(): Set<string> {
-  try {
-    const raw = localStorage.getItem(HIDDEN_RECENTS_KEY);
-    return raw ? new Set(JSON.parse(raw)) : new Set();
-  } catch { return new Set(); }
-}
-
-function setHiddenRecents(names: Set<string>) {
-  localStorage.setItem(HIDDEN_RECENTS_KEY, JSON.stringify([...names]));
 }
 
 /** Swipeable row — swipe left to reveal delete action */
@@ -239,12 +229,18 @@ export function FoodSearchDialog({ open, onOpenChange, onFoodSelected, mealType,
   const [searching, setSearching] = useState(false);
   const [selectedFood, setSelectedFood] = useState<FoodSearchResult | null>(null);
   const [servingGrams, setServingGrams] = useState(100);
-  const [recentMeals, setRecentMeals] = useState<(FoodSearchResult & { lastPortionGrams: number })[]>([]);
   const [chosenMealType, setChosenMealType] = useState<MealTypeValue>(() => normalizeMealType(mealType));
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const { toast } = useToast();
   const foodSearchAction = useAction(api.actions.foodSearch.run);
+
+  // Server-backed recents — persists across app close / logout / reinstall.
+  const recentsData = useQuery(api.foodRecents.listRecents, open ? {} : "skip");
+  const recentMeals = recentsData ?? [];
+  const recordRecent = useMutation(api.foodRecents.recordRecent);
+  const removeRecent = useMutation(api.foodRecents.removeRecent);
+  const clearRecents = useMutation(api.foodRecents.clearRecents);
 
   useEffect(() => {
     if (open) setChosenMealType(normalizeMealType(mealType));
@@ -256,11 +252,6 @@ export function FoodSearchDialog({ open, onOpenChange, onFoodSelected, mealType,
   useEffect(() => {
     if (open && initialQuery) setQuery(initialQuery);
   }, [open, initialQuery]);
-
-  useEffect(() => {
-    if (!open) return;
-    setRecentMeals([]);
-  }, [open]);
 
   const searchFoods = useCallback(async (searchQuery: string) => {
     if (searchQuery.trim().length < 2) {
@@ -334,6 +325,19 @@ export function FoodSearchDialog({ open, onOpenChange, onFoodSelected, mealType,
       portion_size: `${servingGrams}g`,
       meal_type: chosenMealType,
     });
+    void recordRecent({
+      foodId: (selectedFood.foodId ?? selectedFood.id) as Id<"foods">,
+      name: selectedFood.name,
+      brand: selectedFood.brand || undefined,
+      caloriesPer100g: selectedFood.calories_per_100g,
+      proteinPer100g: selectedFood.protein_per_100g,
+      carbsPer100g: selectedFood.carbs_per_100g,
+      fatsPer100g: selectedFood.fats_per_100g,
+      servingSize: selectedFood.serving_size,
+      servingGrams: selectedFood.serving_grams ?? undefined,
+      kind: "logged",
+      portionGrams: servingGrams,
+    }).catch(() => {});
     onOpenChange(false);
     requestAnimationFrame(() => { if (mainEl) mainEl.scrollTop = scrollY; });
   };
@@ -353,6 +357,19 @@ export function FoodSearchDialog({ open, onOpenChange, onFoodSelected, mealType,
       portion_size: `${grams}g`,
       meal_type: chosenMealType,
     });
+    void recordRecent({
+      foodId: (food.foodId ?? food.id) as Id<"foods">,
+      name: food.name,
+      brand: food.brand || undefined,
+      caloriesPer100g: food.calories_per_100g,
+      proteinPer100g: food.protein_per_100g,
+      carbsPer100g: food.carbs_per_100g,
+      fatsPer100g: food.fats_per_100g,
+      servingSize: food.serving_size,
+      servingGrams: food.serving_grams ?? undefined,
+      kind: "logged",
+      portionGrams: grams,
+    }).catch(() => {});
     onOpenChange(false);
     requestAnimationFrame(() => { if (mainEl) mainEl.scrollTop = scrollY; });
   };
@@ -465,12 +482,7 @@ export function FoodSearchDialog({ open, onOpenChange, onFoodSelected, mealType,
                 <div className="flex items-center justify-between px-1 pb-1">
                   <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/70">Recent</span>
                   <button
-                    onClick={() => {
-                      const hidden = getHiddenRecents();
-                      recentMeals.forEach((m) => hidden.add(m.name.toLowerCase()));
-                      setHiddenRecents(hidden);
-                      setRecentMeals([]);
-                    }}
+                    onClick={() => { void clearRecents().catch(() => {}); }}
                     className="text-[11px] font-semibold text-muted-foreground/70 active:text-destructive transition-colors"
                   >
                     Clear
@@ -479,20 +491,48 @@ export function FoodSearchDialog({ open, onOpenChange, onFoodSelected, mealType,
                 {recentMeals.map((food) => (
                   <SwipeToDelete
                     key={food.id}
-                    onDelete={() => {
-                      const hidden = getHiddenRecents();
-                      hidden.add(food.name.toLowerCase());
-                      setHiddenRecents(hidden);
-                      setRecentMeals((prev) => prev.filter((m) => m.id !== food.id));
-                    }}
+                    onDelete={() => { void removeRecent({ id: food.id }).catch(() => {}); }}
                   >
                     <ResultRow
-                      food={food}
+                      food={{
+                        id: food.id,
+                        foodId: food.foodId,
+                        name: food.name,
+                        brand: food.brand,
+                        calories_per_100g: food.calories_per_100g,
+                        protein_per_100g: food.protein_per_100g,
+                        carbs_per_100g: food.carbs_per_100g,
+                        fats_per_100g: food.fats_per_100g,
+                        serving_size: food.serving_size,
+                        serving_grams: food.serving_grams,
+                      }}
                       onSelect={() => {
-                        setSelectedFood(food);
+                        setSelectedFood({
+                          id: food.id,
+                          foodId: food.foodId,
+                          name: food.name,
+                          brand: food.brand,
+                          calories_per_100g: food.calories_per_100g,
+                          protein_per_100g: food.protein_per_100g,
+                          carbs_per_100g: food.carbs_per_100g,
+                          fats_per_100g: food.fats_per_100g,
+                          serving_size: food.serving_size,
+                          serving_grams: food.serving_grams,
+                        });
                         setServingGrams(food.lastPortionGrams);
                       }}
-                      onQuickAdd={() => handleQuickAddFromResult(food, food.lastPortionGrams)}
+                      onQuickAdd={() => handleQuickAddFromResult({
+                        id: food.id,
+                        foodId: food.foodId,
+                        name: food.name,
+                        brand: food.brand,
+                        calories_per_100g: food.calories_per_100g,
+                        protein_per_100g: food.protein_per_100g,
+                        carbs_per_100g: food.carbs_per_100g,
+                        fats_per_100g: food.fats_per_100g,
+                        serving_size: food.serving_size,
+                        serving_grams: food.serving_grams,
+                      }, food.lastPortionGrams)}
                     />
                   </SwipeToDelete>
                 ))}
@@ -529,6 +569,18 @@ export function FoodSearchDialog({ open, onOpenChange, onFoodSelected, mealType,
                         triggerHapticSelection();
                         setSelectedFood(food);
                         setServingGrams(food.serving_grams || 100);
+                        void recordRecent({
+                          foodId: food.id as Id<"foods">,
+                          name: food.name,
+                          brand: food.brand || undefined,
+                          caloriesPer100g: food.calories_per_100g,
+                          proteinPer100g: food.protein_per_100g,
+                          carbsPer100g: food.carbs_per_100g,
+                          fatsPer100g: food.fats_per_100g,
+                          servingSize: food.serving_size,
+                          servingGrams: food.serving_grams ?? undefined,
+                          kind: "searched",
+                        }).catch(() => {});
                       }}
                       onQuickAdd={() => handleQuickAddFromResult(food, 100)}
                     />

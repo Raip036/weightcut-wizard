@@ -1,4 +1,5 @@
 import type { ScoringConfig, SubScore } from "../types";
+import { resolvePlanWeek, resolveTotalWeeks } from "../planWeek";
 
 /**
  * Shape of one row inside `profiles.cutPlanJson.weeklyPlan`. Mirrors the
@@ -86,55 +87,55 @@ export function computeWeightCut(
   const currentWeightKg = latest?.weightKg ?? null;
 
   // 2. Determine this week's target.
-  //    `currentWeek` is 1-indexed weeks since camp start, clamped to the
-  //    plan's total length so a delayed fight date doesn't blow the index
-  //    past the last weeklyPlan row.
+  //    The plan week + target are resolved by the SHARED `resolvePlanWeek`
+  //    helper (anchored on `fightDate − totalWeeks×7`), the exact same anchor
+  //    the dashboard Camp Status widget uses — so the weekly target is uniform
+  //    across the app. `campStartDate` is no longer the anchor (it was the
+  //    earliest weight log, which diverged from the widget's fight-date anchor).
   let thisWeekTargetKg: number | null = null;
   let currentWeek: number | null = null;
-  if (campStartDate) {
-    // Total camp weeks: prefer the plan's own length, then camp→fight span,
-    // then plan.totalWeeks. Falls back to 1 to avoid div-by-zero in the
-    // linear-interp branch.
-    const planLength = Array.isArray(cutPlanJson?.weeklyPlan)
-      ? cutPlanJson!.weeklyPlan!.length
-      : 0;
-    const campToFightWeeks =
-      fightDate != null
-        ? Math.max(1, Math.ceil(daysBetween(campStartDate, fightDate) / 7))
-        : 0;
-    const totalCampWeeks =
-      planLength > 0
-        ? planLength
-        : campToFightWeeks > 0
-          ? campToFightWeeks
-          : typeof cutPlanJson?.totalWeeks === "number"
-            ? cutPlanJson!.totalWeeks!
-            : 1;
-
-    const weeksSinceCampStart = Math.floor(
-      daysBetween(campStartDate, asOfDate) / 7,
-    ) + 1;
-    currentWeek = clamp(weeksSinceCampStart, 1, totalCampWeeks);
-
-    // 2a. Try the explicit plan row first.
-    if (Array.isArray(cutPlanJson?.weeklyPlan) && cutPlanJson!.weeklyPlan!.length > 0) {
-      const row = cutPlanJson!.weeklyPlan!.find((w) => w.week === currentWeek);
-      if (row && typeof row.targetWeight === "number" && Number.isFinite(row.targetWeight)) {
-        thisWeekTargetKg = row.targetWeight;
-      }
-    }
+  const totalCampWeeks = resolveTotalWeeks(
+    cutPlanJson?.weeklyPlan,
+    typeof cutPlanJson?.totalWeeks === "number" ? cutPlanJson!.totalWeeks! : null,
+  );
+  const resolved = resolvePlanWeek({
+    asOfDate,
+    fightDate,
+    weeklyPlan: cutPlanJson?.weeklyPlan,
+    totalWeeks: totalCampWeeks > 0 ? totalCampWeeks : null,
+  });
+  if (resolved) {
+    currentWeek = resolved.week;
+    // 2a. Explicit plan row (resolved by the shared helper).
+    thisWeekTargetKg = resolved.targetWeight;
 
     // 2b. Linear interp fallback: starting → goal, weighted by progress.
     if (
       thisWeekTargetKg == null &&
       startingWeightKg != null &&
       goalWeightKg != null &&
-      totalCampWeeks > 0
+      resolved.totalWeeks > 0
     ) {
-      const progress = currentWeek / totalCampWeeks;
+      const progress = resolved.week / resolved.totalWeeks;
       thisWeekTargetKg =
         startingWeightKg + (goalWeightKg - startingWeightKg) * progress;
     }
+  } else if (campStartDate && startingWeightKg != null && goalWeightKg != null) {
+    // No fight date / plan length yet (rare — compose.ts gates on fightDate,
+    // but keep a camp-start-anchored interp so direct callers still degrade
+    // gracefully instead of pausing the pillar).
+    const fallbackWeeks = Math.max(
+      1,
+      fightDate != null ? Math.ceil(daysBetween(campStartDate, fightDate) / 7) : 1,
+    );
+    const week = clamp(
+      Math.floor(daysBetween(campStartDate, asOfDate) / 7) + 1,
+      1,
+      fallbackWeeks,
+    );
+    currentWeek = week;
+    thisWeekTargetKg =
+      startingWeightKg + (goalWeightKg - startingWeightKg) * (week / fallbackWeeks);
   }
 
   // 3. If still no target or no current weight, sit the sub-score out.

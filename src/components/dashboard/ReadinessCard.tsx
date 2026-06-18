@@ -116,23 +116,19 @@ export function ReadinessCard({ userId }: ReadinessCardProps) {
             )}
           </div>
 
-          {/* Footer — last check-in delta, right-aligned to match siblings. */}
-          <div className="mt-1.5 flex items-center justify-end">
-            <div className="flex items-center gap-1.5">
-              {delta != null && Math.abs(delta) >= 1 && (() => {
-                const isUp = delta > 0; // higher readiness is better
-                return (
-                  <div className={`flex items-center gap-0.5 text-micro font-medium tabular-nums ${isUp ? "text-func-recovery-green" : "text-func-danger-red"}`}>
-                    <Icon
-                      name="trendingDownOutline"
-                      size={12}
-                      className={isUp ? "rotate-180" : ""}
-                    />
-                    <span>{Math.abs(Math.round(delta))}</span>
-                  </div>
-                );
-              })()}
-            </div>
+          {/* Footer row: 7-day avg (left) + signed delta (right) */}
+          <div className="mt-1.5 flex items-center justify-between">
+            <span className="text-micro text-muted-foreground tabular-nums">
+              {series.length >= 2 ? `avg ${Math.round(series.reduce((a, b) => a + b, 0) / series.length)}` : ""}
+            </span>
+            {delta != null && Math.abs(delta) >= 1 && (() => {
+              const isUp = delta > 0; // higher readiness is better
+              return (
+                <span className={`text-micro font-semibold tabular-nums leading-none ${isUp ? "text-func-recovery-green" : "text-func-danger-red"}`}>
+                  {isUp ? "+" : "−"}{Math.abs(Math.round(delta))}
+                </span>
+              );
+            })()}
           </div>
         </>
       ) : (

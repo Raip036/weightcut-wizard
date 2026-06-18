@@ -216,3 +216,44 @@ export const INITIAL_MANUAL_NUTRITION_DIALOG: ManualNutritionDialogState = {
   carbs_per_100g: "",
   fats_per_100g: "",
 };
+
+// ─── AI day-plan (Meal Plan Ideas) ────────────────────────────────
+export interface MealTargets {
+  kcal: number;
+  protein: number;
+  carbs: number;
+  fats: number;
+}
+
+export interface DayPlanIngredient {
+  name: string;
+  grams: number;
+  calories: number;
+  protein_g: number;
+  carbs_g: number;
+  fats_g: number;
+}
+
+export interface DayPlanMeal {
+  id: string;
+  name: string;               // meal name from the model
+  type: "breakfast" | "lunch" | "dinner" | "snack";
+  timingLabel: string;        // e.g. "Pre-training · 16:00"
+  timeHint?: string | null;   // e.g. "16:00"
+  calories: number;
+  protein: number;
+  carbs: number;
+  fats: number;
+  why: string;
+  prep: string;
+  ingredients: DayPlanIngredient[];
+}
+
+export interface DayPlan {
+  targets: MealTargets & { basis: "full_day" };
+  totals: MealTargets;
+  onTarget: boolean;
+  safetyStatus: "green" | "yellow" | "red";
+  safetyMessage: string;
+  meals: DayPlanMeal[];
+}

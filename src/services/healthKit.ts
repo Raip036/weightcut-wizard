@@ -211,16 +211,18 @@ let pluginPromise: Promise<PluginHandle | null> | null = null;
 async function getPlugin(): Promise<PluginHandle | null> {
   if (Capacitor.getPlatform() !== "ios") return null;
   if (!pluginPromise) {
-    // Dynamic import via variable specifier — keeps web/Android bundles clean
-    // and lets TS compile before the wiring agent runs `npm install`. We log
-    // any import failure as `error` (not `warn`) because a missing plugin in
-    // an iOS build is a hard misconfiguration that Sentry must surface.
+    // We log any import failure as `error` (not `warn`) because a missing
+    // plugin in an iOS build is a hard misconfiguration that Sentry must surface.
     pluginPromise = (async () => {
       try {
-        const specifier: string = "@capgo/capacitor-health";
-        const mod = (await import(
-          /* @vite-ignore */ specifier
-        )) as { Health?: unknown };
+        // Static string-literal specifier (NOT a variable + @vite-ignore) so Vite
+        // bundles the plugin's JS into a lazy chunk. A bare-specifier runtime import
+        // cannot be resolved inside the iOS WKWebView, which made isAvailable() reject
+        // and surface "Apple Health unavailable" on device. Mirrors the working
+        // RevenueCat loader in src/lib/purchases.ts.
+        const mod = (await import("@capgo/capacitor-health")) as unknown as {
+          Health?: unknown;
+        };
         if (!mod.Health) {
           logger.error("healthKit: Health export missing from @capgo/capacitor-health");
           return null;

@@ -27,8 +27,7 @@ export const FEATURE_GATES = {
   AI_WIZARD_CHAT: { minTier: "pro" as const },
   AI_WORKOUT_GENERATOR: { minTier: "pro" as const },
   AI_MEAL_PLANNER: { minTier: "pro" as const },
-  // TEMP: Recovery ungated for now (was pro)
-  AI_RECOVERY_COACH: { minTier: "free" as const },
+  AI_RECOVERY_COACH: { minTier: "pro" as const },
   AI_WEIGHT_PROTOCOL: { minTier: "pro" as const },
   AI_FIGHT_CAMP_COACH: { minTier: "pro" as const },
   AI_HYDRATION_INSIGHTS: { minTier: "pro" as const },
@@ -46,10 +45,17 @@ export const FEATURE_GATES = {
   AI_LOOKUP_INGREDIENT: { minTier: "pro" as const },
   AI_BARCODE_ANALYSIS: { minTier: "pro" as const },
   AI_DIET_ANALYSIS: { minTier: "pro" as const },
-  // Feature-area gate (non-AI): the whole Recovery surface — wellness
-  // check-ins, readiness, recovery dashboard + coaching — is Pro-only.
-  // TEMP: Recovery ungated for now (was pro)
-  RECOVERY: { minTier: "free" as const },
+  // Onboarding plan generation is the ONLY free AI feature. It backs the
+  // first-time cut/weight-plan generated during onboarding so a brand-new
+  // user gets a plan before paying. Non-onboarding plan regeneration (e.g.
+  // starting the next camp) stays Pro under AI_CUT_PLAN / AI_WEIGHT_PROTOCOL.
+  AI_ONBOARDING_PLAN: { minTier: "free" as const },
+  // Feature-area gate (non-AI): the Pro Recovery surface — readiness,
+  // recovery dashboard, hydration tracking + AI coaching — is Pro-only.
+  // NOTE: the free daily wellness CHECK-IN (`wellness.upsertCheckin`, which
+  // feeds the fight-form-score ring) is intentionally NOT gated by this key
+  // and stays reachable by free users.
+  RECOVERY: { minTier: "pro" as const },
   // Future expansion examples (kept commented for now):
   // ADVANCED_LEADERBOARDS: { minTier: "pro" as const },
   // EXPORT_DATA: { minTier: "pro" as const },

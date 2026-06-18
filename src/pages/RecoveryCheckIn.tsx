@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import { useUser } from "@/contexts/UserContext";
@@ -7,6 +7,7 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { WellnessCheckIn } from "@/components/fightcamp/WellnessCheckIn";
 import { Icon } from "@/components/ui/Icon";
 import { celebrateSuccess } from "@/lib/haptics";
+import { readDateParam } from "@/lib/dateParam";
 
 /**
  * Distraction-free full-screen wellness check-in. Reached from the
@@ -24,16 +25,15 @@ export default function RecoveryCheckIn() {
   const isFreeUser = isSubscriptionResolved && !checkFeatureAccess("RECOVERY");
   const afterCheckInRoute = isFreeUser ? "/dashboard" : "/recovery";
 
-  // Local-date "YYYY-MM-DD" — matches the dashboard's TodayStrip / wellness
-  // upsert convention so the row read here is the row written below.
-  const today = (() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  })();
+  // Target date "YYYY-MM-DD" — today by default, or a validated PAST date when
+  // arriving from the dashboard catch-up sheet via `?date=YYYY-MM-DD`. Matches
+  // the wellness upsert convention so the row read here is the row written below.
+  const [searchParams] = useSearchParams();
+  const targetDate = readDateParam(searchParams);
 
   const todayRows = useQuery(
     api.wellness.listCheckins,
-    userId ? { from: today, to: today, limit: 1 } : "skip",
+    userId ? { from: targetDate, to: targetDate, limit: 1 } : "skip",
   );
   const alreadyCheckedIn = Array.isArray(todayRows) && todayRows.length > 0;
 
@@ -77,7 +77,7 @@ export default function RecoveryCheckIn() {
           </button>
         </div>
         <div className="flex-1 flex flex-col justify-center">
-          <WellnessCheckIn userId={userId} onSubmit={handleSubmit} />
+          <WellnessCheckIn userId={userId} date={targetDate} onSubmit={handleSubmit} />
         </div>
       </div>
     </div>

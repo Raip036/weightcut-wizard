@@ -9,6 +9,7 @@ import { AIPersistence } from "@/lib/aiPersistence";
 import { logger } from "@/lib/logger";
 import { usePushRegistration } from "@/hooks/usePushRegistration";
 import { clearLocalSubscriptionState } from "@/contexts/SubscriptionContext";
+import { logOutPurchases } from "@/lib/purchases";
 import { api } from "../../convex/_generated/api";
 
 // Profile cache freshness — beyond this we serve cached data but flag it stale
@@ -292,6 +293,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
   // ── Sign out ────────────────────────────────────────────────────────
   const signOut = useCallback(async () => {
     stopCacheCleanup();
+    // Log out of RevenueCat FIRST (before clearing local state / convex sign
+    // out) so a different user signing in on this same device can't inherit
+    // the previous user's entitlements. Native-only; swallows its own errors.
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await logOutPurchases();
+      } catch (err) {
+        logger.warn("logOutPurchases failed during signOut", { err: String(err) });
+      }
+    }
     const uid = userIdRef.current;
     if (uid && uid !== "pending") {
       localCache.clearUser(uid);

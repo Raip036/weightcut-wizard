@@ -1,4 +1,12 @@
-/** Generate cut plan — free for everyone, card-timeline shape. */
+/** Generate cut plan — card-timeline shape.
+ *
+ *  Gating (F8): the ONLY free AI feature is the first-time plan generated
+ *  during onboarding. The same action also backs non-onboarding regeneration
+ *  (e.g. starting the next camp), which must stay Pro. The caller picks the
+ *  gate via the `gate` arg:
+ *    - "onboarding" → AI_ONBOARDING_PLAN (free)  [default]
+ *    - "regenerate" → AI_CUT_PLAN (pro)
+ */
 "use node";
 
 import { v } from "convex/values";
@@ -8,6 +16,7 @@ import { CutPlanAiSchema, type WeekPhase } from "../_shared/aiSchemas";
 import { mifflinStJeor, requiredDeficit, macroSplit } from "../_shared/math";
 import { normaliseWeeklyPlan } from "../_shared/normalizeWeeklyPlan";
 import { normalisePlanTopLevel } from "../_shared/normalizePlanTopLevel";
+import { enforceFeatureGate } from "../_shared/featureGates";
 import {
   loadAthleteSnapshot,
   logDecision,
@@ -31,10 +40,24 @@ export const run = action({
     // uses a sodium-taper + low-residue (fibre) + light-water final week.
     // Absent / undefined → "day_before" (preserves historical behavior).
     weighInTiming: v.optional(v.string()),
+    // Which feature gate to enforce. Onboarding's first-time generation is the
+    // only free AI path; everything else (next-camp regeneration, any future
+    // caller) is Pro. FAIL-CLOSED: only an explicit `gate: "onboarding"` gets
+    // the free gate; omitted/unknown defaults to the Pro gate.
+    gate: v.optional(
+      v.union(v.literal("onboarding"), v.literal("regenerate")),
+    ),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserIdFromAction(ctx);
-    // Free for everyone — see featureGates.ts for the policy reason.
+    // Gate: explicit onboarding → free (AI_ONBOARDING_PLAN); anything else →
+    // Pro (AI_CUT_PLAN). Fail-closed so a new call site can't accidentally
+    // open a free AI path.
+    await enforceFeatureGate(
+      ctx,
+      userId,
+      args.gate === "onboarding" ? "AI_ONBOARDING_PLAN" : "AI_CUT_PLAN",
+    );
     const snap = await loadAthleteSnapshot(ctx, userId);
     // Canonical weigh-in timing. The carb-DEPLETION protocol (glycogen empty +
     // water load/cut) only makes sense when there is a recovery window between

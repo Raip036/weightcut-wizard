@@ -73,21 +73,14 @@ export function SleepCard({ userId }: SleepCardProps) {
         <span className="text-micro text-muted-foreground tabular-nums">
           {avg7 != null ? `avg ${avg7.toFixed(1)}h` : ""}
         </span>
-        <div className="flex items-center gap-1.5">
-          {delta != null && Math.abs(delta) >= 0.05 && (() => {
-            const isUp = delta > 0; // more sleep is better
-            return (
-              <div className={`flex items-center gap-0.5 text-micro font-medium tabular-nums ${isUp ? "text-func-recovery-green" : "text-func-danger-red"}`}>
-                <Icon
-                  name="trendingDownOutline"
-                  size={12}
-                  className={isUp ? "rotate-180" : ""}
-                />
-                <span>{Math.abs(delta).toFixed(1)}h</span>
-              </div>
-            );
-          })()}
-        </div>
+        {delta != null && Math.abs(delta) >= 0.05 && (() => {
+          const isUp = delta > 0; // more sleep is better
+          return (
+            <span className={`text-micro font-semibold tabular-nums leading-none ${isUp ? "text-func-recovery-green" : "text-func-danger-red"}`}>
+              {isUp ? "+" : "−"}{Math.abs(delta).toFixed(1)}h
+            </span>
+          );
+        })()}
       </div>
     </button>
   );

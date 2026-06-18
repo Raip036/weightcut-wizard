@@ -5,14 +5,12 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import { cn } from "@/lib/utils";
 import {
-  triggerHaptic,
   triggerHapticSelection,
   triggerHapticSuccess,
 } from "@/lib/haptics";
-import { ImpactStyle } from "@capacitor/haptics";
 import { disciplineLabel, disciplineToken } from "@/lib/coachColors";
-import { useSubscription } from "@/hooks/useSubscription";
 import { ShimmerCrownBadge } from "@/components/subscription/ShimmerCrownBadge";
+import { LockedSparringCard } from "./LockedSparringCard";
 import { CompleteCelebration } from "@/components/motion";
 import {
   SparringAssignmentRow,
@@ -27,6 +25,10 @@ interface SparringPlanCardProps {
 // Default number of "todo" rows shown per discipline before the user has to
 // tap "Show all" — keeps the surface scoped to "this session's focus".
 const DEFAULT_TODO_VISIBLE = 4;
+
+// XP awarded per assignment completed (mirrors the `toggleAssignment`
+// mutation's `awardXp` amount). Used for the all-clear celebration splash.
+const SPARRING_XP_PER_ITEM = 15;
 
 /**
  * Per-discipline block: an accent header pill (with an optional refresh
@@ -45,9 +47,40 @@ function DisciplineGroup({
   const token = disciplineToken(discipline);
   const label = disciplineLabel(discipline);
   const regenerate = useMutation(api.sparring_plan.regenerateDiscipline);
-  const [expanded, setExpanded] = useState(false);
-  const [minimised, setMinimised] = useState(false);
+
+  // Persist collapse state per-discipline so it survives navigation.
+  const minKey = `wcw_sparring_min_${discipline}`;
+  const showAllKey = `wcw_sparring_showall_${discipline}`;
+  const [expanded, setExpanded] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(showAllKey) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const [minimised, setMinimised] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(minKey) === "1";
+    } catch {
+      return false;
+    }
+  });
   const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(minKey, minimised ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, [minimised, minKey]);
+  useEffect(() => {
+    try {
+      localStorage.setItem(showAllKey, expanded ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, [expanded, showAllKey]);
 
   // Default view = the first N todo rows (this session's focus). Expanded =
   // everything, todo first then done so completed work sinks to the bottom.
@@ -74,14 +107,11 @@ function DisciplineGroup({
 
   return (
     <div className="space-y-2">
-      {/* Discipline header — accent pill + refresh affordance. */}
+      {/* Discipline header — plain coloured label + refresh affordance. */}
       <div className="flex items-center gap-2">
         <span
-          className="inline-flex items-center h-5 px-2 rounded-full flex-shrink-0 text-[10px] font-bold uppercase tracking-wider"
-          style={{
-            backgroundColor: `hsl(var(${token}) / 0.15)`,
-            color: `hsl(var(${token}))`,
-          }}
+          className="flex-shrink-0 text-[10px] font-bold uppercase tracking-wider"
+          style={{ color: `hsl(var(${token}))` }}
         >
           {label}
         </span>
@@ -178,7 +208,6 @@ function DisciplineGroup({
  *   - Pro, with rows                  → grouped-by-discipline checklist.
  */
 export function SparringPlanCard({ userId }: SparringPlanCardProps) {
-  const { openPaywall } = useSubscription();
 
   const featureStatus = useQuery(
     api.sparring_plan.getSparringFeatureStatus,
@@ -209,6 +238,10 @@ export function SparringPlanCard({ userId }: SparringPlanCardProps) {
   // Training Missions behaviour.
   const prefersReduced = useReducedMotion();
   const [celebrating, setCelebrating] = useState(false);
+  // Total XP splashed in the celebration — captured at clear-time so the
+  // count-up is stable. Mirrors the 15-XP-per-assignment award in
+  // `sparring_plan.toggleAssignment`.
+  const [celebrationXp, setCelebrationXp] = useState(0);
   const prevTodoCountRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -217,6 +250,7 @@ export function SparringPlanCard({ userId }: SparringPlanCardProps) {
     const prev = prevTodoCountRef.current;
     prevTodoCountRef.current = count;
     if (prev != null && prev > 0 && count === 0) {
+      setCelebrationXp(assignments.length * SPARRING_XP_PER_ITEM);
       setCelebrating(true);
       void triggerHapticSuccess();
     }
@@ -234,28 +268,9 @@ export function SparringPlanCard({ userId }: SparringPlanCardProps) {
   // Wait for auth + feature gate before deciding what to render.
   if (!userId || featureStatus === undefined) return null;
 
-  // ── Non-Pro upsell row — mirrors the Training Missions upsell. ──────────
+  // ── Non-Pro — full Pro wall, mirrors the Training Missions LockedMissionCard. ──
   if (!isPro) {
-    return (
-      <button
-        type="button"
-        onClick={() => {
-          triggerHaptic(ImpactStyle.Light);
-          openPaywall();
-        }}
-        className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border border-primary/30 bg-primary/10 active:brightness-110 transition-[filter]"
-      >
-        <span className="flex items-center gap-2.5 min-w-0">
-          <ShimmerCrownBadge size={26} />
-          <span className="text-body-sm font-semibold text-foreground truncate">
-            Unlock sparring to-do list
-          </span>
-        </span>
-        <span className="inline-flex items-center gap-0.5 rounded-full border border-primary/40 bg-primary/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-primary shrink-0">
-          Pro
-        </span>
-      </button>
-    );
+    return <LockedSparringCard />;
   }
 
   // ── Pro: section heading + body ─────────────────────────────────────────
@@ -324,6 +339,8 @@ export function SparringPlanCard({ userId }: SparringPlanCardProps) {
         {celebrating && (
           <CompleteCelebration
             prefersReduced={prefersReduced}
+            accentToken="--coach-sparring"
+            xp={celebrationXp}
             eyebrow="Sparring ready"
             title="To-do list cleared"
             subtitle="Every sparring focus ticked off. Log more techniques to refresh your list."

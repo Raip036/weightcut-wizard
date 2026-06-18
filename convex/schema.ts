@@ -160,19 +160,30 @@ export default defineSchema({
     .index("by_revenuecat_customer", ["revenuecatCustomerId"]),
 
   /**
-   * RevenueCat webhook event ledger. Used purely for idempotency — we drop
-   * any inbound event whose `eventId` we've already processed so the same
-   * `INITIAL_PURCHASE` replay can't double-grant premium. The row records
-   * the outcome so support can audit a missed/duplicate event without
-   * trawling Convex logs.
+   * RevenueCat webhook event ledger. Two jobs:
+   *  1. Idempotency — we drop any inbound event whose `eventId` we've already
+   *     processed so the same `INITIAL_PURCHASE` replay can't double-grant
+   *     premium (`by_event`).
+   *  2. Ordering — `eventTimestampMs` (RevenueCat's `event_timestamp_ms`)
+   *     records when the event actually happened. Combined with the
+   *     `by_user` index we can find the newest event we've processed for a
+   *     user and ignore any strictly-older replay (e.g. a late CANCELLATION
+   *     arriving after a newer RENEWAL).
+   * The row also records the outcome so support can audit a
+   * missed/duplicate event without trawling Convex logs.
    */
   revenuecat_webhook_events: defineTable({
     eventId: v.string(),
     eventType: v.string(),
     appUserId: v.string(),
+    /** RevenueCat `event_timestamp_ms` — when the event occurred. Optional
+     *  for legacy/back-compat rows that predate ordering support. */
+    eventTimestampMs: v.optional(v.number()),
     receivedAt: v.number(),
-    outcome: v.string(), // "applied" | "stale-expiry" | "profile-not-found" | "unknown-event" | "duplicate"
-  }).index("by_event", ["eventId"]),
+    outcome: v.string(), // "applied" | "stale-expiry" | "profile-not-found" | "unknown-event" | "duplicate" | "out-of-order"
+  })
+    .index("by_event", ["eventId"])
+    .index("by_user", ["appUserId"]),
 
   // ────────────────────────────────────────────────────────────────────
   // DAILY LOGS
@@ -271,6 +282,25 @@ export default defineSchema({
     key: v.string(),
     mealId: v.id("meals"),
   }).index("by_user_key", ["userId", "key"]),
+
+  food_recents: defineTable({
+    userId: v.id("users"),
+    foodId: v.optional(v.id("foods")), // catalog FK when known; stored opportunistically
+    name: v.string(),
+    brand: v.optional(v.string()),
+    caloriesPer100g: v.number(),
+    proteinPer100g: v.number(),
+    carbsPer100g: v.number(),
+    fatsPer100g: v.number(),
+    servingSize: v.optional(v.string()),
+    servingGrams: v.optional(v.number()),
+    lastPortionGrams: v.optional(v.number()),
+    kind: v.string(), // "logged" | "searched"
+    logCount: v.number(),
+    lastUsedAt: v.number(), // epoch ms
+  })
+    .index("by_user_lastUsed", ["userId", "lastUsedAt"])
+    .index("by_user_name", ["userId", "name"]),
 
   meal_plans: defineTable({
     userId: v.id("users"),

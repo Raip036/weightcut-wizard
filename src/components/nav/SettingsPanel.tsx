@@ -4,14 +4,17 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { ProfilePictureUpload } from "@/components/ProfilePictureUpload";
 import { Capacitor } from "@capacitor/core";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { useQuery } from "convex/react";
+import { api } from "@/../convex/_generated/api";
 import { getSettings, saveSettings, scheduleReminder, cancelReminder, type ReminderSettings } from "@/lib/weightReminder";
 import { useSubscription } from "@/hooks/useSubscription";
 import { restorePurchases, isPremiumFromCustomerInfo, presentCustomerCenter } from "@/lib/purchases";
 import { PremiumBadge } from "@/components/subscription/PremiumBadge";
 import { ShimmerCrownBadge } from "@/components/subscription/ShimmerCrownBadge";
-import { useProfile } from "@/contexts/UserContext";
+import { useProfile, useUser } from "@/contexts/UserContext";
 import { useToast as useToastSub } from "@/hooks/use-toast";
+import { HealthSettingsCard } from "@/components/health/HealthSettingsCard";
 
 /* ────────────────────────────────────────────────────────────────────
  * iOS-native settings primitives.
@@ -210,6 +213,37 @@ function SubscriptionSection() {
   );
 }
 
+/* ────────────────────────────────────────────────────────────────────
+ * Apple Health row — Integrations section entry. Reads the current
+ * connection tier so the sublabel reflects live status, mirroring
+ * `HealthSettingsCard`'s tier mapping.
+ * ──────────────────────────────────────────────────────────────────── */
+
+function AppleHealthRow({ onOpen }: { onOpen: () => void }) {
+  const { userId } = useUser();
+  const tierInfo = useQuery(api.health.getTier, userId ? {} : "skip") as
+    | { tier?: "tier_0" | "tier_1" | "tier_2" | null; connectedAt?: number | null }
+    | null
+    | undefined;
+
+  const status = !tierInfo?.connectedAt
+    ? "Not connected"
+    : tierInfo.tier === "tier_2"
+      ? "Watch connected"
+      : tierInfo.tier === "tier_1"
+        ? "Phone only"
+        : "Syncing";
+
+  return (
+    <Row
+      icon={{ name: "heartOutline", color: "red" }}
+      label="Apple Health"
+      sublabel={status}
+      onClick={onOpen}
+    />
+  );
+}
+
 interface SettingsPanelProps {
   open: boolean;
   onClose: () => void;
@@ -226,6 +260,8 @@ interface SettingsPanelProps {
   onDeleteAccount: () => void;
   goalType?: 'cutting' | 'losing';
   onToggleGoalType?: (fighterMode: boolean) => void;
+  /** When set (via deep-link), auto-open the matching sub-view on open. */
+  focus?: "apple-health" | null;
 }
 
 export function SettingsPanel({
@@ -238,10 +274,18 @@ export function SettingsPanel({
   onDeleteAccount,
   goalType,
   onToggleGoalType,
+  focus,
 }: SettingsPanelProps) {
   const [reminderSettings, setReminderSettings] = useState<ReminderSettings>(getSettings);
   const [timePickerOpen, setTimePickerOpen] = useState(false);
   const [medicalOpen, setMedicalOpen] = useState(false);
+  const [healthOpen, setHealthOpen] = useState(false);
+
+  // On each open, sync the sub-view to the deep-link focus: a plain open
+  // shows the list; a focused open lands directly on the sub-screen.
+  useEffect(() => {
+    if (open) setHealthOpen(focus === "apple-health");
+  }, [open, focus]);
 
   if (!open) return null;
 
@@ -295,19 +339,46 @@ export function SettingsPanel({
           <div className="w-9 h-1 rounded-full bg-muted-foreground/25" />
         </div>
 
-        {/* iOS-style large title header */}
+        {/* iOS-style large title header. In the Apple Health sub-view a
+            back affordance replaces the close button so the modal frame
+            and animation stay identical — only the inner content swaps. */}
         <div className="px-4 pt-2 pb-3 shrink-0 flex items-center justify-between">
-          <h2 className="text-[26px] font-bold tracking-tight">Settings</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close settings"
-            className="h-8 w-8 rounded-full bg-muted/40 flex items-center justify-center text-muted-foreground active:bg-muted/60 transition-colors"
-          >
-            <Icon name="closeOutline" size={16} />
-          </button>
+          {healthOpen ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setHealthOpen(false)}
+                aria-label="Back to settings"
+                className="h-8 w-8 -ml-1 rounded-full flex items-center justify-center text-foreground active:bg-muted/40 transition-colors"
+              >
+                <Icon name="chevronBackOutline" size={22} />
+              </button>
+              <h2 className="text-[26px] font-bold tracking-tight">Apple Health</h2>
+              <span className="h-8 w-8" aria-hidden />
+            </>
+          ) : (
+            <>
+              <h2 className="text-[26px] font-bold tracking-tight">Settings</h2>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close settings"
+                className="h-8 w-8 rounded-full bg-muted/40 flex items-center justify-center text-muted-foreground active:bg-muted/60 transition-colors"
+              >
+                <Icon name="closeOutline" size={16} />
+              </button>
+            </>
+          )}
         </div>
 
+        {healthOpen ? (
+          <div
+            className="px-3 overflow-y-auto overscroll-contain scrollbar-hide"
+            style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1.5rem)" }}
+          >
+            <HealthSettingsCard connectMode="inline" autoOpenConnect />
+          </div>
+        ) : (
         <div
           className="px-3 overflow-y-auto overscroll-contain scrollbar-hide"
           style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1.5rem)" }}
@@ -335,6 +406,13 @@ export function SettingsPanel({
           </div>
 
           <SubscriptionSection />
+
+          {/* Integrations — iOS only (Apple Health is iOS-exclusive) */}
+          {Capacitor.getPlatform() === "ios" && (
+            <Section header="Integrations">
+              <AppleHealthRow onOpen={() => setHealthOpen(true)} />
+            </Section>
+          )}
 
           {/* Preferences */}
           <Section header="Preferences">
@@ -493,6 +571,7 @@ export function SettingsPanel({
             Version {__APP_VERSION__}
           </p>
         </div>
+        )}
       </div>
     </>
   );

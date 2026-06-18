@@ -13,6 +13,7 @@
 // display value, optional tinted badge). The REMAINING stats sit in a
 // 2-column grid; if that remainder is odd, the trailing card spans both
 // columns so there is never a lone half-row cell.
+import type { ReactNode } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { Icon, type IonIconName } from "@/components/ui/Icon";
 
@@ -30,7 +31,8 @@ export interface InputStatBadge {
 
 export interface InputStat {
   label: string;
-  value: string;
+  /** String, or structured JSX for richer values (e.g. a styled start→target). */
+  value: ReactNode;
   tone?: InputStatTone;
   iconName?: IonIconName;
   // Optional pill rendered on the hero card only. Fully backward-compatible:

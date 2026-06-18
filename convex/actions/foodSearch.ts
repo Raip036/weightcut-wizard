@@ -13,6 +13,7 @@ import { v } from "convex/values";
 import { action } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "../_generated/api";
+import { rankFoods } from "../lib/foodRanking";
 
 interface USDANutrient {
   nutrientId: number;
@@ -103,6 +104,10 @@ function normalizeFood(food: USDAFood) {
 }
 
 // In-memory cache shared across warm invocations of the same container.
+// IMPORTANT: stores the UNRANKED (user-independent) results — the USDA fetch +
+// catalog upsert/id-remap output only. Ranking is per-user and is applied on
+// every request (cache hit OR miss), so one user's personalization never leaks
+// into another user's cached value.
 const searchCache = new Map<string, { results: any[]; ts: number }>();
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
@@ -116,10 +121,26 @@ export const run = action({
       throw new Error("Query is required (min 2 chars)");
     }
 
+    // Personalize the (user-independent) unranked results for this caller.
+    // History is best-effort — a ranking-history failure must never fail search.
+    const rankForUser = async (unranked: any[]) => {
+      let history: any[] = [];
+      try {
+        history = await ctx.runQuery(internal.foodRecents.historyForRanking, {
+          userId,
+        });
+      } catch {
+        // ranking history is best-effort — never fail search if it errors
+      }
+      return rankFoods(unranked, trimmed, history);
+    };
+
     const cacheKey = trimmed.toLowerCase();
     const cached = searchCache.get(cacheKey);
     if (cached && Date.now() - cached.ts < CACHE_TTL) {
-      return { results: cached.results };
+      // Cache holds the UNRANKED results — rank per-request before returning.
+      const ranked = await rankForUser(cached.results);
+      return { results: ranked };
     }
 
     const apiKey = process.env.USDA_API_KEY;
@@ -139,7 +160,7 @@ export const run = action({
           body: JSON.stringify({
             query: trimmed,
             dataType: ["Foundation", "SR Legacy", "Branded"],
-            pageSize: 25,
+            pageSize: 50,
           }),
           signal: controller.signal,
         },
@@ -201,7 +222,9 @@ export const run = action({
       }
     }
 
+    // Cache the UNRANKED results (user-independent); rank per-request below.
     searchCache.set(cacheKey, { results, ts: Date.now() });
-    return { results };
+    const ranked = await rankForUser(results);
+    return { results: ranked };
   },
 });

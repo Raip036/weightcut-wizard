@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@/components/ui/Icon";
 import { triggerHapticSelection } from "@/lib/haptics";
+import { planStartIso, isoShift, resolveTotalWeeks } from "@/scoring/planWeek";
 import { DeltaPill } from "./DeltaPill";
 
 interface WeightLog {
@@ -105,11 +106,6 @@ function loadPlan(): PlanData | null {
   } catch {
     return null;
   }
-}
-
-function isoDateNDaysFrom(base: Date, days: number): string {
-  const d = new Date(base.getTime() + days * MS_PER_DAY);
-  return d.toISOString().slice(0, 10);
 }
 
 // 'Sun May 31' — UTC-anchored so the weekday matches the plan-week boundary.
@@ -238,8 +234,9 @@ export function CutPaceForecast({
     const fightDate = new Date(fightDateIso + "T00:00:00");
     if (Number.isNaN(fightDate.getTime())) return null;
 
-    const totalWeeks = plan.totalWeeks ?? plan.weeklyPlan.length;
-    const planStart = new Date(fightDate.getTime() - totalWeeks * 7 * MS_PER_DAY);
+    const totalWeeks = resolveTotalWeeks(plan.weeklyPlan, plan.totalWeeks);
+    if (totalWeeks <= 0) return null;
+    const planStartIsoStr = planStartIso(fightDateIso, totalWeeks);
 
     // "Before dehydration" target = last non-fight-week row.
     const nonDehydrationWeeks = plan.weeklyPlan.filter((w) => w.phase !== "fight_week");
@@ -254,8 +251,8 @@ export function CutPaceForecast({
       .sort((a, b) => a.date.localeCompare(b.date));
 
     const checkpoints: Checkpoint[] = plan.weeklyPlan.map((row) => {
-      const weekStartIso = isoDateNDaysFrom(planStart, (row.week - 1) * 7);
-      const weekEndIso = isoDateNDaysFrom(planStart, row.week * 7 - 1);
+      const weekStartIso = isoShift(planStartIsoStr, (row.week - 1) * 7);
+      const weekEndIso = isoShift(planStartIsoStr, row.week * 7 - 1);
 
       // End-of-week weight: latest log in the week's window.
       const inWindow = logsAsc.filter((l) => l.date >= weekStartIso && l.date <= weekEndIso);
@@ -368,10 +365,6 @@ export function CutPaceForecast({
 
   // No log in the current calendar week → drives the inline CTA below.
   const noLogThisWeek = isCurrentWeek && focusCheckpoint.actualWeight == null;
-  const kgToFinal = displayActual != null
-    ? Math.max(0, displayActual - finalTarget.targetWeight)
-    : null;
-  const weeksLeftFromFocus = Math.max(0, finalTarget.week - focusCheckpoint.week);
 
   // Delta value for the "You:" line. Positive = behind/heavy. The colour
   // now lives in <DeltaPill> (unified ramp), so no local tone needed.
@@ -495,20 +488,6 @@ export function CutPaceForecast({
                     </div>
                   </div>
                 )}
-                {/* Context line — capped at 2 facts (the chip already shows
-                    days-left, so it's dropped here). */}
-                <p className="text-[11.5px] text-muted-foreground">
-                  {(() => {
-                    const parts: string[] = [];
-                    if (kgToFinal != null && kgToFinal > 0) {
-                      parts.push(`${kgToFinal.toFixed(1)} kg to pre-dehydration`);
-                    }
-                    if (weeksLeftFromFocus > 0) {
-                      parts.push(`${weeksLeftFromFocus} ${weeksLeftFromFocus === 1 ? "week" : "weeks"} left`);
-                    }
-                    return parts.join(" · ");
-                  })()}
-                </p>
               </>
             ) : isFutureWeek ? (
               <p className="text-[11.5px] text-muted-foreground">

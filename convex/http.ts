@@ -101,6 +101,12 @@ const revenueCatWebhook = httpAction(async (ctx, req) => {
           typeof event.expiration_at_ms === "number"
             ? event.expiration_at_ms
             : undefined,
+        // F3 — unique event id (idempotency) + occurrence timestamp (ordering).
+        eventId: typeof event.id === "string" ? event.id : undefined,
+        eventTimestampMs:
+          typeof event.event_timestamp_ms === "number"
+            ? event.event_timestamp_ms
+            : undefined,
       },
     );
   } catch (err) {

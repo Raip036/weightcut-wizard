@@ -18,6 +18,12 @@ interface WellnessCheckInProps {
   onSubmit: (checkIn: WellnessCheckInData) => void;
   isSubmitting?: boolean;
   streak?: number;
+  /**
+   * Local-calendar `YYYY-MM-DD` to log against. Omitted = today (default
+   * behaviour). Supplied by the full-screen check-in when caught up on a past
+   * date via the dashboard catch-up sheet, so the upsert backfills that day.
+   */
+  date?: string;
 }
 
 /**
@@ -144,7 +150,7 @@ const REACTION: Record<Exclude<MascotMood, "idle">, string[]> = {
   thinking: ["Okay.", "Mm-hm.", "Right.", "Logged."],
 };
 
-export function WellnessCheckIn({ userId, onSubmit, isSubmitting, streak }: WellnessCheckInProps) {
+export function WellnessCheckIn({ userId, onSubmit, isSubmitting, streak, date }: WellnessCheckInProps) {
   void userId; // userId is now derived from Convex auth; kept for backward compat.
   const upsertCheckin = useMutation(api.wellness.upsertCheckin);
   const context = useQuery(api.wellness.getCheckinContext, {});
@@ -296,10 +302,10 @@ export function WellnessCheckIn({ userId, onSubmit, isSubmitting, streak }: Well
       hooper_index: hooperIndex,
     };
     const _now = new Date();
-    const today = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}-${String(_now.getDate()).padStart(2, "0")}`;
+    const logDate = date ?? `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}-${String(_now.getDate()).padStart(2, "0")}`;
     try {
       await upsertCheckin({
-        date: today,
+        date: logDate,
         sleepQuality: answers.sleep_quality,
         fatigueLevel: answers.fatigue_level,
         sorenessLevel: answers.soreness_level,
