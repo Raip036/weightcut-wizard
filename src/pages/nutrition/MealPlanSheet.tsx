@@ -4,6 +4,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ProGate } from "@/components/subscription/ProGate";
 import { useToast } from "@/hooks/use-toast";
 import { DayPlanView } from "./dayplan/DayPlanView";
+import { ProtocolGeneratingOverlay } from "@/components/protocol/ProtocolGeneratingOverlay";
 import type { DayPlan, DayPlanMeal, MealTargets } from "./types";
 import { MEAL_PLAN_MIN, MEAL_PLAN_MAX } from "@/lib/mealPlan";
 
@@ -63,7 +64,16 @@ export function MealPlanSheet(p: MealPlanSheetProps) {
           <div className="h-[5px] w-9 rounded-full bg-white/25" />
         </div>
 
-        {showResult ? (
+        {p.generatingPlan ? (
+          <div className="flex-1 min-h-0 flex items-center justify-center px-5 pb-8">
+            <ProtocolGeneratingOverlay
+              className="w-full"
+              label="Conjuring your meal plan"
+              steps={["Reading your targets and training", "Balancing protein, carbs and fats", "Plating each meal", "Checking the day hits your numbers"]}
+              footnote="This usually takes a few seconds."
+            />
+          </div>
+        ) : showResult ? (
           <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4 space-y-3">
             <button
               type="button"

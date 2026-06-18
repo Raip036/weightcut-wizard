@@ -313,13 +313,18 @@ export function MediaLightbox({
           >
             {!m.url ? (
               <div className="text-white/60 text-sm">Media unavailable</div>
+            ) : Math.abs(i - activeIndex) > 1 ? (
+              // Off-screen slides don't mount media — stops the pager from
+              // fetching every clip the moment the lightbox opens. Loads as
+              // they're swiped within one of the active neighbour.
+              <div className="h-10 w-10 rounded-full border-2 border-white/15 border-t-white/50 animate-spin" />
             ) : m.kind === "video" ? (
               <video
                 src={m.url}
                 className="max-h-full max-w-full"
                 controls
                 playsInline
-                preload="metadata"
+                preload={i === activeIndex ? "auto" : "none"}
               />
             ) : (
               <img
@@ -327,6 +332,7 @@ export function MediaLightbox({
                 alt={m.caption ?? "Training media"}
                 className="max-h-full max-w-full object-contain"
                 draggable={false}
+                decoding="async"
               />
             )}
           </div>

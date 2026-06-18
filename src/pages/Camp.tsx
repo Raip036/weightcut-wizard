@@ -67,10 +67,17 @@ const sections: CampSection[] = [
     icon: "bookOutline",
     utility: true,
   },
+  {
+    title: "Recovery",
+    description: "",
+    url: "/recovery",
+    icon: "pulseOutline",
+    primary: true,
+  },
 ];
 
 // Tile size class — controls layout span + icon/typography scale per bento slot.
-type TileSize = "hero" | "medium" | "small";
+type TileSize = "hero" | "medium" | "small" | "wide";
 
 interface BentoTile extends CampSection {
   size: TileSize;
@@ -110,7 +117,7 @@ function derivePhase(daysLeft: number): {
 export default function Camp() {
   const navigate = useNavigate();
   const { profile, userId, loadCutPlan } = useUser();
-  const { openPaywall, checkFeatureAccess, isSubscriptionResolved } =
+  const { checkFeatureAccess, isSubscriptionResolved } =
     useSubscription();
   const [missionsExplainerOpen, setMissionsExplainerOpen] = useState(false);
 
@@ -272,6 +279,16 @@ export default function Camp() {
     rest.forEach((s, idx) => {
       result.push({ ...s, size: idx < 2 ? "medium" : "small" });
     });
+    // Keep the grid a clean rectangle. The full-width hero consumes two cells,
+    // so an ODD number of non-hero tiles would leave one dangling empty cell.
+    // When that happens, promote the final tile to a full-width banner
+    // ("wide") so the bottom row always fills. Recovery is appended last in
+    // `sections` and is never the hero, so this is usually the Recovery CTA.
+    const nonHeroCount = hero ? result.length - 1 : result.length;
+    if (result.length > 0 && nonHeroCount % 2 === 1) {
+      const last = result[result.length - 1];
+      result[result.length - 1] = { ...last, size: "wide" };
+    }
     return result;
   }, [visible, activeCamp]);
 
@@ -408,15 +425,18 @@ export default function Camp() {
         {tiles.map((tile) => {
           const isHero = tile.size === "hero";
           const isMedium = tile.size === "medium";
+          // A "wide" tile is the parity filler — a full-width banner that
+          // shares the hero's horizontal layout so the bottom row fills
+          // cleanly when there's an odd number of non-hero tiles.
+          const isWide = tile.size === "wide";
+          const isBanner = isHero || isWide;
 
-          // Layout spans. Hero is a full-width single-row banner (icon beside
-          // title, like the "View full plan" card) so it stays compact; medium
-          // tiles are 1x2 (taller); small tiles are a single cell.
-          const spanClass = isHero
+          // Layout spans. Hero/wide are full-width single-row banners (icon
+          // beside title, like the "View full plan" card) so they stay
+          // compact; medium and small tiles are a single cell each.
+          const spanClass = isBanner
             ? "col-span-2 row-span-1"
-            : isMedium
-              ? "col-span-1 row-span-1"
-              : "col-span-1 row-span-1";
+            : "col-span-1 row-span-1";
 
           // Per-size surface styling. Every tile carries the primary-tinted
           // border + gradient wash so the Camp grid reads as a single
@@ -431,13 +451,38 @@ export default function Camp() {
           const iconSize = 26;
           const titleClass = isHero
             ? "text-[17px] leading-tight tracking-tight"
-            : isMedium
+            : isWide || isMedium
               ? "text-[16px] leading-tight tracking-tight"
               : "text-[14px] leading-tight tracking-tight";
 
-          // Recovery is Pro-gated: free users get the paywall + a PRO chip
-          // instead of navigating into the (now locked) Recovery page.
+          // Recovery is Pro-gated for free users. When locked, render the
+          // crown upsell row (mirrors the Training Missions / Sparring rows)
+          // instead of the normal tile — see the early return below.
           const isLockedTile = tile.url === "/recovery" && recoveryLocked;
+
+          if (isLockedTile) {
+            // Shimmering crown + "Unlock recovery" + a plain "Pro" chip (no
+            // lock icon, no subtext). Tapping navigates to /recovery, whose
+            // ProRouteGate shows the shared animated ProUpsellScreen.
+            return (
+              <button
+                key={tile.url}
+                type="button"
+                onClick={() => goTo("/recovery")}
+                className={`${spanClass} h-full flex items-center justify-between gap-3 rounded-2xl border border-primary/30 bg-primary/10 px-4 active:brightness-110 transition-[filter]`}
+              >
+                <span className="flex items-center gap-2.5 min-w-0">
+                  <ShimmerCrownBadge size={26} />
+                  <span className="text-body-sm font-semibold text-foreground truncate">
+                    Unlock recovery
+                  </span>
+                </span>
+                <span className="inline-flex items-center rounded-full border border-primary/40 bg-primary/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-primary shrink-0">
+                  Pro
+                </span>
+              </button>
+            );
+          }
 
           const tileTutorialAttr: Record<string, string> = {
             "/gym": "camp-gym-tracker",
@@ -450,16 +495,9 @@ export default function Camp() {
               key={tile.url}
               type="button"
               data-tutorial={tileTutorialAttr[tile.url]}
-              onClick={() => {
-                if (isLockedTile) {
-                  triggerHaptic(ImpactStyle.Light);
-                  openPaywall();
-                  return;
-                }
-                goTo(tile.url);
-              }}
+              onClick={() => goTo(tile.url)}
               className={`${spanClass} ${surfaceClass} rounded-2xl p-4 text-left card-press flex ${
-                isHero ? "flex-row items-center gap-3.5" : "flex-col"
+                isBanner ? "flex-row items-center gap-3.5" : "flex-col"
               }`}
             >
               <div
@@ -467,17 +505,9 @@ export default function Camp() {
                 className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.04] to-transparent"
               />
 
-              {/* PRO chip — flags the tile as gated for free users. */}
-              {isLockedTile && (
-                <span className="absolute top-2.5 right-2.5 z-10 inline-flex items-center gap-0.5 rounded-full border border-primary/30 bg-primary/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.08em] text-primary">
-                  <Icon name="lockClosed" size={9} />
-                  Pro
-                </span>
-              )}
-
-              {isHero ? (
+              {isBanner ? (
                 /* Horizontal banner — icon beside title, like "View full plan",
-                   so the hero stays a compact single-row tile. */
+                   so the hero/wide tile stays a compact single-row tile. */
                 <>
                   <Icon
                     name={tile.icon}
@@ -495,7 +525,7 @@ export default function Camp() {
                     )}
                   </div>
                   <Icon
-                    name={isLockedTile ? "lockClosedOutline" : "chevronForwardOutline"}
+                    name="chevronForwardOutline"
                     size={16}
                     className="relative text-muted-foreground/40 flex-shrink-0"
                   />
@@ -518,7 +548,7 @@ export default function Camp() {
                   </div>
 
                   <Icon
-                    name={isLockedTile ? "lockClosedOutline" : "chevronForwardOutline"}
+                    name="chevronForwardOutline"
                     size={14}
                     className="absolute bottom-3 right-3 text-muted-foreground/40"
                   />

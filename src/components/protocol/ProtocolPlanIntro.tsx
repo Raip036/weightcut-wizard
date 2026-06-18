@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { Icon } from "@/components/ui/Icon";
+import { type CutApproach } from "@/components/protocol/CutApproachSelector";
+
+const APPROACHES: readonly CutApproach[] = ["gradual", "standard", "aggressive"];
 
 /**
  * Chapter 01 · The Plan — the clean intro shown on the Weight Protocol page
@@ -39,11 +42,15 @@ export function ProtocolPlanIntro({
   startKg,
   targetKg,
   daysToWeighIn,
+  approach,
+  onApproachChange,
   onGenerate,
 }: {
   startKg: number;
   targetKg: number | null;
   daysToWeighIn: number | null;
+  approach: CutApproach;
+  onApproachChange: (a: CutApproach) => void;
   onGenerate: () => void;
 }) {
   const reduced = useReducedMotion();
@@ -140,6 +147,33 @@ export function ProtocolPlanIntro({
                 : `${daysToWeighIn} day${daysToWeighIn === 1 ? "" : "s"} to weigh-in`}
             </p>
           )}
+
+          {/* Approach — chosen before generating; drives the day plan */}
+          <div className="mt-5">
+            <p className="text-[10px] uppercase tracking-wide font-semibold text-muted-foreground/70 mb-1.5">
+              Approach
+            </p>
+            <div className="flex gap-1.5">
+              {APPROACHES.map((a) => {
+                const active = approach === a;
+                return (
+                  <button
+                    key={a}
+                    type="button"
+                    onClick={() => onApproachChange(a)}
+                    className="flex-1 rounded-full py-1.5 text-[11px] font-semibold capitalize transition-colors"
+                    style={
+                      active
+                        ? { background: hsl(), color: "#0a0a0a" }
+                        : { border: "1px solid hsl(var(--border))", color: "hsl(var(--muted-foreground))" }
+                    }
+                  >
+                    {a}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           <button
             type="button"

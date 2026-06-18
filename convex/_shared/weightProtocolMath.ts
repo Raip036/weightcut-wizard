@@ -55,6 +55,9 @@ export interface GatheredInputs {
     heightCm: number;
     currentWeightKg: number;
     tdee?: number | null;
+    /** Onboarding weigh-in timing. Canonical: "day_before" | "same_day"
+     *  (other strings treated as same-day). Drives the carb-hold branch. */
+    weighInTiming?: string | null;
   };
   camp: {
     fightDate: string;

@@ -244,6 +244,9 @@ export const FightPlanSchema = z.object({
           "low_residue_only",
         ]),
         fibreCopy: z.string(),
+        /** Optional per-day fibre target in grams. AI-supplied (the LLM may
+         *  omit it). Drives the day card's fibre figure when present. */
+        fiberGrams: z.number().optional(),
         trainingRecommendation: z.string(),
         sleepTargetHours: z.number(),
         keyAction: z.string(),
@@ -252,6 +255,9 @@ export const FightPlanSchema = z.object({
     )
     .min(1)
     .max(14),
+
+  /** Optional one-line "when to cut / keep fibre" callout (≤200 chars). */
+  fiberStrategy: z.string().max(200).optional(),
 
   rolling: z.object({
     peakWaterDay: z.string(),
@@ -321,6 +327,9 @@ export const AiFightPlanResponseSchema = z.object({
           .enum(["normal", "reduce", "eliminate", "low_residue_only"])
           .optional(),
         fibreCopy: z.string().optional(),
+        // Optional, like every sibling — the LLM may omit it and the merge
+        // step falls back to `undefined` rather than throwing.
+        fiberGrams: z.number().optional(),
         trainingRecommendation: z.string().optional(),
         sleepTargetHours: z.number().optional(),
         keyAction: z.string().optional(),
@@ -330,6 +339,10 @@ export const AiFightPlanResponseSchema = z.object({
     .min(0)
     .max(21)
     .optional(),
+
+  // Optional top-level fibre callout — mirrors the strict schema field but
+  // never throws if the model omits it.
+  fiberStrategy: z.string().max(200).optional(),
 
   rolling: z
     .object({

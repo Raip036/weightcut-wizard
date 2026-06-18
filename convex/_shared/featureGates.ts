@@ -64,6 +64,27 @@ export const FEATURE_GATES = {
 export type FeatureKey = keyof typeof FEATURE_GATES;
 
 /**
+ * DEV-ONLY paywall bypass. When the Convex env var `DEV_GATE_BYPASS` is
+ * exactly "true", every feature gate resolves to Pro instead of throwing.
+ * This is the backend mirror of the frontend `import.meta.env.DEV` bypass in
+ * `WeightProtocol.tsx` (and elsewhere), so the full Pro surface — including
+ * the AI generation actions the UI can now reach on dev — is testable without
+ * a real subscription.
+ *
+ * Set ONLY on the dev deployment: `npx convex env set DEV_GATE_BYPASS true`.
+ * Production must never carry this variable, so the gate stays fully enforced
+ * there. `process` is guarded for the same reason the Groq helper guards it —
+ * the value is read in a Node action runtime.
+ */
+function devGateBypassEnabled(): boolean {
+  return (
+    typeof process !== "undefined" &&
+    !!process.env &&
+    process.env.DEV_GATE_BYPASS === "true"
+  );
+}
+
+/**
  * Throws `Error("PRO_FEATURE_REQUIRED:<KEY>")` when the calling user's
  * effective tier doesn't satisfy the feature's `minTier`. The error code
  * is the stable contract the client `callWithProRecovery` wrapper matches
@@ -78,6 +99,8 @@ export async function enforceFeatureGate(
   userId: Id<"users">,
   featureKey: FeatureKey,
 ): Promise<{ tier: Tier }> {
+  // Dev-only short-circuit: skip the profile read and the throw entirely.
+  if (devGateBypassEnabled()) return { tier: "pro" };
   const profile = await ctx.runQuery(internal.profiles_internal.getByUserId, {
     userId,
   });
@@ -102,6 +125,8 @@ export async function requireFeatureGate(
   userId: Id<"users">,
   featureKey: FeatureKey,
 ): Promise<void> {
+  // Dev-only short-circuit: mirror `enforceFeatureGate`.
+  if (devGateBypassEnabled()) return;
   const profile = await ctx.db
     .query("profiles")
     .withIndex("by_user", (q) => q.eq("userId", userId))

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Icon } from "@/components/ui/Icon";
 import { useQuery } from "convex/react";
@@ -10,6 +10,12 @@ import { LockedMissionCard } from "./LockedMissionCard";
 // At most this many mission cards render at once — keeps the surface
 // straightforward even when several disciplines have active missions.
 const MAX_VISIBLE_MISSIONS = 4;
+
+// Persist the accordion's open/collapsed state so it survives leaving and
+// returning to the page (mirrors the sparring to-do list). Sentinel value for
+// "user has collapsed every card" vs. an actual mission id.
+const EXPANDED_KEY = "wcw_missions_expanded";
+const COLLAPSED_SENTINEL = "__none__";
 
 /**
  * Outer container for the Training Missions feature.
@@ -28,10 +34,37 @@ export function MissionStack() {
   const feature = useQuery(api.training_missions.getMissionFeatureStatus);
   const missions = useQuery(api.training_missions.getActiveMissions);
 
-  // Accordion state — only one mission card open at a time.
+  // Accordion state — only one mission card open at a time. Lazy-init from
+  // localStorage so a collapsed card stays collapsed across navigation:
+  //   - no stored value → undefined → default the first card open.
+  //   - COLLAPSED_SENTINEL → null → all cards collapsed.
+  //   - a stored id → that card open (validated against the visible set below).
   const [expandedId, setExpandedId] = useState<
     Id<"training_missions"> | null | undefined
-  >(undefined);
+  >(() => {
+    try {
+      const raw = localStorage.getItem(EXPANDED_KEY);
+      if (raw === null) return undefined;
+      if (raw === COLLAPSED_SENTINEL) return null;
+      return raw as Id<"training_missions">;
+    } catch {
+      return undefined;
+    }
+  });
+
+  // Persist accordion changes. Skip the initial `undefined` so we don't clobber
+  // the "default first card open" behaviour before the user has interacted.
+  useEffect(() => {
+    if (expandedId === undefined) return;
+    try {
+      localStorage.setItem(
+        EXPANDED_KEY,
+        expandedId === null ? COLLAPSED_SENTINEL : expandedId,
+      );
+    } catch {
+      /* ignore */
+    }
+  }, [expandedId]);
 
   if (feature === undefined || missions === undefined) return null;
   if (!feature.isPro) return <LockedMissionCard />;

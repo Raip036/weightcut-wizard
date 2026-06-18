@@ -17,12 +17,18 @@ export interface ProtocolGeneratingOverlayProps {
   /** Accepted for call-site compatibility; the overlay is always blue-themed. */
   tone?: "green" | "amber" | "red" | "primary";
   className?: string;
+  /** Uppercase headline shown below the wizard. Defaults to "Conjuring your protocol". */
+  label?: string;
+  /** Rotating status lines. Defaults to the weight-protocol steps. */
+  steps?: ReadonlyArray<string>;
+  /** Small footnote at the bottom. Defaults to "This usually takes 5-15 seconds." */
+  footnote?: string;
 }
 
 const BLUE = "217 91% 58%";
 const hsl = (a = 1) => `hsl(${BLUE} / ${a})`;
 
-const STEPS: ReadonlyArray<string> = [
+const DEFAULT_STEPS: ReadonlyArray<string> = [
   "Reading your body and training load",
   "Computing the weight-loss math",
   "Drafting your day-by-day taper",
@@ -30,15 +36,20 @@ const STEPS: ReadonlyArray<string> = [
 ];
 const STATUS_INTERVAL_MS = 2600;
 
-export function ProtocolGeneratingOverlay({ className = "" }: ProtocolGeneratingOverlayProps) {
+export function ProtocolGeneratingOverlay({
+  className = "",
+  label = "Conjuring your protocol",
+  steps = DEFAULT_STEPS,
+  footnote = "This usually takes 5-15 seconds.",
+}: ProtocolGeneratingOverlayProps) {
   const prefersReduced = useReducedMotion();
 
   // Rotating status line — advances on a fixed cadence (no real progress signal).
   const [statusIdx, setStatusIdx] = useState(0);
   useEffect(() => {
-    const t = setInterval(() => setStatusIdx((i) => (i + 1) % STEPS.length), STATUS_INTERVAL_MS);
+    const t = setInterval(() => setStatusIdx((i) => (i + 1) % steps.length), STATUS_INTERVAL_MS);
     return () => clearInterval(t);
-  }, []);
+  }, [steps]);
 
   // Deterministic drifting motes (index-based so no Math.random in render).
   const motes = useMemo(
@@ -134,7 +145,7 @@ export function ProtocolGeneratingOverlay({ className = "" }: ProtocolGenerating
       </div>
 
       <p className="relative z-10 mt-3 text-[10px] uppercase tracking-[0.22em] font-bold" style={{ color: hsl() }}>
-        Conjuring your protocol
+        {label}
       </p>
 
       {/* Rotating status line. */}
@@ -146,7 +157,7 @@ export function ProtocolGeneratingOverlay({ className = "" }: ProtocolGenerating
           transition={{ duration: 0.35 }}
           className="text-[13px] text-muted-foreground"
         >
-          {STEPS[statusIdx]}
+          {steps[statusIdx]}
         </motion.p>
       </div>
 
@@ -163,7 +174,7 @@ export function ProtocolGeneratingOverlay({ className = "" }: ProtocolGenerating
       </div>
 
       <p className="relative z-10 mt-5 text-[11px] text-muted-foreground/60">
-        This usually takes 5-15 seconds.
+        {footnote}
       </p>
     </motion.section>
   );

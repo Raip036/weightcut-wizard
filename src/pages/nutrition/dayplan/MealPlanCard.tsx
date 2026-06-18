@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { ChevronDown, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import type { DayPlanMeal } from "@/pages/nutrition/types";
 import { cn } from "@/lib/utils";
 
@@ -11,39 +10,37 @@ const TAG_TONE = (label: string) =>
 export function MealPlanCard({ meal, onLog, onSwap, busy }: {
   meal: DayPlanMeal; onLog: () => void; onSwap: () => void; busy?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
   return (
     <div className="card-surface rounded-2xl border border-border/40 p-3">
-      <button type="button" onClick={() => setOpen((v) => !v)} className="w-full text-left">
+      <div>
         <span className={cn("inline-block rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide", TAG_TONE(meal.timingLabel))}>
           {meal.timingLabel}
         </span>
-        <div className="mt-1.5 flex items-center justify-between">
-          <span className="font-semibold text-[13px]">{meal.name || meal.timingLabel}</span>
-          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", open && "rotate-180")} />
+        <div className="mt-1.5">
+          <span className="font-semibold text-[13px]">{meal.name || "Meal"}</span>
         </div>
-        <div className="mt-1 flex gap-2 text-[11px] text-foreground/80">
+        <div className="mt-1 flex gap-2 text-[11px]">
           <span className="font-bold text-foreground">{meal.calories} kcal</span>
-          <span>{Math.round(meal.protein)}P</span><span>{Math.round(meal.carbs)}C</span><span>{Math.round(meal.fats)}F</span>
+          <span className="font-semibold" style={{ color: "hsl(152 64% 47%)" }}>{Math.round(meal.protein)}P</span>
+          <span className="font-semibold" style={{ color: "hsl(35 92% 58%)" }}>{Math.round(meal.carbs)}C</span>
+          <span className="font-semibold" style={{ color: "hsl(217 91% 58%)" }}>{Math.round(meal.fats)}F</span>
         </div>
         {meal.why && <p className="mt-1.5 border-l-2 border-primary/40 pl-2 text-[11px] italic text-muted-foreground">{meal.why}</p>}
-      </button>
-      {open && (
-        <div className="mt-2 space-y-2 animate-in fade-in-0 slide-in-from-top-1 duration-200">
-          {meal.ingredients.length > 0 && (
-            <div>
-              <div className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Ingredients</div>
-              <p className="text-[11.5px] text-foreground/80">{meal.ingredients.map((g) => `${g.name} ${g.grams}g`).join(" · ")}</p>
-            </div>
-          )}
-          {meal.prep && (
-            <div>
-              <div className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Prep</div>
-              <p className="text-[11.5px] text-foreground/80">{meal.prep}</p>
-            </div>
-          )}
-        </div>
-      )}
+      </div>
+      <div className="mt-2 space-y-2">
+        {meal.ingredients.length > 0 && (
+          <div>
+            <div className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Ingredients</div>
+            <p className="text-[11.5px] text-foreground/80">{meal.ingredients.map((g) => `${g.name} ${g.grams}g`).join(" · ")}</p>
+          </div>
+        )}
+        {meal.prep && (
+          <div>
+            <div className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">Prep</div>
+            <p className="text-[11.5px] text-foreground/80">{meal.prep}</p>
+          </div>
+        )}
+      </div>
       <div className="mt-2.5 flex gap-2">
         <button type="button" disabled={busy} onClick={onLog}
           className="flex-1 rounded-lg bg-primary/15 py-2 text-[11.5px] font-semibold text-primary active:scale-[0.98] disabled:opacity-50">Log meal</button>

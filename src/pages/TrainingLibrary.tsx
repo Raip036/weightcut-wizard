@@ -122,6 +122,9 @@ export default function TrainingLibrary() {
   const [tab, setTab] = useState<TabKey>("gallery");
   const [filter, setFilter] = useState<string>(ALL_FILTER);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  // Gallery renders ONE month at a time (newest first) so we never mount every
+  // month's media grid at once — navigate with the prev/next controls.
+  const [monthIdx, setMonthIdx] = useState(0);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -269,6 +272,7 @@ export default function TrainingLibrary() {
                     onClick={() => {
                       triggerHapticSelection();
                       setFilter(d);
+                      setMonthIdx(0);
                     }}
                     className={`shrink-0 h-8 px-3 rounded-full text-[12px] font-semibold transition-all active:scale-[0.97] ${
                       active
@@ -291,19 +295,43 @@ export default function TrainingLibrary() {
           ) : months.length === 0 ? (
             <EmptyGallery onOpenCalendar={() => navigate("/training-calendar")} />
           ) : (
-            <div className="px-4 pt-4 space-y-7">
-              {months.map((ym) => (
-                <MonthCalendar
-                  key={ym}
-                  ym={ym}
-                  dayMap={dayMap}
-                  onOpenDay={(dayKey) => {
-                    triggerHapticSelection();
-                    setSelectedDay(dayKey);
-                  }}
-                />
-              ))}
-            </div>
+            (() => {
+              const safeIdx = Math.min(monthIdx, months.length - 1);
+              const ym = months[safeIdx];
+              return (
+                <div className="px-4 pt-4">
+                  {/* Month nav — only this month's grid mounts at a time. */}
+                  <div className="flex items-center justify-between mb-3">
+                    <button
+                      type="button"
+                      disabled={safeIdx >= months.length - 1}
+                      onClick={() => { triggerHapticSelection(); setMonthIdx((i) => Math.min(months.length - 1, i + 1)); }}
+                      className="h-8 w-8 flex items-center justify-center rounded-full bg-muted/40 text-muted-foreground active:scale-95 disabled:opacity-30"
+                      aria-label="Older month"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <span className="text-[14px] font-bold tracking-tight">
+                      {format(parseISO(`${ym}-01T00:00:00`), "MMMM yyyy")}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={safeIdx <= 0}
+                      onClick={() => { triggerHapticSelection(); setMonthIdx((i) => Math.max(0, i - 1)); }}
+                      className="h-8 w-8 flex items-center justify-center rounded-full bg-muted/40 text-muted-foreground active:scale-95 disabled:opacity-30 rotate-180"
+                      aria-label="Newer month"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <MonthCalendar
+                    ym={ym}
+                    dayMap={dayMap}
+                    onOpenDay={(dayKey) => { triggerHapticSelection(); setSelectedDay(dayKey); }}
+                  />
+                </div>
+              );
+            })()
           ))}
 
         {/* ── RECAPS ─────────────────────────────────────────────────── */}
@@ -473,9 +501,6 @@ function MonthCalendar({
 
   return (
     <section>
-      <h2 className="px-0.5 mb-2.5 text-[13px] font-bold tracking-tight">
-        {format(monthDate, "MMMM yyyy")}
-      </h2>
       <div className="grid grid-cols-7 gap-1 mb-1.5">
         {WEEKDAYS.map((d, i) => (
           <div
@@ -538,10 +563,11 @@ function DayCell({
       style={{ ["--tw-ring-color" as any]: `hsl(var(${token}) / 0.55)` }}
     >
       {photo.url && photo.kind === "photo" ? (
-        <img src={photo.url} alt="" className="w-full h-full object-cover" loading="lazy" />
-      ) : photo.url && photo.kind === "video" ? (
-        <video src={photo.url} className="w-full h-full object-cover" muted playsInline preload="metadata" />
+        <img src={photo.url} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
       ) : (
+        // Video-only day (or no photo) → coloured tile, no <video> so the grid
+        // never fetches video data. The play badge below marks it as a clip;
+        // the real video loads in the lightbox on tap.
         <div
           className="w-full h-full"
           style={{ backgroundColor: `hsl(var(${token}) / 0.22)` }}
@@ -580,26 +606,23 @@ function Thumb({ tile, onClick }: { tile: Tile; onClick: () => void }) {
     >
       {tile.url ? (
         tile.kind === "video" ? (
-          <>
-            <video
-              src={tile.url}
-              className="w-full h-full object-cover"
-              muted
-              playsInline
-              preload="metadata"
-            />
-            <div className="absolute inset-0 flex items-center justify-center bg-black/15">
-              <div className="h-6 w-6 rounded-full bg-black/55 backdrop-blur flex items-center justify-center">
-                <Play className="h-2.5 w-2.5 text-white fill-white" />
-              </div>
+          // Video clip — coloured tile + play badge instead of a <video> (which
+          // would fetch metadata for every thumbnail). It plays in the lightbox.
+          <div
+            className="absolute inset-0 flex items-center justify-center"
+            style={{ backgroundColor: `hsl(var(${disciplineToken(tile.sessionType ?? "")}) / 0.25)` }}
+          >
+            <div className="h-7 w-7 rounded-full bg-black/55 backdrop-blur flex items-center justify-center">
+              <Play className="h-3 w-3 text-white fill-white" />
             </div>
-          </>
+          </div>
         ) : (
           <img
             src={tile.url}
             alt={tile.caption ?? "Training media"}
             className="w-full h-full object-cover"
             loading="lazy"
+            decoding="async"
           />
         )
       ) : (

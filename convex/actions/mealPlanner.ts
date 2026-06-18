@@ -17,6 +17,18 @@ import {
 } from "./_helpers";
 import { enforceFeatureGate } from "../_shared/featureGates";
 
+// gpt-oss-120b is a reasoning model: WITHOUT an explicit low effort it spends
+// most/all of max_tokens on hidden reasoning tokens and emits truncated (or
+// empty) JSON → callGroqText throws "AI response was truncated". `low` keeps
+// the chain-of-thought short so the full budget goes to the JSON payload, and
+// is also markedly faster + cheaper. Same fix the diet-analysis action uses.
+const REASONING_EFFORT = "low" as const;
+
+// Heavy multi-meal day plans (6 meals × per-ingredient macros) are the largest
+// payload this action emits; give them the same 30s ceiling generateFightPlan
+// uses rather than the 15s callGroqRaw default.
+const HEAVY_TIMEOUT_MS = 30_000;
+
 export const run = action({
   args: {
     prompt: v.string(),
@@ -206,6 +218,7 @@ JSON: {"name":"","type":"${args.slot.type}","timingLabel":"${args.slot.timingLab
         ],
         temperature: 0.3,
         max_tokens: 2000,
+        reasoning_effort: REASONING_EFFORT,
       };
 
       let swapContent: string;
@@ -262,7 +275,7 @@ Safety: ${safetyIndicator} - ${safetyMessage}
 PLAN RULES:
 - Produce EXACTLY ${mealCount} ordered meals (in the order they are eaten across the day).
 - ${trainingLine}
-- Each meal MUST include: type (breakfast|lunch|dinner|snack), timingLabel (e.g. "Breakfast · 7:00"), timeHint (e.g. "7:00"), why (one-line beginner-friendly rationale), prep (1-2 sentence prep/cooking hint).
+- Each meal MUST include: name (the actual dish, e.g. "Greek Yogurt, Berries & Granola" or "Chicken Rice Bowl" — 2-5 words, specific to the ingredients. NEVER use the meal type (breakfast/lunch/dinner/snack) or a time as the name — those are shown separately), type (breakfast|lunch|dinner|snack), timingLabel (e.g. "Breakfast · 7:00"), timeHint (e.g. "7:00"), why (one-line beginner-friendly rationale), prep (1-2 sentence prep/cooking hint).
 
 CRITICAL MATH:
 - Each meal cal = (P*4)+(C*4)+(F*9), within ±20.
@@ -287,6 +300,10 @@ ${snap.block}`;
         // per-ingredient macros is the largest payload this action emits, and
         // gpt-oss-120b truncates mid-JSON below this (see diet-analysis fix).
         max_tokens: 7000,
+        // Without this the model burns the whole 7000 on reasoning and emits
+        // empty content → "AI response was truncated". See REASONING_EFFORT.
+        reasoning_effort: REASONING_EFFORT,
+        timeoutMs: HEAVY_TIMEOUT_MS,
       };
 
       let dayPlanContent: string;
@@ -420,6 +437,8 @@ ${snap.block}`;
       ],
       temperature: 0.3,
       max_tokens: 5500,
+      reasoning_effort: REASONING_EFFORT,
+      timeoutMs: HEAVY_TIMEOUT_MS,
     };
 
     // First attempt uses Groq's strict json_object mode. On its

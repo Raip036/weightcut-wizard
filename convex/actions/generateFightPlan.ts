@@ -112,10 +112,12 @@ export const run = action({
   ): Promise<{ id: Id<"weight_protocols">; payload: FightPlan }> => {
     const userId = await requireUserIdFromAction(ctx);
     await enforceFeatureGate(ctx, userId, "AI_WEIGHT_PROTOCOL");
-    // NOTE: spec §5.1 calls for a 1×/UTC-day manual regen cap. The
-    // existing rate-limit infrastructure doesn't have a generic
-    // (userId, key) per-day counter we can lean on without new schema, so
-    // the cap is intentionally deferred — flagged as a follow-up.
+    // Regeneration is intentionally UNLIMITED — there is no per-day cap.
+    // (The earlier spec called for a 1x/UTC-day manual regen cap; it was
+    // never implemented and is deliberately not enforced. Pro gating above
+    // is the only guard. The doc references to "bypassing the daily cap"
+    // in weight_protocols_internal.ts are historical and refer to a cap
+    // that does not exist.)
     return await runCore(ctx, { userId, campId, approach });
   },
 });
@@ -168,6 +170,17 @@ async function runCore(
     { userId, campId },
   );
 
+  // 1b. Resolve weigh-in timing SERVER-SIDE (not a client arg). Read from
+  //     the profile (set during onboarding); fall back to the camp's
+  //     free-form `weighInTiming` strategy string. Canonical "day_before"
+  //     means weigh-in is the DAY BEFORE the fight (full taper allowed).
+  //     ANY other value (including "same_day" / "morning_of") means the
+  //     weigh-in is the SAME DAY as the fight → NO carb depletion. Legacy
+  //     rows with neither field default to "day_before".
+  const weighInTimingRaw =
+    inputs.profile.weighInTiming ?? inputs.camp.weighInTime ?? "day_before";
+  const weighInSameDay = weighInTimingRaw !== "day_before";
+
   // 2. Deterministic derivations + safety warnings.
   const derived: DerivedInputs = computeDerived(inputs, approach);
   const safety: SafetyWarning[] = buildSafetyWarnings(derived, inputs.priorCamps);
@@ -182,7 +195,13 @@ async function runCore(
   const skeleton = buildFightPlanSkeleton(derived, effectiveApproach);
 
   // 4. Build prompt + call the AI for copy.
-  const userPrompt = buildUserPrompt(inputs, derived, skeleton, safety);
+  const userPrompt = buildUserPrompt(
+    inputs,
+    derived,
+    skeleton,
+    safety,
+    weighInSameDay,
+  );
   const apiResponse = await callGroqRaw({
     model: PROTOCOL_MODEL,
     messages: [
@@ -243,11 +262,18 @@ function buildUserPrompt(
   derived: DerivedInputs,
   skeleton: FightPlanSkeleton,
   safety: SafetyWarning[],
+  weighInSameDay: boolean,
 ): string {
   const reboundLine =
     derived.historicalReboundKg != null
       ? `${derived.historicalReboundKg.toFixed(1)}kg avg from ${inputs.priorCamps.length} prior camps`
       : "no prior camps (first-time cutter)";
+
+  // Weigh-in timing rule. Same-day weigh-in means the athlete fights with
+  // no rehydration window, so glycogen MUST stay loaded — no carb cut.
+  const carbRule = weighInSameDay
+    ? `WEIGH-IN TIMING: SAME DAY as the fight. Do NOT reduce carbohydrate at any point. Hold carbs at maintenance every day so glycogen stays full for the bout. Make weight using water-loading then a flush, a sodium taper, and fibre manipulation ONLY. Never instruct the athlete to deplete or cut carbs.`
+    : `WEIGH-IN TIMING: DAY BEFORE the fight. Run the normal full taper: reduce carbohydrate to deplete glycogen as weigh-in approaches, alongside water-loading then a flush, a sodium taper, and fibre manipulation. The post-weigh-in window refuels carbs before the bout.`;
 
   return `## KNOWLEDGE
 
@@ -257,10 +283,14 @@ ${FIGHT_PLAN_RESEARCH}
 
 ATHLETE: age ${inputs.profile.age}, sex ${inputs.profile.sex}, height ${inputs.profile.heightCm}cm, current ${derived.currentWeightKg}kg, lean mass est ${derived.leanBodyMassKg.toFixed(1)}kg
 CUT: ${derived.cutDepthKg.toFixed(1)}kg (${derived.cutDepthPct.toFixed(1)}% BW) — category ${derived.cutCategory}
-TIMELINE: ${derived.daysToWeighIn} days to weigh-in; ${derived.weighInToFightHours}h weigh-in→fight gap
+TIMELINE: ${derived.daysToWeighIn} days to weigh-in; ${derived.weighInToFightHours}h weigh-in to fight gap
 RECENT LOAD: training index ${derived.trainingLoadIndex7d.toFixed(0)} over 7d; avg sleep ${derived.avgSleepHours7d.toFixed(1)}h
 READINESS: ${derived.recoveryReadinessToday ?? "n/a"}
 HISTORICAL REBOUND: ${reboundLine}
+
+## CARB RULE (mandatory)
+
+${carbRule}
 
 ## DETERMINISTIC SKELETON (numerics — copy these values verbatim)
 
@@ -274,11 +304,15 @@ ${JSON.stringify(safety, null, 2)}
 
 Return JSON matching FightPlanSchema. For each day:
 - carbsCopy, waterCopy, sodiumCopy, fibreCopy: ≤140 chars, single sentence, second-person, no emojis
+- fiberGrams: a number, the day's fibre target in grams. Reduce fibre as weigh-in approaches to empty the gut, reaching the lowest figure in the final 1-2 days before weigh-in.
 - keyAction: imperative, ≤80 chars
 - cautions: max 3, each ≤80 chars
 - trainingRecommendation: 1-2 sentences
 
-Numerics will be replaced server-side from the skeleton — focus on copy quality.`;
+Also return one top-level field:
+- fiberStrategy: a single line, ≤200 chars, explaining when to keep fibre normal and when to cut it to empty the gut. No em-dashes.
+
+Honour the CARB RULE above exactly. Numerics for carbs, water, sodium and weight will be replaced server-side from the skeleton, but you still author all copy and the fibre figures. No emojis, no em-dashes.`;
 }
 
 // ───────────────────────────────────────────────────────────────────────
@@ -340,6 +374,11 @@ function mergeFightPlan(
       waterCopy: String(ad.waterCopy ?? ""),
       sodiumCopy: String(ad.sodiumCopy ?? ""),
       fibreCopy: String(ad.fibreCopy ?? ""),
+      // Fibre target in grams — AI-supplied, optional. Only carry it
+      // through when the model returned a finite number.
+      ...(typeof ad.fiberGrams === "number" && Number.isFinite(ad.fiberGrams)
+        ? { fiberGrams: ad.fiberGrams }
+        : {}),
       trainingRecommendation: String(
         ad.trainingRecommendation ?? sd.trainingRecommendation,
       ),
@@ -378,6 +417,11 @@ function mergeFightPlan(
     // From skeleton (server-authoritative).
     expectedWeightLossKg: skeleton.expectedWeightLossKg,
     days: mergedDays,
+    // Optional top-level fibre callout from the AI — carried through when
+    // present (≤200 chars enforced by the schema on persist).
+    ...(typeof ai.fiberStrategy === "string" && ai.fiberStrategy.length > 0
+      ? { fiberStrategy: ai.fiberStrategy }
+      : {}),
     rolling: ai.rolling ?? {
       peakWaterDay,
       sodiumCliffDay,

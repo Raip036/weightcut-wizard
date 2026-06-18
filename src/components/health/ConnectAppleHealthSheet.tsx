@@ -40,8 +40,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { logger } from "@/lib/logger";
-// Agent A's typed wrapper. Methods documented in spec §4.
-import { HEALTH_METRICS, healthKit } from "@/services/healthKit";
+// Typed wrapper around the native HealthKit plugin. Methods documented in spec §4.
+import { HEALTH_METRICS, HealthKitTimeoutError, healthKit } from "@/services/healthKit";
 import { forceNextHealthKitSync, runHealthKitSync } from "@/services/healthKitSync";
 // Agent B's Convex API. Path is `api.health.setHealthKitConnected`.
 // Typed once Agent B's codegen lands; treated as any here so this file
@@ -127,6 +127,9 @@ export function ConnectAppleHealthSheet({
   const [available, setAvailable] = useState<boolean | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // When true, surface an "Open Apple Health" deep-link so the user can
+  // grant access manually after the in-app permission sheet failed/timed out.
+  const [showHealthAppFallback, setShowHealthAppFallback] = useState(false);
 
   const setHealthKitConnected = useMutation(api.health.setHealthKitConnected);
   const insertHealthSamples = useMutation(api.health.insertSamples);
@@ -150,23 +153,34 @@ export function ConnectAppleHealthSheet({
   const handleConnect = useCallback(async () => {
     if (connecting) return;
     setError(null);
+    setShowHealthAppFallback(false);
     setConnecting(true);
     try {
-      // Agent A returns { granted: string[], denied: string[] } per plan.
-      // Defensive: tolerate either { granted } or a bare string[] return.
-      const result = (await healthKit.requestPermissions(
-        HEALTH_METRICS,
-      )) as unknown;
-      const granted: string[] = Array.isArray(result)
-        ? (result as string[])
-        : ((result as { granted?: string[] })?.granted ?? []);
+      // Real typed API: requestPermissions resolves to a PermissionResult
+      // ({ granted, perMetric }). `granted` is the overall flag; `perMetric`
+      // carries the per-metric authorization status we persist.
+      const { granted, perMetric } =
+        await healthKit.requestPermissions(HEALTH_METRICS);
+      const grantedMetrics = perMetric
+        .filter((s) => s.granted)
+        .map((s) => s.metric);
+
+      if (!granted) {
+        // The native sheet never presented/settled. Don't persist — point
+        // the user at the Apple Health app to grant access manually.
+        setError(
+          "Couldn't open the Health permission sheet. You can grant access in the Apple Health app.",
+        );
+        setShowHealthAppFallback(true);
+        return;
+      }
 
       // Persist to Convex so the score engine and other surfaces can
       // pick up the new tier. Failure here is non-fatal for the UX —
       // the user can retry from settings.
       try {
         if (setHealthKitConnected) {
-          await setHealthKitConnected({ grantedMetrics: granted });
+          await setHealthKitConnected({ grantedMetrics });
         }
       } catch (mutErr) {
         logger.error("setHealthKitConnected failed", mutErr);
@@ -185,21 +199,23 @@ export function ConnectAppleHealthSheet({
       // Register the app for background HealthKit deliveries. Best-effort:
       // if the plugin can't register (older OS, denied, no entitlement)
       // we just log and move on — the foreground sync still works.
-      // Cast through `unknown` so this compiles ahead of the parallel
-      // agent's signature rewrite (the old API was zero-arg).
-      const enableBg = healthKit.enableBackgroundDelivery as unknown as (
-        metrics: readonly string[],
-      ) => Promise<void>;
-      enableBg(HEALTH_METRICS).catch((err) => {
+      healthKit.enableBackgroundDelivery(HEALTH_METRICS).catch((err) => {
         logger.error("enableBackgroundDelivery failed", err);
       });
 
-      onConnected?.(granted);
+      onConnected?.(grantedMetrics);
     } catch (err) {
-      logger.error("HealthKit permission request failed", err);
-      setError(
-        "Couldn't open the Health permission sheet. Open iOS Settings → Health → Data Access to grant access.",
-      );
+      if (err instanceof HealthKitTimeoutError) {
+        setError(
+          "Couldn't open Apple Health — the permission screen didn't respond. Open the Apple Health app to grant access, then return here.",
+        );
+        setShowHealthAppFallback(true);
+      } else {
+        logger.error("HealthKit permission request failed", err);
+        setError(
+          "Couldn't open the Health permission sheet. Open iOS Settings → Health → Data Access to grant access.",
+        );
+      }
     } finally {
       setConnecting(false);
     }
@@ -288,6 +304,17 @@ export function ConnectAppleHealthSheet({
               ? "Unavailable on this device"
               : "Connect"}
         </Button>
+        {showHealthAppFallback && (
+          <button
+            type="button"
+            onClick={() => {
+              void healthKit.openHealthSettings();
+            }}
+            className="h-10 w-full text-[13px] font-medium text-muted-foreground hover:text-foreground active:scale-[0.98] transition"
+          >
+            Open Apple Health
+          </button>
+        )}
         {onSkip && (
           <button
             type="button"

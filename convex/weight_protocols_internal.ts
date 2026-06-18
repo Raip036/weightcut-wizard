@@ -150,6 +150,12 @@ export const gatherInputs = internalQuery({
         heightCm: profile.heightCm,
         currentWeightKg: profile.currentWeightKg,
         tdee: profile.tdee ?? null,
+        // Weigh-in timing set during onboarding. Canonical values:
+        // "day_before" | "same_day" (other strings like "morning_of" are
+        // treated as same-day at the read site). Drives the carb-hold vs
+        // full-taper branch in generateFightPlan. May be undefined on
+        // legacy rows — the action defaults it to "day_before".
+        weighInTiming: profile.weighInTiming ?? null,
       },
       camp: {
         fightDate: camp.fightDate,

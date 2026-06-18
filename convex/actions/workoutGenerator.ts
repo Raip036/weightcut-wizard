@@ -182,7 +182,18 @@ ${snap.block}`;
           { role: "user", content: corrective ? `${userPrompt}\n\n${corrective}` : userPrompt },
         ],
         temperature: 0.4,
-        max_tokens: 2500,
+        // gpt-oss-120b is a reasoning model: it spends hidden reasoning tokens
+        // from this same budget BEFORE emitting the JSON. A full routine (up to
+        // 4 days × ~8 exercises, each with a notes field, plus the plan-level
+        // notes paragraph) is a large payload, so a tight cap truncated the
+        // completion to finish_reason:"length" with empty content — which
+        // surfaced to the user as "No exercises generated. Try again." Keep
+        // reasoning minimal and give the JSON real headroom (mirrors the
+        // analyse-diet / meal-planner fixes for the same model).
+        max_tokens: 7000,
+        reasoning_effort: "low",
+        // Larger generation needs more wall-clock than the 15s default.
+        timeoutMs: 20000,
         response_format: { type: "json_object" },
       });
       return parseJSON<{ exercises?: Array<Record<string, any>>; [key: string]: any }>(content);

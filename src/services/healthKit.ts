@@ -35,6 +35,15 @@ import type {
   RawSample,
 } from "./healthKit.types";
 
+/** Thrown by native HealthKit calls that exceed their timeout — lets the UI
+ *  distinguish "the iOS sheet never presented" from a normal denial. */
+export class HealthKitTimeoutError extends Error {
+  constructor(operation: string) {
+    super(`HealthKit "${operation}" timed out`);
+    this.name = "HealthKitTimeoutError";
+  }
+}
+
 /**
  * Canonical metric list. The order here is the order the UI lists them in the
  * permission explainer; treat it as a public spec, not a code detail.
@@ -67,6 +76,12 @@ const INITIAL_BACKFILL_MS = 30 * 24 * 60 * 60 * 1000;
 
 /** Per-metric `limit` parameter passed to the plugin query (0 = no limit). */
 const QUERY_LIMIT = 0;
+
+/** Non-interactive native calls (availability / status checks). */
+const HEALTH_QUICK_TIMEOUT_MS = 10_000;
+/** Interactive permission sheet — generous (the user reads + taps Allow) but
+ *  bounded so a sheet that never presents can't hang the UI forever. */
+const HEALTH_AUTH_TIMEOUT_MS = 45_000;
 
 const HEALTH_APP_URL = "x-apple-health://";
 
@@ -250,6 +265,36 @@ function toMs(iso: string | undefined): number {
 
 function debug(msg: string, data?: Record<string, unknown>) {
   logger.debug(`healthKit: ${msg}`, data);
+}
+
+/**
+ * Races a native plugin promise against a timer. The native HealthKit bridge
+ * can leave a promise permanently unsettled if the iOS permission sheet fails
+ * to present — without this guard the caller (and the UI spinner) hangs forever.
+ */
+function withTimeout<T>(p: Promise<T>, ms: number, operation: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(new HealthKitTimeoutError(operation));
+    }, ms);
+    p.then(
+      (v) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (err) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
 }
 
 function uniqueReadTypes(metrics: readonly HealthMetric[]): PluginDataType[] {
@@ -521,7 +566,7 @@ class HealthKitService {
     const plugin = await getPlugin();
     if (!plugin) return false;
     try {
-      const result = await plugin.isAvailable();
+      const result = await withTimeout(plugin.isAvailable(), HEALTH_QUICK_TIMEOUT_MS, "isAvailable");
       return Boolean(result?.available);
     } catch (err) {
       debug("isAvailable() rejected", { error: String(err) });
@@ -544,13 +589,18 @@ class HealthKitService {
 
     const readTypes = uniqueReadTypes(metrics);
     try {
-      await plugin.requestAuthorization({
-        read: readTypes,
-        write: [],
-      });
+      await withTimeout(
+        plugin.requestAuthorization({
+          read: readTypes,
+          write: [],
+        }),
+        HEALTH_AUTH_TIMEOUT_MS,
+        "requestAuthorization",
+      );
       const perMetric = await this.checkAuthorization(metrics);
       return { granted: true, perMetric };
     } catch (err) {
+      if (err instanceof HealthKitTimeoutError) throw err;
       debug("requestAuthorization rejected", { error: String(err) });
       return { granted: false, perMetric: [] };
     }
@@ -586,10 +636,14 @@ class HealthKitService {
     let authorised = new Set<string>();
     let denied = new Set<string>();
     try {
-      const status = await plugin.checkAuthorization({
-        read: readTypes,
-        write: [],
-      });
+      const status = await withTimeout(
+        plugin.checkAuthorization({
+          read: readTypes,
+          write: [],
+        }),
+        HEALTH_QUICK_TIMEOUT_MS,
+        "checkAuthorization",
+      );
       authorised = new Set(status?.readAuthorized ?? []);
       denied = new Set(status?.readDenied ?? []);
     } catch (err) {

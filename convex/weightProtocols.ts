@@ -226,12 +226,25 @@ export const getCurrentForUser = query({
           )
         : null;
 
+    // Weigh-in timing — read from the profile (set during onboarding),
+    // falling back to the camp's free-form `weighInTiming` strategy string.
+    // Canonical "day_before" means weigh-in is the day before the fight;
+    // ANY other value (including "same_day" / "morning_of") means weigh-in
+    // is the SAME DAY as the fight. Legacy rows with neither field default
+    // to day-before. Mirrors the derivation in
+    // `actions/generateFightPlan.ts → runCore`.
+    const weighInTimingRaw =
+      profile?.weighInTiming ?? activeCamp.weighInTiming ?? "day_before";
+    const weighInSameDay = weighInTimingRaw !== "day_before";
+
     return {
       campId: activeCamp._id,
       phase,
       today,
       daysToFight,
       daysToWeighIn,
+      // True when weigh-in is the same day as the fight (no carb cut path).
+      weighInSameDay,
       // Raw derived values — present whether or not the AI plan exists.
       currentWeightKg,
       targetWeightKg,

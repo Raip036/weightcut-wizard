@@ -1,25 +1,24 @@
 // WP-T15 — OrsRecipeCard
-// Recipe-card layout for the DIY Oral Rehydration Solution (combat-
-// adapted WHO ORS formula). Renders the per-litre ingredient table with
-// each row's role + practical note, plus a shopping list of pantry
-// ingredients and a horizontally-scrollable chip row of commercial
-// equivalents (LMNT, Liquid I.V., DripDrop, Pedialyte, etc.).
+// Clean recipe-card layout for the DIY Oral Rehydration Solution (combat-
+// adapted WHO ORS formula). Renders the per-litre ingredients as tidy
+// 2-column rows separated by hairline dividers, a "make N L total" line,
+// a soft-chip shopping list, and bordered-chip commercial equivalents.
 //
-// Pure presentational — no Convex, no business logic. The caller is
-// responsible for computing the ingredient amounts (see spec §6.2) and
-// for gating Pro visibility one level up.
+// Pure presentational — no Convex, no business logic. The caller computes
+// the ingredient amounts (see spec §6.2) and gates Pro visibility one
+// level up. The big "litres hero" is rendered separately by the page
+// ABOVE this card, so it is intentionally absent here.
 //
-// Visual conventions mirror the rest of the protocol surface and
-// RecoveryDashboard's card chrome:
-//   - `card-surface rounded-2xl border border-border/50 p-5`
-//   - 10px uppercase tracker for section headers
-//   - 14px ingredient labels, tabular-nums on amounts
-//   - 11–13px muted body copy
-//   - mount: fade + slide-up (16px, 320ms spring); ingredient rows
-//     stagger fade-in 40ms each (capped at 5 staggered rows so very long
-//     recipes still feel snappy)
-//   - all motion respects `prefers-reduced-motion`
+// Visual language mirrors the approved Rehydrate-chapter mockup in
+// WeightProtocolStoryLab.tsx: cyan eyebrow, `card-surface rounded-2xl
+// border` with a soft accent border, clean rows, and rounded chips.
 import { motion, useReducedMotion } from "motion/react";
+
+// Cyan accent for the ORS / rehydrate surface. Kept as a raw HSL triplet
+// so it can be fed to the local `hsl()` helper for both solid colours and
+// translucent borders/tints.
+const CYAN = "190 90% 55%";
+const hsl = (t: string, a = 1) => `hsl(${t} / ${a})`;
 
 export interface RecipeIngredient {
   /** Display name, e.g. "Water", "Glucose (sugar / dextrose)". */
@@ -41,15 +40,10 @@ export interface OrsRecipeCardProps {
   totalLitresTarget: number;
   /** Pantry shopping list. Empty array omits the section entirely. */
   diyShoppingList: string[];
-  /** Commercial equivalents shown as a horizontal chip row. */
+  /** Commercial equivalents shown as bordered chips. */
   commercialEquivalents: string[];
   className?: string;
 }
-
-// Cap on how many ingredient rows get staggered entrance animation. Past
-// this index every row lands at the same beat so a long recipe doesn't
-// drag the mount feel out beyond ~400ms.
-const MAX_STAGGERED_ROWS = 5;
 
 // Format the amount + unit pair. Numbers are rendered via toLocaleString
 // so we get sensible separators across locales without leaking trailing
@@ -77,7 +71,6 @@ export function OrsRecipeCard({
   // a zero/negative value usually means the upstream cut plan hasn't
   // computed yet, in which case the line would be misleading.
   const showSummary = totalLitresTarget > 0;
-
   const targetLabel = showSummary ? totalLitresTarget.toFixed(1) : "";
 
   return (
@@ -87,148 +80,108 @@ export function OrsRecipeCard({
       initial={prefersReduced ? false : { opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: "spring", damping: 24, stiffness: 280, duration: 0.32 }}
-      className={`card-surface rounded-2xl border border-border/50 p-5 ${className}`}
+      className={`relative rounded-2xl card-surface border overflow-hidden ${className}`}
+      style={{ borderColor: hsl(CYAN, 0.25) }}
     >
-      {/* Header row: section tracker + scaled target sub-label */}
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground/70 font-bold">
-          DIY ORS Recipe
-        </p>
-        {showSummary && (
-          <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground/60 tabular-nums text-right">
-            (scaled for {targetLabel} L target)
-          </p>
-        )}
-      </div>
+      {/* Soft diagonal accent wash, matching the mockup's StoryCard. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{ background: `linear-gradient(135deg, ${hsl(CYAN, 0.06)}, transparent 60%)` }}
+      />
 
-      {/* Recipe table */}
-      <div className="mt-4">
-        <p className="text-[12px] uppercase tracking-[0.12em] font-semibold text-muted-foreground">
-          Per 1 L
+      <div className="relative p-5">
+        {/* Eyebrow */}
+        <p
+          className="text-[10px] font-bold uppercase tracking-wide mb-2"
+          style={{ color: hsl(CYAN) }}
+        >
+          DIY ORS · per litre
         </p>
 
+        {/* Per-litre ingredients — clean 2-column rows, hairline dividers */}
         {hasIngredients ? (
-          <ul className="mt-2 space-y-2">
-            {perLitre.map((ingredient, i) => (
-              <IngredientRow
-                key={`${ingredient.ingredient}-${i}`}
-                ingredient={ingredient}
-                index={i}
-                prefersReduced={!!prefersReduced}
-              />
-            ))}
-          </ul>
+          <div className="divide-y divide-border/40">
+            {perLitre.map((row, i) => {
+              // Prefer the practical note as the sub line; fall back to the
+              // physiological role so the row still carries useful context.
+              const sub = row.note.trim() || row.role.trim();
+              return (
+                <div
+                  key={`${row.ingredient}-${i}`}
+                  className="flex items-center justify-between gap-3 py-2.5"
+                >
+                  <span className="text-[13px] text-foreground leading-snug">
+                    {row.ingredient}
+                  </span>
+                  <span className="text-right shrink-0">
+                    <b className="text-[14px] tabular-nums text-foreground">
+                      {formatAmount(row.amount, row.unit)}
+                    </b>
+                    {sub && (
+                      <span className="block text-[10px] text-muted-foreground/60">
+                        {sub}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         ) : (
           // Fallback when the upstream recipe hasn't landed yet. Single
           // muted line keeps card height close to its populated state so
           // we avoid layout shift when data arrives.
-          <p className="mt-2 text-[13px] text-muted-foreground/70 italic">
+          <p className="text-[13px] text-muted-foreground/70 italic">
             Recipe loading…
           </p>
         )}
 
-        {showSummary && hasIngredients && (
-          <p className="mt-3 text-[13px] font-semibold text-primary/90 leading-snug">
-            → make {targetLabel} L total over the first 6 hours
+        {/* Total-litres line (cyan, semibold) */}
+        {showSummary && (
+          <p className="mt-3 text-[13px] font-semibold leading-snug" style={{ color: hsl(CYAN) }}>
+            Make {targetLabel} L total over the first 6 hours
           </p>
+        )}
+
+        {/* Shopping list — soft rounded chips */}
+        {hasShoppingList && (
+          <div className="mt-3">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground/60 mb-1.5">
+              Shopping list
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {diyShoppingList.map((item, i) => (
+                <span
+                  key={`${item}-${i}`}
+                  className="rounded-full bg-muted/40 px-2.5 py-1 text-[11px] text-muted-foreground"
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Commercial equivalents — bordered chips */}
+        {hasCommercial && (
+          <div className="mt-3">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground/60 mb-1.5">
+              Or use commercial
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {commercialEquivalents.map((label, i) => (
+                <span
+                  key={`${label}-${i}`}
+                  className="rounded-full border border-border/60 px-2.5 py-1 text-[11px] text-foreground/80"
+                >
+                  {label}
+                </span>
+              ))}
+            </div>
+          </div>
         )}
       </div>
-
-      {/* Shopping list */}
-      {hasShoppingList && (
-        <div className="mt-5 pt-4 border-t border-border/40">
-          <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground/70 font-bold">
-            Shopping List
-          </p>
-          <ul className="mt-2 space-y-1.5">
-            {diyShoppingList.map((item, i) => (
-              <li
-                key={`${item}-${i}`}
-                className="flex items-start gap-2 text-[13px] text-foreground/90 leading-snug"
-              >
-                <span aria-hidden className="text-muted-foreground/60 mt-[2px]">
-                  •
-                </span>
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Commercial equivalents */}
-      {hasCommercial && (
-        <div className="mt-5 pt-4 border-t border-border/40">
-          <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground/70 font-bold">
-            Or use commercial
-          </p>
-          <div
-            className="mt-2 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide"
-            role="list"
-            aria-label="Commercial rehydration drink equivalents"
-          >
-            {commercialEquivalents.map((label, i) => (
-              <span
-                key={`${label}-${i}`}
-                role="listitem"
-                className="shrink-0 inline-flex items-center rounded-full border border-border/40 px-2.5 py-1 text-[11px] text-muted-foreground"
-              >
-                {label}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
     </motion.section>
-  );
-}
-
-// ── Internal: IngredientRow ────────────────────────────────────────────
-
-interface IngredientRowProps {
-  ingredient: RecipeIngredient;
-  index: number;
-  prefersReduced: boolean;
-}
-
-function IngredientRow({ ingredient, index, prefersReduced }: IngredientRowProps) {
-  // Stagger rows 40ms apart up to MAX_STAGGERED_ROWS so the table reads
-  // as building beneath the "Per 1 L" header. Rows beyond the cap land
-  // at the cap's delay so we don't drag the mount feel out.
-  const staggerIndex = Math.min(index, MAX_STAGGERED_ROWS);
-  const delay = prefersReduced ? 0 : 0.12 + staggerIndex * 0.04;
-
-  const hasNote = ingredient.note.trim().length > 0;
-
-  return (
-    <motion.li
-      initial={prefersReduced ? false : { opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.24, ease: "easeOut" }}
-      className="grid grid-cols-[1fr_80px_1fr] items-baseline gap-3"
-    >
-      {/* Left column — ingredient name */}
-      <span className="text-[14px] text-foreground leading-snug">
-        {ingredient.ingredient}
-      </span>
-
-      {/* Middle column — amount + unit (right-aligned, tabular) with
-          optional practical note stacked beneath. */}
-      <span className="text-right">
-        <span className="block text-[14px] tabular-nums text-foreground">
-          {formatAmount(ingredient.amount, ingredient.unit)}
-        </span>
-        {hasNote && (
-          <span className="block text-[11px] text-muted-foreground/70 tabular-nums">
-            {ingredient.note}
-          </span>
-        )}
-      </span>
-
-      {/* Right column — physiological role (muted, slightly smaller) */}
-      <span className="text-[12px] text-muted-foreground leading-snug">
-        {ingredient.role}
-      </span>
-    </motion.li>
   );
 }

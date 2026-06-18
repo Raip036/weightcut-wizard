@@ -23,27 +23,13 @@ import { ProtocolCountdownAnchor } from "@/components/protocol/ProtocolCountdown
 import { ProtocolJourneySpine } from "@/components/protocol/ProtocolJourneySpine";
 import { ProtocolPlanIntro } from "@/components/protocol/ProtocolPlanIntro";
 import { ProtocolCompleteCutscene } from "@/components/protocol/ProtocolCompleteCutscene";
-import { ProtocolSummaryCard } from "@/components/protocol/ProtocolSummaryCard";
-import { SealedRehydrationCard } from "@/components/protocol/SealedRehydrationCard";
-import { ProtocolProGate } from "@/components/protocol/ProtocolProGate";
 import { WeightProtocolProDialog } from "@/components/protocol/WeightProtocolProDialog";
-import {
-  InputsUsedChips,
-  type InputStat,
-} from "@/components/protocol/InputsUsedChips";
-import {
-  CutApproachSelector,
-  type CutApproach,
-} from "@/components/protocol/CutApproachSelector";
-import { TodaysActionHero } from "@/components/protocol/TodaysActionHero";
+import { type CutApproach } from "@/components/protocol/CutApproachSelector";
+import { ProtocolCutChapter } from "@/components/protocol/ProtocolCutChapter";
+import { ProtocolScaleCard } from "@/components/protocol/ProtocolScaleCard";
 import { SafetyWarningBanner } from "@/components/protocol/SafetyWarningBanner";
-import { CutTaperTable } from "@/components/protocol/CutTaperTable";
-import { LockedDayCard } from "@/components/protocol/LockedDayCard";
-import { WeightLossBreakdownChart } from "@/components/protocol/WeightLossBreakdownChart";
-import { WeighInDaySpotlight } from "@/components/protocol/WeighInDaySpotlight";
 import { OrsRecipeCard } from "@/components/protocol/OrsRecipeCard";
 import { RehydrationTimeline } from "@/components/protocol/RehydrationTimeline";
-import { SweatLossEntryCard } from "@/components/protocol/SweatLossEntryCard";
 import { DoNotCallouts } from "@/components/protocol/DoNotCallouts";
 import {
   FeelChecksList,
@@ -62,18 +48,8 @@ import { ProtocolGeneratingOverlay } from "@/components/protocol/ProtocolGenerat
 // canonical source — page-level type alias keeps the file readable.
 type Phase = "prep" | "cut" | "weigh-in" | "refeed" | "pre-fight";
 
-// Daily regen budget — UI hint only; the action itself is rate-limited
-// server-side via `weight_protocols_internal.gatherInputs`. Kept here so
-// the button can render its "1/1 today" badge.
-const REGEN_DAILY_LIMIT = 1;
-// Free users see the first N days of the cut; everything past T-(N-1)
-// collapses into the LockedDayCard.
-const FREE_VISIBLE_COUNT = 2;
-// Default weigh-in clock time when the camp doesn't carry one. The page
-// uses this only for the spotlight + timeline placeholder; deterministic
-// math (phase, daysToWeighIn) lives on the server.
-const DEFAULT_WEIGH_IN_CLOCK = "11:00";
-
+// Regeneration is unlimited — there is no daily cap (server-side or
+// client-side). The user can regenerate as many times as they want.
 // Canonical metric order. Labels / icons / sheet copy now live inside
 // FeelChecksList so the page just passes server values through.
 const FEEL_CHECK_METRICS: ReadonlyArray<FeelCheckMetric> = [
@@ -86,17 +62,16 @@ const FEEL_CHECK_METRICS: ReadonlyArray<FeelCheckMetric> = [
 
 export default function WeightProtocol() {
   const { userId, profile } = useUser();
-  const { isPremium: subIsPremium, openPaywall } = useSubscription();
+  const { isPremium: subIsPremium, openPaywall, isSubscriptionResolved } = useSubscription();
   const navigate = useNavigate();
   // DEV-ONLY: drop the Pro gate on the dev server so the full protocol +
   // rehydration output is visible while iterating on the UI. `import.meta.env.DEV`
   // is false in production builds, so the paywall stays intact in prod.
   const isPremium = subIsPremium || import.meta.env.DEV;
 
-  // Single upgrade surface for the whole page — the top gate and every
-  // locked preview below open this same "here's what you get" explainer.
+  // Single upgrade surface for the whole page — the shared Pro dialog used by
+  // the Pro upgrade flow.
   const [proDialogOpen, setProDialogOpen] = useState(false);
-  const openProDialog = useCallback(() => setProDialogOpen(true), []);
 
   // Single page-level query. Returns `undefined` while loading, `null`
   // when there's no active camp, and the protocol bundle otherwise.
@@ -126,13 +101,15 @@ export default function WeightProtocol() {
   );
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
-  const [usedToday, setUsedToday] = useState(0);
 
   // Rehydration is now a separate, manual step driven by the athlete's
   // entered sweat-loss figure — its own loading / error / editing state.
   const [isGeneratingRehydration, setIsGeneratingRehydration] = useState(false);
   const [rehydrationError, setRehydrationError] = useState<string | null>(null);
   const [editingSweat, setEditingSweat] = useState(false);
+  // Walkout success is triggered intentionally by the bottom "I've made weight"
+  // button, not a phase flip.
+  const [finishPressed, setFinishPressed] = useState(false);
 
   // Regenerate now builds ONLY the carb-cut fight plan. Rehydration is
   // generated separately via the sweat-loss entry card so the athlete can
@@ -143,7 +120,6 @@ export default function WeightProtocol() {
     setGenError(null);
     try {
       await generateFightPlan({ campId: protocol.campId, approach });
-      setUsedToday((n) => n + 1);
     } catch (e: unknown) {
       const msg =
         e instanceof Error ? e.message : "Generation failed. Please try again.";
@@ -183,13 +159,14 @@ export default function WeightProtocol() {
   }, []);
 
   // ── Top-level states ──────────────────────────────────────────────
-  if (protocol === undefined) return <ProtocolPageSkeleton />;
-  if (protocol === null) return <NoFightCampEmptyState />;
-
-  // Non-Pro users get the full-screen upgrade wall — the shared, animated
-  // ProUpsellScreen used across Recovery / Missions — instead of the
-  // protocol body. `isPremium` is forced true on the dev server (see above),
-  // so this only gates real production free users.
+  // Decide free-vs-Pro FIRST so a free user always gets the animated wizard
+  // Pro wall the moment they open the page — even before (or without) an
+  // active camp. Wait for subscription state to resolve so a paying user
+  // never flashes the wall while it loads. `isPremium` is forced true on the
+  // dev server (see above), so this only gates real production free users.
+  if (!isSubscriptionResolved && !import.meta.env.DEV) {
+    return <ProtocolPageSkeleton />;
+  }
   if (!isPremium) {
     return (
       <ProUpsellScreen
@@ -210,6 +187,9 @@ export default function WeightProtocol() {
       />
     );
   }
+
+  if (protocol === undefined) return <ProtocolPageSkeleton />;
+  if (protocol === null) return <NoFightCampEmptyState />;
 
   // ── Destructure once for readability ──────────────────────────────
   const {
@@ -275,8 +255,6 @@ export default function WeightProtocol() {
   // guarded so missing server values render as "—" rather than NaN.
   const cutDepthKgRaw =
     (fpPayload?.cutDepthKg as number | undefined) ?? rawCutDepthKg ?? null;
-  const cutDepthPctRaw =
-    (fpPayload?.cutDepthPct as number | undefined) ?? rawCutDepthPct ?? null;
   const currentWeight = rawCurrentWeight ?? 0;
   const targetWeight =
     rawTargetWeight != null
@@ -291,106 +269,13 @@ export default function WeightProtocol() {
     rawGapHours ??
     null;
 
-  // Cut depth is the hero stat — tag it with the severity tier (matches the
-  // header pill) so the headline number reads its risk at a glance.
-  const cutBadgeTone =
-    cutCategory === "extreme"
-      ? "danger"
-      : cutCategory === "heavy"
-        ? "warn"
-        : cutCategory === "light"
-          ? "neutral"
-          : "accent";
-  const hasCutData = cutDepthKgRaw != null && cutDepthPctRaw != null;
-
-  const inputStats: InputStat[] = [
-    {
-      label: "Cut depth",
-      value: hasCutData
-        ? `${cutDepthKgRaw.toFixed(1)} kg (${cutDepthPctRaw.toFixed(1)}%)`
-        : "—",
-      tone: "accent",
-      iconName: "trendingDownOutline",
-      ...(hasCutData
-        ? { badge: { text: cutCategory.toUpperCase(), tone: cutBadgeTone } }
-        : {}),
-    },
-    {
-      label: "Weight",
-      // Structured start→target: muted start, bold target, baseline-aligned
-      // unit so the from→to reads cleanly at a glance.
-      value:
-        currentWeight && targetWeight != null ? (
-          <span className="inline-flex items-baseline gap-1.5">
-            <span className="font-semibold text-muted-foreground">
-              {currentWeight.toFixed(1)}
-            </span>
-            <span className="text-muted-foreground/70">→</span>
-            <span className="font-bold text-foreground">
-              {targetWeight.toFixed(1)}
-            </span>
-            <span className="text-[11px] font-medium text-muted-foreground">
-              kg
-            </span>
-          </span>
-        ) : (
-          "—"
-        ),
-      iconName: "scaleOutline",
-    },
-    {
-      label: "Weigh-in gap",
-      value: gapHours != null ? `${gapHours} hours` : "—",
-      iconName: "timeOutline",
-    },
-    {
-      label: "Body",
-      value: `${profile?.sex === "female" ? "Female" : "Male"} · ${profile?.age ?? "—"} yrs`,
-      iconName: "personOutline",
-    },
-    ...(profile?.height_cm
-      ? [
-          {
-            label: "Height",
-            value: `${profile.height_cm} cm`,
-            iconName: "resizeOutline" as const,
-          },
-        ]
-      : []),
-  ];
-
-  // ── Today's hero (TodaysActionHero) ───────────────────────────────
+  // ── Cut taper days ────────────────────────────────────────────────
   const days = (fpPayload?.days as any[] | undefined) ?? [];
-  const todayDay = days.find((d) => d.dayIso === today) ?? null;
   const tier: "green" | "amber" | "red" =
     cutCategory === "extreme" ? "red" : cutCategory === "heavy" ? "amber" : "green";
-  // The hero swaps based on three states:
-  //   • isRegenerating === true → user manually tapped generate; show the
-  //     wizard loading overlay (gated to manual triggers only)
-  //   • !fpPayload → no plan yet → show the "Generate plan" CTA card
-  //   • otherwise → show today's action hero from the existing plan
+  // Show the wizard loading overlay only when the user manually tapped
+  // generate (gated to manual triggers).
   const isGeneratingProtocol = isRegenerating;
-  const needsGenerateCta = !isRegenerating && !fpPayload;
-  const heroHeadline =
-    (todayDay?.keyAction as string | undefined) ?? "Loading your plan…";
-  const heroBody = (todayDay?.carbsCopy as string | undefined) ?? "";
-  const heroMetrics = todayDay
-    ? [
-        { label: "Carbs", value: `${todayDay.carbsGrams}g` },
-        { label: "Water", value: `${(todayDay.waterLitres as number).toFixed(1)}L` },
-        {
-          label: "Sodium",
-          value:
-            (todayDay.sodiumMg as number) < 1000
-              ? `${todayDay.sodiumMg}mg`
-              : `${((todayDay.sodiumMg as number) / 1000).toFixed(1)}g`,
-        },
-        {
-          label: "Fibre",
-          value: String(todayDay.fibreNote).replace(/_/g, " "),
-        },
-      ]
-    : [];
 
   // ── Safety warnings — only the highest severity wins, top of stack ─
   const warnings =
@@ -399,27 +284,7 @@ export default function WeightProtocol() {
       | undefined) ?? [];
   const critical = warnings.find((w) => w.severity === "critical");
 
-  // ── Fight-plan list: free split / locked tail ─────────────────────
-  // Premium sees the full list; free sees the first N days, with the
-  // tail folded into a single LockedDayCard.
-  const freeVisibleDays = isPremium ? days : days.slice(0, FREE_VISIBLE_COUNT);
-  const lockedDays = isPremium ? [] : days.slice(FREE_VISIBLE_COUNT);
-
-  // ── Weight-loss breakdown ─────────────────────────────────────────
-  const expLoss =
-    (fpPayload?.expectedWeightLossKg as
-      | { glycogen: number; water: number; gut: number; fat: number; total: number }
-      | undefined) ?? null;
-  const breakdownSegments = expLoss
-    ? ([
-        { label: "Glycogen", kg: expLoss.glycogen, tone: "primary" },
-        { label: "Water load", kg: expLoss.water, tone: "blue" },
-        { label: "Gut content", kg: expLoss.gut, tone: "amber" },
-        { label: "Fat", kg: expLoss.fat, tone: "muted" },
-      ] as const)
-    : [];
-
-  // ── Weigh-in day spotlight ─────────────────────────────────────────
+  // ── Weigh-in day (drives the countdown anchor's date label) ────────
   const weighInDay = days.find((d) => d.daysToWeighIn === 0) ?? null;
 
   // ── Rehydration timeline ──────────────────────────────────────────
@@ -449,27 +314,23 @@ export default function WeightProtocol() {
     phaseTyped === "refeed" ||
     phaseTyped === "pre-fight";
 
-  // ── Approach selector lock — too close to weigh-in to change track ─
-  const approachLocked = daysToWeighIn <= 2;
+  // Weigh-in timing comes from the user's PROFILE (set in onboarding),
+  // surfaced by getCurrentForUser. Same-day weigh-in → the cut holds carbs.
+  const weighInSameDay =
+    (protocol as { weighInSameDay?: boolean }).weighInSameDay ?? false;
+  const fiberStrategy = fpPayload?.fiberStrategy as string | undefined;
 
-  // Flow C "weigh-in pivot": the rehydration plan stays SEALED while the
-  // athlete is still cutting (prep / cut) and unlocks the moment the
-  // protocol enters the weigh-in window. The sweat-loss entry then becomes
-  // the prominent hinge that generates it.
-  const rehydrationUnlocked =
-    phaseTyped === "weigh-in" ||
-    phaseTyped === "refeed" ||
-    phaseTyped === "pre-fight";
-
-  // Finale: the cut is behind them — pre-fight window with a generated
-  // rehydration plan. Shows the celebratory "made weight & refueled"
-  // cutscene at the top (and suppresses the countdown anchor, which would
-  // otherwise read "weigh-in today" post-scale).
-  const showFinale = phaseTyped === "pre-fight" && !!rhPayload;
-  const finaleLitres =
+  // Litres of ORS to replace — the hero figure shown above the recipe.
+  const rehydLitres =
     (rhPayload?.derivedSnapshot?.totalLitresTarget as number | undefined) ??
     (rhPayload?.orsRecipe?.totalLitresTarget as number | undefined) ??
     null;
+
+  // Finale is driven by the user pressing "I've made weight & refuelled" at the
+  // bottom of the rehydration plan — an intentional success moment, not a phase
+  // flip. Suppresses the countdown while showing.
+  const showFinale = finishPressed;
+  const finaleLitres = rehydLitres;
 
   // Pre-formatted weigh-in date for the countdown anchor, from the D-0
   // skeleton day's ISO when present.
@@ -485,16 +346,16 @@ export default function WeightProtocol() {
     });
   })();
 
-  // Active chapter for the journey spine (Plan → Cut → Scale → Rehydrate →
-  // Walkout). Derived from the real phase + generation state, never a manual
-  // stepper: no plan yet → Plan; cutting → Cut; weigh-in window awaiting the
-  // sweat-loss entry → Scale; rehydration generated → Rehydrate; finale → Walkout.
-  const journeyActive = showFinale
-    ? 4
-    : rehydrationUnlocked && rhPayload && !editingSweat
-      ? 3
-      : rehydrationUnlocked
-        ? 2
+  // Journey spine progression: Plan → (generate) Cut → (submit sweat) Scale ✓ +
+  // Rehydrate active → (plan generated) Rehydrate ✓ + Walkout active →
+  // (Finish pressed) all done.
+  const rehydrated = !!rhPayload && !editingSweat;
+  const journeyActive = finishPressed
+    ? 5
+    : rehydrated
+      ? 4
+      : isGeneratingRehydration
+        ? 3
         : fpPayload
           ? 1
           : 0;
@@ -517,6 +378,8 @@ export default function WeightProtocol() {
             startKg={currentWeight}
             targetKg={targetWeight}
             daysToWeighIn={daysToWeighIn}
+            approach={approach}
+            onApproachChange={handleApproachChange}
             onGenerate={handleRegenerate}
           />
         )
@@ -559,40 +422,7 @@ export default function WeightProtocol() {
         />
       )}
 
-      {/* 1. Summary card — cut-depth ring, taper sparkline, on-track pill */}
-      <ProtocolSummaryCard
-        cutDepthPct={cutDepthPctRaw ?? 0}
-        cutDepthKg={cutDepthKgRaw ?? 0}
-        daysToWeighIn={daysToWeighIn}
-        currentWeightKg={currentWeight}
-        targetWeightKg={targetWeight ?? 0}
-        categoryLabel={cutCategory.charAt(0).toUpperCase() + cutCategory.slice(1)}
-        sparkline={days.map((d: any) => d.carbsGrams as number)}
-      />
-
-      {/* 2. Today's action (or generating overlay when the plan is being
-            (re)generated — replaces only the hero so the rest of the page
-            stays scrollable). */}
-      {isGeneratingProtocol ? (
-        <ProtocolGeneratingOverlay tone={tier} />
-      ) : needsGenerateCta ? (
-        <ProtocolProGate
-          isPremium={isPremium}
-          onUnlock={openProDialog}
-          onGenerate={handleRegenerate}
-        />
-      ) : (
-        <TodaysActionHero
-          phase={phaseTyped}
-          headline={heroHeadline}
-          body={heroBody}
-          metrics={heroMetrics}
-          tier={tier}
-          breathPulse={phaseTyped === "weigh-in"}
-        />
-      )}
-
-      {/* 3. Safety warnings — highest severity only */}
+      {/* Safety — keep the extreme-cut warning regardless of layout. */}
       {critical && (
         <SafetyWarningBanner
           level="red"
@@ -601,184 +431,70 @@ export default function WeightProtocol() {
         />
       )}
 
-      {/* The Cut — chapter framing for the taper plan (story flow). Only once a
-          plan exists and before the rehydration window opens. */}
-      {fpPayload && !rehydrationUnlocked && (
-        <div className="pt-1">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/80">
-            The Cut
-          </p>
-          {targetWeight != null && (
-            <p className="text-[15px] font-semibold text-foreground leading-tight">
-              Taper to {targetWeight.toFixed(1)} kg
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* 4. Inputs-used chips */}
-      <InputsUsedChips stats={inputStats} />
-
-      {/* 5. Cut-approach selector */}
-      <CutApproachSelector
-        value={approach}
-        onChange={handleApproachChange}
-        disabled={approachLocked}
-        disabledReason={
-          approachLocked
-            ? "Too late to change approach this close to weigh-in"
-            : undefined
-        }
-      />
-
-      {/* 6. The cut — taper table (replaces the per-day card list) */}
-      <CutTaperTable
-        days={(isPremium ? days : freeVisibleDays).map((d: any) => ({
-          daysToWeighIn: d.daysToWeighIn,
-          carbsGrams: d.carbsGrams,
-          waterLitres: d.waterLitres,
-          sodiumMg: d.sodiumMg,
-          targetWeightKg: d.targetWeightKg,
-          isToday: d.dayIso === today,
-        }))}
-        targetWeightKg={targetWeight ?? 0}
-      />
-
-      {/* Fuel strategy — eat at maintenance; the cut comes from carbs/water/
-          sodium, not a calorie deficit, so fuel stays high while carbs taper. */}
-      <div className="rounded-2xl border border-primary/20 bg-primary/[0.05] p-4">
-        <p className="text-[13px] font-semibold text-foreground">
-          Eat at maintenance this week
-        </p>
-        <p className="mt-1 text-[12px] leading-snug text-muted-foreground">
-          Fat loss over fight week is negligible — your drop comes from carbs,
-          water and sodium, not calories. Eat around your maintenance calories so
-          you carry maximum fuel into the fight while carbs taper down.
-        </p>
-      </div>
-
-      {lockedDays.length > 0 && (
-        <LockedDayCard days={lockedDays} onUnlock={openProDialog} />
-      )}
-
-      {/* 7. Weight-loss breakdown chart */}
-      {breakdownSegments.length > 0 && expLoss && (
-        <WeightLossBreakdownChart
-          totalKg={expLoss.total}
-          segments={[...breakdownSegments]}
+      {/* The Cut — mockup-exact taper card (countdown sits above it). While a
+          regeneration is running, show the loader in its place. */}
+      {isGeneratingProtocol ? (
+        <ProtocolGeneratingOverlay tone={tier} />
+      ) : (
+        <ProtocolCutChapter
+          targetKg={targetWeight}
+          sameDay={weighInSameDay}
+          fiberStrategy={fiberStrategy}
+          days={days.map((d: any) => ({
+            daysToWeighIn: d.daysToWeighIn,
+            carbsGrams: d.carbsGrams,
+            waterLitres: d.waterLitres,
+            sodiumMg: d.sodiumMg,
+            fiberGrams: d.fiberGrams,
+            isToday: d.dayIso === today,
+          }))}
         />
       )}
 
-      {/* 8. Weigh-in day spotlight (premium) / locked teaser (free) */}
-      {weighInDay && isPremium && (
-        <WeighInDaySpotlight
-          weighInTime={DEFAULT_WEIGH_IN_CLOCK}
-          entries={[
-            { time: "06:00", label: "Weight check", iconName: "scaleOutline" },
-            {
-              time: "09:00",
-              label: "Final sauna IF needed",
-              iconName: "flameOutline",
-            },
-            { time: DEFAULT_WEIGH_IN_CLOCK, label: "ON-STAGE", highlight: true },
-            {
-              time: "11:01",
-              label: "First food + ORS",
-              iconName: "restaurantOutline",
-            },
-          ]}
+      {/* The Scale → Rehydrate. Enter kilos sweated off; on submit the
+          rehydration plan generates and its full detail replaces the input. */}
+      {!rhPayload || editingSweat ? (
+        <ProtocolScaleCard
+          onGenerate={handleGenerateRehydration}
+          isLoading={isGeneratingRehydration}
+          error={rehydrationError}
+          defaultValue={rhPayload?.derivedSnapshot?.sweatLossKg}
         />
-      )}
-      {weighInDay && !isPremium && (
-        <LockedDayCard days={[weighInDay]} onUnlock={openProDialog} />
-      )}
-
-      {/* 9–13. After the scale — SEALED while the athlete is still cutting,
-            unlocking into the live rehydration plan at the weigh-in window. */}
-      {fpPayload && !rehydrationUnlocked && (
+      ) : (
         <>
           <ProtocolSectionDivider label="After the scale · Rehydration" />
-          <SealedRehydrationCard daysToWeighIn={daysToWeighIn} />
-        </>
-      )}
-
-      {fpPayload && rehydrationUnlocked && (
-        <>
-          {/* Chapter eyebrow — phase-appropriate framing that mirrors the cut's
-              "The Cut" eyebrow. Becomes "The Scale" while the athlete still has
-              to weigh in (sweat-loss hinge), then "Rehydrate" once the generated
-              refuel plan is showing. The locked free teaser keeps "Rehydrate". */}
-          {(() => {
-            const rehydEyebrow =
-              isPremium && (!rhPayload || editingSweat)
-                ? { k: "The Scale", t: "Step on the scale" }
-                : { k: "Rehydrate", t: "After the scale" };
-            return (
-              <div className="pt-1">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/80">
-                  {rehydEyebrow.k}
-                </p>
-                <p className="text-[15px] font-semibold text-foreground leading-tight">
-                  {rehydEyebrow.t}
-                </p>
-              </div>
-            );
-          })()}
-
-          {/* Premium athletes either see the generated ORS recipe + hourly
-              timeline, or the manual sweat-loss entry card — the weigh-in
-              hinge that drives a fresh generation. */}
-          {isPremium ? (
-            rhPayload && !editingSweat ? (
-              <>
-                <OrsRecipeCard
-                  perLitre={rhPayload.orsRecipe?.perLitre ?? []}
-                  totalLitresTarget={rhPayload.orsRecipe?.totalLitresTarget ?? 0}
-                  diyShoppingList={rhPayload.orsRecipe?.diyShoppingList ?? []}
-                  commercialEquivalents={
-                    rhPayload.orsRecipe?.commercialEquivalents ?? []
-                  }
-                />
-
-                <RehydrationTimeline
-                  anchors={hours}
-                  gapHours={gapHours ?? 24}
-                  totalLitresTarget={
-                    rhPayload.derivedSnapshot?.totalLitresTarget ??
-                    rhPayload.orsRecipe?.totalLitresTarget
-                  }
-                />
-
-                <button
-                  type="button"
-                  onClick={() => setEditingSweat(true)}
-                  className="block w-full text-center text-[12px] text-muted-foreground/80 underline-offset-4 hover:text-foreground hover:underline transition-colors"
-                >
-                  Re-enter sweat-loss &amp; regenerate
-                </button>
-              </>
-            ) : (
-              <SweatLossEntryCard
-                onGenerate={handleGenerateRehydration}
-                isLoading={isGeneratingRehydration}
-                error={rehydrationError}
-                defaultValue={rhPayload?.derivedSnapshot?.sweatLossKg}
-              />
-            )
-          ) : (
-            <LockedDayCard
-              days={[]}
-              onUnlock={openProDialog}
-              teaser="the rehydration timeline + ORS recipe"
-            />
+          {/* Litres-to-replace HERO — the headline figure, above the recipe. */}
+          {rehydLitres != null && (
+            <div
+              className="rounded-2xl border text-center p-5"
+              style={{ borderColor: "hsl(190 90% 55% / 0.3)", background: "hsl(190 90% 55% / 0.06)" }}
+            >
+              <p
+                className="display-number font-extrabold tabular-nums leading-none"
+                style={{ fontSize: 56, color: "hsl(190 90% 55%)" }}
+              >
+                {rehydLitres.toFixed(1)} L
+              </p>
+              <p className="text-[12px] text-muted-foreground mt-1.5">
+                to replace · over the first 6 hours
+              </p>
+            </div>
           )}
-
-          {/* Do-not callouts */}
-          <DoNotCallouts
-            items={(rhPayload?.doNots as string[] | undefined) ?? []}
+          <OrsRecipeCard
+            perLitre={rhPayload.orsRecipe?.perLitre ?? []}
+            totalLitresTarget={rhPayload.orsRecipe?.totalLitresTarget ?? 0}
+            diyShoppingList={rhPayload.orsRecipe?.diyShoppingList ?? []}
+            commercialEquivalents={rhPayload.orsRecipe?.commercialEquivalents ?? []}
           />
-
-          {/* Feel checks — only during the rehydration window */}
+          <RehydrationTimeline
+            anchors={hours}
+            gapHours={gapHours ?? 24}
+            totalLitresTarget={
+              rhPayload.derivedSnapshot?.totalLitresTarget ??
+              rhPayload.orsRecipe?.totalLitresTarget
+            }
+          />
+          <DoNotCallouts items={(rhPayload?.doNots as string[] | undefined) ?? []} />
           {showFeelChecks && (
             <FeelChecksList
               campId={campId}
@@ -786,14 +502,29 @@ export default function WeightProtocol() {
               checks={feelCheckList}
             />
           )}
+          {!finishPressed && (
+            <button
+              type="button"
+              onClick={() => setFinishPressed(true)}
+              className="w-full flex items-center justify-center rounded-2xl px-4 py-3.5 text-[14px] font-bold text-primary-foreground active:scale-[0.98] transition-transform"
+              style={{ background: "hsl(152 64% 47%)" }}
+            >
+              I've made weight &amp; refuelled
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setEditingSweat(true)}
+            className="block w-full text-center text-[12px] text-muted-foreground/80 underline-offset-4 hover:text-foreground hover:underline transition-colors"
+          >
+            Re-enter sweat-loss &amp; regenerate
+          </button>
         </>
       )}
 
-      {/* Regenerate button + error */}
+      {/* Regenerate button + error — unlimited, no daily cap */}
       <ProtocolRegenerateButton
         onRegenerate={handleRegenerate}
-        usedToday={usedToday}
-        limit={REGEN_DAILY_LIMIT}
         isLoading={isRegenerating}
       />
       {genError && (
