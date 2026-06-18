@@ -28,7 +28,11 @@
  */
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
-import { internal } from "./_generated/api";
+// NOTE: `internal` (from ./_generated/api) was previously used to schedule
+// the drift-triggered fight-plan auto-regen from `maybeRegen`. That path is
+// now disabled (fight plan is manual-only — see `maybeRegen` step 6), so the
+// import is removed to avoid an unused-import error. Re-add it if any future
+// internal scheduling is reintroduced here.
 
 // ───────────────────────────────────────────────────────────────────────
 // Helpers
@@ -311,21 +315,30 @@ export const maybeRegen = internalMutation({
     const weighInTs = Date.parse(weighInIso);
     if (Number.isFinite(weighInTs) && Date.now() > weighInTs) return;
 
-    // 6. Schedule the regen action. Bypasses the daily cap because this
-    // path is system-initiated (no user button press). `approach` is
-    // stored as a free-form string on the row; coerce back to the union
-    // and default to `standard` if anything unexpected lands here.
-    const storedApproach = fightPlan.approach;
-    const approach: "gradual" | "standard" | "aggressive" =
-      storedApproach === "gradual" ||
-      storedApproach === "standard" ||
-      storedApproach === "aggressive"
-        ? storedApproach
-        : "standard";
-    await ctx.scheduler.runAfter(
-      0,
-      internal.actions.generateFightPlan.runInternal,
-      { userId, campId, approach },
-    );
+    // 6. DISABLED (manual-only fight plan): the FIGHT PLAN must generate
+    // ONLY when the user explicitly taps Generate (client → public
+    // `api.actions.generateFightPlan.run`). The drift-triggered auto-regen
+    // below was the sole path that re-generated the plan WITHOUT a user
+    // tap, so it is intentionally commented out. Everything above this
+    // point (drift detection / logging) is harmless and left intact in
+    // case we want to surface a "your plan may be out of date" nudge in
+    // the UI later — but it must NOT auto-generate.
+    //
+    // Rehydration generation is unaffected (it is manual via the
+    // sweat-loss entry and never went through this path).
+    //
+    // const storedApproach = fightPlan.approach;
+    // const approach: "gradual" | "standard" | "aggressive" =
+    //   storedApproach === "gradual" ||
+    //   storedApproach === "standard" ||
+    //   storedApproach === "aggressive"
+    //     ? storedApproach
+    //     : "standard";
+    // await ctx.scheduler.runAfter(
+    //   0,
+    //   internal.actions.generateFightPlan.runInternal,
+    //   { userId, campId, approach },
+    // );
+    return;
   },
 });

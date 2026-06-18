@@ -424,3 +424,105 @@ export const clearFeelCheck = mutation({
     if (existing) await ctx.db.delete(existing._id);
   },
 });
+
+// ───────────────────────────────────────────────────────────────────────
+// Mutation — reset the whole protocol back to Chapter 1
+// ───────────────────────────────────────────────────────────────────────
+
+/**
+ * Clear the current Weight Protocol for the authenticated user's active
+ * (non-completed) fight camp so the page falls back to Chapter 1 and the
+ * user can generate again from scratch.
+ *
+ * Deletes, for the active camp:
+ *   • the `fight_plan` `weight_protocols` row
+ *   • the `rehydration` `weight_protocols` row
+ *   • every `protocol_feel_checks` row for (userId, campId)
+ *
+ * After this runs, `getCurrentForUser` returns `fightPlan: null` +
+ * `rehydration: null` (and an empty `feelChecks[]`), which is the exact
+ * signal the page uses to render the Chapter 1 / generate state.
+ *
+ * Active-camp resolution mirrors `getCurrentForUser` above (same `by_user`
+ * index + `isCompleted != true` filter + `.first()`), so this clears the
+ * SAME camp the page is reading.
+ *
+ * Idempotent: a no-op when there's no active camp or nothing to clear
+ * (returns a small summary of what was removed so the client can decide
+ * whether to toast). Deletion convention matches the rest of this file
+ * (`.unique()` / `.collect()` then `ctx.db.delete(_id)`).
+ *
+ * Auth: throws `NOT_AUTHENTICATED` (mirrors `recordFeelCheck`) so the
+ * client can surface an error rather than silently appearing to succeed.
+ * Rehydration generation is manual (sweat-loss entry) — clearing the row
+ * here simply lets the user regenerate it; it does not re-trigger anything.
+ */
+export const clearProtocol = mutation({
+  args: {},
+  returns: v.object({
+    cleared: v.boolean(),
+    deletedFightPlan: v.boolean(),
+    deletedRehydration: v.boolean(),
+    deletedFeelChecks: v.number(),
+  }),
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("NOT_AUTHENTICATED");
+
+    // Resolve the active camp the page is bound to (same shape as
+    // getCurrentForUser). No active camp → nothing to clear.
+    const activeCamp = await ctx.db
+      .query("fight_camps")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .filter((q) => q.neq(q.field("isCompleted"), true))
+      .first();
+    if (!activeCamp) {
+      return {
+        cleared: false,
+        deletedFightPlan: false,
+        deletedRehydration: false,
+        deletedFeelChecks: 0,
+      };
+    }
+
+    // Both protocol rows + the feel-check ledger, fetched in parallel.
+    const [fightPlan, rehydration, feelChecks] = await Promise.all([
+      ctx.db
+        .query("weight_protocols")
+        .withIndex("by_user_camp_kind", (q) =>
+          q
+            .eq("userId", userId)
+            .eq("campId", activeCamp._id)
+            .eq("kind", "fight_plan"),
+        )
+        .unique(),
+      ctx.db
+        .query("weight_protocols")
+        .withIndex("by_user_camp_kind", (q) =>
+          q
+            .eq("userId", userId)
+            .eq("campId", activeCamp._id)
+            .eq("kind", "rehydration"),
+        )
+        .unique(),
+      ctx.db
+        .query("protocol_feel_checks")
+        .withIndex("by_user_camp", (q) =>
+          q.eq("userId", userId).eq("campId", activeCamp._id),
+        )
+        .collect(),
+    ]);
+
+    if (fightPlan) await ctx.db.delete(fightPlan._id);
+    if (rehydration) await ctx.db.delete(rehydration._id);
+    for (const fc of feelChecks) await ctx.db.delete(fc._id);
+
+    return {
+      cleared:
+        fightPlan != null || rehydration != null || feelChecks.length > 0,
+      deletedFightPlan: fightPlan != null,
+      deletedRehydration: rehydration != null,
+      deletedFeelChecks: feelChecks.length,
+    };
+  },
+});

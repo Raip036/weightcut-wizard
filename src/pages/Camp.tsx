@@ -11,7 +11,6 @@ import { MissionStack } from "@/components/coach/MissionStack";
 import { SparringPlanCard } from "@/components/sparring/SparringPlanCard";
 import { XpSummaryCard } from "@/components/coach/XpSummaryCard";
 import { CampHeroCard } from "@/components/coach/CampHeroCard";
-import { CampProgressPanel } from "@/components/coach/CampProgressPanel";
 import { CampActivityFeed } from "@/components/coach/CampActivityFeed";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -128,11 +127,7 @@ export default function Camp() {
   const goalType = (profile?.goal_type as "cutting" | "losing") ?? "cutting";
   const fighter = isFighter(goalType);
 
-  // Display unit + goal weight for the camp progression trajectory chart.
-  const weightUnit =
-    (typeof window !== "undefined" &&
-      (localStorage.getItem("wcw_weight_unit") as "kg" | "lb")) ||
-    "kg";
+  // Goal weight still gates the camp progress source (days-left / pace math).
   const goalWeightKg =
     profile?.fight_week_target_kg ?? profile?.goal_weight_kg ?? 0;
 
@@ -346,19 +341,6 @@ export default function Camp() {
       {/* ── Camp plan area — progression panel + view-full-plan button.
           Wrapped in a single sentinel so the tutorial can spotlight both. */}
       <div data-tutorial="camp-plan-area" className="flex flex-col gap-3">
-        {/* Phase timeline + weight-vs-plan trajectory */}
-        {progressSource && phase && goalWeightKg > 0 && (
-          <CampProgressPanel
-            campStartMs={progressSource.startMs}
-            fightMs={progressSource.fightMs}
-            daysLeft={progressSource.daysLeft}
-            pct={progressSource.pct}
-            goalWeightKg={goalWeightKg}
-            unit={weightUnit}
-            phaseText={phase.text}
-          />
-        )}
-
         {/* Quick link to the canonical plan timeline */}
         {cutPlanSummary && (
         <button

@@ -16,6 +16,39 @@ import { Icon } from "@/components/ui/Icon";
 
 export type SafetyLevel = "amber" | "red";
 
+/**
+ * Map a cryptic safety-warning CODE (emitted by the fight-plan generator,
+ * see `convex/_shared/weightProtocolMath.ts` → `buildSafetyWarnings`) to a
+ * short, human-readable title for the banner.
+ *
+ * Lookup is case-insensitive on the code. Unknown codes fall back to a
+ * title-cased version of the code (underscores → spaces, words capitalised)
+ * so anything new the generator emits is still at least readable.
+ */
+export function friendlyWarningTitle(code: string): string {
+  const KNOWN: Record<string, string> = {
+    depth_gt_8pct: "Aggressive weight cut",
+    aggressive_timeline: "Not enough time to cut",
+    first_timer_deep_cut: "Big cut for a first timer",
+    prior_high_rebound: "History of heavy rebound",
+    sleep_debt: "Running on low sleep",
+    low_readiness: "Recovery is low right now",
+    female_cap: "Tighter safety margin",
+  };
+
+  const key = code.toLowerCase();
+  if (key in KNOWN) {
+    return KNOWN[key];
+  }
+
+  // Fallback: title-case the raw code so it stays readable.
+  return key
+    .split("_")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
 export interface SafetyWarningBannerProps {
   /** Severity — drives colour, icon, and aria role. */
   level: SafetyLevel;
@@ -62,30 +95,30 @@ export function SafetyWarningBanner({
       // Red = assertive (interrupts AT). Amber = polite (status region).
       role={level === "red" ? "alert" : "status"}
       aria-live={level === "red" ? "assertive" : "polite"}
-      className={`card-surface rounded-2xl p-4 ${containerClasses(level)} ${className}`}
+      className={`card-surface rounded-2xl p-2.5 ${containerClasses(level)} ${className}`}
     >
       {/* Top row: icon + title */}
-      <div className="flex items-start gap-2.5">
+      <div className="flex items-start gap-1.5">
         <span className={`mt-px ${iconColor}`}>
-          <Icon name={iconName} size={16} aria-label={level === "red" ? "Alert" : "Warning"} />
+          <Icon name={iconName} size={13} aria-label={level === "red" ? "Alert" : "Warning"} />
         </span>
         <p
-          className={`text-[12px] uppercase font-bold tracking-[0.15em] leading-snug ${iconColor}`}
+          className={`text-[10px] uppercase font-bold tracking-[0.12em] leading-tight ${iconColor}`}
         >
           {title}
         </p>
       </div>
 
       {/* Body copy */}
-      <p className="mt-2 text-[13px] text-muted-foreground leading-snug">{body}</p>
+      <p className="mt-1 text-[11px] text-muted-foreground leading-snug">{body}</p>
 
       {/* Optional read-more link */}
       {onReadMore && (
-        <div className="mt-2 flex justify-end">
+        <div className="mt-1 flex justify-end">
           <button
             type="button"
             onClick={onReadMore}
-            className={`text-[12px] font-semibold ${iconColor} active:opacity-70 transition-opacity`}
+            className={`text-[10px] font-semibold ${iconColor} active:opacity-70 transition-opacity`}
           >
             Read full safety brief →
           </button>

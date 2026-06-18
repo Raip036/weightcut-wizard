@@ -12,7 +12,7 @@
 // regenerate action.
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAction, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import { useUser } from "@/contexts/UserContext";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -22,12 +22,12 @@ import { ProUpsellScreen } from "@/components/subscription/ProUpsellScreen";
 import { ProtocolCountdownAnchor } from "@/components/protocol/ProtocolCountdownAnchor";
 import { ProtocolJourneySpine } from "@/components/protocol/ProtocolJourneySpine";
 import { ProtocolPlanIntro } from "@/components/protocol/ProtocolPlanIntro";
-import { ProtocolCompleteCutscene } from "@/components/protocol/ProtocolCompleteCutscene";
+import { ProtocolWalkoutTakeover } from "@/components/protocol/ProtocolWalkoutTakeover";
 import { WeightProtocolProDialog } from "@/components/protocol/WeightProtocolProDialog";
 import { type CutApproach } from "@/components/protocol/CutApproachSelector";
 import { ProtocolCutChapter } from "@/components/protocol/ProtocolCutChapter";
 import { ProtocolScaleCard } from "@/components/protocol/ProtocolScaleCard";
-import { SafetyWarningBanner } from "@/components/protocol/SafetyWarningBanner";
+import { SafetyWarningBanner, friendlyWarningTitle } from "@/components/protocol/SafetyWarningBanner";
 import { OrsRecipeCard } from "@/components/protocol/OrsRecipeCard";
 import { RehydrationTimeline } from "@/components/protocol/RehydrationTimeline";
 import { DoNotCallouts } from "@/components/protocol/DoNotCallouts";
@@ -99,6 +99,7 @@ export default function WeightProtocol() {
   const generateRehydration = useAction(
     api.actions.generateRehydrationProtocol.run,
   );
+  const clearProtocol = useMutation(api.weightProtocols.clearProtocol);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
 
@@ -157,6 +158,18 @@ export default function WeightProtocol() {
   const handleApproachChange = useCallback((next: CutApproach) => {
     setApproach(next);
   }, []);
+
+  // Walkout "Start over": wipe the fight plan + rehydration so the page falls
+  // back to Chapter 1, where the athlete can generate a fresh protocol.
+  const handleProtocolReset = useCallback(async () => {
+    try {
+      await clearProtocol({});
+    } catch {
+      /* best-effort — the page reverts on the next query tick regardless */
+    }
+    setFinishPressed(false);
+    setEditingSweat(false);
+  }, [clearProtocol]);
 
   // ── Top-level states ──────────────────────────────────────────────
   // Decide free-vs-Pro FIRST so a free user always gets the animated wizard
@@ -330,7 +343,6 @@ export default function WeightProtocol() {
   // bottom of the rehydration plan — an intentional success moment, not a phase
   // flip. Suppresses the countdown while showing.
   const showFinale = finishPressed;
-  const finaleLitres = rehydLitres;
 
   // Pre-formatted weigh-in date for the countdown anchor, from the D-0
   // skeleton day's ISO when present.
@@ -385,34 +397,6 @@ export default function WeightProtocol() {
         )
       ) : (
       <>
-      {/* 0a. Completion finale — celebratory "made weight & refueled" cutscene
-            once the cut is done (pre-fight + rehydration generated). */}
-      {showFinale && (
-        <ProtocolCompleteCutscene
-          stats={[
-            ...(targetWeight != null
-              ? [
-                  {
-                    label: "Made weight",
-                    value: `${targetWeight.toFixed(1)} kg`,
-                    tone: "health" as const,
-                  },
-                ]
-              : []),
-            ...(finaleLitres != null
-              ? [
-                  {
-                    label: "Rehydrated with",
-                    value: `≈${finaleLitres.toFixed(1)} L`,
-                    tone: "hydration" as const,
-                  },
-                ]
-              : []),
-            { label: "Fight night", value: "Full and strong" },
-          ]}
-        />
-      )}
-
       {/* 0b. Weigh-in countdown anchor — the pivot the whole flow hinges on.
             Suppressed once the finale is showing. */}
       {!showFinale && (
@@ -426,7 +410,7 @@ export default function WeightProtocol() {
       {critical && (
         <SafetyWarningBanner
           level="red"
-          title={critical.code.replace(/_/g, " ")}
+          title={friendlyWarningTitle(critical.code)}
           body={critical.message}
         />
       )}
@@ -534,6 +518,20 @@ export default function WeightProtocol() {
       {/* Floating back-to-top */}
       <BackToTopFAB />
       </>
+      )}
+
+      {/* Walkout finale — full-page takeover after "I've made weight &
+          refuelled": celebration → shareable recap poster → Start over (which
+          clears the plan and drops back to Chapter 1). */}
+      {finishPressed && (
+        <ProtocolWalkoutTakeover
+          stats={{
+            madeWeightKg: targetWeight,
+            rehydratedLitres: rehydLitres,
+            walkedInKg: currentWeight,
+          }}
+          onReset={handleProtocolReset}
+        />
       )}
 
       {/* Single shared upgrade explainer — opened by the top gate and every

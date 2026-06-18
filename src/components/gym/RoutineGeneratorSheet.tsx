@@ -10,7 +10,7 @@ import {
   Layout, Layers, Rows3, Grid3X3, Brain,
 } from "lucide-react";
 import { useAITask } from "@/contexts/AITaskContext";
-import { AICompactOverlay } from "@/components/AICompactOverlay";
+import { ProtocolGeneratingOverlay } from "@/components/protocol/ProtocolGeneratingOverlay";
 import type {
   RoutineGenerationParams, RoutineExercise, TrainingGoal,
   CombatSport, Equipment, WorkoutSplit, FocusArea,
@@ -191,6 +191,15 @@ function ExerciseRow({ ex, index }: { ex: RoutineExercise; index: number }) {
 
 type Step = "goals" | "sport" | "preferences" | "generate" | "result";
 const STEPS: Step[] = ["goals", "sport", "preferences", "generate", "result"];
+
+// Fallback rotating status lines for the Aurora wizard loader, used if the
+// background task hasn't supplied its own step list yet.
+const GYM_GEN_STEPS: ReadonlyArray<string> = [
+  "Analysing your sport and goals",
+  "Selecting the right exercises",
+  "Balancing volume across the week",
+  "Tuning sets, reps and rest",
+];
 
 export function RoutineGeneratorSheet({ open, onOpenChange, onGenerate, onSave, generating, completedResult }: RoutineGeneratorSheetProps) {
   const { tasks: aiTasks, dismissTask: aiDismissTask } = useAITask();
@@ -683,13 +692,25 @@ export function RoutineGeneratorSheet({ open, onOpenChange, onGenerate, onSave, 
                 </div>
 
                 {generating && gymAiTask ? (
-                  <AICompactOverlay
-                    isOpen={true}
-                    isGenerating={true}
-                    steps={gymAiTask.steps}
-            startedAt={gymAiTask.startedAt}                    title={gymAiTask.label}
-                    onCancel={() => aiDismissTask(gymAiTask.id)}
-                  />
+                  <div className="w-full flex flex-col items-center">
+                    <ProtocolGeneratingOverlay
+                      className="w-full"
+                      label="Conjuring your routine"
+                      steps={
+                        gymAiTask.steps.length
+                          ? gymAiTask.steps.map((s) => s.label)
+                          : GYM_GEN_STEPS
+                      }
+                      footnote="This usually takes 10-20 seconds."
+                    />
+                    <button
+                      type="button"
+                      onClick={() => aiDismissTask(gymAiTask.id)}
+                      className="mt-4 text-xs text-muted-foreground/70 hover:text-foreground transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 ) : (
                   <Button
                     onClick={handleGenerate}
