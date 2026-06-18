@@ -190,17 +190,17 @@ export function FightFormRing({
   // with that many simultaneously-animating layers, so cap the field on native.
   // The orbit reads the same with a denser-looking but cheaper swarm.
   const particleCount = isNativePlatform ? Math.min(rawParticleCount, 14) : rawParticleCount;
-  // Active colour drives the core glow, particles and the arc gradient: tier
-  // colour when scored, cyan while calibrating, slate as a fallback. When
-  // stale we desaturate to slate so the reactor reads as "cold".
+  // Active colour drives the core glow, particles, orbital band and the arc
+  // gradient: tier colour when scored, cyan while calibrating, slate only as a
+  // no-camp/paused fallback. Staleness is conveyed by the dimmed number + the
+  // "as of Nd ago" line — NOT by desaturating the ring, so the tier colour
+  // (orange / amber / green / rose) always reads correctly.
   const labelRgb =
     isScoredState(state)
-      ? stale
-        ? "148, 163, 184" // slate-400
-        : LABEL_RGB[label]
+      ? LABEL_RGB[label]
       : isCalib
         ? CALIB_RGB
-        : "148, 163, 184";
+        : "148, 163, 184"; // slate-400 fallback
 
   // Rotating signal phrase + day-completion ping. Both gated to calibrating
   // so the timers don't run when the ring is in any other state.
@@ -526,8 +526,8 @@ export function FightFormRing({
         )}
         {/* Containment arc — `renderedDash` resumes from the module-cached
             value on remount, then the duration-700 transition tweens to the
-            live `dash`. Gradient stroke (deep → bright active colour); slate
-            when stale. */}
+            live `dash`. Gradient stroke (deep → bright active colour) — always
+            the tier/calibration colour, never slate. */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -536,25 +536,23 @@ export function FightFormRing({
           fill="none"
           strokeLinecap="round"
           strokeDasharray={`${renderedDash} ${circumference}`}
-          stroke={stale ? "rgba(148,163,184,0.85)" : `url(#${gradId})`}
+          stroke={`url(#${gradId})`}
           className="transition-all duration-700"
         />
         {/* Traveling glint — bright streak gliding along the filled arc (its
             dashoffset/opacity are driven by the rAF loop above). */}
-        {!stale && (
-          <circle
-            ref={glintRef}
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            stroke="#ffffff"
-            strokeWidth={6}
-            fill="none"
-            strokeLinecap="round"
-            opacity={0}
-            style={{ pointerEvents: "none" }}
-          />
-        )}
+        <circle
+          ref={glintRef}
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="#ffffff"
+          strokeWidth={6}
+          fill="none"
+          strokeLinecap="round"
+          opacity={0}
+          style={{ pointerEvents: "none" }}
+        />
       </svg>
 
       {/* Lock glyph at the cap boundary. Lives outside the rotated SVG so
