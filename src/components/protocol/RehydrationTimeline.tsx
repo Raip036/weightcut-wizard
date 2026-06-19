@@ -1,12 +1,20 @@
 // RehydrationTimeline — full hour-by-hour rehydration plan.
 //
 // Expands a handful of sparse "anchor" hours into a complete H+0 … H+gapHours
-// plan (missing hours are linearly interpolated). Layout mirrors the mock's
-// "Step 2 · Rehydration plan": a SINGLE `table-fixed` table so the H+ and ml
-// columns stay aligned across EVERY row (no per-row flex/grid drift),
-// `tabular-nums` on the numeric columns, full-width phase header rows, an
-// emerald "MEAL" tag + tint on meal rows, and dimmed overnight rows.
+// plan (missing hours are linearly interpolated), then PRESENTS it as a
+// phone-readable SUMMARY stat band + COLLAPSIBLE phase cards. Each phase folds
+// its hours into one scannable header (hour range + total ml + headline cue);
+// expanding reveals comfortable full-width per-hour rows (big fluid ml, Na/carb
+// chips, cue, MEAL tag + meal name). Sleep is its own collapsed block.
+//
+// 2026-06-19: the backend now emits a dense per-hour plan carrying sodium (mg)
+// + carbs (g) + an `isSleep` flag. `expandHours` carries those through; the
+// display surfaces Na/carbs on each row and shows SLEEP rows as "no intake".
 // Pure presentational — no Convex, no business logic.
+import { useMemo, useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import { Droplet, AlertTriangle, Moon, ChevronDown } from "lucide-react";
+import { Icon, type IonIconName } from "@/components/ui/Icon";
 import { cn } from "@/lib/utils";
 
 // ── Public types ─────────────────────────────────────────────────────
@@ -33,6 +41,15 @@ export interface RehydrationAnchor {
   mealLabel?: string | null;
   /** Running cumulative ml through this hour (unused in layout, kept for parity). */
   cumulativeMl?: number;
+  // ── Hourly rehydrate/refeed additions (2026-06-19) ──
+  /** Sodium delivered with this hour's fluid, mg. */
+  sodiumMg?: number;
+  /** Carbohydrate to ingest this hour, g. */
+  carbG?: number;
+  /** True for hours inside the sleep window (no intake). */
+  isSleep?: boolean;
+  /** Deterministic phase classification from the generator. */
+  phase?: string;
 }
 
 export interface RehydrationTimelineProps {
@@ -42,26 +59,56 @@ export interface RehydrationTimelineProps {
   gapHours: number;
   /** Total litres target for the header line. Omit to hide the "L" part. */
   totalLitresTarget?: number;
+  /**
+   * When true the deficit couldn't be safely replaced inside the available
+   * waking hours — surface a "you cut too much for this gap" warning.
+   */
+  deficitTooLarge?: boolean;
   className?: string;
 }
 
 // Phase a given hour belongs to. Walkout is always the final hour.
-type Phase = "front-load" | "refeed" | "overnight" | "top-up" | "walkout";
+// The backend `phase` field is a free string; these are the values we know
+// how to classify/style. Unknown strings still render (title-cased fallback).
+type Phase =
+  | "front-load"
+  | "refeed"
+  | "pre-sleep"
+  | "sleep"
+  | "wake-dose"
+  | "top-up"
+  | "pre-fight"
+  // legacy strings still emitted by older payloads
+  | "overnight"
+  | "walkout";
 
 /** A fully-expanded, render-ready hour row. */
 export interface ExpandedHour {
   hourOffset: number;
-  /** Fluid in ml. `null` => render an em-dash (walkout with no fluid). */
+  /** Fluid in ml. `null` => render an em-dash (walkout / sleep with no fluid). */
   liquidsMl: number | null;
+  /** Sodium in mg for the hour, or null when unknown / sleep. */
+  sodiumMg: number | null;
+  /** Carbs in g for the hour, or null when unknown / sleep. */
+  carbG: number | null;
   /** Cue text shown in the notes column. */
   cue: string;
   /** Bold lead-in (label) rendered before the cue, when present. */
   lead?: string;
   isMeal: boolean;
+  isSleep: boolean;
   phase: Phase;
 }
 
 const DEFAULT_CUE = "Sip steadily — water + electrolytes.";
+const SLEEP_CUE = "Sleep — no intake";
+
+// Functional-palette tokens are space-separated RGB triplets in index.css
+// (e.g. `--func-hydration-cyan: 18 202 230`), so they compose via `rgb(...)`.
+const CYAN = "var(--func-hydration-cyan)";
+const AMBER = "var(--func-warning-yellow)";
+const DANGER = "var(--func-danger-red)";
+const CARBS = "var(--func-carbs-orange)";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -92,7 +139,8 @@ function roundTo50(ml: number): number {
  * Anchored hours use their own values (cue = foodCopy ?? notes ?? composition
  * ?? label; isMeal = !!foodCopy). Gaps are linearly interpolated (rounded to
  * 50ml) with a default cue; ends hold the nearest anchor's volume. The walkout
- * hour shows `null` fluid when its anchor is absent or zero.
+ * hour shows `null` fluid when its anchor is absent or zero. Sleep hours (from
+ * the rich `isSleep` flag) show `null` fluid + the sleep cue.
  * Pure + exported so it can be unit-tested independently of React.
  */
 export function expandHours(
@@ -147,34 +195,42 @@ export function expandHours(
 
   const rows: ExpandedHour[] = [];
   for (let hour = 0; hour <= lastHour; hour++) {
-    const phase = phaseForHour(hour, lastHour);
     const anchor = byHour.get(hour);
+    const isSleep = anchor?.isSleep === true;
+    const basePhase = phaseForHour(hour, lastHour);
+    const phase: Phase = isSleep ? "sleep" : basePhase;
 
     if (anchor) {
       const isMeal =
-        anchor.isMeal ??
-        !!(anchor.foodCopy && anchor.foodCopy.trim().length > 0);
-      const cue =
-        firstNonEmpty(
-          anchor.cue,
-          anchor.foodCopy,
-          anchor.notes,
-          anchor.liquidsComposition,
-          anchor.label,
-        ) ?? DEFAULT_CUE;
+        !isSleep &&
+        (anchor.isMeal ??
+          !!(anchor.foodCopy && anchor.foodCopy.trim().length > 0));
+      const cue = isSleep
+        ? firstNonEmpty(anchor.cue) ?? SLEEP_CUE
+        : firstNonEmpty(
+            anchor.cue,
+            anchor.foodCopy,
+            anchor.notes,
+            anchor.liquidsComposition,
+            anchor.label,
+          ) ?? DEFAULT_CUE;
       // When it's a meal, surface the meal name as the bold lead-in.
       const lead = isMeal
         ? firstNonEmpty(anchor.mealLabel ?? undefined, anchor.label)
         : undefined;
 
       const isWalkoutEmpty = phase === "walkout" && (anchor.liquidsMl ?? 0) <= 0;
+      const noFluid = isSleep || isWalkoutEmpty;
 
       rows.push({
         hourOffset: hour,
-        liquidsMl: isWalkoutEmpty ? null : anchor.liquidsMl,
+        liquidsMl: noFluid ? null : anchor.liquidsMl,
+        sodiumMg: isSleep ? null : anchor.sodiumMg ?? null,
+        carbG: isSleep ? null : anchor.carbG ?? null,
         cue,
         lead,
         isMeal,
+        isSleep,
         phase,
       });
       continue;
@@ -184,8 +240,11 @@ export function expandHours(
     rows.push({
       hourOffset: hour,
       liquidsMl: phase === "walkout" ? null : interpolate(hour),
+      sodiumMg: null,
+      carbG: null,
       cue: phase === "walkout" ? "Fight time. Full and strong." : DEFAULT_CUE,
       isMeal: false,
+      isSleep: false,
       phase,
     });
   }
@@ -193,26 +252,483 @@ export function expandHours(
   return rows;
 }
 
-/** Human-readable header for a phase group. */
-function phaseTitle(phase: Phase): string {
-  switch (phase) {
-    case "front-load":
-      return "Front-load";
-    case "refeed":
-      return "Refeed";
-    case "overnight":
-      return "Overnight";
-    case "top-up":
-      return "Top-up";
-    case "walkout":
-      return "Walkout";
-  }
+// Plain-language display copy for each phase string. Backend may emit any of
+// these (incl. legacy `overnight`/`walkout`); unknown strings fall back to a
+// title-cased version of the raw key.
+const PHASE_TITLES: Record<string, string> = {
+  "front-load": "Drink up",
+  refeed: "Eat & drink",
+  "pre-sleep": "Before bed",
+  sleep: "Sleep",
+  "wake-dose": "After waking",
+  "top-up": "Steady sips",
+  "pre-fight": "Walkout",
+  // legacy
+  overnight: "Sleep",
+  walkout: "Walkout",
+};
+
+/** Title-case an unknown phase key, e.g. "cool-down" → "Cool Down". */
+function titleCasePhase(phase: string): string {
+  return phase
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
 }
 
-/** Format an ml value for the fluid column. `null` => em-dash. */
-function formatFluid(ml: number | null): string {
-  if (ml === null) return "—";
+/** Human-readable header for a phase group. */
+function phaseTitle(phase: string): string {
+  return PHASE_TITLES[phase] ?? titleCasePhase(phase) ?? "Phase";
+}
+
+/** True when the phase represents the final walkout (incl. legacy/new keys). */
+function isWalkoutPhase(phase: string): boolean {
+  return phase === "walkout" || phase === "pre-fight";
+}
+
+function fmtMl(ml: number): string {
   return `${Math.round(ml)} ml`;
+}
+function fmtSodiumG(mg: number): string {
+  if (mg >= 1000) return `${(mg / 1000).toFixed(1)} g`;
+  return `${Math.round(mg)} mg`;
+}
+function rangeLabel(a: number, b: number): string {
+  return a === b ? `H+${a}` : `H+${a} → H+${b}`;
+}
+
+// ── Phase grouping ───────────────────────────────────────────────────
+
+interface PhaseGroup {
+  key: string;
+  phase: Phase;
+  title: string;
+  isSleep: boolean;
+  isWalkout: boolean;
+  hours: ExpandedHour[];
+  startH: number;
+  endH: number;
+  totalMl: number;
+  mealCount: number;
+  headlineCue: string;
+}
+
+/**
+ * Collapse the flat expanded-hour list into contiguous phase groups. A run
+ * breaks when either the `phase` changes OR the sleep flag flips, so a sleep
+ * block becomes its own card.
+ */
+function groupHours(hours: ExpandedHour[]): PhaseGroup[] {
+  const groups: PhaseGroup[] = [];
+  for (const h of hours) {
+    const last = groups[groups.length - 1];
+    const sameRun =
+      last && last.phase === h.phase && last.isSleep === h.isSleep;
+    if (sameRun) {
+      last.hours.push(h);
+    } else {
+      groups.push({
+        key: `${h.phase}-${h.hourOffset}-${h.isSleep ? "s" : "a"}`,
+        phase: h.phase,
+        title: phaseTitle(h.phase),
+        isSleep: h.isSleep,
+        isWalkout: isWalkoutPhase(h.phase),
+        hours: [h],
+        startH: h.hourOffset,
+        endH: h.hourOffset,
+        totalMl: 0,
+        mealCount: 0,
+        headlineCue: "",
+      });
+    }
+  }
+  // Second pass: derive summaries.
+  for (const g of groups) {
+    g.endH = g.hours[g.hours.length - 1].hourOffset;
+    g.totalMl = g.hours.reduce((s, h) => s + (h.liquidsMl ?? 0), 0);
+    g.mealCount = g.hours.filter((h) => h.isMeal).length;
+    // Headline never names a specific food — meal phases read as "Fuel up";
+    // otherwise fall back to the first hour's cue.
+    g.headlineCue = g.isSleep
+      ? "No intake — rest"
+      : g.mealCount > 0
+        ? "Meal + fluids"
+        : g.hours[0]?.cue?.trim() || "Sip steadily";
+  }
+  return groups;
+}
+
+// ── Summary stat tile ────────────────────────────────────────────────
+
+function StatTile({
+  icon,
+  value,
+  label,
+  accent,
+}: {
+  icon: IonIconName;
+  value: string;
+  label: string;
+  accent?: string;
+}) {
+  return (
+    <div className="surface-inset flex flex-col gap-1.5 rounded-2xl p-3">
+      <span style={accent ? { color: `rgb(${accent})` } : undefined}>
+        <Icon name={icon} size={16} className="opacity-90" />
+      </span>
+      <span
+        className="display-number text-[19px] leading-none tabular-nums"
+        style={accent ? { color: `rgb(${accent})` } : undefined}
+      >
+        {value}
+      </span>
+      <span className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/70">
+        {label}
+      </span>
+    </div>
+  );
+}
+
+// ── Per-hour row (inside an expanded phase) ──────────────────────────
+
+function HourRow({ h }: { h: ExpandedHour }) {
+  if (h.isSleep) {
+    return (
+      <div className="flex items-center gap-3 py-2.5">
+        <span className="w-12 shrink-0 text-[13px] font-semibold tabular-nums text-muted-foreground/45">
+          H+{h.hourOffset}
+        </span>
+        <Moon className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
+        <span className="flex-1 text-[12.5px] text-muted-foreground/45">
+          {SLEEP_CUE}
+        </span>
+        <span className="text-[13px] tabular-nums text-muted-foreground/35">
+          —
+        </span>
+      </div>
+    );
+  }
+
+  const fluid = h.liquidsMl ?? 0;
+  const hasFluid = h.liquidsMl !== null && fluid > 0;
+
+  return (
+    <div
+      className={cn(
+        "flex items-start gap-3 rounded-xl py-2.5",
+        h.isMeal && "-mx-2 bg-func-recovery-green/[0.07] px-2",
+      )}
+    >
+      {/* Hour anchor */}
+      <span
+        className="w-12 shrink-0 pt-[1px] text-[13px] font-bold tabular-nums"
+        style={{ color: `rgb(${CYAN})` }}
+      >
+        H+{h.hourOffset}
+      </span>
+
+      {/* Body: cue + macro line */}
+      <div className="min-w-0 flex-1">
+        {/* Meal rows show a neutral FUEL chip — the specific food suggestions
+            live in the "Meal ideas" box below, not prescribed per hour. */}
+        {h.isMeal && (
+          <div className="flex items-center gap-2">
+            <span className="inline-flex min-w-[46px] items-center justify-center rounded-md border border-func-recovery-green/30 bg-func-recovery-green/10 px-1.5 py-[2px] text-[9px] font-extrabold uppercase tracking-[0.12em] text-func-recovery-green">
+              Meal
+            </span>
+            {(h.carbG ?? 0) > 0 && (
+              <span className="truncate text-[13px] font-semibold text-foreground/90 tabular-nums">
+                ~{Math.round(h.carbG ?? 0)} g carbs
+              </span>
+            )}
+          </div>
+        )}
+        <p
+          className={cn(
+            "text-[12.5px] leading-[1.4] text-muted-foreground",
+            h.isMeal && "mt-0.5",
+          )}
+        >
+          {h.cue}
+        </p>
+        {/* macro chips */}
+        {(((h.sodiumMg ?? 0) > 0) || ((h.carbG ?? 0) > 0)) && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] tabular-nums">
+            {(h.sodiumMg ?? 0) > 0 && (
+              <span className="text-primary/80">
+                <span className="text-muted-foreground/50">Na</span>{" "}
+                {Math.round(h.sodiumMg ?? 0)} mg
+              </span>
+            )}
+            {(h.carbG ?? 0) > 0 && !h.isMeal && (
+              <span className="text-func-carbs-orange/85">
+                <span className="text-muted-foreground/50">Carb</span>{" "}
+                {Math.round(h.carbG ?? 0)} g
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Fluid amount — right rail */}
+      <div className="shrink-0 pt-[1px] text-right">
+        <span
+          className="block text-[14px] font-bold tabular-nums"
+          style={{ color: `rgb(${CYAN})` }}
+        >
+          {hasFluid ? Math.round(fluid) : "—"}
+        </span>
+        {hasFluid && (
+          <span className="text-[9px] uppercase tracking-[0.1em] text-muted-foreground/50">
+            ml
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Collapsible phase card ───────────────────────────────────────────
+
+function PhaseCard({
+  group,
+  open,
+  onToggle,
+}: {
+  group: PhaseGroup;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const accent = group.isWalkout ? DANGER : group.isSleep ? null : CYAN;
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border/50 bg-[rgb(var(--neutral-800))]">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors active:bg-white/[0.02]"
+      >
+        {/* Accent rail dot */}
+        <span
+          className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+          style={{
+            background: accent
+              ? `rgb(${accent} / 0.12)`
+              : "rgb(255 255 255 / 0.04)",
+          }}
+        >
+          {group.isSleep ? (
+            <Moon className="h-4 w-4 text-muted-foreground/55" />
+          ) : group.isWalkout ? (
+            <span style={{ color: `rgb(${accent})` }}>
+              <Icon name={"flash-outline" as IonIconName} size={17} />
+            </span>
+          ) : (
+            <Droplet className="h-4 w-4" style={{ color: `rgb(${accent})` }} />
+          )}
+        </span>
+
+        {/* Title + summary */}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span
+              className={cn(
+                "text-[14px] font-bold",
+                group.isSleep ? "text-muted-foreground/70" : "text-foreground",
+              )}
+            >
+              {group.title}
+            </span>
+            <span className="text-[10px] uppercase tracking-[0.12em] font-semibold tabular-nums text-muted-foreground/55">
+              {rangeLabel(group.startH, group.endH)}
+            </span>
+          </div>
+          <p className="mt-0.5 truncate text-[11.5px] text-muted-foreground/75">
+            {group.isSleep ? (
+              "No intake — rest"
+            ) : (
+              <>
+                <span
+                  className="font-semibold tabular-nums"
+                  style={{ color: accent ? `rgb(${accent})` : undefined }}
+                >
+                  {group.totalMl > 0 ? fmtMl(group.totalMl) : "no intake"}
+                </span>
+                {group.mealCount > 0 && (
+                  <span className="text-muted-foreground/55">
+                    {" · "}
+                    {group.mealCount} meal{group.mealCount > 1 ? "s" : ""}
+                  </span>
+                )}
+                <span className="text-muted-foreground/45">
+                  {" · "}
+                  {group.headlineCue}
+                </span>
+              </>
+            )}
+          </p>
+        </div>
+
+        {/* Chevron */}
+        <motion.span
+          animate={{ rotate: open ? 180 : 0 }}
+          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+          className="shrink-0 text-muted-foreground/50"
+        >
+          <ChevronDown className="h-4 w-4" />
+        </motion.span>
+      </button>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key="body"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+            className="overflow-hidden"
+          >
+            <div className="border-t border-border/40 px-4 pb-2 pt-1">
+              {/* Walkout always surfaces a fast-carb prompt, regardless of the
+                  generated cue, so it can't be missed at the wire. */}
+              {group.isWalkout && (
+                <div
+                  className="mt-2.5 mb-1 flex items-start gap-2 rounded-xl border p-2.5"
+                  style={{
+                    borderColor: `rgb(${CARBS} / 0.35)`,
+                    background: `rgb(${CARBS} / 0.1)`,
+                  }}
+                >
+                  <span
+                    className="mt-[1px] shrink-0"
+                    style={{ color: `rgb(${CARBS})` }}
+                  >
+                    <Icon name={"flash-outline" as IonIconName} size={14} />
+                  </span>
+                  <p
+                    className="text-[12.5px] font-semibold leading-snug"
+                    style={{ color: `rgb(${CARBS})` }}
+                  >
+                    Fast sugar now — gummy bears, honey, or a gel as you walk
+                    out.
+                  </p>
+                </div>
+              )}
+              <div className="divide-y divide-border/30">
+                {group.hours.map((h) => (
+                  <HourRow key={h.hourOffset} h={h} />
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ── Meal ideas box ───────────────────────────────────────────────────
+
+const REFUEL_MEALS = [
+  "White rice + lean chicken",
+  "Pasta + light tomato sauce",
+  "Oatmeal with water + honey",
+  "White-bread sandwich (jam or turkey)",
+  "Mashed white potato + a little salt",
+];
+
+const QUICK_SNACKS = [
+  "Bananas / ripe fruit",
+  "Rice cakes, pretzels, crackers",
+  "Low-fat yogurt + honey",
+  "Sports drink + a salty snack",
+  "White toast + honey/jam",
+];
+
+/** Static "what to eat" reference. Pure presentational, no inputs. */
+function MealIdeasBox() {
+  return (
+    <div className="card-surface mt-5 rounded-2xl p-4">
+      <p className="text-[10px] uppercase tracking-[0.14em] font-semibold text-muted-foreground/70">
+        Meal ideas
+      </p>
+      <p className="mt-0.5 text-[11.5px] text-muted-foreground/75">
+        high-carb · easy to digest · low fat · lean
+      </p>
+
+      <div className="mt-3.5 grid gap-4 sm:grid-cols-2">
+        <MealIdeaList
+          heading="Refuel meals"
+          items={REFUEL_MEALS}
+          accent={"var(--func-recovery-green)"}
+        />
+        <MealIdeaList
+          heading="Quick snacks"
+          items={QUICK_SNACKS}
+          accent={"var(--func-carbs-orange)"}
+        />
+      </div>
+
+      {/* Foods to avoid */}
+      <div
+        className="mt-4 flex items-start gap-2 rounded-xl border p-2.5"
+        style={{
+          borderColor: `rgb(${AMBER} / 0.3)`,
+          background: `rgb(${AMBER} / 0.07)`,
+        }}
+      >
+        <span className="mt-[1px] shrink-0" style={{ color: `rgb(${AMBER})` }}>
+          <Icon name={"warning-outline" as IonIconName} size={14} />
+        </span>
+        <p className="text-[11.5px] leading-snug text-muted-foreground/85">
+          <span className="font-semibold" style={{ color: `rgb(${AMBER})` }}>
+            Foods to avoid:{" "}
+          </span>
+          Avoid fried/greasy, high-fat, high-fibre (wholegrains, beans, raw veg,
+          salad), very large meals, spicy or creamy foods, and anything
+          new/untested.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function MealIdeaList({
+  heading,
+  items,
+  accent,
+}: {
+  heading: string;
+  items: string[];
+  accent: string;
+}) {
+  return (
+    <div>
+      <p
+        className="text-[11px] font-bold uppercase tracking-[0.1em]"
+        style={{ color: `rgb(${accent})` }}
+      >
+        {heading}
+      </p>
+      <ul className="mt-2 space-y-1.5">
+        {items.map((item) => (
+          <li
+            key={item}
+            className="flex items-start gap-2 text-[12.5px] leading-snug text-foreground/85"
+          >
+            <span
+              className="mt-[7px] h-1 w-1 shrink-0 rounded-full"
+              style={{ background: `rgb(${accent})` }}
+            />
+            {item}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 // ── Component ────────────────────────────────────────────────────────
@@ -221,132 +737,141 @@ export function RehydrationTimeline({
   anchors,
   gapHours,
   totalLitresTarget,
+  deficitTooLarge,
   className,
 }: RehydrationTimelineProps) {
-  const rows = expandHours(anchors, gapHours);
-  // Use the actual last rendered hour for the header so it matches the table.
+  const rows = useMemo(() => expandHours(anchors, gapHours), [anchors, gapHours]);
+  const groups = useMemo(() => groupHours(rows), [rows]);
+
+  // Use the actual last rendered hour for the header so it matches the rows.
   const effectiveGap = rows.length ? rows[rows.length - 1].hourOffset : gapHours;
 
-  // Header line: "Replace 3 L over 24 h" (drop the "X L" part when absent).
-  const litrePart =
+  // Summary totals derived from the expanded plan.
+  const summedLitres = rows.reduce((s, r) => s + (r.liquidsMl ?? 0), 0) / 1000;
+  const totalLitres =
     totalLitresTarget !== undefined && totalLitresTarget > 0
-      ? `${Number(totalLitresTarget.toFixed(1))} L `
-      : "";
+      ? totalLitresTarget
+      : summedLitres;
+  const totalCarb = rows.reduce((s, r) => s + (r.carbG ?? 0), 0);
+  const totalSodium = rows.reduce((s, r) => s + (r.sodiumMg ?? 0), 0);
+  const mealCount = rows.filter((r) => r.isMeal).length;
+
+  // Default: expand the first 2 active (non-sleep) phases, collapse the rest.
+  const initialOpen = useMemo(() => {
+    const set = new Set<string>();
+    let active = 0;
+    for (const g of groups) {
+      if (!g.isSleep && active < 2) {
+        set.add(g.key);
+        active += 1;
+      }
+    }
+    return set;
+  }, [groups]);
+
+  const [openKeys, setOpenKeys] = useState<Set<string>>(initialOpen);
+
+  const toggle = (key: string) => {
+    setOpenKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   return (
     <section
       role="region"
       aria-label="Hour-by-hour rehydration plan"
-      className={cn(
-        "card-surface rounded-2xl border border-border/50 p-5",
-        className,
-      )}
+      className={cn("w-full", className)}
     >
-      {/* Section header */}
-      <p className="text-[10px] uppercase tracking-[0.15em] font-bold text-func-hydration-cyan">
+      {/* Eyebrow + title */}
+      <p className="text-[10px] uppercase tracking-[0.14em] font-semibold text-muted-foreground/70">
         Step 2 · Rehydration plan
       </p>
-      <p className="mt-1.5 text-[11px] text-muted-foreground">
-        Replace{" "}
-        <span className="font-semibold text-foreground">
-          {litrePart}over {effectiveGap} h
-        </span>{" "}
-        · weigh-in to walkout
+      <h2 className="mt-1 text-[20px] font-bold leading-tight text-foreground">
+        Replace fluid over {effectiveGap} h
+      </h2>
+      <p className="mt-1 text-[12px] text-muted-foreground/75">
+        Weigh-in → walkout · {groups.length} phase
+        {groups.length === 1 ? "" : "s"}, paced hour by hour.
       </p>
 
-      {/* Fixed-layout table — H+ and ml columns align across ALL rows. */}
-      <table className="mt-4 w-full table-fixed border-collapse tabular-nums">
-        <colgroup>
-          <col className="w-[48px]" />
-          <col className="w-[64px]" />
-          <col />
-        </colgroup>
-        <tbody>
-          {rows.map((row, i) => {
-            const prev = rows[i - 1];
-            const showPhaseHeader = !prev || prev.phase !== row.phase;
-            return (
-              <PhaseAndRow
-                key={row.hourOffset}
-                row={row}
-                showPhaseHeader={showPhaseHeader}
-              />
-            );
-          })}
-        </tbody>
-      </table>
-    </section>
-  );
-}
-
-// ── Internal: phase header + data row ────────────────────────────────
-
-function PhaseAndRow({
-  row,
-  showPhaseHeader,
-}: {
-  row: ExpandedHour;
-  showPhaseHeader: boolean;
-}) {
-  const isOvernight = row.phase === "overnight";
-  const isWalkoutHeader = row.phase === "walkout";
-
-  return (
-    <>
-      {showPhaseHeader && (
-        <tr>
-          <td
-            colSpan={3}
-            className={cn(
-              "pb-1 pt-3.5 text-[8.5px] font-bold uppercase tracking-[0.13em]",
-              isWalkoutHeader
-                ? "text-func-danger-red"
-                : "text-func-hydration-cyan",
-            )}
-          >
-            {phaseTitle(row.phase)}
-          </td>
-        </tr>
+      {/* Shortfall warning — the cut was too deep to safely replace in time. */}
+      {deficitTooLarge && (
+        <div
+          className="mt-4 flex items-start gap-2.5 rounded-2xl border p-3.5"
+          style={{
+            borderColor: `rgb(${AMBER} / 0.35)`,
+            background: `rgb(${AMBER} / 0.08)`,
+          }}
+        >
+          <AlertTriangle
+            className="mt-[1px] h-4 w-4 shrink-0"
+            style={{ color: `rgb(${AMBER})` }}
+          />
+          <div>
+            <p
+              className="text-[12.5px] font-bold"
+              style={{ color: `rgb(${AMBER})` }}
+            >
+              You cut too much for this gap
+            </p>
+            <p className="mt-0.5 text-[12px] leading-snug text-foreground/85">
+              There isn't enough waking time to safely replace all of it. The
+              plan front-loads what's safe (capped ~1 L/h) — expect to walk in
+              slightly under-replaced.
+            </p>
+          </div>
+        </div>
       )}
-      <tr className={cn(row.isMeal && "bg-emerald-500/[0.06]")}>
-        {/* H+ column */}
-        <td
-          className={cn(
-            "border-b border-border/40 py-[7px] align-top text-[11px] font-bold tabular-nums",
-            isOvernight ? "text-muted-foreground/50" : "text-func-hydration-cyan",
-          )}
-        >
-          H+{row.hourOffset}
-        </td>
 
-        {/* Fluid column — right-aligned, no wrap */}
-        <td
-          className={cn(
-            "whitespace-nowrap border-b border-border/40 py-[7px] text-right align-top text-[11px] tabular-nums",
-            isOvernight ? "text-muted-foreground/50" : "text-func-hydration-cyan/90",
-          )}
-        >
-          {formatFluid(row.liquidsMl)}
-        </td>
+      {/* Summary stat band */}
+      <div className="mt-4 grid grid-cols-2 gap-2.5">
+        <StatTile
+          icon={"water-outline" as IonIconName}
+          value={`${Number(totalLitres.toFixed(1))} L`}
+          label="Total fluid"
+          accent={CYAN}
+        />
+        <StatTile
+          icon={"time-outline" as IonIconName}
+          value={`${effectiveGap} h`}
+          label="Window"
+        />
+        <StatTile
+          icon={"flame-outline" as IonIconName}
+          value={`${Math.round(totalCarb)} g`}
+          label="Carbs"
+          accent={CARBS}
+        />
+        <StatTile
+          icon={"restaurant-outline" as IonIconName}
+          value={`${mealCount}`}
+          label={`${fmtSodiumG(totalSodium)} sodium · meals`}
+        />
+      </div>
 
-        {/* Cue column */}
-        <td
-          className={cn(
-            "border-b border-border/40 py-[7px] pl-3 align-top text-[10.5px] leading-[1.35]",
-            isOvernight ? "text-muted-foreground/45" : "text-muted-foreground",
-          )}
-        >
-          {row.isMeal && (
-            <span className="mr-1.5 inline-block rounded border border-emerald-500/30 bg-emerald-500/10 px-1 py-[1px] align-[1px] text-[7.5px] font-extrabold uppercase tracking-[0.06em] text-emerald-400">
-              MEAL
-            </span>
-          )}
-          {row.lead && (
-            <span className="font-semibold text-foreground/90">{row.lead} </span>
-          )}
-          <span>{row.cue}</span>
-        </td>
-      </tr>
-    </>
+      {/* Phase cards */}
+      <div className="mt-5 flex flex-col gap-2.5">
+        {groups.map((g) => (
+          <PhaseCard
+            key={g.key}
+            group={g}
+            open={openKeys.has(g.key)}
+            onToggle={() => toggle(g.key)}
+          />
+        ))}
+      </div>
+
+      {/* What to eat — neutral reference (specific foods live here, not per-hour). */}
+      <MealIdeasBox />
+
+      {/* Footer hint */}
+      <p className="mt-4 text-center text-[10.5px] text-muted-foreground/45">
+        Tap a phase to expand its hour-by-hour breakdown.
+      </p>
+    </section>
   );
 }

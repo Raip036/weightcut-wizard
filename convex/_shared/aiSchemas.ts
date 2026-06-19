@@ -392,8 +392,30 @@ export const RehydrationProtocolSchema = z.object({
       foodCopy: z.string(),
       notes: z.string(),
       caution: z.string().nullable(),
+      // ── Hourly rehydrate/refeed additions (2026-06-19) — all OPTIONAL so
+      //    existing persisted protocols still validate. The deterministic
+      //    `buildRehydrationHourlyPlan` populates these; the AI only authors
+      //    `cue` / `mealLabel` copy. ──
+      /** Sodium delivered with this hour's fluid, mg (per-litre, mass-independent). */
+      sodiumMg: z.number().optional(),
+      /** Carbohydrate to ingest this hour, g. 0 during sleep + pre-fight. */
+      carbG: z.number().optional(),
+      /** True for hours inside the sleep window (no intake). */
+      isSleep: z.boolean().optional(),
+      /** Whether to treat this hour as a meal slot. */
+      isMeal: z.boolean().optional(),
+      /** Meal name when `isMeal`. */
+      mealLabel: z.string().nullable().optional(),
+      /** Phase classification for timeline grouping. */
+      phase: z.string().optional(),
+      /** Imperative cue text (deterministic default; AI may overwrite). */
+      cue: z.string().optional(),
     }),
   ),
+
+  /** Set when the deficit can't be safely replaced in the available waking
+   *  hours ("you cut too much for this gap"). Optional/additive. */
+  deficitTooLarge: z.boolean().optional(),
 
   doNots: z.array(z.string()).max(7),
   feelChecks: z.array(

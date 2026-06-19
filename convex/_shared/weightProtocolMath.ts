@@ -102,6 +102,8 @@ export interface FightPlanDaySkeleton {
   waterLitres: number;
   sodiumMg: number;
   fibreNote: "normal" | "reduce" | "eliminate" | "low_residue_only";
+  /** Deterministic fibre target (g) for the day — drives the cut-plan UI. */
+  fiberGrams: number;
   trainingRecommendation: string;
   sleepTargetHours: number;
 }
@@ -466,21 +468,32 @@ interface DayAnchor {
   /** Absolute sodium mg (scaled with currentWeightKg/75 below). */
   sodiumMgAt75kg: number;
   fibreNote: "normal" | "reduce" | "eliminate" | "low_residue_only";
+  /** Deterministic per-day fibre target in grams. Authoritative (the AI no
+   *  longer supplies this) so the cut-plan UI always renders the correct taper
+   *  instead of "None" on every day. */
+  fiberGrams: number;
 }
 
 // Index = daysToWeighIn (0 = weigh-in day, 7 = T-7). Water/sodium/fibre per
 // spec §3. Carbs are intentionally NOT in this table — they follow the
 // body-weight-scaled RESTRICTION model in `carbsForDay` below (which replaces
 // the previous gradual per-kg taper of 3→2→1 g/kg).
+//
+// FIBRE TAPER (evidence-based, Reale & Slater / GSSI / ISSN 2025 position
+// stand): keep fibre NORMAL until ~4 days out, then a short late taper —
+// ≤10 g/day for ~48 h captures essentially the full ~1.5% gut-content benefit,
+// and restricting earlier adds GI stress with no extra weight loss. So:
+//   T-7..T-4 normal (~30 g) · T-3 reduce (~18 g) · T-2 low-residue (~12 g) ·
+//   T-1 minimal (~7 g) · weigh-in morning none (0 g).
 const FIGHT_WEEK_ANCHORS: Record<number, DayAnchor> = {
-  7: { waterMlPerKg: 100, sodiumMgAt75kg: 2500, fibreNote: "normal" },
-  6: { waterMlPerKg: 100, sodiumMgAt75kg: 2500, fibreNote: "normal" },
-  5: { waterMlPerKg: 100, sodiumMgAt75kg: 2500, fibreNote: "reduce" },
-  4: { waterMlPerKg: 75, sodiumMgAt75kg: 2500, fibreNote: "eliminate" },
-  3: { waterMlPerKg: 50, sodiumMgAt75kg: 1000, fibreNote: "eliminate" },
-  2: { waterMlPerKg: 30, sodiumMgAt75kg: 500, fibreNote: "low_residue_only" },
-  1: { waterMlPerKg: 15, sodiumMgAt75kg: 200, fibreNote: "low_residue_only" },
-  0: { waterMlPerKg: 5, sodiumMgAt75kg: 0, fibreNote: "low_residue_only" },
+  7: { waterMlPerKg: 100, sodiumMgAt75kg: 2500, fibreNote: "normal", fiberGrams: 30 },
+  6: { waterMlPerKg: 100, sodiumMgAt75kg: 2500, fibreNote: "normal", fiberGrams: 30 },
+  5: { waterMlPerKg: 100, sodiumMgAt75kg: 2500, fibreNote: "normal", fiberGrams: 30 },
+  4: { waterMlPerKg: 75, sodiumMgAt75kg: 2500, fibreNote: "normal", fiberGrams: 30 },
+  3: { waterMlPerKg: 50, sodiumMgAt75kg: 1000, fibreNote: "reduce", fiberGrams: 18 },
+  2: { waterMlPerKg: 30, sodiumMgAt75kg: 500, fibreNote: "low_residue_only", fiberGrams: 12 },
+  1: { waterMlPerKg: 15, sodiumMgAt75kg: 200, fibreNote: "low_residue_only", fiberGrams: 7 },
+  0: { waterMlPerKg: 5, sodiumMgAt75kg: 0, fibreNote: "eliminate", fiberGrams: 0 },
 };
 
 /**
@@ -586,6 +599,7 @@ export function buildFightPlanSkeleton(
       waterLitres,
       sodiumMg,
       fibreNote: anchor.fibreNote,
+      fiberGrams: anchor.fiberGrams,
       trainingRecommendation: trainingForDay(dtw),
       sleepTargetHours: sleepTargetForDay(dtw),
     });
@@ -730,5 +744,478 @@ export function buildRehydrationSkeleton(d: DerivedInputs): RehydrationSkeleton 
     totalFluidTargetMl,
     totalCarbTargetGrams,
     totalSodiumTargetMg,
+  };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 6. buildRehydrationHourlyPlan (WP-T7b)
+//
+// HOUR-BY-HOUR post-weigh-in rehydrate + refuel plan that ALSO understands a
+// SLEEP window and a fight time, distributing fluid/electrolytes/carbs across
+// WAKING hours only. Mirrors the fight-plan pattern: every numeric here is
+// deterministic + server-authoritative; the AI only authors cue / meal copy.
+//
+// Research constants (hard rules — see spec §3 / §6):
+//   • Total to ingest = 1.4 × deficitLitres (140% of fluid lost).
+//   • Hourly ceiling 1.0 L/h (1.2 L only hour 1). Taper floor 0.2 L/h awake.
+//   • Sodium: first ~55% of volume at ORS strength ~1600 mg/L; later ~700 mg/L.
+//   • Carbs: ~6 g/kg total, ≤60 g/h, start H+2, taper to 0 in final ~75 min.
+//   • Sleep hours → 0 fluid + 0 carbs ("Sleep — no intake").
+//   • Pre-sleep top-up: last 1–2 waking hours before sleep → ceiling + salty snack.
+//   • Wake dose: first waking hour after sleep → ~0.9 L ORS bolus.
+//   • Pre-fight buffer: final 30–60 min → sips only (≤200 ml), no carbs/boluses.
+// ────────────────────────────────────────────────────────────────────────────
+
+/** Phase a rehydration hour belongs to — drives the timeline's grouping. */
+export type RehydrationPlanPhase =
+  | "front-load"
+  | "refeed"
+  | "pre-sleep"
+  | "sleep"
+  | "wake-dose"
+  | "top-up"
+  | "pre-fight";
+
+/** A single, fully-resolved per-hour row of the deterministic plan. */
+export interface RehydrationPlanHour {
+  /** Hours after weigh-in. H+0 is the weigh-in hour. */
+  hourOffset: number;
+  /** Fluid to ingest this hour, ml. 0 during sleep. */
+  liquidsMl: number;
+  /** Sodium delivered with this hour's fluid, mg (mass-independent, per-litre). */
+  sodiumMg: number;
+  /** Carbohydrate to eat/drink this hour, g. 0 during sleep + pre-fight. */
+  carbG: number;
+  /** Whether to treat this hour as a meal slot. */
+  isMeal: boolean;
+  /** Meal name when `isMeal`, else null. */
+  mealLabel: string | null;
+  /** True for hours inside the sleep window (no intake). */
+  isSleep: boolean;
+  /** Phase classification. */
+  phase: RehydrationPlanPhase;
+  /** Imperative cue text (deterministic default; AI may overwrite). */
+  cue: string;
+}
+
+export interface RehydrationHourlyPlan {
+  hours: RehydrationPlanHour[];
+  /** Litres we actually scheduled across waking hours. */
+  totalLitresScheduled: number;
+  /** Total carbohydrate scheduled, g. */
+  totalCarbScheduled: number;
+  /** Total sodium scheduled, mg. */
+  totalSodiumScheduled: number;
+  /** Whether a sleep block was placed. */
+  hasSleep: boolean;
+  /** First/last waking hour offsets bordering the sleep block (null when none). */
+  sleepStartHour: number | null;
+  sleepEndHour: number | null;
+  /**
+   * Set when deficit/waking-hours exceeds the hourly ceiling so we cannot
+   * safely replace the full target — the UI surfaces a "you cut too much for
+   * this gap" warning.
+   */
+  deficitTooLarge: boolean;
+}
+
+export interface BuildRehydrationHourlyPlanArgs {
+  /** Litres of fluid lost (≈ sweat-loss kg). Drives total volume. */
+  deficitLitres: number;
+  /** Whole hours from weigh-in to fight. */
+  hoursUntilFight: number;
+  /** Hour-of-day the athlete falls asleep (0–24), e.g. 23. Null/undefined ⇒ no sleep. */
+  sleepStartHour?: number | null;
+  /** Hour-of-day the athlete wakes (0–24), e.g. 7. */
+  sleepEndHour?: number | null;
+  /** Wall-clock hour-of-day at weigh-in (0–24). Default 11:00 per spec. */
+  weighInClockHour?: number | null;
+  /** Body mass (kg) at weigh-in, for carb scaling. ≤0 ⇒ skip carbs gracefully. */
+  bodyMassKg?: number | null;
+}
+
+// ── Hard research constants ──────────────────────────────────────────────────
+const REHYDRATION_REPLACEMENT_FACTOR = 1.4; // 140% of fluid lost
+const HOURLY_CEILING_ML = 1000; // 1.0 L/h hard cap
+const HOUR_ONE_CEILING_ML = 1200; // 1.2 L allowed only in hour 1
+const TAPER_FLOOR_ML = 200; // 0.2 L/h floor while awake
+const SODIUM_STRONG_MG_PER_L = 1600; // ORS strength (~70 mmol/L Na)
+const SODIUM_WEAK_MG_PER_L = 700; // maintenance (~30 mmol/L Na)
+const SODIUM_STRONG_VOLUME_FRACTION = 0.55; // first ~55% of volume at ORS strength
+const CARB_G_PER_KG = 6; // refeed default
+const CARB_MAX_PER_HOUR = 60; // gut tolerance ceiling
+const WAKE_DOSE_ML = 900; // fresh ORS bolus on waking
+const PRE_FIGHT_BUFFER_ML = 200; // sips only in the final hour
+const MIN_SHORT_GAP_FOR_SLEEP = 10; // gaps < 10h are treated as same-day (no sleep)
+
+/** Round to nearest 50 ml. */
+function roundTo50ml(n: number): number {
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.round(n / 50) * 50;
+}
+
+/** Normalise an hour-of-day to [0, 24). */
+function normHour(h: number): number {
+  const r = ((h % 24) + 24) % 24;
+  return r;
+}
+
+/**
+ * Decide which absolute hour offsets fall inside the sleep window.
+ *
+ * The sleep window is expressed as wall-clock hours (sleepStartHour →
+ * sleepEndHour, possibly wrapping past midnight). We project it onto the
+ * H+offset axis using the weigh-in clock hour. An offset h sits at wall-clock
+ * (weighInClockHour + h) mod 24; it's a sleep hour when that clock time is in
+ * [sleepStart, sleepEnd). We only mark the FIRST overnight occurrence so a very
+ * long (multi-night) gap still produces a single contiguous block near the
+ * front — fights are scheduled within ~36h so one night is the norm.
+ */
+function computeSleepOffsets(
+  hoursUntilFight: number,
+  weighInClockHour: number,
+  sleepStartHour: number,
+  sleepEndHour: number,
+): Set<number> {
+  const offsets = new Set<number>();
+  const start = normHour(sleepStartHour);
+  const end = normHour(sleepEndHour);
+  // Window length in hours (handles wrap past midnight). 0 ⇒ treat as no sleep.
+  const windowLen = ((end - start + 24) % 24) || 0;
+  if (windowLen <= 0) return offsets;
+
+  let foundFirst = false;
+  let sleeping = false;
+  for (let h = 0; h <= hoursUntilFight; h++) {
+    const clock = normHour(weighInClockHour + h);
+    // Distance from sleep start, wrapping; in-window when < windowLen.
+    const sinceStart = (clock - start + 24) % 24;
+    const inWindow = sinceStart < windowLen;
+    if (inWindow && !foundFirst) {
+      foundFirst = true;
+      sleeping = true;
+    }
+    if (foundFirst) {
+      if (inWindow && sleeping) {
+        // Never sleep through the final hour (must be awake to fight).
+        if (h < hoursUntilFight) offsets.add(h);
+      } else if (!inWindow && sleeping) {
+        // Exited the first window — stop (single contiguous night).
+        break;
+      }
+    }
+  }
+  return offsets;
+}
+
+/**
+ * Deterministic hour-by-hour rehydration + refeed plan.
+ *
+ * Distributes 140% of the fluid deficit across WAKING hours with a front-loaded
+ * descending ramp (each hour clamped to [floor, ceiling], overflow pushed to the
+ * next earliest unclamped hour). Layers sodium (per-litre), carbs (g/kg, capped,
+ * tapering to 0 pre-fight), a sleep block (0 intake), a pre-sleep top-up + salty
+ * snack, a wake-dose bolus, and a pre-fight sips-only buffer. Pure — no I/O.
+ */
+export function buildRehydrationHourlyPlan(
+  args: BuildRehydrationHourlyPlanArgs,
+): RehydrationHourlyPlan {
+  const deficitLitres = Math.max(0, Number(args.deficitLitres) || 0);
+  const gap = Math.max(1, Math.round(Number(args.hoursUntilFight) || 0));
+  const bodyMassKg = Math.max(0, Number(args.bodyMassKg) || 0);
+  const weighInClockHour = normHour(
+    Number.isFinite(args.weighInClockHour as number)
+      ? (args.weighInClockHour as number)
+      : 11,
+  );
+
+  // ── Sleep block. Only when both bounds present AND the gap is long enough
+  //    to actually span a night. Short same-day gaps get no sleep. ──
+  const sleepRequested =
+    args.sleepStartHour != null &&
+    args.sleepEndHour != null &&
+    Number.isFinite(args.sleepStartHour) &&
+    Number.isFinite(args.sleepEndHour);
+  const sleepOffsets =
+    sleepRequested && gap >= MIN_SHORT_GAP_FOR_SLEEP
+      ? computeSleepOffsets(
+          gap,
+          weighInClockHour,
+          args.sleepStartHour as number,
+          args.sleepEndHour as number,
+        )
+      : new Set<number>();
+  const hasSleep = sleepOffsets.size > 0;
+
+  // ── Hours 0..gap inclusive. Final hour (gap) is the pre-fight buffer. ──
+  const n = gap + 1;
+  const wakingOffsets: number[] = [];
+  for (let h = 0; h < n; h++) {
+    if (!sleepOffsets.has(h)) wakingOffsets.push(h);
+  }
+
+  // The pre-fight buffer hour (final hour) is awake but sips-only — it does NOT
+  // receive ramp volume; we hand it a fixed small dose at the end.
+  const preFightHour = gap;
+  const wakeHour = hasSleep
+    ? wakingOffsets.find((h) => h > Math.max(...Array.from(sleepOffsets))) ??
+      null
+    : null;
+
+  // Hours eligible for the ramp = waking hours minus the pre-fight buffer.
+  const rampHours = wakingOffsets.filter((h) => h !== preFightHour);
+
+  // ── Total volume + ceiling check. ──
+  const targetMl = deficitLitres * REHYDRATION_REPLACEMENT_FACTOR * 1000;
+  const totalCeilingMl = rampHours.reduce(
+    (sum, h) => sum + (h === 0 ? HOUR_ONE_CEILING_ML : HOURLY_CEILING_ML),
+    0,
+  );
+  const deficitTooLarge = targetMl > totalCeilingMl + 1;
+  // What we can actually schedule (never above the aggregate ceiling).
+  const scheduleMl = Math.min(targetMl, totalCeilingMl);
+
+  // ── Front-loaded descending ramp across rampHours. Weight earlier hours
+  //    more (linear descending), then clamp to [floor, ceiling] and push
+  //    overflow to the next earliest unclamped hour. ──
+  const fluidByOffset = new Map<number, number>();
+  for (const h of rampHours) fluidByOffset.set(h, 0);
+
+  if (rampHours.length > 0 && scheduleMl > 0) {
+    const m = rampHours.length;
+    // Descending weights m, m-1, …, 1 over the ordered ramp hours.
+    const sortedRamp = [...rampHours].sort((a, b) => a - b);
+    const weights = sortedRamp.map((_, i) => m - i);
+    const weightSum = weights.reduce((a, b) => a + b, 0);
+
+    for (let i = 0; i < sortedRamp.length; i++) {
+      const h = sortedRamp[i];
+      fluidByOffset.set(h, (scheduleMl * weights[i]) / weightSum);
+    }
+
+    // Clamp + redistribute overflow forward (to the next earliest unclamped
+    // hour). Several passes converge because total ≤ aggregate ceiling.
+    const ceilingFor = (h: number) =>
+      h === 0 ? HOUR_ONE_CEILING_ML : HOURLY_CEILING_ML;
+    for (let pass = 0; pass < sortedRamp.length + 2; pass++) {
+      let overflow = 0;
+      for (const h of sortedRamp) {
+        const v = fluidByOffset.get(h) ?? 0;
+        const cap = ceilingFor(h);
+        if (v > cap) {
+          overflow += v - cap;
+          fluidByOffset.set(h, cap);
+        }
+      }
+      if (overflow <= 0.01) break;
+      // Find earliest hours with headroom and pour the overflow in order.
+      let remaining = overflow;
+      for (const h of sortedRamp) {
+        if (remaining <= 0.01) break;
+        const v = fluidByOffset.get(h) ?? 0;
+        const cap = ceilingFor(h);
+        const headroom = cap - v;
+        if (headroom <= 0) continue;
+        const add = Math.min(headroom, remaining);
+        fluidByOffset.set(h, v + add);
+        remaining -= add;
+      }
+      if (remaining > 0.01) break; // no headroom left
+    }
+
+    // Apply the awake floor: any ramp hour below the floor is bumped up.
+    for (const h of sortedRamp) {
+      const v = fluidByOffset.get(h) ?? 0;
+      if (v > 0 && v < TAPER_FLOOR_ML) fluidByOffset.set(h, TAPER_FLOOR_ML);
+    }
+  }
+
+  // ── Pre-sleep top-up: the last 1–2 waking hours BEFORE the sleep block get
+  //    pushed to the ceiling (bank fluid before bed). ──
+  const preSleepOffsets = new Set<number>();
+  if (hasSleep) {
+    const firstSleep = Math.min(...Array.from(sleepOffsets));
+    for (let k = 1; k <= 2; k++) {
+      const h = firstSleep - k;
+      if (h >= 0 && !sleepOffsets.has(h) && h !== preFightHour) {
+        preSleepOffsets.add(h);
+      }
+    }
+    for (const h of preSleepOffsets) {
+      const cap = h === 0 ? HOUR_ONE_CEILING_ML : HOURLY_CEILING_ML;
+      fluidByOffset.set(h, cap);
+    }
+  }
+
+  // ── Wake dose: first waking hour after sleep → fresh ORS bolus. ──
+  if (wakeHour != null && wakeHour !== preFightHour) {
+    fluidByOffset.set(wakeHour, WAKE_DOSE_ML);
+  }
+
+  // ── Carbs. ~6 g/kg total, ≤60 g/h, start H+2, taper to 0 in the final
+  //    ~75 min (the last carb hour before pre-fight gets a half dose, the
+  //    pre-fight buffer gets none). 0 during sleep. ──
+  const carbByOffset = new Map<number, number>();
+  for (let h = 0; h < n; h++) carbByOffset.set(h, 0);
+  const totalCarbTarget = bodyMassKg > 0 ? CARB_G_PER_KG * bodyMassKg : 0;
+
+  if (totalCarbTarget > 0) {
+    // Carb-eligible: waking, hour >= 2, not pre-fight buffer.
+    const carbHours = wakingOffsets
+      .filter((h) => h >= 2 && h !== preFightHour)
+      .sort((a, b) => a - b);
+    if (carbHours.length > 0) {
+      // Even base dose, capped per hour; the FINAL carb hour is halved (taper).
+      const lastCarbHour = carbHours[carbHours.length - 1];
+      // Provisional even split across full-dose-equivalent slots (last = 0.5).
+      const equivalentSlots = carbHours.length - 0.5;
+      let perHour = totalCarbTarget / Math.max(1, equivalentSlots);
+      perHour = Math.min(perHour, CARB_MAX_PER_HOUR);
+      for (const h of carbHours) {
+        const dose = h === lastCarbHour ? perHour * 0.5 : perHour;
+        carbByOffset.set(h, Math.round(dose));
+      }
+    }
+  }
+
+  // ── Meals: pre-sleep salty snack (always a meal when present) + ~2–4 refeed
+  //    meals across the window at carb-bearing hours. ──
+  // Meal labels are intentionally GENERIC TIMING markers — we do NOT prescribe
+  // a specific food here (the app surfaces separate meal ideas). The marker
+  // (isMeal) stays; only the food naming is removed.
+  const mealLabels = new Map<number, string>();
+  // Pre-sleep top-up marker.
+  for (const h of preSleepOffsets) {
+    mealLabels.set(h, "Top up before bed");
+  }
+  // Refeed meals: first carb hour, mid-window, and (if room) a late refeed.
+  // All carry the same neutral timing label — no prescribed dish.
+  const carbBearing = [...carbByOffset.entries()]
+    .filter(([h, g]) => g > 0 && !mealLabels.has(h) && !sleepOffsets.has(h))
+    .map(([h]) => h)
+    .sort((a, b) => a - b);
+  if (carbBearing.length > 0) {
+    const first = carbBearing[0];
+    mealLabels.set(first, "Fuel up");
+    const mid = carbBearing[Math.floor(carbBearing.length / 2)];
+    if (!mealLabels.has(mid)) {
+      mealLabels.set(mid, "Fuel up");
+    }
+    const last = carbBearing[carbBearing.length - 1];
+    if (carbBearing.length >= 4 && !mealLabels.has(last)) {
+      mealLabels.set(last, "Fuel up");
+    }
+  }
+
+  // ── Sodium: per-litre, mass-independent. First ~55% of CUMULATIVE volume at
+  //    ORS strength, the remainder at maintenance strength. ──
+  // We resolve fluid first so cumulative volume is known.
+  const orderedFluid: Array<{ h: number; ml: number }> = [];
+  for (let h = 0; h < n; h++) {
+    if (sleepOffsets.has(h)) {
+      orderedFluid.push({ h, ml: 0 });
+      continue;
+    }
+    if (h === preFightHour) {
+      orderedFluid.push({ h, ml: roundTo50ml(PRE_FIGHT_BUFFER_ML) });
+      continue;
+    }
+    orderedFluid.push({ h, ml: roundTo50ml(fluidByOffset.get(h) ?? 0) });
+  }
+  const scheduledTotalMl = orderedFluid.reduce((s, x) => s + x.ml, 0);
+  const strongCutoffMl = scheduledTotalMl * SODIUM_STRONG_VOLUME_FRACTION;
+
+  let cumulativeMl = 0;
+  const sodiumByOffset = new Map<number, number>();
+  for (const { h, ml } of orderedFluid) {
+    const litres = ml / 1000;
+    // Split this hour's litres at the strong/weak boundary.
+    const strongRemaining = Math.max(0, strongCutoffMl - cumulativeMl) / 1000;
+    const strongLitres = Math.min(litres, strongRemaining);
+    const weakLitres = litres - strongLitres;
+    const sodium =
+      strongLitres * SODIUM_STRONG_MG_PER_L + weakLitres * SODIUM_WEAK_MG_PER_L;
+    sodiumByOffset.set(h, Math.round(sodium));
+    cumulativeMl += ml;
+  }
+
+  // ── Assemble rows. ──
+  const lastSleep = hasSleep ? Math.max(...Array.from(sleepOffsets)) : null;
+  const firstSleep = hasSleep ? Math.min(...Array.from(sleepOffsets)) : null;
+
+  const phaseFor = (h: number): RehydrationPlanPhase => {
+    if (sleepOffsets.has(h)) return "sleep";
+    if (h === preFightHour) return "pre-fight";
+    if (preSleepOffsets.has(h)) return "pre-sleep";
+    if (wakeHour != null && h === wakeHour) return "wake-dose";
+    if (h <= 1) return "front-load";
+    if (lastSleep != null && h > lastSleep) return "top-up";
+    return "refeed";
+  };
+
+  const cueFor = (
+    h: number,
+    ml: number,
+    carbG: number,
+    isMeal: boolean,
+    phase: RehydrationPlanPhase,
+  ): string => {
+    switch (phase) {
+      case "sleep":
+        return "Sleep — no intake";
+      case "pre-fight":
+        return "Fast sugar now — gummy bears, honey, or a gel.";
+      case "pre-sleep":
+        return `Top up to ~${ml} ml ORS and top up before bed`;
+      case "wake-dose":
+        return `Fresh ORS bolus ~${ml} ml on waking to restart absorption`;
+      case "front-load":
+        return `Front-load: sip ~${ml} ml ORS steadily — do not chug`;
+      default:
+        if (isMeal) return `Fuel up — see meal ideas; sip ~${ml} ml ORS alongside`;
+        if (carbG > 0) return `Sip ~${ml} ml ORS; ~${carbG} g easy carbs`;
+        return `Sip ~${ml} ml ORS steadily`;
+    }
+  };
+
+  const hours: RehydrationPlanHour[] = orderedFluid.map(({ h, ml }) => {
+    const isSleep = sleepOffsets.has(h);
+    const phase = phaseFor(h);
+    const carbG = isSleep || h === preFightHour ? 0 : carbByOffset.get(h) ?? 0;
+    const isMeal = mealLabels.has(h);
+    const mealLabel = isMeal ? mealLabels.get(h) ?? null : null;
+    const sodiumMg = isSleep ? 0 : sodiumByOffset.get(h) ?? 0;
+    return {
+      hourOffset: h,
+      liquidsMl: isSleep ? 0 : ml,
+      sodiumMg,
+      carbG,
+      isMeal,
+      mealLabel,
+      isSleep,
+      phase,
+      cue: cueFor(h, ml, carbG, isMeal, phase),
+    };
+  });
+
+  const totalLitresScheduled = round2(
+    hours.reduce((s, x) => s + x.liquidsMl, 0) / 1000,
+  );
+  const totalCarbScheduled = Math.round(
+    hours.reduce((s, x) => s + x.carbG, 0),
+  );
+  const totalSodiumScheduled = Math.round(
+    hours.reduce((s, x) => s + x.sodiumMg, 0),
+  );
+
+  return {
+    hours,
+    totalLitresScheduled,
+    totalCarbScheduled,
+    totalSodiumScheduled,
+    hasSleep,
+    sleepStartHour: firstSleep,
+    sleepEndHour: lastSleep,
+    deficitTooLarge,
   };
 }

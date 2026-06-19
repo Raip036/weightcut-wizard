@@ -24,7 +24,7 @@ const GREEN = "152 64% 47%"; // fiber
 const hsl = (t: string, a = 1) => `hsl(${t} / ${a})`;
 
 const DEFAULT_FIBER_STRATEGY =
-  "Cut fiber from 2 days out to empty the gut and shed gut weight. Clean carbs, sodium citrate to hold water early then taper.";
+  "Keep fiber normal until about 4 days out, then taper over the final days to empty the gut: low-residue 2 days out, minimal the day before, none the morning of weigh-in.";
 
 /** Map sodium milligrams to the short label used in the mockup. */
 function sodiumLabel(sodiumMg: number): string {
@@ -34,12 +34,14 @@ function sodiumLabel(sodiumMg: number): string {
   return "None";
 }
 
-/** Map fiber grams to the qualitative label used in the mockup. */
+/** Map fiber grams to the qualitative label. Fibre is now a deterministic,
+ *  always-present per-day target (research-backed taper), so a missing value
+ *  defaults to "Normal" rather than the old misleading "None". */
 function fiberLabel(fiberGrams?: number): string {
-  if (typeof fiberGrams !== "number") return "None";
-  if (fiberGrams >= 25) return "Normal";
+  if (typeof fiberGrams !== "number") return "Normal";
+  if (fiberGrams >= 22) return "Normal";
   if (fiberGrams >= 10) return "Low";
-  if (fiberGrams > 0) return "Low";
+  if (fiberGrams > 0) return "Minimal";
   return "None";
 }
 

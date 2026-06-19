@@ -311,25 +311,29 @@ export function ProtocolWalkoutTakeover({
   // the takeover wherever the page is scrolled instead of filling the screen.
   const overlay = (
     <motion.div
-      className="fixed inset-0 z-[120] flex flex-col items-center overflow-y-auto"
+      className="fixed inset-0 z-[120]"
       role="dialog"
       aria-modal="true"
       aria-label="Weight protocol complete"
       initial={prefersReduced ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: prefersReduced ? 0 : 0.4, ease: "easeOut" }}
-      style={{
-        background:
-          "radial-gradient(ellipse at 50% 12%, rgba(59,130,246,0.18) 0%, transparent 55%), " +
-          "radial-gradient(ellipse at 50% 92%, rgba(34,197,94,0.16) 0%, transparent 58%), " +
-          "#050505",
-        paddingTop: "calc(env(safe-area-inset-top, 0px) + 2rem)",
-        // Generous bottom clearance so the last control ("Start over") never
-        // sits under the home indicator / gets visually clipped when the
-        // poster makes the content taller than the viewport.
-        paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 4rem)",
-      }}
     >
+      {/* Background layer — fills the viewport and stays put BEHIND the scrolling
+          content, so the animated background persists across the ENTIRE
+          scrollable area. Previously the gradient + aurora + motes lived on the
+          scroll container (`absolute inset-0`), so they clipped to the first
+          screen and the lower portion scrolled to bare black. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(ellipse at 50% 12%, rgba(59,130,246,0.18) 0%, transparent 55%), " +
+            "radial-gradient(ellipse at 50% 92%, rgba(34,197,94,0.16) 0%, transparent 58%), " +
+            "#050505",
+        }}
+      >
       {/* Aurora wash. */}
       <motion.div
         aria-hidden
@@ -377,10 +381,20 @@ export function ProtocolWalkoutTakeover({
         </div>
       )}
 
-      {/* `my-auto` centres the content in the viewport when it fits, but lets it
-          flow from the top (scrollable within the overlay) when the poster is
-          taller than the screen — so the Save/Share/Start over buttons stay
-          reachable on small devices. */}
+      </div>
+
+      {/* Scrollable content layer — transparent, so the fixed background layer
+          shows through at every scroll position. `my-auto` centres the content
+          when it fits, but lets it flow from the top (scrollable) when the
+          poster is taller than the screen, keeping Save/Share/Start over
+          reachable. Bottom padding clears the home indicator. */}
+      <div
+        className="absolute inset-0 flex flex-col items-center overflow-y-auto"
+        style={{
+          paddingTop: "calc(env(safe-area-inset-top, 0px) + 2rem)",
+          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 4rem)",
+        }}
+      >
       <div className="relative z-10 my-auto flex w-full max-w-md flex-col items-center px-6">
         {/* Haloed, bobbing wizard hero. Stays as the visual anchor above the
             poster card once it reveals. */}
@@ -526,6 +540,7 @@ export function ProtocolWalkoutTakeover({
             </button>
           </motion.div>
         )}
+      </div>
       </div>
     </motion.div>
   );

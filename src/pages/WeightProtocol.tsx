@@ -27,7 +27,10 @@ import { ProtocolWalkoutTakeover } from "@/components/protocol/ProtocolWalkoutTa
 import { WeightProtocolProDialog } from "@/components/protocol/WeightProtocolProDialog";
 import { type CutApproach } from "@/components/protocol/CutApproachSelector";
 import { ProtocolCutChapter } from "@/components/protocol/ProtocolCutChapter";
-import { ProtocolScaleCard } from "@/components/protocol/ProtocolScaleCard";
+import {
+  ProtocolScaleCard,
+  type ProtocolScaleSubmit,
+} from "@/components/protocol/ProtocolScaleCard";
 import { SafetyWarningBanner, friendlyWarningTitle } from "@/components/protocol/SafetyWarningBanner";
 import { OrsRecipeCard } from "@/components/protocol/OrsRecipeCard";
 import { RehydrationTimeline } from "@/components/protocol/RehydrationTimeline";
@@ -131,15 +134,28 @@ export default function WeightProtocol() {
     }
   }, [protocol?.campId, approach, generateFightPlan]);
 
-  // Manual, sweat-driven rehydration generation. Called by the
-  // SweatLossEntryCard with the kg the athlete sweated off in the final cut.
+  // Manual, sweat-driven rehydration generation. Called by ProtocolScaleCard
+  // with the kg sweated off, the (editable) hours until the fight, and the
+  // optional overnight sleep window — all threaded to the generator so it can
+  // build the hour-by-hour plan with no intake scheduled during sleep.
   const handleGenerateRehydration = useCallback(
-    async (sweatLossKg: number) => {
+    async ({
+      sweatKg,
+      hoursUntilFight,
+      sleepStartHour,
+      sleepEndHour,
+    }: ProtocolScaleSubmit) => {
       if (!protocol?.campId) return;
       setIsGeneratingRehydration(true);
       setRehydrationError(null);
       try {
-        await generateRehydration({ campId: protocol.campId, sweatLossKg });
+        await generateRehydration({
+          campId: protocol.campId,
+          sweatLossKg: sweatKg,
+          hoursUntilFight,
+          ...(sleepStartHour != null ? { sleepStartHour } : {}),
+          ...(sleepEndHour != null ? { sleepEndHour } : {}),
+        });
         setEditingSweat(false);
       } catch (e: unknown) {
         const msg =
@@ -466,6 +482,9 @@ export default function WeightProtocol() {
           isLoading={isGeneratingRehydration}
           error={rehydrationError}
           defaultValue={rhPayload?.derivedSnapshot?.sweatLossKg}
+          defaultHoursUntilFight={
+            (rhPayload?.gapHours as number | undefined) ?? rawGapHours ?? undefined
+          }
         />
       ) : (
         <>
@@ -500,6 +519,7 @@ export default function WeightProtocol() {
               rhPayload.derivedSnapshot?.totalLitresTarget ??
               rhPayload.orsRecipe?.totalLitresTarget
             }
+            deficitTooLarge={Boolean(rhPayload.deficitTooLarge)}
           />
           <DoNotCallouts items={(rhPayload?.doNots as string[] | undefined) ?? []} />
           {showFeelChecks && (

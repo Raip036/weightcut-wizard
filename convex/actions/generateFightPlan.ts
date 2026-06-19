@@ -304,15 +304,15 @@ ${JSON.stringify(safety, null, 2)}
 
 Return JSON matching FightPlanSchema. For each day:
 - carbsCopy, waterCopy, sodiumCopy, fibreCopy: ≤140 chars, single sentence, second-person, no emojis
-- fiberGrams: a number, the day's fibre target in grams. Reduce fibre as weigh-in approaches to empty the gut, reaching the lowest figure in the final 1-2 days before weigh-in.
+- fibreCopy must MATCH the day's fibre plan: keep fibre NORMAL until about 4 days out, then taper over the final days to empty the gut — reduce ~3 days out, low-residue ~2 days out, minimal the day before, none the morning of weigh-in. (The numeric fibre target is set server-side; do not invent your own.)
 - keyAction: imperative, ≤80 chars
 - cautions: max 3, each ≤80 chars
 - trainingRecommendation: 1-2 sentences
 
 Also return one top-level field:
-- fiberStrategy: a single line, ≤200 chars, explaining when to keep fibre normal and when to cut it to empty the gut. No em-dashes.
+- fiberStrategy: a single line, ≤200 chars. Say fibre stays normal until about 4 days out, then tapers over the final 2-3 days to empty the gut, minimal the day before and none the morning of weigh-in. No em-dashes.
 
-Honour the CARB RULE above exactly. Numerics for carbs, water, sodium and weight will be replaced server-side from the skeleton, but you still author all copy and the fibre figures. No emojis, no em-dashes.`;
+Honour the CARB RULE above exactly. ALL numerics — carbs, water, sodium, weight AND fibre grams — are set server-side from the skeleton; you author only the copy. No emojis, no em-dashes.`;
 }
 
 // ───────────────────────────────────────────────────────────────────────
@@ -368,17 +368,16 @@ function mergeFightPlan(
       waterLitres: sd.waterLitres,
       sodiumMg: sd.sodiumMg,
       fibreNote: sd.fibreNote,
+      // Fibre target in grams — DETERMINISTIC from the skeleton (research-backed
+      // late taper). Was previously AI-supplied + optional, which is why every
+      // day rendered "None" whenever the model omitted it. Now always present.
+      fiberGrams: sd.fiberGrams,
       sleepTargetHours: sd.sleepTargetHours,
       // Copy from AI (fallback to empty / skeleton training rec).
       carbsCopy: String(ad.carbsCopy ?? ""),
       waterCopy: String(ad.waterCopy ?? ""),
       sodiumCopy: String(ad.sodiumCopy ?? ""),
       fibreCopy: String(ad.fibreCopy ?? ""),
-      // Fibre target in grams — AI-supplied, optional. Only carry it
-      // through when the model returned a finite number.
-      ...(typeof ad.fiberGrams === "number" && Number.isFinite(ad.fiberGrams)
-        ? { fiberGrams: ad.fiberGrams }
-        : {}),
       trainingRecommendation: String(
         ad.trainingRecommendation ?? sd.trainingRecommendation,
       ),

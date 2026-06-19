@@ -42,11 +42,12 @@ import { enforceFeatureGate } from "../_shared/featureGates";
 import { parseJSON } from "../_shared/parseResponse";
 import {
   computeDerived,
+  buildRehydrationHourlyPlan,
   type Approach,
   type DerivedInputs,
   type GatheredInputs,
+  type RehydrationPlanHour,
 } from "../_shared/weightProtocolMath";
-import { buildRehydrationFallback } from "../_shared/rehydrationMath";
 
 const GROQ_TIMEOUT_MS = 30_000;
 
@@ -56,8 +57,6 @@ const REPLACEMENT_FACTOR = 1.5 as const;
 const SAFETY_CAP_FACTOR = 2.0;
 // Minimum target regardless of how small the entered sweat loss is.
 const MIN_LITRES = 1.0;
-// Gastric-emptying ceiling — no single hour above this.
-const MAX_ML_PER_HOUR = 1500;
 // Default weigh-in→fight gap when the camp doesn't tell us.
 const DEFAULT_GAP_HOURS = 24;
 
@@ -79,6 +78,12 @@ interface RehydrationHour {
   isMeal: boolean;
   mealLabel: string | null;
   cue: string;
+  // ── Hourly rehydrate/refeed additions (2026-06-19). Deterministic numerics;
+  //    only `cue` / `mealLabel` are AI-authorable. ──
+  sodiumMg: number;
+  carbG: number;
+  isSleep: boolean;
+  phase: string;
 }
 
 interface RehydrationPayload {
@@ -86,6 +91,11 @@ interface RehydrationPayload {
   replacementFactor: 1.5;
   totalLitresTarget: number;
   gapHours: number;
+  /** Sleep window the plan honoured (hour-of-day), echoed for the UI. */
+  sleepStartHour: number | null;
+  sleepEndHour: number | null;
+  /** Set when the deficit can't be safely replaced in the waking hours. */
+  deficitTooLarge: boolean;
   orsRecipe: {
     perLitre: OrsIngredient[];
     totalLitresTarget: number;
@@ -174,14 +184,30 @@ const CEREBRAS_ROUTING = { order: ["cerebras"], allow_fallbacks: true };
  * driven by a fighter-entered sweat-loss number. Pro-gated. Idempotent.
  */
 export const run = action({
-  args: { campId: v.id("fight_camps"), sweatLossKg: v.number() },
+  args: {
+    campId: v.id("fight_camps"),
+    sweatLossKg: v.number(),
+    // ── Hourly rehydrate/refeed args (2026-06-19). Optional/back-compat: when
+    //    omitted the action falls back to the camp-derived gap and no sleep
+    //    window (same behaviour as before). ──
+    hoursUntilFight: v.optional(v.number()),
+    sleepStartHour: v.optional(v.number()),
+    sleepEndHour: v.optional(v.number()),
+  },
   handler: async (
     ctx,
-    { campId, sweatLossKg },
+    { campId, sweatLossKg, hoursUntilFight, sleepStartHour, sleepEndHour },
   ): Promise<{ id: Id<"weight_protocols">; payload: RehydrationPayload }> => {
     const userId = await requireUserIdFromAction(ctx);
     await enforceFeatureGate(ctx, userId, "AI_WEIGHT_PROTOCOL");
-    return await runCore(ctx, { userId, campId, sweatLossKg });
+    return await runCore(ctx, {
+      userId,
+      campId,
+      sweatLossKg,
+      hoursUntilFight,
+      sleepStartHour,
+      sleepEndHour,
+    });
   },
 });
 
@@ -194,6 +220,9 @@ export const runInternal = internalAction({
     userId: v.id("users"),
     campId: v.id("fight_camps"),
     sweatLossKg: v.number(),
+    hoursUntilFight: v.optional(v.number()),
+    sleepStartHour: v.optional(v.number()),
+    sleepEndHour: v.optional(v.number()),
   },
   handler: async (
     ctx,
@@ -211,11 +240,21 @@ type RunCoreArgs = {
   userId: Id<"users">;
   campId: Id<"fight_camps">;
   sweatLossKg: number;
+  hoursUntilFight?: number;
+  sleepStartHour?: number;
+  sleepEndHour?: number;
 };
 
 async function runCore(
   ctx: { runQuery: any; runMutation: any },
-  { userId, campId, sweatLossKg }: RunCoreArgs,
+  {
+    userId,
+    campId,
+    sweatLossKg,
+    hoursUntilFight,
+    sleepStartHour,
+    sleepEndHour,
+  }: RunCoreArgs,
 ): Promise<{ id: Id<"weight_protocols">; payload: RehydrationPayload }> {
   // 1. Fetch inputs (profile + camp) — same single round-trip as before.
   const inputs: GatheredInputs = await ctx.runQuery(
@@ -223,48 +262,64 @@ async function runCore(
     { userId, campId },
   );
 
-  // 2. Derive gapHours from the camp the same way the prior code did:
-  //    weigh-in → fight gap, default 24h when unknown / non-positive.
+  // 2. Resolve gapHours. The user-entered `hoursUntilFight` (prefilled from the
+  //    camp's weigh-in→fight gap, but editable) wins; otherwise fall back to
+  //    the camp-derived gap, default 24h when unknown / non-positive.
   const derived: DerivedInputs = computeDerived(inputs, "standard" as Approach);
-  const gapHours = deriveGapHours(derived.weighInToFightHours);
+  const gapHours =
+    hoursUntilFight != null && Number.isFinite(hoursUntilFight)
+      ? deriveGapHours(hoursUntilFight)
+      : deriveGapHours(derived.weighInToFightHours);
 
-  // 3. Core rule: 150% replacement, min 1.0 L, cap at 200% of sweat loss.
+  // 3. Core rule: ~150% replacement, min 1.0 L, cap at 200% of sweat loss. The
+  //    hourly plan ingests 140% of the deficit; this hero figure stays ~1.5×.
   const cleanSweatLossKg = Math.max(0, Number(sweatLossKg) || 0);
   const totalLitresTarget = computeTotalLitresTarget(cleanSweatLossKg);
 
-  // 4. Carb target over the window: 10 g/kg if aggressive depletion else
-  //    5 g/kg of bodyweight, both capped at 60 g/h across the window.
-  const bodyWeightKg = derived.currentWeightKg || derived.targetWeightKg || 0;
-  const depletionStrategy = inferDepletionStrategy(derived);
-  const carbTargetGramsTotal = computeCarbTarget(
-    bodyWeightKg,
-    depletionStrategy,
-    gapHours,
-  );
+  // 4. Body mass for carb scaling — prefer the weigh-in target (their mass at
+  //    the scale), else current weight.
+  const bodyWeightKg = derived.targetWeightKg || derived.currentWeightKg || 0;
 
-  // 5. AI for the hour-by-hour curve + cues + meal placement. Fall back to
-  //    the deterministic curve on any failure / invalid output.
-  let hours: RehydrationHour[];
+  // 5. Deterministic hour-by-hour plan (fluid + electrolytes + carbs + sleep).
+  //    This is server-authoritative — the AI only re-authors cue / meal copy.
+  const plan = buildRehydrationHourlyPlan({
+    deficitLitres: cleanSweatLossKg,
+    hoursUntilFight: gapHours,
+    sleepStartHour: sleepStartHour ?? null,
+    sleepEndHour: sleepEndHour ?? null,
+    bodyMassKg: bodyWeightKg,
+  });
+  const carbTargetGramsTotal = plan.totalCarbScheduled;
+
+  // 6. Convert the deterministic plan into persisted RehydrationHour rows. Then
+  //    ask the AI to re-author ONLY the cue / mealLabel copy (numerics stay
+  //    authoritative); fall back to the deterministic copy on any failure.
+  let hours: RehydrationHour[] = planToHours(plan.hours);
   try {
-    hours = await generateHoursViaAI({
+    hours = await authorCopyViaAI(hours, {
       sweatLossKg: cleanSweatLossKg,
       gapHours,
       totalLitresTarget,
       bodyWeightKg,
       sex: derived.sex,
-      depletionStrategy,
     });
   } catch (err) {
-    console.error("[generateRehydrationProtocol] AI failed, using fallback:", err);
-    hours = buildFallbackHours(totalLitresTarget, gapHours);
+    console.error(
+      "[generateRehydrationProtocol] AI copy failed, using deterministic copy:",
+      err,
+    );
+    // hours already holds the deterministic copy — nothing else to do.
   }
 
-  // 6. Assemble persisted payload.
+  // 7. Assemble persisted payload.
   const payload: RehydrationPayload = {
     sweatLossKg: cleanSweatLossKg,
     replacementFactor: REPLACEMENT_FACTOR,
     totalLitresTarget,
     gapHours,
+    sleepStartHour: plan.hasSleep ? sleepStartHour ?? null : null,
+    sleepEndHour: plan.hasSleep ? sleepEndHour ?? null : null,
+    deficitTooLarge: plan.deficitTooLarge,
     orsRecipe: {
       perLitre: ORS_PER_LITRE,
       totalLitresTarget,
@@ -318,83 +373,86 @@ function computeTotalLitresTarget(sweatLossKg: number): number {
   return Math.max(MIN_LITRES, round1(capped));
 }
 
-/**
- * Heuristic depletion strategy. We don't have an explicit field, so treat a
- * deep cut (heavy/extreme category) as aggressive depletion → higher carb
- * target. Everything else is moderate.
- */
-function inferDepletionStrategy(d: DerivedInputs): "aggressive" | "moderate" {
-  return d.cutCategory === "heavy" || d.cutCategory === "extreme"
-    ? "aggressive"
-    : "moderate";
-}
-
-/** Carb target across the window: 10 (aggressive) or 5 g/kg, ≤60 g/h. */
-function computeCarbTarget(
-  bodyWeightKg: number,
-  depletionStrategy: "aggressive" | "moderate",
-  gapHours: number,
-): number {
-  const perKg = depletionStrategy === "aggressive" ? 10 : 5;
-  const target = Math.round(perKg * Math.max(0, bodyWeightKg));
-  const hourlyCeiling = Math.max(1, gapHours) * 60;
-  return Math.min(target, hourlyCeiling);
-}
-
 function round1(n: number): number {
   return Number.isFinite(n) ? parseFloat(n.toFixed(1)) : 0;
 }
 
 // ───────────────────────────────────────────────────────────────────────
-// AI path
+// Deterministic plan → persisted rows
 // ───────────────────────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are a sports-science nutritionist generating an evidence-based post-weigh-in rapid rehydration plan for a combat-sports athlete. Output STRICT JSON only — no prose, no markdown, no emojis.
-INPUTS: sweatLossKg, gapHours, athlete {weightKg, sex, depletionStrategy}.
-RULES: 1) totalLitresTarget = round(sweatLossKg*1.5,1); min 1.0 L; never exceed sweatLossKg*2.0. 2) Distribute across EVERY hour H+0..H+gapHours: front-load 35–40% in first 2h; never >1500 ml in any hour; steady refeed daytime; overnight (~H+8..H+15 when gapHours>=20) minimal 50–150 ml/h; moderate top-up final 2–3h tapering the last 60–90 min; SUM of hourly liquidsMl within ±100 ml of totalLitresTarget*1000. 3) Round each liquidsMl to nearest 50 ml. 4) Place 2–3 meals, first carb meal within ~1h of weigh-in (isMeal=true those hours); carb target = (depletionStrategy=='aggressive'?10:5) g/kg over the window at <=60 g/h, low fat/fibre early. 5) Each hour: {hourOffset, liquidsMl, cumulativeMl, isMeal, mealLabel, cue}; cue imperative <=90 chars no emojis. 6) doNots array of safety strings (no plain-water chugging/hyponatremia, no heavy fat/fibre early, no new supplements, no overhydration). Return JSON shape {sweatLossKg,gapHours,totalLitresTarget,hours,carbTargetGramsTotal,doNots}. Validate: hours length==gapHours+1; sum within ±100 ml; no hour >1500 ml.`;
-
-function buildUserPrompt(args: {
-  sweatLossKg: number;
-  gapHours: number;
-  totalLitresTarget: number;
-  bodyWeightKg: number;
-  sex: string;
-  depletionStrategy: "aggressive" | "moderate";
-}): string {
-  return JSON.stringify({
-    sweatLossKg: args.sweatLossKg,
-    gapHours: args.gapHours,
-    totalLitresTarget: args.totalLitresTarget,
-    athlete: {
-      weightKg: args.bodyWeightKg,
-      sex: args.sex,
-      depletionStrategy: args.depletionStrategy,
-    },
-  });
+/**
+ * Convert the deterministic `buildRehydrationHourlyPlan` output into the
+ * persisted `RehydrationHour[]` shape, computing the running cumulative ml.
+ * Sleep hours carry the deterministic "Sleep — no intake" cue from the plan.
+ */
+function planToHours(planHours: RehydrationPlanHour[]): RehydrationHour[] {
+  const out: RehydrationHour[] = [];
+  let cum = 0;
+  for (const ph of planHours) {
+    cum += ph.liquidsMl;
+    out.push({
+      hourOffset: ph.hourOffset,
+      liquidsMl: ph.liquidsMl,
+      cumulativeMl: cum,
+      isMeal: ph.isMeal,
+      mealLabel: ph.mealLabel,
+      cue: ph.cue,
+      sodiumMg: ph.sodiumMg,
+      carbG: ph.carbG,
+      isSleep: ph.isSleep,
+      phase: ph.phase,
+    });
+  }
+  return out;
 }
 
+// ───────────────────────────────────────────────────────────────────────
+// AI copy path — numerics are authoritative; the model only re-authors the
+// per-hour cue + meal name (like the fight plan). On any failure the caller
+// keeps the deterministic copy already present on the rows.
+// ───────────────────────────────────────────────────────────────────────
+
+const COPY_SYSTEM_PROMPT = `You are a sports-science nutrition coach writing SHORT per-hour cue copy for a post-weigh-in rehydration + refeed plan. The numbers (fluid ml, sodium mg, carbs g, sleep blocks) are already FIXED and correct — do NOT change, recompute, or mention different numbers. Only write motivating, practical imperative copy.
+INPUT: an array of hours, each {hourOffset, liquidsMl, sodiumMg, carbG, isSleep, isMeal, phase}.
+RULES: 1) For EACH input hour return {hourOffset, cue, mealLabel}. 2) cue: imperative, <=90 chars, no emojis, no markdown. 3) For isSleep hours cue MUST be exactly "Sleep — no intake" and mealLabel null. 4) For phase "pre-fight" the cue MUST tell the fighter to take fast-digesting sugar right before walkout (e.g. gummy bears, honey, or a gel) — no fluid bolus. 5) MEALS ARE GENERIC TIMING MARKERS — do NOT invent or prescribe a specific dish/food. The app shows separate meal IDEAS elsewhere. For isMeal hours the mealLabel must be a short neutral timing label ONLY (e.g. "Fuel up", "Top up before bed"), <=60 chars, naming no specific food; for non-meal hours mealLabel null. Cues for meal hours should say something like "fuel up — see meal ideas", never a prescribed dish. 6) Keep the same hourOffset values; do not add or drop hours. Output STRICT JSON: {"hours":[{hourOffset,cue,mealLabel}]}. No prose outside JSON.`;
+
 /**
- * Call the model and parse + validate the hour curve. Throws on any failure
- * (network, parse, validation) so the caller swaps in the deterministic
- * fallback. Validation enforces: length == gapHours+1, sum within ±100 ml of
- * target, and no hour > 1500 ml.
+ * Ask the model to author cue + mealLabel ONLY. Returns the same numeric rows
+ * with copy overlaid by hourOffset. Throws on network/parse failure so the
+ * caller keeps the deterministic copy.
  */
-async function generateHoursViaAI(args: {
-  sweatLossKg: number;
-  gapHours: number;
-  totalLitresTarget: number;
-  bodyWeightKg: number;
-  sex: string;
-  depletionStrategy: "aggressive" | "moderate";
-}): Promise<RehydrationHour[]> {
+async function authorCopyViaAI(
+  hours: RehydrationHour[],
+  meta: {
+    sweatLossKg: number;
+    gapHours: number;
+    totalLitresTarget: number;
+    bodyWeightKg: number;
+    sex: string;
+  },
+): Promise<RehydrationHour[]> {
+  const userPayload = {
+    meta,
+    hours: hours.map((h) => ({
+      hourOffset: h.hourOffset,
+      liquidsMl: h.liquidsMl,
+      sodiumMg: h.sodiumMg,
+      carbG: h.carbG,
+      isSleep: h.isSleep,
+      isMeal: h.isMeal,
+      phase: h.phase,
+    })),
+  };
+
   const apiResponse = await callGroqRaw({
     model: PROTOCOL_MODEL,
     messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: buildUserPrompt(args) },
+      { role: "system", content: COPY_SYSTEM_PROMPT },
+      { role: "user", content: JSON.stringify(userPayload) },
     ],
     response_format: { type: "json_object" },
-    temperature: 0.4,
+    temperature: 0.5,
     max_tokens: 3500,
     timeoutMs: GROQ_TIMEOUT_MS,
     providerRouting: CEREBRAS_ROUTING,
@@ -402,131 +460,41 @@ async function generateHoursViaAI(args: {
   const rawContent = apiResponse.choices?.[0]?.message?.content ?? "{}";
   const rawJson = parseJSON(rawContent) as { hours?: unknown };
 
-  const hours = normalizeAIHours(rawJson?.hours, args.gapHours);
-  if (!validateHours(hours, args.gapHours, args.totalLitresTarget)) {
-    throw new Error("AI hours failed validation");
-  }
-  return hours;
-}
-
-/**
- * Coerce the AI's `hours` array into our shape. Missing/garbage fields are
- * defaulted but NOT silently repaired — `validateHours` decides acceptance.
- */
-function normalizeAIHours(raw: unknown, gapHours: number): RehydrationHour[] {
-  if (!Array.isArray(raw)) return [];
-  const byOffset = new Map<number, RehydrationHour>();
-  for (const item of raw) {
-    if (!item || typeof item !== "object") continue;
-    const o = item as Record<string, unknown>;
-    const hourOffset = Number(o.hourOffset);
-    if (!Number.isInteger(hourOffset) || hourOffset < 0 || hourOffset > gapHours) {
-      continue;
-    }
-    const liquidsMl = Math.max(0, Math.round(Number(o.liquidsMl) || 0));
-    byOffset.set(hourOffset, {
-      hourOffset,
-      liquidsMl,
-      cumulativeMl: 0, // recomputed below
-      isMeal: Boolean(o.isMeal),
-      mealLabel:
-        typeof o.mealLabel === "string" && o.mealLabel.trim().length > 0
-          ? o.mealLabel.trim()
-          : null,
-      cue:
-        typeof o.cue === "string" && o.cue.trim().length > 0
-          ? o.cue.trim().slice(0, 90)
-          : "Sip ORS steadily this hour",
-    });
-  }
-  // Rebuild a contiguous 0..gapHours array and recompute cumulative.
-  const out: RehydrationHour[] = [];
-  let cum = 0;
-  for (let h = 0; h <= gapHours; h++) {
-    const found = byOffset.get(h);
-    if (!found) return []; // missing hour → reject (length check will fail)
-    cum += found.liquidsMl;
-    out.push({ ...found, cumulativeMl: cum });
-  }
-  return out;
-}
-
-/** length == gapHours+1, sum within ±100 ml of target, no hour > 1500 ml. */
-function validateHours(
-  hours: RehydrationHour[],
-  gapHours: number,
-  totalLitresTarget: number,
-): boolean {
-  if (hours.length !== gapHours + 1) return false;
-  let sum = 0;
-  for (const h of hours) {
-    if (h.liquidsMl > MAX_ML_PER_HOUR) return false;
-    sum += h.liquidsMl;
-  }
-  const targetMl = totalLitresTarget * 1000;
-  return Math.abs(sum - targetMl) <= 100;
-}
-
-// ───────────────────────────────────────────────────────────────────────
-// Deterministic fallback path
-// ───────────────────────────────────────────────────────────────────────
-
-/**
- * Turn the numeric-only fallback curve from `rehydrationMath.ts` into full
- * RehydrationHour objects, synthesising cues + meal placement.
- *
- * Meals: first refeed hour, mid-window, and a pre-fight meal.
- */
-function buildFallbackHours(
-  totalLitresTarget: number,
-  gapHours: number,
-): RehydrationHour[] {
-  const curve = buildRehydrationFallback(totalLitresTarget, gapHours);
-
-  // Meal hours: first carb meal ~H+1, mid-window, pre-fight (~H-3).
-  const firstMeal = Math.min(1, gapHours);
-  const midMeal = Math.round(gapHours / 2);
-  const preFightMeal = Math.max(0, gapHours - 3);
-  const mealMap = new Map<number, string>();
-  mealMap.set(firstMeal, "First refeed meal");
-  if (!mealMap.has(midMeal)) mealMap.set(midMeal, "Mid-window meal");
-  if (!mealMap.has(preFightMeal)) mealMap.set(preFightMeal, "Pre-fight meal");
-
-  const hasOvernight = gapHours >= 20;
-
-  return curve.map((c) => {
-    const isMeal = mealMap.has(c.hourOffset);
-    const mealLabel = isMeal ? (mealMap.get(c.hourOffset) ?? null) : null;
+  const copyByOffset = parseCopyHours(rawJson?.hours);
+  // Overlay copy — numerics untouched. Sleep + pre-fight rows keep their
+  // deterministic copy regardless of what the model returned.
+  return hours.map((h) => {
+    if (h.isSleep) return h; // never let the model overwrite sleep copy
+    const c = copyByOffset.get(h.hourOffset);
+    if (!c) return h;
     return {
-      hourOffset: c.hourOffset,
-      liquidsMl: c.liquidsMl,
-      cumulativeMl: c.cumulativeMl,
-      isMeal,
-      mealLabel,
-      cue: synthesizeCue(c.hourOffset, c.liquidsMl, gapHours, hasOvernight, isMeal),
+      ...h,
+      cue: c.cue ?? h.cue,
+      mealLabel: h.isMeal ? c.mealLabel ?? h.mealLabel : null,
     };
   });
 }
 
-function synthesizeCue(
-  hourOffset: number,
-  liquidsMl: number,
-  gapHours: number,
-  hasOvernight: boolean,
-  isMeal: boolean,
-): string {
-  const ml = liquidsMl;
-  if (isMeal) {
-    return `Eat now and sip ~${ml}ml ORS alongside it`;
+/** Parse the model's copy-only hours into a hourOffset → {cue, mealLabel} map. */
+function parseCopyHours(
+  raw: unknown,
+): Map<number, { cue: string | null; mealLabel: string | null }> {
+  const map = new Map<number, { cue: string | null; mealLabel: string | null }>();
+  if (!Array.isArray(raw)) return map;
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const o = item as Record<string, unknown>;
+    const hourOffset = Number(o.hourOffset);
+    if (!Number.isInteger(hourOffset) || hourOffset < 0) continue;
+    const cue =
+      typeof o.cue === "string" && o.cue.trim().length > 0
+        ? o.cue.trim().slice(0, 90)
+        : null;
+    const mealLabel =
+      typeof o.mealLabel === "string" && o.mealLabel.trim().length > 0
+        ? o.mealLabel.trim().slice(0, 60)
+        : null;
+    map.set(hourOffset, { cue, mealLabel });
   }
-  if (hourOffset <= 1) {
-    return `Front-load: sip ~${ml}ml ORS steadily, do not chug`;
-  }
-  if (hasOvernight && hourOffset >= 8 && hourOffset <= 15) {
-    return `Overnight: small sips, ~${ml}ml ORS only`;
-  }
-  if (hourOffset >= gapHours - 2) {
-    return `Top-up: ~${ml}ml ORS, taper into the last hour`;
-  }
-  return `Sip ~${ml}ml ORS steadily`;
+  return map;
 }
