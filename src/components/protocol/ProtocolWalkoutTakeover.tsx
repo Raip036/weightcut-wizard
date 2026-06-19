@@ -324,7 +324,10 @@ export function ProtocolWalkoutTakeover({
           "radial-gradient(ellipse at 50% 92%, rgba(34,197,94,0.16) 0%, transparent 58%), " +
           "#050505",
         paddingTop: "calc(env(safe-area-inset-top, 0px) + 2rem)",
-        paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 2rem)",
+        // Generous bottom clearance so the last control ("Start over") never
+        // sits under the home indicator / gets visually clipped when the
+        // poster makes the content taller than the viewport.
+        paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 4rem)",
       }}
     >
       {/* Aurora wash. */}
@@ -511,11 +514,13 @@ export function ProtocolWalkoutTakeover({
               </button>
             </div>
 
-            {/* Subtle "Start over". */}
+            {/* "Start over" — a real ≥44px tap target (not a tiny text link)
+                so it's reachable and pressable at the bottom of the scroll,
+                clear of the home indicator via the overlay's bottom padding. */}
             <button
               type="button"
               onClick={onReset}
-              className="mt-5 text-[12px] font-medium text-muted-foreground/70 transition-colors hover:text-foreground"
+              className="mt-6 inline-flex min-h-[44px] items-center justify-center rounded-full border border-white/15 px-6 text-[13px] font-semibold text-muted-foreground transition-colors active:opacity-80 hover:text-foreground"
             >
               Start over
             </button>

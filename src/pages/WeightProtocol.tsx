@@ -17,6 +17,7 @@ import { api } from "@/../convex/_generated/api";
 import { useUser } from "@/contexts/UserContext";
 import { useSubscription } from "@/hooks/useSubscription";
 import { triggerHapticSelection } from "@/lib/haptics";
+import { toast } from "sonner";
 import { ProUpsellScreen } from "@/components/subscription/ProUpsellScreen";
 
 import { ProtocolCountdownAnchor } from "@/components/protocol/ProtocolCountdownAnchor";
@@ -167,17 +168,29 @@ export default function WeightProtocol() {
   // reset — so clearing the server rows is what actually returns to Chapter 1.
   const handleProtocolReset = useCallback(async () => {
     try {
+      // Server delete of the fight plan + rehydration + feel checks. The page's
+      // only Chapter-1 gate is `!fpPayload` from the reactive query, so once
+      // these rows are gone the query re-fires and the page falls back to
+      // Chapter 1 on its own.
       await clearProtocol({});
     } catch (e) {
-      // Don't silently swallow — a swallowed throw (e.g. a `.unique()`
-      // duplicate-row error) is exactly what kept the plan on screen. Surface
-      // it so the failure is visible; still reset local UI below.
+      // NEVER swallow silently — an invisible failure here (console-only on a
+      // native build) is exactly what hid this bug across multiple attempts.
+      // Surface it AND keep the finale open so the user can retry, rather than
+      // closing onto a stale plan with no feedback.
       console.error("[WeightProtocol] clearProtocol failed", e);
+      toast.error("Couldn't reset your protocol. Please try again.");
+      return;
     }
-    // Reset local UI state so the finale closes and the sweat editor is shut.
-    setFinishPressed(false);
+    // Success → fully reset every piece of local state so nothing survives to
+    // re-hydrate the old plan, then land the user at the top of Chapter 1.
+    setApproach("standard");
+    setGenError(null);
+    setRehydrationError(null);
+    setIsRegenerating(false);
+    setIsGeneratingRehydration(false);
     setEditingSweat(false);
-    // Land the user at the top of Chapter 1 rather than mid-scroll.
+    setFinishPressed(false);
     window.scrollTo({ top: 0 });
   }, [clearProtocol]);
 

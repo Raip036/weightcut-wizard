@@ -97,9 +97,10 @@ export function SafetyWarningBanner({
       aria-live={level === "red" ? "assertive" : "polite"}
       className={`card-surface rounded-2xl p-2.5 ${containerClasses(level)} ${className}`}
     >
-      {/* Top row: icon + title */}
-      <div className="flex items-start gap-1.5">
-        <span className={`mt-px ${iconColor}`}>
+      {/* Top row: icon + title — centered so the icon sits in line with the
+          (single-line) title rather than floating above its baseline. */}
+      <div className="flex items-center gap-1.5">
+        <span className={`flex shrink-0 ${iconColor}`}>
           <Icon name={iconName} size={13} aria-label={level === "red" ? "Alert" : "Warning"} />
         </span>
         <p

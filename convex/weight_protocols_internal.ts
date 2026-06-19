@@ -222,7 +222,12 @@ export const upsert = internalMutation({
     model: v.string(),
   },
   handler: async (ctx, args) => {
-    const existing = await ctx.db
+    // Duplicate-tolerant + self-healing. A prior regen race can leave more
+    // than one row for this (user, camp, kind) — `.unique()` would THROW here,
+    // which surfaced as "can't generate another plan". Collect all, keep the
+    // newest as the canonical row, and delete any extras so the table converges
+    // back to the one-row-per-(user,camp,kind) invariant.
+    const existingRows = await ctx.db
       .query("weight_protocols")
       .withIndex("by_user_camp_kind", (q) =>
         q
@@ -230,12 +235,16 @@ export const upsert = internalMutation({
           .eq("campId", args.campId)
           .eq("kind", args.kind),
       )
-      .unique();
+      .collect();
 
     const row = { ...args, createdAt: Date.now() };
-    if (existing) {
-      await ctx.db.replace(existing._id, row);
-      return existing._id;
+    if (existingRows.length > 0) {
+      const [keep, ...extras] = [...existingRows].sort(
+        (a, b) => b.createdAt - a.createdAt,
+      );
+      await ctx.db.replace(keep._id, row);
+      for (const extra of extras) await ctx.db.delete(extra._id);
+      return keep._id;
     }
     return await ctx.db.insert("weight_protocols", row);
   },

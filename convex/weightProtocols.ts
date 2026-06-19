@@ -77,6 +77,18 @@ const feelCheckMetric = v.union(
  * for cosmetic page state (header copy, accent colour); the actual
  * day-by-day plan comes from `fightPlan.payload.days[]`.
  */
+/** Pick the most-recently-created row, or null. Lets the protocol read
+ *  tolerate a transient duplicate (user,camp,kind) row instead of throwing
+ *  via `.unique()`. */
+function latestByCreatedAt<T extends { createdAt: number }>(
+  rows: T[],
+): T | null {
+  if (rows.length === 0) return null;
+  return rows.reduce((latest, row) =>
+    row.createdAt > latest.createdAt ? row : latest,
+  );
+}
+
 export const getCurrentForUser = query({
   args: {},
   handler: async (ctx) => {
@@ -96,8 +108,8 @@ export const getCurrentForUser = query({
     //    (cut depth, weigh-in gap) so the "Tuned to you" stat grid + the
     //    header cut-depth pill render even before the AI plan is generated.
     const [
-      fightPlan,
-      rehydration,
+      fightPlanRows,
+      rehydrationRows,
       feelChecks,
       fightWeekPlans,
       profile,
@@ -111,7 +123,7 @@ export const getCurrentForUser = query({
               .eq("campId", activeCamp._id)
               .eq("kind", "fight_plan"),
           )
-          .unique(),
+          .collect(),
         ctx.db
           .query("weight_protocols")
           .withIndex("by_user_camp_kind", (q) =>
@@ -120,7 +132,7 @@ export const getCurrentForUser = query({
               .eq("campId", activeCamp._id)
               .eq("kind", "rehydration"),
           )
-          .unique(),
+          .collect(),
         ctx.db
           .query("protocol_feel_checks")
           .withIndex("by_user_camp", (q) =>
@@ -146,6 +158,14 @@ export const getCurrentForUser = query({
           .order("desc")
           .first(),
       ]);
+
+    // Duplicate-tolerant read. A regen race can briefly leave two rows for the
+    // same (user, camp, kind); `.unique()` would THROW here and wedge the page
+    // — the read errors so the plan never clears and "Start over" appears to do
+    // nothing. Take the most recent row instead; `upsert` self-heals the extras
+    // on the next write, and `clearProtocol` already deletes every copy.
+    const fightPlan = latestByCreatedAt(fightPlanRows);
+    const rehydration = latestByCreatedAt(rehydrationRows);
 
     // 3. Resolve weigh-in date.
     //    Priority order:
