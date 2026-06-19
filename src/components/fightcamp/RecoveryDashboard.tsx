@@ -96,6 +96,81 @@ function AnimatedNumber({
   return <span className={className}>{format ? format(display) : Math.round(display)}</span>;
 }
 
+// ── ReadinessGauge ─────────────────────────────────────────────────────
+// Circular SVG instrument (Whoop-instrument design). Tier-coloured arc
+// fills to score%, a 60-tick ring lights up to the same fraction, and the
+// score counts up in the centre via AnimatedNumber. Cheap + composited:
+// only stroke-dashoffset (arc) + opacity/transform (AnimatedNumber text)
+// animate. No blur layers; the thin arc drop-shadow is enhancement-only
+// (.native-app strips it — visuals read fine without it).
+function ReadinessGauge({
+  score,
+  tier,
+  reducedMotion,
+}: {
+  score: number;
+  tier: string;
+  reducedMotion: boolean;
+}) {
+  const R = 86;
+  const C = 2 * Math.PI * R;
+  const pct = Math.max(0, Math.min(1, score / 100));
+  const colorClass = tierTextColor(tier);
+  return (
+    <div className="relative h-[200px] w-[200px]">
+      <svg viewBox="0 0 200 200" className="h-full w-full -rotate-90" aria-hidden>
+        <circle
+          cx="100"
+          cy="100"
+          r={R}
+          fill="none"
+          strokeWidth="13"
+          className="stroke-white/[0.06]"
+        />
+        <motion.circle
+          cx="100"
+          cy="100"
+          r={R}
+          fill="none"
+          strokeWidth="13"
+          strokeLinecap="round"
+          className={`${colorClass} stroke-current`}
+          strokeDasharray={C}
+          initial={reducedMotion ? false : { strokeDashoffset: C }}
+          animate={{ strokeDashoffset: C - C * pct }}
+          transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
+        />
+        {/* 60-tick instrument ring — lit fraction tracks the score. */}
+        {Array.from({ length: 60 }).map((_, i) => {
+          const a = (i / 60) * 360;
+          const lit = i / 60 <= pct;
+          return (
+            <line
+              key={i}
+              x1="100"
+              y1="9"
+              x2="100"
+              y2="14"
+              transform={`rotate(${a} 100 100)`}
+              strokeWidth="1.5"
+              className={
+                lit ? `${colorClass} stroke-current opacity-60` : "stroke-white/[0.07]"
+              }
+            />
+          );
+        })}
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
+        {/* 72px figure, centred — matches the old hero number weight. */}
+        <AnimatedNumber
+          value={score}
+          className={`text-[72px] font-display font-bold tabular-nums leading-none ${colorClass}`}
+        />
+      </div>
+    </div>
+  );
+}
+
 // Isolated streak query — if the function isn't deployed yet (or fails), the
 // surrounding ErrorBoundary swallows it and `streak` stays 0.
 function StreakProbe({ onStreak }: { onStreak: (n: number) => void }) {
@@ -157,6 +232,15 @@ function sparklineColorForScore(score: number): string {
   if (score >= 55) return "text-emerald-400";
   if (score >= 35) return "text-func-warning-yellow";
   return "text-func-danger-red";
+}
+
+// Tier → arc/text colour for the readiness gauge.
+// GREEN → func-recovery-green, AMBER → func-warning-yellow, RED → func-danger-red.
+function tierTextColor(tier: string): string {
+  if (tier === "GREEN") return "text-func-recovery-green";
+  if (tier === "AMBER") return "text-func-warning-yellow";
+  if (tier === "RED") return "text-func-danger-red";
+  return "text-foreground";
 }
 
 // Gas-tank one-liner copy (kept here so we don't bloat GasTankBar's API).
@@ -793,7 +877,7 @@ function HeroCard({
             <motion.button
               type="button"
               aria-label={`Readiness ${Math.round(score)} out of 100. Long-press for breakdown.`}
-              className="inline-flex items-baseline gap-2 outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded-md"
+              className="relative inline-flex flex-col items-center outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded-full"
               animate={breath ? { scale: [1, 1.015, 1] } : { scale: 1 }}
               transition={
                 breath
@@ -802,17 +886,14 @@ function HeroCard({
               }
               {...longPress}
             >
-              <AnimatedNumber
-                value={score}
-                className="text-[72px] leading-none font-display font-bold tabular-nums text-foreground"
-              />
+              <ReadinessGauge score={score} tier={verdict.tier} reducedMotion={!!prefersReduced} />
               {delta > 0 && (
-                <span className="text-[14px] font-semibold tabular-nums text-func-recovery-green">
+                <span className="-mt-2 text-[14px] font-semibold tabular-nums text-func-recovery-green">
                   ▲ {delta}
                 </span>
               )}
               {delta < 0 && (
-                <span className="text-[14px] font-semibold tabular-nums text-func-danger-red">
+                <span className="-mt-2 text-[14px] font-semibold tabular-nums text-func-danger-red">
                   ▼ {Math.abs(delta)}
                 </span>
               )}
@@ -914,8 +995,15 @@ function HeroCard({
 }
 
 // ── DailyCheckInCTA ─────────────────────────────────────────────────
+// Watch-complication treatment (Whoop-instrument design): the bulb sits
+// inside a circular streak progress ring (streak/7), wrapped by a gradient
+// hairline edge. One big tap target. Only stroke-dashoffset (ring) +
+// opacity/transform (mount) animate — no blur layers or infinite loops.
 function DailyCheckInCTA({ streak, onOpen }: { streak: number; onOpen: () => void }) {
   const prefersReduced = useReducedMotion();
+  const R = 19;
+  const C = 2 * Math.PI * R;
+  const ring = Math.min(1, streak / 7);
   return (
     <motion.button
       type="button"
@@ -923,26 +1011,71 @@ function DailyCheckInCTA({ streak, onOpen }: { streak: number; onOpen: () => voi
       initial={prefersReduced ? false : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.18, type: "spring", damping: 24, stiffness: 260 }}
-      className="group w-full text-left card-surface rounded-2xl p-4 border border-primary/30 hover:border-primary/50 active:scale-[0.99] transition-all"
+      className="group relative w-full overflow-hidden rounded-2xl card-surface card-glow text-left active:scale-[0.99] transition-transform"
       aria-label="Open daily check-in"
     >
-      <div className="flex items-center gap-3">
-        <div className="h-11 w-11 shrink-0 rounded-2xl border border-primary/30 flex items-center justify-center text-primary">
-          <Icon name="bulbOutline" size={22} />
+      {/* Gradient hairline edge — masked 1px border, no blur. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 rounded-2xl"
+        style={{
+          background:
+            "linear-gradient(135deg, hsl(var(--primary)/0.5), transparent 40%, hsl(var(--primary)/0.18))",
+          WebkitMask: "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
+          WebkitMaskComposite: "xor",
+          maskComposite: "exclude",
+          padding: 1,
+        }}
+      />
+      <div className="flex items-center gap-4 rounded-2xl px-4 py-4">
+        <div className="relative h-[52px] w-[52px] shrink-0">
+          <svg viewBox="0 0 52 52" className="h-full w-full -rotate-90" aria-hidden>
+            <circle
+              cx="26"
+              cy="26"
+              r={R}
+              fill="none"
+              strokeWidth="4"
+              className="stroke-white/[0.07]"
+            />
+            <motion.circle
+              cx="26"
+              cy="26"
+              r={R}
+              fill="none"
+              strokeWidth="4"
+              strokeLinecap="round"
+              className="stroke-primary"
+              strokeDasharray={C}
+              initial={prefersReduced ? false : { strokeDashoffset: C }}
+              animate={{ strokeDashoffset: C - C * ring }}
+              transition={{ duration: 0.9, ease: "easeOut", delay: 0.2 }}
+            />
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center text-primary">
+            <Icon name="bulbOutline" size={22} />
+          </div>
         </div>
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary/80">
             Daily check-in {streak > 0 ? `· keep your ${streak}-day streak` : ""}
           </p>
           <p className="mt-0.5 text-[15px] font-semibold leading-tight text-foreground">
             How are you feeling today?
           </p>
-          <p className="mt-0.5 text-[11px] text-muted-foreground leading-snug">4 quick taps</p>
+          <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground leading-snug">
+            <span className="inline-flex items-center gap-1">
+              <Icon name="checkmarkCircleOutline" size={12} />4 quick taps
+            </span>
+            <span className="text-muted-foreground/40">·</span>
+            <span>~20s</span>
+          </div>
         </div>
-        <span className="inline-flex items-center gap-1 shrink-0 text-[10px] font-bold uppercase tracking-wider text-primary group-hover:translate-x-0.5 transition-transform">
-          <span>~20s</span>
-          <Icon name="chevronForwardOutline" size={14} />
-        </span>
+        <Icon
+          name="chevronForwardOutline"
+          size={18}
+          className="shrink-0 text-primary group-hover:translate-x-0.5 transition-transform"
+        />
       </div>
     </motion.button>
   );

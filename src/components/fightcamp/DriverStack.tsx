@@ -102,20 +102,26 @@ export function DriverStack({ metrics, prevReadiness: _prevReadiness }: DriverSt
   // synthetic — but it surfaces "did you train this week" at a glance).
   const load7d = flatTailingSpark(b.loadBalanceScore);
 
-  // Wellness driver may be null on Tier-1 (no check-in yet). Render a
-  // neutral 0 score so the row still appears and prompts the user to
-  // check in via the detail copy.
-  const wellnessScore = b.wellnessScore ?? 0;
+  // Wellness driver is null when there's no check-in yet (undefined). Pass
+  // `null` straight through so the row renders a NEUTRAL state ("—", no red,
+  // no delta, "Tap to check in") rather than a misleading red 0. A real low
+  // score (e.g. 0 from a genuine bad check-in) is a number and still shows.
+  const wellnessScore = b.wellnessScore ?? null;
 
   return (
     <div className="card-surface rounded-2xl border border-border/50 overflow-hidden">
-      <div className="px-4 py-3 text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70 font-semibold border-b border-border/30">
-        Why · 4 drivers
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-border/30">
+        <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70 font-semibold">
+          Why
+        </span>
+        <span className="text-[10px] text-muted-foreground/40">·</span>
+        <span className="text-[10px] text-muted-foreground/50 font-semibold">4 drivers</span>
       </div>
       <div className="divide-y divide-border/30">
         <DriverRow
           label="Sleep"
           weight={3}
+          icon="moonOutline"
           oneLiner={sleepBandCopy(b.sleepScore)}
           delta={0}
           score={b.sleepScore}
@@ -127,7 +133,8 @@ export function DriverStack({ metrics, prevReadiness: _prevReadiness }: DriverSt
         <DriverRow
           label="How you feel"
           weight={2}
-          oneLiner={wellnessBandCopy(wellnessScore)}
+          icon="heartOutline"
+          oneLiner={wellnessScore == null ? "Not checked in yet" : wellnessBandCopy(wellnessScore)}
           delta={0}
           score={wellnessScore}
           sparkline7d={wellness7d}
@@ -138,6 +145,7 @@ export function DriverStack({ metrics, prevReadiness: _prevReadiness }: DriverSt
         <DriverRow
           label="Soreness"
           weight={2}
+          icon="bodyOutline"
           oneLiner={sorenessBandCopy(b.sorenessScore)}
           delta={0}
           score={b.sorenessScore}
@@ -149,6 +157,7 @@ export function DriverStack({ metrics, prevReadiness: _prevReadiness }: DriverSt
         <DriverRow
           label="Training load"
           weight={1}
+          icon="barbellOutline"
           oneLiner={loadBandCopy(b.loadBalanceScore)}
           delta={0}
           score={b.loadBalanceScore}

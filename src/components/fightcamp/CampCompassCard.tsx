@@ -21,11 +21,14 @@
 //                                                — no CTA.
 //
 // Data wiring is self-contained: the component owns its `useQuery` against
-// `api.recoveryReports.getCurrentForUser` so callers only need to pass the
-// auth'd `userId` (or `null` while it resolves).
-import { useMemo, useState } from "react";
+// `api.recoveryReports.listRecent` so callers only need to pass the auth'd
+// `userId` (or `null` while it resolves). It returns the user's reports
+// newest-first; the card renders them as a horizontal swipe carousel (one
+// FilledCompass-style page per stored week).
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { useQuery } from "convex/react";
+import useEmblaCarousel from "embla-carousel-react";
 import { api } from "@/../convex/_generated/api";
 import { Icon } from "@/components/ui/Icon";
 import { Skeleton } from "@/components/ui/skeleton-loader";
@@ -648,53 +651,55 @@ function ReportBody({
   );
 }
 
-// ── Pro filled card ────────────────────────────────────────────────────
-function FilledCompass({
+// ── Single carousel page (one stored week) ────────────────────────────────
+// Each page owns its OWN `useWeekData` (hooks can't run inside a `.map`) and
+// its OWN full-report Sheet. The compact card surfaces the verdict/stats/
+// trend/sessions; a big full-width tap bar — not the old 14px chevron — opens
+// the expanded report.
+function ReportPage({
   report,
   userId,
-  className,
-  prefersReduced,
 }: {
   report: RecoveryReport;
   userId: string | null;
-  className: string;
-  prefersReduced: boolean | null;
 }) {
   const [sheetOpen, setSheetOpen] = useState(false);
-  // Live week data — drives stats / trend / sessions. Renders below the
-  // verdict + prose as it resolves; never blocks the text from painting.
+  // Live week data — drives stats / trend / sessions for THIS week. Renders
+  // below the verdict + prose as it resolves; never blocks the text.
   const weekData = useWeekData(userId, report.weekStartIso);
 
+  const openSheet = () => {
+    triggerHapticSelection();
+    setSheetOpen(true);
+  };
+
   return (
-    <>
-      <motion.div
-        initial={prefersReduced ? false : { opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ type: "spring", damping: 22, stiffness: 260 }}
-        className={className}
-      >
+    // Embla slide: full-width, scroll-snap handled by the carousel container.
+    <div className="min-w-0 flex-[0_0_100%] px-0.5">
+      <div className="card-surface rounded-2xl border border-border/50 overflow-hidden">
         <button
           type="button"
-          onClick={() => {
-            triggerHapticSelection();
-            setSheetOpen(true);
-          }}
-          aria-label="Open full Sunday report"
-          className="w-full text-left card-surface rounded-2xl border border-border/50 p-5 active:scale-[0.995] transition-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          onClick={openSheet}
+          aria-label={`Open full Sunday report for week of ${formatWeekOfLabel(report.weekStartIso)}`}
+          className="w-full text-left p-5 active:scale-[0.995] transition-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
         >
-          <div className="flex items-center justify-between mb-3">
-            <div className={SECTION_LABEL}>
-              Sunday Report · week of {formatWeekOfLabel(report.weekStartIso)}
-            </div>
-            <Icon
-              name="chevronForwardOutline"
-              size={14}
-              className="text-muted-foreground/60"
-            />
+          <div className={`${SECTION_LABEL} mb-3`}>
+            Sunday Report · week of {formatWeekOfLabel(report.weekStartIso)}
           </div>
           <ReportBody report={report} expanded={false} weekData={weekData} />
         </button>
-      </motion.div>
+
+        {/* Bigger expand affordance — full-width, ≥44px, large chevron. */}
+        <button
+          type="button"
+          onClick={openSheet}
+          aria-label="Read the full report"
+          className="flex w-full min-h-[44px] items-center justify-center gap-1.5 border-t border-border/40 py-3.5 text-[13px] font-semibold text-primary active:bg-primary/[0.06] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+        >
+          Read the full report
+          <Icon name="chevronDownOutline" size={20} />
+        </button>
+      </div>
 
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent
@@ -736,7 +741,111 @@ function FilledCompass({
           </div>
         </SheetContent>
       </Sheet>
-    </>
+    </div>
+  );
+}
+
+// ── Pro filled carousel ────────────────────────────────────────────────────
+// Horizontal, swipeable pager across the user's stored weeks (newest first).
+// Embla drives reliable active-index tracking; dots + the active week label
+// give orientation, and prev/next is swipe-driven (dots are tap-to-jump too).
+function CompassCarousel({
+  reports,
+  userId,
+  className,
+  prefersReduced,
+}: {
+  reports: RecoveryReport[];
+  userId: string | null;
+  className: string;
+  prefersReduced: boolean | null;
+}) {
+  const [emblaRef, emblaApi] = useEmblaCarousel({
+    align: "start",
+    containScroll: "trimSnaps",
+    // Respect reduced-motion: a snappy 0-duration scroll avoids the easing.
+    duration: prefersReduced ? 0 : 22,
+  });
+  const [selected, setSelected] = useState(0);
+
+  const onSelect = useCallback(() => {
+    if (!emblaApi) return;
+    setSelected(emblaApi.selectedScrollSnap());
+  }, [emblaApi]);
+
+  useEffect(() => {
+    if (!emblaApi) return;
+    onSelect();
+    emblaApi.on("select", onSelect);
+    emblaApi.on("reInit", onSelect);
+    return () => {
+      emblaApi.off("select", onSelect);
+      emblaApi.off("reInit", onSelect);
+    };
+  }, [emblaApi, onSelect]);
+
+  const scrollTo = useCallback(
+    (i: number) => {
+      triggerHapticSelection();
+      emblaApi?.scrollTo(i);
+    },
+    [emblaApi],
+  );
+
+  const active = reports[selected] ?? reports[0];
+  const showDots = reports.length > 1;
+
+  return (
+    <motion.div
+      initial={prefersReduced ? false : { opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: "spring", damping: 22, stiffness: 260 }}
+      className={className}
+    >
+      {/* Header: prominent active week label + page dots */}
+      <div className="mb-2 flex items-center justify-between px-0.5">
+        <div className="min-w-0">
+          <div className={SECTION_LABEL}>Sunday report</div>
+          <div className="mt-0.5 text-[15px] font-bold tracking-tight text-foreground truncate">
+            Week of {formatWeekOfLabel(active.weekStartIso)}
+          </div>
+        </div>
+        {showDots && (
+          <div className="flex shrink-0 items-center gap-1.5" role="tablist">
+            {reports.map((r, i) => (
+              <button
+                key={r._id}
+                type="button"
+                role="tab"
+                aria-selected={i === selected}
+                aria-label={`Week of ${formatWeekOfLabel(r.weekStartIso)}`}
+                onClick={() => scrollTo(i)}
+                className={`h-1.5 rounded-full transition-all ${
+                  i === selected ? "w-4 bg-primary" : "w-1.5 bg-muted-foreground/30"
+                }`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Embla viewport */}
+      <div className="overflow-hidden -mx-0.5" ref={emblaRef}>
+        <div className="flex">
+          {reports.map((report) => (
+            <ReportPage key={report._id} report={report} userId={userId} />
+          ))}
+        </div>
+      </div>
+
+      {showDots && (
+        <div className="mt-2 flex items-center justify-center gap-1 text-[10px] text-muted-foreground/40">
+          <Icon name="chevronBackOutline" size={11} />
+          swipe through {reports.length} weeks
+          <Icon name="chevronForwardOutline" size={11} />
+        </div>
+      )}
+    </motion.div>
   );
 }
 
@@ -750,14 +859,15 @@ export function CampCompassCard({ userId, className = "" }: CampCompassCardProps
   // registry (src/lib/featureGates.ts) re-locks this card too.
   const hasRecoveryAccess = checkFeatureAccess("RECOVERY");
 
-  // Self-contained reactive query against the user's latest weekly report.
-  const report = useQuery(
-    api.recoveryReports.getCurrentForUser,
-    userId ? {} : "skip",
-  ) as RecoveryReport | null | undefined;
+  // Self-contained reactive query against the user's recent weekly reports
+  // (newest first). The carousel pages through them; `undefined` = loading.
+  const reports = useQuery(
+    api.recoveryReports.listRecent,
+    userId ? { limit: 12 } : "skip",
+  ) as RecoveryReport[] | undefined;
 
   // Loading: subscription unresolved OR (Pro user with query in flight).
-  // For free users we don't need the report to render the locked state,
+  // For free users we don't need the reports to render the locked state,
   // so we paint as soon as subscription resolves.
   if (!isSubscriptionResolved) {
     return <CampCompassSkeleton />;
@@ -774,17 +884,17 @@ export function CampCompassCard({ userId, className = "" }: CampCompassCardProps
   }
 
   // Pro user — wait on the query before deciding empty vs filled.
-  if (report === undefined) {
+  if (reports === undefined) {
     return <CampCompassSkeleton />;
   }
 
-  if (report === null) {
+  if (reports.length === 0) {
     return <EmptyCompass className={className} prefersReduced={prefersReduced} />;
   }
 
   return (
-    <FilledCompass
-      report={report}
+    <CompassCarousel
+      reports={reports}
       userId={userId}
       className={className}
       prefersReduced={prefersReduced}

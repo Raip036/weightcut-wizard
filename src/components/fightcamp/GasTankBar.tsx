@@ -1,5 +1,5 @@
 import { motion, useReducedMotion } from "motion/react";
-import { useEffect, useState } from "react";
+import { Icon } from "@/components/ui/Icon";
 
 // ── Public types ──────────────────────────────────────────────────────────
 export type GasTankTone = "green" | "amber" | "red";
@@ -26,136 +26,73 @@ export function toneFromReadiness(readiness: number): GasTankTone {
   return "red";
 }
 
-// ── Tone → tailwind class map ─────────────────────────────────────────────
-const TONE_CLASSES: Record<
-  GasTankTone,
-  { fill: string; stroke: string; dot: string }
-> = {
-  green: {
-    fill: "bg-func-recovery-green/70",
-    stroke: "stroke-func-recovery-green/60",
-    dot: "fill-func-recovery-green",
-  },
-  amber: {
-    fill: "bg-func-warning-yellow/70",
-    stroke: "stroke-func-warning-yellow/60",
-    dot: "fill-func-warning-yellow",
-  },
-  red: {
-    fill: "bg-func-danger-red/70",
-    stroke: "stroke-func-danger-red/60",
-    dot: "fill-func-danger-red",
-  },
+// ── Tone → CSS colour var ─────────────────────────────────────────────────
+// Maps each tone to its func-* design token (referenced via the CSS var so
+// lit segments + the percentage + icon all share one colour). The unlit
+// segment colour is a low-opacity white so the track reads in dark mode.
+const TONE_VAR: Record<GasTankTone, string> = {
+  green: "rgb(var(--func-recovery-green))",
+  amber: "rgb(var(--func-warning-yellow))",
+  red: "rgb(var(--func-danger-red))",
 };
 
-// 8 eyelets — 4 per side, symmetric across the bar's vertical centerline.
-// Coordinates are in % of the SVG viewBox (100 x 16).
-const EYELET_POSITIONS: Array<{ cx: number; cy: number }> = [
-  // top row (y = 4)
-  { cx: 8, cy: 4 },
-  { cx: 33, cy: 4 },
-  { cx: 67, cy: 4 },
-  { cx: 92, cy: 4 },
-  // bottom row (y = 12)
-  { cx: 8, cy: 12 },
-  { cx: 33, cy: 12 },
-  { cx: 67, cy: 12 },
-  { cx: 92, cy: 12 },
-];
+const SEGMENTS = 24;
 
-export function GasTankBar({
-  fillPct,
-  tone,
-  oneLiner,
-  className,
-}: GasTankBarProps) {
+/**
+ * Segmented "fuel tank" bar (Whoop-instrument design). A row of lit/unlit
+ * pills fills to fillPct, with a tone-coloured header (battery icon + label +
+ * percentage). Only opacity/scaleY animate on the segments — cheap, composited,
+ * and honours reduced-motion. The one-liner stays beneath, unchanged.
+ */
+export function GasTankBar({ fillPct, tone, oneLiner, className }: GasTankBarProps) {
   const prefersReduced = useReducedMotion();
   const clamped = Math.max(0, Math.min(1, fillPct));
   const pct100 = Math.round(clamped * 100);
-  const tones = TONE_CLASSES[tone];
-
-  // Tremor effect on low fuel: 4-frame micro-rotation every 6s.
-  const tremorEnabled = clamped < 0.25 && !prefersReduced;
-  const [tremorTick, setTremorTick] = useState(0);
-  useEffect(() => {
-    if (!tremorEnabled) return;
-    const id = window.setInterval(() => {
-      setTremorTick((n) => n + 1);
-    }, 6000);
-    return () => window.clearInterval(id);
-  }, [tremorEnabled]);
+  const lit = Math.round(clamped * SEGMENTS);
+  const color = TONE_VAR[tone];
 
   return (
     <div className={className}>
-      <div
-        role="progressbar"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={pct100}
-        className="relative h-4 w-full overflow-hidden rounded-2xl border border-border/50 bg-muted/30"
-      >
-        {/* Inner gradient fill — animates width from 0 to clamped on mount. */}
-        <motion.div
-          initial={prefersReduced ? false : { width: 0 }}
-          animate={{ width: `${clamped * 100}%` }}
-          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-          className={`absolute inset-y-0 left-0 ${tones.fill}`}
-          style={{
-            backgroundImage:
-              "linear-gradient(to right, rgb(255 255 255 / 0.12), rgb(255 255 255 / 0) 60%)",
-          }}
-        />
+      <div className="card-surface rounded-2xl px-4 py-3.5">
+        <div className="mb-2.5 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex" style={{ color }}>
+              <Icon name="batteryChargingOutline" size={15} />
+            </span>
+            <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70 font-semibold">
+              Fuel tank
+            </span>
+          </div>
+          <span
+            className="font-display font-bold tabular-nums text-[13px]"
+            style={{ color }}
+          >
+            {pct100}%
+          </span>
+        </div>
 
-        {/* Lace overlay — stitched border outline + 8 eyelets. */}
-        <svg
-          aria-hidden
-          viewBox="0 0 100 16"
-          preserveAspectRatio="none"
-          className="pointer-events-none absolute inset-0 h-full w-full"
+        <div
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={pct100}
+          className="flex h-3.5 items-center gap-[3px]"
         >
-          {/* Subtle stitched border traced inside the rounded rect. */}
-          <rect
-            x="0.6"
-            y="0.6"
-            width="98.8"
-            height="14.8"
-            rx="6"
-            ry="6"
-            fill="none"
-            strokeWidth="0.4"
-            strokeDasharray="1.2 1"
-            className={tones.stroke}
-            vectorEffect="non-scaling-stroke"
-          />
-          {/* 8 lace eyelets — animated tremor on low fuel. */}
-          {EYELET_POSITIONS.map((p, i) => (
-            <motion.circle
+          {Array.from({ length: SEGMENTS }).map((_, i) => (
+            <motion.span
               key={i}
-              cx={p.cx}
-              cy={p.cy}
-              r="0.9"
-              className={tones.dot}
-              animate={
-                tremorEnabled
-                  ? { rotate: [0, 1, -1, 0] }
-                  : { rotate: 0 }
-              }
-              transition={{
-                duration: 0.6,
-                ease: "easeInOut",
-                // re-runs each tremorTick because key changes the animate target.
-              }}
-              style={{ originX: `${p.cx}%`, originY: `${p.cy}%` }}
-              // tremorTick forces re-render so animate keyframes restart.
-              data-tick={tremorTick}
+              aria-hidden
+              className="h-full flex-1 rounded-full"
+              style={{ background: i < lit ? color : "rgba(255,255,255,0.06)" }}
+              initial={prefersReduced ? false : { opacity: 0, scaleY: 0.4 }}
+              animate={{ opacity: 1, scaleY: 1 }}
+              transition={{ delay: 0.4 + i * 0.014, duration: 0.25 }}
             />
           ))}
-        </svg>
-      </div>
+        </div>
 
-      <p className="mt-2 text-[12px] leading-snug text-muted-foreground">
-        {oneLiner}
-      </p>
+        <p className="mt-2.5 text-[12px] leading-snug text-muted-foreground">{oneLiner}</p>
+      </div>
     </div>
   );
 }
