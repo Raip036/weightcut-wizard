@@ -159,16 +159,26 @@ export default function WeightProtocol() {
     setApproach(next);
   }, []);
 
-  // Walkout "Start over": wipe the fight plan + rehydration so the page falls
-  // back to Chapter 1, where the athlete can generate a fresh protocol.
+  // Walkout "Start over": wipe the fight plan + rehydration server-side so
+  // `getCurrentForUser` returns `fightPlan: null` and the page falls back to
+  // Chapter 1 (ProtocolPlanIntro), where the athlete can generate a fresh
+  // protocol. The page's only Chapter-1 gate is `!fpPayload`, which is derived
+  // directly from the query — there is no local/cached copy of the plan to
+  // reset — so clearing the server rows is what actually returns to Chapter 1.
   const handleProtocolReset = useCallback(async () => {
     try {
       await clearProtocol({});
-    } catch {
-      /* best-effort — the page reverts on the next query tick regardless */
+    } catch (e) {
+      // Don't silently swallow — a swallowed throw (e.g. a `.unique()`
+      // duplicate-row error) is exactly what kept the plan on screen. Surface
+      // it so the failure is visible; still reset local UI below.
+      console.error("[WeightProtocol] clearProtocol failed", e);
     }
+    // Reset local UI state so the finale closes and the sweat editor is shut.
     setFinishPressed(false);
     setEditingSweat(false);
+    // Land the user at the top of Chapter 1 rather than mid-scroll.
+    window.scrollTo({ top: 0 });
   }, [clearProtocol]);
 
   // ── Top-level states ──────────────────────────────────────────────

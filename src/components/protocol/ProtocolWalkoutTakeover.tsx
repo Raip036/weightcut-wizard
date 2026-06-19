@@ -20,6 +20,7 @@
 // utilities in src/lib/shareUtils.ts — identical to the rest of the share-card
 // family (ReadinessFlexSheet, ShareCardDialog, etc.).
 import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, useReducedMotion } from "motion/react";
 import { Download, Loader2, Share2 } from "lucide-react";
 import { CardShell } from "@/components/share/templates/CardShell";
@@ -259,6 +260,17 @@ export function ProtocolWalkoutTakeover({
     });
   }, []);
 
+  // Lock the page behind the takeover so it can't scroll while open. The
+  // overlay itself (rendered via a portal into document.body) handles its own
+  // internal scrolling, so the celebration is always what fills the screen.
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
   // Fire confetti + schedule the poster reveal on mount.
   useEffect(() => {
     if (prefersReduced) {
@@ -292,7 +304,12 @@ export function ProtocolWalkoutTakeover({
     );
   }, [captureAndShare]);
 
-  return (
+  // Render through a portal into document.body so the `fixed inset-0` overlay
+  // anchors to the viewport — NOT to any transformed ancestor (e.g. the
+  // PageTransition wrapper, which uses CSS `transform`). A transformed ancestor
+  // would otherwise become the containing block for `position: fixed`, pinning
+  // the takeover wherever the page is scrolled instead of filling the screen.
+  const overlay = (
     <motion.div
       className="fixed inset-0 z-[120] flex flex-col items-center overflow-y-auto"
       role="dialog"
@@ -357,7 +374,11 @@ export function ProtocolWalkoutTakeover({
         </div>
       )}
 
-      <div className="relative z-10 flex w-full max-w-md flex-col items-center px-6">
+      {/* `my-auto` centres the content in the viewport when it fits, but lets it
+          flow from the top (scrollable within the overlay) when the poster is
+          taller than the screen — so the Save/Share/Start over buttons stay
+          reachable on small devices. */}
+      <div className="relative z-10 my-auto flex w-full max-w-md flex-col items-center px-6">
         {/* Haloed, bobbing wizard hero. Stays as the visual anchor above the
             poster card once it reveals. */}
         <div className="relative flex h-44 items-center justify-center">
@@ -503,4 +524,6 @@ export function ProtocolWalkoutTakeover({
       </div>
     </motion.div>
   );
+
+  return createPortal(overlay, document.body);
 }

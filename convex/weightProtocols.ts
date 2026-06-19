@@ -449,8 +449,15 @@ export const clearFeelCheck = mutation({
  *
  * Idempotent: a no-op when there's no active camp or nothing to clear
  * (returns a small summary of what was removed so the client can decide
- * whether to toast). Deletion convention matches the rest of this file
- * (`.unique()` / `.collect()` then `ctx.db.delete(_id)`).
+ * whether to toast).
+ *
+ * Deletion uses `.collect()` + loop-delete (NOT `.unique()`) for the
+ * protocol rows: the schema does NOT enforce one-row-per-(user, camp, kind),
+ * so a regenerate race could leave duplicate `fight_plan` / `rehydration`
+ * rows. `.unique()` THROWS on duplicates — which would leave the plan row
+ * behind and the page stuck on the plan screen — so we collect ALL matching
+ * rows and delete every one. This guarantees `getCurrentForUser` returns
+ * `fightPlan: null` afterwards regardless of how many rows existed.
  *
  * Auth: throws `NOT_AUTHENTICATED` (mirrors `recordFeelCheck`) so the
  * client can surface an error rather than silently appearing to succeed.
@@ -485,8 +492,11 @@ export const clearProtocol = mutation({
       };
     }
 
-    // Both protocol rows + the feel-check ledger, fetched in parallel.
-    const [fightPlan, rehydration, feelChecks] = await Promise.all([
+    // Both protocol kinds (ALL matching rows, not just one) + the
+    // feel-check ledger, fetched in parallel. `.collect()` on the protocol
+    // rows means a duplicate fight_plan / rehydration row never throws and
+    // every copy is removed.
+    const [fightPlans, rehydrations, feelChecks] = await Promise.all([
       ctx.db
         .query("weight_protocols")
         .withIndex("by_user_camp_kind", (q) =>
@@ -495,7 +505,7 @@ export const clearProtocol = mutation({
             .eq("campId", activeCamp._id)
             .eq("kind", "fight_plan"),
         )
-        .unique(),
+        .collect(),
       ctx.db
         .query("weight_protocols")
         .withIndex("by_user_camp_kind", (q) =>
@@ -504,7 +514,7 @@ export const clearProtocol = mutation({
             .eq("campId", activeCamp._id)
             .eq("kind", "rehydration"),
         )
-        .unique(),
+        .collect(),
       ctx.db
         .query("protocol_feel_checks")
         .withIndex("by_user_camp", (q) =>
@@ -513,15 +523,17 @@ export const clearProtocol = mutation({
         .collect(),
     ]);
 
-    if (fightPlan) await ctx.db.delete(fightPlan._id);
-    if (rehydration) await ctx.db.delete(rehydration._id);
+    for (const fp of fightPlans) await ctx.db.delete(fp._id);
+    for (const rh of rehydrations) await ctx.db.delete(rh._id);
     for (const fc of feelChecks) await ctx.db.delete(fc._id);
 
     return {
       cleared:
-        fightPlan != null || rehydration != null || feelChecks.length > 0,
-      deletedFightPlan: fightPlan != null,
-      deletedRehydration: rehydration != null,
+        fightPlans.length > 0 ||
+        rehydrations.length > 0 ||
+        feelChecks.length > 0,
+      deletedFightPlan: fightPlans.length > 0,
+      deletedRehydration: rehydrations.length > 0,
       deletedFeelChecks: feelChecks.length,
     };
   },
