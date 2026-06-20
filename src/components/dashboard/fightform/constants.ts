@@ -14,7 +14,11 @@ export const SUBSCORE_LABEL: Record<string, string> = {
   trainingLoad: "Training Load",
   sleep: "Sleep",
   weightCut: "Weight Cut",
-  wellness: "Wellness",
+  // The `wellness` key IS the recovery dimension in the UI — the self-report
+  // check-in is its base and HealthKit HRV/RHR folds into it (see
+  // `mergeRecoveryDimension`). Both keys read "Recovery" so any stray lookup
+  // (e.g. an un-remapped topLimiter) still labels correctly.
+  wellness: "Recovery",
   nutritionAdherence: "Nutrition",
   recovery: "Recovery",
 };
@@ -38,9 +42,9 @@ export const SUBSCORE_EXPLAINER: Record<string, string> = {
   sleep: "Hours and consistency from your sleep logs, smoothed over the last week.",
   weightCut: "How your weight is tracking against a sustainable pace to your target.",
   wellness:
-    "Driven by your daily check-in — sleep, body, soreness and stress — smoothed over 7 days. A better check-in raises this number, which feeds the ring. When Apple Health recovery (HRV/RHR) is available, the two are blended.",
+    "Your recovery — driven by your daily check-in (sleep, body, soreness and stress), smoothed over 7 days. A better check-in raises this number, which feeds the ring. When Apple Health is connected, heart-rate variability and resting heart rate blend in to sharpen it.",
   recovery:
-    "Measured from Apple Health — heart-rate variability and resting heart rate vs. your baseline. Blended with your daily wellness check-in when you've logged one.",
+    "Measured from Apple Health — heart-rate variability and resting heart rate vs. your baseline. Blended into your recovery score when connected.",
   nutritionAdherence: "How closely your logged meals hit your calorie and protein targets.",
 };
 

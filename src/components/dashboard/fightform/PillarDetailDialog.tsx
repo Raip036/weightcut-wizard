@@ -26,7 +26,16 @@ interface Props {
   trend?: TrendPoint[];
   /** Deep-link handler — navigates and closes the parent sheet. */
   onNavigate: (route: string) => void;
+  /**
+   * Whether HealthKit recovery (HRV/RHR) is currently feeding the score. Only
+   * consulted for the recovery dimension (the `wellness` pillar) to render the
+   * "Apple Health connected / paused" notice.
+   */
+  healthKitActive?: boolean;
 }
+
+/** The `wellness` pillar is the merged recovery dimension in the UI. */
+const RECOVERY_DIMENSION_KEY = "wellness";
 
 /* ── Tier helpers (local mirror of the sheet's private band → bar mapping) ── */
 type Tier = "gold" | "silver" | "bronze" | "building";
@@ -61,6 +70,7 @@ export function PillarDetailDialog({
   phase,
   trend,
   onNavigate,
+  healthKitActive,
 }: Props) {
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -73,6 +83,7 @@ export function PillarDetailDialog({
             phase={phase}
             trend={trend}
             onNavigate={onNavigate}
+            healthKitActive={!!healthKitActive}
           />
         )}
       </DialogContent>
@@ -87,6 +98,7 @@ function PillarDetailBody({
   phase,
   trend,
   onNavigate,
+  healthKitActive,
 }: {
   pillarKey: SubScoreKey;
   sub: SubScore;
@@ -94,6 +106,7 @@ function PillarDetailBody({
   phase: string | null;
   trend?: TrendPoint[];
   onNavigate: (route: string) => void;
+  healthKitActive: boolean;
 }) {
   const tier = tierFor(sub.value);
   const fillPct = Math.max(0, Math.min(100, sub.value));
@@ -150,6 +163,40 @@ function PillarDetailBody({
           </p>
         </div>
       )}
+
+      {/* 4b — Apple Health status (recovery dimension only). Tells the user
+            whether HRV/RHR is sharpening the score, or paused because Apple
+            Health isn't connected — so the device signal's absence never reads
+            as the whole pillar being broken. */}
+      {pillarKey === RECOVERY_DIMENSION_KEY &&
+        (healthKitActive ? (
+          <div className="rounded-xs border border-func-recovery-green/25 bg-func-recovery-green/[0.06] px-3 py-2.5">
+            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-func-recovery-green font-semibold mb-1">
+              <Icon name="heartOutline" size={12} className="shrink-0" />
+              Apple Health connected
+            </div>
+            <p className="text-[12px] leading-snug text-foreground/80">
+              Heart-rate variability and resting heart rate are blended into
+              this score.
+            </p>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onNavigate("settings:apple-health")}
+            className="w-full text-left rounded-xs border border-border/50 bg-muted/15 px-3 py-2.5 active:bg-muted/25 transition-colors"
+          >
+            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground/70 font-semibold mb-1">
+              <Icon name="pulseOutline" size={12} className="shrink-0" />
+              Apple Health not connected
+            </div>
+            <p className="text-[12px] leading-snug text-foreground/80">
+              Heart-rate variability and resting heart rate are paused and
+              aren't affecting this score — your daily check-in is driving it.
+              Tap to connect Apple Health.
+            </p>
+          </button>
+        ))}
 
       {/* 5 — per-pillar sparkline */}
       {trend && trend.length >= 2 && (

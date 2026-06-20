@@ -373,9 +373,17 @@ export default function Community() {
                             ? "loading"
                             : posts.length === 0
                               ? "empty"
-                              : effectivePosts.length === 0
-                                ? "empty"
-                                : "feed";
+                              : // "Caught up" (every post seen — posts exist but
+                                // effectivePosts is empty) is NOT a page-level
+                                // branch swap anymore. It stays in "feed" and the
+                                // feed section reveals the caught-up panel in
+                                // place, so the last card flies off and the panel
+                                // rises in as ONE continuous motion (matching the
+                                // smooth multi-card promotion) instead of an
+                                // abrupt sibling swap. Only a truly empty gym
+                                // (posts.length === 0, handled above) uses the
+                                // page-level EmptyFeed branch.
+                                "feed";
 
                     if (branch === "loading") {
                       // Neutral loader instead of the polaroid-shaped skeleton —
@@ -443,6 +451,7 @@ export default function Community() {
                           onOpenComments={openComments}
                           onPostSwiped={handlePostSwiped}
                           onPostClick={handlePostClick}
+                          onLogSession={() => navigate("/training-calendar")}
                           seenCount={dismissedIds.size}
                           totalCount={posts.length}
                         />
@@ -720,6 +729,8 @@ interface CommunityFeedSectionProps {
   onOpenComments: (postId: Id<"session_media">, count: number) => void;
   onPostSwiped: (postId: Id<"session_media">) => void;
   onPostClick: () => void;
+  /** Fires the "Log a session" CTA on the in-place caught-up panel. */
+  onLogSession: () => void;
   /** Counter pill source: dismissed-so-far + full feed length. */
   seenCount: number;
   totalCount: number;
@@ -735,6 +746,7 @@ const CommunityFeedSection = React.memo(function CommunityFeedSection({
   onOpenComments,
   onPostSwiped,
   onPostClick,
+  onLogSession,
   seenCount,
   totalCount,
 }: CommunityFeedSectionProps) {
@@ -787,49 +799,82 @@ const CommunityFeedSection = React.memo(function CommunityFeedSection({
     [topPost, addCommentMut, topEngagement],
   );
 
+  // Once every post has been seen `posts` (the parent's effectivePosts) is
+  // empty. We reveal the caught-up panel HERE, inside the persistent feed
+  // section, rather than letting the page-level branch swap the whole feed
+  // out. Because this swap lives in the same container the deck does, the
+  // last card's fly-off and the panel's entrance read as one continuous
+  // motion — the same trick that makes multi-card promotion feel smooth.
+  const caughtUp = posts.length === 0;
+
   return (
     <div className="mt-2">
-      {/* Tight bottom buffer — the square deck (312px) reveals the next
-          card in place, so there's no y-overshoot to clear and the info
-          block can sit close beneath, putting comments on first glance. */}
-      <div className="mt-4 mb-4" data-tutorial="community-photo-stack">
-        <PolaroidStack
-          posts={posts}
-          status={status}
-          loadMore={loadMore}
-          topIndex={topIndex}
-          advance={advance}
-          onOpenProfile={onOpenProfile}
-          onSwipeCommit={onPostSwiped}
-          onPostClick={onPostClick}
-          liked={topEngagement.liked}
-          onToggleLike={topEngagement.toggleLike}
-          likeBurstKey={topEngagement.burstKey}
-          seenCount={seenCount}
-          totalCount={totalCount}
-        />
-      </div>
-
-      {/* Crossfade the info block as the deck advances so its content
-          glides between posts instead of snapping. Keyed to the top post id;
-          mode="popLayout" keeps the height stable through the swap. */}
       <AnimatePresence mode="popLayout" initial={false}>
-        {topPost && (
+        {caughtUp ? (
           <motion.div
-            key={topPost.id}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.22, ease: "easeOut" }}
+            key="caught-up"
+            // Rise + fade + a whisper of scale, with a short delay so the
+            // last card has clearly flown off the top before the panel
+            // settles into its place. Soft ease-out for the "gentle" landing.
+            initial={{ opacity: 0, y: 18, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, transition: { duration: 0.16 } }}
+            transition={{ duration: 0.46, ease: [0.22, 1, 0.36, 1], delay: 0.08 }}
           >
-            <SessionInfoCard
-              post={topPost}
-              engagement={topEngagement}
-              onCommentTap={onOpenComments}
-              onProfileTap={onOpenProfile}
-              onReact={handleReact}
-              onSubmitComment={handleSubmitComment}
-            />
+            <EmptyFeed onLogSessionClick={onLogSession} />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="deck"
+            // Clean fade as the deck hands off to the caught-up panel. The
+            // last card itself already animated off inside PolaroidStack, so
+            // this just dissolves the now-empty deck footprint.
+            exit={{ opacity: 0, transition: { duration: 0.22, ease: "easeOut" } }}
+          >
+            {/* Tight bottom buffer — the square deck (312px) reveals the next
+                card in place, so there's no y-overshoot to clear and the info
+                block can sit close beneath, putting comments on first glance. */}
+            <div className="mt-4 mb-4" data-tutorial="community-photo-stack">
+              <PolaroidStack
+                posts={posts}
+                status={status}
+                loadMore={loadMore}
+                topIndex={topIndex}
+                advance={advance}
+                onOpenProfile={onOpenProfile}
+                onSwipeCommit={onPostSwiped}
+                onPostClick={onPostClick}
+                liked={topEngagement.liked}
+                onToggleLike={topEngagement.toggleLike}
+                likeBurstKey={topEngagement.burstKey}
+                seenCount={seenCount}
+                totalCount={totalCount}
+              />
+            </div>
+
+            {/* Crossfade the info block as the deck advances so its content
+                glides between posts instead of snapping. Keyed to the top post id;
+                mode="popLayout" keeps the height stable through the swap. */}
+            <AnimatePresence mode="popLayout" initial={false}>
+              {topPost && (
+                <motion.div
+                  key={topPost.id}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.22, ease: "easeOut" }}
+                >
+                  <SessionInfoCard
+                    post={topPost}
+                    engagement={topEngagement}
+                    onCommentTap={onOpenComments}
+                    onProfileTap={onOpenProfile}
+                    onReact={handleReact}
+                    onSubmitComment={handleSubmitComment}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         )}
       </AnimatePresence>

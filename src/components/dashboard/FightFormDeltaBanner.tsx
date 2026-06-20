@@ -15,7 +15,9 @@ const SUBSCORE_HUMAN: Record<SubScoreKey, string> = {
   trainingLoad: "training load",
   sleep: "sleep",
   weightCut: "weight cut",
-  wellness: "wellness",
+  // `wellness` is the merged recovery dimension in the UI; `recovery` (HealthKit)
+  // folds into it, so both read "recovery".
+  wellness: "recovery",
   nutritionAdherence: "nutrition",
   recovery: "recovery",
 };

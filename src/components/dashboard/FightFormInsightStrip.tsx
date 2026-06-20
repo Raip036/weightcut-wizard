@@ -38,7 +38,7 @@ const SOURCE_LABEL: Record<SourceKey, string> = {
   sleep: "Sleep",
   weight: "Weight",
   training: "Train",
-  wellness: "Wellness",
+  wellness: "Recovery",
   nutrition: "Meals",
 };
 
@@ -46,7 +46,7 @@ const SUBSCORE_HUMAN: Record<SubScoreKey, string> = {
   trainingLoad: "Training load",
   sleep: "Sleep",
   weightCut: "Weight cut",
-  wellness: "Wellness",
+  wellness: "Recovery",
   nutritionAdherence: "Nutrition",
 };
 

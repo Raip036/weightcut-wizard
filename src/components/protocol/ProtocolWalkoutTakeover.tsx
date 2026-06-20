@@ -22,9 +22,9 @@
 import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, useReducedMotion } from "motion/react";
-import { Download, Loader2, Share2 } from "lucide-react";
+import { Loader2, Share2 } from "lucide-react";
 import { CardShell } from "@/components/share/templates/CardShell";
-import { StatBlock } from "@/components/share/templates/StatBlock";
+import { StravaStat } from "@/components/share/templates/StravaStat";
 import { useShareCard } from "@/hooks/useShareCard";
 import { usePremium } from "@/hooks/usePremium";
 import { logger } from "@/lib/logger";
@@ -96,7 +96,7 @@ function formatKg(value: number | null): string {
 }
 
 function formatLitres(value: number | null): string {
-  return value == null ? "—" : `≈ ${value.toFixed(1)} L`;
+  return value == null ? "—" : `+${value.toFixed(1)} L`;
 }
 
 // ── Poster card ──────────────────────────────────────────────────────────
@@ -110,15 +110,32 @@ const WalkoutPosterCard = forwardRef<HTMLDivElement, { stats: ProtocolWalkoutSta
 
     return (
       <CardShell ref={ref} aspect="story" isPremium={isPremium}>
-        {/* Celebration wash — blue→green, sits behind the content. */}
+        {/* Atmosphere: blue→green energy wash + a warm spotlight pooled under
+            the wizard hero (sits behind everything). */}
         <div
           aria-hidden
           style={{
             position: "absolute",
             inset: 0,
             background:
-              "radial-gradient(ellipse at 50% 22%, rgba(59,130,246,0.18) 0%, transparent 58%), " +
-              "radial-gradient(ellipse at 50% 86%, rgba(34,197,94,0.16) 0%, transparent 60%)",
+              "radial-gradient(ellipse 70% 40% at 50% 24%, rgba(96,165,250,0.22) 0%, transparent 62%), " +
+              "radial-gradient(ellipse 80% 45% at 50% 82%, rgba(74,222,128,0.16) 0%, transparent 64%)",
+            pointerEvents: "none",
+          }}
+        />
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            top: 0,
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: 620,
+            height: 980,
+            background:
+              "linear-gradient(180deg, rgba(96,165,250,0.10) 0%, transparent 78%)",
+            clipPath: "polygon(38% 0%, 62% 0%, 100% 100%, 0% 100%)",
+            filter: "blur(8px)",
             pointerEvents: "none",
           }}
         />
@@ -129,52 +146,85 @@ const WalkoutPosterCard = forwardRef<HTMLDivElement, { stats: ProtocolWalkoutSta
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            justifyContent: "center",
-            flex: 1,
-            gap: 56,
+            height: "100%",
           }}
         >
-          {/* Wizard hero on the poster (static — confetti/halo live in the
-              animated overlay, not the captured card). */}
+          {/* ── Wizard hero over a soft glow + grounded spotlight pool ── */}
           <div
             style={{
-              width: 220,
-              height: 220,
-              borderRadius: 110,
-              background:
-                "radial-gradient(circle, rgba(96,165,250,0.28) 0%, rgba(34,197,94,0.14) 45%, transparent 72%)",
+              position: "relative",
               display: "flex",
-              alignItems: "center",
+              alignItems: "flex-end",
               justifyContent: "center",
+              marginTop: 8,
             }}
           >
+            <div
+              aria-hidden
+              style={{
+                position: "absolute",
+                width: 560,
+                height: 560,
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -54%)",
+                background:
+                  "radial-gradient(circle, rgba(96,165,250,0.34) 0%, rgba(74,222,128,0.18) 42%, transparent 70%)",
+                borderRadius: "50%",
+                pointerEvents: "none",
+              }}
+            />
+            <div
+              aria-hidden
+              style={{
+                position: "absolute",
+                bottom: -28,
+                left: "50%",
+                transform: "translateX(-50%)",
+                width: 420,
+                height: 90,
+                background:
+                  "radial-gradient(ellipse, rgba(96,165,250,0.40) 0%, rgba(74,222,128,0.16) 50%, transparent 78%)",
+                borderRadius: "50%",
+                filter: "blur(6px)",
+                pointerEvents: "none",
+              }}
+            />
             <img
               src={wizardImg}
               alt=""
               draggable={false}
-              style={{ width: 168, height: 168, objectFit: "contain" }}
+              style={{
+                position: "relative",
+                width: 420,
+                height: 420,
+                objectFit: "contain",
+                filter: "drop-shadow(0 24px 48px rgba(0,0,0,0.55))",
+              }}
             />
           </div>
 
-          <div style={{ textAlign: "center" }}>
+          {/* ── Headline ── */}
+          <div style={{ textAlign: "center", marginTop: 20 }}>
             <div
               style={{
-                fontSize: 22,
-                fontWeight: 700,
-                letterSpacing: "0.16em",
+                fontSize: 24,
+                fontWeight: 800,
+                letterSpacing: "0.30em",
+                paddingLeft: "0.30em",
                 textTransform: "uppercase",
                 color: "rgba(255,255,255,0.55)",
-                marginBottom: 18,
+                marginBottom: 22,
               }}
             >
-              Fight night
+              Fight Night
             </div>
             <div
               style={{
-                fontSize: 72,
+                fontSize: 80,
                 fontWeight: 800,
-                lineHeight: 1.05,
-                letterSpacing: "-0.02em",
+                lineHeight: 1.02,
+                letterSpacing: "-0.025em",
                 color: "#ffffff",
               }}
             >
@@ -182,10 +232,10 @@ const WalkoutPosterCard = forwardRef<HTMLDivElement, { stats: ProtocolWalkoutSta
             </div>
             <div
               style={{
-                fontSize: 72,
+                fontSize: 80,
                 fontWeight: 800,
                 lineHeight: 1.05,
-                letterSpacing: "-0.02em",
+                letterSpacing: "-0.025em",
                 background: "linear-gradient(90deg, #60a5fa, #4ade80)",
                 WebkitBackgroundClip: "text",
                 backgroundClip: "text",
@@ -196,34 +246,38 @@ const WalkoutPosterCard = forwardRef<HTMLDivElement, { stats: ProtocolWalkoutSta
             </div>
           </div>
 
-          {/* Stat grid — Made weight / Rehydrated / Walked in. */}
+          {/* Thin gradient divider anchoring the stats. */}
+          <div
+            aria-hidden
+            style={{
+              marginTop: 56,
+              width: 280,
+              height: 3,
+              borderRadius: 2,
+              background:
+                "linear-gradient(90deg, transparent, #60a5fa, #4ade80, transparent)",
+              opacity: 0.7,
+            }}
+          />
+
+          {/* ── Stats: big, bold, no-box (StravaStat, story size) ── */}
           <div
             style={{
-              display: "grid",
-              gridTemplateColumns: "1fr",
-              gap: 20,
-              width: "100%",
-              maxWidth: 720,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 52,
+              marginTop: 60,
             }}
           >
-            <StatBlock
+            <StravaStat
               label="Made weight"
               value={formatKg(stats.madeWeightKg)}
-              color="#22c55e"
-              size="medium"
+              s
+              accentColor="#4ade80"
             />
-            <StatBlock
-              label="Rehydrated"
-              value={formatLitres(stats.rehydratedLitres)}
-              color="#60a5fa"
-              size="medium"
-            />
-            <StatBlock
-              label="Walked in"
-              value={formatKg(stats.walkedInKg)}
-              color="#ffffff"
-              size="medium"
-            />
+            <StravaStat label="Rehydrated" value={formatLitres(stats.rehydratedLitres)} s />
+            <StravaStat label="Walked in" value={formatKg(stats.walkedInKg)} s />
           </div>
         </div>
       </CardShell>
@@ -237,7 +291,7 @@ export function ProtocolWalkoutTakeover({
   onReset,
 }: ProtocolWalkoutTakeoverProps): JSX.Element {
   const prefersReduced = useReducedMotion();
-  const { cardRef, isCapturing, captureAndDownload, captureAndShare } = useShareCard();
+  const { cardRef, isCapturing, captureAndShare } = useShareCard();
 
   // Stage the reveal: hero plays first, then the poster card + actions fade in.
   // Reduced motion → show everything immediately.
@@ -292,10 +346,6 @@ export function ProtocolWalkoutTakeover({
       window.removeEventListener("resize", recalc);
     };
   }, [showCard, recalc]);
-
-  const handleSave = useCallback(() => {
-    void captureAndDownload(`made-weight-${Date.now()}.png`);
-  }, [captureAndDownload]);
 
   const handleShare = useCallback(() => {
     void captureAndShare(
@@ -498,33 +548,21 @@ export function ProtocolWalkoutTakeover({
               </div>
             </div>
 
-            {/* Action buttons. */}
-            <div className="mt-5 flex items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={isCapturing}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-muted px-5 text-[13px] font-semibold text-foreground transition-opacity active:opacity-80 disabled:opacity-60"
-              >
-                {isCapturing ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Download className="h-3.5 w-3.5" />
-                )}
-                Save to Photos
-              </button>
+            {/* Single "Share to Story" action — on iOS the share sheet lets the
+                user save to Photos, so a separate Save button is unnecessary. */}
+            <div className="mt-5 flex items-center justify-center">
               <button
                 type="button"
                 onClick={handleShare}
                 disabled={isCapturing}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-primary px-6 text-[13px] font-semibold text-primary-foreground transition-opacity active:opacity-80 disabled:opacity-60"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-primary px-8 text-[14px] font-semibold text-primary-foreground transition-opacity active:opacity-80 disabled:opacity-60"
               >
                 {isCapturing ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <Share2 className="h-3.5 w-3.5" />
+                  <Share2 className="h-4 w-4" />
                 )}
-                Share
+                Share to Story
               </button>
             </div>
 

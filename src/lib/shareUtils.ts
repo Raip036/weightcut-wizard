@@ -2,17 +2,56 @@ import { toBlob } from "html-to-image";
 import { Capacitor } from "@capacitor/core";
 import { logger } from "./logger";
 
+/**
+ * Wait for every <img> inside the node to finish loading + decoding. Without
+ * this, an imported asset (e.g. the wizard PNG) that hasn't decoded yet renders
+ * BLANK in the captured image — which is exactly the "wizard missing from the
+ * saved card" bug. Never rejects: a single broken image must not block capture.
+ */
+async function preloadImages(root: HTMLElement): Promise<void> {
+  const imgs = Array.from(root.querySelectorAll("img"));
+  await Promise.all(
+    imgs.map(
+      (img) =>
+        new Promise<void>((resolve) => {
+          const finish = () => {
+            if (typeof img.decode === "function") {
+              img.decode().then(() => resolve(), () => resolve());
+            } else {
+              resolve();
+            }
+          };
+          if (img.complete && img.naturalWidth > 0) {
+            finish();
+            return;
+          }
+          img.addEventListener("load", finish, { once: true });
+          img.addEventListener("error", () => resolve(), { once: true });
+        }),
+    ),
+  );
+}
+
 export async function captureCardAsBlob(
   element: HTMLElement,
   options?: { pixelRatio?: number; transparent?: boolean }
 ): Promise<Blob> {
-  const blob = await toBlob(element, {
+  // Make sure embedded images (wizard asset, avatars) are decoded first.
+  await preloadImages(element);
+
+  const opts = {
     pixelRatio: options?.pixelRatio ?? 2,
     cacheBust: true,
     skipAutoScale: true,
     skipFonts: true, // skip cross-origin Google Fonts — cards use inline font-family
     ...(options?.transparent ? {} : { backgroundColor: "#080808" }),
-  });
+  };
+
+  // html-to-image embeds <img> assets asynchronously and a known quirk is that
+  // the FIRST render can omit them (cache not warm yet). Run a throwaway pass to
+  // warm the image/font cache, then the real capture so the wizard always lands.
+  await toBlob(element, opts).catch(() => null);
+  const blob = await toBlob(element, opts);
   if (!blob) throw new Error("Failed to capture card image");
   return blob;
 }

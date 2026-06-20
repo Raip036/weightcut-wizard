@@ -15,6 +15,7 @@ import { triggerHapticSelection, celebrateSuccess } from "@/lib/haptics";
 import { logger } from "@/lib/logger";
 import { WizardCharacter } from "@/tutorial/WizardCharacter";
 import { NewCampWelcomeCutscene } from "./NewCampWelcomeCutscene";
+import { WrapUpStepper, type WrapUpValues } from "./WrapUpStepper";
 
 /**
  * Two-stage flow used everywhere the user starts a new fight camp without
@@ -65,14 +66,6 @@ const STEP_PROMPTS: Record<string, string> = {
   currentWeightKg: "And today's weight?",
 };
 
-const PERFORMANCE_CHIPS = [
-  { value: "won_strong",   label: "Won, felt strong" },
-  { value: "won_drained",  label: "Won, drained" },
-  { value: "lost_strong",  label: "Lost, felt strong" },
-  { value: "lost_drained", label: "Lost, drained" },
-  { value: "no_show",      label: "Didn't compete" },
-];
-
 const WEIGH_IN_CHIPS = [
   { value: "day_before",  label: "Day before" },
   { value: "morning_of",  label: "Morning of" },
@@ -109,15 +102,8 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
     if (open) setStage(hasOpenCamp ? "wrapup" : "wizard");
   }, [open, hasOpenCamp]);
 
-  // Wrap-up state
-  const [endWeight, setEndWeight] = useState("");
-  const [performance, setPerformance] = useState<string>("");
-  const [notes, setNotes] = useState("");
-  // Cut breakdown — how the total drop was achieved. Feeds the camp's
-  // weightViaDehydration / weightViaCarbReduction fields (the "Breakdown" on
-  // the camp detail page) so it's filled in automatically at wrap-up.
-  const [dehydrationKg, setDehydrationKg] = useState("");
-  const [dietKg, setDietKg] = useState("");
+  // Wrap-up: field values live inside <WrapUpStepper>; we only track the
+  // in-flight save here so the stepper's primary button can show a spinner.
   const [wrappingUp, setWrappingUp] = useState(false);
 
   // Wizard state. `targetWeightKg` = fight-day weight (goal_weight_kg).
@@ -172,11 +158,6 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
       currentWeightKg: profile?.current_weight_kg ? String(profile.current_weight_kg) : "",
     });
     setWalkAroundAuto(true);
-    setEndWeight("");
-    setPerformance("");
-    setNotes("");
-    setDehydrationKg("");
-    setDietKg("");
   }, [open, profile?.current_weight_kg]);
 
   // Re-estimate the walk-around weight any time the target changes IF the
@@ -214,28 +195,28 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
     else setStep((s) => s + 1);
   };
 
-  const submitWrapUp = async (skip: boolean) => {
+  const submitWrapUp = async (skip: boolean, values?: WrapUpValues) => {
     if (!activeCamp) {
       setStage("wizard");
       return;
     }
     setWrappingUp(true);
     try {
-      if (!skip) {
+      if (!skip && values) {
         // Cut breakdown → camp fields. Total is the sum of the two reported
         // components (water + diet) so the camp's CUT total and its breakdown
         // stay self-consistent.
-        const dehy = parseFloat(dehydrationKg);
-        const diet = parseFloat(dietKg);
+        const dehy = parseFloat(values.dehydrationKg);
+        const diet = parseFloat(values.dietKg);
         const hasDehy = Number.isFinite(dehy) && dehy >= 0;
         const hasDiet = Number.isFinite(diet) && diet >= 0;
         const breakdownTotal =
           (hasDehy ? dehy : 0) + (hasDiet ? diet : 0);
         await completeCampMut({
           id: activeCamp._id,
-          endWeightKg: endWeight ? parseFloat(endWeight) : undefined,
-          performanceFeeling: performance || undefined,
-          rehydrationNotes: notes.trim() || undefined,
+          endWeightKg: values.endWeight ? parseFloat(values.endWeight) : undefined,
+          performanceFeeling: values.performance || undefined,
+          rehydrationNotes: values.notes.trim() || undefined,
           ...(hasDehy ? { weightViaDehydration: +dehy.toFixed(1) } : {}),
           ...(hasDiet ? { weightViaCarbReduction: +diet.toFixed(1) } : {}),
           ...(hasDehy || hasDiet
@@ -412,13 +393,17 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
         side="bottom"
         className="max-h-[92vh] p-0 border-t border-border/50 bg-card/95 backdrop-blur-xl gap-0"
       >
-        <div className="px-5 pt-5 pb-2">
-          <SheetHeader>
-            <SheetTitle className="text-[17px] font-semibold tracking-tight text-center">
-              {stage === "wrapup" ? "Wrap up your camp" : "Start your next camp"}
-            </SheetTitle>
-          </SheetHeader>
-        </div>
+        {/* Shared title — wizard only; the wrap-up stepper brings its own
+            progress chrome (and a visually-hidden SheetTitle for a11y). */}
+        {stage !== "wrapup" && (
+          <div className="px-5 pt-5 pb-2">
+            <SheetHeader>
+              <SheetTitle className="text-[17px] font-semibold tracking-tight text-center">
+                Start your next camp
+              </SheetTitle>
+            </SheetHeader>
+          </div>
+        )}
 
         <AnimatePresence mode="wait" initial={false}>
           {stage === "wrapup" && activeCamp && (
@@ -428,120 +413,12 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -24 }}
               transition={{ type: "spring", damping: 26, stiffness: 320 }}
-              className="px-5 pb-5 space-y-4"
             >
-              <p className="text-[12px] text-muted-foreground text-center leading-snug">
-                Quick reflection on <span className="font-semibold text-foreground">{activeCamp.name}</span>.
-                Helps the app learn what worked. Skip anything you don't want to share.
-              </p>
-
-              <div className="space-y-3">
-                <div>
-                  <label className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground/70 block mb-1.5">
-                    End weight (kg)
-                  </label>
-                  <Input
-                    type="number"
-                    inputMode="decimal"
-                    step="0.1"
-                    value={endWeight}
-                    onChange={(e) => setEndWeight(e.target.value)}
-                    placeholder="What you weighed on fight day"
-                    className="h-11 rounded-xs"
-                  />
-                </div>
-
-                {/* Cut breakdown — auto-fills the camp's "Breakdown" field. */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground/70 block mb-1.5">
-                      Via dehydration (kg)
-                    </label>
-                    <Input
-                      type="number"
-                      inputMode="decimal"
-                      step="0.1"
-                      value={dehydrationKg}
-                      onChange={(e) => setDehydrationKg(e.target.value)}
-                      placeholder="Water cut"
-                      className="h-11 rounded-xs"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground/70 block mb-1.5">
-                      Via diet (kg)
-                    </label>
-                    <Input
-                      type="number"
-                      inputMode="decimal"
-                      step="0.1"
-                      value={dietKg}
-                      onChange={(e) => setDietKg(e.target.value)}
-                      placeholder="Carbs, fibre, sodium"
-                      className="h-11 rounded-xs"
-                    />
-                  </div>
-                </div>
-                <p className="text-[11px] text-muted-foreground/70 -mt-1 leading-snug">
-                  Splits your total cut into water vs diet, saved to the camp breakdown.
-                </p>
-
-                <div>
-                  <label className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground/70 block mb-1.5">
-                    How did it go?
-                  </label>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {PERFORMANCE_CHIPS.map((p) => {
-                      const active = performance === p.value;
-                      return (
-                        <button
-                          key={p.value}
-                          type="button"
-                          onClick={() => { triggerHapticSelection(); setPerformance(p.value); }}
-                          aria-pressed={active}
-                          className={`h-9 rounded-xs text-[12px] font-semibold transition-colors ${
-                            active ? "bg-primary text-primary-foreground" : "bg-muted/40 text-muted-foreground/85 active:bg-muted/60"
-                          }`}
-                        >
-                          {p.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground/70 block mb-1.5">
-                    Notes (optional)
-                  </label>
-                  <Input
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="What worked? What to change next time?"
-                    className="h-11 rounded-xs"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-2 pt-1">
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={wrappingUp}
-                  onClick={() => submitWrapUp(true)}
-                  className="flex-1 h-11 rounded-xs"
-                >
-                  Skip
-                </Button>
-                <Button
-                  type="button"
-                  disabled={wrappingUp}
-                  onClick={() => submitWrapUp(false)}
-                  className="flex-1 h-11 rounded-xs"
-                >
-                  {wrappingUp ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save & continue"}
-                </Button>
-              </div>
+              <WrapUpStepper
+                saving={wrappingUp}
+                onComplete={(v) => submitWrapUp(false, v)}
+                onSkip={() => submitWrapUp(true)}
+              />
             </motion.div>
           )}
 

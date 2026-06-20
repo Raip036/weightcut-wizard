@@ -255,14 +255,11 @@ export default function Camp() {
   })();
 
   // ── Bento layout selection ────────────────────────────────────────────
-  // Pick the hero tile based on user state: active-camp fighters get the
-  // Training Calendar as their headline action; everyone else gets the Gym
-  // Tracker (the closest universal "do something now" surface).
+  // The Training Calendar is always the headline action and anchors the grid
+  // as the full-width hero tile — regardless of whether a camp is scheduled —
+  // so the bento layout stays consistent across camp / no-camp states.
   const tiles = useMemo<BentoTile[]>(() => {
-    const heroUrl =
-      activeCamp && !activeCamp.isCompleted
-        ? "/training-calendar"
-        : "/gym";
+    const heroUrl = "/training-calendar";
     const hero = visible.find((s) => s.url === heroUrl) ?? visible[0];
     const rest = visible.filter((s) => s.url !== hero?.url);
 

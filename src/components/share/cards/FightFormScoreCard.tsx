@@ -1,6 +1,7 @@
 import { forwardRef } from "react";
 import { CardShell, type AspectRatio } from "../templates/CardShell";
 import { usePremium } from "@/hooks/usePremium";
+import { mergeRecoveryDimension } from "@/scoring/contributions";
 import type { FightFormLabel, ScoringPhase, SubScore, SubScoreKey } from "@/scoring/types";
 
 interface FightFormScoreCardProps {
@@ -33,11 +34,15 @@ const LABEL_COLOR: Record<FightFormLabel, string> = {
   at_risk: "#F43F5E",     // rose-500
 };
 
+// `wellness` is the user-facing "Recovery" pillar after the HealthKit
+// `recovery` sub-score is folded into it via mergeRecoveryDimension. The
+// separate `recovery` key is deleted before rendering, so its entry here is
+// retained only to satisfy the SubScoreKey record type.
 const SUBSCORE_LABEL: Record<SubScoreKey, string> = {
   trainingLoad: "Training",
   sleep: "Sleep",
   weightCut: "Weight Cut",
-  wellness: "Wellness",
+  wellness: "Recovery",
   nutritionAdherence: "Nutrition",
   recovery: "Recovery",
 };
@@ -124,11 +129,16 @@ export const FightFormScoreCard = forwardRef<HTMLDivElement, FightFormScoreCardP
     const s = aspect === "story";
     const labelColor = LABEL_COLOR[label];
 
+    // Fold the HealthKit `recovery` sub-score into `wellness` so the poster
+    // shows a single "Recovery" pillar that matches the bottom sheet. The
+    // merge is idempotent and deletes the separate `recovery` key.
+    const mergedSubs = subScores ? mergeRecoveryDimension(subScores) : null;
+
     // Sort subscores by impact (value × weight) so the strongest signals
     // appear first — matches the bottom-sheet order users see in-app.
     // Paused sub-scores (weight === 0) naturally sink to the bottom.
-    const sortedSubs = subScores
-      ? (Object.entries(subScores) as Array<[SubScoreKey, SubScore]>)
+    const sortedSubs = mergedSubs
+      ? (Object.entries(mergedSubs) as Array<[SubScoreKey, SubScore]>)
           .sort(([, a], [, b]) => b.value * b.weight - a.value * a.weight)
       : [];
 

@@ -1099,7 +1099,7 @@ export default function Dashboard() {
                 trainingLoad: "training load",
                 sleep: "sleep",
                 weightCut: "weight cut",
-                wellness: "wellness",
+                wellness: "recovery",
                 nutritionAdherence: "nutrition",
                 recovery: "recovery",
               };

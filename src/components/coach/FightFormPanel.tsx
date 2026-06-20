@@ -34,7 +34,7 @@ const SUB_LABEL: Record<FightFormSubKey, string> = {
   training_load: "Training",
   sleep: "Sleep",
   weight_cut: "Weight Cut",
-  wellness: "Wellness",
+  wellness: "Recovery",
   nutrition_adherence: "Nutrition",
 };
 
