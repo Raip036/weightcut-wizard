@@ -39,6 +39,7 @@ import {
 import { AnimatedNumber } from "@/components/motion";
 import { triggerHaptic } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
+import { macroCycle, type TrainingDay } from "@/../convex/_shared/math";
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -273,11 +274,23 @@ function HeroRing({
   );
 }
 
-// ─── Daily Fuel card (big kcal + stacked macro proportion bar) ───────
-// Replaces the old StatStrip. Leads with week-1 calories, then a single
-// horizontal bar split into Carbs / Protein / Fat by their kcal share
-// (carbs lead — the athlete-carb design). Grams are labelled beside each
-// macro, with the maintain / deficit / target math on a muted line below.
+// ─── Daily Fuel card (big kcal + carb-cycle segmented toggle) ────────
+// Leads with the (constant) daily calorie target, then a Hard / Medium /
+// Rest segmented control. Calories stay identical across all three days —
+// only the macros swing: carbs lead and rise on hard days, protein climbs
+// on rest days, fat is held at its floor. The stacked bar + gram labels
+// re-tween when the day type changes. Falls back to a single static split
+// (the passed week macros) when bodyweight/target is unavailable.
+const DAY_TABS: {
+  key: TrainingDay;
+  label: string;
+  Icon: typeof Flame;
+}[] = [
+  { key: "hard", label: "Hard", Icon: Flame },
+  { key: "medium", label: "Medium", Icon: Sun },
+  { key: "rest", label: "Rest", Icon: Moon },
+];
+
 function DailyFuelCard({
   maintenance,
   deficit,
@@ -286,6 +299,7 @@ function DailyFuelCard({
   protein,
   carbs,
   fats,
+  weightKg,
 }: {
   maintenance?: number;
   deficit?: number;
@@ -294,17 +308,30 @@ function DailyFuelCard({
   protein?: number;
   carbs?: number;
   fats?: number;
+  weightKg?: number;
 }) {
+  const [day, setDay] = useState<TrainingDay>("hard");
+
   const hasMacros = carbs != null || protein != null || fats != null;
   if (!hasMacros && calories == null && maintenance == null && target == null) {
     return null;
   }
   const round100 = (n: number) => Math.round(n / 100) * 100;
 
+  // The calorie budget the cycle is built against (constant across day types).
+  const cycleKcal = calories ?? target;
+  const canCycle = weightKg != null && weightKg > 0 && cycleKcal != null;
+  const cycle = canCycle ? macroCycle(cycleKcal as number, weightKg as number) : null;
+
+  // Active macros: the selected day's cycle, else the passed static week macros.
+  const active = cycle
+    ? cycle[day]
+    : { carb_g: carbs ?? 0, protein_g: protein ?? 0, fat_g: fats ?? 0 };
+  const c = active.carb_g;
+  const p = active.protein_g;
+  const f = active.fat_g;
+
   // kcal share per macro drives the segment widths (carbs/protein = 4, fat = 9).
-  const c = carbs ?? 0;
-  const p = protein ?? 0;
-  const f = fats ?? 0;
   const cKcal = c * 4;
   const pKcal = p * 4;
   const fKcal = f * 9;
@@ -348,7 +375,45 @@ function DailyFuelCard({
         </div>
       </div>
 
-      {/* Stacked macro proportion bar — carbs lead. */}
+      {/* Hard / Medium / Rest segmented control — same calories, carbs swing. */}
+      {canCycle && (
+        <div className="relative mt-4 flex rounded-full bg-muted/25 p-0.5">
+          {DAY_TABS.map((t) => {
+            const activeTab = t.key === day;
+            return (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => {
+                  if (t.key !== day) {
+                    setDay(t.key);
+                    triggerHaptic(ImpactStyle.Light);
+                  }
+                }}
+                className={`relative z-10 flex-1 flex items-center justify-center gap-1 rounded-full py-1.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${
+                  activeTab ? "text-foreground" : "text-muted-foreground"
+                }`}
+              >
+                {activeTab && (
+                  <motion.span
+                    layoutId="dayfuel-active-tab"
+                    className="absolute inset-0 -z-10 rounded-full bg-foreground/10 border border-border/50"
+                    transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                  />
+                )}
+                <t.Icon
+                  className="h-3.5 w-3.5"
+                  strokeWidth={2.4}
+                  style={{ color: activeTab ? MACRO_COLOR.carbs : undefined }}
+                />
+                <span>{t.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Stacked macro proportion bar — carbs lead. Re-tweens on day change. */}
       {segments.length > 0 && (
         <>
           <div className="relative mt-4 flex h-3 w-full overflow-hidden rounded-full bg-muted/25">
@@ -359,7 +424,7 @@ function DailyFuelCard({
                 style={{ background: s.color }}
                 initial={{ width: 0 }}
                 animate={{ width: `${s.pct}%` }}
-                transition={{ duration: 0.7, delay: 0.2 + i * 0.08, ease: [0.22, 1, 0.36, 1] }}
+                transition={{ duration: 0.55, delay: i * 0.04, ease: [0.22, 1, 0.36, 1] }}
               />
             ))}
           </div>
@@ -388,6 +453,14 @@ function DailyFuelCard({
         </>
       )}
 
+      {/* Cycle explainer — only when the toggle is live. */}
+      {canCycle && (
+        <p className="mt-3 text-[11px] text-muted-foreground/80 leading-snug">
+          Same calories every day. Carbs lead and climb on hard sessions;
+          protein rises on rest days to recover and stay lean.
+        </p>
+      )}
+
       {/* Maintain · Deficit · Target math line. */}
       {(maintenance != null || deficit != null || target != null) && (
         <p className="mt-3.5 pt-3 border-t border-border/30 text-[11px] text-muted-foreground tabular-nums">
@@ -404,55 +477,6 @@ function DailyFuelCard({
           )}
         </p>
       )}
-    </motion.div>
-  );
-}
-
-// ─── Macro cycling — match carbs/protein to training load ─────────────
-// Two-row tip card. Hard days lead with carbs to fuel work; rest/low
-// days prioritise protein to recover. Colours mirror DailyFuelCard.
-function MacroCyclingCard() {
-  const rows = [
-    {
-      key: "hard",
-      Icon: Flame,
-      color: MACRO_COLOR.carbs,
-      title: "Hard training days",
-      body: "Eat more carbs to fuel the session and refill glycogen.",
-    },
-    {
-      key: "rest",
-      Icon: Moon,
-      color: MACRO_COLOR.protein,
-      title: "Rest & low days",
-      body: "Prioritise protein, pull carbs back to recover and stay lean.",
-    },
-  ];
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12, scale: 0.99 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ ...ENTER_SPRING, delay: 0.05 }}
-      className="card-surface rounded-2xl border border-border/50 p-4 mt-3 space-y-3"
-    >
-      <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70 font-semibold">
-        Cycle Your Macros
-      </p>
-      {rows.map((r) => (
-        <div key={r.key} className="flex items-start gap-3">
-          <div className="h-9 w-9 shrink-0 flex items-center justify-center">
-            <r.Icon className="h-5 w-5" strokeWidth={2.2} style={{ color: r.color }} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-bold text-foreground leading-tight">
-              {r.title}
-            </p>
-            <p className="text-[12px] text-muted-foreground leading-snug mt-0.5">
-              {r.body}
-            </p>
-          </div>
-        </div>
-      ))}
     </motion.div>
   );
 }
@@ -1084,7 +1108,7 @@ export function InlinePlanDisplay({
         </div>
       </motion.div>
 
-      {/* DAILY FUEL — big kcal + stacked macro proportion bar (carbs lead) */}
+      {/* DAILY FUEL — big kcal + Hard/Medium/Rest carb-cycle toggle */}
       <DailyFuelCard
         maintenance={planData.maintenanceCalories}
         deficit={planData.deficit}
@@ -1093,10 +1117,8 @@ export function InlinePlanDisplay({
         protein={week1?.protein_g}
         carbs={week1?.carbs_g}
         fats={week1?.fats_g}
+        weightKg={currentWeight || undefined}
       />
-
-      {/* MACRO CYCLING — carbs on hard days, protein on rest days */}
-      <MacroCyclingCard />
 
       {/* COACH NOTE */}
       {planData.personalNote && <CoachNote text={planData.personalNote} />}

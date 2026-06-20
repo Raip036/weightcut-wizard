@@ -1,23 +1,12 @@
 import { format, startOfWeek, subWeeks, addDays, isSameDay, isAfter } from "date-fns";
-import { Loader2 } from "lucide-react";
 import { motion } from "motion/react";
 import { useLayoutEffect, useRef } from "react";
-import wizardEating from "@/assets/wizard_food.png";
 import { MacroPieChart } from "@/components/nutrition/MacroPieChart";
 import { SyncingIndicator } from "@/components/SyncingIndicator";
 import { triggerHapticSelection } from "@/lib/haptics";
 import type { MacroGoals } from "@/pages/nutrition/types";
 
-interface WisdomState {
-  aiWisdomAdvice: string | null;
-  aiWisdomLoading: boolean;
-  trainingWisdomLoading: boolean;
-  getNutritionWisdom: () => string;
-  generateTrainingFoodIdeas: (force?: boolean) => void;
-}
-
 interface NutritionHeroProps {
-  wisdom: WisdomState;
   totalCalories: number;
   totalProtein: number;
   totalCarbs: number;
@@ -35,12 +24,10 @@ interface NutritionHeroProps {
  * Hero layout (top → bottom):
  *   1. Horizontal scrollable date strip (7 days, Apple Fitness style)
  *   2. MacroPieChart (calorie ring + 3 macro tiles)
- *   3. Slim wizard wisdom chip (tap → full advice sheet)
  *
  * Route component owns all state; this file is pure presentation.
  */
 export function NutritionHero({
-  wisdom,
   totalCalories,
   totalProtein,
   totalCarbs,
@@ -73,12 +60,6 @@ export function NutritionHero({
           onEditTargets={onEditTargets}
         />
         <SyncingIndicator active={mealsLoading && mealsVisibleCount > 0} />
-      </div>
-
-      {/* Slim wisdom chip — replaces the big banner. `pt-2` adds a little
-          breathing room between the macro rings and the Today's tip card. */}
-      <div className="pt-2">
-        <WisdomChip wisdom={wisdom} />
       </div>
     </>
   );
@@ -161,48 +142,3 @@ function DateStrip({
   );
 }
 
-// ── Wisdom card ────────────────────────────────────────────────────────
-// Plain nutrition card carrying the full tip (no truncation) on the left,
-// with the gently bobbing eating-wizard inside on the right. Tap fires the
-// same wisdom action as before (opens TrainingWisdomSheet via parent route).
-function WisdomChip({ wisdom }: { wisdom: WisdomState }) {
-  const text = wisdom.aiWisdomLoading
-    ? "Updating advice…"
-    : wisdom.aiWisdomAdvice || wisdom.getNutritionWisdom();
-
-  return (
-    <button
-      onClick={() => wisdom.generateTrainingFoodIdeas()}
-      data-tutorial="nutrition-wisdom-chip"
-      className="card-surface rounded-xs w-full px-4 py-3 text-left active:scale-[0.99] transition"
-    >
-      <div className="flex items-center gap-3">
-        {/* Bobbing eating-wizard inside the card, left side. */}
-        <motion.img
-          src={wizardEating}
-          alt="Wizard"
-          className="pointer-events-none h-16 w-16 object-contain shrink-0 select-none"
-          draggable={false}
-          animate={{ y: [0, -6, 0] }}
-          transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
-        />
-
-        {/* Tip text on the right */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary/80 leading-none">
-              Today's tip
-            </p>
-            {wisdom.trainingWisdomLoading && (
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-primary/70 shrink-0" />
-            )}
-          </div>
-          {/* Full tip — wraps to as many lines as needed, no truncation. */}
-          <p className="mt-1.5 text-[12.5px] text-muted-foreground leading-snug">
-            {text}
-          </p>
-        </div>
-      </div>
-    </button>
-  );
-}

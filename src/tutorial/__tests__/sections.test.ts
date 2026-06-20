@@ -33,7 +33,6 @@ const allSteps: TutorialStep[] = [
   // Nutrition
   step("nutrition-intro"),
   step("nutrition-snap-meal"),
-  step("nutrition-daily-wisdom"),
   step("nutrition-meal-plan"),
   // Chat
   step("chat-intro"),

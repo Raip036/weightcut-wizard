@@ -47,7 +47,6 @@ export const ONBOARDING_SECTIONS: ProgressSection[] = [
     stepIds: [
       "nutrition-intro",
       "nutrition-snap-meal",
-      "nutrition-daily-wisdom",
       "nutrition-meal-plan",
     ],
   },

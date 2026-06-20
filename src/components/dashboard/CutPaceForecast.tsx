@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@/components/ui/Icon";
 import { triggerHapticSelection } from "@/lib/haptics";
@@ -222,6 +222,11 @@ export function CutPaceForecast({
   // (current week, or first future week if plan window has passed). Tapping
   // a dot sets this; tapping the same dot again clears it.
   const [focusedWeek, setFocusedWeek] = useState<number | null>(null);
+  // Swipe tracking for the hero card — lets the user flick left/right to move
+  // between weeks. `suppressClick` stops a horizontal swipe from also firing
+  // the card's tap-to-/cut-plan navigation.
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const suppressClick = useRef(false);
 
   const data = useMemo(() => {
     const plan = planProp ?? loadPlan();
@@ -390,6 +395,15 @@ export function CutPaceForecast({
     });
   };
 
+  // Card swipe: move focus to the adjacent week. dir +1 = next, -1 = previous.
+  const goWeek = (dir: 1 | -1) => {
+    const idx = checkpoints.findIndex((c) => c.week === focusCheckpoint.week);
+    const next = idx + dir;
+    if (idx < 0 || next < 0 || next >= checkpoints.length) return;
+    triggerHapticSelection();
+    setFocusedWeek(checkpoints[next].week);
+  };
+
   return (
     <div className="space-y-2">
       {/* Week track — segmented capsule timeline sits above the focus card.
@@ -402,7 +416,28 @@ export function CutPaceForecast({
       />
       <button
         type="button"
-        onClick={() => { triggerHapticSelection(); navigate("/cut-plan"); }}
+        onClick={() => {
+          if (suppressClick.current) { suppressClick.current = false; return; }
+          triggerHapticSelection();
+          navigate("/cut-plan");
+        }}
+        onTouchStart={(e) => {
+          const t = e.touches[0];
+          touchStart.current = { x: t.clientX, y: t.clientY };
+        }}
+        onTouchEnd={(e) => {
+          const start = touchStart.current;
+          touchStart.current = null;
+          if (!start) return;
+          const t = e.changedTouches[0];
+          const dx = t.clientX - start.x;
+          const dy = t.clientY - start.y;
+          // Horizontal flick (and clearly not a vertical scroll) → change week.
+          if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+            suppressClick.current = true;
+            goWeek(dx < 0 ? 1 : -1); // swipe left → next week, right → previous
+          }
+        }}
         aria-label={`${TIER_LABEL[tier]} — ${heroEyebrow}, target ${focusCheckpoint.targetWeight.toFixed(1)} kg`}
         className={`w-full card-surface rounded-2xl border-l-[3px] ${TIER_ACCENT[tier]} p-4 text-left active:scale-[0.99] transition-transform`}
       >

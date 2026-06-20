@@ -20,7 +20,6 @@ import {
   useAIMealAnalysis,
   useMealPlanGeneration,
   useDietAnalysis,
-  useNutritionWisdom,
   useMacroCalculation,
   useQuickMealActions,
 } from "@/hooks/nutrition";
@@ -31,7 +30,6 @@ import { NutritionHero } from "./NutritionHero";
 import { MealSections } from "./MealSections";
 import { MealIdeasSection } from "./MealIdeasSection";
 import { DietAnalysisCta } from "@/components/nutrition/DietAnalysisCta";
-import { TrainingWisdomSheet } from "./TrainingWisdomSheet";
 import { EmptyMealsBanner } from "./EmptyMealsBanner";
 import { AiTaskBanner } from "./AiTaskBanner";
 import { QuickAddDialog } from "./dialogs/QuickAddDialog";
@@ -146,10 +144,6 @@ export default function NutritionPage() {
     dietAnalysisLoading: nutritionData.dietAnalysisLoading,
     setDietAnalysisLoading: nutritionData.setDietAnalysisLoading,
     aiAbortRef: aiMeal.aiAbortRef,
-  });
-  const wisdom = useNutritionWisdom({
-    totalCalories, totalProtein, totalCarbs, totalFats,
-    dailyCalorieTarget, aiMacroGoals, mealsLength: meals.length,
   });
   const quickActions = useQuickMealActions({ meals, selectedDate, saveMealToDb: mealOps.saveMealToDb });
   const macroCalc = useMacroCalculation();
@@ -434,7 +428,6 @@ export default function NutritionPage() {
           <h1 className="text-title font-semibold leading-tight">Nutrition</h1>
         </header>
         <NutritionHero
-          wisdom={wisdom}
           totalCalories={totalCalories}
           totalProtein={totalProtein}
           totalCarbs={totalCarbs}
@@ -600,17 +593,6 @@ export default function NutritionPage() {
           itemName={mealOps.mealToDelete ? `${mealOps.mealToDelete.meal_name} (${mealOps.mealToDelete.calories} cal)` : undefined}
         />
       </div>
-
-      <TrainingWisdomSheet
-        open={wisdom.trainingWisdomSheetOpen}
-        onOpenChange={wisdom.setTrainingWisdomSheetOpen}
-        loading={wisdom.trainingWisdomLoading}
-        wisdom={wisdom.trainingWisdom}
-        preference={wisdom.trainingPreference}
-        setPreference={wisdom.setTrainingPreference}
-        onGenerate={wisdom.generateTrainingFoodIdeas}
-      />
-
     </>
   );
 }

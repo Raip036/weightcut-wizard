@@ -252,17 +252,6 @@ export const onboardingFlow: TutorialFlow = {
       wizardPose: "point",
     },
     {
-      id: "nutrition-daily-wisdom",
-      title: "Wizard Daily Wisdom",
-      description:
-        "Every day I look at your recent intake and give you a short, actionable tip. Tap the chip at the top of the page to read it.",
-      position: "center",
-      navigateTo: "/nutrition",
-      spotlight: "nutrition-wisdom-chip",
-      spotlightShape: "rect",
-      wizardAnchor: "top",
-    },
-    {
       id: "nutrition-meal-plan",
       title: "Generate a meal plan",
       description:

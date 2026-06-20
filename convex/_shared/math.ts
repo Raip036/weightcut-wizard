@@ -29,22 +29,82 @@ export function tdee(bmr: number, activityLevel: ActivityLevel): number {
   return Math.round(bmr * mult);
 }
 
+// ── Carb-cycling model (combat-athlete cut) ──────────────────────────────
+// Evidence base: 2025 ISSN combat-sports position stand + 2024 consensus
+// scoping review on body-composition manipulation. The athlete trains hard
+// through the deficit, so CARBS are maximised as the dominant fuel. The model:
+//   • PROTEIN is the SWING variable, set by training-day type. Hard days anchor
+//     protein LOW (1.6 g/kg) so freed calories flow into carbohydrate; rest
+//     days push protein UP (2.2 g/kg) for satiety + lean-mass retention while
+//     carbs pull back. Medium sits between (1.9 g/kg).
+//   • FAT is held CONSTANT at a 0.5 g/kg floor every day (never below 15% of
+//     total kcal — a hormonal-health guard), so the whole calorie budget
+//     swings between carbs<->protein only. Total kcal is IDENTICAL across days.
+//   • CARBOHYDRATE absorbs the remainder, so it always stays the largest macro.
+export type TrainingDay = "hard" | "medium" | "rest";
+
+export interface DayFuel {
+  protein_g: number;
+  carb_g: number;
+  fat_g: number;
+}
+
+const CYCLE_PROTEIN_PER_KG: Record<TrainingDay, number> = {
+  hard: 1.6,
+  medium: 1.9,
+  rest: 2.2,
+};
+const CYCLE_FAT_PER_KG = 0.5;
+
+/** Macros for one training-day type at a FIXED calorie target. Fat sits at the
+ *  0.5 g/kg floor (raised only to keep >=15% of kcal); protein is set by day
+ *  type; carbohydrate fills whatever remains so it stays the dominant fuel. */
+export function macroForDay(
+  kcal: number,
+  weightKg: number,
+  day: TrainingDay,
+): DayFuel {
+  const protein_g = Math.round(weightKg * CYCLE_PROTEIN_PER_KG[day]);
+  // Fat floor: 0.5 g/kg bodyweight, but never below 15% of total kcal so
+  // hormonal health is protected on low-calorie / heavy-athlete edge cases.
+  const fat_g = Math.max(
+    Math.round(weightKg * CYCLE_FAT_PER_KG),
+    Math.round((kcal * 0.15) / 9),
+  );
+  // Carbs take the remainder; the 20 g floor guards a degenerate budget.
+  const remainderKcal = kcal - protein_g * 4 - fat_g * 9;
+  const carb_g = Math.max(20, Math.round(remainderKcal / 4));
+  return { protein_g, carb_g, fat_g };
+}
+
+/** The full carb cycle — hard / medium / rest fuels at the SAME calorie
+ *  target. Calories are constant across all three; carbs swing up on hard
+ *  days and down on rest days, with protein moving inversely. */
+export function macroCycle(
+  kcal: number,
+  weightKg: number,
+): Record<TrainingDay, DayFuel> {
+  return {
+    hard: macroForDay(kcal, weightKg, "hard"),
+    medium: macroForDay(kcal, weightKg, "medium"),
+    rest: macroForDay(kcal, weightKg, "rest"),
+  };
+}
+
 export function macroSplit(
   kcal: number,
   weightKg: number,
   goal: "cut" | "maintain" | "recomp",
 ): { protein_g: number; carb_g: number; fat_g: number } {
-  // Athlete-first split: combat athletes train hard while cutting, so we keep
-  // protein high enough to protect lean mass (2.0 g/kg on a cut) but pull fat
-  // back to 0.8 g/kg so MORE of the calorie budget lands on CARBS — the fuel
-  // that keeps training quality and weight-room output up through the deficit.
-  // maintain (1.8) and recomp (2.0) protein are unchanged and keep fat at 0.9.
-  const proteinPerKg = goal === "cut" ? 2.0 : goal === "recomp" ? 2.0 : 1.8;
-  const fatPerKg = goal === "cut" ? 0.8 : 0.9;
-  const protein_g = Math.round(weightKg * proteinPerKg);
-  const fat_g = Math.round(weightKg * fatPerKg);
-  // Carbs take the remainder, so the protein/fat trims above auto-increase
-  // carbohydrate. The 20 g floor guards against a degenerate near-zero budget.
+  // Cut/recomp return the MEDIUM training-day macros from the carb cycle
+  // (protein 1.9 g/kg, fat 0.5 g/kg floor, carbs fill the rest) — the
+  // representative/typical day. The UI derives the hard/rest variants via
+  // macroCycle(). Maintain keeps its own moderate, carb-forward split.
+  if (goal === "cut" || goal === "recomp") {
+    return macroForDay(kcal, weightKg, "medium");
+  }
+  const protein_g = Math.round(weightKg * 1.8);
+  const fat_g = Math.round(weightKg * 0.9);
   const remainderKcal = kcal - protein_g * 4 - fat_g * 9;
   const carb_g = Math.max(20, Math.round(remainderKcal / 4));
   return { protein_g, carb_g, fat_g };

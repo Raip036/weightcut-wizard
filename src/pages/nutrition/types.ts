@@ -131,12 +131,6 @@ export interface Meal {
   photo_url?: string | null;
 }
 
-export interface TrainingFoodTip {
-  preMeals: { name: string; description: string; timing: string; macros: string }[];
-  postMeals: { name: string; description: string; timing: string; macros: string }[];
-  tip: string;
-}
-
 export interface MacroGoals {
   proteinGrams: number;
   carbsGrams: number;
