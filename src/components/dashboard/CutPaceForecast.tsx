@@ -136,17 +136,18 @@ function segmentFill(status: CheckpointStatus): string {
     case "close":   return "bg-emerald-400/85";
     case "missed":  return "bg-orange-400";
     case "current": return "bg-gradient-to-r from-primary to-cyan-400";
-    case "no_data": return "bg-transparent border border-dashed border-muted-foreground/45";
+    case "no_data": return "bg-muted-foreground/10 border border-dashed border-muted-foreground/45";
     case "future":
     default:        return "bg-muted-foreground/15";
   }
 }
 
 // Segmented capsule track — one rounded pill split into per-week segments.
-// Replaces the old dots-on-a-line. The current week claims extra width and a
-// crisp inset ring (no glow/box-shadow — that janks on the native webview);
-// emphasis is carried by size + ring, both transform/paint-cheap. Each segment
-// stays individually tappable and drives the parent's focused-week state.
+// Replaces the old dots-on-a-line. All segments are equal width; the current
+// week is distinguished by its colour fill + crisp inset ring (no glow/
+// box-shadow — that janks on the native webview), so "you are here" reads by
+// colour rather than by an uneven, longer bar. Each segment stays individually
+// tappable and drives the parent's focused-week state.
 function WeekTrack({
   checkpoints,
   focusedWeek,
@@ -167,9 +168,6 @@ function WeekTrack({
         {checkpoints.map((c) => {
           const isFocus = focusedWeek === c.week;
           const isCurrent = c.status === "current";
-          // Current week claims ~1.6× width so "you are here" reads by size,
-          // not by a glow halo.
-          const grow = isCurrent ? 1.6 : 1;
           return (
             <button
               key={c.week}
@@ -182,14 +180,16 @@ function WeekTrack({
               // Generous vertical hit area (py-2) around the thin visual bar so
               // taps stay comfortable even when segments are slim.
               className="group relative flex min-w-0 flex-col items-center py-2 active:scale-[0.97] transition-transform"
-              style={{ flexGrow: grow, flexBasis: 0 }}
+              style={{ flexGrow: 1, flexBasis: 0 }}
               aria-label={`Week ${c.week} ${c.status}`}
               aria-pressed={isFocus}
             >
               <span
                 className={[
                   "w-full rounded-full transition-all duration-300",
-                  isFocus ? "h-3.5" : baseH,
+                  // Same height as every other bar — the focused week is
+                  // marked by its white ring + label, never by enlarging.
+                  baseH,
                   segmentFill(c.status),
                   isFocus
                     ? "ring-2 ring-inset ring-white/70"
