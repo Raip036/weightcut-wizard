@@ -100,14 +100,14 @@ export interface ExpandedHour {
   phase: Phase;
 }
 
-const DEFAULT_CUE = "Sip steadily — water + electrolytes.";
-const SLEEP_CUE = "Sleep — no intake";
+const DEFAULT_CUE = "Sip steadily. Water + electrolytes.";
+const SLEEP_CUE = "Sleep, no intake";
 
 // Functional-palette tokens are space-separated RGB triplets in index.css
 // (e.g. `--func-hydration-cyan: 18 202 230`), so they compose via `rgb(...)`.
 const CYAN = "var(--func-hydration-cyan)";
 const AMBER = "var(--func-warning-yellow)";
-const DANGER = "var(--func-danger-red)";
+const GREEN = "var(--func-recovery-green)";
 const CARBS = "var(--func-carbs-orange)";
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -351,7 +351,7 @@ function groupHours(hours: ExpandedHour[]): PhaseGroup[] {
     // Headline never names a specific food — meal phases read as "Fuel up";
     // otherwise fall back to the first hour's cue.
     g.headlineCue = g.isSleep
-      ? "No intake — rest"
+      ? "No intake, rest"
       : g.mealCount > 0
         ? "Meal + fluids"
         : g.hours[0]?.cue?.trim() || "Sip steadily";
@@ -404,7 +404,7 @@ function HourRow({ h }: { h: ExpandedHour }) {
           {SLEEP_CUE}
         </span>
         <span className="text-[13px] tabular-nums text-muted-foreground/35">
-          —
+          -
         </span>
       </div>
     );
@@ -477,7 +477,7 @@ function HourRow({ h }: { h: ExpandedHour }) {
           className="block text-[14px] font-bold tabular-nums"
           style={{ color: `rgb(${CYAN})` }}
         >
-          {hasFluid ? Math.round(fluid) : "—"}
+          {hasFluid ? Math.round(fluid) : "-"}
         </span>
         {hasFluid && (
           <span className="text-[9px] uppercase tracking-[0.1em] text-muted-foreground/50">
@@ -500,7 +500,7 @@ function PhaseCard({
   open: boolean;
   onToggle: () => void;
 }) {
-  const accent = group.isWalkout ? DANGER : group.isSleep ? null : CYAN;
+  const accent = group.isWalkout ? GREEN : group.isSleep ? null : CYAN;
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border/50 bg-[rgb(var(--neutral-800))]">
@@ -510,44 +510,42 @@ function PhaseCard({
         aria-expanded={open}
         className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors active:bg-white/[0.02]"
       >
-        {/* Accent rail dot */}
-        <span
-          className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
-          style={{
-            background: accent
-              ? `rgb(${accent} / 0.12)`
-              : "rgb(255 255 255 / 0.04)",
-          }}
-        >
+        {/* Phase icon — no background box. Walkout uses a finish-line flag. */}
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center">
           {group.isSleep ? (
-            <Moon className="h-4 w-4 text-muted-foreground/55" />
+            <Moon className="h-5 w-5 text-muted-foreground/55" />
           ) : group.isWalkout ? (
             <span style={{ color: `rgb(${accent})` }}>
-              <Icon name={"flash-outline" as IonIconName} size={17} />
+              <Icon name="flagOutline" size={20} />
             </span>
           ) : (
-            <Droplet className="h-4 w-4" style={{ color: `rgb(${accent})` }} />
+            <Droplet className="h-5 w-5" style={{ color: `rgb(${accent})` }} />
           )}
         </span>
 
         {/* Title + summary */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
+            {/* Hour range IS the title (bold). The generic phase words
+                ("Drink up" etc.) are dropped; only the meaningful Sleep /
+                Walkout keep a small secondary label. */}
             <span
               className={cn(
-                "text-[14px] font-bold",
+                "text-[14px] font-bold tabular-nums",
                 group.isSleep ? "text-muted-foreground/70" : "text-foreground",
               )}
             >
-              {group.title}
-            </span>
-            <span className="text-[10px] uppercase tracking-[0.12em] font-semibold tabular-nums text-muted-foreground/55">
               {rangeLabel(group.startH, group.endH)}
             </span>
+            {(group.isSleep || group.isWalkout) && (
+              <span className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/55">
+                {group.title}
+              </span>
+            )}
           </div>
           <p className="mt-0.5 truncate text-[11.5px] text-muted-foreground/75">
             {group.isSleep ? (
-              "No intake — rest"
+              "No intake, rest"
             ) : (
               <>
                 <span
@@ -606,18 +604,18 @@ function PhaseCard({
                     className="mt-[1px] shrink-0"
                     style={{ color: `rgb(${CARBS})` }}
                   >
-                    <Icon name={"flash-outline" as IonIconName} size={14} />
+                    <Icon name="flashOutline" size={14} />
                   </span>
                   <p
                     className="text-[12.5px] font-semibold leading-snug"
                     style={{ color: `rgb(${CARBS})` }}
                   >
-                    Fast sugar now — gummy bears, honey, or a gel as you walk
+                    Fast sugar now: gummy bears, honey, or a gel as you walk
                     out.
                   </p>
                 </div>
               )}
-              <div className="divide-y divide-border/30">
+              <div className="space-y-1">
                 {group.hours.map((h) => (
                   <HourRow key={h.hourOffset} h={h} />
                 ))}
@@ -681,7 +679,7 @@ function MealIdeasBox() {
         }}
       >
         <span className="mt-[1px] shrink-0" style={{ color: `rgb(${AMBER})` }}>
-          <Icon name={"warning-outline" as IonIconName} size={14} />
+          <Icon name="warningOutline" size={14} />
         </span>
         <p className="text-[11.5px] leading-snug text-muted-foreground/85">
           <span className="font-semibold" style={{ color: `rgb(${AMBER})` }}>
@@ -820,7 +818,7 @@ export function RehydrationTimeline({
             </p>
             <p className="mt-0.5 text-[12px] leading-snug text-foreground/85">
               There isn't enough waking time to safely replace all of it. The
-              plan front-loads what's safe (capped ~1 L/h) — expect to walk in
+              plan front-loads what's safe (capped ~1 L/h), so expect to walk in
               slightly under-replaced.
             </p>
           </div>
@@ -830,24 +828,24 @@ export function RehydrationTimeline({
       {/* Summary stat band */}
       <div className="mt-4 grid grid-cols-2 gap-2.5">
         <StatTile
-          icon={"water-outline" as IonIconName}
+          icon="waterOutline"
           value={`${Number(totalLitres.toFixed(1))} L`}
           label="Total fluid"
           accent={CYAN}
         />
         <StatTile
-          icon={"time-outline" as IonIconName}
+          icon="timeOutline"
           value={`${effectiveGap} h`}
           label="Window"
         />
         <StatTile
-          icon={"flame-outline" as IonIconName}
+          icon="flameOutline"
           value={`${Math.round(totalCarb)} g`}
           label="Carbs"
           accent={CARBS}
         />
         <StatTile
-          icon={"restaurant-outline" as IonIconName}
+          icon="restaurantOutline"
           value={`${mealCount}`}
           label={`${fmtSodiumG(totalSodium)} sodium · meals`}
         />

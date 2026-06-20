@@ -406,7 +406,7 @@ export function buildSafetyWarnings(
       severity: "critical",
       code: "AGGRESSIVE_TIMELINE",
       message:
-        "Aggressive timeline. Less than 3 days to drop more than 5% bodyweight — protocol may not be safe.",
+        "Aggressive timeline. Less than 3 days to drop more than 5% bodyweight. This protocol may not be safe.",
     });
   }
 
@@ -415,7 +415,7 @@ export function buildSafetyWarnings(
       severity: "critical",
       code: "FIRST_TIMER_DEEP_CUT",
       message:
-        "First cut — keep this one under 5% bodyweight and work with a coach who has done it.",
+        "First cut. Keep this one under 5% bodyweight and work with a coach who has done it.",
     });
   }
 
@@ -424,7 +424,7 @@ export function buildSafetyWarnings(
       severity: "warn",
       code: "PRIOR_HIGH_REBOUND",
       message:
-        "Your prior cuts show large rebound. Expect a high physiological cost — prioritise recovery.",
+        "Your prior cuts show large rebound. Expect a high physiological cost, so prioritise recovery.",
     });
   }
 
@@ -433,7 +433,7 @@ export function buildSafetyWarnings(
       severity: "warn",
       code: "SLEEP_DEBT",
       message:
-        "Average sleep under 6.5h this week — your tolerance for a cut is reduced.",
+        "Average sleep under 6.5h this week, so your tolerance for a cut is reduced.",
     });
   }
 
@@ -451,7 +451,7 @@ export function buildSafetyWarnings(
       severity: "warn",
       code: "FEMALE_CAP",
       message:
-        "Female athletes have a tighter physiological margin — be ready to abort if signs of distress appear.",
+        "Female athletes have a tighter physiological margin, so be ready to abort if signs of distress appear.",
     });
   }
 
@@ -1162,17 +1162,17 @@ export function buildRehydrationHourlyPlan(
   ): string => {
     switch (phase) {
       case "sleep":
-        return "Sleep — no intake";
+        return "Sleep, no intake";
       case "pre-fight":
-        return "Fast sugar now — gummy bears, honey, or a gel.";
+        return "Fast sugar now: gummy bears, honey, or a gel.";
       case "pre-sleep":
         return `Top up to ~${ml} ml ORS and top up before bed`;
       case "wake-dose":
         return `Fresh ORS bolus ~${ml} ml on waking to restart absorption`;
       case "front-load":
-        return `Front-load: sip ~${ml} ml ORS steadily — do not chug`;
+        return `Front-load: sip ~${ml} ml ORS steadily, do not chug`;
       default:
-        if (isMeal) return `Fuel up — see meal ideas; sip ~${ml} ml ORS alongside`;
+        if (isMeal) return `Fuel up, see meal ideas; sip ~${ml} ml ORS alongside`;
         if (carbG > 0) return `Sip ~${ml} ml ORS; ~${carbG} g easy carbs`;
         return `Sip ~${ml} ml ORS steadily`;
     }

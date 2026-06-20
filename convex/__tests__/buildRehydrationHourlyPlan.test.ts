@@ -77,7 +77,7 @@ describe("buildRehydrationHourlyPlan", () => {
     expect(plan.deficitTooLarge).toBe(false);
   });
 
-  it("schedules zero intake across the sleep block ('Sleep — no intake')", () => {
+  it("schedules zero intake across the sleep block ('Sleep, no intake')", () => {
     // 24h gap, weigh-in at 11:00, sleep 23:00→07:00. Sleep hours are H+12..H+19.
     const plan = buildRehydrationHourlyPlan({
       deficitLitres: 2,
@@ -95,7 +95,7 @@ describe("buildRehydrationHourlyPlan", () => {
       expect(h.carbG).toBe(0);
       expect(h.sodiumMg).toBe(0);
       expect(h.phase).toBe("sleep");
-      expect(h.cue).toBe("Sleep — no intake");
+      expect(h.cue).toBe("Sleep, no intake");
     }
     // The sleep window starts at 23:00 → H+12 (11:00 + 12h).
     expect(offset(plan.hours, 12).isSleep).toBe(true);

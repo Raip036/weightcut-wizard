@@ -65,10 +65,10 @@ export default function ProtocolChangesLab() {
         </p>
         <h1 className="mt-1 text-[22px] font-bold font-display">Rehydration preview</h1>
         <p className="mt-1.5 max-w-2xl text-[13px] text-muted-foreground leading-snug">
-          Real component + real algorithm. New: plain phase names (Drink up / Eat &amp;
-          drink / Before bed / Sleep / After waking / Steady sips / Walkout), neutral
-          "Fuel up" markers (no prescribed meal), a Meal ideas box + foods-to-avoid at
-          the bottom, and a fast-carb hint on Walkout. Expand the phase cards.
+          Real component + real algorithm. Phase cards are titled by their bold
+          hour range (Sleep &amp; Walkout keep a small label); meal rows show a centered
+          MEAL pill + carb target (no prescribed dish); a Meal ideas box + foods-to-avoid
+          sits at the bottom, and Walkout has a fast-carb hint. Expand the phase cards.
         </p>
       </header>
 

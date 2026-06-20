@@ -155,10 +155,10 @@ const ORS_DIY_SHOPPING_LIST = [
 const ORS_COMMERCIAL_EQUIVALENTS = ["LMNT", "Liquid I.V.", "DripDrop", "Pedialyte"];
 
 const DEFAULT_DO_NOTS = [
-  "Do not chug plain water — it dilutes blood sodium and risks hyponatremia.",
+  "Do not chug plain water. It dilutes blood sodium and risks hyponatremia.",
   "No heavy fat or fibre in the first few hours; it slows gastric emptying.",
   "Do not try new supplements or stimulants you have not used before.",
-  "Do not overhydrate beyond your target — more is not better.",
+  "Do not overhydrate beyond your target. More is not better.",
   "Stop and seek help if you feel dizzy, confused, or get a worsening headache.",
 ];
 
@@ -413,9 +413,9 @@ function planToHours(planHours: RehydrationPlanHour[]): RehydrationHour[] {
 // keeps the deterministic copy already present on the rows.
 // ───────────────────────────────────────────────────────────────────────
 
-const COPY_SYSTEM_PROMPT = `You are a sports-science nutrition coach writing SHORT per-hour cue copy for a post-weigh-in rehydration + refeed plan. The numbers (fluid ml, sodium mg, carbs g, sleep blocks) are already FIXED and correct — do NOT change, recompute, or mention different numbers. Only write motivating, practical imperative copy.
+const COPY_SYSTEM_PROMPT = `You are a sports-science nutrition coach writing SHORT per-hour cue copy for a post-weigh-in rehydration + refeed plan. The numbers (fluid ml, sodium mg, carbs g, sleep blocks) are already FIXED and correct. Do NOT change, recompute, or mention different numbers. Only write motivating, practical imperative copy.
 INPUT: an array of hours, each {hourOffset, liquidsMl, sodiumMg, carbG, isSleep, isMeal, phase}.
-RULES: 1) For EACH input hour return {hourOffset, cue, mealLabel}. 2) cue: imperative, <=90 chars, no emojis, no markdown. 3) For isSleep hours cue MUST be exactly "Sleep — no intake" and mealLabel null. 4) For phase "pre-fight" the cue MUST tell the fighter to take fast-digesting sugar right before walkout (e.g. gummy bears, honey, or a gel) — no fluid bolus. 5) MEALS ARE GENERIC TIMING MARKERS — do NOT invent or prescribe a specific dish/food. The app shows separate meal IDEAS elsewhere. For isMeal hours the mealLabel must be a short neutral timing label ONLY (e.g. "Fuel up", "Top up before bed"), <=60 chars, naming no specific food; for non-meal hours mealLabel null. Cues for meal hours should say something like "fuel up — see meal ideas", never a prescribed dish. 6) Keep the same hourOffset values; do not add or drop hours. Output STRICT JSON: {"hours":[{hourOffset,cue,mealLabel}]}. No prose outside JSON.`;
+RULES: 1) For EACH input hour return {hourOffset, cue, mealLabel}. 2) cue: imperative, <=90 chars, no emojis, no markdown, and NEVER use an em dash (the "—" character) anywhere; use commas, colons or full stops instead. 3) For isSleep hours cue MUST be exactly "Sleep, no intake" and mealLabel null. 4) For phase "pre-fight" the cue MUST tell the fighter to take fast-digesting sugar right before walkout (e.g. gummy bears, honey, or a gel), no fluid bolus. 5) MEALS ARE GENERIC TIMING MARKERS, so do NOT invent or prescribe a specific dish/food. The app shows separate meal IDEAS elsewhere. For isMeal hours the mealLabel must be a short neutral timing label ONLY (e.g. "Fuel up", "Top up before bed"), <=60 chars, naming no specific food; for non-meal hours mealLabel null. Cues for meal hours should say something like "fuel up, see meal ideas", never a prescribed dish. 6) Keep the same hourOffset values; do not add or drop hours. 7) Output STRICT JSON: {"hours":[{hourOffset,cue,mealLabel}]}. No prose outside JSON.`;
 
 /**
  * Ask the model to author cue + mealLabel ONLY. Returns the same numeric rows
@@ -475,6 +475,15 @@ async function authorCopyViaAI(
   });
 }
 
+/** Belt-and-braces: strip em/en dashes from model copy. The prompt bans them,
+ *  but never trust the model — " — " becomes ", " and a bare dash is dropped. */
+function stripEmDash(s: string): string {
+  return s
+    .replace(/\s*[—–]\s*/g, ", ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 /** Parse the model's copy-only hours into a hourOffset → {cue, mealLabel} map. */
 function parseCopyHours(
   raw: unknown,
@@ -488,11 +497,11 @@ function parseCopyHours(
     if (!Number.isInteger(hourOffset) || hourOffset < 0) continue;
     const cue =
       typeof o.cue === "string" && o.cue.trim().length > 0
-        ? o.cue.trim().slice(0, 90)
+        ? stripEmDash(o.cue).slice(0, 90)
         : null;
     const mealLabel =
       typeof o.mealLabel === "string" && o.mealLabel.trim().length > 0
-        ? o.mealLabel.trim().slice(0, 60)
+        ? stripEmDash(o.mealLabel).slice(0, 60)
         : null;
     map.set(hourOffset, { cue, mealLabel });
   }
