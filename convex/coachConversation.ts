@@ -55,7 +55,7 @@ async function resolveCampId(
 
   const today = todayIso();
   const upcoming = camps
-    .filter((c) => c.fightDate >= today)
+    .filter((c) => !c.isCompleted && c.fightDate >= today)
     .sort((a, b) => a.fightDate.localeCompare(b.fightDate))[0];
   if (upcoming) return upcoming._id;
 

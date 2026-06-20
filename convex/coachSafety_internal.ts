@@ -58,7 +58,7 @@ export const getSafetyInput = internalQuery({
       .collect();
     const activeCamp =
       camps
-        .filter((c) => c.fightDate >= today)
+        .filter((c) => !c.isCompleted && c.fightDate >= today)
         .sort((a, b) => a.fightDate.localeCompare(b.fightDate))[0] ?? null;
 
     const daysToWeighIn = daysUntil(activeCamp?.fightDate);

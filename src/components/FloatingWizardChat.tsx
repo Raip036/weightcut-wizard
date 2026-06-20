@@ -14,8 +14,6 @@ import { CoachBlocks } from "@/components/fightcamp/CoachBlocks";
 import { CoachCockpitHeader } from "@/components/fightcamp/cockpit/CoachCockpitHeader";
 import { AdaptiveChips } from "@/components/fightcamp/cockpit/AdaptiveChips";
 import { CoachThinkingState } from "@/components/fightcamp/cockpit/CoachThinkingState";
-import { CoachCheckinStreak } from "@/components/fightcamp/cockpit/CoachCheckinStreak";
-import { useCoachCheckinStreak } from "@/hooks/useCoachCheckinStreak";
 import { CoachSpeechBubble } from "@/components/fightcamp/cockpit/CoachSpeechBubble";
 import { CoachProGate } from "@/components/subscription/CoachProGate";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
@@ -135,10 +133,6 @@ export function FloatingWizardChat() {
   // Skipped when unauthenticated so the component renders safely before login.
   const cockpit = useQuery(api.coachCockpit.getCockpit, userId ? {} : "skip");
   const cockpitData = cockpit ?? null;
-
-  // Local-only daily check-in streak. Recording is idempotent per day, so it's
-  // safe to fire on every coach send.
-  const { streak, checkedInToday, recordCheckin } = useCoachCheckinStreak(userId);
 
   // Proactive speech bubble off the orb (chat closed) — surfaces the coach's
   // current read (red flag / priority action / greeting) as a tutorial-style
@@ -378,8 +372,6 @@ export function FloatingWizardChat() {
     triggerHapticSelection();
     const currentInput = input;
     setInput("");
-    // Talking to the coach counts as today's check-in (idempotent per day).
-    recordCheckin();
     await sendMessage(currentInput);
     triggerHapticSuccess();
   };
@@ -389,8 +381,6 @@ export function FloatingWizardChat() {
     if (!hasAccess) return;
     if (isLoading) return;
     triggerHapticSelection();
-    // Tapping a chip is a coach interaction — counts as a check-in too.
-    recordCheckin();
     await sendMessage(prompt);
     triggerHapticSuccess();
   };
@@ -608,17 +598,12 @@ export function FloatingWizardChat() {
                 </div>
                 )}
 
-                {/* Pinned cockpit — proactive, data-grounded header + check-in
-                    streak. Sits ABOVE the chat scroll (Pro only — free users
-                    get the full-sheet gate). */}
-                {hasAccess && (cockpitData || streak > 0 || checkedInToday) && (
+                {/* Pinned cockpit — proactive, data-grounded header. Sits ABOVE
+                    the chat scroll (Pro only — free users get the full-sheet
+                    gate). */}
+                {hasAccess && cockpitData && (
                   <div className="shrink-0 px-4 pt-3 pb-1 space-y-2">
                     <CoachCockpitHeader data={cockpitData} />
-                    <CoachCheckinStreak
-                      streak={streak}
-                      checkedInToday={checkedInToday}
-                      onCheckIn={recordCheckin}
-                    />
                   </div>
                 )}
 

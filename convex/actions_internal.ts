@@ -152,7 +152,7 @@ export const fetchSnapshotData = internalQuery({
       .collect();
     const upcomingCamp =
       upcomingCamps
-        .filter((c) => c.fightDate >= today)
+        .filter((c) => !c.isCompleted && c.fightDate >= today)
         .sort((a, b) => a.fightDate.localeCompare(b.fightDate))[0] ?? null;
 
     const todayWellness =
@@ -267,7 +267,7 @@ export const fetchRecoveryData = internalQuery({
       .collect();
     const upcomingCamp =
       upcomingCamps
-        .filter((c) => c.fightDate >= today)
+        .filter((c) => !c.isCompleted && c.fightDate >= today)
         .sort((a, b) => a.fightDate.localeCompare(b.fightDate))[0] ?? null;
 
     const todayWellness = wellness.find((w) => w.date === today) ?? null;
@@ -696,7 +696,7 @@ export const fetchFightWeekData = internalQuery({
     const today = todayIso();
     const upcomingCamp =
       allCamps
-        .filter((c) => c.fightDate >= today)
+        .filter((c) => !c.isCompleted && c.fightDate >= today)
         .sort((a, b) => a.fightDate.localeCompare(b.fightDate))[0] ?? null;
 
     const fightWeekLogs = await ctx.db

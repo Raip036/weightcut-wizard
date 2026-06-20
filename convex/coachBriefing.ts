@@ -293,7 +293,7 @@ export const getBriefing = query({
       .collect();
     const upcomingCamp =
       allCamps
-        .filter((c) => c.fightDate >= today)
+        .filter((c) => !c.isCompleted && c.fightDate >= today)
         .sort((a, b) => a.fightDate.localeCompare(b.fightDate))[0] ?? null;
 
     if (!upcomingCamp) return EMPTY_BRIEFING;

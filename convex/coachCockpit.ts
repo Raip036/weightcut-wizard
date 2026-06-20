@@ -102,7 +102,7 @@ export const getCockpit = query({
       .collect();
     const upcomingCamp =
       allCamps
-        .filter((c) => c.fightDate >= today)
+        .filter((c) => !c.isCompleted && c.fightDate >= today)
         .sort((a, b) => a.fightDate.localeCompare(b.fightDate))[0] ?? null;
 
     // Recent fight-week logs (live cut weight wins in latestWeight()).

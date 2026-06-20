@@ -122,7 +122,12 @@ export const getFightWeekCornerman = internalQuery({
       .collect();
     const camp =
       camps
-        .filter((c) => typeof c.fightDate === "string" && c.fightDate >= today)
+        .filter(
+          (c) =>
+            !c.isCompleted &&
+            typeof c.fightDate === "string" &&
+            c.fightDate >= today,
+        )
         .sort((a, b) => a.fightDate.localeCompare(b.fightDate))[0] ?? null;
 
     if (!camp) return empty;
