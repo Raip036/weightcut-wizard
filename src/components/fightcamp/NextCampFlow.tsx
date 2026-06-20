@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Sparkles, Loader2 } from "lucide-react";
 import { useMutation } from "convex/react";
 import { useAIAction } from "@/hooks/useAIAction";
+import { useSubscription } from "@/hooks/useSubscription";
 import { api } from "@/../convex/_generated/api";
 import type { Id } from "@/../convex/_generated/dataModel";
 import { useUser } from "@/contexts/UserContext";
@@ -83,14 +84,20 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
   // wizard data, (b) persist it on the profile, and (c) cache it locally so
   // the iOS WebView's occasional storage wipe doesn't lose it.
   //
-  // Unlike first-time onboarding (which is FREE), regenerating a plan for the
-  // NEXT camp is a Pro feature — gated under AI_CUT_PLAN. `useAIAction` opens
-  // the paywall upfront for free users (and recovers stale-profile pro users),
-  // and the call below passes `gate: "regenerate"` so the server enforces the
-  // Pro key rather than the free onboarding key.
+  // CREATING the camp is FREE. Only the AI cut-plan *regeneration* for the
+  // next camp is a Pro feature (gated under AI_CUT_PLAN — unlike first-time
+  // onboarding, which is free). We must NOT let that Pro step pop a paywall
+  // on top of the (free) camp-creation action, or it looks like creating a
+  // camp is paywalled. So we pass `featureKey: undefined` to `useAIAction`
+  // here — that disables its upfront paywall — and instead decide whether to
+  // call it at all based on `checkFeatureAccess("AI_CUT_PLAN")` in
+  // `submitWizard`. Free users get their camp created and simply skip the AI
+  // plan (the existing null-plan path handles it); Pro users still generate.
+  // The call below passes `gate: "regenerate"` so the server still enforces
+  // the Pro key as a backstop.
+  const { checkFeatureAccess } = useSubscription();
   const generateCutPlanAction = useAIAction(
     api.actions.generateCutPlan.run,
-    "AI_CUT_PLAN",
   );
   const updateGoalsMut = useMutation(api.profiles.updateGoals);
 
@@ -307,21 +314,30 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
       // new fight while still carrying the old plan — better to keep the
       // profile in sync with the data the rest of the app will read.
       let planData: any = null;
-      try {
-        planData = await generateCutPlanAction({
-          currentWeight,
-          goalWeight: targetWeight,
-          fightWeekTargetKg: safeWalkAround,
-          targetDate: wizardData.fightDate,
-          age,
-          sex,
-          heightCm,
-          activityLevel,
-          weighInTiming: wizardData.weighInTiming || undefined,
-          gate: "regenerate",
-        });
-      } catch (planError) {
-        logger.warn("Cut plan generation failed in NextCampFlow", { error: planError });
+      // The AI cut-plan regeneration is Pro-only. Camp creation already
+      // succeeded (free) above; only attempt the gated generation for users
+      // who meet the AI_CUT_PLAN tier so free users are NOT shown a paywall
+      // as a side-effect of creating a camp. Free users fall through to the
+      // null-plan path below (targets saved, "New camp started" toast, the
+      // cutscene CTA still works) — identical to a generation failure, and
+      // they can generate the plan later from the Goals page (Pro upsell).
+      if (checkFeatureAccess("AI_CUT_PLAN")) {
+        try {
+          planData = await generateCutPlanAction({
+            currentWeight,
+            goalWeight: targetWeight,
+            fightWeekTargetKg: safeWalkAround,
+            targetDate: wizardData.fightDate,
+            age,
+            sex,
+            heightCm,
+            activityLevel,
+            weighInTiming: wizardData.weighInTiming || undefined,
+            gate: "regenerate",
+          });
+        } catch (planError) {
+          logger.warn("Cut plan generation failed in NextCampFlow", { error: planError });
+        }
       }
 
       const plan = planData?.plan || planData;
