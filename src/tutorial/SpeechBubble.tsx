@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { memo, useEffect } from "react";
 import { motion, useAnimation, useReducedMotion } from "motion/react";
 import { X } from "lucide-react";
 import { TypewriterText } from "./TypewriterText";
 import { endsAtSentence } from "./typewriter";
 import type { VoicePace } from "./types";
+import { isNativePlatform } from "@/hooks/useIsNative";
 
 interface SpeechBubbleProps {
   headline: string;
@@ -35,7 +36,7 @@ interface SpeechBubbleProps {
 const bubbleSpring = { type: "spring" as const, stiffness: 520, damping: 28, mass: 0.8 };
 const tailSpring = { type: "spring" as const, stiffness: 700, damping: 18, delay: 0.06 };
 
-export function SpeechBubble({
+function SpeechBubbleInner({
   headline,
   body,
   revealKey,
@@ -105,9 +106,13 @@ export function SpeechBubble({
         compact ? "max-w-[min(82vw,320px)]" : "max-w-[min(80vw,320px)]"
       }`}
       style={{
-        background: "rgba(28, 28, 30, 0.72)",
-        backdropFilter: "blur(20px) saturate(180%)",
-        WebkitBackdropFilter: "blur(20px) saturate(180%)",
+        // On native iOS the 20px backdrop blur re-rasterizes every frame of
+        // the bubble's spring entrance and any scroll behind it. Use a
+        // near-opaque solid there (visually almost identical) and keep the
+        // translucent glass on web.
+        background: isNativePlatform ? "rgba(24, 24, 27, 0.97)" : "rgba(28, 28, 30, 0.72)",
+        backdropFilter: isNativePlatform ? undefined : "blur(20px) saturate(180%)",
+        WebkitBackdropFilter: isNativePlatform ? undefined : "blur(20px) saturate(180%)",
         border: "1px solid rgba(255,255,255,0.08)",
         transformOrigin: tail.bubbleOrigin,
         willChange: "transform, opacity",
@@ -172,7 +177,7 @@ export function SpeechBubble({
       >
         <path
           d={tail.path}
-          fill="rgba(28, 28, 30, 0.72)"
+          fill={isNativePlatform ? "rgba(24, 24, 27, 0.97)" : "rgba(28, 28, 30, 0.72)"}
           stroke="rgba(255,255,255,0.08)"
           strokeWidth="1"
         />
@@ -180,3 +185,8 @@ export function SpeechBubble({
     </motion.div>
   );
 }
+
+// Memoized so the bubble's typewriter subtree isn't reconciled on every
+// overlay re-render (e.g. each scroll frame while the spotlight tracks).
+// Props from TutorialStage are referentially stable per step.
+export const SpeechBubble = memo(SpeechBubbleInner);

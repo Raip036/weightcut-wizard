@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import wizard3D from "@/assets/wizard_3D.png";
 import wizardFood from "@/assets/wizard_food.png";
@@ -30,7 +31,7 @@ const SPARKLES = [
   { top: "18%", left: "78%", delay: 1.7 },
 ];
 
-export function WizardCharacter({
+function WizardCharacterInner({
   pose,
   onTap,
   variant = "3d",
@@ -116,3 +117,8 @@ export function WizardCharacter({
     </motion.button>
   );
 }
+
+// Memoized so the mascot's SVG/animation tree isn't reconciled on every
+// overlay re-render (e.g. each scroll frame while the spotlight tracks).
+// Only `pose`/`variant` change between steps.
+export const WizardCharacter = memo(WizardCharacterInner);

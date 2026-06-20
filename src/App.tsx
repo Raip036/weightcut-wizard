@@ -18,6 +18,7 @@ import { PaywallOverlay } from "@/components/subscription/PaywallOverlay";
 import { WelcomeProOverlay } from "@/components/subscription/WelcomeProOverlay";
 import { ProRouteGate } from "@/components/subscription/ProRouteGate";
 import { GlobalLoadingOverlay } from "@/components/GlobalLoadingOverlay";
+import { CampCompletionOverlay } from "@/components/fightcamp/CampCompletionOverlay";
 import { PageTransition } from "@/components/PageTransition";
 import { NavigationDirectionProvider } from "@/hooks/useNavigationDirection";
 import { TutorialProvider } from "@/tutorial/TutorialContext";
@@ -361,6 +362,7 @@ const App = () => (
               <NavigationDirectionProvider>
               <TutorialProvider>
               <RouteTracker />
+              <CampCompletionOverlay />
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/welcome" element={

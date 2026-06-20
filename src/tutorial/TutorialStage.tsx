@@ -11,6 +11,7 @@ import { WizardCharacter } from "./WizardCharacter";
 import { SpeechBubble } from "./SpeechBubble";
 import { TutorialProgressBar } from "./TutorialProgressBar";
 import { TutorialNav } from "./TutorialNav";
+import { isNativePlatform } from "@/hooks/useIsNative";
 import { ONBOARDING_SECTIONS } from "./sections";
 import type { TutorialStep } from "./types";
 
@@ -109,17 +110,34 @@ function StageInner({
       return;
     }
 
-    const ro = new ResizeObserver(() => {
-      const el = document.querySelector<HTMLElement>(`[data-tutorial="${selector}"]`);
-      if (el) setSpotlightRect(el.getBoundingClientRect());
-    });
     let observed = false;
+    let rafId = 0;
     const timers: ReturnType<typeof setTimeout>[] = [];
+
+    // Commit a new rect only when it has moved meaningfully. Scroll fires
+    // the handler up to once per frame and the target's viewport rect
+    // shifts as the page scrolls, but identical/sub-pixel rects would
+    // still force a full overlay re-render (SVG mask + Framer re-eval) for
+    // no visible change — so we bail out when nothing moved.
+    const commit = (rect: DOMRect) => {
+      setSpotlightRect((prev) => {
+        if (
+          prev &&
+          Math.abs(prev.left - rect.left) < 0.5 &&
+          Math.abs(prev.top - rect.top) < 0.5 &&
+          Math.abs(prev.width - rect.width) < 0.5 &&
+          Math.abs(prev.height - rect.height) < 0.5
+        ) {
+          return prev;
+        }
+        return rect;
+      });
+    };
 
     const measure = () => {
       const el = document.querySelector<HTMLElement>(`[data-tutorial="${selector}"]`);
       if (el) {
-        setSpotlightRect(el.getBoundingClientRect());
+        commit(el.getBoundingClientRect());
         // Attach the ResizeObserver lazily — the target may not have
         // existed at effect-mount time (e.g. it lives inside a sheet
         // that opens via `actionEventName`). Once we find the element
@@ -131,6 +149,22 @@ function StageInner({
       }
     };
 
+    // Coalesce high-frequency events (scroll / resize / ResizeObserver)
+    // into a single measurement per animation frame. Without this, a
+    // single scroll swipe fires getBoundingClientRect + setState dozens of
+    // times per frame (layout thrashing) — the main source of scroll jank.
+    const scheduleMeasure = () => {
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = 0;
+        measure();
+      });
+    };
+
+    // Declared after `measure`/`scheduleMeasure` (which it closes over);
+    // `measure` only runs via the timers/listeners below, after init.
+    const ro = new ResizeObserver(scheduleMeasure);
+
     // Retry the lookup a few times at 100 ms intervals so steps whose
     // target appears asynchronously (sheet slide-up, lazy-loaded page,
     // etc.) still resolve. Initial 80 ms delay matches the prior
@@ -140,14 +174,15 @@ function StageInner({
       timers.push(setTimeout(measure, delay));
     });
 
-    window.addEventListener("scroll", measure, { passive: true });
-    window.addEventListener("resize", measure, { passive: true });
+    window.addEventListener("scroll", scheduleMeasure, { passive: true });
+    window.addEventListener("resize", scheduleMeasure, { passive: true });
 
     return () => {
       timers.forEach(clearTimeout);
+      if (rafId) cancelAnimationFrame(rafId);
       ro.disconnect();
-      window.removeEventListener("scroll", measure);
-      window.removeEventListener("resize", measure);
+      window.removeEventListener("scroll", scheduleMeasure);
+      window.removeEventListener("resize", scheduleMeasure);
     };
   }, [currentStep?.spotlight, currentStep?.id]);
 
@@ -168,6 +203,10 @@ function StageInner({
     triggerHapticWarning();
     onSkip();
   }, [onSkip]);
+
+  // Stable so the memoized SpeechBubble doesn't re-render every time the
+  // overlay re-renders (e.g. on each scroll frame while the spotlight tracks).
+  const handleTypingComplete = useCallback(() => setBubbleComplete(true), []);
 
   if (!isActive || !currentStep) return null;
 
@@ -268,9 +307,13 @@ function StageInner({
         style={{
           top: "calc(env(safe-area-inset-top) + 14px)",
           right: "calc(env(safe-area-inset-right) + 14px)",
-          background: "rgba(8, 12, 20, 0.62)",
-          backdropFilter: "blur(20px) saturate(160%)",
-          WebkitBackdropFilter: "blur(20px) saturate(160%)",
+          // On native iOS, backdrop-filter forces a per-frame GPU
+          // re-rasterization of the page behind the pill during any scroll.
+          // Swap the blur for a near-opaque solid so the pill still reads on
+          // any background without the compositing cost. Web keeps the glass.
+          background: isNativePlatform ? "rgba(12, 17, 27, 0.95)" : "rgba(8, 12, 20, 0.62)",
+          backdropFilter: isNativePlatform ? undefined : "blur(20px) saturate(160%)",
+          WebkitBackdropFilter: isNativePlatform ? undefined : "blur(20px) saturate(160%)",
           border: "1px solid rgba(255, 255, 255, 0.08)",
           WebkitTapHighlightColor: "transparent",
         }}
@@ -361,7 +404,7 @@ function StageInner({
                       body={currentStep.description}
                       pace={currentStep.voicePace}
                       forceComplete={forceComplete}
-                      onTypingComplete={() => setBubbleComplete(true)}
+                      onTypingComplete={handleTypingComplete}
                       tailSide={tailSide}
                     />
                   </>
@@ -373,7 +416,7 @@ function StageInner({
                       body={currentStep.description}
                       pace={currentStep.voicePace}
                       forceComplete={forceComplete}
-                      onTypingComplete={() => setBubbleComplete(true)}
+                      onTypingComplete={handleTypingComplete}
                       tailSide={tailSide}
                     />
                     <motion.div
@@ -412,10 +455,13 @@ function StageInner({
   );
 }
 
-export function TutorialStage(props: TutorialStageProps) {
+// Memoized: the TutorialProvider wraps the whole app and re-renders on
+// unrelated context churn. Props here (step data + useCallback handlers) only
+// change when the tutorial actually advances, so memo skips those re-renders.
+export const TutorialStage = React.memo(function TutorialStage(props: TutorialStageProps) {
   return (
     <StageErrorBoundary>
       <StageInner {...props} />
     </StageErrorBoundary>
   );
-}
+});

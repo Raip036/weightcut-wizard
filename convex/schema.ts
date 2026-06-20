@@ -98,6 +98,10 @@ export default defineSchema({
     // Reset to null by the RC EXPIRATION webhook so a real re-subscribe after
     // a lapse re-arms it.
     welcomeProShownAt: v.optional(v.number()),
+    // Epoch ms the full-screen "start your next camp" overlay was last shown
+    // to a fighter who has no active camp. Drives the 7-day cooldown so the
+    // nudge doesn't fire on every cold start. See convex/campCompletion.ts.
+    nextCampNudgeShownAt: v.optional(v.number()),
     // Legacy gem/ad columns — the gem system was ripped out, but
     // existing prod rows still carry these fields. Keep them as
     // `v.optional` so schema validation passes during the deploy
@@ -416,6 +420,10 @@ export default defineSchema({
     rehydrationNotes: v.optional(v.string()),
     performanceFeeling: v.optional(v.string()),
     isCompleted: v.optional(v.boolean()),
+    // Epoch ms the full-screen completion overlay was shown for this camp.
+    // CAS-set once so the forceful "camp complete, wrap it up" takeover fires
+    // exactly once per camp. See convex/campCompletion.ts.
+    completionOverlayShownAt: v.optional(v.number()),
     updatedAt: v.optional(v.number()),
   }).index("by_user", ["userId"]),
 

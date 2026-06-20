@@ -4,6 +4,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useMemo,
   type ReactNode,
 } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -354,17 +355,33 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
   // Don't show overlay while waiting for navigation to settle
   const showOverlay = state.isActive && !waitingForNav;
 
-  const value: TutorialContextValue = {
-    isActive: state.isActive,
-    currentStep: state.currentStep,
-    currentStepIndex: state.currentStepIndex,
-    totalSteps: state.totalSteps,
-    next,
-    prev,
-    skip,
-    triggerTutorial,
-    replayTutorial,
-  };
+  // Memoized so consumers across the app (this provider wraps the whole tree)
+  // only re-render when tutorial state actually changes — not on every
+  // unrelated provider render that would otherwise mint a fresh value object.
+  const value: TutorialContextValue = useMemo(
+    () => ({
+      isActive: state.isActive,
+      currentStep: state.currentStep,
+      currentStepIndex: state.currentStepIndex,
+      totalSteps: state.totalSteps,
+      next,
+      prev,
+      skip,
+      triggerTutorial,
+      replayTutorial,
+    }),
+    [
+      state.isActive,
+      state.currentStep,
+      state.currentStepIndex,
+      state.totalSteps,
+      next,
+      prev,
+      skip,
+      triggerTutorial,
+      replayTutorial,
+    ]
+  );
 
   return (
     <TutorialContext.Provider value={value}>
