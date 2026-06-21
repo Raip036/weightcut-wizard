@@ -24,7 +24,7 @@ interface ShareCardDialogProps {
 const CARD_W = 1080;
 const CARD_H: Record<AspectRatio, number> = { square: 1080, story: 1920 };
 
-// Max preview height (px) — keeps buttons always visible
+// Max preview height (px): keeps buttons always visible
 const MAX_PREVIEW_H = 340;
 
 export function ShareCardDialog({
@@ -37,7 +37,7 @@ export function ShareCardDialog({
   showSwipeHint,
   children,
 }: ShareCardDialogProps) {
-  // Story 9:16 is the only supported aspect — the 1:1 square variant was
+  // Story 9:16 is the only supported aspect. The 1:1 square variant was
   // dropped because users never picked it. Kept as a constant (rather than
   // state) so the dialog's render-prop API still hands cards an `aspect`
   // value and individual card components don't need to change.
@@ -79,7 +79,7 @@ export function ShareCardDialog({
           <DialogTitle className="text-lg font-bold">{title}</DialogTitle>
         </DialogHeader>
 
-        {/* Preview — fixed max height, no gaps. Aspect toggle removed:
+        {/* Preview: fixed max height, no gaps. Aspect toggle removed:
             story 9:16 is now the only output format. */}
         <div ref={wrapperRef} className="w-full shrink-0 flex justify-center">
           <div
@@ -114,8 +114,8 @@ export function ShareCardDialog({
           </div>
         </div>
 
-        {/* Swipe hint — animated chevrons + helper text. Only shown when the
-         * caller has wired up swipe handling (e.g. dark ↔ transparent). */}
+        {/* Swipe hint: animated chevrons + helper text. Only shown when the
+         * caller has wired up swipe handling (e.g. dark / transparent). */}
         {showSwipeHint && (
           <div
             className="flex items-center justify-center gap-2 shrink-0 text-[11px] text-muted-foreground/80 select-none"
@@ -127,7 +127,7 @@ export function ShareCardDialog({
           </div>
         )}
 
-        {/* Single slim Share pill — Download removed per design request */}
+        {/* Single slim Share pill. Download removed per design request */}
         <div className="flex justify-center shrink-0">
           <button
             onClick={() => captureAndShare(shareTitle, shareText, transparent)}

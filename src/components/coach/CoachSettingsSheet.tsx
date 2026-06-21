@@ -1,10 +1,10 @@
 /**
- * Coach settings — iOS-style grouped list inside a bottom sheet.
+ * Coach settings: iOS-style grouped list inside a bottom sheet.
  *
  * Sections:
- *   1. Account  — coach's identity (name)
- *   2. Gym      — full editor: logo, name, location, invite code, disciplines, roster size, about
- *   3. (always) Danger zone — sign out, delete account
+ *   1. Account  : coach's identity (name)
+ *   2. Gym      : full editor: logo, name, location, invite code, disciplines, roster size, about
+ *   3. (always) Danger zone : sign out, delete account
  *
  * Pattern: each row shows label (left) + current value (right, muted) + chevron.
  * Tap toggles inline edit mode; only one row can be open at a time. Save
@@ -85,7 +85,7 @@ export function CoachSettingsSheet({ open, onOpenChange }: Props) {
   const setUserNameMut = useMutation(api.profiles.setUserName);
   const updateGym = useMutation(api.gyms.update);
 
-  // Editing state — only one row is open at a time, and `draft` holds
+  // Editing state: only one row is open at a time, and `draft` holds
   // the current value being edited.
   const [editing, setEditing] = useState<EditKey>(null);
   const [draft, setDraft] = useState<any>(null);
@@ -233,7 +233,7 @@ export function CoachSettingsSheet({ open, onOpenChange }: Props) {
             <div className="w-10 h-1 rounded-full bg-muted-foreground/25" aria-hidden />
           </div>
 
-          {/* Header — transparent so the sheet's own background shows through */}
+          {/* Header: transparent so the sheet's own background shows through */}
           <div className="px-5 pt-2 pb-3 flex items-center justify-between">
             <SheetTitle className="text-[19px] font-bold tracking-tight">Settings</SheetTitle>
             <button
@@ -273,7 +273,7 @@ export function CoachSettingsSheet({ open, onOpenChange }: Props) {
             {/* ── GYM ───────────────────────────────────────────────── */}
             {primaryGym && (
               <Group label="Gym">
-                {/* Logo — embeds the existing GymLogoUpload so the tap-target is
+                {/* Logo: embeds the existing GymLogoUpload so the tap-target is
                     the picker itself, no inline-edit mode needed. */}
                 <div className="flex items-center gap-3 px-3 py-3">
                   <span className="text-[13px] text-foreground/85 flex-1">Logo</span>
@@ -339,7 +339,7 @@ export function CoachSettingsSheet({ open, onOpenChange }: Props) {
                 />
                 <Divider />
 
-                {/* Invite code — read-only with inline copy */}
+                {/* Invite code: read-only with inline copy */}
                 <button
                   onClick={copyCode}
                   className="w-full flex items-center justify-between px-3 py-3 active:bg-muted/30 transition-colors"
@@ -461,7 +461,7 @@ export function CoachSettingsSheet({ open, onOpenChange }: Props) {
               </Group>
             )}
 
-            {/* ── PREFERENCES (theme only — single inline row) ───────── */}
+            {/* ── PREFERENCES (theme only, single inline row) ───────── */}
             <Group label="Preferences">
               <div className="flex items-center justify-between px-3 py-3">
                 <span className="text-[13px] text-foreground/85">Theme</span>

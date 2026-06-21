@@ -11,7 +11,7 @@ interface FightFormScoreCardProps {
   daysToFight: number | null;
   campAge: { weeksAhead: number } | null;
   subScores: Record<SubScoreKey, SubScore> | null;
-  /** Camp name shown in the top banner — e.g. "FightZumi". Optional. */
+  /** Camp name shown in the top banner, e.g. "FightZumi". Optional. */
   campName?: string;
   aspect?: AspectRatio;
   transparent?: boolean;
@@ -81,7 +81,7 @@ function campPaceLine(campAge: { weeksAhead: number } | null): string | null {
 }
 
 // Inline SVG ring renderer matching FightFormRing's visual proportions but
-// blown up to share-card scale. No animation — capture must be deterministic.
+// blown up to share-card scale. No animation: capture must be deterministic.
 function ShareRing({
   score,
   color,
@@ -135,7 +135,7 @@ export const FightFormScoreCard = forwardRef<HTMLDivElement, FightFormScoreCardP
     const mergedSubs = subScores ? mergeRecoveryDimension(subScores) : null;
 
     // Sort subscores by impact (value × weight) so the strongest signals
-    // appear first — matches the bottom-sheet order users see in-app.
+    // appear first, matching the bottom-sheet order users see in-app.
     // Paused sub-scores (weight === 0) naturally sink to the bottom.
     const sortedSubs = mergedSubs
       ? (Object.entries(mergedSubs) as Array<[SubScoreKey, SubScore]>)
@@ -170,7 +170,7 @@ export const FightFormScoreCard = forwardRef<HTMLDivElement, FightFormScoreCardP
           >
             {topBannerText(campName, daysToFight, phase)}
           </div>
-          {/* Phase sub-line — smaller, muted, sits directly under the banner. */}
+          {/* Phase sub-line: smaller, muted, sits directly under the banner. */}
           <div
             style={{
               textAlign: "center",
@@ -185,7 +185,7 @@ export const FightFormScoreCard = forwardRef<HTMLDivElement, FightFormScoreCardP
             {phaseSubLine(phase)}
           </div>
 
-          {/* Hero ring — centered, with score + label stacked inside. */}
+          {/* Hero ring: centered, with score + label stacked inside. */}
           <div style={{ display: "flex", justifyContent: "center", alignItems: "center", position: "relative", marginBottom: s ? 28 : 14 }}>
             <ShareRing
               score={score}
@@ -227,11 +227,11 @@ export const FightFormScoreCard = forwardRef<HTMLDivElement, FightFormScoreCardP
               >
                 {LABEL_DISPLAY[label]}
               </div>
-              {/* "Fight Form Score" caption removed — banner above handles context. */}
+              {/* "Fight Form Score" caption removed; banner above handles context. */}
             </div>
           </div>
 
-          {/* Sub-score strip — five compact rows so the recipient sees the
+          {/* Sub-score strip: five compact rows so the recipient sees the
               full breakdown, not just the headline number. */}
           {sortedSubs.length > 0 && (
             <div

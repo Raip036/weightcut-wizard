@@ -1,7 +1,7 @@
 /**
- * ReviewSheet — full-height bottom sheet shown after the photo-first
+ * ReviewSheet: full-height bottom sheet shown after the photo-first
  * shutter fires. Spec: 2026-05-19 round-card photo-first tracking,
- * §3.3 (layout), §3.5–§3.6 (CTAs), §4 (developing polaroid).
+ * §3.3 (layout), §3.5-§3.6 (CTAs), §4 (developing polaroid).
  *
  * Pure presentational: never calls a Convex mutation. The parent owns
  * the `fight_camp.create` + `uploadSessionMediaV2` pipeline; this
@@ -26,7 +26,7 @@ export interface ReviewSheetDefaults {
   gymName: string | null;
   // Resolved gym logo URL from Convex storage. Optional in the data
   // model (gyms without a logo are valid), so `null` flows through
-  // verbatim. Consumed only by the polaroid's bottom strip — not
+  // verbatim. Consumed only by the polaroid's bottom strip, not
   // round-tripped into `ReviewMeta` because the calendar row doesn't
   // need it (denormalised by the feed pipeline).
   gymLogoUrl: string | null;
@@ -65,7 +65,7 @@ export interface ReviewSheetProps {
   developing?: boolean;
 }
 
-/* ── Chip option tables — mirror QuickLogDialog so the photo-first flow
+/* ── Chip option tables: mirror QuickLogDialog so the photo-first flow
  *    doesn't drift from the legacy long-press path. Duplicated rather
  *    than imported to keep this lazy chunk small. ─────────────────── */
 
@@ -92,11 +92,11 @@ const INTENSITY_PRESETS: readonly IntensityPreset[] = [
 // hsl() values mirror the design tokens (health/hydration/energy/red) so
 // the dot reads as a heat scale without pulling extra CSS vars.
 const INTENSITY_DOT_COLORS: readonly string[] = [
-  "hsl(152 69% 46%)", // Easy   — health green
-  "hsl(199 89% 52%)", // Steady — hydration cyan
-  "hsl(24 95% 56%)", // Hard   — energy amber
-  "hsl(14 90% 55%)", // Battle — orange-red (energy↦red blend)
-  "hsl(0 72% 55%)", // Max    — red
+  "hsl(152 69% 46%)", // Easy   health green
+  "hsl(199 89% 52%)", // Steady hydration cyan
+  "hsl(24 95% 56%)", // Hard   energy amber
+  "hsl(14 90% 55%)", // Battle orange-red (energy↦red blend)
+  "hsl(0 72% 55%)", // Max    red
 ] as const;
 
 /* ── Component ──────────────────────────────────────────────────── */
@@ -152,7 +152,7 @@ export function ReviewSheet({
   }, [photoBlob]);
 
   // PolaroidCard expects a `FeedPost`. For a not-yet-posted preview we
-  // stub one — the polaroid only uses these as keys + shared-element
+  // stub one. The polaroid only uses these as keys + shared-element
   // ids; nothing is persisted.
   const previewPost = useMemo(
     () => ({
@@ -271,12 +271,12 @@ export function ReviewSheet({
           </SheetHeader>
         </div>
 
-        {/* Body — sized so everything fits one screen on iPhone SE+.
+        {/* Body: sized so everything fits one screen on iPhone SE+.
             `overflow-y-auto` stays so the iOS keyboard can scroll the
             caption input into view if it covers it. */}
         <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-2">
           {/* Polaroid preview. Cap shrunk 260→240 to reclaim vertical
-              budget (see SE math) — the ±4° developing shake also gets
+              budget (see SE math). The ±4° developing shake also gets
               less perceived crowd with a smaller card.
 
               The polaroid frame (`bg-white p-4 pb-10` around an
@@ -305,7 +305,7 @@ export function ReviewSheet({
 
           {/* Session summary stat card. One cohesive labeled card (Apple
               Fitness aesthetic) replacing the loose pill row. A slim full-
-              width "Gym" header sits atop a 2×2 grid of tappable cells —
+              width "Gym" header sits atop a 2×2 grid of tappable cells,
               each cell is a ChipPopover trigger reusing the exact same
               selection logic as the legacy pills.
 
@@ -313,7 +313,7 @@ export function ReviewSheet({
               wrapper's reserved overflow (`pb-14`) so the polaroid's
               shadow + ±4° developing shake never visually touch the card. */}
           <div className="mt-7 rounded-2xl border border-border/50 bg-muted/40 dark:bg-white/[0.04] overflow-hidden">
-            {/* Slim Gym header — static read of `gymName`, not editable. */}
+            {/* Slim Gym header: static read of `gymName`, not editable. */}
             <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-border/40">
               <span className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/60">
                 Gym
@@ -383,10 +383,10 @@ export function ReviewSheet({
                 />
               ) : (
                 // Keep the 2×2 shape when no tags exist for this discipline:
-                // render a disabled, greyed cell showing "—".
+                // render a disabled, greyed cell showing "-".
                 <StatCell
                   cellLabel="Activity"
-                  value="—"
+                  value="-"
                   ariaLabel="Activity tag (unavailable)"
                   disabled
                   muted
@@ -454,7 +454,7 @@ export function ReviewSheet({
             </div>
           </div>
 
-          {/* Single-line caption — Enter submits primary CTA. */}
+          {/* Single-line caption: Enter submits primary CTA. */}
           <Input
             value={caption}
             onChange={(e) => setCaption(e.target.value)}
@@ -472,7 +472,7 @@ export function ReviewSheet({
           />
         </div>
 
-        {/* CTA stack — pinned. The primary button gets extra top padding
+        {/* CTA stack, pinned. The primary button gets extra top padding
             (pt-5) so it sits noticeably lower on the screen, separated
             from the form. Log-only + Discard share a horizontal row to
             save vertical space (Log-only left, Discard right). */}

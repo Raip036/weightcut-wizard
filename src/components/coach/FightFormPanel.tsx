@@ -45,7 +45,7 @@ const WEAKNESS_THRESHOLD = 50;
 
 function CoachAction({ label }: { label: FightFormDetail["label"] }) {
   const copy: Record<FightFormDetail["label"], string> = {
-    sharp: "Hold the line — small adjustments only.",
+    sharp: "Hold the line. Small adjustments only.",
     sharpening: "Lean into the limiter this week.",
     off_pace: "Address the limiter before the next session.",
     at_risk: "Check in today. Pull back load if needed.",
@@ -99,7 +99,7 @@ function MiniRing({
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-[28px] font-semibold tabular-nums leading-none">
-          {isScoredState(state) ? score : "—"}
+          {isScoredState(state) ? score : "-"}
         </span>
       </div>
     </div>
@@ -123,7 +123,7 @@ function TrendLine({
   }
   // Use an internal viewBox coordinate system and let the SVG scale to its
   // parent's width via `width="100%"`. A hardcoded pixel width was breaking
-  // out of the FightFormPanel hero card on narrow viewports — the SVG sat
+  // out of the FightFormPanel hero card on narrow viewports; the SVG sat
   // next to a 96px ring inside a flex row, and 220px + ring + gaps exceeded
   // the card's content width on smaller phones, so the chart overflowed
   // the card's right edge.
@@ -199,7 +199,7 @@ export function FightFormPanel({ fightForm, trend }: Props) {
 
   return (
     <div className="space-y-3">
-      {/* Hero card — score + label + trend */}
+      {/* Hero card: score + label + trend */}
       <div className="card-surface rounded-xs border border-border p-4">
         <div className="flex items-center gap-4">
           <MiniRing score={score} label={label} state={state} size={96} />

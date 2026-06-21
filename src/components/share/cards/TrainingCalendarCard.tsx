@@ -141,7 +141,7 @@ export const TrainingCalendarCard = forwardRef<HTMLDivElement, TrainingCalendarC
       return { days: daysList, maxDayMinutes: maxMin || 60 };
     }, [sessions, timeRange]);
 
-    const topDiscipline = stats.typeBreakdown[0]?.type ?? "—";
+    const topDiscipline = stats.typeBreakdown[0]?.type ?? "-";
     const durationDisplay = stats.totalDuration >= 60
       ? `${Math.round(stats.totalDuration / 60)}h ${stats.totalDuration % 60}m`
       : `${stats.totalDuration}m`;
@@ -155,11 +155,11 @@ export const TrainingCalendarCard = forwardRef<HTMLDivElement, TrainingCalendarC
         <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
           <StravaPeriodLabel text={TIME_LABELS[timeRange] ?? timeRange} s={s} transparent={transparent} />
 
-          {/* Top spacer — pushes the stats down so they sit centred between
+          {/* Top spacer: pushes the stats down so they sit centred between
               the FightCamp Wizard header above and the bar chart below. */}
           <div style={{ flex: 1, minHeight: s ? 24 : 8 }} />
 
-          {/* Vertical stats — bold white, Strava-style, horizontally centred */}
+          {/* Vertical stats: bold white, Strava-style, horizontally centred */}
           <div
             style={{
               display: "flex",
@@ -185,11 +185,11 @@ export const TrainingCalendarCard = forwardRef<HTMLDivElement, TrainingCalendarC
               value={topDiscipline}
               s={s}
               transparent={transparent}
-              accentColor={topDiscipline !== "—" ? getSessionColor(topDiscipline, customColors) : undefined}
+              accentColor={topDiscipline !== "-" ? getSessionColor(topDiscipline, customColors) : undefined}
             />
           </div>
 
-          {/* Bottom spacer — mirrors the top spacer so the stats group is
+          {/* Bottom spacer: mirrors the top spacer so the stats group is
               centred between header and chart. */}
           <div style={{ flex: 1, minHeight: s ? 24 : 8 }} />
 

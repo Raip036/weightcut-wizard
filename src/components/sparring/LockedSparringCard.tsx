@@ -10,7 +10,7 @@ import { SparringProDialog } from "./SparringProDialog";
  * Matches the Training Missions compact upsell row in `Camp.tsx`: a single
  * tappable row (crown crest + label + "Pro" chip), no blurb, no inline button.
  * Pressing it opens the animated {@link SparringProDialog} explainer, which
- * leads to the RevenueCat paywall — so the paywall only appears on tap.
+ * leads to the RevenueCat paywall, so the paywall only appears on tap.
  */
 export function LockedSparringCard() {
   const [explainerOpen, setExplainerOpen] = useState(false);

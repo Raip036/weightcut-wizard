@@ -32,7 +32,7 @@ export function DataResetDialog({ open, onOpenChange }: DataResetDialogProps) {
   const navigate = useNavigate();
   const convex = useConvex();
 
-  // Cheap counter queries — show "you have N entries" without ever shipping
+  // Cheap counter queries: show "you have N entries" without ever shipping
   // the full row payload on dialog open. The heavy rows are only fetched
   // when the user actually clicks "Export" (see `exportAllData`).
   const profile = useQuery(api.profiles.getMine, {});
@@ -53,7 +53,7 @@ export function DataResetDialog({ open, onOpenChange }: DataResetDialogProps) {
           convex.query(api.fight_camp.listWeekLogs, {}),
         ]);
       // Nutrition export was historically a flat `nutrition_logs` rollup; the
-      // v2 model is meals + items. Skip the heavy join — only the totals
+      // v2 model is meals + items. Skip the heavy join; only the totals
       // mattered for export, and the meals page is the source of truth now.
       const nutritionLogs: Array<any> = [];
       const fightCamps = (fightCampsRaw ?? []).map((c: any) => ({
@@ -273,8 +273,8 @@ export function DataResetDialog({ open, onOpenChange }: DataResetDialogProps) {
   const handleReset = async () => {
     setResetting(true);
     try {
-      // Single transactional Convex mutation — wipes meals + tracking logs in
-      // one round trip. Fight camps stay. (Profile row stays too — the
+      // Single transactional Convex mutation; wipes meals + tracking logs in
+      // one round trip. Fight camps stay. (Profile row stays too; the
       // legacy Supabase implementation deleted the profile and re-onboarded;
       // since onboarding now re-populates the existing row, this is a no-op
       // change in user-visible behaviour.)

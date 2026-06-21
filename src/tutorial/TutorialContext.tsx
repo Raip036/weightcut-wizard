@@ -8,6 +8,8 @@ import {
   type ReactNode,
 } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import { useUser } from "@/contexts/UserContext";
 import { seedDemoData, clearDemoData, isDemoActive } from "@/lib/demoData";
 import { localCache } from "@/lib/localCache";
@@ -44,6 +46,7 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
   const { userId, profile, hasProfile } = useUser();
   const location = useLocation();
   const navigate = useNavigate();
+  const markTutorialShown = useMutation(api.profiles.markOnboardingTutorialShown);
   const managerRef = useRef(new TutorialManager());
   const autoTriggeredRef = useRef(false);
   const pausedFlowRef = useRef<{ flowId: string; stepIndex: number } | null>(null);
@@ -196,29 +199,51 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
     }
   }, [waitingForNav, location.pathname, location.search, state.isActive, state.currentStep]);
 
-  // Auto-trigger onboarding on /dashboard — EXACTLY ONCE, on the first
-  // dashboard load after the weight-cut plan was generated. After it has run
-  // once (or the user has completed it), it NEVER auto-runs again — the only
-  // other way to see it is the manual "replay" from Settings.
+  // When the signed-in account changes (e.g. logout then register a NEW account
+  // in the same app session), reset the in-memory auto-trigger guards. Without
+  // this, `autoTriggeredRef`/`pausedFlowRef` stay stale from the previous account
+  // and short-circuit the new account's tutorial — the exact bug where a new user
+  // on a device that had been used before saw no tutorial. "Already shown" is now
+  // server-authoritative (profile field), so clearing these in-session flags is safe.
+  const prevUserIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (prevUserIdRef.current !== null && prevUserIdRef.current !== userId) {
+      autoTriggeredRef.current = false;
+      pausedFlowRef.current = null;
+      setState({
+        isActive: false,
+        currentFlow: null,
+        currentStep: null,
+        currentStepIndex: 0,
+        totalSteps: 0,
+        activeSteps: [],
+      });
+    }
+    prevUserIdRef.current = userId ?? null;
+  }, [userId]);
+
+  // Auto-trigger onboarding on /dashboard — EXACTLY ONCE PER ACCOUNT, on the
+  // first dashboard load after the weight-cut plan was generated. After it has
+  // run once (or the user completed it), it NEVER auto-runs again; the only other
+  // way to see it is the manual "replay" from Settings.
   //
-  // Fixes the bug where the tutorial kept re-appearing after viewing the plan:
-  // the previous logic cleared its own completion record and leaned on fragile
-  // ref/session flags. The durable, per-user `wcw_tutorial_autoshown_<id>` lock
-  // below can't be undone by navigation, paused flows, or the one-shot flag
-  // being re-set.
+  // The "already shown" lock is the SERVER field `onboarding_tutorial_shown_at`
+  // (CAS-stamped via markOnboardingTutorialShown), so it's authoritative per
+  // account and device-independent: a new account always gets the tutorial even
+  // on a device that ran it for a previous account, and it never re-fires across
+  // devices/reinstalls. The legacy per-user localStorage completion record is
+  // kept only as a fallback so pre-existing users aren't re-shown.
   useEffect(() => {
     if (location.pathname !== "/dashboard" || !userId || !hasProfile || state.isActive) return;
 
-    const autoShownKey = `wcw_tutorial_autoshown_${userId}`;
     // `wcw_onboarding_just_completed` is set ONCE by onboarding right after the
     // plan is generated — the only signal that auto-starts the tutorial.
     const justOnboarded = localStorage.getItem("wcw_onboarding_just_completed");
 
     // Resume a paused flow (mid-tutorial manual navigation) — highest priority.
-    // A paused flow means the tutorial is already in progress, so lock out any
-    // future auto-trigger and consume the one-shot flag.
+    // A paused flow means the tutorial is already in progress, so consume the
+    // one-shot flag and resume.
     if (pausedFlowRef.current) {
-      localStorage.setItem(autoShownKey, "1");
       if (justOnboarded) localStorage.removeItem("wcw_onboarding_just_completed");
       const { flowId, stepIndex } = pausedFlowRef.current;
       pausedFlowRef.current = null;
@@ -230,9 +255,10 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
 
     if (autoTriggeredRef.current) return;
 
-    // Permanent guard: once auto-shown OR completed, the tutorial is replay-only.
+    // Server-authoritative per-account guard; localStorage completion is a
+    // fallback for users who finished the tutorial before this field existed.
     const alreadyShown =
-      localStorage.getItem(autoShownKey) != null ||
+      profile?.onboarding_tutorial_shown_at != null ||
       tutorialPersistence.isFlowCompleted(userId, onboardingFlow);
 
     // Only auto-run on the FIRST dashboard entry after plan generation.
@@ -242,10 +268,15 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // First-time post-plan: consume the flag and set the permanent lock BEFORE
-    // starting, so it can never run twice even if this effect re-runs.
+    // First-time post-plan: consume the trigger flag, lock the in-memory guard,
+    // and CAS-stamp the server field BEFORE starting, so it can never run twice
+    // even if this effect re-runs or the user switches devices.
     localStorage.removeItem("wcw_onboarding_just_completed");
-    localStorage.setItem(autoShownKey, "1");
+    autoTriggeredRef.current = true;
+    void markTutorialShown().catch(() => {
+      // Non-fatal: the in-memory guard already prevents a same-session re-fire;
+      // the stamp will retry on a later session if it failed.
+    });
 
     // Seed demo data only for brand-new users (no cached weight data yet).
     const hasRealData = localCache.get(userId, "dashboard_weight_logs");
@@ -254,11 +285,10 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
     }
 
     const timer = setTimeout(() => {
-      autoTriggeredRef.current = true;
       managerRef.current.start("onboarding", getUserState());
     }, 400);
     return () => clearTimeout(timer);
-  }, [location.pathname, userId, hasProfile, state.isActive]);
+  }, [location.pathname, userId, hasProfile, state.isActive, profile?.onboarding_tutorial_shown_at]);
 
   // Pause on route change — ONLY if the user navigated manually (not via tutorial navigation).
   // If the step has `navigateTo`, the context handles it — don't pause.

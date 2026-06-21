@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { springs } from "@/lib/motion";
 
 // ---------------------------------------------------------------------------
-// Streak ring — a minimal, display-only gamification element that replaces the
+// Streak ring, a minimal, display-only gamification element that replaces the
 // old "Last 7 days" completeness strip. It shows the user's current daily-
 // ritual streak inside a tiny progress ring (progress = how close they are to
 // the next milestone badge), plus their best streak. A full day = all five
@@ -49,7 +49,7 @@ export default function StreakRing() {
     const prev = prevMilestone(current);
 
     // Ring progress within the current milestone band. This stays a purely
-    // VISUAL cue — the milestone math (best streak, days-to-next-badge) is
+    // VISUAL cue, the milestone math (best streak, days-to-next-badge) is
     // intentionally NOT spelled out in the copy, which kept the strip crowded.
     const progress =
       next === null
@@ -57,12 +57,12 @@ export default function StreakRing() {
         : Math.max(0, Math.min(1, (current - prev) / (next - prev)));
 
     // One short, unambiguous line per state: the streak count IS the point,
-    // the sub is a single nudge — not a stats dump.
+    // the sub is a single nudge, not a stats dump.
     let headline: string;
     let sub: string;
     if (current === 0) {
       headline = "Start your streak";
-      sub = todayComplete ? "Day 1 done — nice start" : "Log all 5 today to begin";
+      sub = todayComplete ? "Day 1 done, nice start" : "Log all 5 today to begin";
     } else {
       headline = `${current}-day streak`;
       sub = todayComplete ? "Locked in for today" : "Log all 5 today to keep it";

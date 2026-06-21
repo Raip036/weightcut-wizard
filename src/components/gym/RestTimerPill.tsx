@@ -1,11 +1,11 @@
 /**
- * RestTimerPill — the auto-rest countdown shown during an active workout.
+ * RestTimerPill: the auto-rest countdown shown during an active workout.
  *
  * Registers a `start(seconds)` with the rest-timer bus on mount, so completing
  * a set (anywhere in the tree) slides this pill up with a draining bar. The
  * user can adjust live (−15 / +15), Skip, or tap the time to change the
  * default duration via presets (persisted). At zero it fires a success haptic
- * and auto-dismisses. Non-blocking — the user can keep logging while it runs.
+ * and auto-dismisses. Non-blocking, the user can keep logging while it runs.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";

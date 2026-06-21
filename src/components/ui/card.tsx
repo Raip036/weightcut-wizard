@@ -2,7 +2,7 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-/* Design System v1 — Card surface (Figma CARDS section, node 67:721).
+/* Design System v1: Card surface (Figma CARDS section, node 67:721).
  *  Solid `#1E1E1E` (neutral-800) on the dark grey page background
  *  creates visual hierarchy via contrast alone; no border, no shadow.
  *  8px radius via the `rounded-xs` token. Existing call sites can still

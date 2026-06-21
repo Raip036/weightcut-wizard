@@ -119,7 +119,7 @@ export function CatchUpSheet({ targetDate, open, onOpenChange, onEmpty }: Props)
   const [restPending, setRestPending] = useState(false);
   const [skipPending, setSkipPending] = useState<Partial<Record<Pillar, boolean>>>({});
 
-  // Weight input state (user must type/confirm — never written silently)
+  // Weight input state (user must type/confirm, never written silently)
   const [weightInput, setWeightInput] = useState<string>(() =>
     data?.lastWeightKg != null ? String(data.lastWeightKg) : "",
   );
@@ -141,14 +141,14 @@ export function CatchUpSheet({ targetDate, open, onOpenChange, onEmpty }: Props)
     }
   }, [open]);
 
-  // "All caught up" local state — shown briefly before auto-close
+  // "All caught up" local state, shown briefly before auto-close
   const [allCaughtUp, setAllCaughtUp] = useState(false);
   const allCaughtUpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // When data resolves with 0 missing, notify parent
   useEffect(() => {
     if (!open || data === undefined) return; // still loading
-    if (data === null) return; // unauthenticated — do nothing
+    if (data === null) return; // unauthenticated, do nothing
     if (data.missing.length === 0) {
       setAllCaughtUp(true);
       allCaughtUpTimerRef.current = setTimeout(() => {

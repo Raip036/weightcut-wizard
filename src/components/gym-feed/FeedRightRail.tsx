@@ -1,11 +1,11 @@
 /**
- * FeedRightRail — the vertical icon stack on each TikTok-style feed post.
+ * FeedRightRail: the vertical icon stack on each TikTok-style feed post.
  *
  * Stays compact intentionally: LikeButton + LikeBurst live here too
  * because they're only ever rendered inside this rail. Splitting them
  * into 3 files would buy nothing and make the gesture wiring noisier.
  *
- * Each tap fires an optimistic update via `useFeedEngagement` — the
+ * Each tap fires an optimistic update via `useFeedEngagement`. The
  * parent owns the canonical state and rolls back on mutation rejection.
  * The rail just renders + dispatches.
  */
@@ -48,7 +48,7 @@ export function FeedRightRail({
         ariaLabel="Open comments"
       />
 
-      {/* Center-screen heart burst overlay — driven entirely by the `key`
+      {/* Center-screen heart burst overlay, driven entirely by the `key`
           remount so the CSS keyframe runs exactly once per like-on event. */}
       <LikeBurst burstKey={burstKey} />
     </div>
@@ -126,7 +126,7 @@ function formatCount(n: number): string {
 /**
  * Self-unmounting heart-explosion overlay. The `key` prop on the parent's
  * render forces a fresh mount each time a like fires, which re-runs the
- * CSS keyframe exactly once. No React state drives the animation — it's
+ * CSS keyframe exactly once. No React state drives the animation, it's
  * a pure CSS one-shot.
  */
 function LikeBurst({ burstKey }: { burstKey: number }) {

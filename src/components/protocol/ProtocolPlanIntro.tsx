@@ -6,7 +6,7 @@ import { type CutApproach } from "@/components/protocol/CutApproachSelector";
 const APPROACHES: readonly CutApproach[] = ["gradual", "standard", "aggressive"];
 
 /**
- * Chapter 01 · The Plan — the clean intro shown on the Weight Protocol page
+ * Chapter 01 · The Plan: the clean intro shown on the Weight Protocol page
  * before generation. The athlete's weight, target and profile are already
  * known, so this is just the read + the one Generate action.
  *
@@ -79,7 +79,7 @@ export function ProtocolPlanIntro({
 
           {hasNums ? (
             <div className="my-5">
-              {/* start — muted dot in line with the "from" line */}
+              {/* start: muted dot in line with the "from" line */}
               <div className="flex items-center gap-3">
                 <span className="w-3 flex justify-center shrink-0">
                   <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/50" />
@@ -92,13 +92,13 @@ export function ProtocolPlanIntro({
                 </p>
               </div>
 
-              {/* connector — sits under the dot centres */}
+              {/* connector: sits under the dot centres */}
               <div
                 className="ml-1.5 w-px h-7 my-1"
                 style={{ background: `linear-gradient(${hsl(0.2)}, ${hsl()})` }}
               />
 
-              {/* target — glowing dot in line with the big ticking number */}
+              {/* target: glowing dot in line with the big ticking number */}
               <div className="flex items-center gap-3">
                 <span className="w-3 flex justify-center shrink-0">
                   <span
@@ -148,7 +148,7 @@ export function ProtocolPlanIntro({
             </p>
           )}
 
-          {/* Approach — chosen before generating; drives the day plan */}
+          {/* Approach: chosen before generating; drives the day plan */}
           <div className="mt-5">
             <p className="text-[10px] uppercase tracking-wide font-semibold text-muted-foreground/70 mb-1.5">
               Approach

@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 interface WizardDietScrollOverlayProps {
   /** Ordered analysis phases. Defaults to the diet-analysis pipeline. */
   steps?: Array<{ icon: LucideIcon; label: string }>;
-  /** Ghost "Cancel" affordance — rendered after a short delay. */
+  /** Ghost "Cancel" affordance, rendered after a short delay. */
   onCancel?: () => void;
 }
 
@@ -31,7 +31,7 @@ const DEFAULT_STEPS: Array<{ icon: LucideIcon; label: string }> = [
 // until the result arrives and this overlay unmounts.
 const STEP_MS = 1500;
 
-// Sparkles that twinkle around the wizard's hat — `z-20` keeps them in
+// Sparkles that twinkle around the wizard's hat. `z-20` keeps them in
 // front of the scroll below.
 const SPARKLES: Array<{ className: string; delay: number; size: number }> = [
   { className: "absolute -top-1 left-3", delay: 0, size: 13 },
@@ -41,7 +41,7 @@ const SPARKLES: Array<{ className: string; delay: number; size: number }> = [
 ];
 
 /**
- * Inline loading animation for the "Analyse Diet" action — a whimsical
+ * Inline loading animation for the "Analyse Diet" action: a whimsical
  * wizard poring over a glowing recipe scroll that lists your day's meals.
  * The quill ticks down the scroll phase by phase (Reviewing → Gaps →
  * Recommendations) while the wizard bobs and sparkles twinkle. Drops into

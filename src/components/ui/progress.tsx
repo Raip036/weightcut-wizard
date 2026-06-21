@@ -8,7 +8,7 @@ interface ProgressProps extends React.ComponentPropsWithoutRef<typeof ProgressPr
 }
 
 /**
- * Crystal-glass progress bar — Design System v1.
+ * Crystal-glass progress bar. Design System v1.
  *
  * Track: thin neutral-900 surface with a 1px inset highlight so it reads
  *   as a hollow glass tube on the dark page.
@@ -26,7 +26,7 @@ const Progress = React.forwardRef<
   <ProgressPrimitive.Root
     ref={ref}
     className={cn(
-      /* Glass-tube track — slim by default (h-2), can be overridden via
+      /* Glass-tube track, slim by default (h-2), can be overridden via
          className. Inset highlight emulates the "glass lip" the nav uses. */
       "relative h-2 w-full overflow-hidden rounded-full bg-neutral-900",
       "",
@@ -43,7 +43,7 @@ const Progress = React.forwardRef<
       )}
       style={{ transform: `translateX(-${100 - (value || 0)}%)` }}
     >
-      {/* Shimmer overlay — a thin white-translucent diagonal that sweeps
+      {/* Shimmer overlay: a thin white-translucent diagonal that sweeps
           across the filled portion on a 2.6s loop. Only renders inside
           the Indicator so it's automatically clipped to the fill. */}
       <span

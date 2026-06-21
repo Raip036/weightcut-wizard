@@ -36,7 +36,7 @@ const PHASE_META: Record<NonNullable<Phase>, {
 }> = {
   // Phase accent ramps with intensity within the app's mono + blue/amber
   // palette: blue for the early build phase, warming to amber as the camp
-  // escalates — no separate orange / red so the card stays on-theme.
+  // escalates, no separate orange / red so the card stays on-theme.
   build: {
     label: "BUILD",
     icon: "barbellOutline",
@@ -62,7 +62,7 @@ const DEFAULT_FALLBACK_GUIDANCE: Record<NonNullable<Phase>, string> = {
 
 interface ChartData {
   actualPath: string;
-  /** Actual line closed down to the baseline — for the area-fill gradient. */
+  /** Actual line closed down to the baseline, for the area-fill gradient. */
   areaPath: string;
   planPath: string;
   driftKg: number;
@@ -174,7 +174,7 @@ export function PhaseCoachCard({
   // dot, pill) via the unified ramp, so the whole chart speaks one language.
   const verdict = chart ? deltaVerdict(chart.driftKg) : null;
 
-  // Current weight hero — today's authoritative weight, else the last log.
+  // Current weight hero, today's authoritative weight, else the last log.
   const currentDisplay =
     currentWeight ??
     (weightLogs && weightLogs.length > 0
@@ -196,19 +196,19 @@ export function PhaseCoachCard({
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          {/* Phase eyebrow — muted, so the single accent on this card is the
+          {/* Phase eyebrow, muted, so the single accent on this card is the
               drift verdict (chart + pill), not the phase label. */}
           <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
             {meta.label} phase
           </p>
-          {/* Hero — current weight is the one number the eye lands on. */}
+          {/* Hero, current weight is the one number the eye lands on. */}
           <p className="mt-1.5 flex items-baseline gap-1.5">
             <span className="display-number font-bold tabular-nums text-foreground text-[30px] leading-none">
-              {currentDisplay != null ? currentDisplay.toFixed(1) : "—"}
+              {currentDisplay != null ? currentDisplay.toFixed(1) : "-"}
             </span>
             <span className="text-[13px] text-muted-foreground font-light">kg now</span>
           </p>
-          {/* Subline — distance + countdown, the two facts that matter. */}
+          {/* Subline, distance + countdown, the two facts that matter. */}
           <p className="mt-1.5 text-[12px] text-muted-foreground">
             {kgToGo != null && (
               <>

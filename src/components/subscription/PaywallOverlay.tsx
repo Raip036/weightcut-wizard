@@ -23,7 +23,7 @@ import { isNativePlatform } from "@/hooks/useIsNative";
  *
  * Post-Convex migration: there's a single Convex action that performs the
  * authoritative write. We dropped the dual "direct update + fallback"
- * pattern that existed under Supabase RLS — Convex has no RLS, the
+ * pattern that existed under Supabase RLS. Convex has no RLS, the
  * mutation is the single source of truth.
  */
 // The previous `syncPremiumToDb` helper was a no-op stub kept for backwards
@@ -31,7 +31,7 @@ import { isNativePlatform } from "@/hooks/useIsNative";
 // verified `api.actions.activatePremium.run` action from the paywall
 // handler (see `activatePro` below). The action takes no arguments, hits
 // the RevenueCat REST API server-side, and only flips the Convex profile
-// after a positive RC response — there is no client-trusted tier/expiry
+// after a positive RC response. There is no client-trusted tier/expiry
 // surface anymore.
 
 // ─── Activating Pro Loading Screen ───
@@ -107,7 +107,7 @@ const FEATURES = [
  * webhook is about to grant entitlement.
  *
  * Returns true if the profile tier becomes non-"free" within the window,
- * false otherwise. Does NOT mutate any state on its own — caller decides
+ * false otherwise. Does NOT mutate any state on its own; caller decides
  * whether to close the paywall or surface the error.
  */
 async function waitForProfilePro(opts: {
@@ -149,7 +149,7 @@ export function PaywallOverlay() {
    * after a positive RC response. The Convex `useQuery(api.profiles.getMine)`
    * then propagates the tier change reactively to every premium gate.
    *
-   * There is no `forcePremium` / localStorage override anymore — bypassing
+   * There is no `forcePremium` / localStorage override anymore; bypassing
    * the server-verify path was the security bug that allowed "dismiss
    * paywall → get premium" in sandbox.
    */
@@ -157,12 +157,12 @@ export function PaywallOverlay() {
     // Defence-in-depth check. If the local SDK already sees the entitlement,
     // we go straight to the server-verified path. If it doesn't (sandbox
     // propagation race), we wait briefly for the RC webhook to land instead
-    // of flashing a misleading "Could not verify purchase" toast — but we
+    // of flashing a misleading "Could not verify purchase" toast, but we
     // still DO NOT bypass the server-verify path: we never trust the client
     // to flip premium on its own. See commit history in `purchases.ts` for
     // the security rationale.
     if (!isPremiumFromCustomerInfo(customerInfo)) {
-      logger.warn("activatePro: local customerInfo not premium — waiting for webhook");
+      logger.warn("activatePro: local customerInfo not premium, waiting for webhook");
       setActivating(true);
       try {
         const grantedByWebhook = await waitForProfilePro({
@@ -173,7 +173,7 @@ export function PaywallOverlay() {
           logger.info("activatePro: profile flipped by webhook during wait");
           return;
         }
-        // 10s elapsed with no webhook write — surface the original error.
+        // 10s elapsed with no webhook write; surface the original error.
         logger.warn("activatePro: webhook timeout; reporting verify failure");
         toast({
           title: "Could not verify purchase",
@@ -244,7 +244,7 @@ export function PaywallOverlay() {
         }
 
         // Prefer customerInfo from the paywall result; fall back to a fresh
-        // fetch (rare — the SDK usually populates it). The local check is
+        // fetch (rare; the SDK usually populates it). The local check is
         // defence in depth; the server-side RC REST call inside
         // `activatePremium` is the real source of truth.
         const info = result?.customerInfo ?? await getCustomerInfo();

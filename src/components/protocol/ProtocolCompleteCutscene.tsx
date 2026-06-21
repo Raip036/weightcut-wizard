@@ -1,4 +1,4 @@
-// WP — ProtocolCompleteCutscene
+// WP: ProtocolCompleteCutscene
 // The "you made weight & refueled" finale. Plays once the athlete is in the
 // pre-fight window with a generated rehydration plan: the cut is behind them.
 // Reuses the Welcome-to-Pro visual language (aurora + drifting motes + a

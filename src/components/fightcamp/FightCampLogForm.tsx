@@ -29,7 +29,7 @@ export interface PendingSessionMedia {
   /** Stable id so React doesn't recycle the wrong tile when one is removed. */
   id: string;
   file: File;
-  /** `URL.createObjectURL(file)` — revoke when the entry is removed. */
+  /** `URL.createObjectURL(file)`, revoke when the entry is removed. */
   previewUrl: string;
   kind: "photo" | "video";
 }
@@ -131,7 +131,7 @@ export function FightCampLogForm({
 
   // Existing media for the row being edited. Only run the query when we
   // have a real Convex id (UUIDs from optimistic rows would trip the
-  // server validator — same guard the SessionDetailDrawer uses).
+  // server validator; same guard the SessionDetailDrawer uses).
   const existingIdIsConvex =
     !!existingSessionId && !String(existingSessionId).includes("-");
   const savedMedia = useQuery(
@@ -313,7 +313,7 @@ export function FightCampLogForm({
 
   return (
     <div className="space-y-4">
-      {/* ── Session type — collapsed summary row → focused picker sheet ─
+      {/* ── Session type: collapsed summary row → focused picker sheet ─
           Both levels (primary discipline + optional activity tag) live
           behind one tap so the form body stays compact instead of stacking
           two pill grids. The summary shows "Discipline · Activity". */}
@@ -360,7 +360,7 @@ export function FightCampLogForm({
         setSessionTag={setSessionTag}
       />
 
-      {/* ── Training metrics — single grouped card ────────────── */}
+      {/* ── Training metrics: single grouped card ────────────── */}
       <div className="card-surface rounded-xs divide-y divide-border/15 overflow-hidden">
         {/* Duration */}
         <div className="flex items-center justify-between px-4 py-3.5">
@@ -420,7 +420,7 @@ export function FightCampLogForm({
           </div>
         </div>
 
-        {/* Rounds — only for contact sessions (sparring / live grappling).
+        {/* Rounds: only for contact sessions (sparring / live grappling).
             Optional: omit on save if untouched (handled by parent reading null). */}
         {selectedIsContact && (
           <div className="flex items-center justify-between px-4 py-3.5">
@@ -466,7 +466,7 @@ export function FightCampLogForm({
         )}
       </div>
 
-      {/* ── Run details (conditional) — shown for the "Run" activity tag ─ */}
+      {/* ── Run details (conditional): shown for the "Run" activity tag ─ */}
       {sessionTag === "Run" && (
         <div className="card-surface rounded-xs divide-y divide-border/15 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3.5">
@@ -505,7 +505,7 @@ export function FightCampLogForm({
           <div className="flex items-center justify-between px-4 py-3.5">
             <span className="text-[14px] font-medium text-foreground/85">Pace</span>
             <span className="text-[13px] font-semibold text-foreground/70 tabular-nums">
-              {runPace ? `${runPace} /${runDistanceUnit}` : "—"}
+              {runPace ? `${runPace} /${runDistanceUnit}` : "-"}
             </span>
           </div>
         </div>
@@ -596,7 +596,7 @@ export function FightCampLogForm({
         )}
       </div>
 
-      {/* ── Media — horizontal strip with gallery + camera tiles ─
+      {/* ── Media: horizontal strip with gallery + camera tiles ─
           Pattern from the brainstorm: zero vertical cost when empty,
           scrolls cleanly up to MAX_PENDING_MEDIA tiles. Files are held
           in memory and uploaded after the session insert succeeds, so
@@ -614,7 +614,7 @@ export function FightCampLogForm({
         </div>
 
         <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1 pb-1">
-          {/* Already-saved media — tap a tile to open the Tinder swiper
+          {/* Already-saved media: tap a tile to open the Tinder swiper
               starting on it. The X button calls removeSessionMedia and
               the row disappears as soon as the Convex query reflects the
               delete (no optimistic state needed; the query is reactive). */}
@@ -662,7 +662,7 @@ export function FightCampLogForm({
                     <div className="w-full h-full" />
                   )}
                 </button>
-                {/* Delete button — only available for the new
+                {/* Delete button: only available for the new
                     `session_media` rows. Legacy single-media is cleared
                     by saving the row without media via the edit form,
                     so we don't expose a delete X for that one tile. */}
@@ -682,7 +682,7 @@ export function FightCampLogForm({
               </div>
             ))}
 
-          {/* Newly attached (not yet uploaded) media — same shape, but
+          {/* Newly attached (not yet uploaded) media: same shape, but
               the X button removes from the in-memory queue rather than
               hitting the backend. */}
           {pendingMedia.map((m) => {
@@ -802,7 +802,7 @@ export function FightCampLogForm({
         />
       </div>
 
-      {/* Tinder swiper — opens on tap of any media tile, drag horizontally
+      {/* Tinder swiper: opens on tap of any media tile, drag horizontally
           to flip through the deck, vertical/Esc to dismiss. Mounts items
           in the same order the strip shows them so tap → swipe lands on
           the exact tile the user picked. */}

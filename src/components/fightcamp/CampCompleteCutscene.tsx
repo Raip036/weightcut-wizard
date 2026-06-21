@@ -1,4 +1,4 @@
-// CampCompleteCutscene — the forceful full-screen "your camp is complete /
+// CampCompleteCutscene: the forceful full-screen "your camp is complete /
 // start your next one" takeover. Reuses the app's reference "Aurora Wizard"
 // aesthetic (see ProtocolGeneratingOverlay / reference_aurora_wizard_loader):
 // a 3D wizard floating in a breathing blue halo over a rising aurora with
@@ -51,7 +51,7 @@ export function CampCompleteCutscene({
   const prefersReduced = useReducedMotion();
   const text = copyFor(kind, campName);
 
-  // Deterministic drifting motes (index-based — no Math.random in render).
+  // Deterministic drifting motes (index-based, no Math.random in render).
   const motes = useMemo(
     () =>
       Array.from({ length: 6 }, (_, i) => ({

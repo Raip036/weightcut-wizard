@@ -47,7 +47,7 @@ export const DashboardHeader = memo(function DashboardHeader({
   onAvatarClick,
 }: DashboardHeaderProps) {
   // Ring fill = % of camp elapsed. Falls back to 0 (empty ring) when we
-  // don't have a start date — the day count alone still carries the
+  // don't have a start date, the day count alone still carries the
   // primary signal.
   const progressPct = useMemo(() => {
     if (!campStartISO || !targetDateISO) return 0;
@@ -160,7 +160,7 @@ export const DashboardHeader = memo(function DashboardHeader({
         )}
       </header>
 
-      {/* Date — small caps Inter Light. Hugs the avatar row above (tight
+      {/* Date, small caps Inter Light. Hugs the avatar row above (tight
           mt) so it reads as a unit; the wrapper's pb-1.5 + the parent
           space-y gap give it breathing room from the ring below. */}
       <div className="mt-2.5 pl-0.5">

@@ -74,6 +74,7 @@ function toClientShape(
     subscription_updated_at: row.subscriptionUpdatedAt,
     revenuecat_customer_id: row.revenuecatCustomerId,
     welcome_pro_shown_at: row.welcomeProShownAt,
+    onboarding_tutorial_shown_at: row.onboardingTutorialShownAt,
     updated_at: row.updatedAt,
     is_premium:
       row.subscriptionTier !== "free" &&
@@ -125,6 +126,27 @@ export const markWelcomeProShown = mutation({
     if (!row) return { firstTime: false };
     if (row.welcomeProShownAt != null) return { firstTime: false };
     await ctx.db.patch(row._id, { welcomeProShownAt: Date.now() });
+    return { firstTime: true };
+  },
+});
+
+/**
+ * One-time new-user tutorial gate (compare-and-set).
+ *
+ * Stamps `onboardingTutorialShownAt` to now ONLY if currently unset, and reports
+ * whether THIS call was the one that set it. The tutorial auto-runs only when
+ * `firstTime` is true, so it fires exactly once per account — server-authoritative
+ * so it can't be wrongly suppressed for a new account on a device that already
+ * ran the tutorial for a previous account, nor re-fire across devices/reinstalls.
+ */
+export const markOnboardingTutorialShown = mutation({
+  args: {},
+  handler: async (ctx): Promise<{ firstTime: boolean }> => {
+    const userId = await requireUserId(ctx);
+    const row = await findByUser(ctx, userId);
+    if (!row) return { firstTime: false };
+    if (row.onboardingTutorialShownAt != null) return { firstTime: false };
+    await ctx.db.patch(row._id, { onboardingTutorialShownAt: Date.now() });
     return { firstTime: true };
   },
 });

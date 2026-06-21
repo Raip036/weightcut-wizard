@@ -4,7 +4,7 @@
  * tapping any thumbnail (or the "See all →" link) opens the full
  * TikTok-style swiper at `/gym-feed`.
  *
- * Visibility is gated by `gym_members.feedVisibleOnDashboard` — the coach
+ * Visibility is gated by `gym_members.feedVisibleOnDashboard`: the coach
  * has to opt in from gym settings, so this widget only renders for gyms
  * the coach has marked. The parent (`CoachDashboard.tsx`) reads the flag
  * off the membership row and conditionally mounts this component.
@@ -43,7 +43,7 @@ export function GymFeedWidget({ gymId, gymName }: GymFeedWidgetProps) {
     );
   }
 
-  // Empty state — keep the row but show a friendly nudge so the coach
+  // Empty state: keep the row but show a friendly nudge so the coach
   // knows the widget is wired even though nobody's posted yet.
   if (posts.length === 0) {
     return (

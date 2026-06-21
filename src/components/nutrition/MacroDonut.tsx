@@ -29,7 +29,7 @@ export function MacroDonut({ protein, carbs, fat, calories, size = 40 }: MacroDo
         <circle cx={center} cy={center} r={R} fill="none" stroke="hsl(var(--border) / 0.15)" strokeWidth={strokeW} />
         {macroTotal > 0 ? (
           <>
-            {/* Design System v1 FUNCTIONAL palette — Protein/Carbs/Fats */}
+            {/* Design System v1 FUNCTIONAL palette: Protein/Carbs/Fats */}
             <circle cx={center} cy={center} r={R} fill="none" stroke="#2A5BDD" strokeWidth={strokeW}
               strokeDasharray={`${pArc} ${CIRC - pArc}`} strokeDashoffset={0} strokeLinecap="butt" />
             <circle cx={center} cy={center} r={R} fill="none" stroke="#F08439" strokeWidth={strokeW}

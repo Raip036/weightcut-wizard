@@ -5,11 +5,11 @@
  *  - Four large tap targets, one per reason. Selection state is purely
  *    visual; nothing is sent until the user taps Submit.
  *  - "Other" reveals a 140-char textarea. The note is optional even when
- *    "Other" is picked — the server accepts a bare reason.
+ *    "Other" is picked. The server accepts a bare reason.
  *  - Server-side `reportPost` is idempotent on (postId, reporterUserId)
  *    so double-tapping Submit (network jitter) won't dupe reports.
  *  - Self-reports silently no-op on the server. We don't special-case
- *    them here — the success toast still fires, which is fine because
+ *    them here. The success toast still fires, which is fine because
  *    the resulting UI state ("it's been flagged") is what the user
  *    expected anyway.
  */
@@ -58,7 +58,7 @@ const OTHER_NOTE_MAX = 140;
 export interface ReportPostSheetProps {
   /** Controls open/close. Parent owns the state. */
   open: boolean;
-  /** Standard shadcn Sheet onOpenChange — invoked on user-driven close. */
+  /** Standard shadcn Sheet onOpenChange: invoked on user-driven close. */
   onOpenChange: (open: boolean) => void;
   /** The post being reported. `null` is treated as "no-op", which lets the
    *  parent pass the current post id without worrying about a flash of

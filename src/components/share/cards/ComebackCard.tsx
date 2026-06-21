@@ -1,14 +1,14 @@
-// T18: ComebackCard — share template fired by useComebackTrigger when the
+// T18: ComebackCard, the share template fired by useComebackTrigger when the
 // user's readiness jumps +20 within 48h. Celebrates the bounce-back
-// narrative (low → high) rather than a single high score, so the layout
-// emphasises the THEN → NOW delta rather than a hero number.
+// narrative (low to high) rather than a single high score, so the layout
+// emphasises the THEN to NOW delta rather than a hero number.
 //
 // Mirrors ReadinessFlexCard's visual vocabulary (CardShell + tabular-nums,
 // uppercase eyebrows, story aspect, watermark via CardShell.isPremium) so
 // the export reads as a sibling of the existing share-card family.
 //
 // Spec reference: docs/superpowers/specs/2026-06-01-recovery-page-redesign-design.md
-// §7.3.b — "ComebackCard". Free tier gets 1/month + watermark, Pro gets
+// §7.3.b, "ComebackCard". Free tier gets 1/month + watermark, Pro gets
 // unlimited and no watermark. The monthly rate-limit lives in the trigger
 // sheet (ComebackSheet), not the card itself, because the sheet owns the
 // share button.
@@ -20,12 +20,12 @@ interface ComebackCardProps {
   oldScore: number;
   newDate: Date;
   newScore: number;
-  /** Deterministic "things you did to get here" count, 0–10. Calculator
+  /** Deterministic "things you did to get here" count, 0-10. Calculator
    *  lives in useComebackTrigger so the card stays presentational. */
   protocolsCompleted: number;
   /** Optional 80-char one-liner ("I was cooked Sunday. Back in the lab.") */
   caption?: string;
-  /** "@pratik" — drawn on the bottom-right for free users alongside the
+  /** "@pratik", drawn on the bottom-right for free users alongside the
    *  CardShell watermark. Pro users skip both. */
   userHandle?: string;
   /** When true: omit watermark + handle (Pro). When false: render both. */
@@ -35,7 +35,7 @@ interface ComebackCardProps {
 
 const CAPTION_MAX = 80;
 
-// Two accents — muted ash for THEN, vivid green for NOW — so the eye reads
+// Two accents: muted ash for THEN, vivid green for NOW, so the eye reads
 // the delta as a story rather than two numbers of equal weight.
 const COLOR_THEN = "rgba(255,255,255,0.42)";
 const COLOR_NOW = "#22c55e";
@@ -60,7 +60,7 @@ export const ComebackCard = forwardRef<HTMLDivElement, ComebackCardProps>(
     const s = aspect === "story";
 
     // "SUN 48 → TUE 87" rendered as two side-by-side blocks. Weekday-only
-    // since the delta is always within 48h — month/day adds noise without
+    // since the delta is always within 48h, month/day adds noise without
     // information. Done with Intl rather than date-fns to keep the share
     // bundle tight (other cards lean on Intl too).
     const oldWeekday = oldDate
@@ -74,7 +74,7 @@ export const ComebackCard = forwardRef<HTMLDivElement, ComebackCardProps>(
     const newRounded = Math.round(newScore);
     const deltaRounded = newRounded - oldRounded;
 
-    // Hours between old and new — almost always 48ish but render the actual
+    // Hours between old and new, almost always 48ish but render the actual
     // gap so a 36h bounce reads honestly rather than rounded up.
     const hoursDelta = Math.max(
       1,
@@ -151,9 +151,9 @@ export const ComebackCard = forwardRef<HTMLDivElement, ComebackCardProps>(
         </div>
 
         {/* ── Delta line ─────────────────────────────────────────────
-            "+39 in 48h" — the storyline distilled into one phrase.
+            "+39 in 48h": the storyline distilled into one phrase.
             Centred under the dual block so the eye lands on it after
-            scanning THEN → NOW. */}
+            scanning THEN to NOW. */}
         <div
           style={{
             textAlign: "center",
@@ -197,7 +197,7 @@ export const ComebackCard = forwardRef<HTMLDivElement, ComebackCardProps>(
         )}
 
         {/* ── Protocols completed ────────────────────────────────────
-            "3 protocols completed" — the deterministic, no-AI count
+            "3 protocols completed": the deterministic, no-AI count
             of things the user did in the window (rest days, check-ins,
             sleep targets, mobility). 0 still renders, but as "ready
             to bounce" copy so the card doesn't shame an empty window. */}
@@ -264,7 +264,7 @@ ComebackCard.displayName = "ComebackCard";
 
 // ── ScoreBlock ────────────────────────────────────────────────────────
 // Weekday eyebrow + big tabular-nums score + filled track. Used twice
-// (THEN / NOW) — colour parameterised so the layout stays mirrored.
+// (THEN / NOW), colour parameterised so the layout stays mirrored.
 interface ScoreBlockProps {
   weekday: string;
   score: number;

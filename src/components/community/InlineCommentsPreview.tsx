@@ -1,5 +1,5 @@
 /**
- * InlineCommentsPreview — shows up to 2 of the most recent comments
+ * InlineCommentsPreview: shows up to 2 of the most recent comments
  * inline under the polaroid, with a "See all N comments →" link to
  * open the full comments sheet.
  *

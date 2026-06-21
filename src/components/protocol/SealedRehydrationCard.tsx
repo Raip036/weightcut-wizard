@@ -1,7 +1,7 @@
-// WP — SealedRehydrationCard
+// WP: SealedRehydrationCard
 // Shown in the "After the Scale" slot while the athlete is still cutting
 // (pre weigh-in). The rehydration plan is genuinely meaningless until the
-// scale reads — so instead of dumping the timeline / ORS / sweat-entry on
+// scale reads, so instead of dumping the timeline / ORS / sweat-entry on
 // a cutting athlete, we seal it behind a locked teaser with a quiet shine
 // sweep. It unlocks (replaced by the live rehydration content) the moment
 // the protocol enters the weigh-in window.

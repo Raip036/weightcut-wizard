@@ -11,7 +11,7 @@
  *
  *   - Right: "Bring a teammate" pill button. The pill is a `glass-card`
  *     so it inherits the same blur/border treatment as every other
- *     surface on the page — keeping the visual language consistent
+ *     surface on the page, keeping the visual language consistent
  *     across the tab.
  *
  * Member count + active-poster count come from the backend
@@ -31,12 +31,12 @@ interface GymHeaderProps {
   gymName: string;
   /**
    * Identifier for the active gym. Optional because `Community.tsx` may
-   * not have resolved it yet on first paint — when absent we skip the
+   * not have resolved it yet on first paint. When absent we skip the
    * member-count query and degrade to the bare header.
    */
   gymId?: Id<"gyms"> | null;
   /**
-   * Legacy prop — used to be the caller-computed teammate count. The
+   * Legacy prop: used to be the caller-computed teammate count. The
    * subtitle now reads `api.gyms.getMemberCount` directly, but we keep
    * the prop accepted-but-ignored so existing call sites compile during
    * the parallel-PR transition window.
@@ -46,13 +46,13 @@ interface GymHeaderProps {
   onActivityClick: () => void;
   /**
    * Resolved logo URL for the active gym (already resolved server-side via
-   * Convex File Storage). Optional — when absent or null, GymLogoAvatar
+   * Convex File Storage). Optional: when absent or null, GymLogoAvatar
    * falls back to a single-letter avatar derived from `gymName`.
    */
   logoUrl?: string | null;
   /**
    * Tap handler for the gym title cluster (logo + name + counts). Opens
-   * the GymProfileSheet. Optional — when omitted, the cluster renders as
+   * the GymProfileSheet. Optional: when omitted, the cluster renders as
    * a non-interactive div so existing call sites keep working.
    */
   onProfileOpen?: () => void;
@@ -61,7 +61,7 @@ interface GymHeaderProps {
 interface MemberCountResult {
   memberCount: number;
   activePosters7d: number;
-  /** Invite code is intentionally optional on the server side — coaches
+  /** Invite code is intentionally optional on the server side; coaches
    *  see it, randoms don't. We only render it when present. */
   inviteCode?: string | null;
 }
@@ -97,7 +97,7 @@ export function GymHeader({
   void _memberCount;
   void _onInviteClick;
 
-  // Always call the hook (rules-of-hooks) — fall back to an already-deployed
+  // Always call the hook (rules-of-hooks); fall back to an already-deployed
   // query ref + a "skip" sentinel so the call is a no-op when either
   // the backend isn't ready or `gymId` is null.
   const queryRef = getMemberCountRef();
@@ -143,7 +143,7 @@ export function GymHeader({
             </span>
             <span className="text-muted-foreground/40">·</span>
             <span className="inline-flex items-center gap-1">
-              {/* live dot — signals the gym is active this week */}
+              {/* live dot: signals the gym is active this week */}
               <span
                 aria-hidden
                 className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_0_2px_rgba(52,211,153,0.16)]"
@@ -160,7 +160,7 @@ export function GymHeader({
 
   return (
     <header className="px-5 pt-1 pb-3">
-      {/* Premium identity card — gradient wash + radial primary glow so
+      {/* Premium identity card: gradient wash + radial primary glow so
           the gym reads as the page's anchor, not just a text row. */}
       <div className="relative flex items-center justify-between gap-2 overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br from-white/[0.045] to-white/[0.01] p-3.5">
         <div
@@ -187,7 +187,7 @@ export function GymHeader({
         )}
 
         {/* Right-side: activity bell only. The "Bring a teammate" pill
-            has been removed from this header — invites live on the
+            has been removed from this header; invites live on the
             EmptyFeed card now. */}
         <div className="relative z-[1] flex items-center gap-2 flex-shrink-0">
           <ActivityBell gymId={gymId ?? null} onClick={onActivityClick} />

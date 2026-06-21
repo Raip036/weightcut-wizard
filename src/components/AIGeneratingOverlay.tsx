@@ -33,7 +33,7 @@ export const AIGeneratingOverlay = memo(function AIGeneratingOverlay({
 
   const handleMinimize = () => {
     // No-op: the floating indicator already tracks the task via AITaskContext.
-    // Minimizing just dismisses this overlay — the AIFloatingIndicator picks it up.
+    // Minimizing just dismisses this overlay; the AIFloatingIndicator picks it up.
     onCancel?.();
   };
 

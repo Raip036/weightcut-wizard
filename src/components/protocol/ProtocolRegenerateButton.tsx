@@ -1,9 +1,9 @@
-// WP-T18 — ProtocolRegenerateButton
+// WP-T18: ProtocolRegenerateButton
 // Inline "Regenerate protocol" control with a confirm flow. Used at the
 // bottom of the Weight Protocol screen so a fighter can ask the AI for a
 // fresh plan without leaving the page.
 //
-// Regeneration is UNLIMITED — there is no daily cap.
+// Regeneration is UNLIMITED. There is no daily cap.
 //
 // Behaviour:
 //   - Tap opens an inline confirmation popover ("Are you sure? ...").

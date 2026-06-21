@@ -34,7 +34,7 @@ async function lightHaptic(): Promise<void> {
     const mod = await import("@capacitor/haptics");
     await mod.Haptics.impact({ style: mod.ImpactStyle.Light });
   } catch {
-    // Plugin not installed or failed — degrade silently.
+    // Plugin not installed or failed; degrade silently.
   }
 }
 
@@ -69,7 +69,7 @@ export function OnboardingWizardMascot({
   // Step change: reset typewriter + reopen bubble UNLESS the user
   // explicitly dismissed *this* step via the X. (Dismissals are per-step,
   // so the next step still gets a fresh greeting.) We removed the
-  // 3-second auto-collapse — the wizard stays on the page so the user
+  // 3-second auto-collapse; the wizard stays on the page so the user
   // can re-read the line at any time during the step.
   useEffect(() => {
     setForceComplete(false);
@@ -80,7 +80,7 @@ export function OnboardingWizardMascot({
       dismissedForThisStep =
         window.sessionStorage.getItem(DISMISSED_STEP_KEY) === revealKey;
     } catch {
-      // Storage blocked — treat as not-dismissed.
+      // Storage blocked; treat as not-dismissed.
     }
     if (!dismissedForThisStep) {
       setBubbleOpen(true);
@@ -88,7 +88,7 @@ export function OnboardingWizardMascot({
         void lightHaptic();
       }
     }
-    // We intentionally omit `muted` & `mode` from deps — toggling mute mid-step
+    // We intentionally omit `muted` & `mode` from deps; toggling mute mid-step
     // should not retrigger an open; only step transitions do.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, fightSubStep, branch, revealKey]);
@@ -114,7 +114,7 @@ export function OnboardingWizardMascot({
     }
   }, [typingDone]);
 
-  // Explicit dismiss — wired to the X button on the bubble. Remembers
+  // Explicit dismiss, wired to the X button on the bubble. Remembers
   // which step was dismissed so a re-render in the same step doesn't
   // re-pop the bubble. Advancing to the next step clears the gate.
   const handleBubbleClose = useCallback((): void => {
@@ -122,7 +122,7 @@ export function OnboardingWizardMascot({
     try {
       window.sessionStorage.setItem(DISMISSED_STEP_KEY, revealKey);
     } catch {
-      // Storage blocked — in-memory state still reflects the dismiss.
+      // Storage blocked; in-memory state still reflects the dismiss.
     }
   }, [revealKey]);
 
@@ -135,7 +135,7 @@ export function OnboardingWizardMascot({
       try {
         window.sessionStorage.setItem(DISMISSED_STEP_KEY, revealKey);
       } catch {
-        // Storage blocked — fall through.
+        // Storage blocked; fall through.
       }
       return;
     }
@@ -144,7 +144,7 @@ export function OnboardingWizardMascot({
     try {
       window.sessionStorage.removeItem(DISMISSED_STEP_KEY);
     } catch {
-      // Storage blocked — fall through.
+      // Storage blocked; fall through.
     }
     setForceComplete(false);
     setTypingDone(false);
@@ -158,7 +158,7 @@ export function OnboardingWizardMascot({
       try {
         window.localStorage.setItem(MUTE_STORAGE_KEY, next ? "true" : "false");
       } catch {
-        // Storage blocked — keep in-memory state only.
+        // Storage blocked; keep in-memory state only.
       }
       if (next) {
         // Muting closes any open bubble immediately.
@@ -222,7 +222,7 @@ export function OnboardingWizardMascot({
     );
   }
 
-  // Corner mode — mascot anchored bottom-LEFT (mirroring the tutorial's
+  // Corner mode: mascot anchored bottom-LEFT (mirroring the tutorial's
   // layout), bubble peeking out to the RIGHT of the mascot with its tail
   // pointing back at the wizard. Row layout (mascot + bubble side-by-side)
   // gives the bubble room to breathe so it renders as a proper wide

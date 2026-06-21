@@ -30,14 +30,14 @@ const MOTES: Array<{ left: string; size: number; dur: number; delay: number }> =
 ];
 
 /**
- * The shared, premium "Pro upsell" screen — the Welcome-to-Pro visual
+ * The shared, premium "Pro upsell" screen: the Welcome-to-Pro visual
  * language (aurora, drifting motes, a radiant god-ray behind the floating
  * wizard, staggered reveals and a shimmering CTA) as a reusable, full-height
  * presentational block.
  *
  * Used by {@link ProRouteGate} (whole-route gate, no perks) and the Training
  * Missions explainer (with value bullets). Purely presentational: it owns no
- * subscription logic — callers wire `onUpgrade` / `onDismiss`. All ambient
+ * subscription logic; callers wire `onUpgrade` / `onDismiss`. All ambient
  * motion is gated behind `useReducedMotion`.
  */
 export function ProUpsellScreen({
@@ -69,7 +69,7 @@ export function ProUpsellScreen({
       // `min-h-full` (not 100dvh): fills whatever scroll container it's portaled
       // into and grows with content. `justify-center` centres when the content
       // fits, but when it's taller than the viewport the block grows to content
-      // height — so a fresh mount sits scrolled to the top (the wizard/info is
+      // height, so a fresh mount sits scrolled to the top (the wizard/info is
       // the first thing read, no upward scroll needed). The generous bottom
       // padding clears the floating bottom nav in the route-gate case.
       className="relative min-h-full w-full flex flex-col items-center justify-center px-6 pt-[calc(2.5rem+env(safe-area-inset-top,0px))] pb-[calc(7rem+env(safe-area-inset-bottom,0px))] text-center bg-background"

@@ -10,14 +10,14 @@
  * via `useQuery`, so the sheet stays fresh while open.
  *
  * Layout (top to bottom):
- *   1. Header media — gradient banner, centered logo, gym name,
+ *   1. Header media: gradient banner, centered logo, gym name,
  *      discipline pill + member-count chip.
- *   2. About (collapsible, default expanded) — bio, location, coach row.
- *   3. Members (collapsible) — total count + horizontal avatar strip,
+ *   2. About (collapsible, default expanded): bio, location, coach row.
+ *   3. Members (collapsible): total count + horizontal avatar strip,
  *      first 8 visible with a "View all members" hint when more exist.
- *   4. Stats (collapsible) — this-week posts / active members /
+ *   4. Stats (collapsible): this-week posts / active members /
  *      sessions-today grid. Falls back to an empty-state card.
- *   5. Actions (always visible) — Leave-gym button (members only) with
+ *   5. Actions (always visible): Leave-gym button (members only) with
  *      destructive AlertDialog. Owner sees a small "you own this gym"
  *      note instead.
  *
@@ -222,7 +222,7 @@ export function GymProfileSheet({ gymId, open, onOpenChange }: GymProfileSheetPr
     }
   };
 
-  // Stagger config — 60ms per section, capped at 4 (5 items max, the
+  // Stagger config: 60ms per section, capped at 4 (5 items max, the
   // header counts as item 0). Disabled under reduced motion.
   const stagger = prefersReducedMotion ? 0 : 0.06;
 
@@ -241,7 +241,7 @@ export function GymProfileSheet({ gymId, open, onOpenChange }: GymProfileSheetPr
           style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 6rem)" }}
         >
           {/* 1. Header media ─────────────────────────────────────────── */}
-          {/* Gradient anchored to the very top of the sheet — the inner */}
+          {/* Gradient anchored to the very top of the sheet, the inner */}
           {/* `pt-9` clears the absolute close button (× sits top-right). */}
           <motion.div
             initial={prefersReducedMotion ? false : { opacity: 0, y: 6 }}
@@ -485,7 +485,7 @@ export function GymProfileSheet({ gymId, open, onOpenChange }: GymProfileSheetPr
                 <Skeleton className="h-12 w-full rounded-2xl" />
               ) : (
                 <>
-                  {/* Data-sharing toggle — shown for any member (owner */}
+                  {/* Data-sharing toggle, shown for any member (owner */}
                   {/* included; an owner can opt out of sharing their own */}
                   {/* data with their own dashboard). */}
                   {(isMember || isOwner) && memberId && (
@@ -610,7 +610,7 @@ function SectionFrame({
 /**
  * Section row with a tap-to-toggle header (chevron rotates 90deg when
  * open) and an `AnimatePresence` body that height-animates between
- * collapsed and expanded. The `count` chip is optional — when supplied
+ * collapsed and expanded. The `count` chip is optional: when supplied
  * it sits flush-right next to the chevron.
  */
 function CollapsibleSection({

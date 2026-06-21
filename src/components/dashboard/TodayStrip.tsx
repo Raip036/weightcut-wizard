@@ -29,9 +29,9 @@ const PILLS: Array<{
   key: PillKey;
   label: string;
   href: string;
-  /** Outline icon — shown while the section is still to-do. */
+  /** Outline icon, shown while the section is still to-do. */
   icon: IonIconName;
-  /** Filled variant — swapped in once logged, so it reads as "collected". */
+  /** Filled variant, swapped in once logged, so it reads as "collected". */
   iconDone: IonIconName;
 }> = [
   { key: "weight",   label: "Weight",   href: "/weight",            icon: "speedometerOutline", iconDone: "speedometer" },
@@ -41,8 +41,8 @@ const PILLS: Array<{
   { key: "meals",    label: "Meals",    href: "/nutrition",         icon: "restaurantOutline",   iconDone: "restaurant"  },
 ];
 
-// Completed sections read in the app's recovery-green — the established
-// "done / success" hue (the same green used by the 5/5 counter) — so
+// Completed sections read in the app's recovery-green, the established
+// "done / success" hue (the same green used by the 5/5 counter), so
 // finishing a section feels like a reward rather than just another blue
 // highlight identical to everything else.
 const DONE_GLOW = "0 0 14px -4px rgba(35,197,153,0.55)";
@@ -196,7 +196,7 @@ export default function TodayStrip({ adherence, mealsLoggedToday, onMarkRestDay 
 
   // The wellness check-in survey is free (it feeds the free user's
   // fight-form score), but the Recovery dashboard at /recovery is Pro.
-  // So free users must never be deep-linked into /recovery — only treat
+  // So free users must never be deep-linked into /recovery, only treat
   // the user as free once subscription state has resolved, so paid users
   // aren't briefly redirected.
   const wellnessIsFree =
@@ -255,7 +255,7 @@ export default function TodayStrip({ adherence, mealsLoggedToday, onMarkRestDay 
       </AnimatePresence>
 
       {allSet ? (
-        /* ── COMPLETE — slim bar that auto-minimises, tap to expand ── */
+        /* ── COMPLETE, slim bar that auto-minimises, tap to expand ── */
         <>
           <motion.button
             type="button"
@@ -282,7 +282,7 @@ export default function TodayStrip({ adherence, mealsLoggedToday, onMarkRestDay 
             </span>
 
             <span className="ml-auto flex items-center gap-2">
-              {/* The five collected pillars as tiny glyphs — a glanceable trophy
+              {/* The five collected pillars as tiny glyphs, a glanceable trophy
                   shelf. They pop in (staggered) during the completion flourish. */}
               <span className="flex items-center gap-1.5">
                 {PILLS.map((p, i) => (
@@ -305,7 +305,7 @@ export default function TodayStrip({ adherence, mealsLoggedToday, onMarkRestDay 
             </span>
           </motion.button>
 
-          {/* Expandable tiles — shown during the flourish, then folded away;
+          {/* Expandable tiles, shown during the flourish, then folded away;
               re-openable by tapping the bar. */}
           <AnimatePresence initial={false}>
             {tilesOpen && (
@@ -325,7 +325,7 @@ export default function TodayStrip({ adherence, mealsLoggedToday, onMarkRestDay 
           </AnimatePresence>
         </>
       ) : (
-        /* ── IN PROGRESS — header + progress bar + rest-day + tiles ── */
+        /* ── IN PROGRESS, header + progress bar + rest-day + tiles ── */
         <>
           <div className="flex items-center justify-between">
             <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/80">Today's log</p>
@@ -342,7 +342,7 @@ export default function TodayStrip({ adherence, mealsLoggedToday, onMarkRestDay 
               transition={springs.gentle}
               style={{ boxShadow: pct > 0 ? "0 0 10px -1px hsl(var(--primary) / 0.65)" : undefined }}
             >
-              {/* Shimmer sweep — gives the fill an "earned" sheen. */}
+              {/* Shimmer sweep, gives the fill an "earned" sheen. */}
               {!prefersReduced && pct > 0 && (
                 <motion.span
                   className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/45 to-transparent"
@@ -354,7 +354,7 @@ export default function TodayStrip({ adherence, mealsLoggedToday, onMarkRestDay 
             </motion.div>
           </div>
 
-          {/* Rest-day shortcut — visible only when training is not yet logged
+          {/* Rest-day shortcut, visible only when training is not yet logged
               and the parent has wired the mutation handler. */}
           <AnimatePresence initial={false}>
             {onMarkRestDay && !logged.training && (

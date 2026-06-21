@@ -1,7 +1,7 @@
 import { memo, useEffect, useRef } from "react";
 import { isNativePlatform } from "@/hooks/useIsNative";
 
-// Energy Core atmosphere — a single canvas that draws the reactor's living
+// Energy Core atmosphere, a single canvas that draws the reactor's living
 // glow: a HOLLOW core halo (transparent at the dead centre so the score
 // number always stays crisp) plus a field of motes that spiral INWARD from
 // the containment ring and dissolve at an absorption radius. The active
@@ -12,7 +12,7 @@ import { isNativePlatform } from "@/hooks/useIsNative";
 // particles. One canvas with `globalCompositeOperation = "lighter"` is far
 // cheaper on iOS WKWebView than dozens of independently-animating layers with
 // blur/box-shadow, so it doubles as the native perf fix for the heaviest
-// dashboard screen — no CSS blur filters, no per-frame box-shadow re-raster.
+// dashboard screen, no CSS blur filters, no per-frame box-shadow re-raster.
 
 const DPR = Math.min(2, typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1);
 const TAU = Math.PI * 2;
@@ -23,9 +23,9 @@ interface AtmosphereProps {
   /** Render the inward particle field. */
   showParticles: boolean;
   isCalib: boolean;
-  /** "r, g, b" triplet — tier colour when scored, cyan when calibrating. */
+  /** "r, g, b" triplet, tier colour when scored, cyan when calibrating. */
   labelRgb: string;
-  /** 0..1 score (scored) or charge (calibrating) — scales glow + density. */
+  /** 0..1 score (scored) or charge (calibrating), scales glow + density. */
   fraction: number;
   particleCount: number;
   size: number;
@@ -41,7 +41,7 @@ interface Mote {
   seed: number;
 }
 
-// Orbital-band particle — circles the perimeter (never travels inward).
+// Orbital-band particle, circles the perimeter (never travels inward).
 interface Orbital {
   ang: number;
   rad: number;
@@ -88,7 +88,7 @@ function FightFormRingAtmosphereInner(props: AtmosphereProps) {
       seed: Math.random() * TAU,
     });
 
-    // Orbital band — circles the arc radius, all one direction, a few faster
+    // Orbital band, circles the arc radius, all one direction, a few faster
     // and a few carrying a short faint trail for "flow". Count scales with the
     // fill fraction (sparse At Risk, dense Sharp), capped on native.
     const spawnOrbital = (R: number): Orbital => {
@@ -187,7 +187,7 @@ function FightFormRingAtmosphereInner(props: AtmosphereProps) {
         }
         ctx.restore();
 
-        // ── Orbital band — flows AROUND the perimeter, tier/cyan tinted ──
+        // ── Orbital band, flows AROUND the perimeter, tier/cyan tinted ──
         const owant = orbitalWant(frac);
         while (orbitals.length < owant) orbitals.push(spawnOrbital(R));
         if (orbitals.length > owant) orbitals.length = owant;
@@ -237,7 +237,7 @@ function FightFormRingAtmosphereInner(props: AtmosphereProps) {
     };
 
     if (reduce) {
-      // Single static frame — no loop.
+      // Single static frame, no loop.
       draw(0);
       return;
     }

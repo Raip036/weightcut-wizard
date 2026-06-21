@@ -1,11 +1,11 @@
-// WP-T19 — NoFightCampEmptyState
+// WP-T19: NoFightCampEmptyState
 // Empty state shown on the Weight Protocol page when the user has no
 // active fight camp. CTA links to /fight-camps where they can create
 // one. Mirrors the Recovery.tsx empty-state pattern: wizard mascot
 // (wave pose, scaled down) + headline + body + primary action.
 //
 // Visual conventions:
-//   - No card border / chrome — empty states feel emptier this way
+//   - No card border / chrome, since empty states feel emptier this way
 //   - Wizard mascot at ~72px effective size via scale(0.5)
 //   - 19px bold headline, 13px muted body, primary pill button
 //   - Mount: fade + slide-up 16px (320ms spring), guarded by
@@ -52,7 +52,7 @@ export function NoFightCampEmptyState({
         className,
       )}
     >
-      {/* Wizard mascot — wave pose, scaled to ~70px effective height */}
+      {/* Wizard mascot: wave pose, scaled to ~70px effective height */}
       <div
         className="relative shrink-0 mb-3"
         style={{ width: 80, height: 80 }}

@@ -78,7 +78,7 @@ const PHOTO_DWELL_MS = 5_000;
 /** How many posts before the end of the loaded list to start fetching the next page. */
 const LOAD_MORE_TRIGGER = 3;
 
-// Pull-to-refresh dial — mirrors the global <PullToRefresh /> so the feed
+// Pull-to-refresh dial, mirrors the global <PullToRefresh /> so the feed
 // scroller (which lives outside <main>) gets the same look-and-feel.
 const THRESHOLD = 110;
 const DAMPEN = 0.4;
@@ -147,7 +147,7 @@ export function TikTokFeedSwiper({
     const observer = new IntersectionObserver(
       (entries) => {
         // Pick the entry with the highest intersection ratio that's > 0.6
-        // (well past halfway) — that's the post the user has settled on.
+        // (well past halfway): that's the post the user has settled on.
         let bestIdx = activeIndex;
         let bestRatio = 0;
         for (const entry of entries) {
@@ -178,7 +178,7 @@ export function TikTokFeedSwiper({
 
   // Pull-to-refresh: scoped to the feed's internal scroller (the global
   // <PullToRefresh /> listens on <main>, which this overlay sits outside of).
-  // Only arms at the very top of the very first post — otherwise this is a
+  // Only arms at the very top of the very first post. Otherwise this is a
   // swipe between posts, not a pull.
   useEffect(() => {
     const scroller = scrollerRef.current;
@@ -215,7 +215,7 @@ export function TikTokFeedSwiper({
       triggerHaptic(ImpactStyle.Medium);
       Promise.resolve()
         .then(() => onRefresh())
-        .catch(() => { /* swallow — leave UI to settle */ })
+        .catch(() => { /* swallow, leave UI to settle */ })
         .finally(() => {
           setTimeout(() => {
             setRefreshing(false);
@@ -312,7 +312,7 @@ export function TikTokFeedSwiper({
 
   return (
     <div className="fixed inset-0 z-[10001] bg-black text-white">
-      {/* Top affordances — back button + mute toggle. Always above the feed. */}
+      {/* Top affordances: back button + mute toggle. Always above the feed. */}
       <div
         className="absolute inset-x-0 z-20 flex items-center justify-between px-4"
         style={{ top: "calc(env(safe-area-inset-top, 0px) + 12px)" }}
@@ -335,7 +335,7 @@ export function TikTokFeedSwiper({
         </button>
       </div>
 
-      {/* Pull-to-refresh dial — anchored beneath the back-button row so it
+      {/* Pull-to-refresh dial, anchored beneath the back-button row so it
           doesn't collide with the top affordances when the user pulls. */}
       {(pullDistance > 0 || refreshing) && (() => {
         const progress = Math.min(pullDistance / THRESHOLD, 1);
@@ -441,7 +441,7 @@ export function TikTokFeedSwiper({
         )}
       </div>
 
-      {/* Comments sheet — mounted ONCE at swiper root so it survives panel
+      {/* Comments sheet, mounted ONCE at swiper root so it survives panel
           swaps. `usePaginatedQuery` inside gates on `postId` being non-null
           so closed sheets fetch nothing. */}
       <CommentsSheet
@@ -477,7 +477,7 @@ const FeedPanel = forwardRef<HTMLDivElement, FeedPanelProps>(function FeedPanel(
 ) {
   // One engagement hook per panel so optimistic state is post-local.
   // Server-authoritative values from the feed query feed back in via
-  // `useEffect` mirrors inside the hook — so a reactive update from
+  // `useEffect` mirrors inside the hook, so a reactive update from
   // someone else's like still rolls into the UI.
   const engagement = useFeedEngagement(post.id as unknown as Id<"session_media">, {
     viewerLiked: post.viewerLiked,
@@ -505,7 +505,7 @@ const FeedPanel = forwardRef<HTMLDivElement, FeedPanelProps>(function FeedPanel(
           // Autoplay can be blocked when un-muted; fall back to muted.
           playPromise.catch(() => {
             el.muted = true;
-            el.play().catch(() => { /* give up — user can tap */ });
+            el.play().catch(() => { /* give up, user can tap */ });
           });
         }
       } else {
@@ -547,7 +547,7 @@ const FeedPanel = forwardRef<HTMLDivElement, FeedPanelProps>(function FeedPanel(
           <img src={post.url} alt={post.caption ?? "Training media"} className="max-h-full max-w-full object-contain" />
         )}
 
-        {/* Photo dwell progress bar — Stories-style. Only while active. */}
+        {/* Photo dwell progress bar, Stories-style. Only while active. */}
         {isActive && post.kind === "photo" && (
           <div className="absolute inset-x-0 top-0 z-10 px-3" style={{ top: "calc(env(safe-area-inset-top, 0px) + 60px)" }}>
             <div className="h-0.5 w-full bg-white/20 rounded-full overflow-hidden">
@@ -562,7 +562,7 @@ const FeedPanel = forwardRef<HTMLDivElement, FeedPanelProps>(function FeedPanel(
           </div>
         )}
 
-        {/* Metadata overlay — bottom gradient. */}
+        {/* Metadata overlay: bottom gradient. */}
         <div
           className="absolute inset-x-0 bottom-0 z-10 px-5"
           style={{
@@ -604,7 +604,7 @@ const FeedPanel = forwardRef<HTMLDivElement, FeedPanelProps>(function FeedPanel(
           )}
         </div>
 
-        {/* Right-rail engagement stack — heart + comment count. Sits on
+        {/* Right-rail engagement stack: heart + comment count. Sits on
             top of the media but below the top-bar (z-10 vs z-20). */}
         <FeedRightRail
           liked={engagement.liked}

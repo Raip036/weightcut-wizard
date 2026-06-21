@@ -1,5 +1,5 @@
 /**
- * Corner — the gym-scoped social tab.
+ * Corner, the gym-scoped social tab.
  *
  * Three rendering states the page resolves between, in priority order:
  *
@@ -16,7 +16,7 @@
  *      top via `topIndex` lifted into this page.
  *
  * On mount we fire `markEngagementSeen` so the red dot on the bottom
- * nav clears immediately — this is the user's "I've seen the new
+ * nav clears immediately, this is the user's "I've seen the new
  * activity" signal regardless of whether they end up tapping any
  * specific post.
  *
@@ -115,7 +115,7 @@ export default function Community() {
   const gymId = (primaryGym?.gym_id ?? null) as Id<"gyms"> | null;
   const isMultiGym = gyms.length > 1;
 
-  // Feed query — gated on `gymId` so we don't burn a round-trip on the
+  // Feed query, gated on `gymId` so we don't burn a round-trip on the
   // pre-resolution render.
   const { results: posts, status, loadMore } = useGymFeed(gymId);
 
@@ -134,7 +134,7 @@ export default function Community() {
 
   // ── Orchestrated entrance gate ──────────────────────────────────────
   // "Core ready" = gyms resolved AND (no gym, or the feed's first page has
-  // resolved — empty or not). Hold one soft loader until then, then cascade
+  // resolved, empty or not). Hold one soft loader until then, then cascade
   // every section in together so nothing pops in piecemeal.
   const coreReady = !gymsLoading && (!gymId || status !== "LoadingFirstPage");
   // Sticky: once revealed we never drop back to the full-page loader. A later
@@ -145,24 +145,24 @@ export default function Community() {
     if (coreReady) setRevealed(true);
   }, [coreReady]);
 
-  // Stack state — only motion primitives are used; topIndex/advance
+  // Stack state, only motion primitives are used; topIndex/advance
   // from the hook are intentionally ignored since dismissedIds drives
   // visibility now.
   const { reset } = usePolaroidStack({ postCount: effectivePosts.length });
-  // Reset the deck whenever the gym switches — otherwise a persisted
+  // Reset the deck whenever the gym switches, otherwise a persisted
   // index from a prior gym would point into an unrelated feed.
   useEffect(() => {
     if (gymId) {
       setDismissedIds(new Set());
       reset();
     }
-    // We deliberately don't depend on `reset` (stable from hook) — only
+    // We deliberately don't depend on `reset` (stable from hook), only
     // on gymId. Including reset would trigger an extra reset on first
     // mount because of the closure identity change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gymId]);
 
-  // mark-post-viewed mutation — fires AFTER the exit animation completes,
+  // mark-post-viewed mutation, fires AFTER the exit animation completes,
   // not when the swipe commits. See pendingDismissalRef below.
   const markPostViewed = useMutation(api.feedSocial.markPostViewed);
 
@@ -177,7 +177,7 @@ export default function Community() {
 
   const handlePostSwiped = useCallback(
     (postId: Id<"session_media">) => {
-      // Just record — actual dismiss + server mutation fire in handleAdvance.
+      // Just record, actual dismiss + server mutation fire in handleAdvance.
       pendingDismissalRef.current = postId;
     },
     [],
@@ -200,7 +200,7 @@ export default function Community() {
     });
   }, [markPostViewed]);
 
-  // Engagement-seen mutation — clear the bottom-nav red dot once the
+  // Engagement-seen mutation, clear the bottom-nav red dot once the
   // user has *opened* the tab. Idempotent server-side, so we don't
   // need to gate on whether there were unreads.
   const markEngagementSeen = useMutation(api.feedSocial.markEngagementSeen);
@@ -209,23 +209,23 @@ export default function Community() {
     markEngagementSeen({}).catch((err) => {
       logger.warn("Community: markEngagementSeen failed", { err: String(err) });
     });
-    // Run once per session per gym — the mutation is cheap enough that
+    // Run once per session per gym, the mutation is cheap enough that
     // re-running on mount of a remount is fine.
     // markEngagementSeen identity is unstable from Convex; we only want to fire on gymId change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gymId]);
 
-  // Activity sheet state — mounted at page root, opened by the bell
+  // Activity sheet state, mounted at page root, opened by the bell
   // in GymHeader. Sheet auto-fires markActivitySeen on open to clear
   // the unread badge.
   const [activityOpen, setActivityOpen] = useState(false);
 
-  // Gym profile sheet — opens when the user taps the GymHeader cluster
+  // Gym profile sheet, opens when the user taps the GymHeader cluster
   // (logo + title + counts). Mounted at page root so the sheet keeps its
   // own animation/dismiss lifecycle independent of the feed below.
   const [profileSheetOpen, setProfileSheetOpen] = useState(false);
 
-  // Comments sheet state — mounted once at page root so it survives
+  // Comments sheet state, mounted once at page root so it survives
   // deck advances (matches the existing TikTokFeedSwiper pattern).
   const [commentsPostId, setCommentsPostId] = useState<Id<"session_media"> | null>(null);
   const [commentsInitialCount, setCommentsInitialCount] = useState(0);
@@ -238,7 +238,7 @@ export default function Community() {
   );
   const closeComments = useCallback(() => setCommentsPostId(null), []);
 
-  // Stable callbacks for CommunityFeedSection — keeps the memoized
+  // Stable callbacks for CommunityFeedSection, keeps the memoized
   // child from re-rendering whenever the parent rebuilds inline arrows.
   const handleOpenProfile = useCallback(
     (uid: Id<"users">) => navigate(`/profile/${uid}`),
@@ -251,12 +251,12 @@ export default function Community() {
 
   // ── State 1: no gym ─────────────────────────────────────────────────
   // The user-id-based skeleton from `useMyGyms` falls into this branch
-  // too — but we keep them visually distinct via the `gymsLoading` flag
+  // too, but we keep them visually distinct via the `gymsLoading` flag
   // so we don't bounce the user to `/join` before the query resolves.
   //
   // The navigate must run from an effect, not during render, otherwise
   // React fires "Cannot update a component while rendering a different
-  // component" — and on iOS that warning is a noisy red-screen in dev.
+  // component", and on iOS that warning is a noisy red-screen in dev.
   //
   // EXCEPTION: when the tutorial is mid-flight we hold position. The
   // onboarding tour steps the user through Community as one of its
@@ -276,7 +276,7 @@ export default function Community() {
   return (
     /* The previous outer wrapper added its OWN
        `paddingTop: env(safe-area-inset-top)` on top of the
-       ProtectedAppLayout that already applies the safe-area inset —
+       ProtectedAppLayout that already applies the safe-area inset,
        that stacking pushed the "Your / Community" title ~50px lower
        than the matching titles on Camp + Nutrition. Removed the
        safe-area wrapper and the `pt-2` on the motion.div; the page
@@ -310,7 +310,7 @@ export default function Community() {
               </header>
             </StaggerItem>
 
-            {/* Announcements — coach broadcasts + fight offers across every
+            {/* Announcements, coach broadcasts + fight offers across every
                 gym the user belongs to. Scoped here (not to the active gym)
                 because announcements are user-level: a fight offer from any
                 coach should always surface. Renders nothing when empty. */}
@@ -332,7 +332,7 @@ export default function Community() {
                   onActivityClick={() => setActivityOpen(true)}
                   onProfileOpen={() => setProfileSheetOpen(true)}
                 />
-                {/* Switcher affordance — shown only when the user belongs to
+                {/* Switcher affordance, shown only when the user belongs to
                     multiple gyms. Sits as a discreet pill under the header so
                     the header tap still opens the gym profile sheet (with
                     share-data + leave-gym surfaces), and the pill provides a
@@ -351,13 +351,13 @@ export default function Community() {
               </StaggerItem>
             )}
 
-            {/* Content area — branches on member-count threshold + load state.
+            {/* Content area, branches on member-count threshold + load state.
                 Wrapped in AnimatePresence so the swap between the feed and
                 the "all caught up" empty state cross-fades smoothly when the
                 user swipes the last polaroid (or when posts refill).
 
                 mode="popLayout" (not "wait") so the outgoing feed and incoming
-                empty state animate CONCURRENTLY — a true cross-fade. "wait" held
+                empty state animate CONCURRENTLY, a true cross-fade. "wait" held
                 the new state out until the old one finished its exit, leaving a
                 ~240ms dead gap that read as a flash right before "all caught up". */}
             <StaggerItem>
@@ -373,7 +373,7 @@ export default function Community() {
                             ? "loading"
                             : posts.length === 0
                               ? "empty"
-                              : // "Caught up" (every post seen — posts exist but
+                              : // "Caught up" (every post seen, posts exist but
                                 // effectivePosts is empty) is NOT a page-level
                                 // branch swap anymore. It stays in "feed" and the
                                 // feed section reveals the caught-up panel in
@@ -386,7 +386,7 @@ export default function Community() {
                                 "feed";
 
                     if (branch === "loading") {
-                      // Neutral loader instead of the polaroid-shaped skeleton —
+                      // Neutral loader instead of the polaroid-shaped skeleton,
                       // when the feed resolves empty, the user previously saw a
                       // polaroid flash before the EmptyFeed appeared. A soft,
                       // non-card-shaped loader avoids implying a card will land
@@ -398,7 +398,7 @@ export default function Community() {
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           // Near-instant exit so `mode="wait"` hands off to the feed
-                          // the moment posts arrive — otherwise the spinner's fade-out
+                          // the moment posts arrive, otherwise the spinner's fade-out
                           // inserts a ~180ms dead gap before the polaroid drop-in can
                           // even mount. The enter fade stays soft via `transition`.
                           exit={{ opacity: 0, transition: { duration: 0.05 } }}
@@ -416,7 +416,7 @@ export default function Community() {
                           key="empty"
                           // Pure in-place cross-fade (no y-slide) so the "all
                           // caught up" state appears exactly where the deck was,
-                          // concurrently with the feed fading out — no jump. A
+                          // concurrently with the feed fading out, no jump. A
                           // subtle scale-in gives the reveal intent.
                           initial={{ opacity: 0, scale: 0.96 }}
                           animate={{ opacity: 1, scale: 1 }}
@@ -480,7 +480,7 @@ export default function Community() {
       </AnimatePresence>
     </div>
 
-      {/* Activity sheet — opens from the bell in the header. */}
+      {/* Activity sheet, opens from the bell in the header. */}
       <ActivitySheet
         open={activityOpen}
         onClose={() => setActivityOpen(false)}
@@ -488,14 +488,14 @@ export default function Community() {
         onOpenComments={(postId) => openComments(postId, 0)}
       />
 
-      {/* Gym profile sheet — opens from the GymHeader title cluster. */}
+      {/* Gym profile sheet, opens from the GymHeader title cluster. */}
       <GymProfileSheet
         gymId={gymId}
         open={profileSheetOpen}
         onOpenChange={setProfileSheetOpen}
       />
 
-      {/* Comments sheet — mounted at page root, gated on postId. */}
+      {/* Comments sheet, mounted at page root, gated on postId. */}
       <CommentsSheet
         postId={commentsPostId}
         initialCount={commentsInitialCount}
@@ -507,7 +507,7 @@ export default function Community() {
         onCommentRemoved={() => {}}
       />
 
-      {/* Gym switcher sheet — multi-gym athletes pick which gym scopes
+      {/* Gym switcher sheet, multi-gym athletes pick which gym scopes
           the feed / leaderboard / profile sheet. Selection persists via
           localStorage so a reload keeps them on the last-active gym. */}
       <GymSwitcherSheet
@@ -669,7 +669,7 @@ function EmptyActionChip({
  * already trained today (positive reinforcement) vs. hasn't (close-the-
  * circle nudge).
  *
- * Reads the same `getMemberCount` query the GymHeader uses — no extra
+ * Reads the same `getMemberCount` query the GymHeader uses, no extra
  * round-trip per render. Hidden when the query hasn't loaded or when
  * the gym is too small/quiet to make the count motivational.
  */
@@ -688,10 +688,10 @@ function TrainedTodayBanner({ gymId }: { gymId: Id<"gyms"> | null }) {
   if (!counts) return null;
   const today = counts.activePostersToday ?? 0;
   const total = counts.memberCount ?? 0;
-  // Solo-member gyms or zero-poster days don't get the banner —
+  // Solo-member gyms or zero-poster days don't get the banner,
   // motivational only when there's a real group dynamic.
   if (total < 2 || today === 0) return null;
-  if (today >= total) return null; // everyone posted — no nudge needed
+  if (today >= total) return null; // everyone posted, no nudge needed
   const ratio = today / total;
   if (ratio < 0.5) return null;
 
@@ -711,7 +711,7 @@ function TrainedTodayBanner({ gymId }: { gymId: Id<"gyms"> | null }) {
           {today} of {total}
         </span>{" "}
         teammates trained today
-        {youDid ? " — keep it going." : " — close the circle."}
+        {youDid ? ". Keep it going." : ". Close the circle."}
       </p>
     </motion.div>
   );
@@ -753,7 +753,7 @@ const CommunityFeedSection = React.memo(function CommunityFeedSection({
   const topPost = posts[topIndex];
 
   // Stabilize the server snapshot passed into useFeedEngagement so the
-  // hook's sync effects don't fire on every parent render — they should
+  // hook's sync effects don't fire on every parent render, they should
   // only fire when one of the three values actually changes.
   const server = useMemo(
     () =>
@@ -778,7 +778,7 @@ const CommunityFeedSection = React.memo(function CommunityFeedSection({
 
   // Reaction + comment handlers for the below-photo info block. The
   // reaction bar + comment input now live in SessionInfoCard (keyed to
-  // topPost.id), so they always act on the current top post — no postId
+  // topPost.id), so they always act on the current top post, no postId
   // routing needed. `toggleReaction` runs the same haptic + error path as
   // a like-toggle. `key` is an ASCII slug (heart/fire/muscle/praise/clap).
   const addCommentMut = useMutation(api.feedSocial.addComment);
@@ -804,7 +804,7 @@ const CommunityFeedSection = React.memo(function CommunityFeedSection({
   // section, rather than letting the page-level branch swap the whole feed
   // out. Because this swap lives in the same container the deck does, the
   // last card's fly-off and the panel's entrance read as one continuous
-  // motion — the same trick that makes multi-card promotion feel smooth.
+  // motion, the same trick that makes multi-card promotion feel smooth.
   const caughtUp = posts.length === 0;
 
   return (
@@ -831,7 +831,7 @@ const CommunityFeedSection = React.memo(function CommunityFeedSection({
             // this just dissolves the now-empty deck footprint.
             exit={{ opacity: 0, transition: { duration: 0.22, ease: "easeOut" } }}
           >
-            {/* Tight bottom buffer — the square deck (312px) reveals the next
+            {/* Tight bottom buffer, the square deck (312px) reveals the next
                 card in place, so there's no y-overshoot to clear and the info
                 block can sit close beneath, putting comments on first glance. */}
             <div className="mt-4 mb-4" data-tutorial="community-photo-stack">

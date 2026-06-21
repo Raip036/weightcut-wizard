@@ -16,13 +16,13 @@ import { staggerContainer, staggerItem, springs } from "@/lib/motion";
 import { isNativePlatform } from "@/hooks/useIsNative";
 
 /**
- * JoinGymGate — "The Locker Room"
+ * JoinGymGate: "The Locker Room"
  *
  * The animated, in-page empty state for the Community tab when the user has no
  * gym yet. Replaces the old hard redirect to `/join` with an engaging,
  * belonging-themed screen that mirrors the visual recipe of `CoachProGate`
  * (ambient backdrop + staggered value cards + gradient CTA with shimmer sweep)
- * — but warm/social, NOT a Pro paywall.
+ * but warm/social, NOT a Pro paywall.
  *
  * Embeds the live gym-code flow from `JoinGym.tsx`: `getByInviteCode` preview +
  * `joinByInviteCode` mutation. On success it shows the global loading overlay
@@ -53,7 +53,7 @@ const REASONS: { icon: IonIconName; title: string; sub: string }[] = [
   },
 ];
 
-/** Hero polaroids — fanned "shared photos" dealt out on mount. Gradient fills +
+/** Hero polaroids: fanned "shared photos" dealt out on mount. Gradient fills +
  *  an icon stand in for real snaps so the hero needs no image assets. The
  *  `rest` transform is the fanned resting pose; entrance starts stacked. */
 const POLAROIDS: Array<{
@@ -82,7 +82,7 @@ const POLAROIDS: Array<{
   },
 ];
 
-/** Rising blue "motes" — the same drifting-particle field the Recovery Pro gate
+/** Rising blue "motes": the same drifting-particle field the Recovery Pro gate
  *  (CoachProGate) uses. Fixed positions so they don't re-randomise per render.
  *  Transform/opacity only; the soft glow is a static box-shadow (not animated). */
 const MOTES: Array<{ left: string; size: number; dur: number; delay: number }> = [
@@ -153,7 +153,7 @@ export function JoinGymGate(): JSX.Element {
 
   return (
     <div className="relative h-full overflow-hidden bg-background">
-      {/* Ambient blue backdrop + drifting motes — matches the Recovery Pro gate
+      {/* Ambient blue backdrop + drifting motes, matches the Recovery Pro gate
           (CoachProGate) visual language. */}
       <motion.div
         aria-hidden
@@ -271,7 +271,7 @@ export function JoinGymGate(): JSX.Element {
             Find your people.
           </h1>
           <p className="mt-2 max-w-[290px] text-sm leading-relaxed text-muted-foreground">
-            Your gym, your crew, your feed — all in one room. Enter your code to step in.
+            Your gym, your crew, your feed, all in one room. Enter your code to step in.
           </p>
         </motion.div>
 
@@ -295,7 +295,7 @@ export function JoinGymGate(): JSX.Element {
             className="h-[58px] rounded-2xl border-border/50 bg-card/60 text-center font-mono text-[22px] tabular-nums tracking-[0.4em]"
           />
 
-          {/* Live preview slot — fixed min-height so there's no layout shift. */}
+          {/* Live preview slot: fixed min-height so there's no layout shift. */}
           <div className="mt-3 min-h-[60px]">
             {lookingUp && (
               <div className="flex items-center justify-center gap-2 text-[12px] text-muted-foreground">
@@ -382,7 +382,7 @@ export function JoinGymGate(): JSX.Element {
               variants={prefersReduced ? undefined : staggerItem}
               className="flex items-start gap-3.5 rounded-2xl border border-border/50 bg-card/60 p-3.5"
             >
-              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-gradient-to-br from-primary/15 to-secondary/15">
+              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center">
                 <Icon name={r.icon} size={18} className="text-primary" />
               </div>
               <div className="min-w-0">

@@ -92,7 +92,7 @@ export function SparringAssignmentRow({
         )}
       </AnimatePresence>
 
-      {/* Main tap area — toggles done. */}
+      {/* Main tap area: toggles done. */}
       <motion.button
         type="button"
         disabled={pending}
@@ -130,7 +130,7 @@ export function SparringAssignmentRow({
             />
           </span>
 
-          {/* When to use — single muted line. */}
+          {/* When to use: single muted line. */}
           {assignment.whenToUse && (
             <p className="text-[11px] text-muted-foreground leading-snug mt-0.5 line-clamp-1">
               {stripDashes(assignment.whenToUse)}
@@ -144,7 +144,7 @@ export function SparringAssignmentRow({
         />
       </motion.button>
 
-      {/* Per-row disclosure for setups / counters — collapsed by default and
+      {/* Per-row disclosure for setups / counters, collapsed by default and
           fully independent of the done toggle. */}
       {hasDetails && (
         <div className="px-2.5 pb-2 -mt-1">

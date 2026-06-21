@@ -47,7 +47,7 @@ function writeSnapshot(scope: string, snapshot: Snapshot) {
 /**
  * Compute per-user rank deltas from a previously saved snapshot.
  *
- * Returns `null` for every entry when there's no prior snapshot — we'd rather
+ * Returns `null` for every entry when there's no prior snapshot. We'd rather
  * show no chip than misleadingly mark the entire field "NEW" on first load.
  */
 function computeDeltas(
@@ -81,10 +81,10 @@ export function RankedList({
   /**
    * Stable per-leaderboard scope for the snapshot key (e.g.
    * `${gymId}:${disciplineFilter}`). When undefined the list still renders
-   * but deltas stay null — useful for tests / storybook contexts.
+   * but deltas stay null. Useful for tests / storybook contexts.
    */
   snapshotScope,
-  /** Current viewer's userId — rows matching this get the highlight + pulse. */
+  /** Current viewer's userId; rows matching this get the highlight + pulse. */
   viewerUserId,
 }: {
   ranks: LeaderboardEntry[];

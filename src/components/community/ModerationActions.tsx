@@ -8,14 +8,14 @@
  *   - Restore post    (coach only, and the post is currently soft-deleted)
  *
  * "Remove" is gated by a shadcn `AlertDialog` because soft-delete pulls
- * the post from every member's feed within one reactive tick — that's
+ * the post from every member's feed within one reactive tick; that's
  * irreversible-feeling enough to warrant a confirm. Restore is a no-op
  * if the post is already visible (server is idempotent), so we don't
  * bother with a confirm there.
  *
  * The component owns the local `open` state of the `ReportPostSheet` so
  * the parent (e.g. PolaroidStack top card) only has to drop the
- * component in — no prop drilling for the sheet.
+ * component in. No prop drilling for the sheet.
  */
 import { useCallback, useState } from "react";
 import { useMutation } from "convex/react";
@@ -60,7 +60,7 @@ export interface ModerationActionsPost {
 export interface ModerationActionsProps {
   post: ModerationActionsPost;
   /** Called after any mutation (or a successful report) so the parent can
-   *  refresh its local view — e.g. pop the polaroid from the stack. The
+   *  refresh its local view, e.g. pop the polaroid from the stack. The
    *  Convex query the parent renders will also auto-update reactively;
    *  this is for parent-managed state (cursors, transient overlays). */
   onActionComplete?: () => void;
@@ -74,7 +74,7 @@ export function ModerationActions({
   const softDeletePost = useMutation(api.feedSocial.softDeletePost);
   const restorePost = useMutation(api.feedSocial.restorePost);
 
-  // UI state — report sheet visibility + remove-confirm dialog visibility.
+  // UI state: report sheet visibility + remove-confirm dialog visibility.
   // Both are local to this component so the parent never has to wire
   // them in.
   const [reportOpen, setReportOpen] = useState(false);
@@ -227,7 +227,7 @@ export function ModerationActions({
             <AlertDialogTitle>Remove this post?</AlertDialogTitle>
             <AlertDialogDescription>
               It'll be hidden from the gym feed and from your profile within a
-              moment. {post.isCoach && !post.isAuthor ? "As a coach you can restore it later from the moderation queue." : "You won't be able to restore it yourself — ask your coach."}
+              moment. {post.isCoach && !post.isAuthor ? "As a coach you can restore it later from the moderation queue." : "You won't be able to restore it yourself, so ask your coach."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -248,7 +248,7 @@ export function ModerationActions({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Report sheet — owns its own form state and submit logic. */}
+      {/* Report sheet: owns its own form state and submit logic. */}
       <ReportPostSheet
         open={reportOpen}
         onOpenChange={handleReportSheetChange}

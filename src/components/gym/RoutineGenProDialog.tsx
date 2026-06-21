@@ -8,7 +8,7 @@ interface RoutineGenProDialogProps {
 /** The value story for the AI routine builder, shown before the paywall. */
 const PERKS = [
   "Full multi-day routines built from your goal",
-  "Smart splits — upper/lower, push/pull/legs",
+  "Smart splits: upper/lower, push/pull/legs",
   "Matched to your sport & experience level",
   "Regenerate or tweak any routine anytime",
 ];

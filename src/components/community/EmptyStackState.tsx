@@ -1,5 +1,5 @@
 /**
- * "Corner's empty" state — shown when the polaroid stack has been
+ * "Corner's empty" state, shown when the polaroid stack has been
  * exhausted (`topIndex >= posts.length`) OR when the gym genuinely has
  * no posts yet.
  *
@@ -41,7 +41,7 @@ const COPY: Record<EmptyVariant, { headline: string; subtitle: string }> = {
   },
 };
 
-// Staggered entrance — each element is delayed +120ms after the previous,
+// Staggered entrance: each element is delayed +120ms after the previous,
 // starting after the headline lands (0.2s). Mascot floats in first at 0s.
 const STAGGER_STEP = 0.12;
 const HEADLINE_DELAY = 0.2;
@@ -92,7 +92,7 @@ export function EmptyStackState({
     : { y: [0, -4, 0] };
 
   // Sparkles float on independent periods (2.4s + 2.8s) so they don't
-  // sync with the mascot's 3s bob — keeps the composition feeling alive.
+  // sync with the mascot's 3s bob, keeps the composition feeling alive.
   const sparkleA = prefersReduced ? {} : { y: [0, -3, 0], opacity: [0.6, 1, 0.6] };
   const sparkleB = prefersReduced ? {} : { y: [0, -5, 0], opacity: [0.5, 0.9, 0.5] };
 

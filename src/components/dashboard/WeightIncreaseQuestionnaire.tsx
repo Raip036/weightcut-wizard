@@ -41,7 +41,7 @@ export function WeightIncreaseQuestionnaire({ open, onOpenChange, onComplete }: 
                 <div className="px-3 pt-3 pb-1.5 shrink-0">
                     <SheetHeader>
                         <div className="flex items-center gap-2">
-                            <SheetTitle className="text-[13px] font-semibold text-left">Weight went up — what happened?</SheetTitle>
+                            <SheetTitle className="text-[13px] font-semibold text-left">Weight went up. What happened?</SheetTitle>
                         </div>
                     </SheetHeader>
                 </div>
@@ -60,7 +60,7 @@ export function WeightIncreaseQuestionnaire({ open, onOpenChange, onComplete }: 
                         </button>
                         <div className="border-t border-border/30 mt-1">
                             <button className="w-full py-2 text-[13px] text-muted-foreground active:text-foreground transition-colors" onClick={() => handleSelect("Nothing unusual")}>
-                                Nothing unusual — skip
+                                Nothing unusual (skip)
                             </button>
                         </div>
                     </div>
@@ -72,7 +72,7 @@ export function WeightIncreaseQuestionnaire({ open, onOpenChange, onComplete }: 
                                 <h3 className="text-[13px] font-semibold text-func-recovery-green">Water Retention</h3>
                             </div>
                             <p className="text-[13px] text-muted-foreground leading-snug">
-                                Normal — carbs and sodium hold extra water (~3g per 1g carb). Temporary, not fat. Flushes in 1-2 days.
+                                Normal. Carbs and sodium hold extra water (~3g per 1g carb). Temporary, not fat. Flushes in 1-2 days.
                             </p>
                         </div>
                         <div className="border-t border-border/30 mt-2">

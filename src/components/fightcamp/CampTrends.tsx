@@ -1,8 +1,8 @@
-// CampTrends — the "your cut, fight over fight" longitudinal view (Pro).
+// CampTrends: the "your cut, fight over fight" longitudinal view (Pro).
 //
 // Surfaces a fighter's cut history across camps: a sparkline of cut size per
 // camp, average cut / rebound stats, and a short list of recent camps. Gated
-// behind AI_FIGHT_CAMP_COACH — free users get a compact locked teaser that
+// behind AI_FIGHT_CAMP_COACH; free users get a compact locked teaser that
 // opens the paywall on tap.
 //
 // Data is self-contained: the component owns its `useQuery` against
@@ -111,7 +111,7 @@ function LockedTrends({
       }}
       className={`w-full min-h-[44px] rounded-2xl border border-primary/20 bg-primary/10 p-3.5 text-left flex items-center gap-3 active:scale-[0.99] transition-transform ${className}`}
     >
-      {/* Shimmering crown crest — shared premium marker, matches the Training
+      {/* Shimmering crown crest: shared premium marker, matches the Training
           Missions locked card. */}
       <ShimmerCrownBadge size={40} />
       <div className="min-w-0 flex-1">
@@ -136,7 +136,7 @@ export function CampTrends({ className = "" }: CampTrendsProps): JSX.Element | n
   const { hasAccess } = useFeatureAccess("AI_FIGHT_CAMP_COACH");
   const { openPaywall } = useSubscription();
 
-  // Only query when the user has access — free users see the teaser without
+  // Only query when the user has access; free users see the teaser without
   // touching the backend.
   const trends = useQuery(
     (api as any).coachTrends?.getCampTrends,
@@ -152,7 +152,7 @@ export function CampTrends({ className = "" }: CampTrendsProps): JSX.Element | n
     return <LockedTrends onUpgrade={openPaywall} className={className} />;
   }
 
-  // Loading or no history yet — render nothing.
+  // Loading or no history yet: render nothing.
   if (trends === undefined || trends.camps.length === 0) {
     return null;
   }
@@ -214,7 +214,7 @@ export function CampTrends({ className = "" }: CampTrendsProps): JSX.Element | n
             avg cut
           </p>
           <p className="display-number text-[18px] text-foreground leading-tight">
-            {trends.avgCutKg != null ? `${trends.avgCutKg.toFixed(1)}` : "—"}
+            {trends.avgCutKg != null ? `${trends.avgCutKg.toFixed(1)}` : "-"}
             <span className="text-[11px] font-normal text-muted-foreground ml-0.5">kg</span>
           </p>
         </div>
@@ -223,7 +223,7 @@ export function CampTrends({ className = "" }: CampTrendsProps): JSX.Element | n
             avg rebound
           </p>
           <p className="display-number text-[18px] text-foreground leading-tight">
-            {trends.avgReboundKg != null ? `${trends.avgReboundKg.toFixed(1)}` : "—"}
+            {trends.avgReboundKg != null ? `${trends.avgReboundKg.toFixed(1)}` : "-"}
             <span className="text-[11px] font-normal text-muted-foreground ml-0.5">kg</span>
           </p>
         </div>
@@ -245,7 +245,7 @@ export function CampTrends({ className = "" }: CampTrendsProps): JSX.Element | n
               </p>
             </div>
             <p className="shrink-0 text-[12.5px] font-semibold tabular-nums text-foreground/90">
-              {camp.cutKg != null ? `${camp.cutKg.toFixed(1)} kg` : "—"}
+              {camp.cutKg != null ? `${camp.cutKg.toFixed(1)} kg` : "-"}
             </p>
           </li>
         ))}

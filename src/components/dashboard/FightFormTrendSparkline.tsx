@@ -10,7 +10,7 @@ type Point = {
 
 type Props = {
   points: Point[] | null;
-  // Optional accent — colors the line + endpoint dot. Falls back to the
+  // Optional accent, colors the line + endpoint dot. Falls back to the
   // foreground/60 ramp used elsewhere on the dashboard.
   accentClass?: string;
 };

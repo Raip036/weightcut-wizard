@@ -1,9 +1,9 @@
-// DriverStack — composes 4 DriverRow's (Sleep, How you feel, Soreness,
+// DriverStack: composes 4 DriverRow's (Sleep, How you feel, Soreness,
 // Training load) into a single accordion-style card. Owns the
 // "which row is expanded" state (only one expanded at a time, matching
 // the pillar accordion pattern elsewhere in Recovery).
 //
-// v1: deltas default to 0 (rendered as muted dash) — `prevReadiness` is
+// v1: deltas default to 0 (rendered as muted dash); `prevReadiness` is
 // plumbed through for future history-aware deltas. T12 (dashboard rewrite)
 // can pass richer per-driver 7d series down.
 
@@ -40,7 +40,7 @@ export function loadBandCopy(s: number): string {
   if (s >= 80) return "Streak going";
   if (s >= 55) return "Tracking well";
   if (s >= 35) return "Hard week";
-  return "Red zone — back off";
+  return "Red zone, back off";
 }
 
 // ── Detail helpers (1-sentence why) ────────────────────────────────────
@@ -77,7 +77,7 @@ function flatTailingSpark(currentScore: number): number[] {
 export interface DriverStackProps {
   metrics: AllMetrics;
   /** Optional readiness score from the previous day. Reserved for future
-   *  history-aware delta computation — currently unused. */
+   *  history-aware delta computation; currently unused. */
   prevReadiness: number | null;
 }
 
@@ -92,18 +92,18 @@ export function DriverStack({ metrics, prevReadiness: _prevReadiness }: DriverSt
 
   const b = metrics.readiness.breakdown;
 
-  // 7d series — v1 fallback: synthesize a flat-tail spark landing on the
+  // 7d series, v1 fallback: synthesize a flat-tail spark landing on the
   // current driver score. AllMetrics doesn't yet expose per-driver history;
   // when it does, swap these out without touching DriverRow.
   const sleep7d = flatTailingSpark(b.sleepScore);
   const wellness7d = flatTailingSpark(b.wellnessScore ?? 0);
   const soreness7d = flatTailingSpark(b.sorenessScore);
   // For load, use weeklySessionCount as the final point (still flat-tailing
-  // synthetic — but it surfaces "did you train this week" at a glance).
+  // synthetic, but it surfaces "did you train this week" at a glance).
   const load7d = flatTailingSpark(b.loadBalanceScore);
 
   // Wellness driver is null when there's no check-in yet (undefined). Pass
-  // `null` straight through so the row renders a NEUTRAL state ("—", no red,
+  // `null` straight through so the row renders a NEUTRAL state ("-", no red,
   // no delta, "Tap to check in") rather than a misleading red 0. A real low
   // score (e.g. 0 from a genuine bad check-in) is a number and still shows.
   const wellnessScore = b.wellnessScore ?? null;

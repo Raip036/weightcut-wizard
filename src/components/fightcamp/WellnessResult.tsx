@@ -9,7 +9,7 @@ import { WizardCharacter } from "@/tutorial/WizardCharacter";
  * raw Hooper score into a personalised "readiness" readout: a count-up number,
  * how today compares to the user's recent baseline, a mini sparkline, and a
  * single tailored recovery tip keyed off the weakest answer. Purely
- * presentational — the mutation already ran in the parent.
+ * presentational; the mutation already ran in the parent.
  */
 
 export interface WellnessAnswers {
@@ -52,20 +52,20 @@ function tailoredTip(a: WellnessAnswers, sorenessAreas: string[]): { icon: IonIc
     badness[k] > badness[m] ? k : m,
   );
   if (badness[worst] < 0.34) {
-    return { icon: "flashOutline", text: "Body's primed — green light to push the pace today." };
+    return { icon: "flashOutline", text: "Body's primed. Green light to push the pace today." };
   }
   switch (worst) {
     case "soreness": {
       const where = sorenessAreas.length ? sorenessAreas.join(" & ").toLowerCase() : "muscles";
-      return { icon: "bodyOutline", text: `${where} are sore — lead with mobility and hit your protein target today.` };
+      return { icon: "bodyOutline", text: `${where} are sore. Lead with mobility and hit your protein target today.` };
     }
     case "sleep":
-      return { icon: "moonOutline", text: "Short on sleep — keep intensity moderate and aim for an earlier night." };
+      return { icon: "moonOutline", text: "Short on sleep. Keep intensity moderate and aim for an earlier night." };
     case "stress":
-      return { icon: "leafOutline", text: "Stress is up — favour technique work over hard sparring and breathe between rounds." };
+      return { icon: "leafOutline", text: "Stress is up. Favour technique work over hard sparring and breathe between rounds." };
     case "fatigue":
     default:
-      return { icon: "batteryHalfOutline", text: "Legs feel heavy — an easy flush session will serve you better than grinding." };
+      return { icon: "batteryHalfOutline", text: "Legs feel heavy. An easy flush session will serve you better than grinding." };
   }
 }
 
@@ -102,7 +102,7 @@ function baselineCopy(
   recentAvg: number | null,
 ): { text: string; up: boolean | null } {
   if (recent.length === 0 || recentAvg == null) {
-    return { text: "First check-in logged — your baseline starts building now.", up: null };
+    return { text: "First check-in logged. Your baseline starts building now.", up: null };
   }
   const avgReadiness = hooperToReadiness(recentAvg);
   const delta = todayReadiness - avgReadiness;
@@ -115,8 +115,8 @@ function baselineCopy(
     return { text: "Right in line with your recent average.", up: null };
   }
   return delta > 0
-    ? { text: `Up ${delta} vs your recent average — trending fresh.`, up: true }
-    : { text: `Down ${Math.abs(delta)} vs your recent average — ease in today.`, up: false };
+    ? { text: `Up ${delta} vs your recent average, trending fresh.`, up: true }
+    : { text: `Down ${Math.abs(delta)} vs your recent average, ease in today.`, up: false };
 }
 
 function Sparkline({ points }: { points: number[] }) {

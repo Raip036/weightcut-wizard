@@ -5,11 +5,11 @@
  * stack (`stackPosition` 0/1/2 in `PolaroidCard`) so the user perceives
  * "the deck is here, it's loading" rather than "blank page". The
  * skeletons inherit the same offset/scale/rotation values the real
- * cards use — keeping the transition into populated content invisible
+ * cards use, keeping the transition into populated content invisible
  * to the eye.
  *
  * We render statically (no spring animation) because the shimmer is
- * provided by `<Skeleton />` itself — adding card-level entry motion
+ * provided by `<Skeleton />` itself. Adding card-level entry motion
  * would compound visually noisy.
  */
 import { Skeleton } from "@/components/ui/skeleton";

@@ -1,4 +1,4 @@
-// WP-T10 — ProtocolHeader
+// WP-T10: ProtocolHeader
 // Page header for the Weight Protocol screen. Renders the page label,
 // a help button, and a second row with two pills: the cut-depth tier
 // pill and a countdown chip to weigh-in. Respects iOS safe-area inset.
@@ -65,7 +65,7 @@ export function ProtocolHeader({
   const pillClasses = tierPillClasses(cutCategory);
   const dateLabel = formatWeighInDate(weighInDate);
 
-  // Countdown copy — "today" / "tomorrow" / "N days" — kept compact so
+  // Countdown copy ("today" / "tomorrow" / "N days"), kept compact so
   // the chip never wraps on a 320px viewport.
   const countdownLabel =
     daysToWeighIn <= 0

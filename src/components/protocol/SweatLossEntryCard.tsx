@@ -1,11 +1,11 @@
-// WP-T16 — SweatLossEntryCard
+// WP-T16: SweatLossEntryCard
 // Inline entry card for manual, sweat-driven rehydration generation. Shown
 // once the carb-cut plan exists but the rehydration plan hasn't been built
 // yet (or when the athlete chooses to re-enter their sweat loss). The
 // athlete types how many kg they sweated off in the final cut, and the
 // rehydration plan scales to that figure.
 //
-// Pure presentational — the caller owns the Convex action call
+// Pure presentational: the caller owns the Convex action call
 // (`generateRehydrationProtocol.run({ campId, sweatLossKg })`), loading
 // state, and error. This card just collects + validates the number and
 // fires `onGenerate(sweatLossKg)`.
@@ -33,7 +33,7 @@ export interface SweatLossEntryCardProps {
   className?: string;
 }
 
-// Sensible kg bounds — a final-cut sweat-off below 0.1kg isn't worth a plan,
+// Sensible kg bounds: a final-cut sweat-off below 0.1kg isn't worth a plan,
 // and anything above ~10kg is almost certainly a typo.
 const MIN_KG = 0.1;
 const MAX_KG = 10;
@@ -86,7 +86,7 @@ export function SweatLossEntryCard({
       </p>
       <p className="mt-2 text-[13px] text-muted-foreground leading-snug">
         Once you've made weight, enter how much you sweated off in the final
-        cut — your rehydration plan scales to it.
+        cut. Your rehydration plan scales to it.
       </p>
 
       {/* kg input */}

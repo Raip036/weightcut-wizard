@@ -12,7 +12,7 @@ import { triggerHapticSelection } from "@/lib/haptics";
 import { logger } from "@/lib/logger";
 
 /**
- * Post-fight debrief prompt (Fight Camp Coach redesign — Phase 3, spec §5/§6).
+ * Post-fight debrief prompt (Fight Camp Coach redesign, Phase 3, spec §5/§6).
  *
  * Renders nothing unless `getPendingDebrief` reports a past camp that still
  * needs a debrief. When one exists, shows a compact prompt card ("How did
@@ -40,7 +40,7 @@ export function PostFightDebrief({
 
   const [open, setOpen] = useState(false);
   // Locally dismiss for this session so "Later" hides the card until the
-  // next app load (no schema write — the camp stays pending server-side).
+  // next app load (no schema write; the camp stays pending server-side).
   const [dismissed, setDismissed] = useState(false);
 
   const [feeling, setFeeling] = useState<string>("");

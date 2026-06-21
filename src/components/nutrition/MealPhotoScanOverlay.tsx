@@ -129,7 +129,7 @@ export const MealPhotoScanOverlay = memo(function MealPhotoScanOverlay({
           className="w-full"
         >
           <div className="bg-background/95 border border-border rounded-xs p-3 space-y-3">
-            {/* Viewfinder frame — aspect matches the image so nothing is cropped. */}
+            {/* Viewfinder frame: aspect matches the image so nothing is cropped. */}
             <div
               className="relative w-full rounded-xs overflow-hidden bg-black"
               style={aspectStyle}
@@ -146,7 +146,7 @@ export const MealPhotoScanOverlay = memo(function MealPhotoScanOverlay({
                 className="absolute inset-0 w-full h-full object-contain"
               />
 
-              {/* Vignette — stronger at the bottom so the title stays legible
+              {/* Vignette: stronger at the bottom so the title stays legible
                   against busy photos. */}
               <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/20 via-transparent to-black/65" />
 
@@ -187,7 +187,7 @@ export const MealPhotoScanOverlay = memo(function MealPhotoScanOverlay({
                 </div>
               )}
 
-              {/* Title overlaid — bigger, more breathing room */}
+              {/* Title overlaid: bigger, more breathing room */}
               <div className="absolute inset-x-0 bottom-0 px-3 py-3">
                 <p className="text-[15px] font-semibold leading-snug text-white">{title}</p>
                 {subtitle && (

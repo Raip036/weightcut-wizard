@@ -5,7 +5,7 @@ import { Icon } from "@/components/ui/Icon";
 export type GasTankTone = "green" | "amber" | "red";
 
 export interface GasTankBarProps {
-  /** 0..1 — clamped defensively inside the component. */
+  /** 0..1, clamped defensively inside the component. */
   fillPct: number;
   tone: GasTankTone;
   /** Short brutal one-liner shown beneath the bar (12px muted). */
@@ -41,7 +41,7 @@ const SEGMENTS = 24;
 /**
  * Segmented "fuel tank" bar (Whoop-instrument design). A row of lit/unlit
  * pills fills to fillPct, with a tone-coloured header (battery icon + label +
- * percentage). Only opacity/scaleY animate on the segments — cheap, composited,
+ * percentage). Only opacity/scaleY animate on the segments: cheap, composited,
  * and honours reduced-motion. The one-liner stays beneath, unchanged.
  */
 export function GasTankBar({ fillPct, tone, oneLiner, className }: GasTankBarProps) {

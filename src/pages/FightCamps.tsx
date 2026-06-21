@@ -16,6 +16,8 @@ import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { ShareCardDialog } from "@/components/share/ShareCardDialog";
 import { CampComparisonCard } from "@/components/share/cards/CampComparisonCard";
 import { NextCampFlow } from "@/components/fightcamp/NextCampFlow";
+import { CampLimitProGate } from "@/components/fightcamp/CampLimitProGate";
+import { useSubscription } from "@/hooks/useSubscription";
 import { logger } from "@/lib/logger";
 
 interface FightCamp {
@@ -40,6 +42,16 @@ export default function FightCamps() {
   const createCampMut = useMutation(api.fight_camp.createCamp);
   const deleteCampMut = useMutation(api.fight_camp.deleteCamp);
   const [nextCampOpen, setNextCampOpen] = useState(false);
+  // Free-tier gate: creating ANY camp beyond the onboarding one is Pro. We
+  // check upfront so free users see the animated upsell instead of bouncing
+  // off the server's PRO_FEATURE_REQUIRED error.
+  const { checkFeatureAccess, handlePaywallError } = useSubscription();
+  const [campGateOpen, setCampGateOpen] = useState(false);
+  /** Run `action` if the user may create a camp; otherwise show the Pro gate. */
+  const guardCreate = (action: () => void) => {
+    if (checkFeatureAccess("MULTIPLE_FIGHT_CAMPS")) action();
+    else setCampGateOpen(true);
+  };
 
   // Map Convex camelCase rows → legacy snake_case shape used by share cards.
   const camps = useMemo<FightCamp[]>(() => {
@@ -99,8 +111,14 @@ export default function FightCamps() {
       setDialogOpen(false);
       setNewCamp({ name: "", event_name: "", fight_date: "" });
     } catch (err) {
-      logger.warn("Create fight camp threw", { error: err });
-      toast({ title: "Error", description: "Couldn't create camp. Check your connection.", variant: "destructive" });
+      // A free user who slipped past the upfront gate hits the server's
+      // PRO_FEATURE_REQUIRED, show the paywall instead of a generic error.
+      if (handlePaywallError(err)) {
+        setDialogOpen(false);
+      } else {
+        logger.warn("Create fight camp threw", { error: err });
+        toast({ title: "Error", description: "Couldn't create camp. Check your connection.", variant: "destructive" });
+      }
     } finally {
       setCreating(false);
     }
@@ -160,7 +178,7 @@ export default function FightCamps() {
     else setSelectedForDelete(camps.map((c) => c.id));
   };
 
-  // Lifetime stats hero — derived from the camps list. Declared BEFORE any
+  // Lifetime stats hero, derived from the camps list. Declared BEFORE any
   // conditional early return so hook ordering stays identical across the
   // loading → loaded transition (Rules of Hooks).
   const stats = useMemo(() => {
@@ -339,12 +357,12 @@ export default function FightCamps() {
           : undefined
       }
     >
-        {/* Header row — title + chrome icons (select / compare / new) */}
+        {/* Header row, title + chrome icons (select / compare / new) */}
         <div className="flex items-center justify-between">
-          <h1 className="text-[28px] font-bold tracking-tight">
+          <h1 className="text-[28px] font-bold tracking-tight min-w-0 truncate">
             {selectMode ? "Select camps" : compareMode ? "Compare camps" : "Fight camps"}
           </h1>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 shrink-0">
             {selectMode ? (
               <>
                 {camps.length > 0 && (
@@ -393,7 +411,7 @@ export default function FightCamps() {
                   </Button>
                 )}
                 <button
-                  onClick={() => setDialogOpen(true)}
+                  onClick={() => guardCreate(() => setDialogOpen(true))}
                   className="h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 active:scale-95 transition-all"
                   aria-label="New fight camp"
                 >
@@ -404,7 +422,7 @@ export default function FightCamps() {
           </div>
         </div>
 
-        {/* Lifetime stats hero — only when we actually have camps to brag
+        {/* Lifetime stats hero, only when we actually have camps to brag
             about. New users see the empty-state card instead, which has its
             own onboarding tone. */}
         {!compareMode && !selectMode && camps.length > 0 && (
@@ -418,7 +436,7 @@ export default function FightCamps() {
               </div>
               <div className="py-4 px-2 text-center">
                 <p className="text-[26px] font-bold tabular-nums tracking-tight text-primary">
-                  {stats.lifetimeCut > 0 ? `${stats.lifetimeCut}` : "—"}
+                  {stats.lifetimeCut > 0 ? `${stats.lifetimeCut}` : "-"}
                   {stats.lifetimeCut > 0 && <span className="text-[13px] text-primary/70 font-medium ml-0.5">kg</span>}
                 </p>
                 <p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/70 mt-0.5">
@@ -437,7 +455,7 @@ export default function FightCamps() {
           </div>
         )}
 
-        {/* Primary CTA — only brand-new users (no profile yet) get routed to
+        {/* Primary CTA, only brand-new users (no profile yet) get routed to
             the full 13-step onboarding. Returning users who deleted their
             camps already have a profile, so the slim NextCampFlow is enough
             and avoids re-asking the questions they've already answered. */}
@@ -633,7 +651,7 @@ export default function FightCamps() {
         );
       })()}
 
-      {/* Slim next-camp flow — wraps up the current camp (if any) then runs
+      {/* Slim next-camp flow, wraps up the current camp (if any) then runs
           a 5-step wizard so the user can stack a new camp without revisiting
           the full onboarding screens. */}
       <NextCampFlow
@@ -641,6 +659,10 @@ export default function FightCamps() {
         onOpenChange={setNextCampOpen}
         activeCamp={activeCamp ?? null}
       />
+
+      {/* Free-tier "one camp" Pro gate, shown when a free user taps any
+          new-camp entry point on this page. */}
+      <CampLimitProGate open={campGateOpen} onClose={() => setCampGateOpen(false)} />
     </div>
   );
 }

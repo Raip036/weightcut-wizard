@@ -1,19 +1,19 @@
 /**
- * LevelRing — a pure SVG circular progress ring with a centred level number.
+ * LevelRing: a pure SVG circular progress ring with a centred level number.
  *
  * Inspired by the Apple Fitness activity rings: a soft muted track underneath,
  * a saturated foreground arc on top, both rounded so the partial arc terminates
  * cleanly. The arc starts at 12 o'clock (via a -90° rotation on the SVG group)
  * and fills clockwise as `progress` (0..1) increases.
  *
- * Self-contained — no external dependencies beyond React. Discipline colour is
+ * Self-contained: no external dependencies beyond React. Discipline colour is
  * pulled from the CSS custom property passed in via `token` (e.g.
  * `"--coach-bjj"`).
  */
 interface LevelRingProps {
   /** CSS custom-property name from `disciplineToken(sport)`, e.g. `"--coach-bjj"`. */
   token: string;
-  /** Current level — rendered centred inside the ring. */
+  /** Current level, rendered centred inside the ring. */
   level: number;
   /** Fraction (0..1) of progress toward the next level. */
   progress: number;
@@ -71,7 +71,7 @@ export function LevelRing({
           style={{ transition: "stroke-dashoffset 500ms ease" }}
         />
       </g>
-      {/* Centred level number — not rotated, sits flat over the arc. */}
+      {/* Centred level number: not rotated, sits flat over the arc. */}
       <text
         x="50%"
         y="50%"

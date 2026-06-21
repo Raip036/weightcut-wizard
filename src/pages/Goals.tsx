@@ -55,9 +55,9 @@ const GOAL_LABELS: Record<string, string> = {
 
 const SLEEP_LABELS: Record<string, string> = {
   "<5": "<5h",
-  "5-6": "5–6h",
-  "6-7": "6–7h",
-  "7-8": "7–8h",
+  "5-6": "5-6h",
+  "6-7": "6-7h",
+  "7-8": "7-8h",
   "8+": "8h+",
 };
 
@@ -90,7 +90,7 @@ export default function Goals() {
   const updateCampMut = useMutation(api.fight_camp.updateCamp);
   const activeCamp = useQuery(api.fight_camp.getActiveCamp, userId ? {} : "skip");
 
-  // Editable display name — mirrored so typing doesn't churn the auth cache.
+  // Editable display name, mirrored so typing doesn't churn the auth cache.
   const [editedName, setEditedName] = useState<string>(userName ?? "");
   useEffect(() => { setEditedName(userName ?? ""); }, [userName]);
 
@@ -119,7 +119,7 @@ export default function Goals() {
   const [useAutoTarget, setUseAutoTarget] = useState(true);
   const [activeField, setActiveField] = useState<ActiveField>(null);
 
-  // Transient "Saved ✓" header chip — set on every successful auto-save.
+  // Transient "Saved ✓" header chip, set on every successful auto-save.
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flagSaved = () => {
@@ -198,7 +198,7 @@ export default function Goals() {
     const next = { ...formData, ...overrides };
     setFormData(next);
 
-    // Don't even try saving until the core profile fields exist — first-run
+    // Don't even try saving until the core profile fields exist, first-run
     // users hit the onboarding flow instead. updateGoals fails validation on
     // missing core fields, which would noisily toast on every tap.
     const haveCore = next.age && next.height_cm && next.current_weight_kg && next.training_frequency;
@@ -284,7 +284,7 @@ export default function Goals() {
 
   return (
     <div className="animate-page-in px-5 py-3 sm:p-5 max-w-2xl mx-auto pb-20 md:pb-8">
-      {/* Hero header — large-title with centered avatar + name + subtitle.
+      {/* Hero header, large-title with centered avatar + name + subtitle.
           Settings gear sits top-right (this page IS the edit-profile
           destination when the user taps the Dashboard avatar; the gear
           is the access point for app settings now that the ProfileSheet
@@ -341,19 +341,19 @@ export default function Goals() {
       <div className="space-y-6">
         {/* PERSONAL DETAILS */}
         <SettingsGroup title="Personal details">
-          <SettingsRow label="Age" value={formData.age || "—"} onTap={() => setActiveField({ key: "age", title: "Age" })} />
-          <SettingsRow label="Sex" value={SEX_LABELS[formData.sex] ?? "—"} onTap={() => setActiveField({ key: "sex", title: "Sex" })} />
-          <SettingsRow label="Height" value={formData.height_cm ? `${formData.height_cm} cm` : "—"} onTap={() => setActiveField({ key: "height_cm", title: "Height" })} />
-          <SettingsRow label="Weight" value={formData.current_weight_kg ? `${formData.current_weight_kg} kg` : "—"} onTap={() => setActiveField({ key: "current_weight_kg", title: "Weight" })} />
-          <SettingsRow label="Body fat" value={formData.body_fat_pct ? `${formData.body_fat_pct}%` : "—"} onTap={() => setActiveField({ key: "body_fat_pct", title: "Body fat %" })} />
-          <SettingsRow label="Sleep" value={SLEEP_LABELS[formData.sleep_hours] ?? "—"} onTap={() => setActiveField({ key: "sleep_hours", title: "Sleep per night" })} />
+          <SettingsRow label="Age" value={formData.age || "-"} onTap={() => setActiveField({ key: "age", title: "Age" })} />
+          <SettingsRow label="Sex" value={SEX_LABELS[formData.sex] ?? "-"} onTap={() => setActiveField({ key: "sex", title: "Sex" })} />
+          <SettingsRow label="Height" value={formData.height_cm ? `${formData.height_cm} cm` : "-"} onTap={() => setActiveField({ key: "height_cm", title: "Height" })} />
+          <SettingsRow label="Weight" value={formData.current_weight_kg ? `${formData.current_weight_kg} kg` : "-"} onTap={() => setActiveField({ key: "current_weight_kg", title: "Weight" })} />
+          <SettingsRow label="Body fat" value={formData.body_fat_pct ? `${formData.body_fat_pct}%` : "-"} onTap={() => setActiveField({ key: "body_fat_pct", title: "Body fat %" })} />
+          <SettingsRow label="Sleep" value={SLEEP_LABELS[formData.sleep_hours] ?? "-"} onTap={() => setActiveField({ key: "sleep_hours", title: "Sleep per night" })} />
         </SettingsGroup>
 
         {/* TARGETS */}
         <SettingsGroup title="Targets">
           <SettingsRow
             label={isFighter ? "Weight class" : "Goal weight"}
-            value={formData.goal_weight_kg ? `${formData.goal_weight_kg} kg` : "—"}
+            value={formData.goal_weight_kg ? `${formData.goal_weight_kg} kg` : "-"}
             accent
             onTap={() => setActiveField({ key: "goal_weight_kg", title: isFighter ? "Weight class" : "Goal weight" })}
           />
@@ -363,7 +363,7 @@ export default function Goals() {
               value={
                 formData.fight_week_target_kg
                   ? `${formData.fight_week_target_kg} kg${useAutoTarget ? " · auto" : ""}`
-                  : "—"
+                  : "-"
               }
               hint={!useAutoTarget && safetyFeedback ? safetyFeedback.message : undefined}
               hintTone={
@@ -376,23 +376,23 @@ export default function Goals() {
           )}
           <SettingsRow
             label="Target date"
-            value={formData.target_date ? formatDate(formData.target_date) : "—"}
+            value={formData.target_date ? formatDate(formData.target_date) : "-"}
             onTap={() => setActiveField({ key: "target_date", title: "Target date" })}
           />
         </SettingsGroup>
 
         {/* ACTIVITY & TRAINING */}
         <SettingsGroup title="Activity & training">
-          <SettingsRow label="Activity level" value={ACTIVITY_LABELS[formData.activity_level] ?? "—"} onTap={() => setActiveField({ key: "activity_level", title: "Activity level" })} />
-          <SettingsRow label="Training" value={formData.training_frequency ? `${formData.training_frequency} / week` : "—"} onTap={() => setActiveField({ key: "training_frequency", title: "Sessions per week" })} />
+          <SettingsRow label="Activity level" value={ACTIVITY_LABELS[formData.activity_level] ?? "-"} onTap={() => setActiveField({ key: "activity_level", title: "Activity level" })} />
+          <SettingsRow label="Training" value={formData.training_frequency ? `${formData.training_frequency} / week` : "-"} onTap={() => setActiveField({ key: "training_frequency", title: "Sessions per week" })} />
         </SettingsGroup>
 
         {/* ATHLETE PROFILE */}
         <SettingsGroup title="Athlete profile">
-          <SettingsRow label="Sport" value={ATHLETE_TYPES[primarySport] ?? "—"} onTap={() => setActiveField({ key: "athlete_type", title: "Sport" })} />
-          <SettingsRow label="Goal" value={GOAL_LABELS[formData.goal_type] ?? "—"} onTap={() => setActiveField({ key: "goal_type", title: "Primary goal" })} />
-          <SettingsRow label="Experience" value={EXPERIENCE_LABELS[formData.experience_level] ?? "—"} onTap={() => setActiveField({ key: "experience_level", title: "Experience" })} />
-          <SettingsRow label="Plan style" value={AGGRESSIVENESS_LABELS[formData.plan_aggressiveness] ?? "—"} onTap={() => setActiveField({ key: "plan_aggressiveness", title: "Plan style" })} />
+          <SettingsRow label="Sport" value={ATHLETE_TYPES[primarySport] ?? "-"} onTap={() => setActiveField({ key: "athlete_type", title: "Sport" })} />
+          <SettingsRow label="Goal" value={GOAL_LABELS[formData.goal_type] ?? "-"} onTap={() => setActiveField({ key: "goal_type", title: "Primary goal" })} />
+          <SettingsRow label="Experience" value={EXPERIENCE_LABELS[formData.experience_level] ?? "-"} onTap={() => setActiveField({ key: "experience_level", title: "Experience" })} />
+          <SettingsRow label="Plan style" value={AGGRESSIVENESS_LABELS[formData.plan_aggressiveness] ?? "-"} onTap={() => setActiveField({ key: "plan_aggressiveness", title: "Plan style" })} />
         </SettingsGroup>
       </div>
 
@@ -416,7 +416,7 @@ export default function Goals() {
         </button>
       </div>
 
-      {/* Field edit sheet — focused single-field editor */}
+      {/* Field edit sheet, focused single-field editor */}
       <EditFieldSheet
         active={activeField}
         formData={formData}
@@ -439,7 +439,7 @@ export default function Goals() {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Inline UI primitives — iOS Settings-style grouped rows + focused
+// Inline UI primitives, iOS Settings-style grouped rows + focused
 // edit sheet. Kept in this file so the page reads top-to-bottom.
 // ─────────────────────────────────────────────────────────────────────
 
@@ -684,7 +684,7 @@ function NumericEditor({
             onChange={(e) => onChange(e.target.value)}
             disabled={disabled}
             className="w-[110px] h-14 text-center text-[34px] font-bold tabular-nums bg-transparent border-0 focus-visible:ring-0 px-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-            placeholder="—"
+            placeholder="-"
             inputMode="decimal"
           />
           <span className="text-[15px] text-muted-foreground font-medium">{unit}</span>

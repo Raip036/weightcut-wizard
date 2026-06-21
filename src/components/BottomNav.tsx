@@ -37,11 +37,11 @@ const mainNavItems = [
   { title: "Nutrition", url: "/nutrition", icon: Utensils },
 ];
 
-// Per-path lazy-chunk prefetcher — fires on `pointerdown` for each tab so
+// Per-path lazy-chunk prefetcher; fires on `pointerdown` for each tab so
 // the destination's bundle is loading by the time the user's finger lifts.
 // Pairs with the idle preload in `App.tsx` for the cold-launch case where
 // the user taps a tab before `requestIdleCallback` has run. All paths here
-// must match the lazy() targets in App.tsx — keep them in sync.
+// must match the lazy() targets in App.tsx; keep them in sync.
 //
 // Errors are swallowed: a failed prefetch isn't fatal, the real navigation
 // will still hit <Suspense fallback> and try again with the route's
@@ -68,7 +68,7 @@ export const BottomNav = memo(function BottomNav() {
   const deleteAccount = useAction(api.actions.deleteAccount.run);
   const updateGoalsMut = useMutation(api.profiles.updateGoals);
   const authUser = useQuery(api.profiles.getMyAuthUser, userId ? {} : "skip");
-  // Gym-feed engagement badge. Reactive — `useQuery` auto-updates whenever
+  // Gym-feed engagement badge. Reactive; `useQuery` auto-updates whenever
   // a like/comment lands on one of the user's posts. We render a red dot
   // on the More icon when the count is > 0 (cleared when the user opens
   // `/gym-feed`, which marks `lastSeenEngagementAt = now`).
@@ -108,7 +108,7 @@ export const BottomNav = memo(function BottomNav() {
 
   // ─── Camera FAB gesture wiring ────────────────────────────────────────
   // Tap fires the training-session capture flow (round-card photo →
-  // ReviewSheet) synchronously inside the pointer handler — iOS WKWebView
+  // ReviewSheet) synchronously inside the pointer handler; iOS WKWebView
   // requires the gesture token to be live when `Camera.getPhoto` runs (see
   // `useRoundCardCapture.beginCapture`).
   //
@@ -125,7 +125,7 @@ export const BottomNav = memo(function BottomNav() {
   );
 
   const handleTrainingCapture = () => {
-    // Same synchronous entry-point as the previous tap branch — keeps the
+    // Same synchronous entry-point as the previous tap branch; keeps the
     // iOS gesture-token alive for `Camera.getPhoto`.
     roundCard.beginCapture();
     tooltip.dismiss();
@@ -156,7 +156,7 @@ export const BottomNav = memo(function BottomNav() {
     setEditedName(userName);
   }, [userName]);
 
-  // Open settings panel via custom event — triggered from Dashboard avatar or Profile page.
+  // Open settings panel via custom event, triggered from Dashboard avatar or Profile page.
   // An optional `detail.focus` deep-links straight to a sub-section (e.g. Apple Health).
   useEffect(() => {
     const openSettings = (e: Event) => {
@@ -189,7 +189,7 @@ export const BottomNav = memo(function BottomNav() {
     if (!userId) return;
     const newType = fighterMode ? 'cutting' : 'losing';
     try {
-      // Pass `0` to clear the fight-week target — Convex's updateGoals only
+      // Pass `0` to clear the fight-week target; Convex's updateGoals only
       // patches defined keys, so we send the sentinel and the backend ignores
       // non-cutting flows for that field via the form-level UI guard.
       await updateGoalsMut({
@@ -264,13 +264,13 @@ export const BottomNav = memo(function BottomNav() {
   const NutritionIcon = mainNavItems[3].icon;
 
   // ───────────────────────────────────────────────────────────────────────
-  // Active-tab bubble — single-element pattern
+  // Active-tab bubble: single-element pattern
   // ───────────────────────────────────────────────────────────────────────
   // We render ONE absolutely-positioned motion.div inside the nav pill and
   // animate its `x` + `width` to match the active tab's measured rect. The
   // previous implementation conditionally mounted a motion.div inside each
   // tab and relied on Framer's `layoutId` shared-element transition to
-  // bridge between mounts — that pattern is fragile inside WKWebView and
+  // bridge between mounts; that pattern is fragile inside WKWebView and
   // under React-Router-driven re-renders, and would snap rather than glide.
   // With a single element that never unmounts, Framer's `animate` prop
   // simply springs `x` and `width` between values and the glide always
@@ -304,7 +304,7 @@ export const BottomNav = memo(function BottomNav() {
   // own useEffect runs `matchMedia`). On that first render the nav's JSX
   // returns null below, so the tab refs are never attached. When
   // `isMobile` then flips to `true`, the JSX mounts and the refs attach
-  // — but without `isMobile` in this dep array, the layout effect would
+  // but without `isMobile` in this dep array, the layout effect would
   // not re-run (activeIndex hasn't changed), `tabRefs.current[…]` would
   // stay null, and the bubble would stay invisible until the user
   // navigated to a different tab.
@@ -330,15 +330,15 @@ export const BottomNav = memo(function BottomNav() {
     <>
       {/* CRITICAL: the .glass-nav element MUST be a static element with
           no transform / will-change / opacity-animation / filter. WKWebView
-          has a long-standing bug where any of those properties — even on
-          the same element as backdrop-filter — silently disables the blur.
+          has a long-standing bug where any of those properties, even on
+          the same element as backdrop-filter, silently disables the blur.
           Previous attempts had `motion.div` wrapping the glass element
           for the entrance slide-up, and Framer Motion's persistent
           `transform: translateY(0px)` (left after the animation ends)
           was enough to kill the blur. The entrance animation has been
           removed entirely from the nav pill; the bubble and the per-
           icon tap animations live INSIDE the glass element (which is
-          fine — descendants don't break their ancestor's backdrop-
+          fine: descendants don't break their ancestor's backdrop-
           filter, only ancestors break descendants').
           See: https://bugs.webkit.org/show_bug.cgi?id=212706 */}
       <div
@@ -347,7 +347,7 @@ export const BottomNav = memo(function BottomNav() {
         className="fixed inset-x-0 z-[9999] md:hidden flex items-center justify-center gap-2 pointer-events-none"
         /* iOS reports `safe-area-inset-bottom` ≈ 34px on home-indicator
            devices, but the indicator BAR itself only occupies the
-           bottom ~10–13px of the screen — the remaining ~20px is just
+           bottom ~10-13px of the screen; the remaining ~20px is just
            Apple's recommended margin. Sitting flush with the safe-area
            top edge therefore leaves a visible gap above the bar. We
            subtract 1rem (16px) so the nav floats just above the
@@ -359,7 +359,7 @@ export const BottomNav = memo(function BottomNav() {
         }}
       >
         <div
-          /* Bottom-nav pill — glass recipe (Design System v1) via
+          /* Bottom-nav pill: glass recipe (Design System v1) via
              `.glass-nav`. Width ~74vw capped at 20rem (compact mobile
              tab bar). `pointer-events-auto` re-enables tap on the nav
              itself (the outer wrapper has pointer-events-none so taps
@@ -370,7 +370,7 @@ export const BottomNav = memo(function BottomNav() {
              (top-1 bottom-1) for symmetric breathing room. */
           className="pointer-events-auto relative flex items-stretch gap-2 px-2.5 py-1.5 w-[74vw] max-w-[20rem] rounded-pill glass-nav"
         >
-          {/* Internal darkening overlay — kept LIGHT (0.18 → 0.32) so
+          {/* Internal darkening overlay: kept LIGHT (0.18 → 0.32) so
               the nav still reads as glass rather than solid plastic.
               Paired with the surface (rgba(8,12,20,0.62)) and the
               50px backdrop-blur, this is enough to wash out and
@@ -392,8 +392,8 @@ export const BottomNav = memo(function BottomNav() {
                and bottom. `rounded-pill` gives fully rounded semi-
                circular ends. We widen the bubble's animated x/width by
                6px on each horizontal side so the pill extends slightly
-               past the tab content — fatter pill, more present.
-               NOTE: do NOT use `rounded-l` — Tailwind treats it as the
+               past the tab content: fatter pill, more present.
+               NOTE: do NOT use `rounded-l`; Tailwind treats it as the
                directional shorthand for "left corners only" and
                produces a flat-right-edge bug. */
             className="absolute left-0 top-1 bottom-1 rounded-pill bg-[rgba(139,126,234,0.12)] pointer-events-none"
@@ -448,11 +448,11 @@ export const BottomNav = memo(function BottomNav() {
           />
         </div>
 
-        {/* Camera FAB — blue circle alongside the nav pill.
+        {/* Camera FAB: blue circle alongside the nav pill.
             Tap = training session capture (round-card photo →
             ReviewSheet). Long-press opens the RadialActionDial with
             Nutrition + Training options. The dial owns its own gesture
-            detection — we hand it the trigger as children and wire
+            detection: we hand it the trigger as children and wire
             `onTap` / `onSelect` to the same handlers a direct tap or a
             dial-option select would call. */}
         <div className="pointer-events-auto">
@@ -465,7 +465,7 @@ export const BottomNav = memo(function BottomNav() {
         </div>
       </div>
 
-      {/* Round-card photo-first review sheet — opens after the FAB tap
+      {/* Round-card photo-first review sheet: opens after the FAB tap
           captures a photo. The hook owns the state machine; we feed it
           smart defaults from `getSmartDefaults` (falling back to the
           spec constants when the query is still in-flight). */}
@@ -558,21 +558,21 @@ export const BottomNav = memo(function BottomNav() {
   );
 });
 
-/* Shared layout class for every tab slot. h-11 (44px) — Apple's
+/* Shared layout class for every tab slot. h-11 (44px), Apple's
    recommended minimum touch target. Icon (22px) + 3px gap + 14px
    label = ~39px content, leaving ~3px of vertical breathing room.
    With p-1.5 (12px total y-padding) the nav pill ends up ~56px tall. */
 const NAV_SLOT_CLASS =
   "relative z-10 flex flex-1 flex-col items-center justify-center gap-[3px] h-11 px-2 rounded-pill";
 
-/* Color helpers — active is white, inactive is the neutral grey from the
+/* Color helpers: active is white, inactive is the neutral grey from the
    Figma nav. Applied to both the icon and the label so they switch in
    lockstep when the active tab changes. */
 const navTextColor = (isActive: boolean) =>
   isActive ? "text-white" : "text-[#8A95A6]";
 
 /* Per-tab tap micro-animations. Each one targets the icon's wrapping
-   motion.span via useAnimationControls — playing on click only, not on
+   motion.span via useAnimationControls, playing on click only, not on
    active-state change. Each tab has a slightly different signature so
    the nav has personality without anything feeling busy. */
 export const TAP_ANIMATIONS = {
@@ -582,7 +582,7 @@ export const TAP_ANIMATIONS = {
   nutrition: { rotate: [0, -15, 12, -6, 0], transition: { duration: 0.45 } },
   // Gym: friends icon hops once.
   gym:       { y: [0, -5, 0], transition: { duration: 0.35, ease: "easeOut" } },
-  // Weight: subtle wobble — like a scale settling. (Previously a full
+  // Weight: subtle wobble, like a scale settling. (Previously a full
   // 360° spin which felt too aggressive against the rest of the row.)
   weight:    { rotate: [0, -12, 8, -3, 0], transition: { duration: 0.4, ease: "easeOut" } },
   // More: squish-and-pop (three dots compress then bounce back).
@@ -596,7 +596,7 @@ interface NavItemProps {
   isActive: boolean;
   tutorial?: string;
   tapAnimation?: TargetAndTransition;
-  /** Fired on `pointerdown` — used to kick off lazy-chunk prefetch for
+  /** Fired on `pointerdown`, used to kick off lazy-chunk prefetch for
    *  the destination route so by the time the finger lifts (and the
    *  NavLink actually navigates) the page bundle is already in cache.
    *  Eliminates the Suspense skeleton flash on first navigation. */
@@ -745,7 +745,7 @@ interface RoundCardFabProps {
 }
 
 /**
- * Photo-first FAB block — the raised camera circle and its one-time
+ * Photo-first FAB block: the raised camera circle and its one-time
  * discoverability popover. Lives as a separate component so `BottomNav`
  * stays under the 500-line project ceiling.
  *
@@ -755,7 +755,7 @@ interface RoundCardFabProps {
  *
  * The tooltip popover is anchored to the FAB via `PopoverAnchor` (not
  * `PopoverTrigger asChild`) because the dial owns the trigger button
- * and renders its own pointer handlers — letting Radix clone props
+ * and renders its own pointer handlers, letting Radix clone props
  * onto the dial would race against those handlers.
  */
 function RoundCardFab({ options, onTap, onSelect, tooltip }: RoundCardFabProps) {

@@ -1,5 +1,5 @@
 /**
- * DeltaPill — the single source of truth for "ahead / behind plan" color
+ * DeltaPill, the single source of truth for "ahead / behind plan" color
  * semantics across the Camp Status cards.
  *
  * In a weight CUT, being OVER (heavier than) the target/plan is bad, so the
@@ -32,7 +32,7 @@ export function deltaVerdict(kg: number): DeltaVerdict {
     return { text: "text-emerald-400", fill: "fill-emerald-400", bg: "bg-emerald-400/12", arrow: "→" };
   }
   if (kg < 0) {
-    // Under plan — cutting too fast is its own risk, so caution-amber.
+    // Under plan, cutting too fast is its own risk, so caution-amber.
     return { text: "text-amber-400", fill: "fill-amber-400", bg: "bg-amber-400/12", arrow: "↓" };
   }
   if (abs <= 1.5) {
@@ -47,7 +47,7 @@ export function deltaVerdict(kg: number): DeltaVerdict {
 interface DeltaPillProps {
   /** Signed delta in kg. Positive = over the target/plan. */
   value: number;
-  /** What the delta is measured against — "target" or "plan". */
+  /** What the delta is measured against, "target" or "plan". */
   noun: string;
 }
 

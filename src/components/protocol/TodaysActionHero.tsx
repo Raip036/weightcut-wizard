@@ -1,4 +1,4 @@
-// WP-T11 — TodaysActionHero
+// WP-T11: TodaysActionHero
 // The "Today" focal card for the Weight Protocol page. This is the single
 // source of truth for "what to do right now": a primary-accented bordered
 // card with a small uppercase label line, three big stat tiles (large
@@ -14,7 +14,7 @@
 //   - muted sub-note (body, optionally extended with a folded 4th metric)
 //   - motion fade + slide-up on mount (320ms spring), guarded by
 //     useReducedMotion
-//   - optional breath pulse on the headline (3.4s loop) — only when
+//   - optional breath pulse on the headline (3.4s loop), only when
 //     `breathPulse === true` AND the user hasn't requested reduced motion
 import { motion, useReducedMotion } from "motion/react";
 
@@ -29,7 +29,7 @@ export interface MetricPill {
 }
 
 export interface TodaysActionHeroProps {
-  /** Lifecycle phase — drives the formatted phase label only. */
+  /** Lifecycle phase: drives the formatted phase label only. */
   phase: ProtocolPhase;
   /** Big card headline, e.g. "PRIME THE TANK". 32px semibold. */
   headline: string;
@@ -131,9 +131,9 @@ export function TodaysActionHero({
       className={`relative overflow-hidden bg-card rounded-2xl border border-primary/40 p-5 ${tierGlowClass(
         tier
       )} ${className}`}
-      aria-label={`Today's action — ${phaseLabel}`}
+      aria-label={`Today's action: ${phaseLabel}`}
     >
-      {/* Label line — "TODAY · <phase>" in the primary accent. */}
+      {/* Label line: "TODAY · <phase>" in the primary accent. */}
       <p className="text-[10px] uppercase tracking-[0.15em] text-primary font-bold">
         Today · {phaseLabel}
       </p>
@@ -161,7 +161,7 @@ export function TodaysActionHero({
         </div>
       )}
 
-      {/* Headline — bold one-line action, optionally breath-pulsing */}
+      {/* Headline: bold one-line action, optionally breath-pulsing */}
       <motion.h2
         className="mt-4 text-[20px] leading-tight font-bold text-foreground"
         animate={showBreath ? { scale: [1, 1.012, 1] } : { scale: 1 }}

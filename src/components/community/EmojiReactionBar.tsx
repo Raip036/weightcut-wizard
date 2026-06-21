@@ -1,5 +1,5 @@
 /**
- * Emoji reaction bar — 5 curated reactions sit below the top polaroid in
+ * Emoji reaction bar: 5 curated reactions sit below the top polaroid in
  * the swipe deck. Tapping an emoji fires a transient burst animation
  * (the emoji scales up, drifts upward, and fades) instead of mutating
  * an inline count or highlight chip. The reaction still posts to the
@@ -66,7 +66,7 @@ export function EmojiReactionBar({
       ref={containerRef}
       className="relative flex items-center justify-around gap-1 px-2 py-2.5 rounded-2xl card-surface"
     >
-      {/* Transient burst overlay — each tap spawns an emoji that scales
+      {/* Transient burst overlay: each tap spawns an emoji that scales
           up, drifts upward, and fades out. Overlay is pointer-events-none
           so it never blocks subsequent taps. */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-0 overflow-visible">

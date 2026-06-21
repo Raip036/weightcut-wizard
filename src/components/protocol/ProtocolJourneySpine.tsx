@@ -3,11 +3,11 @@ import { Icon, type IonIconName } from "@/components/ui/Icon";
 
 /**
  * The five-chapter journey map for the Weight Protocol "story" flow
- * (Flow C — weigh-in pivot). Renders a compact progress spine so the athlete
+ * (Flow C, weigh-in pivot). Renders a compact progress spine so the athlete
  * always sees where they are in the cut → scale → rehydrate → walkout arc.
  *
  * `active` is the current chapter index (0-4), derived by the page from the
- * real `phase` + generation state — NOT a manual stepper.
+ * real `phase` + generation state, NOT a manual stepper.
  */
 
 type Chapter = { label: string; icon: IonIconName; accent: string };

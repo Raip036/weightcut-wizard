@@ -21,8 +21,8 @@ type Props = {
 
 // ─── Tier helpers ──────────────────────────────────────────────────────────
 // Locked-in mapping from the brief. Bronze/Silver/Gold escalate with the
-// numeric value. Anything below 40 is treated as "Building" — explicitly
-// not a tier — so we still acknowledge the user is logging without
+// numeric value. Anything below 40 is treated as "Building", explicitly
+// not a tier, so we still acknowledge the user is logging without
 // gamifying a low score.
 type Tier = "gold" | "silver" | "bronze" | "building";
 
@@ -75,7 +75,7 @@ export function FightFormSubScoreTile({
   const tier = tierFor(value);
   const badge = TIER_BADGE[tier];
 
-  // Delta chip — only render when yesterday's value is known. ±0 still
+  // Delta chip, only render when yesterday's value is known. ±0 still
   // surfaces (muted) so the user sees "steady" rather than nothing.
   const delta = useMemo(() => {
     if (yesterdayValue == null || !Number.isFinite(yesterdayValue)) return null;
@@ -107,7 +107,7 @@ export function FightFormSubScoreTile({
         expanded && "border-primary/40 bg-primary/5",
       )}
     >
-      {/* Top — icon + label */}
+      {/* Top, icon + label */}
       <div className="flex items-center gap-1.5 text-muted-foreground">
         <Icon name={icon} size={14} />
         <span className="text-micro font-semibold uppercase tracking-[0.06em]">
@@ -115,7 +115,7 @@ export function FightFormSubScoreTile({
         </span>
       </div>
 
-      {/* Middle — big number + delta chip */}
+      {/* Middle, big number + delta chip */}
       <div className="flex items-baseline justify-between gap-1.5">
         {prefersReducedMotion ? (
           <span className="font-display font-bold text-[28px] leading-none text-foreground tabular-nums">
@@ -151,7 +151,7 @@ export function FightFormSubScoreTile({
           {badge.label}
         </span>
         {/* Sparkline pinned to the right so the badge breathes. Hidden
-            when we don't have at least 2 points — no fallback bar. */}
+            when we don't have at least 2 points, no fallback bar. */}
         {sparkPath && (
           <svg
             viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}

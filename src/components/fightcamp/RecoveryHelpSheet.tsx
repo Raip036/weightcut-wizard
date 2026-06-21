@@ -12,8 +12,8 @@ interface RecoveryHelpSheetProps {
  * One bottom-sheet explainer covering everything on the Recovery page so the
  * user has a single discoverable home for "what does this mean?". Replaces
  * the old bottom accordion. Structure:
- *   1. How to read this page  — actionable, 3-4 sentences
- *   2. Glossary               — one row per metric; tap to expand the math
+ *   1. How to read this page: actionable, 3-4 sentences
+ *   2. Glossary: one row per metric; tap to expand the math
  *
  * Plain English throughout; no em-dashes; no jargon in the headline copy.
  */
@@ -143,7 +143,7 @@ export function RecoveryHelpSheet({ open, onOpenChange }: RecoveryHelpSheetProps
           <SheetTitle className="text-xl text-center">How to read this page</SheetTitle>
         </SheetHeader>
 
-        {/* How to use — actionable, 3-4 short sentences. Lives at the top so
+        {/* How to use: actionable, 3-4 short sentences. Lives at the top so
             users who only read the first card still get value. */}
         <section className="mt-4 space-y-2 text-[13px] leading-snug text-foreground/90">
           <p>
@@ -166,7 +166,7 @@ export function RecoveryHelpSheet({ open, onOpenChange }: RecoveryHelpSheetProps
           </p>
         </section>
 
-        {/* "Building" callout — directly addresses the cold-start state most
+        {/* "Building" callout: directly addresses the cold-start state most
             new users will see for their first two weeks. */}
         <section className="mt-5 rounded-xs border border-func-warning-yellow/30 p-3">
           <p className="text-[11px] uppercase tracking-[0.12em] font-semibold text-func-warning-yellow mb-1">
@@ -179,7 +179,7 @@ export function RecoveryHelpSheet({ open, onOpenChange }: RecoveryHelpSheetProps
           </p>
         </section>
 
-        {/* Glossary — tap-to-expand the math, summary line is always visible. */}
+        {/* Glossary: tap-to-expand the math, summary line is always visible. */}
         <section className="mt-5">
           <p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/70 mb-2">
             What each metric means

@@ -56,6 +56,14 @@ export const FEATURE_GATES = {
   // feeds the fight-form-score ring) is intentionally NOT gated by this key
   // and stays reachable by free users.
   RECOVERY: { minTier: "pro" as const },
+  // Creating MORE than one fight camp. A free user's single camp is the one
+  // auto-created during the fighter ONBOARDING flow; every other creation
+  // path (manual "start a new camp", the post-fight overlay, re-running
+  // onboarding) is Pro. NOTE: this key is the flat gate for the manual paths.
+  // The onboarding-blessed first camp is enforced separately in
+  // `assertCanCreateCamp` (convex/_shared/campLimit.ts), which knows whether
+  // a request is the onboarding auto-create. See the design doc.
+  MULTIPLE_FIGHT_CAMPS: { minTier: "pro" as const },
   // Future expansion examples (kept commented for now):
   // ADVANCED_LEADERBOARDS: { minTier: "pro" as const },
   // EXPORT_DATA: { minTier: "pro" as const },

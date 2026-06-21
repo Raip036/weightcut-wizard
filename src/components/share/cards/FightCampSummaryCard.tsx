@@ -225,7 +225,7 @@ export const FightCampSummaryCard = forwardRef<HTMLDivElement, FightCampSummaryC
                 />
               ))}
 
-              {/* Gradient fill under line — green to orange */}
+              {/* Gradient fill under line: green to orange */}
               {points.length >= 2 && (
                 <>
                   <defs>
@@ -281,7 +281,7 @@ export const FightCampSummaryCard = forwardRef<HTMLDivElement, FightCampSummaryC
           </div>
         )}
 
-        {/* Breakdown bar — horizontal stacked */}
+        {/* Breakdown bar: horizontal stacked */}
         {breakdownTotal > 0 && (
           <div
             style={{

@@ -183,6 +183,42 @@ export interface GroqChatCompletionResponse {
 }
 
 /**
+ * Global formatting rule injected into EVERY AI call. The product never wants
+ * em or en dashes in generated copy (they read as "AI-generated"). Enforced
+ * centrally here so individual prompts don't each have to remember it, and so
+ * it can't be missed by a new action. Output is also stripped as a safety net
+ * (see stripDashes / parseResponse).
+ */
+export const NO_EM_DASH_RULE =
+  "Formatting rule: never use em dashes (—) or en dashes (–) anywhere in your response. " +
+  "Use commas, periods, colons, or parentheses instead.";
+
+/**
+ * Returns a copy of `messages` with the NO_EM_DASH_RULE appended to the first
+ * system message (or a new system message prepended if there is none), so every
+ * provider call bans dashes without mutating the caller's array.
+ */
+function withNoEmDashRule(
+  messages: GroqCallOptions["messages"],
+): GroqCallOptions["messages"] {
+  const idx = messages.findIndex((m) => m.role === "system");
+  if (idx === -1) {
+    return [{ role: "system", content: NO_EM_DASH_RULE }, ...messages];
+  }
+  const target = messages[idx];
+  let nextContent: GroqMessageContent;
+  if (typeof target.content === "string") {
+    nextContent = `${target.content}\n\n${NO_EM_DASH_RULE}`;
+  } else {
+    // Vision/multi-part system content: append the rule as a trailing text part.
+    nextContent = [...target.content, { type: "text", text: NO_EM_DASH_RULE }];
+  }
+  const next = messages.slice();
+  next[idx] = { ...target, content: nextContent };
+  return next;
+}
+
+/**
  * Raw chat-completion call against the configured provider (Groq or
  * OpenRouter — selected by the `LLM_PROVIDER` env var). Returns the parsed
  * response JSON. Throws GroqError on any non-2xx or timeout. Use this when
@@ -191,6 +227,7 @@ export interface GroqChatCompletionResponse {
 export async function callGroqRaw(opts: GroqCallOptions): Promise<GroqChatCompletionResponse> {
   const { provider, config } = getProviderConfig();
   const model = resolveModel(opts.model, provider);
+  const messages = withNoEmDashRule(opts.messages);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? 15000);
   let response: Response;
@@ -204,7 +241,7 @@ export async function callGroqRaw(opts: GroqCallOptions): Promise<GroqChatComple
       },
       body: JSON.stringify({
         model,
-        messages: opts.messages,
+        messages,
         temperature: opts.temperature,
         max_tokens: opts.max_tokens,
         ...(opts.response_format ? { response_format: opts.response_format } : {}),
@@ -262,7 +299,10 @@ export async function callGroqText(opts: GroqCallOptions): Promise<string> {
       throw new GroqError("AI response was truncated (raise max_tokens)", "AI_UNKNOWN");
     throw new GroqError("No response from Groq API", "AI_UNKNOWN");
   }
-  return content;
+  // Safety net: strip any dashes the model emitted despite the system rule.
+  // (Plain-text helper only; JSON responses keep structure and rely on the
+  // prompt rule + per-field sanitisation.)
+  return content.replace(/—/g, ", ").replace(/–/g, "-").replace(/\s*,\s*,\s*/g, ", ");
 }
 
 /**

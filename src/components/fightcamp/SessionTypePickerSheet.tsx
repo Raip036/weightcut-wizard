@@ -91,7 +91,7 @@ export function SessionTypePickerSheet({
   );
 
   // A stored primary that isn't built-in or a known custom (legacy catch-all)
-  // — keep it visible as its own pill rather than silently rewriting the row.
+  // keep it visible as its own pill rather than silently rewriting the row.
   const isLegacySelection = !!sessionType && !knownPrimaries.has(sessionType);
 
   const tagOptions = useMemo<SessionTagDef[]>(
@@ -259,7 +259,7 @@ export function SessionTypePickerSheet({
           )}
         </div>
 
-        {/* Done — closes the sheet. */}
+        {/* Done: closes the sheet. */}
         <div className="px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <button
             type="button"

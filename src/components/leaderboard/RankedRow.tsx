@@ -64,7 +64,7 @@ function DeltaChip({
       className="text-[12px] text-muted-foreground/40"
       aria-label="No rank change"
     >
-      —
+      -
     </span>
   );
 }

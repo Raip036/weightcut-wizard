@@ -7,12 +7,12 @@
  *
  * Why this file is intentionally minimal:
  *   - GPU-cheap: only opacity + translateY (transform). No scale, blur, or
- *     box-shadow — those are stripped on the iOS native build (.native-app)
+ *     box-shadow: those are stripped on the iOS native build (.native-app)
  *     and cause jank, whereas opacity/transform composite cleanly.
  *   - Reduced-motion-aware: when the OS requests reduced motion we render
  *     plain <div>s with zero animation.
  *   - Items inherit "hidden"/"show" from the container via variant
- *     propagation — no per-item initial/animate, so the stagger stays in sync.
+ *     propagation, no per-item initial/animate, so the stagger stays in sync.
  */
 import { motion, useReducedMotion, type Variants } from "motion/react";
 import type { ReactNode } from "react";

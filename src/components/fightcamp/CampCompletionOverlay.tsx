@@ -1,4 +1,4 @@
-// CampCompletionOverlay — global controller for the full-screen "your camp is
+// CampCompletionOverlay: global controller for the full-screen "your camp is
 // complete / start your next one" takeover. Mounted once at the App root.
 //
 // Flow:  app open → reactive query says a prompt is due → mark it shown
@@ -82,7 +82,7 @@ export function CampCompletionOverlay(): JSX.Element | null {
           campId: prompt.kind === "wrapup" ? prompt.camp.id : undefined,
         });
         if (cancelled) return;
-        // Another device already claimed this camp's takeover — stay hidden.
+        // Another device already claimed this camp's takeover; stay hidden.
         if (prompt.kind === "wrapup" && !res.firstTime) return;
         setSnapshot(prompt);
         setPhase("intro");

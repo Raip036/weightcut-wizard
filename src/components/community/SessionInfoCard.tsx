@@ -1,19 +1,19 @@
 /**
- * Session info block — sits DIRECTLY under the photo deck and binds to
+ * Session info block: sits DIRECTLY under the photo deck and binds to
  * whatever post is currently on top.
  *
  * Layout (top → bottom), tuned so comments read on first glance:
  *   1. Inline row: session-type chip (icon + label + duration/RPE) on the
  *      left, INLINE with the latest-comment preview + count on the right.
  *      Tapping the comment opens the comments sheet.
- *   2. Caption (if present) — 2-line clamp. The photo no longer bakes the
+ *   2. Caption (if present), 2-line clamp. The photo no longer bakes the
  *      caption in (the deck passes `hideCaption`) so it lives here, clear
  *      of the floating heart button.
  *   3. Quick-react emoji bar.
  *   4. Comment input.
  *
  * Like state lives on the photo's floating heart (and shares this card's
- * `engagement` mirror), so there is no separate heart button here — just
+ * `engagement` mirror), so there is no separate heart button here. Just
  * the social context + the ways to add to it.
  *
  * Engagement state is passed in via `engagement` so the heart-tap on the
@@ -31,7 +31,7 @@ import { CommentInputBar } from "./CommentInputBar";
 
 interface SessionInfoCardProps {
   post: FeedPost;
-  /** Shared engagement state — owned by the page, threaded here so the
+  /** Shared engagement state, owned by the page, threaded here so the
    *  photo's floating heart and this card hit the same optimistic mirror. */
   engagement: UseFeedEngagementResult;
   /** Open the comments sheet for this post. */
@@ -43,7 +43,7 @@ interface SessionInfoCardProps {
   /** Submit a comment on the post. */
   onSubmitComment: (text: string) => Promise<void> | void;
   /**
-   * Legacy boolean override — when present, takes precedence over the
+   * Legacy boolean override: when present, takes precedence over the
    * server-supplied `post.visibility`.
    */
   isPrivate?: boolean;
@@ -66,7 +66,7 @@ export function SessionInfoCard({
   const typeLabel = formatSessionType(post.session?.sessionType);
   const sessionTag = (post.session as { sessionTag?: string | null } | null | undefined)?.sessionTag;
 
-  // Latest comment preview — single line, inline with the session chip.
+  // Latest comment preview: single line, inline with the session chip.
   const latestComments = useQuery(api.feedSocial.listLatestComments, {
     postId: post.id,
     limit: 1,

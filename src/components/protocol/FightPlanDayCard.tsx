@@ -1,4 +1,4 @@
-// WP-T12 — FightPlanDayCard
+// WP-T12: FightPlanDayCard
 // Per-day card for the Fight Plan day list. The day list is the spine of
 // the Fight Plan section: one card per day from T-N down to T-0. Each
 // card surfaces the day's `keyAction` headline, its primary `carbsCopy`
@@ -37,7 +37,7 @@ export interface FightPlanDayCardProps {
   state: "past" | "today" | "future";
   /** Past days default-collapsed to a single line. Ignored for `today` / `future`. */
   collapsed?: boolean;
-  /** Called when the card is tapped — typically toggles `collapsed`. */
+  /** Called when the card is tapped; typically toggles `collapsed`. */
   onToggle?: () => void;
   className?: string;
   /** Mount stagger index. Capped at 8 internally to keep long camps snappy. */
@@ -137,14 +137,14 @@ export function FightPlanDayCard({
       <button
         type="button"
         onClick={onToggle}
-        // We render the card as a button when there's something to toggle —
-        // tapping is the expand/collapse affordance. Even when `onToggle`
+        // We render the card as a button when there's something to toggle.
+        // Tapping is the expand/collapse affordance. Even when `onToggle`
         // is undefined we keep the button element so focus / press states
         // stay consistent; it just no-ops.
         aria-label={
           isCollapsed
-            ? `${headerLabel} — expand`
-            : `${headerLabel} — ${day.keyAction}`
+            ? `${headerLabel}, expand`
+            : `${headerLabel}: ${day.keyAction}`
         }
         aria-expanded={isPast ? !isCollapsed : undefined}
         className={`w-full text-left card-surface rounded-2xl border border-border/50 overflow-hidden active:scale-[0.995] transition-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${containerStateClass}`}
@@ -161,7 +161,7 @@ export function FightPlanDayCard({
         {isCollapsed ? (
           // ── Collapsed past row ───────────────────────────────────────
           // Single-line summary: "D-6 · Sun · ✓ done". Reads as a quiet
-          // log entry rather than a card — keeps long camps scannable.
+          // log entry rather than a card, which keeps long camps scannable.
           <div className="flex items-center justify-between px-4 py-3">
             <span className="text-[12px] font-bold uppercase tracking-[0.14em] text-muted-foreground/70 tabular-nums">
               {headerLabel}
@@ -192,19 +192,19 @@ export function FightPlanDayCard({
               )}
             </div>
 
-            {/* Headline — the day's key action */}
+            {/* Headline: the day's key action */}
             <h3 className="text-[15px] font-semibold leading-snug text-foreground">
               {day.keyAction}
             </h3>
 
-            {/* Body — primary carbs narrative line */}
+            {/* Body: primary carbs narrative line */}
             {day.carbsCopy && (
               <p className="text-[13px] text-muted-foreground leading-snug">
                 {day.carbsCopy}
               </p>
             )}
 
-            {/* Metric pill row — 4 across, wraps on narrow viewports */}
+            {/* Metric pill row: 4 across, wraps on narrow viewports */}
             <div className="flex gap-2 flex-wrap">
               <MetricPill label="Carbs" value={`${Math.round(day.carbsGrams)}g`} />
               <MetricPill label="Water" value={`${day.waterLitres.toFixed(1)}L`} />
@@ -212,7 +212,7 @@ export function FightPlanDayCard({
               <MetricPill label="Fibre" value={formatFibre(day.fibreNote)} />
             </div>
 
-            {/* Cautions — bulleted list, tier-coloured to telegraph severity.
+            {/* Cautions: bulleted list, tier-coloured to telegraph severity.
                 We surface up to the schema-capped 3 entries; the parent
                 can do further trimming if needed. */}
             {day.cautions.length > 0 && (

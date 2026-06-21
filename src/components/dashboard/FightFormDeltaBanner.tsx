@@ -24,7 +24,7 @@ const SUBSCORE_HUMAN: Record<SubScoreKey, string> = {
 
 // Threshold below which day-over-day movement is considered noise rather
 // than signal. Matches what the brainstorm called the "earn-your-space"
-// minimum — a 3-point drift isn't worth a banner; a 5-point one is.
+// minimum, a 3-point drift isn't worth a banner; a 5-point one is.
 const MIN_NOTABLE_DELTA = 5;
 
 export function FightFormDeltaBanner(p: Props) {

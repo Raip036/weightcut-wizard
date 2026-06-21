@@ -25,7 +25,7 @@ interface ExerciseBlockProps {
   onDuplicateLastSet: (exerciseOrder: number) => void;
   onRemoveExercise: (exerciseOrder: number) => void;
   onExerciseTap?: (exerciseId: string) => void;
-  /** Latest bodyweight (kg) — used to count added-load-only volume for weighted exercises. */
+  /** Latest bodyweight (kg), used to count added-load-only volume for weighted exercises. */
   bodyweightKg?: number | null;
 }
 
@@ -69,9 +69,9 @@ export function ExerciseBlock({
   onDuplicateLastSet, onRemoveExercise, onExerciseTap, bodyweightKg,
 }: ExerciseBlockProps) {
   const trackingType = resolveTrackingType(group.exercise.tracking_type, group.exercise.is_bodyweight);
-  // Volume of all working sets — surfaced in the collapsed header so the
+  // Volume of all working sets, surfaced in the collapsed header so the
   // user can see this exercise's contribution at a glance. Weighted exercises
-  // count the added load only (total − bodyweight).
+  // count the added load only (total minus bodyweight).
   const blockVolume = useMemo(
     () => group.sets.reduce(
       (sum, s) => sum + (s.is_warmup
@@ -88,8 +88,8 @@ export function ExerciseBlock({
 
   const handleAddSet = useCallback(() => {
     const lastSet = group.sets[group.sets.length - 1];
-    // Seed from previous workout's top set when the current group is empty —
-    // gives user an explicit number to beat (progressive overload).
+    // Seed from previous workout's top set when the current group is empty.
+    // Gives user an explicit number to beat (progressive overload).
     const seedSet = lastSet ?? previousSets?.[0] ?? null;
     onAddSet(group.exerciseOrder, {
       weight_kg: seedSet?.weight_kg ?? null,
@@ -121,7 +121,7 @@ export function ExerciseBlock({
       variants={staggerItem}
       className={`card-surface rounded-xs border-l-[3px] ${borderColor} overflow-hidden`}
     >
-      {/* Header — tappable to toggle collapse when onToggleCollapse is wired.
+      {/* Header, tappable to toggle collapse when onToggleCollapse is wired.
           The exercise name + chevron-right is the existing tap into stats
           (onExerciseTap); we expose a separate area on the right for collapse
           to avoid swallowing the user's intent. */}
@@ -179,7 +179,7 @@ export function ExerciseBlock({
         </div>
       )}
 
-      {/* Expanded body — wrapped in AnimatePresence so collapse animates */}
+      {/* Expanded body, wrapped in AnimatePresence so collapse animates */}
       <AnimatePresence initial={false}>
         {!collapsed && (
           <motion.div
@@ -190,7 +190,7 @@ export function ExerciseBlock({
             className="overflow-hidden"
           >
 
-      {/* Last workout hint — beat this */}
+      {/* Last workout hint: beat this */}
       {previousSets && previousSets.length > 0 && (
         <div className="px-3 pb-2 flex items-center gap-1.5 flex-wrap">
           <Trophy className="h-3 w-3 text-func-warning-yellow/70 shrink-0" />
@@ -208,7 +208,7 @@ export function ExerciseBlock({
         </div>
       )}
 
-      {/* Column headers — share the SetRow grid template so labels sit
+      {/* Column headers, share the SetRow grid template so labels sit
           centered above each column (Set · Previous · Kg · Reps · ✓). */}
       {group.sets.length > 0 && (
         <div className={`${SET_GRID} px-3 pb-1.5 mb-1 text-[10px] text-muted-foreground/70 uppercase tracking-wider border-b border-border/20`}>
@@ -231,7 +231,7 @@ export function ExerciseBlock({
             if (pr && set.weight_kg && set.weight_kg >= (pr.max_weight_kg ?? 0)) prTypesForSet.push("weight");
           }
           // Previous session's matching set (by working-set position) as the
-          // inline ghost target — data already comes from usePreviousSets.
+          // inline ghost target. Data already comes from usePreviousSets.
           const prevSet = !set.is_warmup ? previousSets?.[setIndex] : undefined;
           const previous = prevSet ? { weight_kg: prevSet.weight_kg, reps: prevSet.reps } : null;
 

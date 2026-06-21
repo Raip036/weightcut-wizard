@@ -1,11 +1,11 @@
 /**
- * PolaroidStack — the centerpiece of the Corner tab.
+ * PolaroidStack: the centerpiece of the Corner tab.
  *
  * Tap-to-advance deck (Instagram-"stacks" style):
  *   - The top card is TAP-driven, not swipe-driven. Pressing it dips the
  *     card (scale 0.96 + a light selection haptic); releasing commits:
- *     the card flies UP-AND-AWAY with a peel tilt while the next card —
- *     already sitting full-size behind it — is revealed, like flicking a
+ *     the card flies UP-AND-AWAY with a peel tilt while the next card,
+ *     already sitting full-size behind it, is revealed, like flicking a
  *     card off a real deck. A light impact haptic fires on commit.
  *   - The fly-off direction alternates each tap (`flyDirRef`) so the deck
  *     never feels mechanical.
@@ -20,7 +20,7 @@
  * `dismissedIds` filter can drop the post from `posts` without unmounting
  * the card mid-flight. The deferred `setExitingPost(null)` + `advance()`
  * (after EXIT_DURATION_MS) keep `markPostViewed` firing only once the
- * animation finishes — see Community.tsx `pendingDismissalRef`.
+ * animation finishes. See Community.tsx `pendingDismissalRef`.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
@@ -41,17 +41,17 @@ const PREFETCH_TRIGGER = 5;
 // tapping warm so a promoted card never has to decode on screen.
 const DECODE_AHEAD = 6;
 
-// Square deck — the slot matches the photo so the overlays (counter,
+// Square deck: the slot matches the photo so the overlays (counter,
 // heart) land on the image corners and the info row sits tight beneath.
 const DECK_W = 312;
 const DECK_H = 312;
 
-const FLY_UP_MULT = 1.35; // * DECK_H — up and out the top
-const FLY_SIDE_MULT = 0.18; // * DECK_W — small lateral drift
+const FLY_UP_MULT = 1.35; // * DECK_H, up and out the top
+const FLY_SIDE_MULT = 0.18; // * DECK_W, small lateral drift
 const FLY_TILT_DEG = 9; // peel tilt
 const FLY_EASE = [0.32, 0.72, 0, 1] as const;
 
-// Press-down dip — the single biggest "premium" tell for a tap deck.
+// Press-down dip: the single biggest "premium" tell for a tap deck.
 const PRESS_SPRING = { type: "spring", stiffness: 700, damping: 30, mass: 1 } as const;
 
 interface PolaroidStackProps {
@@ -97,11 +97,11 @@ export function PolaroidStack({
   const exitDirRef = useRef<1 | -1>(1);
   // Alternates each commit so consecutive cards peel off opposite sides.
   const flyDirRef = useRef<1 | -1>(1);
-  // Backstop timer — only fires when the tab is backgrounded and Motion
+  // Backstop timer: only fires when the tab is backgrounded and Motion
   // never delivers onAnimationComplete (see commitAdvance / handleExitComplete).
   const exitTimerRef = useRef<number | null>(null);
 
-  // ── Visible slice — at most 3 real posts, no sentinel filler ───────
+  // ── Visible slice: at most 3 real posts, no sentinel filler ───────
   const visibleSlots: FeedPost[] = useMemo(() => {
     const slice = posts.slice(topIndex, topIndex + 3);
     if (!exitingPost) return slice;
@@ -128,7 +128,7 @@ export function PolaroidStack({
     preloadAndDecodeImages(upcoming);
   }, [posts, topIndex, exitingPost]);
 
-  // Pagination trigger — fetch more before we run out.
+  // Pagination trigger: fetch more before we run out.
   useEffect(() => {
     if (status !== "CanLoadMore") return;
     if (posts.length - topIndex >= PREFETCH_TRIGGER) return;
@@ -149,7 +149,7 @@ export function PolaroidStack({
     onSwipeCommit?.(topPost.id);
     triggerHaptic(ImpactStyle.Light);
 
-    // Cleanup is animation-driven (onAnimationComplete on the exit card —
+    // Cleanup is animation-driven (onAnimationComplete on the exit card,
     // see handleExitComplete). This timer is ONLY a backstop for when the
     // tab is backgrounded and Motion never fires onAnimationComplete; the
     // extra ~140ms keeps it from racing the animation's natural finish.
@@ -162,7 +162,7 @@ export function PolaroidStack({
     }, exitMs + 140);
   }, [topPost, exitingPost, advance, onSwipeCommit, prefersReducedMotion]);
 
-  // PRIMARY cleanup path — fires the instant the exit card's fly-off
+  // PRIMARY cleanup path: fires the instant the exit card's fly-off
   // animation completes, so the promotion happens in lockstep with the
   // actual Motion frame (no wall-clock drift / unmount pop). Clears the
   // backstop timer so it can't double-run.
@@ -239,7 +239,7 @@ export function PolaroidStack({
 
   return (
     <div className="flex flex-col">
-      {/* Deck drop-in — plays once (the container persists across taps). */}
+      {/* Deck drop-in: plays once (the container persists across taps). */}
       <motion.div
         key="deck"
         className="relative mx-auto"
@@ -284,7 +284,7 @@ export function PolaroidStack({
               isTop={false}
               rotationDeg={rotationDeg}
               // The card at idx 0 while a card is exiting is the one being
-              // PROMOTED to top — match the exit card's easing/duration so
+              // PROMOTED to top: match the exit card's easing/duration so
               // the reveal lands in lockstep, no double-motion stutter.
               promoting={idx === 0 && !!exitingPost}
             />
@@ -296,7 +296,7 @@ export function PolaroidStack({
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// TopCard — tap-driven. Press dips it (scale 0.96); a tap commits the
+// TopCard: tap-driven. Press dips it (scale 0.96); a tap commits the
 // advance. The counter + floating heart are overlaid here (rather than
 // inside the memoized RoundedFeedCard) so the heart's liked state can
 // re-render freely without touching the shared photo component.
@@ -325,7 +325,7 @@ function TopCard({
 }) {
   const [pressed, setPressed] = useState(false);
 
-  // Visual dip only — no haptic here. A press that commits an advance
+  // Visual dip only, no haptic here. A press that commits an advance
   // already fires a Light impact in commitAdvance, so every actual tap
   // gives feedback; firing on pointerdown too would buzz on every scroll
   // that happens to start on the photo.
@@ -357,7 +357,7 @@ function TopCard({
         hideCaption
       />
 
-      {/* Caption — rendered here (not on the gradient) so it never sits
+      {/* Caption: rendered here (not on the gradient) so it never sits
           under the heart button. Bottom-left, clears the heart's width. */}
       {post.caption && (
         <p className="pointer-events-none absolute bottom-3 left-3 right-16 z-[3] text-[13px] font-medium leading-snug text-white line-clamp-2 drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]">
@@ -365,14 +365,14 @@ function TopCard({
         </p>
       )}
 
-      {/* Counter pill — top-right. */}
+      {/* Counter pill, top-right. */}
       {counterLabel && (
         <div className="pointer-events-none absolute top-3 right-3 z-[3] rounded-full border border-white/15 bg-black/40 px-2.5 py-1 text-[11px] font-bold tracking-wide text-white backdrop-blur-md">
           {counterLabel}
         </div>
       )}
 
-      {/* Floating heart — bottom-right. stopPropagation so it never advances. */}
+      {/* Floating heart, bottom-right. stopPropagation so it never advances. */}
       <button
         type="button"
         aria-label={liked ? "Unlike post" : "Like post"}

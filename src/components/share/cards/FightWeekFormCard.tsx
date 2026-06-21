@@ -1,4 +1,4 @@
-// T19: FightWeekFormCard — third and final share template in the recovery
+// T19: FightWeekFormCard, the third and final share template in the recovery
 // family. Fired by useFightWeekTrigger when daysToFight === 7 (auto-toast
 // 7 days before the user's logged fight date). Celebrates the peaking arc:
 // last 5 days of readiness rendered as a vertical bar chart with a
@@ -11,8 +11,8 @@
 // share-card family.
 //
 // Spec reference: docs/superpowers/specs/2026-06-01-recovery-page-redesign-design.md
-// §7.3.c — "FightWeekFormCard". Free tier gets the card watermarked; Pro
-// strips the watermark. There's no rate limit — fight week is an event,
+// §7.3.c, "FightWeekFormCard". Free tier gets the card watermarked; Pro
+// strips the watermark. There's no rate limit; fight week is an event,
 // not a recurring action.
 import { forwardRef } from "react";
 import { CardShell, type AspectRatio } from "../templates/CardShell";
@@ -20,28 +20,28 @@ import { CardShell, type AspectRatio } from "../templates/CardShell";
 export type FormCurveStatus = "peaking" | "building" | "dropping";
 
 interface FightWeekFormCardProps {
-  /** ISO-resolved fight date — drives header copy + bottom meta line. */
+  /** ISO-resolved fight date; drives header copy + bottom meta line. */
   fightDate: Date;
-  /** 0–7 inclusive; how many days until the fight. The trigger fires at 7
+  /** 0-7 inclusive; how many days until the fight. The trigger fires at 7
    *  but we accept the full range so a manual re-open later in the week
    *  still renders honestly. */
   daysOut: number;
-  /** Oldest → newest. Length up to 5; nulls render as dimmed empty bars
+  /** Oldest to newest. Length up to 5; nulls render as dimmed empty bars
    *  so a partial history still ships a coherent card. */
   last5Days: Array<{ date: Date; score: number | null }>;
-  /** e.g. "@ortiz" — pulled from active camp metadata. The camp schema
+  /** e.g. "@ortiz", pulled from active camp metadata. The camp schema
    *  currently only carries `eventName`/`name`, not an opponent handle, so
    *  the dashboard passes whichever exists. Rendered without an `@` prefix
    *  if the caller already trimmed one in. */
   opponentHandle?: string;
-  /** "@pratik" — derived in the dashboard from UserContext, same as T17/T18. */
+  /** "@pratik", derived in the dashboard from UserContext, same as T17/T18. */
   userHandle?: string;
   /** When true: omit watermark + handle (Pro). When false: render both. */
   isPro: boolean;
   aspect?: AspectRatio;
 }
 
-// Status banner palette — green for on-pace, amber for neutral build,
+// Status banner palette: green for on-pace, amber for neutral build,
 // red for a regression so the eye reads the verdict before the bars do.
 const STATUS_LABEL: Record<FormCurveStatus, string> = {
   peaking: "PEAKING ON SCHEDULE",
@@ -60,7 +60,7 @@ const STATUS_COLOR: Record<FormCurveStatus, string> = {
 export function computeFormCurveStatus(
   scores: Array<number | null>,
 ): FormCurveStatus {
-  // All 5 present + each day ≥ previous - 5 (allow small dips) + today ≥ 75.
+  // All 5 present + each day >= previous - 5 (allow small dips) + today >= 75.
   const allPresent = scores.length === 5 && scores.every((s) => s != null);
   if (allPresent) {
     const vals = scores as number[];
@@ -108,7 +108,7 @@ export const FightWeekFormCard = forwardRef<HTMLDivElement, FightWeekFormCardPro
   ) {
     const s = aspect === "story";
 
-    // Header countdown — "6 DAYS OUT" / "FIGHT DAY" — the trigger fires at
+    // Header countdown: "6 DAYS OUT" / "FIGHT DAY". The trigger fires at
     // 7 but a manual re-open later in the week should still read correctly.
     const countdownLabel =
       daysOut <= 0
@@ -117,7 +117,7 @@ export const FightWeekFormCard = forwardRef<HTMLDivElement, FightWeekFormCardPro
           ? "1 DAY OUT"
           : `${daysOut} DAYS OUT`;
 
-    // Bottom meta line — "@pratik vs @ortiz · 6.10". Drop pieces gracefully
+    // Bottom meta line: "@pratik vs @ortiz · 6.10". Drop pieces gracefully
     // if any are missing so the line doesn't collapse to a single dot.
     const fightDateLabel = `${fightDate.getMonth() + 1}.${fightDate.getDate()}`;
     const matchupPieces: string[] = [];
@@ -136,7 +136,7 @@ export const FightWeekFormCard = forwardRef<HTMLDivElement, FightWeekFormCardPro
     return (
       <CardShell ref={ref} aspect={aspect} isPremium={isPro}>
         {/* ── Header strip ──────────────────────────────────────────
-            Two-row eyebrow — "FIGHT WEEK" sits on its own line so the
+            Two-row eyebrow: "FIGHT WEEK" sits on its own line so the
             countdown carries the visual weight. Wide tracking matches
             the rest of the share-card family. */}
         <div style={{ marginBottom: s ? 48 : 28 }}>
@@ -167,9 +167,9 @@ export const FightWeekFormCard = forwardRef<HTMLDivElement, FightWeekFormCardPro
         </div>
 
         {/* ── 5-day bar chart ───────────────────────────────────────
-            Vertical bars, oldest → newest left → right. Each bar is
+            Vertical bars, oldest to newest, left to right. Each bar is
             label + filled track. Null scores render as a dim empty
-            track + "—" so a partial week still ships a coherent card. */}
+            track + "-" so a partial week still ships a coherent card. */}
         <div
           style={{
             display: "grid",
@@ -224,7 +224,7 @@ export const FightWeekFormCard = forwardRef<HTMLDivElement, FightWeekFormCardPro
         </div>
 
         {/* ── Matchup meta line ─────────────────────────────────────
-            "@pratik vs @ortiz · 6.10" — sits at the bottom of the
+            "@pratik vs @ortiz · 6.10" sits at the bottom of the
             content stack, above the watermark CardShell renders for
             free tier. Pro tier still gets this line; only the
             watermark + handle differ. */}
@@ -249,7 +249,7 @@ export const FightWeekFormCard = forwardRef<HTMLDivElement, FightWeekFormCardPro
             Bottom-right pairing with the CardWatermark that CardShell
             renders. Pro tier omits both. The matchup line above
             already carries @userHandle when present, so this is a
-            redundant signature for the watermark area — matches the
+            redundant signature for the watermark area, matching the
             sibling cards' bottom-right handle pattern. */}
         {!isPro && userHandle && (
           <div
@@ -276,7 +276,7 @@ FightWeekFormCard.displayName = "FightWeekFormCard";
 
 // ── DayBar ────────────────────────────────────────────────────────────
 // One column of the 5-day chart: label below + filled track that grows
-// from the baseline up to `score/100`. Null score = dim empty track + "—".
+// from the baseline up to `score/100`. Null score = dim empty track + "-".
 interface DayBarProps {
   date: Date;
   score: number | null;
@@ -289,7 +289,7 @@ function DayBar({ date, score, accent, story }: DayBarProps) {
   const weekday = date
     .toLocaleDateString("en-US", { weekday: "short" })
     .toUpperCase();
-  const display = score == null ? "—" : Math.round(score).toString();
+  const display = score == null ? "-" : Math.round(score).toString();
   const isNull = score == null;
 
   return (
@@ -303,7 +303,7 @@ function DayBar({ date, score, accent, story }: DayBarProps) {
         justifyContent: "flex-end",
       }}
     >
-      {/* Score number above the bar — tabular-nums so the column
+      {/* Score number above the bar: tabular-nums so the column
           widths don't jitter between two- and three-digit days. */}
       <div
         style={{

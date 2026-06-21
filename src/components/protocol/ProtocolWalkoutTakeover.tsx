@@ -1,23 +1,23 @@
-// WP — ProtocolWalkoutTakeover
+// WP: ProtocolWalkoutTakeover
 // Full-screen takeover shown when the athlete finishes the Weight Protocol
 // ("I've made weight & refueled"). It TAKES OVER the whole page: a fixed,
 // full-viewport overlay above everything (z-[120]) with a dark backdrop.
 //
 // Sequence:
-//   1. Celebratory entry — confetti burst + a haloed, bobbing 3D wizard over
+//   1. Celebratory entry: confetti burst + a haloed, bobbing 3D wizard over
 //      an aurora wash with rising motes (blue→green theme). Visual language is
 //      shared with ProtocolCompleteCutscene / the "Aurora Wizard" reference.
 //      All ambient motion is gated behind `useReducedMotion` (static fallback).
-//   2. Once the hero settles, a recap POSTER CARD fades in. That card — a clean,
+//   2. Once the hero settles, a recap POSTER CARD fades in. That card, a clean,
 //      branded, screenshot-worthy 1080×1920 story poster built on the shared
-//      `CardShell` — is the thing that gets saved/shared.
+//      `CardShell`, is the thing that gets saved/shared.
 //   3. Below the card: "Save to Photos" + "Share" (wired to the existing
 //      share-card util so Instagram Story works via the native sheet) and a
 //      subtle "Start over".
 //
 // Save/share reuse: `useShareCard()` (src/hooks/useShareCard.ts), which wraps
 // the shared `captureCardAsBlob` / `downloadCardImage` / `shareCardImage`
-// utilities in src/lib/shareUtils.ts — identical to the rest of the share-card
+// utilities in src/lib/shareUtils.ts, identical to the rest of the share-card
 // family (ReadinessFlexSheet, ShareCardDialog, etc.).
 import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -43,7 +43,7 @@ interface ProtocolWalkoutTakeoverProps {
 
 // Full-size source dimensions for the poster (story 9:16). The on-screen
 // preview just scales this down so the saved/shared export stays crisp at
-// 1080×1920 regardless of device width — same approach as ShareCardDialog.
+// 1080×1920 regardless of device width, same approach as ShareCardDialog.
 const CARD_W = 1080;
 const CARD_H = 1920;
 const MAX_PREVIEW_H = 360;
@@ -92,11 +92,11 @@ async function fireConfetti(): Promise<void> {
 }
 
 function formatKg(value: number | null): string {
-  return value == null ? "—" : `${value.toFixed(1)} kg`;
+  return value == null ? "-" : `${value.toFixed(1)} kg`;
 }
 
 function formatLitres(value: number | null): string {
-  return value == null ? "—" : `+${value.toFixed(1)} L`;
+  return value == null ? "-" : `+${value.toFixed(1)} L`;
 }
 
 // ── Poster card ──────────────────────────────────────────────────────────
@@ -297,7 +297,7 @@ export function ProtocolWalkoutTakeover({
   // Reduced motion → show everything immediately.
   const [showCard, setShowCard] = useState<boolean>(!!prefersReduced);
 
-  // Preview scale — fit the source 1080×1920 poster into the preview budget.
+  // Preview scale: fit the source 1080×1920 poster into the preview budget.
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [dims, setDims] = useState({ w: 200, h: MAX_PREVIEW_H, scale: 0.16 });
 
@@ -350,12 +350,12 @@ export function ProtocolWalkoutTakeover({
   const handleShare = useCallback(() => {
     void captureAndShare(
       "I made weight & refueled.",
-      "Made weight and refueled — built with FightCamp Wizard",
+      "Made weight and refueled, built with FightCamp Wizard",
     );
   }, [captureAndShare]);
 
   // Render through a portal into document.body so the `fixed inset-0` overlay
-  // anchors to the viewport — NOT to any transformed ancestor (e.g. the
+  // anchors to the viewport, NOT to any transformed ancestor (e.g. the
   // PageTransition wrapper, which uses CSS `transform`). A transformed ancestor
   // would otherwise become the containing block for `position: fixed`, pinning
   // the takeover wherever the page is scrolled instead of filling the screen.
@@ -369,7 +369,7 @@ export function ProtocolWalkoutTakeover({
       animate={{ opacity: 1 }}
       transition={{ duration: prefersReduced ? 0 : 0.4, ease: "easeOut" }}
     >
-      {/* Background layer — fills the viewport and stays put BEHIND the scrolling
+      {/* Background layer: fills the viewport and stays put BEHIND the scrolling
           content, so the animated background persists across the ENTIRE
           scrollable area. Previously the gradient + aurora + motes lived on the
           scroll container (`absolute inset-0`), so they clipped to the first
@@ -433,7 +433,7 @@ export function ProtocolWalkoutTakeover({
 
       </div>
 
-      {/* Scrollable content layer — transparent, so the fixed background layer
+      {/* Scrollable content layer: transparent, so the fixed background layer
           shows through at every scroll position. `my-auto` centres the content
           when it fits, but lets it flow from the top (scrollable) when the
           poster is taller than the screen, keeping Save/Share/Start over
@@ -491,7 +491,7 @@ export function ProtocolWalkoutTakeover({
           />
         </div>
 
-        {/* Headline — also visible before the poster reveals so the hero never
+        {/* Headline: also visible before the poster reveals so the hero never
             feels empty. */}
         <motion.p
           className="mt-2 text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground"
@@ -548,7 +548,7 @@ export function ProtocolWalkoutTakeover({
               </div>
             </div>
 
-            {/* Single "Share to Story" action — on iOS the share sheet lets the
+            {/* Single "Share to Story" action: on iOS the share sheet lets the
                 user save to Photos, so a separate Save button is unnecessary. */}
             <div className="mt-5 flex items-center justify-center">
               <button
@@ -566,7 +566,7 @@ export function ProtocolWalkoutTakeover({
               </button>
             </div>
 
-            {/* "Start over" — a real ≥44px tap target (not a tiny text link)
+            {/* "Start over": a real ≥44px tap target (not a tiny text link)
                 so it's reachable and pressable at the bottom of the scroll,
                 clear of the home indicator via the overlay's bottom padding. */}
             <button

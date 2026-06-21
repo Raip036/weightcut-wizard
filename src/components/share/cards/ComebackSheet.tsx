@@ -1,4 +1,4 @@
-// T18: ComebackSheet — bottom-sheet trigger for the ComebackCard share
+// T18: ComebackSheet, the bottom-sheet trigger for the ComebackCard share
 // template. Mirrors ReadinessFlexSheet's shape (caption input, scaled
 // preview, Share / Save buttons backed by useShareCard) so the entire
 // share-card-trigger family stays uniform.
@@ -8,7 +8,7 @@
 //      by user id so multiple users on one device don't share quota.
 //   2. Caption text input (optional, capped at 80 chars to match the card).
 //   3. Scaled preview of the ComebackCard rendered to a hidden full-size
-//      canvas off-screen — same approach as ReadinessFlexSheet so the
+//      canvas off-screen, the same approach as ReadinessFlexSheet so the
 //      export stays at 1080×1920 regardless of preview width.
 //   4. Share + Save buttons via `useShareCard`.
 //
@@ -38,7 +38,7 @@ interface ComebackSheetProps {
   userHandle?: string;
 }
 
-// Mirrors ShareCardDialog / ReadinessFlexSheet — source-size 1080×1920
+// Mirrors ShareCardDialog / ReadinessFlexSheet: source-size 1080×1920
 // rendered off-screen, scaled into the preview budget.
 const CARD_W = 1080;
 const CARD_H_STORY = 1920;
@@ -49,7 +49,7 @@ const MAX_PREVIEW_H = 300;
 const CAPTION_MAX = 80;
 const FREE_MONTHLY_LIMIT = 1;
 
-// localStorage key — "YYYY-MM" of today's month, namespaced per user so
+// localStorage key: "YYYY-MM" of today's month, namespaced per user so
 // account-switching on one device doesn't inherit the previous user's
 // quota. Spec §7.3.b mandates the exact shape: `comeback-card-month:${userId}:${YYYY-MM}`.
 function monthKey(userId: string, today: Date): string {
@@ -72,7 +72,7 @@ function bumpMonthlyCount(userId: string, today: Date): void {
     const next = readMonthlyCount(userId, today) + 1;
     localStorage.setItem(k, String(next));
   } catch {
-    /* localStorage unavailable — fail open, no gate enforcement */
+    /* localStorage unavailable: fail open, no gate enforcement */
   }
 }
 
@@ -105,7 +105,7 @@ export function ComebackSheet({
     if (!open) setCaption("");
   }, [open]);
 
-  // Preview scale — fit the 1080×1920 source into the preview budget.
+  // Preview scale: fit the 1080×1920 source into the preview budget.
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [dims, setDims] = useState({ w: 200, h: MAX_PREVIEW_H, scale: 0.16 });
 
@@ -132,7 +132,7 @@ export function ComebackSheet({
 
   const handleShare = useCallback(async () => {
     if (locked) {
-      // Defensive — buttons are hidden when locked, but if a future
+      // Defensive: buttons are hidden when locked, but if a future
       // refactor wires Share directly, still refuse + surface paywall.
       toast({
         title: "Monthly limit reached",
@@ -143,7 +143,7 @@ export function ComebackSheet({
     }
     await captureAndShare(
       "Comeback.",
-      `${deltaCopy} — built with FightCamp Wizard`,
+      `${deltaCopy}, built with FightCamp Wizard`,
     );
     if (!isPremium) bumpMonthlyCount(userId, today);
   }, [
@@ -268,7 +268,7 @@ export function ComebackSheet({
                 </div>
               </div>
 
-              {/* Free-tier counter — quiet hint, not a paywall blast. */}
+              {/* Free-tier counter: quiet hint, not a paywall blast. */}
               {!isPremium && (
                 <div className="text-[11px] text-center text-muted-foreground/70">
                   {FREE_MONTHLY_LIMIT - usedThisMonth} of {FREE_MONTHLY_LIMIT} free

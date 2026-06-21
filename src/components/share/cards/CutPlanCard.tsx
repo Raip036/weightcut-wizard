@@ -72,7 +72,7 @@ export const CutPlanCard = forwardRef<HTMLDivElement, CutPlanCardProps>(
             </div>
           )}
 
-          {/* Week-by-week table — all weeks, all macros */}
+          {/* Week-by-week table: all weeks, all macros */}
           <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255,255,255,0.1)" }}>
             {/* Header row */}
             <div style={{
@@ -165,7 +165,7 @@ export const CutPlanCard = forwardRef<HTMLDivElement, CutPlanCardProps>(
             lineHeight: 1.4,
             marginTop: "auto",
           }}>
-            Rough guide — FightCamp Wizard adapts alongside you.
+            A rough guide. FightCamp Wizard adapts alongside you.
           </p>
         </div>
       </CardShell>

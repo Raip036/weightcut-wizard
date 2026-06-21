@@ -1,10 +1,10 @@
-// WP-T15 — OrsRecipeCard
+// WP-T15: OrsRecipeCard
 // Clean recipe-card layout for the DIY Oral Rehydration Solution (combat-
 // adapted WHO ORS formula). Renders the per-litre ingredients as tidy
 // 2-column rows separated by hairline dividers, a "make N L total" line,
 // a soft-chip shopping list, and bordered-chip commercial equivalents.
 //
-// Pure presentational — no Convex, no business logic. The caller computes
+// Pure presentational: no Convex, no business logic. The caller computes
 // the ingredient amounts (see spec §6.2) and gates Pro visibility one
 // level up. The big "litres hero" is rendered separately by the page
 // ABOVE this card, so it is intentionally absent here.
@@ -51,7 +51,7 @@ export interface OrsRecipeCardProps {
 function formatAmount(amount: number, unit: RecipeIngredient["unit"]): string {
   const formatted = Number.isFinite(amount)
     ? amount.toLocaleString(undefined, { maximumFractionDigits: 2 })
-    : "—";
+    : "-";
   return `${formatted} ${unit}`;
 }
 
@@ -67,7 +67,7 @@ export function OrsRecipeCard({
   const hasIngredients = perLitre.length > 0;
   const hasShoppingList = diyShoppingList.length > 0;
   const hasCommercial = commercialEquivalents.length > 0;
-  // Only render the summary line when the caller actually has a target —
+  // Only render the summary line when the caller actually has a target:
   // a zero/negative value usually means the upstream cut plan hasn't
   // computed yet, in which case the line would be misleading.
   const showSummary = totalLitresTarget > 0;
@@ -99,7 +99,7 @@ export function OrsRecipeCard({
           DIY ORS · per litre
         </p>
 
-        {/* Per-litre ingredients — clean 2-column rows, hairline dividers */}
+        {/* Per-litre ingredients: clean 2-column rows, hairline dividers */}
         {hasIngredients ? (
           <div className="divide-y divide-border/40">
             {perLitre.map((row, i) => {
@@ -144,7 +144,7 @@ export function OrsRecipeCard({
           </p>
         )}
 
-        {/* Shopping list — soft rounded chips */}
+        {/* Shopping list: soft rounded chips */}
         {hasShoppingList && (
           <div className="mt-3">
             <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground/60 mb-1.5">
@@ -163,7 +163,7 @@ export function OrsRecipeCard({
           </div>
         )}
 
-        {/* Commercial equivalents — bordered chips */}
+        {/* Commercial equivalents: bordered chips */}
         {hasCommercial && (
           <div className="mt-3">
             <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground/60 mb-1.5">

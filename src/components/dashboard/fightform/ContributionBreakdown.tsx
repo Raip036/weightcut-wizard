@@ -32,7 +32,7 @@ interface Props {
 }
 
 /**
- * The contribution breakdown — a segmented bar where each active pillar fills a
+ * The contribution breakdown, a segmented bar where each active pillar fills a
  * slice proportional to its `contributionPts`, a tappable legend, dimmed
  * "log to unlock" rows for inactive pillars, and a subtle honesty note when the
  * displayed score has been smoothed or capped away from the raw composite.
@@ -75,7 +75,7 @@ export function ContributionBreakdown({
         </div>
       )}
 
-      {/* ── 2. Legend — one tappable row per active pillar ───────────── */}
+      {/* ── 2. Legend, one tappable row per active pillar ───────────── */}
       {pillars.length > 0 && (
         <ul className="space-y-0.5">
           {pillars.map((p) => (
@@ -116,7 +116,7 @@ export function ContributionBreakdown({
         </ul>
       )}
 
-      {/* ── 3. Inactive pillars — dimmed "log to unlock" rows ────────── */}
+      {/* ── 3. Inactive pillars, dimmed "log to unlock" rows ────────── */}
       {inactive.length > 0 && (
         <>
           <div className="h-px w-full bg-border/40" aria-hidden />
@@ -157,7 +157,7 @@ export function ContributionBreakdown({
         </>
       )}
 
-      {/* ── 4. Honesty note — smoothing / ceiling transparency ───────── */}
+      {/* ── 4. Honesty note, smoothing / ceiling transparency ───────── */}
       {showHonesty && (
         <p className="px-1 text-[11px] leading-snug text-muted-foreground/80">
           {appliedCeiling

@@ -16,7 +16,7 @@ interface UpgradeDialogProps {
  *
  * Replaces the legacy `NoGemsDialog`. Single CTA upgrades to Pro via the
  * existing `openPaywall()` flow on `useSubscription`. There is intentionally
- * no "Watch Ad" path — ads were removed alongside the gems system.
+ * no "Watch Ad" path; ads were removed alongside the gems system.
  */
 export function UpgradeDialog({ open, onOpenChange, featureName }: UpgradeDialogProps) {
   const { openPaywall } = useSubscription();
@@ -35,7 +35,7 @@ export function UpgradeDialog({ open, onOpenChange, featureName }: UpgradeDialog
         </VisuallyHidden>
 
         <div className="flex flex-col items-center text-center px-6 pt-7 pb-5">
-          {/* Crown icon — mirrors the activation flow visual */}
+          {/* Crown icon: mirrors the activation flow visual */}
           <div className="h-14 w-14 rounded-xs bg-gradient-to-br from-primary/20 to-secondary/20 border border-primary/30 flex items-center justify-center mb-4">
             <Crown className="h-7 w-7 text-primary" />
           </div>

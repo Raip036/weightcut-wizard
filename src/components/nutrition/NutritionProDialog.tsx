@@ -7,8 +7,8 @@ interface NutritionProDialogProps {
 
 /** The value story for AI meal tracking, shown before the paywall. */
 const PERKS = [
-  "Snap a photo — AI reads the plate",
-  "Describe it in plain words — no scales",
+  "Snap a photo and AI reads the plate",
+  "Describe it in plain words, no scales",
   "Hands-free voice logging",
   "Accurate calories & macros in seconds",
 ];
@@ -25,7 +25,7 @@ export function NutritionProDialog({ open, onOpenChange }: NutritionProDialogPro
       open={open}
       onOpenChange={onOpenChange}
       title="AI meal tracking is a Pro feature"
-      blurb="Stop weighing and guessing. Snap a photo or just say what you ate — your AI corner logs the calories and macros for you."
+      blurb="Stop weighing and guessing. Snap a photo or just say what you ate, and your AI corner logs the calories and macros for you."
       perks={PERKS}
     />
   );

@@ -12,7 +12,7 @@ interface ReadinessCardProps {
   userId: string | null | undefined;
 }
 
-// Readiness bands (0–100) mirror the performance-engine action-line
+// Readiness bands (0-100) mirror the performance-engine action-line
 // thresholds so the dashboard verdict matches the Recovery page copy.
 function verdictFor(score: number): { label: string; color: string } {
   if (score >= 80) return { label: "Peaked", color: "text-func-recovery-green" };
@@ -23,28 +23,28 @@ function verdictFor(score: number): { label: string; color: string } {
 
 /**
  * Dashboard "Readiness" metric card. Surfaces the latest daily wellness
- * check-in's readinessScore (0–100) with a verdict band, a trend sparkline,
- * and a last-check-in delta. Visually identical to the WEIGHT / SLEEP cards —
+ * check-in's readinessScore (0-100) with a verdict band, a trend sparkline,
+ * and a last-check-in delta. Visually identical to the WEIGHT / SLEEP cards:
  * neutral number, semantic colour reserved for the small verdict + delta so
  * the stat grid stays cohesive. Taps through to the Recovery page.
  */
 export function ReadinessCard({ userId }: ReadinessCardProps) {
   const navigate = useNavigate();
-  // The whole Recovery surface is Pro-only — surface a lock badge so it
+  // The whole Recovery surface is Pro-only, surface a lock badge so it
   // reads as gated at a glance (the route gate enforces it on tap).
   const { hasAccess } = useFeatureAccess("RECOVERY");
   const rows = useQuery(
     api.wellness.listCheckins,
     userId ? { limit: 14 } : "skip",
   );
-  // Live readiness — the SAME number the Recovery page hero shows. Skip the
+  // Live readiness, the SAME number the Recovery page hero shows. Skip the
   // compute for free users (they never see the number, just the Pro gate).
   const { score: liveScore } = useRecoveryReadiness(hasAccess ? userId : null);
 
   const today = new Date().toISOString().split("T")[0];
 
   // Persisted readiness history (carries each day's score once /recovery has
-  // computed it) — used to draw the multi-day line.
+  // computed it), used to draw the multi-day line.
   const scored = (rows ?? []).filter(
     (r): r is typeof r & { readinessScore: number } =>
       typeof r.readinessScore === "number",
@@ -96,7 +96,7 @@ export function ReadinessCard({ userId }: ReadinessCardProps) {
         <>
           <div className="mt-2 flex items-baseline gap-1.5">
             <span className="font-display font-bold text-[40px] leading-none text-foreground tabular-nums">
-              {displayScore != null ? Math.round(displayScore) : "—"}
+              {displayScore != null ? Math.round(displayScore) : "-"}
             </span>
             {verdict && (
               <span className={`text-note font-semibold ${verdict.color}`}>
@@ -132,7 +132,7 @@ export function ReadinessCard({ userId }: ReadinessCardProps) {
           </div>
         </>
       ) : (
-        // Free users never see the score — render an aesthetic crown gate
+        // Free users never see the score, render an aesthetic crown gate
         // instead (the number is not in the DOM). Absolutely centered over the
         // whole card so it's optically dead-centre regardless of the header.
         // Taps through to the animated Recovery Pro gate at /recovery.

@@ -92,7 +92,7 @@ export function AIFloatingIndicator() {
   }, [tasks]);
 
   // Auto-dismiss done/error tasks when user is on the page that has the result
-  // (they already see the content inline — no need for a "Ready" pill)
+  // (they already see the content inline, no need for a "Ready" pill)
   useEffect(() => {
     tasks.forEach((t) => {
       if ((t.status === "done" || t.status === "error") && location.pathname === t.returnPath) {

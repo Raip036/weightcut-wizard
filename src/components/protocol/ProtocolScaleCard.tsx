@@ -2,12 +2,12 @@ import { useState } from "react";
 import { Droplets, Moon } from "lucide-react";
 
 /**
- * ProtocolScaleCard — the "Chapter 03 · The Scale" StoryCard from the approved
+ * ProtocolScaleCard: the "Chapter 03 · The Scale" StoryCard from the approved
  * WeightProtocolStoryLab mockup, extracted into a real, self-contained component.
  *
  * The user logs how many kilos they sweated off after weigh-in, how many hours
  * remain until the fight (prefilled from the camp's weigh-in→fight gap, but
- * editable), and — when that gap spans overnight — their sleep window. Once
+ * editable), and (when that gap spans overnight) their sleep window. Once
  * valid we preview the ORS volume to replace and let them generate an
  * hour-by-hour rehydration + refeed plan that schedules NO intake during sleep.
  */
@@ -22,9 +22,9 @@ const hsl = (t: string, a = 1) => `hsl(${t} / ${a})`;
 export interface ProtocolScaleSubmit {
   sweatKg: number;
   hoursUntilFight: number;
-  /** Hour-of-day (0–24) the athlete sleeps; null when no overnight gap. */
+  /** Hour-of-day (0-24) the athlete sleeps; null when no overnight gap. */
   sleepStartHour: number | null;
-  /** Hour-of-day (0–24) the athlete wakes; null when no overnight gap. */
+  /** Hour-of-day (0-24) the athlete wakes; null when no overnight gap. */
   sleepEndHour: number | null;
 }
 
@@ -102,7 +102,7 @@ export function ProtocolScaleCard(props: {
           </h2>
           <p className="text-[13px] text-muted-foreground leading-snug mt-1.5">
             Made weight? Log how much you sweated off and how long until you
-            fight — I'll build an hour-by-hour rehydration plan, scaled to you.
+            fight, and I'll build an hour-by-hour rehydration plan, scaled to you.
           </p>
         </header>
 
@@ -139,7 +139,7 @@ export function ProtocolScaleCard(props: {
           />
         </Field>
 
-        {/* Sleep window — only when the gap spans overnight */}
+        {/* Sleep window: only when the gap spans overnight */}
         {spansOvernight && (
           <div
             className="mt-4 rounded-xl border surface-inset p-3"
@@ -148,7 +148,7 @@ export function ProtocolScaleCard(props: {
             <div className="flex items-center gap-1.5 mb-3">
               <Moon className="h-3.5 w-3.5 shrink-0" style={{ color: hsl(CYAN) }} />
               <span className="text-[10px] uppercase tracking-wide font-semibold text-muted-foreground/80 leading-none">
-                Sleep window — no intake while you sleep
+                Sleep window: no intake while you sleep
               </span>
             </div>
 

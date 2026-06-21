@@ -79,6 +79,10 @@ const QUERY_LIMIT = 0;
 
 /** Non-interactive native calls (availability / status checks). */
 const HEALTH_QUICK_TIMEOUT_MS = 10_000;
+/** Lazy plugin-chunk import. Bounded so a chunk that never resolves inside the
+ *  iOS WKWebView (stale hashed chunk after a deploy, offline) can't leave the
+ *  connect flow awaiting forever. */
+const HEALTH_IMPORT_TIMEOUT_MS = 15_000;
 /** Interactive permission sheet — generous (the user reads + taps Allow) but
  *  bounded so a sheet that never presents can't hang the UI forever. */
 const HEALTH_AUTH_TIMEOUT_MS = 45_000;
@@ -235,16 +239,30 @@ async function getPlugin(): Promise<PluginHandle | null> {
         // cannot be resolved inside the iOS WKWebView, which made isAvailable() reject
         // and surface "Apple Health unavailable" on device. Mirrors the working
         // RevenueCat loader in src/lib/purchases.ts.
-        const mod = (await import("@capgo/capacitor-health")) as unknown as {
+        //
+        // Bounded by withTimeout: a lazy chunk that never settles in the WKWebView
+        // (stale hashed chunk after a deploy, offline) would otherwise leave the
+        // connect flow's await pending forever, sticking the "Opening Health..."
+        // spinner. On any failure we clear the memo below so a later attempt retries.
+        const mod = (await withTimeout(
+          import("@capgo/capacitor-health"),
+          HEALTH_IMPORT_TIMEOUT_MS,
+          "importPlugin",
+        )) as unknown as {
           Health?: unknown;
         };
         if (!mod.Health) {
           logger.error("healthKit: Health export missing from @capgo/capacitor-health");
+          pluginPromise = null;
           return null;
         }
         return mod.Health as PluginHandle;
       } catch (err) {
         logger.error("healthKit: plugin import failed", { error: String(err) });
+        // Don't cache the failure: reset so the next call can re-attempt the import
+        // (e.g. once the network recovers) instead of being stuck null for the
+        // app's lifetime.
+        pluginPromise = null;
         return null;
       }
     })();

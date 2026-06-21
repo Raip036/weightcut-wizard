@@ -1,7 +1,7 @@
-// WP-T17 — DoNotCallouts
-// Stark, dark, attention-grabbing card listing 5–7 safety "do not"
+// WP-T17: DoNotCallouts
+// Stark, dark, attention-grabbing card listing 5-7 safety "do not"
 // warnings on the Weight Protocol page. Always visible (free + Pro),
-// no interaction, no mount animation — these are safety callouts so
+// no interaction, no mount animation; these are safety callouts so
 // they need to be readable immediately.
 //
 // Visual conventions:
@@ -13,7 +13,7 @@
 import { Icon } from "@/components/ui/Icon";
 
 export interface DoNotCalloutsProps {
-  /** 5–7 stark warnings, e.g. "Slam plain water post-weigh-in". */
+  /** 5-7 stark warnings, e.g. "Slam plain water post-weigh-in". */
   items: string[];
   className?: string;
 }
@@ -40,7 +40,7 @@ export function DoNotCallouts({ items, className = "" }: DoNotCalloutsProps) {
         </p>
       </div>
 
-      {/* Bullet list — use a non-native bullet so we control colour & spacing.
+      {/* Bullet list: use a non-native bullet so we control colour & spacing.
           `list-none` + manual glyph keeps the dot a precise tone we can
           dim relative to the text. */}
       <ul className="mt-3 list-none space-y-2">

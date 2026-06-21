@@ -141,7 +141,7 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
         setSelectedWeekStart(calendarWeekStart);
     }, [calendarWeekStart]);
 
-    // Re-fetch hook is now a no-op shim — the Convex subscription keeps the list live.
+    // Re-fetch hook is now a no-op shim; the Convex subscription keeps the list live.
     // Kept under the same name so the rest of the file's call-sites compile.
     const fetchAllSummaries = useCallback(async () => { /* live via useQuery */ }, []);
 
@@ -181,12 +181,12 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
         fetchAllSummaries();
     }, [fetchAllSummaries]);
 
-    // Initial load — uses cache
+    // Initial load: uses cache
     useEffect(() => {
         fetchWeekSessions();
     }, [fetchWeekSessions]);
 
-    // Re-fetch on new session logged — bypass cache
+    // Re-fetch on new session logged: bypass cache
     useEffect(() => {
         if (sessionLoggedTrigger > 0) fetchWeekSessions(true);
     }, [sessionLoggedTrigger]);
@@ -203,14 +203,14 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
         [weekSessions]
     );
 
-    // Past weeks that have a saved summary — drives the timeline chips. DESC
+    // Past weeks that have a saved summary; drives the timeline chips. DESC
     // (newest first) to match WeeklyTimeline's contract.
     const summarisedWeeks = useMemo(
         () => savedSummaries.map(s => s.week_start).sort((a, b) => b.localeCompare(a)),
         [savedSummaries]
     );
 
-    // Change detection — only for the current calendar week
+    // Change detection: only for the current calendar week
     const buttonState: ButtonState = useMemo(() => {
         if (sessionsWithNotes.length === 0) return "hidden";
         if (!selectedSummary) return "generate";
@@ -275,13 +275,13 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                 !!dataRec.debrief &&
                 typeof dataRec.debrief === "object";
             if (!isNewShape) {
-                throw new Error("AI returned malformed recap — please retry.");
+                throw new Error("AI returned malformed recap. Please retry.");
             }
 
             const fingerprint = computeFingerprint(weekSessions);
             const allSessionIds = sessionsWithNotes.map(s => s.id);
 
-            // Upsert via Convex — handler is idempotent on (userId, weekStart).
+            // Upsert via Convex; handler is idempotent on (userId, weekStart).
             // The new shape isn't list-additive (techniques live in their own
             // table, written server-side), so we just persist the latest.
             await upsertSummaryMut({
@@ -359,7 +359,7 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                 />
             )}
 
-            {/* Manual generate / update control — the single entry point. */}
+            {/* Manual generate / update control: the single entry point. */}
             {buttonState !== "hidden" && (
                 <div className="flex items-center justify-center min-h-[44px]">
                     {isGenerating ? (
@@ -402,7 +402,7 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                 </div>
             )}
 
-            {/* Summary display — header (collapse + delete) is shared */}
+            {/* Summary display: header (collapse + delete) is shared */}
             {(isNewSummaryShape || isLegacySummaryShape) && summaryToDisplay && (
                 <div className="space-y-3">
                     <div className="flex items-center justify-between w-full">
@@ -419,7 +419,7 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                         )}
                     </div>
 
-                    {/* Legacy summaries — small chip + regenerate tap. */}
+                    {/* Legacy summaries: small chip + regenerate tap. */}
                     {isSummaryOpen && isLegacySummaryShape && (
                         <div className="card-surface rounded-xs border border-border/60 px-4 py-3 flex items-center gap-3">
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted/30 border border-border/50 text-[10px] uppercase tracking-wider font-bold text-muted-foreground flex-shrink-0">
@@ -439,14 +439,14 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                         </div>
                     )}
 
-                    {/* New shape — stats strip, recap debrief, timeline */}
+                    {/* New shape: stats strip, recap debrief, timeline */}
                     {isSummaryOpen && isNewSummaryShape && newSummary && (
                         <div className="space-y-4">
                             {/* Stats strip */}
                             <div className="grid grid-cols-4 gap-3">
                                 <StatCell label="Sessions" value={`${newSummary.stats.sessionsLogged}`} />
                                 <StatCell label="Minutes" value={`${newSummary.stats.totalMinutes}`} />
-                                <StatCell label="Top sport" value={newSummary.stats.topDiscipline || "—"} />
+                                <StatCell label="Top sport" value={newSummary.stats.topDiscipline || "-"} />
                                 <StatCell
                                     label={newSummary.stats.avgRpe !== undefined ? "Avg RPE" : "Avg sleep"}
                                     value={
@@ -454,15 +454,15 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                                             ? newSummary.stats.avgRpe.toFixed(1)
                                             : newSummary.stats.avgSleepHours !== undefined
                                                 ? `${newSummary.stats.avgSleepHours.toFixed(1)}h`
-                                                : "—"
+                                                : "-"
                                     }
                                 />
                             </div>
 
-                            {/* Recap debrief — headline, takeaways, watch-out */}
+                            {/* Recap debrief: headline, takeaways, watch-out */}
                             <WeeklyRecap headline={newSummary.weekHeadline} debrief={newSummary.debrief} />
 
-                            {/* Weekly timeline — past-week chips */}
+                            {/* Weekly timeline: past-week chips */}
                             {summarisedWeeks.length > 0 && (
                                 <div className="space-y-2">
                                     <p className="text-micro uppercase tracking-wider text-muted-foreground/70 font-bold">
@@ -480,7 +480,7 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                 </div>
             )}
 
-            {/* Technique log — all-time, searchable library of logged techniques */}
+            {/* Technique log: all-time, searchable library of logged techniques */}
             <button
                 type="button"
                 onClick={() => setIsTechniqueLogOpen(true)}
@@ -512,7 +512,7 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
     );
 }
 
-// ─── Small inline stats cell — used by the new shape's stats strip ────────
+// ─── Small inline stats cell, used by the new shape's stats strip ────────
 function StatCell({ label, value }: { label: string; value: string | number }) {
     return (
         <div className="flex flex-col gap-0.5">

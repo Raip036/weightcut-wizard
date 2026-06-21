@@ -1,7 +1,7 @@
 /**
- * CutPlanDialog — thin bottom-sheet wrapper around the canonical
+ * CutPlanDialog, thin bottom-sheet wrapper around the canonical
  * `InlinePlanDisplay` timeline. Kept as a wrapper (not deleted) so any
- * pre-existing call sites keep working — but the legacy bespoke
+ * pre-existing call sites keep working, but the legacy bespoke
  * wall-of-text rendering it used to do was removed on 2026-05-18 to
  * guarantee the user sees the SAME plan UI everywhere (onboarding,
  * /cut-plan review, profile, dashboard).
@@ -28,7 +28,7 @@ export function CutPlanDialog({ open, onOpenChange }: CutPlanDialogProps) {
     } catch {
       return null;
     }
-    // Re-read every time the sheet opens — the plan can be regenerated
+    // Re-read every time the sheet opens, the plan can be regenerated
     // elsewhere in the app and we want fresh data on each present.
 
   }, []);
@@ -51,7 +51,7 @@ export function CutPlanDialog({ open, onOpenChange }: CutPlanDialogProps) {
         <SheetHeader className="px-5 pb-3 pt-1 text-left shrink-0 relative pr-12">
           <SheetTitle className="text-lg font-bold">{title}</SheetTitle>
           <p className="text-xs text-muted-foreground">Personalised · Science-backed · Adaptive</p>
-          {/* Explicit close — Radix's built-in X is suppressed via the
+          {/* Explicit close, Radix's built-in X is suppressed via the
               SheetContent class so this button is the only exit. */}
           <button
             type="button"
@@ -67,7 +67,7 @@ export function CutPlanDialog({ open, onOpenChange }: CutPlanDialogProps) {
           className="flex-1 min-h-0 overflow-y-auto scrollbar-hide scroll-touch"
           style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 6rem)" }}
         >
-          {/* Reuse the canonical onboarding plan timeline — same component,
+          {/* Reuse the canonical onboarding plan timeline, same component,
               same data shape, identical visuals to /cut-plan + /weight-plan
               and the post-onboarding review. `onContinue` simply dismisses
               the sheet since this surface is a read-only revisit. */}

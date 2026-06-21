@@ -19,12 +19,12 @@ interface Props {
   pillarKey: SubScoreKey | null;
   /** value/weight/reason/meta/completeness */
   sub: SubScore | null;
-  /** pts + weight% — may be null for inactive pillars. */
+  /** pts + weight%, may be null for inactive pillars. */
   contribution?: PillarContribution | null;
   phase: string | null;
   /** Optional per-pillar sparkline data. */
   trend?: TrendPoint[];
-  /** Deep-link handler — navigates and closes the parent sheet. */
+  /** Deep-link handler, navigates and closes the parent sheet. */
   onNavigate: (route: string) => void;
   /**
    * Whether HealthKit recovery (HRV/RHR) is currently feeding the score. Only
@@ -55,7 +55,7 @@ const TIER_BAR: Record<Tier, string> = {
 };
 
 /**
- * Per-pillar drill-down dialog. Deterministic + free — no AI, no fetching.
+ * Per-pillar drill-down dialog. Deterministic + free, no AI, no fetching.
  *
  * Matches the sheet's existing `SubScoreDialog` visual language (header value,
  * engine reason, contribution bar, "How this is measured" explainer, sparkline)
@@ -114,7 +114,7 @@ function PillarDetailBody({
 
   return (
     <>
-      {/* 1 — header: icon + label + value */}
+      {/* 1, header: icon + label + value */}
       <DialogTitle className="flex items-center gap-2 text-base">
         <Icon
           name={SUBSCORE_ICON[pillarKey] ?? "ellipseOutline"}
@@ -128,12 +128,12 @@ function PillarDetailBody({
         </span>
       </DialogTitle>
 
-      {/* 2 — primary explanation (engine reason) */}
+      {/* 2, primary explanation (engine reason) */}
       <DialogDescription className="text-foreground/85 leading-snug">
         {sub.reason}
       </DialogDescription>
 
-      {/* 3 — contribution bar (active pillars only) */}
+      {/* 3, contribution bar (active pillars only) */}
       {contribution && (
         <div className="space-y-1">
           <div
@@ -152,7 +152,7 @@ function PillarDetailBody({
         </div>
       )}
 
-      {/* 4 — "How this is measured" explainer */}
+      {/* 4, "How this is measured" explainer */}
       {SUBSCORE_EXPLAINER[pillarKey] && (
         <div className="rounded-xs bg-muted/15 border border-border/40 px-3 py-2.5">
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground/70 font-medium mb-1">
@@ -164,9 +164,9 @@ function PillarDetailBody({
         </div>
       )}
 
-      {/* 4b — Apple Health status (recovery dimension only). Tells the user
+      {/* 4b, Apple Health status (recovery dimension only). Tells the user
             whether HRV/RHR is sharpening the score, or paused because Apple
-            Health isn't connected — so the device signal's absence never reads
+            Health isn't connected, so the device signal's absence never reads
             as the whole pillar being broken. */}
       {pillarKey === RECOVERY_DIMENSION_KEY &&
         (healthKitActive ? (
@@ -192,13 +192,13 @@ function PillarDetailBody({
             </div>
             <p className="text-[12px] leading-snug text-foreground/80">
               Heart-rate variability and resting heart rate are paused and
-              aren't affecting this score — your daily check-in is driving it.
+              aren't affecting this score; your daily check-in is driving it.
               Tap to connect Apple Health.
             </p>
           </button>
         ))}
 
-      {/* 5 — per-pillar sparkline */}
+      {/* 5, per-pillar sparkline */}
       {trend && trend.length >= 2 && (
         <div className="h-16 rounded-xs bg-background/40 p-2">
           <FightFormTrendSparkline
@@ -211,7 +211,7 @@ function PillarDetailBody({
         </div>
       )}
 
-      {/* 6 — "What you can do" */}
+      {/* 6, "What you can do" */}
       <div className="space-y-2">
         <div className="section-header">What you can do</div>
         <p className="text-body-sm text-foreground/85 leading-snug">

@@ -1,4 +1,4 @@
-// WP-T12 — LockedDayCard
+// WP-T12: LockedDayCard
 // Soft "preview" that collapses N future-plan days (typically 5-6 for a
 // week-long cut) into a single locked card. Shown to free users for
 // everything past T-(N-1) so the day list still telegraphs what's coming
@@ -17,7 +17,7 @@
 //     "premium preview" rather than "buy now".
 //   - Day list is rendered for real then CSS-blurred to 3px and marked
 //     `aria-hidden` so screen readers don't dictate scrambled copy. The
-//     blur ramps from 0 → 3px over 600ms on mount — feels like the card
+//     blur ramps from 0 → 3px over 600ms on mount, feels like the card
 //     is *locking*, not blurred-on-first-paint.
 //   - The whole card is a single tappable surface. It fires haptic
 //     selection feedback and routes to `onUnlock` if provided, else the
@@ -32,11 +32,11 @@ import type { FightPlan } from "@/../convex/_shared/aiSchemas";
 type DayProjection = FightPlan["days"][number];
 
 export interface LockedDayCardProps {
-  /** The days being collapsed under the lock — typically 5-6. */
+  /** The days being collapsed under the lock; typically 5-6. */
   days: DayProjection[];
   /**
    * Preferred tap handler. When provided, tapping the card routes here
-   * instead of opening the paywall directly — used by the redesigned
+   * instead of opening the paywall directly; used by the redesigned
    * protocol page to defer to its single top-level upgrade gate.
    */
   onUnlock?: () => void;
@@ -46,7 +46,7 @@ export interface LockedDayCardProps {
    */
   onUpgrade?: () => void;
   /**
-   * Used when `days` is empty — i.e. the card stands in for a whole locked
+   * Used when `days` is empty, i.e. the card stands in for a whole locked
    * section (e.g. the rehydration timeline) rather than collapsing real
    * future days. Describes what's behind the lock. Falls back to a generic
    * teaser. Ignored when `days` has entries.
@@ -56,7 +56,7 @@ export interface LockedDayCardProps {
 }
 
 // Cap the keyAction preview length so each row stays single-line under
-// the blur. The blur swallows fine detail anyway — clipping at 30 chars
+// the blur. The blur swallows fine detail anyway, so clipping at 30 chars
 // keeps the layout tight and avoids wrap-induced height jitter.
 const ACTION_PREVIEW_LEN = 30;
 
@@ -100,14 +100,14 @@ export function LockedDayCard({
       transition={{ type: "spring", damping: 24, stiffness: 240 }}
       aria-label={
         hasDays
-          ? `Preview — unlock ${lockedCount} more ${
+          ? `Preview: unlock ${lockedCount} more ${
               lockedCount === 1 ? "day" : "days"
             } with Pro`
-          : `Preview — unlock ${teaser ?? "this section"} with Pro`
+          : `Preview: unlock ${teaser ?? "this section"} with Pro`
       }
       className={`relative w-full text-left card-surface rounded-2xl border border-primary/20 bg-primary/[0.04] overflow-hidden active:scale-[0.99] transition-transform ${className}`}
     >
-      {/* Pro chip, top-right corner — shimmering crown over a quiet "PRO"
+      {/* Pro chip, top-right corner: shimmering crown over a quiet "PRO"
           label. Replaces the old lock icon; signals premium without the
           hard-sell button. */}
       <div className="absolute top-3 right-3 flex items-center gap-1.5">
@@ -118,13 +118,13 @@ export function LockedDayCard({
       </div>
 
       <div className="p-4 pt-4 space-y-3">
-        {/* Gentle teaser line — same 10px uppercase pattern as the rest of
+        {/* Gentle teaser line: same 10px uppercase pattern as the rest of
             the protocol page, but phrased as an invitation, not a sell. */}
         <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary/80">
           Preview · unlock with Pro
         </div>
 
-        {/* Day-line list — real content, blurred. We animate the blur in
+        {/* Day-line list: real content, blurred. We animate the blur in
             (0 → 3px over 600ms) so the locking feels mechanical rather
             than the card appearing already-blurred. Under reduced-motion
             we snap straight to 3px to honour the user preference. */}
@@ -162,7 +162,7 @@ export function LockedDayCard({
               ))}
         </motion.div>
 
-        {/* Quiet footer teaser — muted, no button. The whole card is the
+        {/* Quiet footer teaser: muted, no button. The whole card is the
             tap target; this just tells the user what they'd gain. */}
         <div className="pt-1 inline-flex items-center gap-1.5 text-[12px] text-muted-foreground/80">
           <Icon name="lockClosedOutline" size={12} className="text-primary/70" />

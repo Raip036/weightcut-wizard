@@ -31,7 +31,7 @@ export const CampActiveCampHero = memo(function CampActiveCampHero({
 }: CampActiveCampHeroProps) {
   return (
     <div className="relative">
-      {/* Aurora ambient glow — was `blur-3xl` on a radial-gradient div, which
+      {/* Aurora ambient glow: was `blur-3xl` on a radial-gradient div, which
           on iOS WebView caused 60-120ms-per-frame filter compositing. Now uses
           `.aurora-glow-native` (defined in index.css): same radial-gradient
           shape, no filter:blur. Visually equivalent at this scale. */}

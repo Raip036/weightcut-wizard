@@ -1,4 +1,4 @@
-// T17: ReadinessFlexSheet — bottom-sheet trigger for the ReadinessFlexCard
+// T17: ReadinessFlexSheet, the bottom-sheet trigger for the ReadinessFlexCard
 // share template. Mirrors the existing share-trigger pattern (ShareCardDialog
 // + useShareCard) but as a Sheet rather than a Dialog so the caption input
 // composes naturally with the iOS keyboard. Owns:
@@ -7,7 +7,7 @@
 //      so multiple users on one device don't share quota.
 //   2. Caption text input (optional, capped at 60 chars to match the card).
 //   3. Scaled preview of the ReadinessFlexCard rendered to a hidden full-size
-//      canvas off-screen — same approach ShareCardDialog uses so the export
+//      canvas off-screen, the same approach ShareCardDialog uses so the export
 //      stays at 1080×1920 regardless of the on-screen preview width.
 //   4. Share + Save-to-photos buttons backed by `useShareCard`.
 //
@@ -32,7 +32,7 @@ interface ReadinessFlexSheetProps {
   readiness: number;
   pillars: { recovery: number | null; body: number | null; load: number | null };
   tone: ReadinessTone;
-  /** Display name / handle from UserContext — rendered on the watermark
+  /** Display name / handle from UserContext, rendered on the watermark
    *  row when the user is on the free tier. Optional. */
   userHandle?: string;
 }
@@ -44,14 +44,14 @@ const CARD_W = 1080;
 const CARD_H_STORY = 1920;
 const ASPECT: AspectRatio = "story";
 
-// Visible preview budget — keeps the Share / Save buttons above the iOS
+// Visible preview budget: keeps the Share / Save buttons above the iOS
 // keyboard even when the caption input is focused.
 const MAX_PREVIEW_H = 300;
 
 const CAPTION_MAX = 60;
 const FREE_WEEKLY_LIMIT = 1;
 
-// localStorage key — ISO date of the week's Monday, namespaced per user so
+// localStorage key: ISO date of the week's Monday, namespaced per user so
 // signing in as a second account on the same device doesn't inherit the
 // previous user's quota.
 function weekKey(userId: string, today: Date): string {
@@ -75,7 +75,7 @@ function bumpWeeklyCount(userId: string, today: Date): void {
     const next = readWeeklyCount(userId, today) + 1;
     localStorage.setItem(k, String(next));
   } catch {
-    /* localStorage unavailable — fail open, no gate enforcement */
+    /* localStorage unavailable: fail open, no gate enforcement */
   }
 }
 
@@ -96,7 +96,7 @@ export function ReadinessFlexSheet({
   const [caption, setCaption] = useState("");
 
   // Recompute the gate on every open so a card shared in a previous app
-  // session updates correctly — the user expects "I shared this morning,
+  // session updates correctly. The user expects "I shared this morning,
   // tonight's locked" to hold even after a relaunch.
   const today = useMemo(() => new Date(), [open]); // eslint-disable-line react-hooks/exhaustive-deps
   const usedThisWeek = readWeeklyCount(userId, today);
@@ -108,7 +108,7 @@ export function ReadinessFlexSheet({
     if (!open) setCaption("");
   }, [open]);
 
-  // Preview scale — fit the source 1080×1920 card into the preview budget.
+  // Preview scale: fit the source 1080×1920 card into the preview budget.
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [dims, setDims] = useState({ w: 200, h: MAX_PREVIEW_H, scale: 0.16 });
 
@@ -133,7 +133,7 @@ export function ReadinessFlexSheet({
 
   const handleShare = useCallback(async () => {
     if (locked) {
-      // Defensive — the buttons are hidden when locked, but if a future
+      // Defensive: the buttons are hidden when locked, but if a future
       // refactor ever wires Share directly, still refuse + surface paywall.
       toast({
         title: "Weekly limit reached",
@@ -144,7 +144,7 @@ export function ReadinessFlexSheet({
     }
     await captureAndShare(
       "I'm ready today.",
-      `Readiness ${Math.round(readiness)} — built with FightCamp Wizard`,
+      `Readiness ${Math.round(readiness)}, built with FightCamp Wizard`,
     );
     if (!isPremium) bumpWeeklyCount(userId, today);
   }, [
@@ -269,7 +269,7 @@ export function ReadinessFlexSheet({
                 </div>
               </div>
 
-              {/* Free-tier counter — quiet hint, not a paywall blast. */}
+              {/* Free-tier counter: quiet hint, not a paywall blast. */}
               {!isPremium && (
                 <div className="text-[11px] text-center text-muted-foreground/70">
                   {FREE_WEEKLY_LIMIT - usedThisWeek} of {FREE_WEEKLY_LIMIT} free

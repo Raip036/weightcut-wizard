@@ -1,4 +1,4 @@
-// DriverRow — a single collapsible row for one of the 4 readiness drivers
+// DriverRow: a single collapsible row for one of the 4 readiness drivers
 // (Sleep, How you feel, Soreness, Training load). Whoop-style "instrument"
 // row: data-forward, divided, with an inline horizontal score meter.
 //
@@ -6,8 +6,8 @@
 //            inline score meter · score number + delta pill · chevron
 // Expanded:  big /100 score · 7d sparkline · 1-sentence "why this is X"
 //
-// Null score (e.g. wellness before today's check-in): NEUTRAL state — a muted
-// "—", no red, no delta arrow, an inline "Tap to check in" affordance, and an
+// Null score (e.g. wellness before today's check-in): NEUTRAL state, a muted
+// "-", no red, no delta arrow, an inline "Tap to check in" affordance, and an
 // empty/muted meter. Never a red 0.
 
 import { motion, useReducedMotion, AnimatePresence } from "motion/react";
@@ -37,7 +37,7 @@ export interface DriverRowProps {
 
 // ── Null-safe color helpers ─────────────────────────────────────────────
 // Reused/extended from the original thresholds; `null` always returns a
-// muted neutral tone — never red.
+// muted neutral tone, never red.
 function sparklineColorForScore(score: number | null): string {
   if (score == null) return "text-muted-foreground/40";
   if (score >= 80) return "text-func-recovery-green";
@@ -178,7 +178,7 @@ export function DriverRow({
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              {/* Label never truncates — only the tone one-liner may ellipsize. */}
+              {/* Label never truncates; only the tone one-liner may ellipsize. */}
               <span className="text-[13px] font-semibold text-foreground whitespace-nowrap shrink-0">
                 {label}
               </span>
@@ -197,7 +197,7 @@ export function DriverRow({
                 className="text-[18px] font-bold leading-none text-muted-foreground/50"
                 aria-label={`${label} not checked in yet`}
               >
-                —
+                -
               </span>
             ) : (
               <span
@@ -241,7 +241,7 @@ export function DriverRow({
                     className="text-[28px] leading-none font-bold text-muted-foreground/50"
                     aria-label={`${label} not checked in yet`}
                   >
-                    —
+                    -
                   </span>
                 ) : (
                   <span

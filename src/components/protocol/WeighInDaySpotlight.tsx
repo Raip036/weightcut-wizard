@@ -1,4 +1,4 @@
-// WP-T14 — WeighInDaySpotlight
+// WP-T14: WeighInDaySpotlight
 // Large hero card for D-0 (weigh-in day) showing the morning timeline of
 // beats: weight check → final sauna (if needed) → on-stage → first food
 // + ORS. The card is intrinsically attention-worthy, so it ships with an
@@ -81,7 +81,7 @@ export function WeighInDaySpotlight({
       transition={{ type: "spring", damping: 24, stiffness: 280, duration: 0.32 }}
       className={`relative overflow-hidden card-surface rounded-2xl border border-border/50 p-5 ${className}`}
     >
-      {/* Amber 2px top stripe — matches TodaysActionHero / FightPlanDayCard
+      {/* Amber 2px top stripe: matches TodaysActionHero / FightPlanDayCard
           "today" treatment. Weigh-in day is always attention-worthy. */}
       <div
         aria-hidden
@@ -112,7 +112,7 @@ export function WeighInDaySpotlight({
       <div className="mt-4">
         {hasEntries ? (
           <ol className="relative space-y-3">
-            {/* Connector bar — sits behind the rows and is hidden from
+            {/* Connector bar: sits behind the rows and is hidden from
                 a11y. We use absolute positioning + a calibrated left
                 inset so the bar lands under the row markers. */}
             <div
@@ -169,7 +169,7 @@ function TimelineRow({ entry, index, prefersReduced }: TimelineRowProps) {
       }}
       className="relative pl-5 flex items-center gap-3"
     >
-      {/* Row marker — sits on top of the connector bar. Highlight rows
+      {/* Row marker: sits on top of the connector bar. Highlight rows
           get a filled amber dot; other rows get a muted ring so the bar
           reads as continuous between beats. */}
       <span
@@ -181,7 +181,7 @@ function TimelineRow({ entry, index, prefersReduced }: TimelineRowProps) {
         }`}
       />
 
-      {/* Time chip — tabular nums keeps the column visually aligned. */}
+      {/* Time chip: tabular nums keeps the column visually aligned. */}
       <span
         className={`text-[12px] tabular-nums shrink-0 inline-flex items-center gap-1 ${
           isHighlight
@@ -199,7 +199,7 @@ function TimelineRow({ entry, index, prefersReduced }: TimelineRowProps) {
         <span>{entry.time}</span>
       </span>
 
-      {/* Label — foreground for the highlight beat, muted otherwise. */}
+      {/* Label: foreground for the highlight beat, muted otherwise. */}
       <span
         className={`text-[13px] leading-snug ${
           isHighlight

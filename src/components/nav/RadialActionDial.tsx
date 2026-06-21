@@ -1,5 +1,5 @@
 /**
- * RadialActionDial — iOS-style radial long-press dial.
+ * RadialActionDial: iOS-style radial long-press dial.
  *
  * `children` render as the trigger (e.g. a camera FAB). A press-and-hold of
  * `longPressMs` opens a fan of `options` arranged on a quarter-arc above
@@ -15,13 +15,13 @@
  *       DIAL_OPEN → pointerup w/no highlight | backdrop tap → close → IDLE
  *
  * Implementation notes:
- *  • Pointer Events only — Capacitor's WKWebView surfaces touch as pointer
+ *  • Pointer Events only: Capacitor's WKWebView surfaces touch as pointer
  *    events. `setPointerCapture` keeps move/up routed to the trigger even
  *    when the finger drifts over a bubble or the backdrop.
  *  • `touch-action: none` on the trigger prevents iOS scroll-cancel from
  *    eating the long-press.
  *  • `useReducedMotion`: bubbles snap to final arc position, no springs.
- *  • Single-pointer only — secondary pointers are ignored.
+ *  • Single-pointer only: secondary pointers are ignored.
  */
 import {
   useCallback,
@@ -49,7 +49,7 @@ export interface RadialActionOption {
 }
 
 interface RadialActionDialProps {
-  /** 2–4 options that fan above the trigger. */
+  /** 2-4 options that fan above the trigger. */
   options: RadialActionOption[];
   /** Fires on a simple tap (no long-press), finger released over the trigger. */
   onTap: () => void;

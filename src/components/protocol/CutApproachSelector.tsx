@@ -1,9 +1,9 @@
-// WP-T10 — CutApproachSelector
+// WP-T10: CutApproachSelector
 // 3-way segmented control for the cut approach: gradual / standard /
 // aggressive. The active pill slides between segments via motion's
 // shared layoutId so the transition stays smooth. Haptic selection
 // fires on change (no-op on web). Becomes disabled inside the
-// 48-hour window before weigh-in — at that point the protocol is
+// 48-hour window before weigh-in: at that point the protocol is
 // locked and switching approach would invalidate the day plan.
 //
 // Tooltip-on-tap: when disabled, tapping the control opens a small
@@ -35,7 +35,7 @@ const OPTIONS: ReadonlyArray<{ key: CutApproach; label: string }> = [
 
 // Per-approach explainer shown inline beneath the segmented control. A short
 // summary line + three labeled rows (Water / Carbs / Risk) reads far clearer
-// than the old single run-on sentence — and avoids em dashes entirely.
+// than the old single run-on sentence, and avoids em dashes entirely.
 const APPROACH_DESC: Record<
   CutApproach,
   { summary: string; rows: ReadonlyArray<readonly [string, string]> }
@@ -172,7 +172,7 @@ export function CutApproachSelector({
         segmented
       )}
 
-      {/* Inline explainer for the selected approach — clear, structured,
+      {/* Inline explainer for the selected approach: clear, structured,
           no em dashes. Updates live as the segment changes. */}
       <div className="mt-2.5 rounded-xl border border-border/30 bg-muted/20 px-3.5 py-3">
         <p className="text-[12.5px] font-semibold tracking-tight text-foreground">

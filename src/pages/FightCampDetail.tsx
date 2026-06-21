@@ -62,7 +62,7 @@ export default function FightCampDetail() {
   const [shareOpen, setShareOpen] = useState(false);
   const [activeField, setActiveField] = useState<ActiveField>(null);
 
-  // Saved ✓ flash — mirrors the Goals page.
+  // Saved ✓ flash, mirrors the Goals page.
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flagSaved = () => {
@@ -219,7 +219,7 @@ export default function FightCampDetail() {
       : null;
 
   // Outcome chip: a soft Apple Health-style status. We don't have a true
-  // win/loss field so we derive from completion + cut depth — "Strong finish"
+  // win/loss field so we derive from completion + cut depth, "Strong finish"
   // when the cut hit a meaningful number, "Wrap-up pending" otherwise.
   const outcome = (() => {
     if (!camp.is_completed) return { label: "In progress", tone: "muted" as const };
@@ -257,7 +257,7 @@ export default function FightCampDetail() {
         </Button>
       </div>
 
-      {/* Hero — outcome chip, camp name, date, 3-up stat tiles */}
+      {/* Hero, outcome chip, camp name, date, 3-up stat tiles */}
       <header className="rounded-xs card-surface overflow-hidden mb-6">
         <div className="px-5 pt-5 pb-4 flex flex-col items-center gap-3">
           <label className="relative cursor-pointer group">
@@ -309,12 +309,12 @@ export default function FightCampDetail() {
         <SettingsGroup title="Weight cut">
           <SettingsRow
             label="Start"
-            value={camp.starting_weight_kg != null ? `${camp.starting_weight_kg} kg` : "—"}
+            value={camp.starting_weight_kg != null ? `${camp.starting_weight_kg} kg` : "-"}
             onTap={() => setActiveField({ key: "starting_weight_kg", title: "Start weight" })}
           />
           <SettingsRow
             label="End"
-            value={camp.end_weight_kg != null ? `${camp.end_weight_kg} kg` : "—"}
+            value={camp.end_weight_kg != null ? `${camp.end_weight_kg} kg` : "-"}
             onTap={() => setActiveField({ key: "end_weight_kg", title: "End weight" })}
           />
           <SettingsRow
@@ -322,14 +322,14 @@ export default function FightCampDetail() {
             value={
               camp.weight_via_dehydration != null || camp.weight_via_carb_reduction != null
                 ? `${camp.weight_via_dehydration ?? 0} / ${camp.weight_via_carb_reduction ?? 0} kg`
-                : "—"
+                : "-"
             }
             hint={computedTotal != null ? `Total ${computedTotal}kg` : undefined}
             onTap={() => setActiveField({ key: "breakdown", title: "Cut breakdown" })}
           />
           <SettingsRow
             label="Weigh-in timing"
-            value={camp.weigh_in_timing ? weighInTimingLabel(camp.weigh_in_timing) : "—"}
+            value={camp.weigh_in_timing ? weighInTimingLabel(camp.weigh_in_timing) : "-"}
             onTap={() => setActiveField({ key: "weigh_in_timing", title: "Weigh-in timing" })}
           />
         </SettingsGroup>
@@ -338,17 +338,17 @@ export default function FightCampDetail() {
         <SettingsGroup title="Feel">
           <SettingsRow
             label="Performance"
-            value={camp.performance_feeling ? truncate(camp.performance_feeling, 28) : "—"}
+            value={camp.performance_feeling ? truncate(camp.performance_feeling, 28) : "-"}
             onTap={() => setActiveField({ key: "performance_feeling", title: "Performance feeling" })}
           />
           <SettingsRow
             label="Rehydration notes"
-            value={camp.rehydration_notes ? truncate(camp.rehydration_notes, 28) : "—"}
+            value={camp.rehydration_notes ? truncate(camp.rehydration_notes, 28) : "-"}
             onTap={() => setActiveField({ key: "rehydration_notes", title: "Rehydration notes" })}
           />
         </SettingsGroup>
 
-        {/* STATUS group — inline completed toggle */}
+        {/* STATUS group, inline completed toggle */}
         <SettingsGroup title="Status">
           <button
             type="button"
@@ -399,7 +399,7 @@ export default function FightCampDetail() {
 
 function StatTile({ label, value, unit, accent }: { label: string; value: number | null; unit: string; accent?: boolean }) {
   const display = value == null
-    ? "—"
+    ? "-"
     : value < 0 ? `${value}` : `${value}`;
   return (
     <div className="py-3 px-2 text-center">
@@ -617,7 +617,7 @@ function NumericEditor({
             value={value}
             onChange={(e) => onChange(e.target.value)}
             className="w-[110px] h-14 text-center text-[34px] font-bold tabular-nums bg-transparent border-0 focus-visible:ring-0 px-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-            placeholder="—"
+            placeholder="-"
             inputMode="decimal"
           />
           <span className="text-[15px] text-muted-foreground font-medium">{unit}</span>
@@ -650,7 +650,7 @@ function BreakdownEditor({
   onChange: (d: number, c: number) => void;
   onClose: () => void;
 }) {
-  // Slider value = dehydration share (0–100). If no total yet, default to 0
+  // Slider value = dehydration share (0-100). If no total yet, default to 0
   // and show a soft prompt.
   const effectiveTotal = total ?? ((dehydration ?? 0) + (carbs ?? 0));
   const initialPct = useMemo(() => {
@@ -696,7 +696,7 @@ function BreakdownEditor({
         <p className="text-[28px] font-bold tabular-nums tracking-tight">{effectiveTotal} kg</p>
       </div>
 
-      {/* Split bar — drag to rebalance */}
+      {/* Split bar, drag to rebalance */}
       <div>
         <div className="flex h-7 rounded-full overflow-hidden bg-muted/40 border border-border/40">
           <div
@@ -709,7 +709,7 @@ function BreakdownEditor({
           />
         </div>
 
-        {/* Slider for drag — accessible + touch-friendly */}
+        {/* Slider for drag, accessible + touch-friendly */}
         <div className="px-1 pt-3">
           <Slider
             value={[pct]}

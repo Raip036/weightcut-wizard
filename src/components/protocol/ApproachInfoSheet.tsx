@@ -1,4 +1,4 @@
-// ApproachInfoSheet — explainer bottom sheet for the cut-approach
+// ApproachInfoSheet: explainer bottom sheet for the cut-approach
 // selector. Renders three stacked cards (Gradual / Standard / Aggressive)
 // with tone-coded borders/icons plus a footer note about the 8% safety
 // override. Composed with the same <Sheet>/<SheetContent>/<VisuallyHidden>
@@ -34,7 +34,7 @@ const APPROACHES: ReadonlyArray<ApproachCardSpec> = [
     iconColor: "text-blue-300",
     border: "border-blue-300/30",
     background: "bg-blue-300/[0.04]",
-    title: "Gradual · 6–7 day taper",
+    title: "Gradual · 6-7 day taper",
     subtitle: "Smooth, low-stress cut.",
     bestFor:
       "First-time cutters, cuts under 4% body weight, or anyone who responds poorly to aggressive depletion.",
@@ -48,9 +48,9 @@ const APPROACHES: ReadonlyArray<ApproachCardSpec> = [
     border: "border-primary/30",
     background: "",
     title: "Standard · 5 day taper",
-    subtitle: "The default — most fighters use this.",
+    subtitle: "The default. Most fighters use this.",
     bestFor:
-      "Cuts of 4–6% body weight with normal training load and adequate sleep.",
+      "Cuts of 4-6% body weight with normal training load and adequate sleep.",
     tradeoff:
       "Balanced cost. Glycogen depletes hard from T-3, water restriction from T-1.",
   },
@@ -60,10 +60,10 @@ const APPROACHES: ReadonlyArray<ApproachCardSpec> = [
     iconColor: "text-func-warning-yellow",
     border: "border-func-warning-yellow/30",
     background: "bg-func-warning-yellow/[0.04]",
-    title: "Aggressive · 3–4 day taper",
+    title: "Aggressive · 3-4 day taper",
     subtitle: "Front-loaded cut for veterans.",
     bestFor:
-      "Experienced cutters cutting 5–7% who prefer to compress the discomfort window.",
+      "Experienced cutters cutting 5-7% who prefer to compress the discomfort window.",
     tradeoff:
       "Higher physiological cost. Avoid if sleep is below 6.5 h/night or if you have a history of pulled cuts.",
   },
@@ -166,7 +166,7 @@ export function ApproachInfoSheet({
           ))}
           <p className="pt-1 text-[11.5px] italic leading-snug text-muted-foreground">
             Cuts above 8% body weight are automatically forced to Gradual
-            regardless of your selection — see the safety warning at the top
+            regardless of your selection. See the safety warning at the top
             of the page.
           </p>
         </div>

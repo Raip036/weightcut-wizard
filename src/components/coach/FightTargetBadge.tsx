@@ -66,7 +66,7 @@ const statusStyles: Record<Computed["status"], { dot: string; text: string }> = 
 
 /**
  * Compact badge showing fight date + target weight + on-track status.
- * Pure rendering — all derivation is synchronous client-side. No icons
+ * Pure rendering: all derivation is synchronous client-side. No icons
  * beyond a single Calendar glyph in card variant.
  */
 export const FightTargetBadge = memo(function FightTargetBadge({
@@ -100,7 +100,7 @@ export const FightTargetBadge = memo(function FightTargetBadge({
     );
   }
 
-  // card variant — used on AthleteDetail
+  // card variant, used on AthleteDetail
   return (
     <div className={`card-surface rounded-xs border border-border p-3 ${className}`}>
       <div className="flex items-baseline justify-between mb-2">
@@ -110,7 +110,7 @@ export const FightTargetBadge = memo(function FightTargetBadge({
         <div className="flex items-center gap-1.5">
           <span className={`h-1.5 w-1.5 rounded-full ${sStyle.dot}`} aria-hidden />
           <span className={`text-[11px] font-medium capitalize ${sStyle.text}`}>
-            {c.status === "neutral" ? (c.daysUntil != null && c.daysUntil < 0 ? "past" : "—") : c.status}
+            {c.status === "neutral" ? (c.daysUntil != null && c.daysUntil < 0 ? "past" : "-") : c.status}
           </span>
         </div>
       </div>

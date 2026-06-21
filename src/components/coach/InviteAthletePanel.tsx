@@ -13,8 +13,8 @@ interface Props {
 
 /**
  * Coach-side panel for inviting athletes (or assistant coaches) to a gym
- * by pasting their Convex user id. Calls `gym_members.addMember` which —
- * after the security fix — now creates a *pending* `gym_invites` row that
+ * by pasting their Convex user id. Calls `gym_members.addMember` which,
+ * after the security fix, now creates a *pending* `gym_invites` row that
  * the target user must explicitly accept on their dashboard. The target
  * cannot be silently added; sharing data is opt-in once they accept.
  *

@@ -8,7 +8,7 @@ import { MissionsProDialog } from "./MissionsProDialog";
  *
  * Tapping the CTA opens the animated {@link MissionsProDialog} explainer
  * (Welcome-to-Pro theme) so the user understands the value before reaching
- * the RevenueCat paywall — instead of jumping there cold.
+ * the RevenueCat paywall, instead of jumping there cold.
  *
  * Visual rhythm matches the rest of `/camp` (rounded card-surface p-4), with
  * a premium shimmering-crown crest in place of the old flat icon.
@@ -25,7 +25,7 @@ export function LockedMissionCard() {
     <>
       <div className="relative w-full rounded-2xl border border-primary/20 bg-primary/10 p-4 flex flex-col items-start gap-3 overflow-hidden">
         <div className="flex items-center gap-3">
-          {/* Shimmering crown crest — shared premium marker. */}
+          {/* Shimmering crown crest: shared premium marker. */}
           <ShimmerCrownBadge size={40} />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">

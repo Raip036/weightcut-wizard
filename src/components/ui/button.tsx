@@ -4,7 +4,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
-/* Design System v1 — Button palette (Figma BUTTONS section, node 67:655).
+/* Design System v1: Button palette (Figma BUTTONS section, node 67:655).
  *  - default   = Primary    | Spirit Blue solid, distinct hover/pressed shades
  *  - secondary = Secondary  | Void surface with solid 1px neutral-100 border
  *  - outline   = Tertiary   | Void surface with 0.5px translucent border
@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
  *  - link                   | inline Spirit Blue
  *
  * The Figma also defines a 4-stop "Gradient CTA" variant, but we
- * removed it from the live system — at runtime it read as low-quality
+ * removed it from the live system; at runtime it read as low-quality
  * /chromatic against the dark surface. All hero CTAs now use the
  * standard `default` (Spirit Blue) so the entire app speaks one
  * primary-color language.

@@ -42,14 +42,14 @@ interface Props {
   campAge: { weeksAhead: number } | null;
 }
 
-// Ring geometry — a single progress arc whose sweep tracks the 0–100 score.
+// Ring geometry, a single progress arc whose sweep tracks the 0-100 score.
 const RING_SIZE = 132;
 const RING_STROKE = 8;
 const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
 /**
- * The FightForm score hero — the big composite number wrapped in a tinted
+ * The FightForm score hero, the big composite number wrapped in a tinted
  * progress ring, with the label, camp-pace line and phase/days-to-fight
  * footnotes beneath it.
  *
@@ -60,7 +60,7 @@ const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 export function ScoreHero({ score, label, phase, daysToFight, campAge }: Props) {
   const accent = LABEL_ACCENT[label as FightFormLabel] ?? LABEL_ACCENT.off_pace;
 
-  // One-shot pulse when the score changes — ported from the sheet's
+  // One-shot pulse when the score changes, ported from the sheet's
   // `prevScoreRef` / `scorePulseOn` logic so visual continuity is preserved.
   const prevScoreRef = useRef<number | null>(null);
   const [scorePulseOn, setScorePulseOn] = useState(false);
@@ -101,7 +101,7 @@ export function ScoreHero({ score, label, phase, daysToFight, campAge }: Props) 
             strokeWidth={RING_STROKE}
             className="stroke-muted/30"
           />
-          {/* Progress arc — tinted by label accent, sweep animated in. */}
+          {/* Progress arc, tinted by label accent, sweep animated in. */}
           <motion.circle
             cx={RING_SIZE / 2}
             cy={RING_SIZE / 2}

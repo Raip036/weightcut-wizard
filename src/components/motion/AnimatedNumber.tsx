@@ -3,7 +3,7 @@ import { useMotionValue, useSpring, useReducedMotion } from "motion/react";
 
 interface AnimatedNumberProps {
   value: number;
-  /** Format function — receives the current number, returns display string.
+  /** Format function: receives the current number, returns display string.
    *  Default: rounds to integer */
   format?: (n: number) => string;
   className?: string;
@@ -24,7 +24,7 @@ export function AnimatedNumber({
   const motionValue = useMotionValue(prefersReducedMotion ? value : 0);
   const springValue = useSpring(motionValue, springConfig);
 
-  // Write to DOM directly — no React re-renders per frame
+  // Write to DOM directly, no React re-renders per frame
   useEffect(() => {
     const unsubscribe = springValue.on("change", (latest) => {
       if (ref.current) {

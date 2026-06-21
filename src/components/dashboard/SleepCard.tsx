@@ -10,7 +10,7 @@ interface SleepCardProps {
 }
 
 /**
- * Dashboard "Sleep" metric card. Mirrors the WEIGHT card layout exactly —
+ * Dashboard "Sleep" metric card. Mirrors the WEIGHT card layout exactly:
  * eyebrow + chevron top row, big value, sparkline, footer with the 7-night
  * average and last-night delta. Taps through to the Sleep page.
  */
@@ -52,7 +52,7 @@ export function SleepCard({ userId }: SleepCardProps) {
 
       <div className="mt-2 flex items-baseline gap-1.5">
         <span className="font-display font-bold text-[40px] leading-none text-foreground tabular-nums">
-          {latest ? latest.hours.toFixed(1) : "—"}
+          {latest ? latest.hours.toFixed(1) : "-"}
         </span>
         <span className="text-note font-light text-muted-foreground">h</span>
       </div>
@@ -68,7 +68,7 @@ export function SleepCard({ userId }: SleepCardProps) {
         )}
       </div>
 
-      {/* Footer — 7-night avg left, last-night delta right. */}
+      {/* Footer, 7-night avg left, last-night delta right. */}
       <div className="mt-1.5 flex items-center justify-between">
         <span className="text-micro text-muted-foreground tabular-nums">
           {avg7 != null ? `avg ${avg7.toFixed(1)}h` : ""}

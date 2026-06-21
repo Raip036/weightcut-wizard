@@ -1,5 +1,5 @@
 /**
- * CommentInputBar — sticky comment input shown under the top polaroid.
+ * CommentInputBar: sticky comment input shown under the top polaroid.
  *
  * Submits on Enter or send-button tap; auto-clears on success. While the
  * mutation is in flight the send button disables to prevent duplicate

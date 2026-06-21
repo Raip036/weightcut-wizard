@@ -1,22 +1,22 @@
 /**
- * CommentsSheet — bottom sheet that loads paginated comments for one
+ * CommentsSheet: bottom sheet that loads paginated comments for one
  * feed post and lets the viewer add new ones.
  *
  * Performance discipline:
  *   - `useQuery` is gated on `postId != null` so closed sheets fetch
  *     zero data. One post's comments at a time.
- *   - Input value lives in local component state — never in query args.
+ *   - Input value lives in local component state, never in query args.
  *   - Optimistic insert on send: prepend a `pending: true` row keyed by
  *     a temp id, replaced when the server roundtrip resolves.
  *
  * iOS specifics:
  *   - The sheet is `h-[85vh]` so the input bar still has room when the
  *     keyboard is up. Capacitor's @capacitor/keyboard plugin defaults to
- *     `resize: "native"` — iOS shrinks the WKWebView above the keyboard
+ *     `resize: "native"`: iOS shrinks the WKWebView above the keyboard
  *     automatically, so no manual translateY math is needed (and adding
  *     one double-shifts the input off-screen).
  *   - Long-press on a comment opens an action sheet ("Delete") only if
- *     the viewer is the comment's author OR the post's owner — the
+ *     the viewer is the comment's author OR the post's owner. The
  *     server returns `canDelete` pre-computed.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -35,7 +35,7 @@ const COMMENT_PAGE_SIZE = 20;
 
 interface CommentsSheetProps {
   postId: Id<"session_media"> | null;
-  /** Total comment count from the feed row — drives the header copy
+  /** Total comment count from the feed row, drives the header copy
    *  before the paginated query has loaded its first page. */
   initialCount: number;
   onClose: () => void;
@@ -64,7 +64,7 @@ export function CommentsSheet({
   const addCommentMut = useMutation(api.feedSocial.addComment);
   const deleteCommentMut = useMutation(api.feedSocial.deleteComment);
 
-  // Skip the query entirely when the sheet is closed — no fetch per panel.
+  // Skip the query entirely when the sheet is closed, no fetch per panel.
   const { results, status, loadMore } = usePaginatedQuery(
     api.feedSocial.listComments,
     postId ? { postId } : "skip",
@@ -87,7 +87,7 @@ export function CommentsSheet({
 
   // Note: we intentionally do NOT subscribe to Capacitor's keyboard events
   // here. The plugin's default `resize: "native"` mode already shrinks the
-  // WKWebView above the iOS keyboard — so the sheet's h-[85vh] + the input
+  // WKWebView above the iOS keyboard, so the sheet's h-[85vh] + the input
   // bar's safe-area padding naturally float above it. Adding a manual
   // `translateY(--kb-h)` on top of that double-shifts the textarea above
   // the visible viewport, which is why typing appeared broken.
@@ -205,7 +205,7 @@ export function CommentsSheet({
 
         {/* Pinned input bar. Capacitor Keyboard is in `resize: "none"`
             mode app-wide (see src/main.tsx), so the WKWebView no longer
-            resizes when the keyboard opens — instead we mirror the
+            resizes when the keyboard opens. Instead we mirror the
             keyboard height into `--keyboard-inset` and reserve that
             space here so the input never sits behind the keyboard. */}
         <div

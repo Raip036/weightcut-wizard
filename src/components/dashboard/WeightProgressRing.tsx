@@ -29,7 +29,7 @@ export const WeightProgressRing = memo(function WeightProgressRing({ currentWeig
         />
       </div>
 
-      {/* Stats row — grid keeps the percentage centered and contained on narrow screens */}
+      {/* Stats row, grid keeps the percentage centered and contained on narrow screens */}
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 mt-2.5">
         <div className="flex items-baseline gap-1 min-w-0 justify-self-start">
           <span className="text-sm font-bold display-number text-primary whitespace-nowrap tabular-nums tracking-tight">
@@ -48,7 +48,7 @@ export const WeightProgressRing = memo(function WeightProgressRing({ currentWeig
         </div>
       </div>
 
-      {/* Current / Target — one-line tabular row. `kg` only on the
+      {/* Current / Target, one-line tabular row. `kg` only on the
           target so the line stays compact on narrow widgets; `nowrap`
           stops the trailing unit from wrapping off the card. */}
       <div className="text-[9px] text-muted-foreground/60 text-center mt-1.5 whitespace-nowrap tabular-nums">

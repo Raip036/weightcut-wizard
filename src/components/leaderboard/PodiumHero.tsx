@@ -44,7 +44,7 @@ export function PodiumHero({
 
   return (
     <div className="glass-card relative overflow-hidden rounded-2xl border border-border/50 p-5">
-      {/* Background flourish — subtle radial wash so the podium pops */}
+      {/* Background flourish: subtle radial wash so the podium pops */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
@@ -85,7 +85,7 @@ export function PodiumHero({
         )}
       </div>
 
-      {/* Podium: 2 — 1 — 3, end-aligned so the tallest pedestal lifts #1 */}
+      {/* Podium: 2, 1, 3, end-aligned so the tallest pedestal lifts #1 */}
       <div className="relative mt-4 flex items-end justify-center gap-4">
         {/* Silver */}
         <div className="flex flex-col items-center">

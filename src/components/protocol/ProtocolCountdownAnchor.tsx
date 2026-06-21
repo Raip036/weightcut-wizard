@@ -1,4 +1,4 @@
-// WP — ProtocolCountdownAnchor
+// WP: ProtocolCountdownAnchor
 // The "weigh-in pivot" anchor that sits at the very top of the protocol
 // page. The whole flow hinges on the weigh-in, so the countdown is the
 // emotional hook: a big number that turns urgent (red) as it approaches

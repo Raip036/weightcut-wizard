@@ -21,7 +21,7 @@ interface ProRouteGateProps {
 
 const DEFAULT_TITLE = "Recovery is a Pro feature";
 const DEFAULT_BLURB =
-  "Track readiness, log wellness check-ins, and get your AI recovery coach — unlock it all with Pro.";
+  "Track readiness, log wellness check-ins, and get your AI recovery coach. Unlock it all with Pro.";
 
 /**
  * Full-screen Pro gate for an entire page/route.

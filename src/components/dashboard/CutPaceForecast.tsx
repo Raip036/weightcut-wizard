@@ -15,13 +15,13 @@ interface CutPaceForecastProps {
   currentWeight: number;
   /**
    * Kept for backwards-compatibility with the caller but no longer
-   * authoritative — the destination weight now comes from the cut plan
+   * authoritative, the destination weight now comes from the cut plan
    * (the last non-dehydration week's target weight).
    */
   goalWeight: number;
   targetDate: string | null | undefined;
   /**
-   * Authoritative plan source — passed from the parent (which reads
+   * Authoritative plan source, passed from the parent (which reads
    * `profile.cut_plan_json`). When defined, takes precedence over the
    * legacy `loadPlan()` localStorage cache. The fallback exists so
    * older call sites continue to work until they migrate.
@@ -61,7 +61,7 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const HIT_TOLERANCE_KG = 0.2;
 const CLOSE_TOLERANCE_KG = 0.6;
 
-// Hero pill — 4-tier summary of "how the focused week is going". Independent
+// Hero pill, 4-tier summary of "how the focused week is going". Independent
 // of the per-week CheckpointStatus used by the dot strip below.
 type HeroTier = "on_track" | "slightly_off" | "behind" | "critical" | "no_data";
 
@@ -85,7 +85,7 @@ const TIER_LABEL: Record<HeroTier, string> = {
   no_data: "NO LOG",
 };
 
-// Card left-edge accent — colour-codes the focused week's status in place of
+// Card left-edge accent, colour-codes the focused week's status in place of
 // the old textual status badge. The tier label still rides the card's
 // aria-label so the status stays available to screen readers.
 const TIER_ACCENT: Record<HeroTier, string> = {
@@ -108,7 +108,7 @@ function loadPlan(): PlanData | null {
   }
 }
 
-// 'Sun May 31' — UTC-anchored so the weekday matches the plan-week boundary.
+// 'Sun May 31', UTC-anchored so the weekday matches the plan-week boundary.
 function fmtWeekDate(iso: string): string {
   const d = new Date(iso + "T00:00:00Z");
   return d.toLocaleDateString("en-US", {
@@ -126,7 +126,7 @@ function daysUntil(iso: string): number {
   return Math.round((target - today) / MS_PER_DAY);
 }
 
-// Per-week segment fill — the colour IS the status, so the row reads as one
+// Per-week segment fill, the colour IS the status, so the row reads as one
 // continuous progress meter rather than dots on a line. Hollow fills
 // (future / no_data) stay recessive so the completed "weight" of the camp is
 // obvious at a glance.
@@ -142,10 +142,10 @@ function segmentFill(status: CheckpointStatus): string {
   }
 }
 
-// Segmented capsule track — one rounded pill split into per-week segments.
+// Segmented capsule track, one rounded pill split into per-week segments.
 // Replaces the old dots-on-a-line. All segments are equal width; the current
 // week is distinguished by its colour fill + crisp inset ring (no glow/
-// box-shadow — that janks on the native webview), so "you are here" reads by
+// box-shadow, that janks on the native webview), so "you are here" reads by
 // colour rather than by an uneven, longer bar. Each segment stays individually
 // tappable and drives the parent's focused-week state.
 function WeekTrack({
@@ -187,7 +187,7 @@ function WeekTrack({
               <span
                 className={[
                   "w-full rounded-full transition-all duration-300",
-                  // Same height as every other bar — the focused week is
+                  // Same height as every other bar, the focused week is
                   // marked by its white ring + label, never by enlarging.
                   baseH,
                   segmentFill(c.status),
@@ -198,7 +198,7 @@ function WeekTrack({
                       : "",
                 ].join(" ")}
               />
-              {/* Fixed-height label slot — only the focused week prints "W{n}"
+              {/* Fixed-height label slot, only the focused week prints "W{n}"
                   so the row never becomes a wall of numbers. */}
               <span className="mt-1.5 h-3 text-[10px] font-semibold tabular-nums leading-none text-foreground">
                 {isFocus ? `W${c.week}` : ""}
@@ -222,7 +222,7 @@ export function CutPaceForecast({
   // (current week, or first future week if plan window has passed). Tapping
   // a dot sets this; tapping the same dot again clears it.
   const [focusedWeek, setFocusedWeek] = useState<number | null>(null);
-  // Swipe tracking for the hero card — lets the user flick left/right to move
+  // Swipe tracking for the hero card, lets the user flick left/right to move
   // between weeks. `suppressClick` stops a horizontal swipe from also firing
   // the card's tap-to-/cut-plan navigation.
   const touchStart = useRef<{ x: number; y: number } | null>(null);
@@ -319,7 +319,7 @@ export function CutPaceForecast({
 
   const { checkpoints, finalTarget, naturalFocus, currentIdx, totalWeeks, startWeight } = data;
 
-  // Resolve the focused checkpoint — explicit override first, falling back
+  // Resolve the focused checkpoint, explicit override first, falling back
   // to the natural focus (current or next-future week).
   const focusCheckpoint =
     (focusedWeek != null && checkpoints.find((c) => c.week === focusedWeek)) ||
@@ -335,7 +335,7 @@ export function CutPaceForecast({
     focusCheckpoint.status === "no_data";
   const isFutureWeek = focusCheckpoint.status === "future";
 
-  // Most-recent log (any date) — used for the "(last Tue)" fallback when the
+  // Most-recent log (any date), used for the "(last Tue)" fallback when the
   // user hasn't logged inside the current calendar week.
   const latestLog = [...weightLogs]
     .filter((l) => !Number.isNaN(parseFloat(l.weight_kg)))
@@ -406,7 +406,7 @@ export function CutPaceForecast({
 
   return (
     <div className="space-y-2">
-      {/* Week track — segmented capsule timeline sits above the focus card.
+      {/* Week track, segmented capsule timeline sits above the focus card.
           Kept outside the hero button so taps don't bubble into the /cut-plan
           navigation. */}
       <WeekTrack
@@ -438,12 +438,12 @@ export function CutPaceForecast({
             goWeek(dx < 0 ? 1 : -1); // swipe left → next week, right → previous
           }
         }}
-        aria-label={`${TIER_LABEL[tier]} — ${heroEyebrow}, target ${focusCheckpoint.targetWeight.toFixed(1)} kg`}
+        aria-label={`${TIER_LABEL[tier]}, ${heroEyebrow}, target ${focusCheckpoint.targetWeight.toFixed(1)} kg`}
         className={`w-full card-surface rounded-2xl border-l-[3px] ${TIER_ACCENT[tier]} p-4 text-left active:scale-[0.99] transition-transform`}
       >
-        {/* Subtle fade-in on focus change — key forces remount → re-plays anim. */}
+        {/* Subtle fade-in on focus change, key forces remount → re-plays anim. */}
         <div key={focusCheckpoint.week} className="animate-in fade-in duration-200">
-          {/* Top row — days-left/position chip. Status is now conveyed by the
+          {/* Top row, days-left/position chip. Status is now conveyed by the
               card's left-edge colour accent rather than a textual badge. */}
           {chip && (
             <div className="flex items-center justify-end gap-2">
@@ -453,7 +453,7 @@ export function CutPaceForecast({
             </div>
           )}
 
-          {/* Eyebrow — WEEK N · Sun May 31 (or WEIGH-IN · …). */}
+          {/* Eyebrow, WEEK N · Sun May 31 (or WEIGH-IN · …). */}
           <p className="mt-3 text-[10px] uppercase tracking-[0.12em] text-muted-foreground/85 font-semibold">
             {heroEyebrow}
           </p>
@@ -510,7 +510,7 @@ export function CutPaceForecast({
 
             {isCurrentWeek ? (
               <>
-                {/* Progress toward pre-dehydration — a bar reads more
+                {/* Progress toward pre-dehydration, a bar reads more
                     premium than a comma-jammed sentence. Hidden when the
                     start-weight denominator isn't trustworthy. */}
                 {progressPct != null && (
@@ -531,7 +531,7 @@ export function CutPaceForecast({
             ) : null}
           </div>
 
-          {/* Inline CTA — only when the user hasn't logged this calendar week. */}
+          {/* Inline CTA, only when the user hasn't logged this calendar week. */}
           {noLogThisWeek && (
             <button
               type="button"

@@ -72,7 +72,7 @@ interface WeekSession {
 const DAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"];
 const CACHE_KEY = "training_week_sessions";
 
-// Module-level in-memory cache — avoids JSON.parse on every mount,
+// Module-level in-memory cache, avoids JSON.parse on every mount,
 // survives component unmount/remount within a session
 const memCache = new Map<string, { data: WeekSession[]; fetchedAt: number }>();
 const inflightRequests = new Map<string, Promise<WeekSession[]>>();
@@ -112,7 +112,7 @@ async function fetchWeekFromServer(userId: string): Promise<WeekSession[]> {
   }
 }
 
-// Exported preload — callable from Dashboard/UserContext before mount
+// Exported preload, callable from Dashboard/UserContext before mount
 export function preloadTrainingWeek(userId: string): void {
   if (!userId) return;
   const mem = memCache.get(userId);
@@ -130,7 +130,7 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
   const [sessions, setSessions] = useState<WeekSession[]>(() => {
     const mem = memCache.get(userId);
     if (mem) return mem.data;
-    // Fall back to localStorage regardless of age — stale-while-revalidate
+    // Fall back to localStorage regardless of age, stale-while-revalidate
     const cached = localCache.get<WeekSession[]>(userId, CACHE_KEY);
     if (cached) {
       memCache.set(userId, { data: cached, fetchedAt: 0 });
@@ -157,7 +157,7 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
         const result = await fetchWeekFromServer(userId);
         if (!cancelled) setSessions(result);
       } catch {
-        // keep stale — widget is non-critical
+        // keep stale, widget is non-critical
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -196,7 +196,7 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
     setLoading(false);
   }, [userId, liveCalendar]);
 
-  // Previous-week totals — fetched once per userId, separate from the current
+  // Previous-week totals, fetched once per userId, separate from the current
   // week so we don't disturb the existing caching pipeline. Compact-only.
   const [prevWeekTotals, setPrevWeekTotals] = useState<{ sessions: number; minutes: number } | null>(null);
   useEffect(() => {
@@ -216,7 +216,7 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
         const minutes = items.reduce((s, r) => s + (r.durationMinutes ?? 0), 0);
         setPrevWeekTotals({ sessions: items.length, minutes });
       } catch {
-        // Non-critical — leave delta unrendered
+        // Non-critical, leave delta unrendered
       }
     })();
     return () => { cancelled = true; };
@@ -238,7 +238,7 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
   const totalSessions = sessions.length;
   const totalMinutes = sessions.reduce((s, x) => s + x.duration_minutes, 0);
 
-  // Count-up animated values (compact-only — kept here for both branches
+  // Count-up animated values (compact-only, kept here for both branches
   // so the hook order stays stable, only consumed in the compact branch)
   const animatedSessions = useCountUp(totalSessions);
   const totalDisplayRaw = totalMinutes >= 60 ? Math.round(totalMinutes / 60) : totalMinutes;
@@ -318,7 +318,7 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
         className="card-surface p-3.5 rounded-2xl overflow-hidden cursor-pointer active:scale-[0.98] transition-all duration-200 aspect-square flex flex-col min-w-0 w-full"
         onClick={() => { triggerHapticSelection(); navigate("/training-calendar?openLogSession=true"); }}
       >
-        {/* Title top-left, expand chevron top-right — matches the WEIGHT card */}
+        {/* Title top-left, expand chevron top-right, matches the WEIGHT card */}
         <div className="flex items-start justify-between">
           <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
             TRAINING
@@ -364,7 +364,7 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
           </div>
         </div>
 
-        {/* Week bar chart — fills remaining space. Each session renders as
+        {/* Week bar chart, fills remaining space. Each session renders as
             its own rounded segment within the day's column, stacked from
             bottom-up. Per-segment height = (duration / 120) * columnH. */}
         <div className="flex items-end justify-between mt-auto px-0.5 gap-1">
@@ -421,7 +421,7 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
       className="card-surface p-3 rounded-2xl overflow-hidden cursor-pointer active:scale-[0.98] transition-all duration-200"
       onClick={() => { triggerHapticSelection(); navigate("/training-calendar?openLogSession=true"); }}
     >
-      {/* Header row — eyebrow label + chevron, matches Weight/Sleep cards */}
+      {/* Header row, eyebrow label + chevron, matches Weight/Sleep cards */}
       <div className="flex items-start justify-between mb-3">
         <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
           TRAINING
@@ -460,7 +460,7 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
           </div>
         </div>
 
-        {/* Right: Mon–Sun bar chart */}
+        {/* Right: Mon-Sun bar chart */}
         <div className="flex-1 flex items-end justify-between gap-1">
           {DAY_LABELS.map((label, i) => {
             const daySessions = dayMap.get(i) ?? [];
@@ -500,7 +500,7 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
         </div>
       </div>
 
-      {/* Type legend pills — single-line carousel. ≤3 pills fit
+      {/* Type legend pills, single-line carousel. ≤3 pills fit
           comfortably on most widths so we render them static. With more,
           we duplicate the row and run the `animate-marquee` keyframe so
           every session type scrolls into view without ever wrapping or

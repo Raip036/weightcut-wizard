@@ -155,7 +155,7 @@ function HealthTilesErrorFallback({
             Couldn't load health data
           </p>
           <p className="mt-0.5 text-[11.5px] leading-snug text-muted-foreground">
-            Pull to refresh — your tiles will reload once we reconnect.
+            Pull to refresh. Your tiles will reload once we reconnect.
           </p>
         </div>
       </div>
@@ -189,7 +189,7 @@ function Tile({ spec }: { spec: TileSpec }): JSX.Element {
         </div>
 
         <p className="display-number text-[26px] leading-none tabular-nums text-foreground">
-          {spec.value ?? "—"}
+          {spec.value ?? "-"}
         </p>
 
         {spec.value === null ? (

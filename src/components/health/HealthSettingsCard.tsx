@@ -489,7 +489,7 @@ function ConnectedBody({
           ) : (
             <RefreshCw className="h-3 w-3" />
           )}
-          {syncing ? "Syncing…" : "Sync stalled — tap to retry"}
+          {syncing ? "Syncing…" : "Sync stalled. Tap to retry"}
         </button>
       ) : (
         <p className="text-[11px] text-muted-foreground">
@@ -603,14 +603,14 @@ function HealthCardErrorFallback({
         </h3>
       </div>
       <p className="text-[12px] leading-snug text-muted-foreground">
-        Couldn't load health data — pull to refresh.
+        Couldn't load health data. Pull to refresh.
       </p>
     </Card>
   );
 }
 
 function formatLastSync(ts: number | null): string {
-  if (!ts) return "Connected — first sync pending.";
+  if (!ts) return "Connected. First sync pending.";
   const diffMs = Date.now() - ts;
   const mins = Math.round(diffMs / 60_000);
   if (mins < 1) return "Last synced just now.";

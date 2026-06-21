@@ -27,7 +27,7 @@ interface MissionCardProps {
 
 const COLLAPSED_ITEM_COUNT = 5;
 
-/** XP awarded per item tick (backend constant — render-time mirror only). */
+/** XP awarded per item tick (backend constant, render-time mirror only). */
 const XP_PER_ITEM = 20;
 
 /**
@@ -132,7 +132,7 @@ function TickRow({
 }
 
 /**
- * Single Training Mission. The card is an accordion item — the header
+ * Single Training Mission. The card is an accordion item: the header
  * is always visible (discipline label, level, title, progress, chevron) and
  * the body (rationale disclosure + checklist) appears only when `expanded`.
  *
@@ -152,7 +152,7 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
   );
   const progressPct = totalCount > 0 ? (doneCount / totalCount) * 100 : 0;
 
-  // "Why this mission" rationale disclosure — collapsed by default.
+  // "Why this mission" rationale disclosure, collapsed by default.
   const [showWhy, setShowWhy] = useState(false);
 
   // Item collapse state persists across navigation via localStorage.
@@ -189,7 +189,7 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
     newLevel: number;
   }>({ xpAwarded: 0, leveledUp: false, newLevel: 1 });
 
-  // Per-discipline XP — drives the LevelRing on the card header. Lives behind a
+  // Per-discipline XP, drives the LevelRing on the card header. Lives behind a
   // dedicated query so the header still renders instantly when this comes back
   // `undefined` (initial load); we just show level 1 / progress 0 in that case.
   const disciplineXp = useQuery(api.user_discipline_xp.getForSport, {
@@ -253,7 +253,7 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
           className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.04] to-transparent"
         />
         {/* ────────────────────────────────────────────────────────────
-            Header — always visible, tap to expand/collapse.
+            Header: always visible, tap to expand/collapse.
             Layout: [ring] [discipline + Lv + title] [done/total] [chevron]
             ──────────────────────────────────────────────────────────── */}
         <button
@@ -265,7 +265,7 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
           aria-expanded={expanded}
           className="relative w-full min-h-[72px] px-4 py-3 flex items-center gap-3 text-left active:bg-muted/15 transition-colors"
         >
-          {/* Level ring — renders with level 1 / progress 0 while the
+          {/* Level ring: renders with level 1 / progress 0 while the
               per-sport XP query is loading. */}
           <LevelRing
             token={token}
@@ -292,7 +292,7 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
             </p>
           </div>
 
-          {/* Mission item count "3/7" — coloured once the user has started. */}
+          {/* Mission item count "3/7", coloured once the user has started. */}
           <span
             className="text-[12px] tabular-nums font-bold flex-shrink-0"
             style={{
@@ -329,11 +329,11 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
         </div>
 
         {/* ────────────────────────────────────────────────────────────
-            Body — only rendered when expanded.
+            Body: only rendered when expanded.
             ──────────────────────────────────────────────────────────── */}
         {expanded && (
           <div className="relative pl-4 pr-4 pt-3 pb-4 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
-            {/* "Why this mission" — collapsed by default. */}
+            {/* "Why this mission", collapsed by default. */}
             {mission.rationale && (
               <div>
                 <button
@@ -368,7 +368,7 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
               </div>
             )}
 
-            {/* Items — text only, with the full tick-reward animation. */}
+            {/* Items: text only, with the full tick-reward animation. */}
             <ul className="space-y-1.5" role="list">
               {visibleItems.map((item) => (
                 <li key={item._id}>
@@ -407,7 +407,7 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
         )}
       </div>
 
-      {/* Full-screen completion celebration — replaces the old modal. */}
+      {/* Full-screen completion celebration: replaces the old modal. */}
       <AnimatePresence>
         {completeOpen && (
           <button

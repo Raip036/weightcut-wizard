@@ -20,7 +20,7 @@ const VERDICT_COPY: Record<Verdict, { headline: string; icon: typeof Zap; color:
 
 /**
  * Combine readiness, overtraining risk, and load zone into a single
- * actionable verdict. Order matters — the harshest signal wins:
+ * actionable verdict. Order matters; the harshest signal wins:
  *   1. critical OT or strained readiness → recover
  *   2. high OT or overreaching load → easy
  *   3. mid-band readiness → steady
@@ -55,7 +55,7 @@ function whyLine(metrics: AllMetrics, checkedInToday: boolean): string {
   const loadReliable = loadConfidence.isReliable;
 
   if (overtrainingRisk.zone === "critical") {
-    return "Your body is showing real signs of doing too much. Take today off — it will pay off the rest of the week.";
+    return "Your body is showing real signs of doing too much. Take today off. It will pay off the rest of the week.";
   }
   if (overtrainingRisk.zone === "high") {
     return "You've been pushing hard. Keep today light or skill-based instead of going all out.";
@@ -88,7 +88,7 @@ export const DailyVerdictCard = memo(function DailyVerdictCard({ metrics, checke
   const rawVerdict = deriveVerdict(metrics);
   // When load confidence is too low, the why-line falls back to a cautious
   // "still learning your normal training pattern" message. The headline must
-  // match — claiming "Push today" or "Recover today" alongside that copy is
+  // match; claiming "Push today" or "Recover today" alongside that copy is
   // jarring. Force the neutral "Steady session" headline so they line up.
   const verdict: Verdict = !metrics.loadConfidence.isReliable ? "steady" : rawVerdict;
   const copy = VERDICT_COPY[verdict];
@@ -140,7 +140,7 @@ interface BaselineConfidencePillProps {
  *   day 14+   → "Tuned to you"
  *
  * Bumped to a richer signal when the baseline has filled its 14d hooper mean
- * (the strictest gate the engine uses for personalisation) — that tells us the
+ * (the strictest gate the engine uses for personalisation): that tells us the
  * "full personal" path is active inside computeAllMetrics regardless of the
  * raw check-in count we passed in.
  */

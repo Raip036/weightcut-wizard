@@ -23,7 +23,7 @@ interface SparringPlanCardProps {
 }
 
 // Default number of "todo" rows shown per discipline before the user has to
-// tap "Show all" — keeps the surface scoped to "this session's focus".
+// tap "Show all"; keeps the surface scoped to "this session's focus".
 const DEFAULT_TODO_VISIBLE = 4;
 
 // XP awarded per assignment completed (mirrors the `toggleAssignment`
@@ -107,7 +107,7 @@ function DisciplineGroup({
 
   return (
     <div className="space-y-2">
-      {/* Discipline header — plain coloured label + refresh affordance. */}
+      {/* Discipline header: plain coloured label + refresh affordance. */}
       <div className="flex items-center gap-2">
         <span
           className="flex-shrink-0 text-[10px] font-bold uppercase tracking-wider"
@@ -155,7 +155,7 @@ function DisciplineGroup({
         </button>
       </div>
 
-      {/* Body — hidden when the group is minimised. */}
+      {/* Body: hidden when the group is minimised. */}
       {!minimised && (
         <>
           {/* Assignment rows */}
@@ -198,7 +198,7 @@ function DisciplineGroup({
 }
 
 /**
- * Sparring To-Do List — a Pro feature that turns logged techniques into a
+ * Sparring To-Do List: a Pro feature that turns logged techniques into a
  * tickable per-discipline checklist for the next sparring session.
  *
  * States:
@@ -238,7 +238,7 @@ export function SparringPlanCard({ userId }: SparringPlanCardProps) {
   // Training Missions behaviour.
   const prefersReduced = useReducedMotion();
   const [celebrating, setCelebrating] = useState(false);
-  // Total XP splashed in the celebration — captured at clear-time so the
+  // Total XP splashed in the celebration, captured at clear-time so the
   // count-up is stable. Mirrors the 15-XP-per-assignment award in
   // `sparring_plan.toggleAssignment`.
   const [celebrationXp, setCelebrationXp] = useState(0);
@@ -268,7 +268,7 @@ export function SparringPlanCard({ userId }: SparringPlanCardProps) {
   // Wait for auth + feature gate before deciding what to render.
   if (!userId || featureStatus === undefined) return null;
 
-  // ── Non-Pro — full Pro wall, mirrors the Training Missions LockedMissionCard. ──
+  // ── Non-Pro: full Pro wall, mirrors the Training Missions LockedMissionCard. ──
   if (!isPro) {
     return <LockedSparringCard />;
   }

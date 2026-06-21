@@ -7,7 +7,7 @@ import { api } from "@/../convex/_generated/api";
 import { MissionCard } from "./MissionCard";
 import { LockedMissionCard } from "./LockedMissionCard";
 
-// At most this many mission cards render at once — keeps the surface
+// At most this many mission cards render at once. Keeps the surface
 // straightforward even when several disciplines have active missions.
 const MAX_VISIBLE_MISSIONS = 4;
 
@@ -34,7 +34,7 @@ export function MissionStack() {
   const feature = useQuery(api.training_missions.getMissionFeatureStatus);
   const missions = useQuery(api.training_missions.getActiveMissions);
 
-  // Accordion state — only one mission card open at a time. Lazy-init from
+  // Accordion state: only one mission card open at a time. Lazy-init from
   // localStorage so a collapsed card stays collapsed across navigation:
   //   - no stored value → undefined → default the first card open.
   //   - COLLAPSED_SENTINEL → null → all cards collapsed.

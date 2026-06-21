@@ -1,24 +1,24 @@
 /**
- * InlinePlanDisplay (v4 — 2026-06-06 premium pass) — generated
+ * InlinePlanDisplay (v4, 2026-06-06 premium pass): generated
  * post-onboarding plan UI, restyled to feel editorial and hand-crafted
  * rather than machine-generated. Mirrors the Recovery feature's visual
  * language: `card-surface` cards with a top accent stripe, soft radial
  * glow halos, spring entrances (damping 22 / stiffness 260) and a gentle
  * breath pulse on the hero.
  *
- *   1. Hero card — camp name + "YOUR CUT" kicker + count-up ring with a
+ *   1. Hero card: camp name + "YOUR CUT" kicker + count-up ring with a
  *      blue glow halo and breath pulse
- *   2. Daily Fuel card — big week-1 calories + a stacked macro proportion
+ *   2. Daily Fuel card: big week-1 calories + a stacked macro proportion
  *      bar (carbs-leading) and the maintain/deficit/target math
  *   3. Coach note (one-line plan intent, no em-dashes)
  *   4. Daily Focus block ONCE at the top (no per-week repetition)
- *   5. Phase cards — icon badge + phase colour, staggered spring entrance
- *   6. Week-by-week accordion — collapsed summary row, expand for macros
- *   7. Fight Week protocol — carb bars, taper- or hold-aware header
+ *   5. Phase cards: icon badge + phase colour, staggered spring entrance
+ *   6. Week-by-week accordion: collapsed summary row, expand for macros
+ *   7. Fight Week protocol: carb bars, taper- or hold-aware header
  *   8. Plan rules + safety + tomorrow anchor (no plan-ID footer)
  *   9. Sticky CTA
  *
- * Consumes the v2 `CutPlanSchema` shape — see `convex/_shared/aiSchemas.ts`.
+ * Consumes the v2 `CutPlanSchema` shape (see `convex/_shared/aiSchemas.ts`).
  */
 import { useMemo, useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
@@ -180,7 +180,7 @@ const PHASE_LABEL: Record<WeekPhase, string> = {
   fight_week: "Fight Week",
 };
 
-// Recovery-matched spring entrance — reused across the main sections.
+// Recovery-matched spring entrance, reused across the main sections.
 const ENTER_SPRING = { type: "spring", damping: 22, stiffness: 260 } as const;
 
 // ─── Util: clean em-dashes from any AI string ─────────────────────────
@@ -189,7 +189,7 @@ const cleanText = (s: string | undefined | null): string =>
 
 // ─── Hero ring ───────────────────────────────────────────────────────
 // The big −X.X kg counts up on mount (AnimatedNumber), the progress arc
-// sweeps in, and the whole ring carries a slow 4s "breath" pulse — the
+// sweeps in, and the whole ring carries a slow 4s "breath" pulse: the
 // same living-card feel as the Recovery readiness hero.
 function HeroRing({
   totalKg,
@@ -276,7 +276,7 @@ function HeroRing({
 
 // ─── Daily Fuel card (big kcal + carb-cycle segmented toggle) ────────
 // Leads with the (constant) daily calorie target, then a Hard / Medium /
-// Rest segmented control. Calories stay identical across all three days —
+// Rest segmented control. Calories stay identical across all three days;
 // only the macros swing: carbs lead and rise on hard days, protein climbs
 // on rest days, fat is held at its floor. The stacked bar + gram labels
 // re-tween when the day type changes. Falls back to a single static split
@@ -336,7 +336,7 @@ function DailyFuelCard({
   const pKcal = p * 4;
   const fKcal = f * 9;
   const totalKcal = Math.max(1, cKcal + pKcal + fKcal);
-  // Carbs FIRST — the leading, largest macro.
+  // Carbs FIRST: the leading, largest macro.
   const segments = [
     { key: "carbs", label: "Carbs", grams: c, color: MACRO_COLOR.carbs, pct: (cKcal / totalKcal) * 100 },
     { key: "protein", label: "Protein", grams: p, color: MACRO_COLOR.protein, pct: (pKcal / totalKcal) * 100 },
@@ -352,7 +352,7 @@ function DailyFuelCard({
       transition={{ ...ENTER_SPRING, delay: 0.05 }}
       className="relative overflow-hidden card-surface rounded-2xl border border-border/50 border-t-2 border-t-primary p-4 mt-4"
     >
-      {/* Soft top glow halo — Recovery's blur-2xl radial trick. */}
+      {/* Soft top glow halo, Recovery's blur-2xl radial trick. */}
       <div
         aria-hidden
         className="pointer-events-none absolute -top-12 left-1/2 -translate-x-1/2 h-32 w-64 rounded-full opacity-10 blur-2xl text-primary"
@@ -375,7 +375,7 @@ function DailyFuelCard({
         </div>
       </div>
 
-      {/* Hard / Medium / Rest segmented control — same calories, carbs swing. */}
+      {/* Hard / Medium / Rest segmented control: same calories, carbs swing. */}
       {canCycle && (
         <div className="relative mt-4 flex rounded-full bg-muted/25 p-0.5">
           {DAY_TABS.map((t) => {
@@ -413,7 +413,7 @@ function DailyFuelCard({
         </div>
       )}
 
-      {/* Stacked macro proportion bar — carbs lead. Re-tweens on day change. */}
+      {/* Stacked macro proportion bar, carbs lead. Re-tweens on day change. */}
       {segments.length > 0 && (
         <>
           <div className="relative mt-4 flex h-3 w-full overflow-hidden rounded-full bg-muted/25">
@@ -453,7 +453,7 @@ function DailyFuelCard({
         </>
       )}
 
-      {/* Cycle explainer — only when the toggle is live. */}
+      {/* Cycle explainer, only when the toggle is live. */}
       {canCycle && (
         <p className="mt-3 text-[11px] text-muted-foreground/80 leading-snug">
           Same calories every day. Carbs lead and climb on hard sessions;
@@ -481,7 +481,7 @@ function DailyFuelCard({
   );
 }
 
-// ─── Daily Focus block — ONE place, top of plan ───────────────────────
+// ─── Daily Focus block: ONE place, top of plan ───────────────────────
 function DailyFocusBlock({ bullets }: { bullets: string[] }) {
   if (!bullets || bullets.length === 0) return null;
   return (
@@ -509,7 +509,7 @@ function DailyFocusBlock({ bullets }: { bullets: string[] }) {
   );
 }
 
-// ─── Coach note — editorial, hand-written feel ───────────────────────
+// ─── Coach note: editorial, hand-written feel ───────────────────────
 function CoachNote({ text }: { text: string }) {
   const cleaned = cleanText(text);
   if (!cleaned) return null;
@@ -530,7 +530,7 @@ function CoachNote({ text }: { text: string }) {
   );
 }
 
-// ─── Phase cards — icon badge + phase colour, staggered entrance ─────
+// ─── Phase cards: icon badge + phase colour, staggered entrance ─────
 function PhasePills({
   phases,
   onTapPhase,
@@ -620,12 +620,12 @@ function WeekAccordionRow({
     >
       <div className={`w-1 shrink-0 ${rail}`} aria-hidden />
       <div className="flex-1 min-w-0">
-        {/* Collapsed summary row — always visible, tappable. */}
+        {/* Collapsed summary row, always visible, tappable. */}
         <button
           type="button"
           onClick={onToggle}
           aria-expanded={open}
-          aria-label={`Week ${row.week}, ${PHASE_LABEL[row.phase]} — ${row.targetWeight.toFixed(1)} kg`}
+          aria-label={`Week ${row.week}, ${PHASE_LABEL[row.phase]}, ${row.targetWeight.toFixed(1)} kg`}
           className="w-full flex items-center gap-3 p-3.5 text-left active:bg-muted/10 transition-colors"
         >
           <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${dot}`} aria-hidden />
@@ -660,7 +660,7 @@ function WeekAccordionRow({
           </motion.span>
         </button>
 
-        {/* Expanded detail — macro tiles + chips. */}
+        {/* Expanded detail: macro tiles + chips. */}
         <AnimatePresence initial={false}>
           {open && (
             <motion.div
@@ -723,7 +723,7 @@ function WeekAccordionRow({
                   </div>
                 </div>
 
-                {/* Risk / recovery notes — plain text lines in the body font,
+                {/* Risk / recovery notes: plain text lines in the body font,
                     normal colours, no tinted pill boxes. */}
                 {(row.risk || row.recovery || toughReason) && (
                   <div className="flex flex-col gap-1.5 mt-2.5">
@@ -860,7 +860,7 @@ function FightWeekDayStack({
         </div>
       )}
 
-      {/* Fuel strategy — eat at maintenance; the cut comes from carbs, water and
+      {/* Fuel strategy: eat at maintenance; the cut comes from carbs, water and
           sodium, not a calorie deficit, so fuel stays high. */}
       <div className="rounded-xs border border-primary/20 bg-primary/[0.05] p-3 mb-2.5">
         <p className="text-[12px] font-semibold text-foreground">Eat at maintenance this week</p>
@@ -874,14 +874,14 @@ function FightWeekDayStack({
         </p>
       </div>
 
-      {/* Legend — the carb bar is the hero, so name it once. The copy adapts
+      {/* Legend: the carb bar is the hero, so name it once. The copy adapts
           to whether carbs taper or are held flat for the fight. */}
       <div className="flex items-center gap-1.5 px-1 mb-1.5">
         <span className="h-2 w-2 rounded-full bg-func-carbs-orange/70" />
         <span className="text-[9px] uppercase tracking-wider text-muted-foreground/70">
           {carbsHeld
-            ? "Carbs held — fuel for the fight"
-            : "Carbs per day (g) — watch the day -5 drop"}
+            ? "Carbs held, fuel for the fight"
+            : "Carbs per day (g), watch the day -5 drop"}
         </span>
       </div>
 
@@ -910,7 +910,7 @@ function FightWeekDayStack({
                   {isWeighIn ? "0" : d.dayOffset}
                 </div>
                 <div className="text-[9px] uppercase tracking-wider text-muted-foreground mt-1">
-                  {d.weekday || "—"}
+                  {d.weekday || "-"}
                 </div>
               </div>
 
@@ -936,7 +936,7 @@ function FightWeekDayStack({
                   </div>
                 ) : (
                   <>
-                    {/* Carb taper bar — width shrinks down the list. */}
+                    {/* Carb taper bar, width shrinks down the list. */}
                     <div className="flex items-center gap-2">
                       <div className="relative flex-1 h-[18px] rounded-full bg-muted/20 overflow-hidden">
                         <div
@@ -1078,7 +1078,7 @@ export function InlinePlanDisplay({
       transition={{ duration: 0.4, ease: [0.32, 0.72, 0, 1] }}
       className="w-full pb-24"
     >
-      {/* HERO CARD — camp name + kicker + count-up ring, in a premium
+      {/* HERO CARD: camp name + kicker + count-up ring, in a premium
           card-surface card with a top accent stripe and a blue glow halo
           behind the ring (mirrors the Recovery readiness hero). */}
       <motion.div
@@ -1087,7 +1087,7 @@ export function InlinePlanDisplay({
         transition={ENTER_SPRING}
         className="relative overflow-hidden card-surface rounded-2xl border border-border/50 border-t-2 border-t-primary px-5 pt-5 pb-4"
       >
-        {/* Blue glow halo behind the ring — Recovery's blur-2xl radial. */}
+        {/* Blue glow halo behind the ring, Recovery's blur-2xl radial. */}
         <div
           aria-hidden
           className="pointer-events-none absolute top-16 left-1/2 -translate-x-1/2 h-44 w-44 rounded-full opacity-10 blur-2xl text-primary"
@@ -1108,7 +1108,7 @@ export function InlinePlanDisplay({
         </div>
       </motion.div>
 
-      {/* DAILY FUEL — big kcal + Hard/Medium/Rest carb-cycle toggle */}
+      {/* DAILY FUEL: big kcal + Hard/Medium/Rest carb-cycle toggle */}
       <DailyFuelCard
         maintenance={planData.maintenanceCalories}
         deficit={planData.deficit}
@@ -1123,10 +1123,10 @@ export function InlinePlanDisplay({
       {/* COACH NOTE */}
       {planData.personalNote && <CoachNote text={planData.personalNote} />}
 
-      {/* DAILY FOCUS — once, at the top */}
+      {/* DAILY FOCUS: once, at the top */}
       <DailyFocusBlock bullets={universalFocus} />
 
-      {/* PHASE PILLS — vertical full-width stack */}
+      {/* PHASE PILLS: vertical full-width stack */}
       {planData.phases && planData.phases.length > 1 && (
         <PhasePills phases={planData.phases} onTapPhase={scrollToWeek} />
       )}
@@ -1150,7 +1150,7 @@ export function InlinePlanDisplay({
         ))}
       </div>
 
-      {/* FIGHT WEEK DAY-STACK — cutting flow only */}
+      {/* FIGHT WEEK DAY-STACK: cutting flow only */}
       {!isWeightLoss && planData.fightWeekDays && planData.fightWeekDays.length > 0 && (
         <FightWeekDayStack
           days={planData.fightWeekDays}
@@ -1163,7 +1163,7 @@ export function InlinePlanDisplay({
         />
       )}
 
-      {/* PLAN RULES — editorial glass card */}
+      {/* PLAN RULES: editorial glass card */}
       {planData.keyPrinciples && planData.keyPrinciples.length > 0 && (
         <div className="card-surface rounded-2xl border border-border/50 p-4 mt-3 space-y-2">
           <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70 font-semibold mb-1">
@@ -1204,7 +1204,7 @@ export function InlinePlanDisplay({
         </div>
       </div>
 
-      {/* STICKY CTA — `bottom-safe-keyboard` rides this above the iOS
+      {/* STICKY CTA: `bottom-safe-keyboard` rides this above the iOS
           keyboard (inner pb stays for safe-area padding). Hidden on the
           standalone review screen, where the close X handles the routing. */}
       {showContinue && (

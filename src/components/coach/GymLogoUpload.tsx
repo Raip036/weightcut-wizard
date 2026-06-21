@@ -99,7 +99,7 @@ export function GymLogoUpload({
       });
 
       if (!blob.size) {
-        throw new Error("Encoded image is empty — please try a different photo.");
+        throw new Error("Encoded image is empty. Please try a different photo.");
       }
 
       // 1. Mint a one-time upload URL from Convex (auth-gated to the owner).
@@ -118,7 +118,7 @@ export function GymLogoUpload({
         storageId: Id<"_storage">;
       };
 
-      // 3. Persist on the gym row — the mutation deletes the previous logo
+      // 3. Persist on the gym row: the mutation deletes the previous logo
       //    storage object atomically.
       await setLogo({ gymId: gymId as Id<"gyms">, storageId });
 
@@ -161,7 +161,7 @@ export function GymLogoUpload({
     if (e.name === "TypeError" && /load failed/i.test(raw)) {
       toast({
         title: "Could not upload logo",
-        description: "Network error — check your connection and try again.",
+        description: "Network error. Check your connection and try again.",
         variant: "destructive",
       });
       return;

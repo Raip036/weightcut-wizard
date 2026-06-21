@@ -1,4 +1,4 @@
-// RehydrationTimeline — full hour-by-hour rehydration plan.
+// RehydrationTimeline: full hour-by-hour rehydration plan.
 //
 // Expands a handful of sparse "anchor" hours into a complete H+0 … H+gapHours
 // plan (missing hours are linearly interpolated), then PRESENTS it as a
@@ -10,7 +10,7 @@
 // 2026-06-19: the backend now emits a dense per-hour plan carrying sodium (mg)
 // + carbs (g) + an `isSleep` flag. `expandHours` carries those through; the
 // display surfaces Na/carbs on each row and shows SLEEP rows as "no intake".
-// Pure presentational — no Convex, no business logic.
+// Pure presentational: no Convex, no business logic.
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Droplet, AlertTriangle, Moon, ChevronDown } from "lucide-react";
@@ -32,7 +32,7 @@ export interface RehydrationAnchor {
   foodCopy?: string;
   /** Free-form notes / cue. */
   notes?: string;
-  // ── New rich shape (backend now emits every hour) — preferred when present ──
+  // ── New rich shape (backend now emits every hour), preferred when present ──
   /** Imperative cue for the hour. Preferred over notes/foodCopy. */
   cue?: string;
   /** Explicit meal flag from the generator. */
@@ -61,7 +61,7 @@ export interface RehydrationTimelineProps {
   totalLitresTarget?: number;
   /**
    * When true the deficit couldn't be safely replaced inside the available
-   * waking hours — surface a "you cut too much for this gap" warning.
+   * waking hours, surface a "you cut too much for this gap" warning.
    */
   deficitTooLarge?: boolean;
   className?: string;
@@ -129,7 +129,7 @@ function firstNonEmpty(...vals: Array<string | undefined>): string | undefined {
   return undefined;
 }
 
-/** Round to the nearest 50ml — used for interpolated values. */
+/** Round to the nearest 50ml; used for interpolated values. */
 function roundTo50(ml: number): number {
   return Math.round(ml / 50) * 50;
 }
@@ -156,7 +156,7 @@ export function expandHours(
   );
   const lastHour = Math.max(Math.floor(gapHours) || 0, maxAnchor, 0);
 
-  // Index anchors by hour (later duplicates win — last write).
+  // Index anchors by hour (later duplicates win, last write).
   const byHour = new Map<number, RehydrationAnchor>();
   for (const a of anchors) {
     byHour.set(Math.round(a.hourOffset), a);
@@ -236,7 +236,7 @@ export function expandHours(
       continue;
     }
 
-    // No anchor — interpolate fluid, default cue. Walkout w/o anchor → null.
+    // No anchor: interpolate fluid, default cue. Walkout w/o anchor → null.
     rows.push({
       hourOffset: hour,
       liquidsMl: phase === "walkout" ? null : interpolate(hour),
@@ -348,7 +348,7 @@ function groupHours(hours: ExpandedHour[]): PhaseGroup[] {
     g.endH = g.hours[g.hours.length - 1].hourOffset;
     g.totalMl = g.hours.reduce((s, h) => s + (h.liquidsMl ?? 0), 0);
     g.mealCount = g.hours.filter((h) => h.isMeal).length;
-    // Headline never names a specific food — meal phases read as "Fuel up";
+    // Headline never names a specific food; meal phases read as "Fuel up";
     // otherwise fall back to the first hour's cue.
     g.headlineCue = g.isSleep
       ? "No intake, rest"
@@ -430,7 +430,7 @@ function HourRow({ h }: { h: ExpandedHour }) {
 
       {/* Body: cue + macro line */}
       <div className="min-w-0 flex-1">
-        {/* Meal rows show a neutral FUEL chip — the specific food suggestions
+        {/* Meal rows show a neutral FUEL chip; the specific food suggestions
             live in the "Meal ideas" box below, not prescribed per hour. */}
         {h.isMeal && (
           <div className="flex items-center gap-2">
@@ -471,7 +471,7 @@ function HourRow({ h }: { h: ExpandedHour }) {
         )}
       </div>
 
-      {/* Fluid amount — right rail */}
+      {/* Fluid amount: right rail */}
       <div className="shrink-0 pt-[1px] text-right">
         <span
           className="block text-[14px] font-bold tabular-nums"
@@ -510,7 +510,7 @@ function PhaseCard({
         aria-expanded={open}
         className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors active:bg-white/[0.02]"
       >
-        {/* Phase icon — no background box. Walkout uses a finish-line flag. */}
+        {/* Phase icon, no background box. Walkout uses a finish-line flag. */}
         <span className="flex h-9 w-9 shrink-0 items-center justify-center">
           {group.isSleep ? (
             <Moon className="h-5 w-5 text-muted-foreground/55" />
@@ -796,7 +796,7 @@ export function RehydrationTimeline({
         {groups.length === 1 ? "" : "s"}, paced hour by hour.
       </p>
 
-      {/* Shortfall warning — the cut was too deep to safely replace in time. */}
+      {/* Shortfall warning: the cut was too deep to safely replace in time. */}
       {deficitTooLarge && (
         <div
           className="mt-4 flex items-start gap-2.5 rounded-2xl border p-3.5"
@@ -863,7 +863,7 @@ export function RehydrationTimeline({
         ))}
       </div>
 
-      {/* What to eat — neutral reference (specific foods live here, not per-hour). */}
+      {/* What to eat: neutral reference (specific foods live here, not per-hour). */}
       <MealIdeasBox />
 
       {/* Footer hint */}

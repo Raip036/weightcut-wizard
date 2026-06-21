@@ -7,7 +7,7 @@ import { triggerHaptic, triggerHapticSuccess } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
 import type { GymSet, PRType } from "@/pages/gym/types";
 
-/** Shared 6-column grid template — ExerciseBlock's header uses the same one so
+/** Shared 6-column grid template. ExerciseBlock's header uses the same one so
  *  columns line up perfectly: SET · PREVIOUS · KG · REPS · ✓ · (delete). */
 export const SET_GRID = "grid grid-cols-[32px_minmax(0,1fr)_58px_50px_44px_22px] items-center gap-1.5";
 
@@ -15,7 +15,7 @@ interface SetRowProps {
   set: GymSet;
   index: number;
   prTypes?: PRType[];
-  /** Matched set from the previous session — shown as the ghost target. */
+  /** Matched set from the previous session, shown as the ghost target. */
   previous?: { weight_kg: number | null; reps: number } | null;
   onUpdate: (
     setId: string,
@@ -49,7 +49,7 @@ export function SetRow({ set, index, prTypes, previous, onUpdate, onToggleComple
 
   const prevLabel = previous
     ? `${previous.weight_kg != null ? fmtNum(previous.weight_kg) : "BW"}×${previous.reps}`
-    : "—";
+    : "-";
 
   const copyPrevious = () => {
     if (!previous) return;
@@ -96,7 +96,7 @@ export function SetRow({ set, index, prTypes, previous, onUpdate, onToggleComple
         <span aria-hidden className="absolute left-0 top-0 bottom-0 w-[3px] bg-func-warning-yellow rounded-l-2xl" />
       )}
 
-      {/* Set badge — tap to toggle warmup. */}
+      {/* Set badge: tap to toggle warmup. */}
       <button
         type="button"
         onClick={() => onUpdate(set.id, { is_warmup: !set.is_warmup })}
@@ -114,7 +114,7 @@ export function SetRow({ set, index, prTypes, previous, onUpdate, onToggleComple
         {set.is_warmup ? "W" : index + 1}
       </button>
 
-      {/* Previous — tap to copy into the inputs. */}
+      {/* Previous: tap to copy into the inputs. */}
       <button
         type="button"
         onClick={copyPrevious}
@@ -147,7 +147,7 @@ export function SetRow({ set, index, prTypes, previous, onUpdate, onToggleComple
         className={inputCls + inputDone}
       />
 
-      {/* Complete ✓ — the emotional payload. */}
+      {/* Complete ✓: the emotional payload. */}
       <motion.button
         type="button"
         onClick={toggleComplete}
@@ -169,7 +169,7 @@ export function SetRow({ set, index, prTypes, previous, onUpdate, onToggleComple
         )}
       </motion.button>
 
-      {/* Delete — compact. */}
+      {/* Delete: compact. */}
       <button
         type="button"
         onClick={() => onDelete(set.id)}

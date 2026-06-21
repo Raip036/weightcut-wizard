@@ -56,7 +56,7 @@ export const SessionCard = memo(function SessionCard({
 }: SessionCardProps) {
   const [expanded, setExpanded] = useState(false);
   const isRest = session.session_type === "Rest";
-  // "Run" is a TAG now, not a primary — run-detection keys off session_tag.
+  // "Run" is a TAG now, not a primary; run-detection keys off session_tag.
   const isRun = session.session_tag === "Run";
   const sessionColor = getSessionColor(session.session_type, customColors);
   // Rows that landed in the generic catch-all bucket on migrate-on-read.
@@ -78,15 +78,15 @@ export const SessionCard = memo(function SessionCard({
   // Resolve the primary 3 stats by session type.
   const primaryStats = isRest
     ? [
-        { label: "Sleep", value: session.sleep_quality ?? "—", sub: "" },
-        { label: "Fatigue", value: session.fatigue_level ?? "—", sub: "/10" },
-        { label: "Mobility", value: session.mobility_done ? "Done" : "—", sub: "" },
+        { label: "Sleep", value: session.sleep_quality ?? "-", sub: "" },
+        { label: "Fatigue", value: session.fatigue_level ?? "-", sub: "/10" },
+        { label: "Mobility", value: session.mobility_done ? "Done" : "-", sub: "" },
       ]
     : isRun && runMeta
     ? [
         { label: "Distance", value: runMeta.distance, sub: runMeta.unit },
-        { label: "Time", value: runMeta.time ?? "—", sub: "" },
-        { label: "Pace", value: runMeta.pace ?? "—", sub: runMeta.pace ? `/${runMeta.unit}` : "" },
+        { label: "Time", value: runMeta.time ?? "-", sub: "" },
+        { label: "Pace", value: runMeta.pace ?? "-", sub: runMeta.pace ? `/${runMeta.unit}` : "" },
       ]
     : [
         { label: "Duration", value: session.duration_minutes, sub: "min" },
@@ -105,13 +105,13 @@ export const SessionCard = memo(function SessionCard({
 
   return (
     <div className="rounded-xs card-surface border border-border/40 overflow-hidden">
-      {/* Main row — color tile + body + chevron */}
+      {/* Main row: color tile + body + chevron */}
       <button
         onClick={handleToggle}
         className="w-full flex items-stretch gap-3 px-3 py-3 text-left active:bg-muted/20 transition-colors"
         aria-expanded={expanded}
       >
-        {/* Left tile — photo thumbnail when media exists, solid color
+        {/* Left tile: photo thumbnail when media exists, solid color
             fallback otherwise. Tap opens the color picker either way; the
             colored ring around the photo keeps the session-type color
             recognisable without re-introducing the letter overlay on top
@@ -179,7 +179,7 @@ export const SessionCard = memo(function SessionCard({
             <p className="text-[14px] font-semibold text-foreground truncate">
               {session.session_type}
             </p>
-            {/* Activity tag — small secondary chip surfacing WHAT the session
+            {/* Activity tag: small secondary chip surfacing WHAT the session
                 was (Sparring, Drilling, Run…) under its primary discipline. */}
             {hasTag && (
               <span
@@ -189,7 +189,7 @@ export const SessionCard = memo(function SessionCard({
                 {session.session_tag}
               </span>
             )}
-            {/* Legacy chip — rows that landed in the generic "Martial Arts"
+            {/* Legacy chip: rows that landed in the generic "Martial Arts"
                 catch-all bucket on migrate-on-read (their specific art
                 couldn't be inferred). We deliberately do NOT rewrite the row
                 on read; the user re-edit path re-categorises on next save. */}
@@ -244,7 +244,7 @@ export const SessionCard = memo(function SessionCard({
         </motion.span>
       </button>
 
-      {/* Inline expand — stat grid + media + notes + edit/delete */}
+      {/* Inline expand: stat grid + media + notes + edit/delete */}
       <AnimatePresence initial={false}>
         {expanded && (
           <motion.div
@@ -292,7 +292,7 @@ export const SessionCard = memo(function SessionCard({
                 </div>
               )}
 
-              {/* Media (preview only — full gallery in the detail drawer) */}
+              {/* Media (preview only; full gallery in the detail drawer) */}
               {hasMedia && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onView(session); }}
@@ -324,7 +324,7 @@ export const SessionCard = memo(function SessionCard({
                 </div>
               )}
 
-              {/* Reflection notes — what went well / to improve */}
+              {/* Reflection notes: what went well / to improve */}
               {hasNotes && (
                 <div className="rounded-xs bg-muted/20 px-3 py-2">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">What went well / to improve</p>

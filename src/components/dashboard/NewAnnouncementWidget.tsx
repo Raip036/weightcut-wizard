@@ -43,7 +43,7 @@ function writeDismissed(ids: string[]): void {
  * Dismiss model: the previous version used a "dismissed for the rest
  * of the day" sessionStorage flag, which silently swallowed any new
  * announcement that landed after the user had dismissed today's
- * batch. Switched to a per-id allowlist persisted in localStorage —
+ * batch. Switched to a per-id allowlist persisted in localStorage:
  * once the user taps the alert the *currently visible* ids are
  * marked seen, but a fresh fight offer minted ten minutes later
  * pops the alert again immediately.
@@ -70,7 +70,7 @@ export default function NewAnnouncementWidget({ userId }: Props) {
   const count = visible.length;
   const latest = visible[0];
   // Promote a fight offer to the headline (and switch icon/copy) even
-  // if a plain text announcement happens to be newer — coaches care
+  // if a plain text announcement happens to be newer, coaches care
   // most about getting fighters to act on offers.
   const headline = useMemo(
     () => visible.find((a) => a.kind === "fight_offer") ?? latest,
@@ -87,7 +87,7 @@ export default function NewAnnouncementWidget({ userId }: Props) {
   useEffect(() => {
     if (!headline) return;
     if (lastPingedId === null) {
-      // First mount — just record the id so we don't ping for it.
+      // First mount, just record the id so we don't ping for it.
       setLastPingedId(headline.id);
       return;
     }
@@ -106,7 +106,7 @@ export default function NewAnnouncementWidget({ userId }: Props) {
     navigate("/my-gym");
   }, [visible, dismissedIds, navigate]);
 
-  // Visual variants — fight offer is louder (primary fill, larger
+  // Visual variants, fight offer is louder (primary fill, larger
   // pulse, distinct icon) so it's instantly distinguishable from a
   // plain text announcement.
   const cardClass = isFightOffer
@@ -135,7 +135,7 @@ export default function NewAnnouncementWidget({ userId }: Props) {
           className={cardClass}
         >
           <span className={`relative flex h-9 w-9 rounded-full items-center justify-center flex-shrink-0 ${iconBg}`}>
-            {/* Live pulse — louder for fight offers. */}
+            {/* Live pulse, louder for fight offers. */}
             <span className={`absolute inset-0 rounded-full animate-ping ${isFightOffer ? "bg-primary/40" : "bg-primary/25"}`} aria-hidden />
             <Icon name={iconName} size={16} className="relative" />
             {count > 1 && (

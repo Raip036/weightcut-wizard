@@ -275,7 +275,7 @@ export function QuickLogDialog({ open, onOpenChange, onLogFood, onLogWeight, onL
           logger.warn("QuickLog photo upload failed", { error: uploadErr });
           toast({
             title: "Session saved",
-            description: "Couldn't attach the photo — try adding it from the training calendar.",
+            description: "Couldn't attach the photo. Try adding it from the training calendar.",
             variant: "destructive",
           });
         }
@@ -415,7 +415,7 @@ export function QuickLogDialog({ open, onOpenChange, onLogFood, onLogWeight, onL
         {mode === "training" && (
           <div className="px-1 pb-2 space-y-3">
             <p className="text-[12px] text-muted-foreground/80 px-1">
-              Pick what you did — duration and intensity have smart defaults you can tweak.
+              Pick what you did. Duration and intensity have smart defaults you can tweak.
             </p>
 
             {/* Session-type chip grid */}

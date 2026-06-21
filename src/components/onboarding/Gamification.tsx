@@ -1,5 +1,5 @@
 /**
- * Onboarding gamification primitives — all in one file because they
+ * Onboarding gamification primitives, all in one file because they
  * share nothing across consumers and are mounted only on the
  * /onboarding route. Co-locating keeps the import surface in
  * `Onboarding.tsx` to a single line.
@@ -22,7 +22,7 @@ import { triggerHaptic, triggerHapticSelection } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
 
 // ─────────────────────────────────────────────────────────────────────
-// XPProgressBar — header-mounted "fight camp XP" bar.
+// XPProgressBar: header-mounted "fight camp XP" bar.
 //
 // Each step earns the user a chunk of XP. We pulse a subtle gold
 // shimmer when the bar increments. The XP number is decorative; the
@@ -72,7 +72,7 @@ export function XPProgressBar({
           }}
           style={{ willChange: "width" }}
         />
-        {/* Shimmer head — only on motion-OK clients. Sits at the bar tip. */}
+        {/* Shimmer head, only on motion-OK clients. Sits at the bar tip. */}
         {!reduced && pct > 0 && (
           <motion.span
             key={`shimmer-${step}`}
@@ -89,7 +89,7 @@ export function XPProgressBar({
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// CuttingNowChip — social-proof chip. The number is deterministic from
+// CuttingNowChip: social-proof chip. The number is deterministic from
 // the current hour so it never lies (no backend), but rotates so a
 // returning user sees a different value on every session.
 // ─────────────────────────────────────────────────────────────────────
@@ -103,7 +103,7 @@ export function CuttingNowChip({
 } = {}) {
   // 1-100 range, randomised per user (per session). Picked once on
   // first mount and cached in localStorage so a returning user keeps
-  // their number — feels less like a slot machine that way. Stays in
+  // their number; feels less like a slot machine that way. Stays in
   // the believable range for a niche fight-camp app.
   const count = useMemo(() => {
     try {
@@ -130,7 +130,7 @@ export function CuttingNowChip({
           {count.toLocaleString()} fighters cutting weight right now
         </p>
       </div>
-      {/* Inline achievement pill — same dimensions / type-scale as the
+      {/* Inline achievement pill, same dimensions / type-scale as the
           social-proof chip so they read as a paired row rather than two
           competing surfaces. AnimatePresence handles the in/out fade. */}
       <AnimatePresence>
@@ -155,7 +155,7 @@ export function CuttingNowChip({
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// OnboardingMascot — small coach silhouette pinned in the corner that
+// OnboardingMascot: small coach silhouette pinned in the corner that
 // bounces in response to step submits. The bounce is keyed to a
 // `bumpCount` prop the parent increments on every Continue.
 // ─────────────────────────────────────────────────────────────────────
@@ -184,7 +184,7 @@ export function OnboardingMascot({ bumpCount }: { bumpCount: number }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// DaysToFightSlam — fires once when the user first picks a target
+// DaysToFightSlam: fires once when the user first picks a target
 // date. Drops a giant number with a thud and fades away.
 // ─────────────────────────────────────────────────────────────────────
 export function DaysToFightSlam({
@@ -212,7 +212,7 @@ export function DaysToFightSlam({
     if (ready && !wasReadyRef.current) {
       wasReadyRef.current = true;
       // Dismiss any open native picker (iOS date wheel, web inline
-      // calendar) so it can't bleed through under the slam — some
+      // calendar) so it can't bleed through under the slam; some
       // platforms render the picker above the WebView, so raising the
       // slam's z-index alone wouldn't be enough.
       try {
@@ -276,7 +276,7 @@ export function DaysToFightSlam({
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// WeightLossSlam — fires once when the user first enters a valid
+// WeightLossSlam: fires once when the user first enters a valid
 // current weight (with a goal + timeframe already on file). Slams a
 // single hero number ("8.5 KG") plus the weeks + per-week rate. Same
 // visual language as `DaysToFightSlam` so the two reads consistently
@@ -387,7 +387,7 @@ export function WeightLossSlam({
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// LossFrameCard — appears under the goal weight step. Shows what
+// LossFrameCard: appears under the goal weight step. Shows what
 // happens if the user delays. Loss-aversion framing.
 // ─────────────────────────────────────────────────────────────────────
 export function LossFrameCard({
@@ -415,14 +415,14 @@ export function LossFrameCard({
         <span className="font-semibold tabular-nums">
           {skippedRate.toFixed(1)} kg/week
         </span>
-        {dangerous ? " — that's beyond safe limits." : safeRate ? " — still doable." : " — pushing the limit."}
+        {dangerous ? ", that's beyond safe limits." : safeRate ? ", still doable." : ", pushing the limit."}
       </p>
     </motion.div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// SilentAchievement — small toast-style popup that slides in from the
+// SilentAchievement: small toast-style popup that slides in from the
 // top, shows a badge label, then exits. Fires on milestone steps.
 // ─────────────────────────────────────────────────────────────────────
 export function SilentAchievement({
@@ -466,7 +466,7 @@ export function SilentAchievement({
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// DeclarationButton — hold-to-lock commit. The user holds the button
+// DeclarationButton: hold-to-lock commit. The user holds the button
 // for ~1.5s; a fill arc sweeps under their thumb and a haptic ramp
 // fires (light → medium → success). Releasing early aborts.
 // ─────────────────────────────────────────────────────────────────────
@@ -483,7 +483,7 @@ export function DeclarationButton({
   // Smoothness model:
   //  - The fill arc's width is animated by writing directly to the
   //    DOM node's `transform: scaleX()` from inside `requestAnimation
-  //    Frame`. NO React re-render per tick — the previous version
+  //    Frame`. NO React re-render per tick; the previous version
   //    setState'd `progress` 60×/s which forced a full button reflow
   //    each frame and fought the CSS `transition: width` simultaneously.
   //  - `transform: scaleX` lives on the GPU compositor (vs `width`
@@ -511,7 +511,7 @@ export function DeclarationButton({
     const elapsed = ts - startedAt.current;
     const p = Math.min(1, elapsed / holdMs);
     writeFill(p);
-    // Haptic ramp at 33% / 66% — feels like the lock is engaging.
+    // Haptic ramp at 33% / 66%, feels like the lock is engaging.
     if (!haptic33Fired.current && p >= 0.33) {
       haptic33Fired.current = true;
       triggerHapticSelection();
@@ -533,7 +533,7 @@ export function DeclarationButton({
   const begin = () => {
     if (committedRef.current) return;
     if (reduced) {
-      // Skip the hold animation entirely for accessibility users —
+      // Skip the hold animation entirely for accessibility users:
       // commit immediately on press.
       committedRef.current = true;
       writeFill(1);
@@ -554,7 +554,7 @@ export function DeclarationButton({
       startedAt.current = null;
       haptic33Fired.current = false;
       haptic66Fired.current = false;
-      // Smooth retreat — let the browser ease the cancelled fill back
+      // Smooth retreat: let the browser ease the cancelled fill back
       // to 0 with a short CSS transition, then strip the transition so
       // the next press starts crisp via rAF again.
       const el = fillRef.current;
@@ -564,7 +564,7 @@ export function DeclarationButton({
         const handle = window.setTimeout(() => {
           if (fillRef.current) fillRef.current.style.transition = "none";
         }, 240);
-        // No state cleanup needed — committedRef is the source of truth
+        // No state cleanup needed; committedRef is the source of truth
         // and the timeout is fire-and-forget.
         void handle;
       }
@@ -594,7 +594,7 @@ export function DeclarationButton({
         isolation: "isolate",
       }}
     >
-      {/* Fill arc — `transform: scaleX` driven by rAF so the animation
+      {/* Fill arc: `transform: scaleX` driven by rAF so the animation
           lives on the compositor and never blocks the main thread.
           `rounded-xs` mirrors the parent radius as belt-and-braces: even
           if the parent's overflow clip glitches under iOS's GPU paint, the
@@ -621,7 +621,7 @@ export function DeclarationButton({
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// TaleOfTheTapeCard — finale "fighter intro" reveal. Stat rows flip
+// TaleOfTheTapeCard: finale "fighter intro" reveal. Stat rows flip
 // in one by one with a small staggered spring. Screenshot-bait.
 // ─────────────────────────────────────────────────────────────────────
 export interface TaleStat {
@@ -629,22 +629,43 @@ export interface TaleStat {
   value: string;
 }
 
+// House blue used for the card's eyebrow + ambient glow.
+const TALE_BLUE = "217 91% 58%";
+const taleHsl = (a = 1) => `hsl(${TALE_BLUE} / ${a})`;
+const taleRowSpring = { type: "spring" as const, stiffness: 320, damping: 26 };
+const taleRowDelay = (i: number) => 0.15 + i * 0.06;
+
+/** Circular share button, pinned to a corner the title layout reserves (via
+ *  `pr-11`) so it can never overlap copy. */
+function TaleShareButton({ onShare }: { onShare: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onShare}
+      aria-label="Share your camp card"
+      className="absolute top-3.5 right-3.5 z-10 h-9 w-9 flex items-center justify-center rounded-full bg-muted/40 border border-border/40 active:scale-90 transition-transform"
+    >
+      <Share2 className="h-4 w-4 text-foreground/80" />
+    </button>
+  );
+}
+
 export function TaleOfTheTapeCard({
   stats,
   onShare,
 }: {
   stats: TaleStat[];
-  /** Optional share-card affordance — rendered as a small icon button
+  /** Optional share-card affordance, rendered as a small icon button
    *  in the top-right of the card. Tap fires the parent's share flow. */
   onShare?: () => void;
 }) {
   const reduced = useReducedMotion();
   const firedRef = useRef(false);
 
-  // Stamp-in haptic sequence — fire one Light haptic per stat row as it
-  // springs in (aligned to the existing 0.18 + i*0.07s stagger), then a
-  // Heavy haptic on the final row to "seal" the card. Only fires once
-  // per mount; navigation back + forward will replay it.
+  // Stamp-in haptic sequence: fire one Light haptic per stat row as it
+  // springs in (aligned to the row stagger), then a Heavy haptic on the
+  // final row to "seal" the card. Only fires once per mount; navigation
+  // back + forward will replay it.
   useEffect(() => {
     if (reduced || firedRef.current) return;
     firedRef.current = true;
@@ -653,7 +674,7 @@ export function TaleOfTheTapeCard({
       const isLast = i === stats.length - 1;
       const t = window.setTimeout(() => {
         triggerHaptic(isLast ? ImpactStyle.Heavy : ImpactStyle.Light);
-      }, 180 + i * 70 + 80); // +80ms aligns the tick with the spring's settle
+      }, taleRowDelay(i) * 1000 + 80);
       timers.push(t);
     });
     return () => { timers.forEach(window.clearTimeout); };
@@ -661,60 +682,90 @@ export function TaleOfTheTapeCard({
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: reduced ? 1 : 0.96 }}
+      initial={{ opacity: 0, scale: reduced ? 1 : 0.97 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ type: "spring", stiffness: 240, damping: 22 }}
-      className="relative rounded-xs border-2 border-primary/30 bg-gradient-to-b from-primary/[0.10] via-card to-card overflow-hidden p-5"
       style={{ willChange: "transform, opacity" }}
+      className="relative overflow-hidden rounded-2xl card-surface border border-primary/20 p-5"
     >
-      {onShare && (
-        <button
-          type="button"
-          onClick={onShare}
-          aria-label="Share your camp card"
-          className="absolute top-3 right-3 h-9 w-9 flex items-center justify-center rounded-full bg-muted/40 border border-border/40 active:scale-90 transition-transform"
-        >
-          <Share2 className="h-4 w-4 text-foreground/80" />
-        </button>
-      )}
-      <div className="text-center mb-4">
-        <h3 className="text-[28px] font-black uppercase tracking-wide leading-none text-foreground">
-          Tale of the Tape
-        </h3>
-      </div>
-      <div className="rounded-xs bg-muted/30 border border-border/40 divide-y divide-border/30">
-        {stats.map((s, i) => (
-          <motion.div
-            key={s.label}
-            initial={{ opacity: 0, x: reduced ? 0 : -8 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{
-              delay: 0.18 + i * 0.07,
-              type: "spring",
-              stiffness: 320,
-              damping: 26,
-            }}
-            className="flex items-center justify-between px-3.5 py-2.5"
+      {/* Ambient blue glow - top-anchored blob behind everything. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{ background: `radial-gradient(120% 80% at 50% 0%, ${taleHsl(0.1)}, transparent 55%)` }}
+      />
+
+      {onShare && <TaleShareButton onShare={onShare} />}
+
+      <div className="relative">
+        {/* Title block. Eyebrow kicker is small + tracked so it stays well
+            clear of the share button; the big word "TAPE" sits on its own
+            line below, with right padding reserving the share corner. */}
+        <div className="pr-11">
+          <p
+            className="text-[10px] font-bold uppercase tracking-[0.28em] leading-none"
+            style={{ color: taleHsl() }}
           >
-            <span className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">
-              {s.label}
+            Tale of the
+          </p>
+          <h3 className="mt-1 text-[34px] font-black uppercase tracking-[0.04em] leading-[0.85] text-foreground">
+            Tape
+          </h3>
+        </div>
+
+        {/* Framed readout - thin dividers, label left (muted, tracked),
+            value right (bold, tabular, larger). */}
+        <div className="mt-4 rounded-xl border border-border/40 bg-background/30 divide-y divide-border/30">
+          {stats.map((s, i) => (
+            <motion.div
+              key={s.label}
+              initial={{ opacity: 0, x: reduced ? 0 : -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ ...taleRowSpring, delay: taleRowDelay(i) }}
+              className="flex items-center justify-between px-4 py-2.5"
+            >
+              <span className="text-[11px] uppercase tracking-[0.14em] font-semibold text-muted-foreground">
+                {s.label}
+              </span>
+              <span className="text-[17px] font-bold tabular-nums text-foreground">
+                {s.value}
+              </span>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Wax-seal chip - glowing shield with a slow pulse halo. */}
+        <div className="mt-5 flex justify-center">
+          <motion.div
+            initial={{ opacity: 0, scale: reduced ? 1 : 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ ...taleRowSpring, delay: taleRowDelay(stats.length) }}
+            className="relative inline-flex items-center gap-2 rounded-full border border-func-recovery-green/30 bg-func-recovery-green/10 px-4 py-2"
+          >
+            {/* Pulse halo behind the chip (transform/opacity only). */}
+            {!reduced && (
+              <motion.span
+                aria-hidden
+                className="absolute inset-0 rounded-full"
+                style={{ boxShadow: "0 0 18px rgb(var(--func-recovery-green) / 0.5)" }}
+                initial={{ opacity: 0.25, scale: 0.96 }}
+                animate={{ opacity: [0.25, 0.55, 0.25], scale: [0.96, 1.04, 0.96] }}
+                transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+              />
+            )}
+            <ShieldCheck className="relative h-4 w-4 text-func-recovery-green" />
+            <span className="relative text-[12px] font-black uppercase tracking-[0.16em] text-func-recovery-green">
+              Camp Sealed
             </span>
-            <span className="text-[15px] font-bold tabular-nums">{s.value}</span>
           </motion.div>
-        ))}
-      </div>
-      <div className="flex items-center justify-center gap-1.5 mt-4 text-func-recovery-green/90">
-        <ShieldCheck className="h-3.5 w-3.5" />
-        <p className="text-[11px] uppercase tracking-wider font-bold">
-          Camp Sealed
-        </p>
+        </div>
       </div>
     </motion.div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Sport-aware vocabulary helper — one place to translate generic UX
+// Sport-aware vocabulary helper: one place to translate generic UX
 // copy into sport-specific language so identity priming is consistent
 // across every step from sport-pick onwards.
 // ─────────────────────────────────────────────────────────────────────
@@ -733,7 +784,7 @@ export function sportVocab(athleteType: string): {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// MathWhisper — small caption that does live arithmetic on the values
+// MathWhisper: small caption that does live arithmetic on the values
 // the user just entered. Shown directly under the input so the
 // feedback loop is intimate.
 // ─────────────────────────────────────────────────────────────────────
@@ -751,7 +802,7 @@ export function MathWhisper({ children }: { children: React.ReactNode }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// WittyValidation — small green validation line under an input that
+// WittyValidation: small green validation line under an input that
 // echoes the user's choice with a coaching micro-comment. Reads as
 // "an experienced coach who actually looked at your number."
 // ─────────────────────────────────────────────────────────────────────
@@ -769,142 +820,265 @@ export function WittyValidation({ children }: { children: React.ReactNode }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// WeeklyMilestonesScrubber — horizontal dot path showing projected
-// weekly weight checkpoints. For cuts ≥5 weeks, shades a "plateau
-// zone" band on weeks 3-4 so users aren't surprised when the scale
-// stalls. Linear interpolation between current and goal — directional
-// only, not a clinical prediction.
+// CutJourneyChart: the finale weight-journey projection. ONE chart that
+// merges the steady cut and the dehydration leg:
+//
+//   current ──steady blue line w/ weekly dots──▶ cut-end ──red drop──▶ fight
+//
+// Shows the weekly dots + the plateau region (weeks 3-4, only for cuts
+// ≥5 weeks) and adapts to plan length: long plans keep the dots small +
+// unlabeled; short plans drop the plateau and give the fixed ~7-day water
+// cut a larger share of the x-axis. When there's no water cut (fight ≈
+// cut-end, e.g. the weight-loss flow) the red leg is omitted and the axis
+// ends "Goal". Linear interpolation, directional only — not clinical.
+// Perf: animates only pathLength/opacity, gated behind useReducedMotion.
 // ─────────────────────────────────────────────────────────────────────
-export function WeeklyMilestonesScrubber({
-  currentKg,
-  goalKg,
-  weeks,
-}: {
+const CJ_RED = "rgb(239 68 68)";
+
+export interface CutJourneyChartProps {
+  /** Weight today (kg). */
   currentKg: number;
-  goalKg: number;
-  weeks: number;
-}) {
+  /** Pre-dehydration "steady cut" target reached at the end of the cut weeks. */
+  cutEndKg: number;
+  /** Final weigh-in weight after the water cut (kg). For no-dehydration flows
+   *  pass the same value as cutEndKg. */
+  fightKg: number;
+  /** Number of steady-cut weeks before fight week. */
+  cutWeeks: number;
+  /** Length of the water-cut, in days (defaults to 7). */
+  dehydrationDays?: number;
+}
+
+export function CutJourneyChart({
+  currentKg,
+  cutEndKg,
+  fightKg,
+  cutWeeks,
+  dehydrationDays = 7,
+}: CutJourneyChartProps) {
   const reduced = useReducedMotion();
 
-  // Pick at most 5 checkpoints so the strip stays readable on narrow
-  // phones — always include W1, the goal week, and 2-3 evenly-spaced
-  // intermediate weeks.
-  const checkpoints = useMemo(() => {
-    if (weeks <= 0 || !Number.isFinite(weeks)) return [];
-    const totalKg = currentKg - goalKg;
-    if (totalKg <= 0) return [];
-    const weekList: number[] = [];
-    if (weeks <= 4) {
-      for (let w = 1; w <= weeks; w += 1) weekList.push(w);
-    } else {
-      const step = Math.max(1, Math.round((weeks - 1) / 3));
-      weekList.push(1);
-      for (let w = 1 + step; w < weeks; w += step) weekList.push(w);
-      if (weekList[weekList.length - 1] !== weeks) weekList.push(weeks);
-    }
-    return weekList.map((w) => {
-      const pct = w / weeks;
-      const projected = currentKg - totalKg * pct;
-      return {
-        week: w,
-        delta: currentKg - projected, // kg lost by this point (positive)
-        projectedKg: projected,
-        isGoal: w === weeks,
-      };
-    });
-  }, [currentKg, goalKg, weeks]);
+  const model = useMemo(() => {
+    if (!(currentKg > 0) || !(cutWeeks > 0)) return null;
+    const safeCutEnd = Math.min(cutEndKg, currentKg);
+    const safeFight = Math.min(fightKg, safeCutEnd);
+    const hasDehyd = safeCutEnd - safeFight > 0.05;
+    const cutDays = cutWeeks * 7;
+    const dehyd = hasDehyd ? Math.max(1, dehydrationDays) : 0;
+    const totalDays = cutDays + dehyd;
+    const showPlateau = cutWeeks >= 5;
+    return {
+      safeCutEnd,
+      safeFight,
+      hasDehyd,
+      cutDays,
+      dehyd,
+      totalDays,
+      showPlateau,
+      steadyDrop: currentKg - safeCutEnd,
+      dehydDrop: safeCutEnd - safeFight,
+    };
+  }, [currentKg, cutEndKg, fightKg, cutWeeks, dehydrationDays]);
 
-  if (checkpoints.length === 0) return null;
+  if (!model) return null;
+  const { safeCutEnd, safeFight, hasDehyd, cutDays, totalDays, showPlateau } = model;
 
-  const showPlateauZone = weeks >= 5;
+  // ── Geometry ──
+  const W = 320, H = 192;
+  const padL = 16, padR = 16, padT = 36, padB = 36;
+  const innerW = W - padL - padR, innerH = H - padT - padB;
+  const minW = safeFight, maxW = currentKg;
+  const range = Math.max(0.5, maxW - minW);
+  // Breathing room so dots/labels don't clip the plot edges.
+  const yPad = innerH * 0.12;
+  const xFor = (day: number) => padL + (day / totalDays) * innerW;
+  const yFor = (w: number) =>
+    padT + yPad + (1 - (w - minW) / range) * (innerH - yPad * 2);
+
+  const x0 = xFor(0), y0 = yFor(currentKg);
+  const xCut = xFor(cutDays), yCut = yFor(safeCutEnd);
+  const xEnd = xFor(totalDays), yEnd = yFor(safeFight);
+
+  // Weekly dots along the steady leg (linear interpolation, directional only -
+  // not a clinical prediction). The last one coincides with the cut-end dot, so
+  // we render weeks 1..n-1 here and the emphasized cut-end dot separately.
+  const weekDots = Array.from({ length: Math.max(0, cutWeeks - 1) }, (_, i) => {
+    const w = i + 1;
+    const day = w * 7;
+    const kg = currentKg - (model.steadyDrop * day) / cutDays;
+    return { w, x: xFor(day), y: yFor(kg) };
+  });
+
+  // Plateau band = weeks 3-4 → days 14-28, clamped into the cut region.
+  const platX1 = xFor(14);
+  const platX2 = xFor(Math.min(28, cutDays));
+
+  const steadyLine = `M ${x0} ${y0} L ${xCut} ${yCut}`;
+  const steadyArea = `M ${x0} ${H - padB} L ${x0} ${y0} L ${xCut} ${yCut} L ${xCut} ${H - padB} Z`;
+  const dehydLine = `M ${xCut} ${yCut} L ${xEnd} ${yEnd}`;
+  const dehydArea = `M ${xCut} ${H - padB} L ${xCut} ${yCut} L ${xEnd} ${yEnd} L ${xEnd} ${H - padB} Z`;
+
+  const draw = (delay = 0) =>
+    reduced
+      ? { initial: false as const, animate: { pathLength: 1, opacity: 1 } }
+      : {
+          initial: { pathLength: 0, opacity: 0.6 },
+          animate: { pathLength: 1, opacity: 1 },
+          transition: { duration: 0.9, ease: "easeInOut" as const, delay },
+        };
+
+  const dotIn = (delay: number) =>
+    reduced
+      ? { initial: false as const, animate: { opacity: 1, scale: 1 } }
+      : {
+          initial: { opacity: 0, scale: 0 },
+          animate: { opacity: 1, scale: 1 },
+          transition: { delay, type: "spring" as const, stiffness: 380, damping: 22 },
+        };
 
   return (
-    <div className="rounded-xs card-surface px-4 py-3.5">
-      <div className="flex items-baseline justify-between mb-3">
-        <p className="text-[10px] uppercase tracking-[0.15em] font-bold text-muted-foreground">
-          Projected Path
-        </p>
-        <p className="text-[10px] uppercase tracking-[0.15em] font-bold text-primary/70">
-          {weeks}w
-        </p>
-      </div>
-
-      {/* Rail + plateau band + dots */}
+    <div className="relative card-surface rounded-2xl border border-primary/20 overflow-hidden p-4">
+      {/* Inline blue ambient glow. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{ background: "radial-gradient(120% 80% at 80% 0%, hsl(217 91% 58% / 0.08), transparent 55%)" }}
+      />
       <div className="relative">
-        {/* Base rail */}
-        <div className="absolute left-1.5 right-1.5 top-1/2 -translate-y-1/2 h-[2px] bg-muted/40 rounded-full" />
-        {/* Plateau zone band (weeks 3-4) — drawn under the dots so they remain crisp. */}
-        {showPlateauZone && (
-          <div
-            className="absolute top-1/2 -translate-y-1/2 h-3 rounded-full bg-func-warning-yellow/15 border border-func-warning-yellow/25"
-            style={{
-              left: `calc(${(2 / weeks) * 100}% + 6px)`,
-              right: `calc(${((weeks - 4) / weeks) * 100}% + 6px)`,
-            }}
-            aria-hidden
-          />
-        )}
-
-        <div className="relative flex items-center justify-between">
-          {checkpoints.map((cp, i) => (
-            <motion.div
-              key={cp.week}
-              initial={{ opacity: 0, scale: reduced ? 1 : 0.6 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{
-                delay: 0.1 + i * 0.06,
-                type: "spring",
-                stiffness: 360,
-                damping: 22,
-              }}
-              className="relative z-10 flex flex-col items-center"
-              style={{ minWidth: 28 }}
-            >
-              <div
-                className={`h-3 w-3 rounded-full ${
-                  cp.isGoal
-                    ? "bg-primary ring-2 ring-primary/30"
-                    : "bg-foreground/70"
-                }`}
-              />
-            </motion.div>
-          ))}
+        {/* Header */}
+        <div className="flex items-baseline justify-between mb-1">
+          <p className="text-[10px] uppercase tracking-[0.15em] font-bold text-muted-foreground">
+            Projected Path
+          </p>
+          <p className="text-[10px] uppercase tracking-[0.15em] font-bold text-primary/70 tabular-nums">
+            {cutWeeks}w{hasDehyd ? " + cut" : ""}
+          </p>
         </div>
-      </div>
 
-      {/* Labels under each dot */}
-      <div className="flex items-start justify-between mt-2">
-        {checkpoints.map((cp) => (
-          <div
-            key={cp.week}
-            className="flex flex-col items-center text-center"
-            style={{ minWidth: 28 }}
-          >
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
-              W{cp.week}
-            </span>
-            <span
-              className={`text-[11px] font-bold tabular-nums leading-tight ${
-                cp.isGoal ? "text-primary" : "text-foreground"
-              }`}
-            >
-              {cp.isGoal ? "✓" : `-${cp.delta.toFixed(1)}`}
-            </span>
-          </div>
-        ))}
-      </div>
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ overflow: "visible" }} aria-label="Projected weight journey">
+          <defs>
+            <linearGradient id="cjBlue" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.22" />
+              <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0" />
+            </linearGradient>
+            <linearGradient id="cjRed" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={CJ_RED} stopOpacity="0.22" />
+              <stop offset="100%" stopColor={CJ_RED} stopOpacity="0" />
+            </linearGradient>
+          </defs>
 
-      {showPlateauZone && (
-        <p className="text-[10px] text-func-warning-yellow/80 mt-2 text-center">
-          Plateau zone weeks 3–4. Normal. Trust the protocol.
+          {/* Baseline */}
+          <line x1={padL} y1={H - padB} x2={W - padR} y2={H - padB} stroke="hsl(var(--border))" strokeWidth="1" strokeDasharray="2 3" opacity="0.5" />
+
+          {/* Plateau region - a faint dashed vertical band (weeks 3-4), never a
+              pill/toggle. Drawn behind the line. */}
+          {showPlateau && (
+            <g>
+              <rect
+                x={platX1}
+                y={padT}
+                width={Math.max(0, platX2 - platX1)}
+                height={H - padB - padT}
+                fill="rgb(var(--func-warning-yellow) / 0.07)"
+                stroke="rgb(var(--func-warning-yellow) / 0.30)"
+                strokeWidth="1"
+                strokeDasharray="3 3"
+                rx="3"
+              />
+              <text
+                x={(platX1 + platX2) / 2}
+                y={padT - 6}
+                fontSize="8"
+                fontWeight="700"
+                letterSpacing="0.6"
+                textAnchor="middle"
+                fill="rgb(var(--func-warning-yellow))"
+                opacity="0.85"
+              >
+                PLATEAU
+              </text>
+            </g>
+          )}
+
+          {/* Areas */}
+          <motion.path d={steadyArea} fill="url(#cjBlue)" initial={reduced ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6, delay: 0.2 }} />
+          {hasDehyd && (
+            <motion.path d={dehydArea} fill="url(#cjRed)" initial={reduced ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6, delay: 0.7 }} />
+          )}
+
+          {/* Lines */}
+          <motion.path d={steadyLine} fill="none" stroke="hsl(var(--primary))" strokeWidth="2.5" strokeLinecap="round" {...draw(0)} />
+          {hasDehyd && (
+            <motion.path d={dehydLine} fill="none" stroke={CJ_RED} strokeWidth="2.5" strokeLinecap="round" {...draw(0.75)} />
+          )}
+
+          {/* Weekly dots along the steady leg */}
+          {weekDots.map((d, i) => (
+            <motion.circle
+              key={d.w}
+              cx={d.x}
+              cy={d.y}
+              r="2.6"
+              fill="hsl(var(--primary))"
+              stroke="hsl(var(--background))"
+              strokeWidth="1.2"
+              style={{ transformOrigin: `${d.x}px ${d.y}px` }}
+              {...dotIn(0.25 + i * (0.5 / Math.max(1, weekDots.length)))}
+            />
+          ))}
+
+          {/* Anchor dots: start, cut-end (emphasized), fight (red w/ halo) */}
+          <motion.circle cx={x0} cy={y0} r="4" fill="hsl(var(--primary))" stroke="hsl(var(--background))" strokeWidth="1.5" style={{ transformOrigin: `${x0}px ${y0}px` }} {...dotIn(0.2)} />
+          <motion.circle cx={xCut} cy={yCut} r="4" fill="hsl(var(--primary))" stroke="hsl(var(--background))" strokeWidth="1.5" style={{ transformOrigin: `${xCut}px ${yCut}px` }} {...dotIn(0.75)} />
+          {hasDehyd && (
+            <>
+              <motion.circle cx={xEnd} cy={yEnd} r="8" fill={CJ_RED} opacity="0.18" style={{ transformOrigin: `${xEnd}px ${yEnd}px` }} {...dotIn(1.5)} />
+              <motion.circle cx={xEnd} cy={yEnd} r="4.5" fill={CJ_RED} stroke="hsl(var(--background))" strokeWidth="1.5" style={{ transformOrigin: `${xEnd}px ${yEnd}px` }} {...dotIn(1.55)} />
+            </>
+          )}
+
+          {/* Value labels */}
+          <text x={x0} y={y0 - 11} fontSize="10" fontWeight="700" textAnchor="start" fill="hsl(var(--foreground))">{currentKg.toFixed(1)}</text>
+          <text x={xCut} y={yCut - 11} fontSize="10" fontWeight="600" textAnchor="middle" fill="hsl(var(--foreground))">{safeCutEnd.toFixed(1)}</text>
+          {hasDehyd && (
+            <text x={xEnd} y={yEnd + 16} fontSize="10" fontWeight="700" textAnchor="end" fill={CJ_RED}>{safeFight.toFixed(1)}</text>
+          )}
+
+          {/* X-axis labels. The "Cut end" word is dropped when the dehydration
+              leg is too narrow to fit it without colliding with "Fight" (long
+              cuts) - the cut-end value label above the dot still identifies it. */}
+          <text x={x0} y={H - 10} fontSize="9" textAnchor="start" fill="hsl(var(--muted-foreground))">Now</text>
+          {hasDehyd && xEnd - xCut >= 50 && <text x={xCut} y={H - 10} fontSize="9" textAnchor="middle" fill="hsl(var(--muted-foreground))">Cut end</text>}
+          <text x={xEnd} y={H - 10} fontSize="9" textAnchor="end" fill={hasDehyd ? CJ_RED : "hsl(var(--muted-foreground))"}>{hasDehyd ? "Fight" : "Goal"}</text>
+        </svg>
+
+        {/* Legend */}
+        <div className="flex items-center justify-center gap-4 mt-1 text-[10px] text-muted-foreground">
+          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-primary" />Steady cut</span>
+          {hasDehyd && (
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: CJ_RED }} />Dehydration</span>
+          )}
+        </div>
+
+        {/* Caption */}
+        <p className="text-[11px] text-muted-foreground text-center leading-snug px-1 pt-2">
+          Steady cut to <strong className="text-foreground tabular-nums">{safeCutEnd.toFixed(1)} kg</strong> over {cutWeeks} {cutWeeks === 1 ? "week" : "weeks"}
+          {hasDehyd ? (
+            <>, then <strong style={{ color: CJ_RED }} className="tabular-nums">{(safeCutEnd - safeFight).toFixed(1)} kg</strong> water cut on fight day.</>
+          ) : "."}
         </p>
-      )}
+        {showPlateau && (
+          <p className="text-[10px] text-func-warning-yellow/80 text-center mt-1">
+            Plateau zone weeks 3-4. Normal. Trust the protocol.
+          </p>
+        )}
+      </div>
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// BlurredWeekOnePreview — fake "Day 1" plan card behind a blur scrim.
+// BlurredWeekOnePreview: fake "Day 1" plan card behind a blur scrim.
 // Brains can't leave blurred content unrevealed; the user is motivated
 // to tap "Generate My Plan" to see the real numbers. Macros are derived
 // from a Mifflin-St Jeor BMR estimate × activity factor × deficit so
@@ -989,7 +1163,7 @@ export function BlurredWeekOnePreview({
       transition={{ delay: 0.2, duration: 0.35 }}
       className="relative rounded-xs overflow-hidden border border-border/40 bg-card"
     >
-      {/* The blurred "card" content — readable enough to tease, blurred
+      {/* The blurred "card" content: readable enough to tease, blurred
           enough that the user knows it's locked until they generate. */}
       <div
         className="px-4 py-3.5 select-none"
@@ -1033,7 +1207,7 @@ export function BlurredWeekOnePreview({
         </p>
       </div>
 
-      {/* Scrim + lock overlay — the actual visible UI. */}
+      {/* Scrim + lock overlay: the actual visible UI. */}
       <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/30 backdrop-blur-[1px]">
         <div className="h-9 w-9 rounded-full bg-background/90 border border-border flex items-center justify-center">
           <Lock className="h-4 w-4 text-primary" />

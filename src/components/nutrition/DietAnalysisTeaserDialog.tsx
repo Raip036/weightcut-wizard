@@ -9,7 +9,7 @@ interface DietAnalysisTeaserDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-/** What a free user is shown before the price — sells the value of the
+/** What a free user is shown before the price. Sells the value of the
  *  diet analysis, then hands off to the existing paywall flow. */
 const PERKS = [
   { title: "Protein g/kg verdict", desc: "Know if you hit your daily target for your weight" },
@@ -33,9 +33,9 @@ const MOTES: Array<{ left: string; size: number; dur: number; delay: number }> =
 
 /**
  * Teaser preview shown when a free user taps the gated "Analyse my day"
- * button. Borrows the visual language of {@link WelcomeProDialog} — aurora
+ * button. Borrows the visual language of {@link WelcomeProDialog}: aurora
  * glow, drifting motes, a rotating god-ray behind the icon crest, staggered
- * reveals and a shimmering CTA — but compressed into a compact, fast upsell
+ * reveals and a shimmering CTA, but compressed into a compact, fast upsell
  * dialog that leads with the feature's value before the upgrade ask.
  *
  * All ambient motion is gated behind `useReducedMotion`; with motion reduced
@@ -210,7 +210,7 @@ export function DietAnalysisTeaserDialog({ open, onOpenChange }: DietAnalysisTea
           </motion.p>
         </div>
 
-        {/* Perks — staggered slide-in */}
+        {/* Perks: staggered slide-in */}
         <div className="relative px-5 pb-1 space-y-2.5">
           {PERKS.map((perk, i) => (
             <motion.div

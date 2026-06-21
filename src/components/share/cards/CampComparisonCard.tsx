@@ -180,7 +180,7 @@ function CampWaterfall({
     );
   }
 
-  // No breakdown — single bar showing total cut
+  // No breakdown: single bar showing total cut
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
       <text x={width / 2} y={padTop - (large ? 16 : 12)} textAnchor="middle" fill="#ffffff" fontSize={kgFs} fontWeight={800} fontFamily="Satoshi, system-ui, sans-serif" style={{ fontVariantNumeric: "tabular-nums" } as any}>
@@ -293,7 +293,7 @@ export const CampComparisonCard = forwardRef<HTMLDivElement, CampComparisonCardP
           />
         </div>
 
-        {/* Weight cut waterfall charts — one per camp */}
+        {/* Weight cut waterfall charts: one per camp */}
         {(campA.starting_weight_kg && campA.end_weight_kg && campA.starting_weight_kg > campA.end_weight_kg) ||
          (campB.starting_weight_kg && campB.end_weight_kg && campB.starting_weight_kg > campB.end_weight_kg) ? (
           <div style={{ marginTop: s ? 40 : 20 }}>

@@ -11,6 +11,7 @@
 import type * as _shared_aiSchemas from "../_shared/aiSchemas.js";
 import type * as _shared_apnsJwt from "../_shared/apnsJwt.js";
 import type * as _shared_athleteSnapshot from "../_shared/athleteSnapshot.js";
+import type * as _shared_campLimit from "../_shared/campLimit.js";
 import type * as _shared_coachBlocks from "../_shared/coachBlocks.js";
 import type * as _shared_coachCampHistory from "../_shared/coachCampHistory.js";
 import type * as _shared_coachDomains_campArchitect from "../_shared/coachDomains/campArchitect.js";
@@ -168,6 +169,7 @@ declare const fullApi: ApiFromModules<{
   "_shared/aiSchemas": typeof _shared_aiSchemas;
   "_shared/apnsJwt": typeof _shared_apnsJwt;
   "_shared/athleteSnapshot": typeof _shared_athleteSnapshot;
+  "_shared/campLimit": typeof _shared_campLimit;
   "_shared/coachBlocks": typeof _shared_coachBlocks;
   "_shared/coachCampHistory": typeof _shared_coachCampHistory;
   "_shared/coachDomains/campArchitect": typeof _shared_coachDomains_campArchitect;

@@ -24,7 +24,7 @@ interface ProExplainerOverlayProps {
  * {@link ProUpsellScreen}; "Upgrade to Pro" hands off to the RevenueCat
  * paywall, "Maybe later" / Escape closes it.
  *
- * Used for Training Missions, Weekly Recap, and any future locked feature —
+ * Used for Training Missions, Weekly Recap, and any future locked feature:
  * pass feature-specific `title` / `blurb` / `perks`.
  */
 export function ProExplainerOverlay({

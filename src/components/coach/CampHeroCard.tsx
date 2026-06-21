@@ -7,7 +7,7 @@ import { LevelRing } from "./LevelRing";
 import { LevelSheet } from "./LevelSheet";
 
 /**
- * Camp progress info — matches CampActiveCampHero's existing shape so the
+ * Camp progress info. Matches CampActiveCampHero's existing shape so the
  * caller (Camp.tsx) can swap the import with no other edits. `elapsed` is
  * kept (not renamed to `elapsedDays`) and `fightLabel` is the pre-formatted
  * fight date string (e.g. "Jul 4, 2026").
@@ -25,7 +25,7 @@ interface PhaseInfo {
   label: string;
   /** Tailwind bg class for the phase pill, e.g. "bg-primary/10" */
   bg: string;
-  /** Tailwind text-color class — also drives the SVG arc via currentColor */
+  /** Tailwind text-color class, also drives the SVG arc via currentColor */
   text: string;
   /** Tailwind border class for the phase pill */
   border: string;
@@ -49,7 +49,7 @@ const RING_SIZE = 160;
 const DISC_RING_SIZE = 60;
 
 /**
- * Camp hero — the headline block at the top of the Camp page for fighters
+ * Camp hero: the headline block at the top of the Camp page for fighters
  * with an active camp. Centred vertical stack: camp name (Sora) → days-left →
  * the big fight-progress ring flanked by the user's top discipline level rings
  * → fight date → day-of-camp. On mount the main ring grows from 0 and every
@@ -80,13 +80,13 @@ export const CampHeroCard = memo(function CampHeroCard({
   }, []);
   const dashOffset = RING_CIRCUMFERENCE * (1 - (mounted ? clampedPct : 0));
 
-  // Top disciplines by XP — one flanks each side of the main ring.
+  // Top disciplines by XP. One flanks each side of the main ring.
   const disciplines = useQuery(api.user_discipline_xp.getAllForUser);
   const [left, right] = (disciplines ?? []).slice(0, 2);
   const [levelSheetOpen, setLevelSheetOpen] = useState(false);
 
   const ariaLabel =
-    `${campName} — Day ${elapsed} of ${totalDays}, ` +
+    `${campName}, Day ${elapsed} of ${totalDays}, ` +
     `${daysLeft} days remaining, ${phase.label} phase`;
 
   // A flanking discipline level ring + label. Tapping opens the LevelSheet.
@@ -119,7 +119,7 @@ export const CampHeroCard = memo(function CampHeroCard({
 
   return (
     <div className="w-full flex flex-col items-center">
-      {/* Camp name + days-left — taps through to the fight-camps surface. */}
+      {/* Camp name + days-left: taps through to the fight-camps surface. */}
       <button
         type="button"
         onClick={onTap}
@@ -138,15 +138,15 @@ export const CampHeroCard = memo(function CampHeroCard({
         </p>
       </button>
 
-      {/* Ring row — discipline level rings flank the big fight-progress ring
+      {/* Ring row: discipline level rings flank the big fight-progress ring
           as plain flex siblings with a gap, so they can never overlap the
-          centre ring. (An earlier absolute-pinned layout — disc rings pinned
-          to the row edges, main ring centred — collided on narrow widths /
+          centre ring. (An earlier absolute-pinned layout, disc rings pinned
+          to the row edges, main ring centred, collided on narrow widths /
           wide labels; this is the original, overlap-proof structure.) */}
       <div className="mt-4 flex items-center justify-center gap-4">
         {left && <DisciplineRing row={left} />}
 
-        {/* Main fight-progress ring — phase-tinted via `phase.text` →
+        {/* Main fight-progress ring: phase-tinted via `phase.text` →
             `currentColor`. Grows from 0 on mount. Taps through to camp. */}
         <button
           type="button"
@@ -196,7 +196,7 @@ export const CampHeroCard = memo(function CampHeroCard({
         {right && <DisciplineRing row={right} />}
       </div>
 
-      {/* Fight date + day-of-camp — taps through to the fight-camps surface. */}
+      {/* Fight date + day-of-camp: taps through to the fight-camps surface. */}
       <button
         type="button"
         onClick={onTap}

@@ -10,7 +10,7 @@ interface OrbSpinnerProps {
 }
 
 /**
- * Brand-flavored loading indicator — a small glowing orb that pulses +
+ * Brand-flavored loading indicator: a small glowing orb that pulses +
  * rotates slowly. Use everywhere you'd otherwise reach for a generic
  * spinner (Loader2, lucide spinner, shadcn Spinner) so loading states
  * across the app feel consistent and on-brand.
@@ -22,7 +22,7 @@ interface OrbSpinnerProps {
  *   • Soft drop-shadow halo for that "energy" feel.
  *   • Scale pulse (1 → 1.15 → 1) on a 1.6s loop.
  *   • Continuous slow rotation (4s) so the gradient streaks ever so
- *     slightly — adds life without distracting.
+ *     slightly, adding life without distracting.
  *
  * Accessibility: role="status" + visually-hidden text so assistive
  * technology announces "Loading" while the user sees the orb.
@@ -45,7 +45,7 @@ export function OrbSpinner({ size = 24, label = "Loading", className }: OrbSpinn
             "radial-gradient(circle at 35% 35%, rgba(255,255,255,0.95) 0%, rgba(139,126,234,0.85) 28%, rgba(74,180,237,0.55) 58%, rgba(74,180,237,0) 78%)",
           // The stacked drop-shadow halo re-rasterizes every frame on iOS as the
           // orb scales+rotates. This is the app's standard spinner (many loading
-          // states), so drop the filter on native — the gradient sphere reads
+          // states), so drop the filter on native. The gradient sphere reads
           // fine on its own. Web keeps the full glow.
           filter: isNativePlatform
             ? undefined

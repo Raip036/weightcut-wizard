@@ -114,7 +114,7 @@ function MorningCheckInPromptInner({
                 Complete today's check-in
               </p>
               <p className="mt-0.5 text-[11.5px] leading-snug text-muted-foreground">
-                Two taps — your readiness score updates instantly.
+                Two taps. Your readiness score updates instantly.
               </p>
             </div>
             <ChevronRight
@@ -179,7 +179,7 @@ function MorningCheckInErrorFallback({
             Morning check-in unavailable
           </p>
           <p className="mt-0.5 text-[11.5px] leading-snug text-muted-foreground">
-            Couldn't load health data — pull to refresh.
+            Couldn't load health data. Pull to refresh.
           </p>
         </div>
       </div>

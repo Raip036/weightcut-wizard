@@ -1,4 +1,4 @@
-// WP-T13 — WeightLossBreakdownChart
+// WP-T13: WeightLossBreakdownChart
 // Educational breakdown of where the cut weight actually goes
 // (glycogen / water / gut content / sauna+sweat / fat). Pure
 // presentational: takes a totalKg and a list of segments, draws a
@@ -6,7 +6,7 @@
 //
 // Bars are sized by `kg / maxKg` (the largest segment, NOT the total).
 // This means a set of segments summing to more than `totalKg` still
-// renders sensibly — the largest one fills the row and the others
+// renders sensibly: the largest one fills the row and the others
 // scale proportionally beside it. We chose max-normalisation over
 // total-normalisation so that the visual conveys *relative magnitude
 // between segments* rather than fraction-of-whole; the total is
@@ -58,7 +58,7 @@ export function WeightLossBreakdownChart({
   const prefersReduced = useReducedMotion();
   const headerId = useId();
 
-  // Drop zero/negative segments — they shouldn't render a row.
+  // Drop zero/negative segments; they shouldn't render a row.
   const visibleSegments = segments.filter((s) => s.kg > 0);
 
   // Max-normalise so segments that sum > totalKg still scale sensibly

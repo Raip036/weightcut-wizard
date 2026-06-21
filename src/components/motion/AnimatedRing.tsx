@@ -8,7 +8,7 @@ interface AnimatedRingProps {
   progress: number;
   size: number;
   strokeWidth: number;
-  /** [startColor, endColor] — CSS color strings */
+  /** [startColor, endColor]: CSS color strings */
   gradientColors: [string, string];
   /** Pulsing glow + haptic when progress >= 1 */
   glowOnComplete?: boolean;

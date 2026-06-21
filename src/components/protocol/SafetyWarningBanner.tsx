@@ -1,6 +1,6 @@
-// WP-T11 — SafetyWarningBanner
+// WP-T11: SafetyWarningBanner
 // Amber or red banner used on the Weight Protocol page to surface
-// safety guidance. Conditionally rendered by the page — when shown,
+// safety guidance. Conditionally rendered by the page; when shown,
 // it needs to be visible immediately, so we deliberately skip mount
 // animations.
 //
@@ -50,13 +50,13 @@ export function friendlyWarningTitle(code: string): string {
 }
 
 export interface SafetyWarningBannerProps {
-  /** Severity — drives colour, icon, and aria role. */
+  /** Severity: drives colour, icon, and aria role. */
   level: SafetyLevel;
   /** Short uppercase title, e.g. "SAFETY · cut depth above 5% body weight". */
   title: string;
   /** 1-2 sentence detail copy. */
   body: string;
-  /** Optional "Read more" handler — when supplied, the bottom link renders. */
+  /** Optional "Read more" handler; when supplied, the bottom link renders. */
   onReadMore?: () => void;
   className?: string;
 }
@@ -97,7 +97,7 @@ export function SafetyWarningBanner({
       aria-live={level === "red" ? "assertive" : "polite"}
       className={`card-surface rounded-2xl p-2.5 ${containerClasses(level)} ${className}`}
     >
-      {/* Top row: icon + title — centered so the icon sits in line with the
+      {/* Top row: icon + title, centered so the icon sits in line with the
           (single-line) title rather than floating above its baseline. */}
       <div className="flex items-center gap-1.5">
         <span className={`flex shrink-0 ${iconColor}`}>

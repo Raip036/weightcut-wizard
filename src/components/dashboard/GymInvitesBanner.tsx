@@ -11,7 +11,7 @@ import { ImpactStyle } from "@capacitor/haptics";
 
 /**
  * Athlete-side dashboard banner that surfaces pending gym invites. Reads
- * `gym_members.listMyInvites` reactively — when the list goes empty the
+ * `gym_members.listMyInvites` reactively, when the list goes empty the
  * banner unmounts automatically. Tapping the banner opens a Sheet with
  * accept/decline controls per invite.
  *

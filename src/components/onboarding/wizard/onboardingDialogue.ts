@@ -2,9 +2,9 @@ import type { WizardPose } from "@/tutorial/types";
 import type { WizardVariant } from "@/tutorial/WizardCharacter";
 
 export type DialogueLine = {
-  /** 1–4 words, displayed bold above the body. */
+  /** 1-4 words, displayed bold above the body. */
   headline: string;
-  /** 1–2 short sentences, typewritten character-by-character. */
+  /** 1-2 short sentences, typewritten character-by-character. */
   body: string;
   /** Mascot pose. Defaults to "idle" when omitted. */
   pose?: WizardPose;
@@ -14,15 +14,15 @@ export type DialogueLine = {
 
 /**
  * Lookup keys, in precedence order:
- *   1. `${branch}:${step}:${fightSubStep}`  — only for cutting step 3
+ *   1. `${branch}:${step}:${fightSubStep}`  (only for cutting step 3)
  *   2. `${branch}:${step}`
- *   3. `default:${step}`                    — shared between branches
+ *   3. `default:${step}`                    (shared between branches)
  *   4. generic fallback
  *
  * Keep lines tight: ~110 chars body, dry coach voice, no emoji.
  */
 const LINES: Record<string, DialogueLine> = {
-  // ── Step 1 — shared welcome, hero mode ─────────────────────────────
+  // ── Step 1: shared welcome, hero mode ─────────────────────────────
   "default:1": {
     headline: "Round one.",
     body: "Making weight, or losing it? Pick your tribe and we go.",
@@ -35,7 +35,7 @@ const LINES: Record<string, DialogueLine> = {
   // post-shift step numbers (F.* in Onboarding.tsx). Sub-step keys for
   // the fight-details mini-flow moved 3:N → 4:N with it.
 
-  // Step 2 (F.WEIGH_IN): weigh-in timing — day before vs same day
+  // Step 2 (F.WEIGH_IN): weigh-in timing, day before vs same day
   "cutting:2": {
     headline: "Weigh-in day.",
     body: "Day before or same day? It changes the whole water-cut math.",
@@ -62,7 +62,7 @@ const LINES: Record<string, DialogueLine> = {
   },
   "cutting:4:3": {
     headline: "Fight-week target.",
-    body: "How close to weight you'll be before the final stretch — tailored to your weigh-in.",
+    body: "How close to weight you'll be before the final stretch. Tailored to your weigh-in.",
   },
   "cutting:4:4": {
     headline: "Camp name.",
@@ -88,7 +88,7 @@ const LINES: Record<string, DialogueLine> = {
     pose: "point",
   },
 
-  // Step 7: current weight — slam follows, keep grounded
+  // Step 7: current weight, slam follows, keep grounded
   "cutting:7": {
     headline: "Step on.",
     body: "Honest number, please. This is the starting line.",
@@ -98,7 +98,7 @@ const LINES: Record<string, DialogueLine> = {
   // Step 8: body fat slider
   "cutting:8": {
     headline: "Eyeball it.",
-    body: "Rough body fat is fine — we calibrate as you log.",
+    body: "Rough body fat is fine. We calibrate as you log.",
     pose: "point",
   },
 
@@ -111,7 +111,7 @@ const LINES: Record<string, DialogueLine> = {
   // Step 10: training frequency
   "cutting:10": {
     headline: "Sessions a week.",
-    body: "Pads, sparring, gym, runs — count all of them.",
+    body: "Pads, sparring, gym, runs. Count all of them.",
   },
 
   // Step 13: training types
@@ -152,7 +152,7 @@ const LINES: Record<string, DialogueLine> = {
     body: "How many weeks do you want? Be realistic, not heroic.",
   },
 
-  // Step 3: current weight — slam follows, stay calm
+  // Step 3: current weight, slam follows, stay calm
   "losing:3": {
     headline: "Step on.",
     body: "No judgment, just data. This is where we start.",
@@ -176,7 +176,7 @@ const LINES: Record<string, DialogueLine> = {
   // Step 6: body fat
   "losing:6": {
     headline: "Body fat.",
-    body: "Estimate is fine. Skip if you don't know — we'll calibrate.",
+    body: "Estimate is fine. Skip if you don't know and we'll calibrate.",
     pose: "point",
   },
 
@@ -189,7 +189,7 @@ const LINES: Record<string, DialogueLine> = {
   // Step 8: training frequency
   "losing:8": {
     headline: "Sessions a week.",
-    body: "All of them count. Walks, lifts, classes — say the number.",
+    body: "All of them count. Walks, lifts, classes: say the number.",
   },
 
   // Step 9: training types
@@ -207,7 +207,7 @@ const LINES: Record<string, DialogueLine> = {
   // Step 11: struggle
   "losing:11": {
     headline: "Your demon.",
-    body: "Stress, energy, bingeing, plateau — pick the loudest one.",
+    body: "Stress, energy, bingeing, plateau: pick the loudest one.",
   },
 
   // Step 12: plan aggressiveness

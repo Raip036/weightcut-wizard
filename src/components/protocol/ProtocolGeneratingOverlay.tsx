@@ -1,4 +1,4 @@
-// ProtocolGeneratingOverlay — "Aurora Wizard"
+// ProtocolGeneratingOverlay: "Aurora Wizard"
 //
 // Premium, blue + wizard-themed loading state shown on the Weight Protocol page
 // during the 5-15s generation window. The 3D wizard floats inside a breathing
@@ -6,7 +6,7 @@
 // line and an indeterminate shimmer bar. Replaces the older 2D pose-cycling
 // overlay. Reduced-motion collapses to a calm static state.
 //
-// This is the app's reference "premium loading" pattern — see the memory note
+// This is the app's reference "premium loading" pattern. See the memory note
 // reference_aurora_wizard_loader for reuse across other features.
 import { useEffect, useMemo, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
@@ -44,7 +44,7 @@ export function ProtocolGeneratingOverlay({
 }: ProtocolGeneratingOverlayProps) {
   const prefersReduced = useReducedMotion();
 
-  // Rotating status line — advances on a fixed cadence (no real progress signal).
+  // Rotating status line, advances on a fixed cadence (no real progress signal).
   const [statusIdx, setStatusIdx] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setStatusIdx((i) => (i + 1) % steps.length), STATUS_INTERVAL_MS);

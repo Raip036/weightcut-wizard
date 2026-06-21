@@ -1,4 +1,4 @@
-// WP-T10 — InputsUsedChips
+// WP-T10: InputsUsedChips
 // Labeled-stat grid that surfaces the personalization signals the
 // protocol was tuned to. Read-only; no interaction, no haptics. Lives
 // under the page header so the user understands why today's plan looks
@@ -105,7 +105,7 @@ export function InputsUsedChips({ stats, className = "" }: InputsUsedChipsProps)
         Tuned to you
       </p>
 
-      {/* Hero — full-width, larger value, optional badge */}
+      {/* Hero: full-width, larger value, optional badge */}
       <motion.div
         initial={prefersReduced ? false : { opacity: 0, y: 4 }}
         animate={{ opacity: 1, y: 0 }}
@@ -144,7 +144,7 @@ export function InputsUsedChips({ stats, className = "" }: InputsUsedChipsProps)
         </p>
       </motion.div>
 
-      {/* Remaining stats — 2-col grid; odd trailing card spans full width */}
+      {/* Remaining stats: 2-col grid; odd trailing card spans full width */}
       {rest.length > 0 && (
         <div className="mt-2.5 grid grid-cols-2 gap-2.5">
           {rest.map((stat, i) => {

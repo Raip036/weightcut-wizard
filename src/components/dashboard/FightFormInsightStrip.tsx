@@ -74,14 +74,14 @@ function headlineFor(p: Props): string {
   if (p.state === "no_camp") return "Set a target date and goal weight to start scoring your camp.";
   if (p.state === "paused")  return "Camp is paused. Log when ready to resume.";
 
-  // Cold-start override — when nothing is logged today yet, replace the
+  // Cold-start override, when nothing is logged today yet, replace the
   // numeric / calibration copy with a single welcoming sentence.
   const nothingLoggedToday =
     !p.adherence.sleep
     && !p.adherence.weight
     && !p.adherence.training
     && !p.adherence.wellnessCheckin;
-  if (nothingLoggedToday) return "Fresh start — log anything to begin";
+  if (nothingLoggedToday) return "Fresh start. Log anything to begin";
 
   if (p.state === "calibrating") {
     if (!p.calibration) return "Logging your first days to calibrate your score.";
@@ -100,12 +100,12 @@ function headlineFor(p: Props): string {
     const limiter = p.topLimiter ? SUBSCORE_HUMAN[p.topLimiter] : null;
     if (p.appliedCeiling) {
       return limiter
-        ? `Score capped and running on older data — log ${limiter.toLowerCase()} to refresh.`
-        : "Score capped and running on older data — log today to refresh it.";
+        ? `Score capped and running on older data. Log ${limiter.toLowerCase()} to refresh.`
+        : "Score capped and running on older data. Log today to refresh it.";
     }
     return limiter
-      ? `Score is based on older data — log ${limiter.toLowerCase()} to refresh it.`
-      : "Score is based on older data — log today to refresh it.";
+      ? `Score is based on older data. Log ${limiter.toLowerCase()} to refresh it.`
+      : "Score is based on older data. Log today to refresh it.";
   }
 
   // state === "ok"
@@ -150,7 +150,7 @@ export function FightFormInsightStrip(p: Props) {
   // When the strip carries diagnostic info (an applied cap, or a driver/
   // limiter once the score is unlocked) we surface a "Why?" tap target so
   // the user can pull up the full explanation sheet instead of guessing
-  // what "Score capped — training load is spiking" actually means.
+  // what "Score capped, training load is spiking" actually means.
   const isTappable =
     !!p.onHeadlineTap &&
     (p.appliedCeiling != null || ((p.state === "ok" || p.state === "stale") && (p.topDriver != null || p.topLimiter != null)));

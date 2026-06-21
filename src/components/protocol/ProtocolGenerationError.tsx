@@ -1,4 +1,4 @@
-// WP-T19 — ProtocolGenerationError
+// WP-T19: ProtocolGenerationError
 // Error card shown when AI generation of the weight protocol fails.
 // Always offers a retry; optionally offers "use last good plan" when
 // the caller has a cached fallback available (typically read from
@@ -9,7 +9,7 @@
 //   - 16px semibold heading, 13px muted body
 //   - Body has max-height + overflow so a long stack/trace doesn't
 //     blow out the layout
-//   - aria-role "alert" + aria-live "assertive" — screen readers should
+//   - aria-role "alert" + aria-live "assertive"; screen readers should
 //     announce immediately
 //   - Mount: fade in only (no slide). Errors should appear instantly
 //     rather than animating in
@@ -21,9 +21,9 @@ import { cn } from "@/lib/utils";
 export interface ProtocolGenerationErrorProps {
   /** Human-readable error message to display. */
   error: string;
-  /** Required — primary action retries the generation. */
+  /** Required: primary action retries the generation. */
   onRetry: () => void;
-  /** Optional fallback — only shown when a cached last-good plan exists. */
+  /** Optional fallback: only shown when a cached last-good plan exists. */
   onUseLastGood?: () => void;
   className?: string;
 }

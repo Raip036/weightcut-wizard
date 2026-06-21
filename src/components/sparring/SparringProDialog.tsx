@@ -17,7 +17,7 @@ const PERKS = [
  * Full-screen animated explainer for the Sparring To-Do List Pro feature.
  *
  * A thin wrapper over the shared {@link ProExplainerOverlay} so the sparring
- * copy lives in one place — mirrors {@link MissionsProDialog}.
+ * copy lives in one place; mirrors {@link MissionsProDialog}.
  */
 export function SparringProDialog({ open, onOpenChange }: SparringProDialogProps) {
   return (

@@ -207,7 +207,7 @@ export function ConnectAppleHealthSheet({
     } catch (err) {
       if (err instanceof HealthKitTimeoutError) {
         setError(
-          "Couldn't open Apple Health — the permission screen didn't respond. Open the Apple Health app to grant access, then return here.",
+          "Couldn't open Apple Health. The permission screen didn't respond. Open the Apple Health app to grant access, then return here.",
         );
         setShowHealthAppFallback(true);
       } else {
@@ -248,7 +248,7 @@ export function ConnectAppleHealthSheet({
           </h2>
           <p className="mt-1 text-[12.5px] leading-snug text-muted-foreground">
             Read-only access. Powers your Fight Form score with real recovery
-            data — HRV, sleep, workouts, and more.
+            data: HRV, sleep, workouts, and more.
           </p>
         </div>
       </div>

@@ -58,7 +58,7 @@ export function SessionMediaPicker({
         // User cancelled
       }
     } else {
-      // Web fallback — open file input in capture mode
+      // Web fallback: open file input in capture mode
       if (fileInputRef.current) {
         fileInputRef.current.setAttribute("capture", "environment");
         fileInputRef.current.setAttribute("accept", "image/*");

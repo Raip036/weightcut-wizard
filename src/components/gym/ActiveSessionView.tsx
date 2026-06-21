@@ -28,7 +28,7 @@ interface ActiveSessionViewProps {
   onFinish: (opts: { durationMinutes?: number; notes?: string; perceivedFatigue?: number }) => void;
   onDiscard: () => void;
   onExerciseTap?: (exerciseId: string) => void;
-  /** Latest bodyweight (kg) — counts added-load-only volume for weighted exercises. */
+  /** Latest bodyweight (kg), counts added-load-only volume for weighted exercises. */
   bodyweightKg?: number | null;
 }
 
@@ -149,7 +149,7 @@ export function ActiveSessionView({
             <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-muted-foreground mt-1.5">Elapsed</p>
           </div>
 
-          {/* Live counters — Sets done + Volume pop/count-up on completion */}
+          {/* Live counters: Sets done + Volume pop/count-up on completion */}
           <div className="grid grid-cols-2 gap-2.5">
             <div className="rounded-xl bg-muted/30 border border-border/40 p-3 text-center">
               <div className="display-number text-2xl font-extrabold tabular-nums">

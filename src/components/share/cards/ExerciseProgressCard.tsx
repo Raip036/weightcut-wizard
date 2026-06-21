@@ -1,16 +1,16 @@
 /**
- * ExerciseProgressCard — shareable image card for a single lift's progression.
+ * ExerciseProgressCard: shareable image card for a single lift's progression.
  *
  * Visual language mirrors `TrainingCalendarCard`:
  *  - FightCamp Wizard brand header (from CardShell)
  *  - Centred period label (the exercise name, uppercase)
- *  - Three big Strava-style stats stacked vertically — Heaviest PR, Best Set,
- *    Max Reps — with huge bold white numbers
+ *  - Three big Strava-style stats stacked vertically (Heaviest PR, Best Set,
+ *    Max Reps) with huge bold white numbers
  *  - Graphic at the bottom: per-session progression curve (SVG area chart of
  *    the heaviest working-set weight per session)
  *
  * The bottom chart is hand-rolled SVG (not recharts) so html-to-image can
- * snapshot it without waiting for chart layout — matches the rest of the
+ * snapshot it without waiting for chart layout, matching the rest of the
  * share cards, which all rasterise deterministically.
  *
  * Bodyweight exercises (every set has `is_bodyweight` or `weight_kg=0`) flip
@@ -38,7 +38,7 @@ interface SessionPoint {
 }
 
 function formatWeightLabel(kg: number): string {
-  if (kg <= 0) return "—";
+  if (kg <= 0) return "-";
   return kg % 1 === 0 ? `${kg}` : kg.toFixed(1);
 }
 
@@ -105,7 +105,7 @@ export const ExerciseProgressCard = forwardRef<HTMLDivElement, ExerciseProgressC
 
       const pts = aggregateByDate(sets);
 
-      // % progress vs first logged session — gives the headline "how much
+      // % progress vs first logged session: gives the headline "how much
       // stronger over time" the user asked for, and works for both weight
       // and bodyweight (rep-based) progression.
       let pct: number | null = null;
@@ -140,7 +140,7 @@ export const ExerciseProgressCard = forwardRef<HTMLDivElement, ExerciseProgressC
     // All on-card text is uniformly bumped 20% larger for Instagram-story
     // legibility. Title font, muscle-group subline, stat sizes (via the
     // StravaStat `scale` prop), chart corner labels, and the date subline
-    // are all multiplied by this single constant — keeping the relative
+    // are all multiplied by this single constant, keeping the relative
     // hierarchy intact while reading much bigger on phone screens.
     const TEXT_SCALE = 1.2;
     const px = (n: number) => Math.round(n * TEXT_SCALE);
@@ -149,11 +149,11 @@ export const ExerciseProgressCard = forwardRef<HTMLDivElement, ExerciseProgressC
       <CardShell ref={ref} aspect={aspect} isPremium={isPremium} transparent={transparent}>
         {/* `textAlign: center` on the root locks every inline text node and
             every block child (via `margin: auto` defaults) to the card's
-            vertical centreline — including the stat values whose visual
+            vertical centreline, including the stat values whose visual
             widths differ ("12" vs "100 × 5"). Each StravaStat then self-
             centres its own label/value as its own intrinsic block. */}
         <div style={{ display: "flex", flexDirection: "column", height: "100%", textAlign: "center", alignItems: "center" }}>
-          {/* Title — exercise name as a proper hero headline, centred. The
+          {/* Title: exercise name as a proper hero headline, centred. The
               muscle-group sub-line lives directly under it so the eye reads
               "what lift, what muscle" before scanning the stats. */}
           <div style={{ width: "100%", textAlign: "center" }}>
@@ -188,7 +188,7 @@ export const ExerciseProgressCard = forwardRef<HTMLDivElement, ExerciseProgressC
 
           <div style={{ flex: 1, minHeight: s ? 24 : 8 }} />
 
-          {/* Hero stats — heaviest, best set, progress %. Wrapper is a
+          {/* Hero stats: heaviest, best set, progress %. Wrapper is a
               full-width centred column so every stat aligns to the same
               centreline regardless of its value width. `scale` plumbs the
               20% type bump into StravaStat's internal sizes. */}
@@ -219,7 +219,7 @@ export const ExerciseProgressCard = forwardRef<HTMLDivElement, ExerciseProgressC
               transparent={transparent}
               scale={TEXT_SCALE}
             />
-            {/* Headline number that shows "strength increasing" over time —
+            {/* Headline number that shows "strength increasing" over time.
                 falls back to absolute max reps when we don't yet have two
                 sessions to diff. */}
             {percentChange !== null ? (
@@ -244,7 +244,7 @@ export const ExerciseProgressCard = forwardRef<HTMLDivElement, ExerciseProgressC
 
           <div style={{ flex: 1, minHeight: s ? 24 : 8 }} />
 
-          {/* Bottom graphic — progression curve. Wrapper is full-width so the
+          {/* Bottom graphic: progression curve. Wrapper is full-width so the
               chart spans edge-to-edge while the date subline beneath it stays
               centred to the card. */}
           <div style={{ width: "100%", textAlign: "center" }}>
@@ -286,7 +286,7 @@ interface ProgressionChartProps {
 
 /** Hand-rolled SVG area chart so html-to-image snapshots without waiting on
  *  recharts layout. Uses a smooth monotone-ish line by joining points with
- *  cubic Béziers anchored at the midpoints — the curve never overshoots a
+ *  cubic Béziers anchored at the midpoints, so the curve never overshoots a
  *  data point, so it's safe for honest progression copy. */
 function ProgressionChart({ points, isBodyweight, s, transparent, textScale = 1 }: ProgressionChartProps) {
   const width = 960;
@@ -325,7 +325,7 @@ function ProgressionChart({ points, isBodyweight, s, transparent, textScale = 1 
   const minV = Math.min(...values);
   const range = maxV - minV || 1;
 
-  // Linear x-scale by index — datestamps would compress recent sessions if a
+  // Linear x-scale by index: datestamps would compress recent sessions if a
   // user has a multi-month gap, and the bottom subline already shows the
   // date span so equal spacing reads as "session #1 → #N" cleanly.
   const xAt = (i: number) =>
@@ -381,7 +381,7 @@ function ProgressionChart({ points, isBodyweight, s, transparent, textScale = 1 
         {/* Latest-point dot */}
         <circle cx={lastX} cy={lastY} r={s ? 14 : 8} fill={accent} stroke="#0a0a0a" strokeWidth={s ? 4 : 2} />
 
-        {/* Min / max value labels — show the start and end values so the
+        {/* Min / max value labels: show the start and end values so the
             jump is readable without a y-axis. */}
         <text
           x={padX}

@@ -9,7 +9,7 @@ interface ShimmerCrownBadgeProps {
 }
 
 /**
- * A gradient "crown crest" tile with a periodic gloss shimmer — the shared
+ * A gradient "crown crest" tile with a periodic gloss shimmer: the shared
  * premium marker used on every Pro upsell entry point (locked buttons, teaser
  * cards). Keeps the crown treatment in one place so it can't drift across the
  * app. Shimmer is suppressed under `prefers-reduced-motion`.

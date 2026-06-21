@@ -85,7 +85,7 @@ const SORENESS_AREAS = ["Legs", "Back", "Arms", "All over"];
  * The flow is a list of screens derived from the current answers. A core
  * question that's answered "concerning" appends ONE follow-up right after it.
  * Defaults sit at the neutral middle (4), so follow-ups only appear once the
- * user actively picks an extreme — a good day never sees them. */
+ * user actively picks an extreme; a good day never sees them. */
 type Screen =
   | { id: string; kind: "core"; qIndex: number }
   | { id: string; kind: "followup"; ftype: "sleepHours" | "sorenessArea" | "energy" };
@@ -146,7 +146,7 @@ function useCountUp(target: number, duration = 600): number {
 
 const REACTION: Record<Exclude<MascotMood, "idle">, string[]> = {
   happy: ["Strong.", "Love it.", "Good signs.", "Nice."],
-  concerned: ["Noted — we'll adjust.", "Thanks for the honesty.", "Good to know.", "Got it."],
+  concerned: ["Noted, we'll adjust.", "Thanks for the honesty.", "Good to know.", "Got it."],
   thinking: ["Okay.", "Mm-hm.", "Right.", "Logged."],
 };
 
@@ -217,9 +217,9 @@ export function WellnessCheckIn({ userId, onSubmit, isSubmitting, streak, date }
   const hooperLabel = hooperIndex >= 22 ? "Great" : hooperIndex >= 16 ? "Good" : hooperIndex >= 10 ? "Fair" : "Poor";
   const hooperColor = hooperIndex >= 22 ? "text-func-recovery-green" : hooperIndex >= 16 ? "text-primary" : hooperIndex >= 10 ? "text-func-warning-yellow" : "text-func-danger-red";
   const hooperVerdict = hooperIndex >= 22
-    ? "Locked in — push today."
+    ? "Locked in. Push today."
     : hooperIndex >= 16
-      ? "Solid base — train smart."
+      ? "Solid base. Train smart."
       : hooperIndex >= 10
         ? "Run easy and watch fatigue."
         : "Recover hard today.";
@@ -234,9 +234,9 @@ export function WellnessCheckIn({ userId, onSubmit, isSubmitting, streak, date }
         return `Big ${label.toLowerCase()} session yesterday.`;
       }
       if (context?.yesterday?.hooper != null && context.yesterday.hooper <= 12) {
-        return "You were run down yesterday — let's see today.";
+        return "You were run down yesterday. Let's see today.";
       }
-      return "Morning — let's see how you're recovering.";
+      return "Morning. Let's see how you're recovering.";
     }
     if (mascotMood === "idle") return "";
     const opts = REACTION[mascotMood];
@@ -383,7 +383,7 @@ export function WellnessCheckIn({ userId, onSubmit, isSubmitting, streak, date }
         })}
       </div>
 
-      {/* Animated mascot + contextual line — hidden on summary to keep it focused */}
+      {/* Animated mascot + contextual line, hidden on summary to keep it focused */}
       {!onSummary && (
         <div className="flex flex-col items-center -mb-1">
           <motion.div
@@ -506,7 +506,7 @@ export function WellnessCheckIn({ userId, onSubmit, isSubmitting, streak, date }
                       }`}
                       aria-label={`Edit ${q.prompt}`}
                     >
-                      <span className="text-[12px] font-bold tracking-tight">{c?.label ?? "—"}</span>
+                      <span className="text-[12px] font-bold tracking-tight">{c?.label ?? "-"}</span>
                       <span className="text-[9px] uppercase tracking-wide text-foreground/60">{q.short}</span>
                     </motion.button>
                   );
@@ -659,7 +659,7 @@ function FollowUpCard({
     ftype === "sleepHours"
       ? { prompt: "Roughly how many hours?", hint: "A rough number is fine." }
       : ftype === "energy"
-        ? { prompt: "Energy in the tank?", hint: "Be honest — it tunes today's plan." }
+        ? { prompt: "Energy in the tank?", hint: "Be honest, it tunes today's plan." }
         : { prompt: "Where's it worst?", hint: "Helps target your recovery." };
 
   return (
@@ -766,7 +766,7 @@ function OptionalRow({
     <div>
       <div className="flex items-center justify-between mb-1">
         <span className="text-[11px] font-medium text-foreground/75">{label}</span>
-        <span className="text-[11px] font-bold text-foreground/55 tabular-nums">{value != null ? `${value}${suffix ?? ""}` : "—"}</span>
+        <span className="text-[11px] font-bold text-foreground/55 tabular-nums">{value != null ? `${value}${suffix ?? ""}` : "-"}</span>
       </div>
       <div className="flex gap-1">
         {options.map((opt) => {
@@ -804,7 +804,7 @@ function OptionalScaleRow({
     <div>
       <div className="flex items-center justify-between mb-1">
         <span className="text-[11px] font-medium text-foreground/75">{label}</span>
-        <span className="text-[11px] font-bold text-foreground/55 tabular-nums">{value != null ? `${value}/5` : "—"}</span>
+        <span className="text-[11px] font-bold text-foreground/55 tabular-nums">{value != null ? `${value}/5` : "-"}</span>
       </div>
       <div className="flex gap-1">
         {[1, 2, 3, 4, 5].map((v) => {

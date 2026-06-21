@@ -4,9 +4,9 @@
  * Two concerns, kept out of the React tree so any set row can trigger a rest
  * countdown without prop-drilling through ExerciseBlock → ActiveSessionView:
  *
- *   1. A tiny module bus — `RestTimerPill` registers a `start(seconds)`
+ *   1. A tiny module bus: `RestTimerPill` registers a `start(seconds)`
  *      function; a completed set calls `startRest(...)`.
- *   2. Persisted, user-customizable durations — a global default plus an
+ *   2. Persisted, user-customizable durations: a global default plus an
  *      optional per-exercise override (both in localStorage, no schema).
  */
 
@@ -69,7 +69,7 @@ export function registerRestStarter(fn: StartFn | null): void {
   starter = fn;
 }
 
-/** Fire-and-forget — no-op if no RestTimerPill is mounted. */
+/** Fire-and-forget, no-op if no RestTimerPill is mounted. */
 export function startRest(seconds: number): void {
   starter?.(seconds);
 }

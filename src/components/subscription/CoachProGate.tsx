@@ -26,7 +26,7 @@ const PRO_REASONS: { icon: IonIconName; title: string; sub: string }[] = [
   {
     icon: "chatbubblesOutline",
     title: "24/7 interactive cornerman",
-    sub: "Ask why, what now, anytime — answers from your real data.",
+    sub: "Ask why, what now, anytime. Answers from your real data.",
   },
   {
     icon: "flashOutline",
@@ -55,8 +55,8 @@ const PRO_REASONS: { icon: IonIconName; title: string; sub: string }[] = [
   },
 ];
 
-/** Fixed mote positions so particles don't re-randomise each render — the same
- *  drifting-blue-particle field the Recovery Pro gate (ProUpsellScreen) uses. */
+/** Fixed mote positions so particles don't re-randomise each render. This is the
+ *  same drifting-blue-particle field the Recovery Pro gate (ProUpsellScreen) uses. */
 const MOTES: Array<{ left: string; size: number; dur: number; delay: number }> = [
   { left: "6%", size: 4, dur: 7.5, delay: 0.0 },
   { left: "17%", size: 3, dur: 9.0, delay: 1.6 },
@@ -81,12 +81,12 @@ function buildHook(
   if (typeof over === "number" && over > 0.1 && typeof days === "number" && days >= 0) {
     const kg = Math.round(over * 10) / 10;
     const dayLabel = days === 0 ? "weigh-in day" : `${days} day${days === 1 ? "" : "s"} left`;
-    return `You're ${kg}kg over with ${dayLabel} — your cornerman has a plan.`;
+    return `You're ${kg}kg over with ${dayLabel}. Your cornerman has a plan.`;
   }
   if (briefing?.priorityAction) {
-    return `${briefing.priorityAction} — your cornerman can take it from here.`;
+    return `${briefing.priorityAction}. Your cornerman can take it from here.`;
   }
-  return "Your fight camp, dialed in — every day of camp, in your corner.";
+  return "Your fight camp, dialed in. Every day of camp, in your corner.";
 }
 
 export function CoachProGate({ className }: { className?: string }): JSX.Element {
@@ -100,7 +100,7 @@ export function CoachProGate({ className }: { className?: string }): JSX.Element
   const handleUnlock = () => {
     triggerHaptic();
     // Hand off to the EXISTING RevenueCat paywall / purchase flow. The native
-    // RevenueCat paywall surfaces its own 7-day free trial — we never build one.
+    // RevenueCat paywall surfaces its own 7-day free trial; we never build one.
     try {
       openPaywall();
     } catch {
@@ -167,7 +167,7 @@ export function CoachProGate({ className }: { className?: string }): JSX.Element
         animate={{ opacity: 1, y: 0 }}
         transition={springs.gentle}
       >
-        {/* Shimmer crown — the shared premium marker, prominent + glowing. */}
+        {/* Shimmer crown: the shared premium marker, prominent + glowing. */}
         <div className="relative mb-5">
           <div
             aria-hidden

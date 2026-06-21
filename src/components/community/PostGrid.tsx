@@ -1,9 +1,9 @@
 /**
- * PostGrid — 3-column square grid of a single user's posts.
+ * PostGrid: 3-column square grid of a single user's posts.
  *
  * Renders into the Profile page below the stats row. Each tile is a
  * shared-element source for the polaroid stack transition via framer
- * `layoutId` (`post-${id}-image` — same key the polaroid uses on the
+ * `layoutId` (`post-${id}-image`, same key the polaroid uses on the
  * Corner tab so the cross-page swap is "free").
  *
  * Performance notes:
@@ -12,7 +12,7 @@
  *  - An `IntersectionObserver` on a sentinel `<div>` at the end of the
  *    grid triggers `onLoadMore` when ~one screen of tiles remains.
  *  - LQIP base64 thumb is rendered as the `<img src>` *until* the real
- *    URL loads — the `onLoad` handler swaps in the full thumb. This
+ *    URL loads. The `onLoad` handler swaps in the full thumb. This
  *    gives an instant first paint with a CSS `blur(8px)` decoration that
  *    fades out once the high-res image arrives.
  */
@@ -30,7 +30,7 @@ interface PostGridProps {
   canLoadMore?: boolean;
   /** Skeleton tile count when loading the first page. */
   skeletonCount?: number;
-  /** Optional click handler — used by the parent to dispatch detail navs. */
+  /** Optional click handler: used by the parent to dispatch detail navs. */
   onTilePress?: (post: ProfilePost) => void;
 }
 
@@ -45,7 +45,7 @@ function PostTile({
   // Prefer the 256px thumb URL, falling back to the full-resolution url.
   const src = post.thumbUrl ?? post.url ?? null;
   // Robust load state: resets on src change, resolves on error, and catches
-  // already-cached images — so the LQIP fades out and the tile never freezes.
+  // already-cached images, so the LQIP fades out and the tile never freezes.
   const img = useImageReady(src);
 
   return (
@@ -55,7 +55,7 @@ function PostTile({
       className="relative block aspect-square overflow-hidden rounded-md bg-zinc-900 active:scale-[0.98] transition-transform"
       aria-label={post.caption ?? "Post"}
     >
-      {/* LQIP layer — always renders if available; fades out under the real image. */}
+      {/* LQIP layer: always renders if available; fades out under the real image. */}
       {post.thumbDataUrl && (
         <img
           src={post.thumbDataUrl}
@@ -71,7 +71,7 @@ function PostTile({
         />
       )}
 
-      {/* Real image — shared layoutId so the polaroid → grid transition is one element. */}
+      {/* Real image: shared layoutId so the polaroid → grid transition is one element. */}
       {src && !img.errored ? (
         <motion.img
           ref={img.ref}
@@ -89,11 +89,11 @@ function PostTile({
           draggable={false}
         />
       ) : (
-        // No src available — show a flat fallback so the grid still has a tile.
+        // No src available: show a flat fallback so the grid still has a tile.
         <div className="absolute inset-0 bg-zinc-900" aria-hidden />
       )}
 
-      {/* Privacy overlay — small but unmistakable. */}
+      {/* Privacy overlay: small but unmistakable. */}
       {post.visibility === "private" && (
         <div className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 backdrop-blur-sm">
           <Lock className="h-2.5 w-2.5 text-white" />
@@ -103,7 +103,7 @@ function PostTile({
   );
 }
 
-/** Single skeleton tile — flat zinc square, shimmer applied via parent class. */
+/** Single skeleton tile: flat zinc square, shimmer applied via parent class. */
 function SkeletonTile() {
   return (
     <div
@@ -126,7 +126,7 @@ export function PostGrid({
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   // Keep the most recent loader in a ref so the IntersectionObserver
-  // callback doesn't need to re-bind every render — the observer setup
+  // callback doesn't need to re-bind every render; the observer setup
   // is itself expensive enough that thrashing it on every parent rerender
   // would be wasteful.
   const onLoadMoreRef = useRef(onLoadMore);
@@ -194,7 +194,7 @@ export function PostGrid({
         />
       )}
 
-      {/* Loading-more spinner row — shown only when actively fetching the next page. */}
+      {/* Loading-more spinner row: shown only when actively fetching the next page. */}
       {loading && posts.length > 0 && (
         <div className="col-span-3 flex justify-center py-4 text-xs text-white/40">
           Loading…

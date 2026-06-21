@@ -72,7 +72,7 @@ interface TrainingSummary {
 const MAX_DISCIPLINES = 8;
 const SESSIONS_PER_DISCIPLINE = 3;
 const LOOKBACK_DAYS = 60;
-const CACHE_TTL_HOURS = 24 * 30; // fingerprint is the real cache key — TTL is GC only
+const CACHE_TTL_HOURS = 24 * 30; // fingerprint is the real cache key, TTL is GC only
 
 // `v2` suffix bumps the cache namespace when the insight schema changes.
 // Old `training_insight_<type>` entries from the v1 schema (what_you_did /
@@ -173,7 +173,7 @@ async function callTrainingInsights(
 
 // Read every cached insight for this user from localStorage, oldest first.
 // We don't know the discipline keys ahead of time so we sweep the standard
-// AIPersistence prefix — cheap because the data is tiny and there are at
+// AIPersistence prefix, cheap because the data is tiny and there are at
 // most MAX_DISCIPLINES keys.
 function loadAllCachedInsights(userId: string): DisciplineInsight[] {
   if (!userId) return [];
@@ -196,7 +196,7 @@ function loadAllCachedInsights(userId: string): DisciplineInsight[] {
       if (cached?.insight) out.push(cached.insight);
     }
   } catch {
-    // localStorage unavailable / quota — degrade silently
+    // localStorage unavailable / quota, degrade silently
   }
   return out;
 }
@@ -228,7 +228,7 @@ export const TrainingInsightsWidget = memo(function TrainingInsightsWidget({
             r.techniquesNotes.trim().length > 0)),
     );
   }, [recentCalendar]);
-  // `coldLoading` blocks the UI on first render only — once we have any
+  // `coldLoading` blocks the UI on first render only, once we have any
   // cached or fetched insight, it flips false and stays false. Background
   // revalidation flips `refreshing` (a quiet "Refreshing…" hint), never
   // the blocking spinner.
@@ -267,7 +267,7 @@ export const TrainingInsightsWidget = memo(function TrainingInsightsWidget({
     let cancelled = false;
     setErrorMsg(null);
 
-    // Step 0 — paint every cached insight INSTANTLY, with no spinner. If the
+    // Step 0, paint every cached insight INSTANTLY, with no spinner. If the
     // user has anything cached we never block the UI. The fingerprint check
     // happens later, in the background, against the live training data.
     const cachedSnapshot = loadAllCachedInsights(userId);
@@ -375,7 +375,7 @@ export const TrainingInsightsWidget = memo(function TrainingInsightsWidget({
 
         // Only surface an error if we have NOTHING to render (no cache, no
         // fresh fetch). When cached insights are visible we keep the UI
-        // calm — the user already has something useful on screen.
+        // calm, the user already has something useful on screen.
         if (failedCount > 0 && initial.length === 0 && !hasCache) {
           setErrorMsg("Couldn't generate insights. Try again later.");
         }
@@ -383,7 +383,7 @@ export const TrainingInsightsWidget = memo(function TrainingInsightsWidget({
         if (!cancelled) {
           logger.debug("training-insights load failed", { err: String((err as Error)?.message ?? err) });
           // Only show the user a hard-failure card if we genuinely have
-          // nothing cached — otherwise their existing data stays put and
+          // nothing cached, otherwise their existing data stays put and
           // we silently retry next time the sheet opens.
           if (!hasCache) {
             setErrorMsg("Couldn't load training insights.");

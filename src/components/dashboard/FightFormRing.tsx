@@ -10,7 +10,7 @@ type Props = {
   label: "sharp" | "sharpening" | "off_pace" | "at_risk";
   state: "ok" | "calibrating" | "no_camp" | "paused" | "stale";
   calibratingDays?: { current: number; needed: number };
-  // Used to render the ghost arc beyond the cap when a soft ceiling fires —
+  // Used to render the ghost arc beyond the cap when a soft ceiling fires:
   // the displayed `score` is the clamped value, while `rawScore` is what the
   // engine would have shown without the cap.
   rawScore?: number;
@@ -23,7 +23,7 @@ type Props = {
   celebrateSharp?: boolean;
   // Count of days (within the dashboard's rolling window) where the user
   // lit up all five TodayStrip ritual pills. Drives the "Day N completed"
-  // animation — fires once each time this number ticks up. Separate from
+  // animation, fires once each time this number ticks up. Separate from
   // `calibratingDays`, which counts any-signal days for the engine's
   // cold-start gate.
   ritualDaysCount?: number;
@@ -55,7 +55,7 @@ const LABEL_RGB = {
   at_risk: "244, 63, 94",      // rose-500
 };
 
-// Deep end of the containment-arc gradient — a darkened version of the active
+// Deep end of the containment-arc gradient, a darkened version of the active
 // colour so the stroke reads as a polished gradient (deep → bright) rather
 // than a flat band. Works for tier colours and the calibrating cyan alike.
 function deepStop(rgb: string): string {
@@ -102,7 +102,7 @@ const CALIB_DAY_PING_MS = 1600;
 // (App.tsx routes via AnimatePresence keyed by location.pathname). When the
 // user comes back to /dashboard, the ring component is a brand-new instance:
 // without help, the `transition-all duration-700` on the score arc would
-// animate from 0 → live score on every visit — perceived as initial lag.
+// animate from 0 → live score on every visit, perceived as initial lag.
 //
 // We keep two numbers on the module heap so they survive remounts during
 // the SPA session: the last *settled* arc length (`cachedDashLen`) and the
@@ -110,7 +110,7 @@ const CALIB_DAY_PING_MS = 1600;
 // at a different ring size). The component reads these on first paint to
 // render the arc exactly where it left off; the existing CSS transition
 // then handles any smooth catch-up to the live score on subsequent frames.
-// A page reload clears the cache by re-evaluating the module — which is the
+// A page reload clears the cache by re-evaluating the module, which is the
 // desired behaviour (cold-start should still play the satisfying fill-in).
 let cachedDashLen: number | null = null;
 let cachedCircumference: number | null = null;
@@ -143,7 +143,7 @@ export function FightFormRing({
 
   // Ghost arc: drawn between the clamped score and the raw score the engine
   // would have produced without the soft ceiling. Communicates "you're being
-  // capped here" without alarmism — replaces the bottom-sheet-only banner.
+  // capped here" without alarmism, replaces the bottom-sheet-only banner.
   // Uses baseProgress (not the unlock-scaled progress) so the ghost lands
   // at its final position immediately rather than animating with the arc
   // during the brief 1.5s unlock.
@@ -193,7 +193,7 @@ export function FightFormRing({
   // Active colour drives the core glow, particles, orbital band and the arc
   // gradient: tier colour when scored, cyan while calibrating, slate only as a
   // no-camp/paused fallback. Staleness is conveyed by the dimmed number + the
-  // "as of Nd ago" line — NOT by desaturating the ring, so the tier colour
+  // "as of Nd ago" line, NOT by desaturating the ring, so the tier colour
   // (orange / amber / green / rose) always reads correctly.
   const labelRgb =
     isScoredState(state)
@@ -218,14 +218,14 @@ export function FightFormRing({
   const prevRitualDaysRef = useRef(ritualDaysCount ?? 0);
   const prevStateRef = useRef(state);
 
-  // Containment-arc gradient id (sanitised — useId() contains colons which are
+  // Containment-arc gradient id (sanitised, useId() contains colons which are
   // invalid inside an SVG url(#...) reference).
   const gradId = `ffgrad-${useId().replace(/:/g, "")}`;
   const glintRef = useRef<SVGCircleElement | null>(null);
   const glintFracRef = useRef(0);
 
   // Unlock victory lap: fires once when state transitions calibrating→ok.
-  // Three beats over ~1500ms — (1) the comet does one accelerating finale
+  // Three beats over ~1500ms, (1) the comet does one accelerating finale
   // lap while the ring blooms (scale + cyan→emerald glow sweep), then (2)
   // the score arc grows from 0 with ease-out-quart and the center number
   // counts up to the actual score. Replaces the jump-cut between phases.
@@ -284,7 +284,7 @@ export function FightFormRing({
   }, [isCalib]);
 
   // Fire the "Day N completed" celebration when the count of fully-logged
-  // ritual days ticks up. Runs in any state (ok or calibrating) — completing
+  // ritual days ticks up. Runs in any state (ok or calibrating), completing
   // all five pills on a given day deserves the same celebration regardless
   // of whether the engine has unlocked the score yet.
   useEffect(() => {
@@ -310,7 +310,7 @@ export function FightFormRing({
   // Glint rides the displayed arc fraction so it follows the unlock grow.
   glintFracRef.current = progress;
 
-  // Score-arc resume — paint the cached dash length on first paint after a
+  // Score-arc resume, paint the cached dash length on first paint after a
   // remount, then swap to the live `dash` on the next frame. The existing
   // CSS transition tweens the difference (zero-cost if the score hasn't
   // changed). On the very first session mount the cache is null, so we
@@ -320,7 +320,7 @@ export function FightFormRing({
     const id = requestAnimationFrame(() => setArcReady(true));
     return () => cancelAnimationFrame(id);
   }, []);
-  // Cache only when the ring is settled — mid-unlock values would be replayed
+  // Cache only when the ring is settled, mid-unlock values would be replayed
   // on a remount during that ~1.5s window, which we don't want.
   useEffect(() => {
     if (unlocking) return;
@@ -328,7 +328,7 @@ export function FightFormRing({
     cachedCircumference = circumference;
   }, [baseProgress, circumference, unlocking]);
 
-  // Traveling glint — a short bright streak glides along the FILLED arc on an
+  // Traveling glint, a short bright streak glides along the FILLED arc on an
   // eased loop with a soft fade-in/out so it never pops. Pure dashoffset +
   // opacity on one element, no blur filter (native-safe). Reads the live arc
   // fraction via a ref so the loop never re-subscribes.
@@ -438,7 +438,7 @@ export function FightFormRing({
           />
         )}
 
-        {/* Track — breathes slowly while calibrating to signal active scanning.
+        {/* Track, breathes slowly while calibrating to signal active scanning.
             In scored states with a partial pillar fraction, the track is split:
             solid for active fraction, dashed/faded for missing fraction.
             Only rendered as a split when scored (ok/stale) and f < 1.
@@ -470,7 +470,7 @@ export function FightFormRing({
           const missingDashArray = `${Array.from({ length: dashCount }, () => "2 4").join(" ")} 0 ${circumference}`;
           return (
             <>
-              {/* Solid segment — active pillar fraction */}
+              {/* Solid segment, active pillar fraction */}
               <circle
                 cx={size / 2}
                 cy={size / 2}
@@ -481,7 +481,7 @@ export function FightFormRing({
                 strokeLinecap="butt"
                 strokeDasharray={`${activeLen} ${circumference}`}
               />
-              {/* Dashed faded segment — missing pillar fraction */}
+              {/* Dashed faded segment, missing pillar fraction */}
               <circle
                 cx={size / 2}
                 cy={size / 2}
@@ -508,7 +508,7 @@ export function FightFormRing({
             className={isCalib ? "ff-ring-calib-track" : undefined}
           />
         )}
-        {/* Ghost arc — what the user WOULD have scored without the cap.
+        {/* Ghost arc, what the user WOULD have scored without the cap.
             Rendered first so the score arc + lock paint on top of it. */}
         {showGhost && (
           <circle
@@ -524,9 +524,9 @@ export function FightFormRing({
             strokeDashoffset={`${-dash}`}
           />
         )}
-        {/* Containment arc — `renderedDash` resumes from the module-cached
+        {/* Containment arc, `renderedDash` resumes from the module-cached
             value on remount, then the duration-700 transition tweens to the
-            live `dash`. Gradient stroke (deep → bright active colour) — always
+            live `dash`. Gradient stroke (deep → bright active colour), always
             the tier/calibration colour, never slate. */}
         <circle
           cx={size / 2}
@@ -539,7 +539,7 @@ export function FightFormRing({
           stroke={`url(#${gradId})`}
           className="transition-all duration-700"
         />
-        {/* Traveling glint — bright streak gliding along the filled arc (its
+        {/* Traveling glint, bright streak gliding along the filled arc (its
             dashoffset/opacity are driven by the rAF loop above). */}
         <circle
           ref={glintRef}
@@ -558,7 +558,7 @@ export function FightFormRing({
       {/* Lock glyph at the cap boundary. Lives outside the rotated SVG so
           its orientation stays upright regardless of the cap position.
           Styled as a glowing amber bead so it reads as a member of the
-          ring's ember palette rather than a foreign UI chip — radial
+          ring's ember palette rather than a foreign UI chip, radial
           gradient gives it depth, the soft outer shadow ties it back
           into the spark atmosphere around the arc. */}
       {showGhost && (
@@ -587,7 +587,7 @@ export function FightFormRing({
         </div>
       )}
 
-      {/* Legibility scrim — a soft dark disc that keeps the score number
+      {/* Legibility scrim, a soft dark disc that keeps the score number
           crisp over the core glow without a hard edge. */}
       <div
         aria-hidden
@@ -632,7 +632,7 @@ export function FightFormRing({
           </>
         )}
         {state === "calibrating" && (
-          <div className="flex flex-col items-center gap-1.5 px-6 text-center">
+          <div className="flex flex-col items-center gap-1.5 max-w-[170px] text-center">
             {calibratingDays && (
               <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/80">
                 Day {Math.min(calibratingDays.current, calibratingDays.needed)} of {calibratingDays.needed}
@@ -646,7 +646,7 @@ export function FightFormRing({
                 Day {ritualDaysCount} completed ✓
               </span>
             ) : calibRemainingDays === 0 ? (
-              // Final stage. The score is moments away — drop the rotating
+              // Final stage. The score is moments away, drop the rotating
               // signal feed and use a calmer two-line stack so the long
               // copy fits the ring without the bulky 22px headline. Dots are
               // positioned absolutely outside the text so "your first score"
@@ -705,7 +705,7 @@ export function FightFormRing({
         )}
         {state === "paused" && (
           <>
-            <span className="display-number text-3xl">—</span>
+            <span className="display-number text-3xl">-</span>
             <span className="section-header mt-1">Paused</span>
           </>
         )}

@@ -1,5 +1,5 @@
 /**
- * RoundedFeedCard — Instagram-story-styled alternative to PolaroidCard.
+ * RoundedFeedCard: Instagram-story-styled alternative to PolaroidCard.
  * Mirrors the EXACT prop interface so PolaroidStack can be retargeted
  * in a one-line import swap (Phase 2).
  *
@@ -27,7 +27,7 @@ import {
 import { formatDistanceToNowStrict } from "date-fns";
 import type { FeedPost } from "@/hooks/community/useGymFeed";
 
-// Develop timing — mirrored from PolaroidCard for ReviewSheet parity.
+// Develop timing: mirrored from PolaroidCard for ReviewSheet parity.
 const DEVELOP_BLUR_DURATION_MS = 600;
 const DEVELOP_SHAKE_DURATION_MS = 200;
 const DEVELOP_META_DELAY_MS = 100;
@@ -35,7 +35,7 @@ const DEVELOP_META_END_MS = 700;
 const DEVELOP_REDUCED_DURATION_MS = 200;
 const EASE_OUT: [number, number, number, number] = [0.4, 0, 0.2, 1];
 
-// Promotion easing — must MATCH the exit card's fly-off curve (FLY_EASE in
+// Promotion easing: must MATCH the exit card's fly-off curve (FLY_EASE in
 // PolaroidStack) so the revealed card and the departing card move on the
 // same curve, eliminating the spring-vs-ease double-motion stutter.
 const PROMOTE_EASE: [number, number, number, number] = [0.32, 0.72, 0, 1];
@@ -74,7 +74,7 @@ interface RoundedFeedCardProps {
   developing?: boolean;
   /** Drag-progress driver from the parent (position-1 background only). */
   progress?: MotionValue<number>;
-  /** True while this card is being promoted to top during an advance —
+  /** True while this card is being promoted to top during an advance,
    *  match the exit card's easing/duration so the reveal completes in
    *  lockstep, no stutter. */
   promoting?: boolean;
@@ -107,7 +107,7 @@ function RoundedFeedCardBase({
 }: RoundedFeedCardProps) {
   // Use the SAME source for background and top cards. The stack already
   // preloads every visible card's full URL, so a background card has already
-  // decoded this exact image — keeping the src stable across promotion means
+  // decoded this exact image, keeping the src stable across promotion means
   // the newly-promoted top card shows it instantly with no re-decode flash
   // (the thumb→full swap was the "little refresh flash" after a swipe).
   const effectiveSrc = post.url ?? post.thumbUrl ?? null;
@@ -119,7 +119,7 @@ function RoundedFeedCardBase({
 
   // Static layout per stack position. For the top card we explicitly
   // animate back to {scale:1, y:0, opacity:1} so Framer doesn't leave a
-  // promoted card stuck at the previous non-top opacity (0.7 / 0.4) — the
+  // promoted card stuck at the previous non-top opacity (0.7 / 0.4); the
   // root cause of the "transparent next card" bug after a swipe.
   const staticTransform = useMemo(
     () =>
@@ -243,7 +243,7 @@ function RoundedFeedCardBase({
             onError={img.onError}
             // Top AND the immediate-next card (stackPosition 1, promoted on
             // the very next tap) load eagerly so the lazy heuristic can't
-            // defer the next photo's fetch until the moment it's promoted —
+            // defer the next photo's fetch until the moment it's promoted,
             // that deferral was a source of the on-advance flash. Only the
             // deep card (position 2) stays lazy to bound bandwidth.
             loading={isTop || stackPosition === 1 ? "eager" : "lazy"}
@@ -271,7 +271,7 @@ function RoundedFeedCardBase({
           </div>
         )}
 
-        {/* Top gradient mask — gives the author overlay legibility. */}
+        {/* Top gradient mask: gives the author overlay legibility. */}
         {isTop && (
           <div
             aria-hidden="true"
@@ -279,7 +279,7 @@ function RoundedFeedCardBase({
           />
         )}
 
-        {/* Author overlay — top-left, top card only. */}
+        {/* Author overlay: top-left, top card only. */}
         {isTop && (
           <motion.button
             type="button"
@@ -355,7 +355,7 @@ function RoundedFeedCardBase({
   );
 }
 
-/** Custom equality — only re-render when the visible bits change. */
+/** Custom equality: only re-render when the visible bits change. */
 function areEqual(prev: RoundedFeedCardProps, next: RoundedFeedCardProps): boolean {
   return (
     prev.post.id === next.post.id &&

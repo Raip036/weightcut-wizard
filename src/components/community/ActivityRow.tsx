@@ -17,7 +17,7 @@ type ActorBrief = LikeGroup["actors"][number];
 interface ActivityRowProps {
   item: ActivityItem;
   isUnread: boolean;
-  /** Whole-row tap — the sheet decides routing. */
+  /** Whole-row tap: the sheet decides routing. */
   onTap: () => void;
   /** Avatar tap → view that actor's profile. */
   onOpenProfile: (userId: Id<"users">) => void;
@@ -394,7 +394,7 @@ function MemberJoinedRow({
       isUnread={isUnread}
       onTap={onTap}
       avatar={
-        // No post thumbnail for this kind — give the avatar a touch more presence.
+        // No post thumbnail for this kind: give the avatar a touch more presence.
         <BadgedAvatar
           actors={[item.actor]}
           kind="member_joined"

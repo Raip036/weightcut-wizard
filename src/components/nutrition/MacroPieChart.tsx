@@ -25,7 +25,7 @@ interface RingProps {
     mounted?: boolean;
 }
 
-// Full-circle progress ring — used by the three macro indicators.
+// Full-circle progress ring, used by the three macro indicators.
 const Ring = ({ pct, color, size, strokeWidth, children, trackOpacity = 0.18, glow = true, mounted = true }: RingProps) => {
     const r = (size - strokeWidth) / 2;
     const c = 2 * Math.PI * r;
@@ -59,7 +59,7 @@ interface MacroRingItemProps {
     mounted?: boolean;
 }
 
-// Macro indicator — just the ring + label, NO card background. The three
+// Macro indicator: just the ring + label, NO card background. The three
 // sit in a bare row under the calorie card.
 const MacroRingItem = ({ label, value, goal, color, mounted }: MacroRingItemProps) => {
     const pct = goal > 0 ? (value / goal) * 100 : 0;
@@ -75,7 +75,7 @@ const MacroRingItem = ({ label, value, goal, color, mounted }: MacroRingItemProp
             <div className="text-center">
                 <p className="text-[12px] font-semibold text-foreground leading-none">{label}</p>
                 <p className="text-[10px] tabular-nums text-muted-foreground/60 mt-1">
-                    {goal > 0 ? `${Math.round(left)}g left` : "—"}
+                    {goal > 0 ? `${Math.round(left)}g left` : "-"}
                 </p>
             </div>
         </div>
@@ -113,7 +113,7 @@ export const MacroPieChart = memo(function MacroPieChart({
 
     return (
         <div className="space-y-2">
-            {/* Calorie gauge — no card background; semicircle with Edit target top-right.
+            {/* Calorie gauge: no card background; semicircle with Edit target top-right.
                 No horizontal padding on this block so the "Edit target" button's right
                 edge aligns flush with the right edge of the macro ring cards below. */}
             <div className="relative pt-1 pb-1">
@@ -160,7 +160,7 @@ export const MacroPieChart = memo(function MacroPieChart({
                             style={{ filter: `drop-shadow(0 0 4px ${calColor}66) drop-shadow(0 0 10px ${calColor}44)` }}
                         />
                     </svg>
-                    {/* Center readout — pushed lower so it sits centered in
+                    {/* Center readout: pushed lower so it sits centered in
                         the empty bowl of the gauge rather than up at the top. */}
                     <div className="absolute inset-0 flex flex-col items-center justify-end pb-1">
                         {/* Faint radial backlight behind the number; sits below
@@ -179,7 +179,7 @@ export const MacroPieChart = memo(function MacroPieChart({
                                 kcal today
                             </span>
                         )}
-                        {/* Remaining-calories pill — surfaces how many kcal are
+                        {/* Remaining-calories pill: surfaces how many kcal are
                             left without crowding the gauge. Clamped at 0 so going
                             over reads "0 left" (the arc + number already turn red). */}
                         {calorieTarget > 0 && (
@@ -197,7 +197,7 @@ export const MacroPieChart = memo(function MacroPieChart({
                 </div>
             </div>
 
-            {/* Macro rings — bare rings, no card backgrounds */}
+            {/* Macro rings: bare rings, no card backgrounds */}
             <div className="grid grid-cols-3 gap-3 mt-1">
                 {/* Design System v1 FUNCTIONAL palette */}
                 <MacroRingItem label="Protein" value={protein} goal={proteinGoal ?? 0} color="#2A5BDD" mounted={mounted} />

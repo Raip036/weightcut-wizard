@@ -32,7 +32,7 @@ export const SleepLogger = memo(function SleepLogger({ userId, compact, classNam
   const [isOpen, setIsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Convex query for today's sleep row — reactive, no manual cache logic needed.
+  // Convex query for today's sleep row, reactive, no manual cache logic needed.
   const todayRow = useQuery(api.sleep_logs.listForUser, userId ? { limit: 7 } : "skip");
   const logSleepMut = useMutation(api.sleep_logs.logSleep);
 
@@ -96,14 +96,14 @@ export const SleepLogger = memo(function SleepLogger({ userId, compact, classNam
     setDraftHours((h) => Math.min(MAX_HOURS, Math.max(MIN_HOURS, Math.round((h + delta) * 10) / 10)));
   };
 
-  // Compact widget — square card matching the Weight metric card layout.
+  // Compact widget, square card matching the Weight metric card layout.
   const trigger = compact ? (
     <button
       type="button"
       className={cn("card-surface rounded-2xl p-3 aspect-square flex flex-col text-left active:scale-[0.98] transition-all w-full", className)}
       onClick={() => { triggerHaptic(ImpactStyle.Light); navigate("/sleep"); }}
     >
-      {/* Header — eyebrow label only */}
+      {/* Header, eyebrow label only */}
       <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
         SLEEP
       </span>
@@ -124,7 +124,7 @@ export const SleepLogger = memo(function SleepLogger({ userId, compact, classNam
 
       <div className="flex-1" />
 
-      {/* Footer — label left, chevron right */}
+      {/* Footer, label left, chevron right */}
       <div className="flex items-center justify-between">
         <p className="text-micro text-muted-foreground">Last night</p>
         <Icon name="chevronForwardOutline" size={14} className="text-muted-foreground/40" />
@@ -184,7 +184,7 @@ export const SleepLogger = memo(function SleepLogger({ userId, compact, classNam
             >
               {saving ? "Saving…" : "Save"}
             </button>
-            {/* Explicit close — Radix's X is suppressed via `[&>button]:hidden`,
+            {/* Explicit close, Radix's X is suppressed via `[&>button]:hidden`,
                 so without this the only dismiss is the drag handle. Matches
                 CutPlanDialog's close-button pattern. */}
             <button
@@ -197,7 +197,7 @@ export const SleepLogger = memo(function SleepLogger({ userId, compact, classNam
             </button>
           </div>
 
-          {/* Big-typography stepper — feels deliberate, not cramped */}
+          {/* Big-typography stepper, feels deliberate, not cramped */}
           <div className="flex items-center justify-center gap-6 py-3 shrink-0">
             <button
               type="button"

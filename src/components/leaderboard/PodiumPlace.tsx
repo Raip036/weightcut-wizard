@@ -111,7 +111,7 @@ export function PodiumPlace({
       className="flex flex-col items-center"
       aria-label={`${rank === 1 ? "1st" : rank === 2 ? "2nd" : "3rd"} place: ${entry.name}`}
     >
-      {/* Mascot column — only the #1 slot reserves vertical room for the
+      {/* Mascot column: only the #1 slot reserves vertical room for the
           wizard so the silver/bronze slots align cleanly at the avatar. */}
       <div
         className="relative flex flex-col items-center"

@@ -75,7 +75,7 @@ const sections: CampSection[] = [
   },
 ];
 
-// Tile size class — controls layout span + icon/typography scale per bento slot.
+// Tile size class, controls layout span + icon/typography scale per bento slot.
 type TileSize = "hero" | "medium" | "small" | "wide";
 
 interface BentoTile extends CampSection {
@@ -136,7 +136,7 @@ export default function Camp() {
     userId ? {} : "skip",
   );
 
-  // Mission feature gating — drives whether the missions slot renders the
+  // Mission feature gating, drives whether the missions slot renders the
   // full `<MissionStack />` (Pro or has missions) or a compact upsell line
   // (non-Pro with zero missions). Mirrors MissionStack's own queries so the
   // visible component is in sync with what would have rendered.
@@ -149,7 +149,7 @@ export default function Camp() {
     userId ? {} : "skip",
   );
 
-  // Cut/weight-loss plan summary — surfaces a tappable card linking to the
+  // Cut/weight-loss plan summary, surfaces a tappable card linking to the
   // canonical plan timeline. Moved here from the Goals (profile) page so the
   // plan lives alongside the rest of the camp dashboard.
   const readSummaryFromRaw = (raw: string | null) => {
@@ -193,7 +193,7 @@ export default function Camp() {
       if (cancelled || !dbPlan?.weeklyPlan) return;
       localStorage.setItem("wcw_cut_plan", JSON.stringify(dbPlan));
       // Rehydrating an existing plan must not arm the dashboard's unseen-plan
-      // redirect guard — mark it seen unless onboarding deliberately cleared it.
+      // redirect guard, mark it seen unless onboarding deliberately cleared it.
       if (!localStorage.getItem("wcw_cut_plan_seen")) {
         localStorage.setItem("wcw_cut_plan_seen", "true");
       }
@@ -208,7 +208,7 @@ export default function Camp() {
     [fighter],
   );
 
-  // Progress bar maths — start from camp _creationTime, end at fightDate.
+  // Progress bar maths, start from camp _creationTime, end at fightDate.
   const campProgress = (() => {
     if (!activeCamp || activeCamp.isCompleted) return null;
     const startMs = activeCamp._creationTime;
@@ -256,7 +256,7 @@ export default function Camp() {
 
   // ── Bento layout selection ────────────────────────────────────────────
   // The Training Calendar is always the headline action and anchors the grid
-  // as the full-width hero tile — regardless of whether a camp is scheduled —
+  // as the full-width hero tile, regardless of whether a camp is scheduled,
   // so the bento layout stays consistent across camp / no-camp states.
   const tiles = useMemo<BentoTile[]>(() => {
     const heroUrl = "/training-calendar";
@@ -266,7 +266,7 @@ export default function Camp() {
     const result: BentoTile[] = [];
     if (hero) result.push({ ...hero, size: "hero" });
     // Up to two medium tiles, remainder small. If fewer than 3 rest tiles
-    // we still produce a coherent grid — the hero spans 2x2 and the rest
+    // we still produce a coherent grid, the hero spans 2x2 and the rest
     // fill the right column / row below.
     rest.forEach((s, idx) => {
       result.push({ ...s, size: idx < 2 ? "medium" : "small" });
@@ -307,7 +307,7 @@ export default function Camp() {
         <h1 className="text-title font-semibold leading-tight">Camp</h1>
       </header>
 
-      {/* ── Post-fight debrief (Fight Camp Coach — Phase 3). The camp page is
+      {/* ── Post-fight debrief (Fight Camp Coach, Phase 3). The camp page is
           the natural home for the fight-camp wrap-up; self-hides (renders
           null) unless a debrief is pending, so it sits just under the header
           to prompt a returning fighter first. ──────────────────────────── */}
@@ -315,7 +315,7 @@ export default function Camp() {
         <PostFightDebrief />
       </ErrorBoundary>
 
-      {/* ── Active camp hero — the headline camp details, first on the page
+      {/* ── Active camp hero, the headline camp details, first on the page
           for fighters with an active camp (name → days-left → progress ring →
           fight date → day-of-camp). ──────────────────────────────────────── */}
       {activeCamp && !activeCamp.isCompleted && campProgress && phase && (
@@ -327,7 +327,7 @@ export default function Camp() {
         />
       )}
 
-      {/* ── XP summary ("Your level") — only when there is NO active-camp
+      {/* ── XP summary ("Your level"), only when there is NO active-camp
           hero. When the hero IS shown, the discipline level rings flank its
           main fight-progress ring instead, so this standalone card would be
           redundant. ──────────────────────────────────────────────────────── */}
@@ -335,7 +335,7 @@ export default function Camp() {
         <XpSummaryCard />
       )}
 
-      {/* ── Camp plan area — progression panel + view-full-plan button.
+      {/* ── Camp plan area, progression panel + view-full-plan button.
           Wrapped in a single sentinel so the tutorial can spotlight both. */}
       <div data-tutorial="camp-plan-area" className="flex flex-col gap-3">
         {/* Quick link to the canonical plan timeline */}
@@ -363,7 +363,7 @@ export default function Camp() {
         )}
       </div>
 
-      {/* ── Training Missions — compact upsell for non-Pro zero-missions,
+      {/* ── Training Missions, compact upsell for non-Pro zero-missions,
           full MissionStack (+heading) for Pro or anyone with active missions. */}
       {userId && missionFeature !== undefined && missions !== undefined && (
         !missionFeature.isPro ? (
@@ -393,7 +393,7 @@ export default function Camp() {
         )
       )}
 
-      {/* ── Sparring To-Do List (Pro) — sits directly after Training
+      {/* ── Sparring To-Do List (Pro), sits directly after Training
           Missions. Self-gates: non-Pro renders a compact upsell row, Pro
           renders the grouped, tickable checklist (or a friendly empty
           state). Component returns null until auth + feature gate resolve. */}
@@ -404,7 +404,7 @@ export default function Camp() {
         {tiles.map((tile) => {
           const isHero = tile.size === "hero";
           const isMedium = tile.size === "medium";
-          // A "wide" tile is the parity filler — a full-width banner that
+          // A "wide" tile is the parity filler, a full-width banner that
           // shares the hero's horizontal layout so the bottom row fills
           // cleanly when there's an odd number of non-hero tiles.
           const isWide = tile.size === "wide";
@@ -424,7 +424,7 @@ export default function Camp() {
           const surfaceClass =
             "relative card-surface border border-primary/20 overflow-hidden";
 
-          // Uniform leading-icon size across every tile — matches the
+          // Uniform leading-icon size across every tile, matches the
           // "View full plan" card's icon (26) so the Camp page reads as a
           // single consistent icon set rather than three tiers of scale.
           const iconSize = 26;
@@ -436,7 +436,7 @@ export default function Camp() {
 
           // Recovery is Pro-gated for free users. When locked, render the
           // crown upsell row (mirrors the Training Missions / Sparring rows)
-          // instead of the normal tile — see the early return below.
+          // instead of the normal tile, see the early return below.
           const isLockedTile = tile.url === "/recovery" && recoveryLocked;
 
           if (isLockedTile) {
@@ -485,7 +485,7 @@ export default function Camp() {
               />
 
               {isBanner ? (
-                /* Horizontal banner — icon beside title, like "View full plan",
+                /* Horizontal banner, icon beside title, like "View full plan",
                    so the hero/wide tile stays a compact single-row tile. */
                 <>
                   <Icon
@@ -538,7 +538,7 @@ export default function Camp() {
         })}
       </div>
 
-      {/* ── Recent activity — last few events across logging surfaces.
+      {/* ── Recent activity, last few events across logging surfaces.
           Component renders null when empty, so the page degrades cleanly. */}
       <ErrorBoundary silent fallback={<></>}>
         <div data-tutorial="camp-recent-activity">

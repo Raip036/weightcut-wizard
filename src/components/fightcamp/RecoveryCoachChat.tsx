@@ -73,12 +73,12 @@ export function RecoveryCoachChat({ userId, userName }: RecoveryCoachChatProps) 
     el.scrollTop = el.scrollHeight;
   }, [messages, sending]);
 
-  // No warmup needed under Convex — actions are co-located with the deployment.
+  // No warmup needed under Convex; actions are co-located with the deployment.
 
   // Cleanup any in-flight request on unmount
   useEffect(() => () => abortRef.current?.abort(), []);
 
-  // Voice dictation — same UX as the add-meal flow on Nutrition page
+  // Voice dictation: same UX as the add-meal flow on Nutrition page
   const handleVoiceTranscript = useCallback((text: string) => {
     setInput((prev) => (prev ? `${prev} ${text}` : text).trim());
   }, []);
@@ -196,7 +196,7 @@ export function RecoveryCoachChat({ userId, userName }: RecoveryCoachChatProps) 
 
   return (
     <div className="card-surface rounded-xs border border-border overflow-hidden">
-      {/* Header — matches the rounded-xs rhythm of the verdict and load cards
+      {/* Header: matches the rounded-xs rhythm of the verdict and load cards
           and surfaces a small live status pill so the chat reads as a live
           coach, not a static text box. */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
@@ -231,7 +231,7 @@ export function RecoveryCoachChat({ userId, userName }: RecoveryCoachChatProps) 
         {isEmpty && (
           <div className="space-y-3 py-2">
             <p className="text-[13px] text-muted-foreground/80 leading-relaxed px-1">
-              Tell me how you're feeling — sore spots, sleep, energy, anything bothering you. I'll factor in your
+              Tell me how you're feeling: sore spots, sleep, energy, anything bothering you. I'll factor in your
               recent training load and suggest a session that fits.
             </p>
             <div className="flex flex-wrap gap-1.5">

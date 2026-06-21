@@ -12,12 +12,12 @@ interface WelcomeProDialogProps {
 }
 
 const UNLOCKS: Array<{ icon: typeof Crown; label: string }> = [
-  { icon: InfinityIcon, label: "Unlimited AI — no daily cap" },
+  { icon: InfinityIcon, label: "Unlimited AI, no daily cap" },
   { icon: Utensils, label: "Every meal analyzed" },
   { icon: Swords, label: "AI cut plans & daily missions" },
 ];
 
-// Rising "magic motes" — tiny blue specks that drift up from the bottom and
+// Rising "magic motes": tiny blue specks that drift up from the bottom and
 // fade out before the text zone. Fixed positions so they don't re-randomize.
 const MOTES: Array<{ left: string; size: number; dur: number; delay: number }> = [
   { left: "12%", size: 4, dur: 6.0, delay: 0 },
@@ -33,7 +33,7 @@ function isNum(n: unknown): n is number {
 }
 
 /**
- * "Welcome to Pro" — the Ascension cutscene. Plays exactly once after a
+ * "Welcome to Pro": the Ascension cutscene. Plays exactly once after a
  * genuine upgrade (gated server-side in SubscriptionContext). Beats:
  *   0.0s  aurora rises from black
  *   0.8s  the wizard floats up
@@ -134,7 +134,7 @@ export function WelcomeProDialog({ open, onClose }: WelcomeProDialogProps) {
         transition={prefersReduced ? { duration: 0 } : { duration: 3, repeat: Infinity, ease: "easeInOut" }}
       />
 
-      {/* Rising magic motes — ambient, drift up and fade before the text. */}
+      {/* Rising magic motes: ambient, drift up and fade before the text. */}
       {!prefersReduced && (
         <div
           aria-hidden
@@ -196,7 +196,7 @@ export function WelcomeProDialog({ open, onClose }: WelcomeProDialogProps) {
           />
         )}
 
-        {/* Pro crest — mints when the orb lands. */}
+        {/* Pro crest: mints when the orb lands. */}
         <div className="relative mt-3 h-[88px] w-[88px] flex items-center justify-center">
           {/* Slow-rotating god-ray sheen radiating from the crest. Masked to a
               soft band so it glows around the crown without reaching the text.

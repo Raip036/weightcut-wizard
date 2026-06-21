@@ -1,4 +1,4 @@
-// T19: FightWeekFormSheet — bottom-sheet trigger for the FightWeekFormCard
+// T19: FightWeekFormSheet, the bottom-sheet trigger for the FightWeekFormCard
 // share template. Mirrors ReadinessFlexSheet / ComebackSheet (scaled
 // preview, Share + Save buttons backed by useShareCard) so the entire
 // share-card-trigger family stays uniform.
@@ -24,21 +24,21 @@ import type { AspectRatio } from "../templates/CardShell";
 interface FightWeekFormSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** ISO-resolved fight date — passed straight through to the card. */
+  /** ISO-resolved fight date, passed straight through to the card. */
   fightDate: Date;
-  /** 0–7 inclusive; how many days until the fight. */
+  /** 0-7 inclusive; how many days until the fight. */
   daysOut: number;
-  /** Oldest → newest; up to 5 entries. Nulls render as dim empty bars. */
+  /** Oldest to newest; up to 5 entries. Nulls render as dim empty bars. */
   last5Days: Array<{ date: Date; score: number | null }>;
-  /** Opponent display name / handle from the active camp. Optional —
+  /** Opponent display name / handle from the active camp. Optional;
    *  card omits the "vs …" piece gracefully when absent. */
   opponentHandle?: string;
-  /** "@pratik" — derived in the dashboard from UserContext. Free-tier only. */
+  /** "@pratik", derived in the dashboard from UserContext. Free-tier only. */
   userHandle?: string;
 }
 
 // Source-size render at 1080×1920 to match the rest of the share-card
-// family — the preview scales down, the export captures full size.
+// family. The preview scales down, the export captures full size.
 const CARD_W = 1080;
 const CARD_H_STORY = 1920;
 const ASPECT: AspectRatio = "story";
@@ -57,7 +57,7 @@ export function FightWeekFormSheet({
   const { isPremium } = useSubscription();
   const { cardRef, isCapturing, captureAndShare, captureAndDownload } = useShareCard();
 
-  // Preview scale — fit the 1080×1920 source into the preview budget.
+  // Preview scale: fit the 1080×1920 source into the preview budget.
   // Same pattern as ReadinessFlexSheet / ComebackSheet.
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [dims, setDims] = useState({ w: 200, h: MAX_PREVIEW_H, scale: 0.16 });
@@ -84,8 +84,8 @@ export function FightWeekFormSheet({
   const shareTitle = "Fight week.";
   const shareText =
     daysOut <= 0
-      ? "Fight day. Form locked in — built with FightCamp Wizard"
-      : `${daysOut} days out. Form locked in — built with FightCamp Wizard`;
+      ? "Fight day. Form locked in, built with FightCamp Wizard"
+      : `${daysOut} days out. Form locked in, built with FightCamp Wizard`;
 
   const handleShare = useCallback(async () => {
     await captureAndShare(shareTitle, shareText);

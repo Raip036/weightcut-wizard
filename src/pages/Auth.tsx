@@ -16,7 +16,7 @@ import { logger } from "@/lib/logger";
 import { useScrollIntoViewOnFocus } from "@/hooks/useScrollIntoViewOnFocus";
 
 // ──────────────────────────────────────────────────────────────────────
-// PremiumInput — floating-label, glass-style text field used in the
+// PremiumInput, floating-label, glass-style text field used in the
 // expanded email/password form. Designed so iOS Keychain autofill,
 // Strong Password suggestions and the keyboard's Next/Go affordance
 // all "just work" via standard HTML attributes.
@@ -94,7 +94,7 @@ export default function Auth() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-  // Apple Sign In is the headline path — the email/password form stays
+  // Apple Sign In is the headline path, the email/password form stays
   // collapsed behind a "Continue with email" link until the user opts
   // in. This cuts perceived friction on first paint and pushes the
   // one-tap conversion above the fold.
@@ -198,7 +198,7 @@ export default function Auth() {
     try {
       // Convex Auth's password reset is a two-step flow: the email contains
       // a code that the user enters here together with their new password.
-      // The current UI doesn't yet collect the code — Phase-3 will add a
+      // The current UI doesn't yet collect the code, Phase-3 will add a
       // code input. For now this submits with the code field empty, which
       // will trip the validation on the server. Surface the TODO clearly.
       const code = searchParams.get("code") ?? "";
@@ -235,7 +235,7 @@ export default function Auth() {
         // console under the Sign-in-with-Apple Services ID.
         const convexSiteUrl = import.meta.env.VITE_CONVEX_SITE_URL as string | undefined;
         if (!convexSiteUrl) {
-          throw new Error("VITE_CONVEX_SITE_URL not set — cannot build Apple redirect URI");
+          throw new Error("VITE_CONVEX_SITE_URL not set, cannot build Apple redirect URI");
         }
         const redirectURI = `${convexSiteUrl}/api/auth/callback/apple`;
         // Production-safe diagnostic logging (raw console so logger's
@@ -270,7 +270,7 @@ export default function Auth() {
           ...(result.response.email ? { email: result.response.email } : {}),
           ...(result.response.givenName ? { givenName: result.response.givenName } : {}),
           ...(result.response.familyName ? { familyName: result.response.familyName } : {}),
-          // /auth is the fighter door — coaches must use /coach/login.
+          // /auth is the fighter door, coaches must use /coach/login.
           role: ROLE,
         });
         console.log("[apple-signin] Convex signIn resolved", { result: signInResult });
@@ -281,7 +281,7 @@ export default function Auth() {
         await signIn("apple", { redirectTo: `${window.location.origin}/dashboard` });
       }
     } catch (error: any) {
-      // User backed out of the Apple sheet (or closed the web popup) — never
+      // User backed out of the Apple sheet (or closed the web popup), never
       // toast for this. `isAppleCancelError` covers every form we've seen
       // across Capacitor, Convex, and the web flow.
       if (isAppleCancelError(error)) {
@@ -342,7 +342,7 @@ export default function Auth() {
         }}
       />
 
-      {/* Nav bar — iOS style */}
+      {/* Nav bar, iOS style */}
       <div
         className="relative flex items-center justify-between px-4 shrink-0"
         style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)", paddingBottom: "8px" }}
@@ -362,7 +362,7 @@ export default function Auth() {
       {/* Content */}
       <div className="relative flex-1 flex flex-col items-center px-6 overflow-y-auto" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)" }}>
         <div className="w-full max-w-[360px] pt-4">
-          {/* Fighter brand badge — red/amber gradient ring + swords icon
+          {/* Fighter brand badge, red/amber gradient ring + swords icon
               over the existing logo so the door reads "fighter" the
               instant someone lands. */}
           <div className="flex flex-col items-center text-center mb-8">
@@ -431,7 +431,7 @@ export default function Auth() {
               </form>
             ) : (
               <>
-                {/* Apple Sign-In — primary CTA, sits above the email form
+                {/* Apple Sign-In, primary CTA, sits above the email form
                     so the lowest-friction path is the first thing the
                     user sees. iOS-native black-pill styling. */}
                 <button
@@ -446,7 +446,7 @@ export default function Auth() {
                   {isLogin ? "Sign in with Apple" : "Sign up with Apple"}
                 </button>
 
-                {/* Collapsed email path — until the user opts in we hide
+                {/* Collapsed email path, until the user opts in we hide
                     the full form behind a single link. The form uses
                     opacity+y motion only (NO height-auto) so iOS doesn't
                     have to recompute layout per frame. GPU-only, no jank. */}

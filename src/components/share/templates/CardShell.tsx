@@ -41,7 +41,7 @@ export const CardShell = forwardRef<HTMLDivElement, CardShellProps>(
           flexDirection: "column",
         }}
       >
-        {/* Top bar: text-only brand watermark — logo removed, text enlarged */}
+        {/* Top bar: text-only brand watermark, logo removed, text enlarged */}
         <div
           style={{
             display: "flex",

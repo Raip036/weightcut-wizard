@@ -15,10 +15,10 @@ export function XpSummaryCard() {
   const rows = useQuery(api.user_discipline_xp.getAllForUser);
   const [levelSheetOpen, setLevelSheetOpen] = useState(false);
 
-  // Loading — don't render anything so the page layout stays stable.
+  // Loading: don't render anything so the page layout stays stable.
   if (rows === undefined) return null;
 
-  // Empty — render a single nudge line. The empty state is also tappable so
+  // Empty: render a single nudge line. The empty state is also tappable so
   // first-run users can still discover the LevelSheet's explainer copy.
   if (rows.length === 0) {
     return (

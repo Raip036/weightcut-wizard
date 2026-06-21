@@ -1,20 +1,20 @@
 /**
- * ConnectHealthStep — onboarding wizard step that wraps the shared
+ * ConnectHealthStep: onboarding wizard step that wraps the shared
  * ConnectAppleHealthSheet explainer.
  *
  * Inserted between "training frequency" and the next step inside
  * `src/pages/Onboarding.tsx`. Keeps the parent's step-layout / mascot
- * conventions intact — the page owns the StepLayout chrome and just
+ * conventions intact: the page owns the StepLayout chrome and just
  * renders this body inside.
  *
  * Behaviour:
  *   - Tapping Connect → triggers the permission sheet via Agent A's
  *     `healthKit.requestPermissions` (handled inside the shared sheet
  *     component) and advances onboarding via `onAdvance` on success.
- *   - Tapping Skip → records the prompt-shown timestamp on the profile
+ *   - Tapping Skip records the prompt-shown timestamp on the profile
  *     (`api.health.recordPromptShown`) so we don't re-nag during the
  *     same onboarding session, then advances.
- *   - Web build / non-iOS → shared sheet renders an "Only available in
+ *   - Web build / non-iOS: shared sheet renders an "Only available in
  *     the iOS app" panel; Skip becomes the only meaningful action.
  */
 
@@ -36,7 +36,7 @@ interface ConnectHealthStepProps {
 
 export function ConnectHealthStep(props: ConnectHealthStepProps): JSX.Element {
   // Wrap the inner step so a Convex / render error here doesn't crash the
-  // onboarding flow. Onboarding can't recover from an unwound page boundary,
+  // onboarding flow. Onboarding cannot recover from an unwound page boundary,
   // so we render an inline fallback that still advances the wizard.
   return (
     <ErrorBoundary
@@ -68,7 +68,7 @@ function ConnectHealthStepInner({
         await recordPromptShown({});
       }
     } catch (err) {
-      // Non-fatal — UX still advances. Re-nag logic is server-driven so
+      // Non-fatal: UX still advances. Re-nag logic is server-driven so
       // a missed write at most means we'll show this screen again on
       // the next sign-in.
       logger.warn("recordPromptShown failed", err);

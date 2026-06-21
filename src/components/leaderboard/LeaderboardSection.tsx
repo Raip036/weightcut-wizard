@@ -73,7 +73,7 @@ export function LeaderboardSection({
 
   const { podium, ranks, myRank, totalRankedFighters } = data;
 
-  // Empty — copy is viewer-aware. The athlete-side copy nudges them to
+  // Empty state copy is viewer-aware. The athlete-side copy nudges them to
   // log a session ("be the first"); the coach-side copy explains the
   // gym's state factually instead, since a coach can't post training
   // for the leaderboard themselves.
@@ -108,7 +108,7 @@ export function LeaderboardSection({
           disciplineLabel={filter}
         />
       ) : (
-        // Aspirational empty podium — silhouette of #2 / #1 / #3 slots with
+        // Aspirational empty podium: silhouette of #2 / #1 / #3 slots with
         // an invite CTA. Reads as "the trophy is waiting for you and your
         // teammates" rather than a dead "need N more fighters" line.
         <PlaceholderPodium viewer={viewer} />
@@ -138,7 +138,7 @@ function PlaceholderPodium({ viewer }: { viewer: "coach" | "athlete" }) {
       <p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/80">
         This week's podium
       </p>
-      {/* Silhouette steps — #2 / #1 / #3 ordering mirrors the real PodiumHero */}
+      {/* Silhouette steps: #2 / #1 / #3 ordering mirrors the real PodiumHero */}
       <div className="mt-3 flex items-end justify-center gap-2.5">
         <PodiumSlot rank={2} height={48} />
         <PodiumSlot rank={1} height={66} />

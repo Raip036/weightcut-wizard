@@ -2,7 +2,7 @@ import type { JSX } from "react";
 import { Leaf } from "lucide-react";
 
 /* ------------------------------------------------------------------ *
- * ProtocolCutChapter — "Chapter 02 · The Cut" StoryCard.
+ * ProtocolCutChapter: "Chapter 02 · The Cut" StoryCard.
  *
  * Mirrors EXACTLY the cut chapter from WeightProtocolStoryLab.tsx
  * (the approved "weigh-in pivot" story mockup), rebuilt as a real,
@@ -10,7 +10,7 @@ import { Leaf } from "lucide-react";
  * The StoryCard + ChapterHead markup is replicated INLINE here so this
  * component does not depend on the dev-only lab page.
  *
- * Approach lives in Chapter 1 / The Plan now — it is NOT rendered here.
+ * Approach lives in Chapter 1 / The Plan now; it is NOT rendered here.
  * The taper has 4 columns: Carbs · Water · Sodium · Fiber. Same-day
  * weigh-in holds carbs and shows an amber banner; fiber gets its own
  * green callout below the taper.
@@ -62,11 +62,11 @@ export function ProtocolCutChapter(props: {
 
   const title = targetKg != null ? `The cut · taper to ${targetKg.toFixed(1)} kg` : "The cut";
   const sub = sameDay
-    ? "Carbs held — water, sodium & fiber only. Today is highlighted."
+    ? "Carbs held. Water, sodium & fiber only. Today is highlighted."
     : "Carbs down, water loaded then flushed, sodium & fiber tapered. Today is highlighted.";
 
   return (
-    // StoryCard (blue accent) — replicated inline from the mockup.
+    // StoryCard (blue accent), replicated inline from the mockup.
     <div className="relative rounded-2xl card-surface border overflow-hidden" style={{ borderColor: hsl(BLUE, 0.25) }}>
       <div
         aria-hidden
@@ -74,7 +74,7 @@ export function ProtocolCutChapter(props: {
         style={{ background: `linear-gradient(135deg, ${hsl(BLUE, 0.06)}, transparent 60%)` }}
       />
       <div className="relative p-4">
-        {/* ChapterHead — eyebrow + title + sub, replicated inline. */}
+        {/* ChapterHead: eyebrow + title + sub, replicated inline. */}
         <div className="mb-3">
           <p className="text-[10px] font-bold uppercase tracking-[0.22em] mb-1" style={{ color: hsl(BLUE) }}>
             Chapter 02 · The Cut
@@ -83,17 +83,17 @@ export function ProtocolCutChapter(props: {
           <p className="text-[13px] text-muted-foreground leading-snug mt-1">{sub}</p>
         </div>
 
-        {/* same-day weigh-in banner — amber */}
+        {/* same-day weigh-in banner (amber) */}
         {sameDay && (
           <div
             className="mb-3 rounded-lg px-3 py-2 text-[11px] font-medium"
             style={{ background: hsl(AMBER, 0.12), color: hsl(AMBER) }}
           >
-            Same-day weigh-in — no carb cut. Water, sodium &amp; fiber only.
+            Same-day weigh-in, no carb cut. Water, sodium &amp; fiber only.
           </div>
         )}
 
-        {/* taper list — 4 columns incl. fiber */}
+        {/* taper list: 4 columns incl. fiber */}
         <div className="space-y-1.5">
           {days.map((day) => {
             const isToday = day.isToday;

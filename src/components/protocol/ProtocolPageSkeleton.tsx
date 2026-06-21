@@ -1,7 +1,7 @@
-// WP-T19 — ProtocolPageSkeleton
+// WP-T19: ProtocolPageSkeleton
 // Loading state for the Weight Protocol page. Mirrors the real page's
 // vertical section order so the transition from skeleton → real content
-// is a swap rather than a re-layout. No motion — shimmer only.
+// is a swap rather than a re-layout. No motion, shimmer only.
 //
 // Section order (matches WeightProtocol.tsx):
 //   1. Header (title + sub-line)

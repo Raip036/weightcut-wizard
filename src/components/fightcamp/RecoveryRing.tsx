@@ -79,7 +79,7 @@ export const RecoveryRing = memo(function RecoveryRing({
           />
         </svg>
 
-        {/* Center content — sizes scale with ring */}
+        {/* Center content: sizes scale with ring */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="display-number font-bold" style={{ color, fontSize: Math.max(10, size * 0.14) }}>
             {displayValue ?? Math.round(value)}

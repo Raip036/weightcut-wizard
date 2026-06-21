@@ -29,7 +29,7 @@ function isNum(n: unknown): n is number {
  * Onboarding plan-generation loader. While the AI builds the plan (~10-20s),
  * the athlete's real numbers (weight delta, weeks, goal, date) fly in as
  * glowing tokens and assemble beneath the wizard, with a staged progress
- * narrative — so the wait reads as "the wizard is forging YOUR plan" rather
+ * narrative, so the wait reads as "the wizard is forging YOUR plan" rather
  * than a dead spinner. Respects reduced-motion (tokens settle instantly,
  * loops freeze, captions still advance).
  */

@@ -1,4 +1,4 @@
-// WP-T16 — RehydrationHourRow
+// WP-T16: RehydrationHourRow
 // Single row in the hour-by-hour rehydration timeline. The parent renders
 // 23-ish of these inside an `<ol role="list">` covering the gap from
 // weigh-in (H+0) to fight time (H+~23). Each row has three states:
@@ -15,7 +15,7 @@
 //   - 13px body copy, 12px muted notes, 12px tier-red caution
 //   - tabular-nums on the `H+N` tracker and the ml/g chip
 //
-// Mount animation: fade-in only (no slide — 23 rows sliding at once is
+// Mount animation: fade-in only (no slide, since 23 rows sliding at once is
 // noisy). Stagger 40ms × index, capped at 8 so the back half of the list
 // doesn't wait ~900ms before settling. Guarded by `prefers-reduced-motion`.
 //
@@ -23,7 +23,7 @@
 //   - Marker dot: 1.6s opacity loop (1 → 0.55 → 1)
 //   - Expanding ring: 1px ring grows outward and fades (scale 1 → 1.8,
 //     opacity 0.6 → 0), 1.6s loop
-// Both pulses are gated behind `prefers-reduced-motion` — under reduced
+// Both pulses are gated behind `prefers-reduced-motion`; under reduced
 // motion the dot is solid and the ring is absent.
 import { useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
@@ -47,14 +47,14 @@ function formatHourTracker(hourOffset: number): string {
   return `H+${hourOffset}`;
 }
 
-/** "120g carb" / "60g carb" — short food shorthand for the right-rail chip.
+/** "120g carb" / "60g carb": short food shorthand for the right-rail chip.
  *  We pick the largest macro by mass; in practice the rehydration plan is
  *  carb-led until the last few hours so this almost always reads "Xg carb". */
 function formatFoodShorthand(foodGrams: HourEntry["foodGrams"]): string {
   const { carbs, protein, fat } = foodGrams;
   if (carbs >= protein && carbs >= fat) {
     const rounded = Math.round(carbs);
-    if (rounded === 0) return "—";
+    if (rounded === 0) return "-";
     return `${rounded}g carb`;
   }
   if (protein >= fat) {
@@ -63,7 +63,7 @@ function formatFoodShorthand(foodGrams: HourEntry["foodGrams"]): string {
   if (fat > 0) {
     return `${Math.round(fat)}g fat`;
   }
-  return "—";
+  return "-";
 }
 
 /** Aria suffix per state. */
@@ -102,7 +102,7 @@ export function RehydrationHourRow({
   const opacityClass = isPast ? "opacity-60" : "opacity-100";
 
   // Tap behaviour: only future rows toggle. We still render past + current
-  // as a non-interactive container — past rows are quiet log entries and
+  // as a non-interactive container. Past rows are quiet log entries and
   // current rows are the focal point, so neither benefits from being a
   // button.
   const Container: React.ElementType = isFuture ? "button" : "div";
@@ -233,7 +233,7 @@ function LeadingMarker({
     }
     return (
       <span aria-hidden className="relative inline-flex h-3 w-3">
-        {/* Expanding 1px ring — fades out as it grows. */}
+        {/* Expanding 1px ring, fades out as it grows. */}
         <motion.span
           aria-hidden
           className="absolute inset-0 rounded-full ring-1 ring-func-warning-yellow"
@@ -246,7 +246,7 @@ function LeadingMarker({
             ease: "easeOut",
           }}
         />
-        {/* Dot core — soft opacity breath. */}
+        {/* Dot core, soft opacity breath. */}
         <motion.span
           aria-hidden
           className="relative inline-block h-3 w-3 rounded-full bg-func-warning-yellow"

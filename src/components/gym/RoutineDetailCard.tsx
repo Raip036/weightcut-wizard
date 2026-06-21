@@ -14,7 +14,7 @@ interface RoutineDetailCardProps {
   onStartWorkout: (routine: SavedRoutine, dayFilter?: string) => void;
 }
 
-// App-themed tints, one per goal — kept within the brand/functional palette.
+// App-themed tints, one per goal, kept within the brand/functional palette.
 const GOAL_BADGE: Record<string, string> = {
   hypertrophy: "bg-primary/15 text-primary",
   strength: "bg-func-danger-red/15 text-func-danger-red",
@@ -119,7 +119,7 @@ function GroupedExerciseList({ exercises, onStartDay }: GroupedExerciseListProps
     <div className="px-3 pb-2 space-y-2.5 pt-1">
       {groups.map((group, gi) => (
         <div key={group.day || gi} className={`rounded-xs border border-border/30 overflow-hidden border-l-[3px] ${DAY_COLORS[gi % DAY_COLORS.length]}`}>
-          {/* Day header — tappable to start that day's workout */}
+          {/* Day header: tappable to start that day's workout */}
           <button
             type="button"
             onClick={() => onStartDay?.(group.day)}
@@ -183,7 +183,7 @@ export function RoutineDetailCard({ routine, onDelete, onRename, onStartWorkout 
         <div className="absolute inset-0 bg-gradient-to-r from-primary/[0.02] to-transparent pointer-events-none" />
 
         <div className="relative">
-          {/* Header — name + always-visible Start button + chevron */}
+          {/* Header: name + always-visible Start button + chevron */}
           <div className="flex items-start gap-2 p-4">
             <div className="flex-1 min-w-0">
               {editing ? (
@@ -261,7 +261,7 @@ export function RoutineDetailCard({ routine, onDelete, onRename, onStartWorkout 
             </div>
           </div>
 
-          {/* Exercises list — grouped by day if available. Tap a day header to
+          {/* Exercises list, grouped by day if available. Tap a day header to
               start just that day; for single-day / flat routines the footer
               "Start Workout" button starts the whole thing. */}
           <CollapsibleContent>

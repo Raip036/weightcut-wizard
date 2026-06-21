@@ -14,7 +14,7 @@ import type { Id } from "@/../convex/_generated/dataModel";
 import { uploadSessionMediaV2 } from "@/lib/uploadSessionMediaV2";
 import { MediaLightbox, type LightboxItem } from "@/components/training/MediaLightbox";
 import { useToast } from "@/hooks/use-toast";
-// Local row type — mirrors the snake_case shape produced by TrainingCalendar.
+// Local row type: mirrors the snake_case shape produced by TrainingCalendar.
 interface TrainingCalendarRow {
   id: string;
   user_id: string;
@@ -74,7 +74,7 @@ export function SessionDetailDrawer({
   const { toast } = useToast();
 
   // Multi-media: pull every attachment for this session. Skips when the
-  // drawer is closed OR while the session row is still optimistic — newly
+  // drawer is closed OR while the session row is still optimistic; newly
   // logged sessions hold a UUID local id (`crypto.randomUUID()` from
   // TrainingCalendar) until Convex round-trips back the real id, and
   // sending a UUID to a `v.id("fight_camp_calendar")` validator throws.
@@ -104,8 +104,8 @@ export function SessionDetailDrawer({
 
   // Build the unified list the lightbox renders. Combines (a) the legacy
   // single `media_url` from the row, with (b) the new session_media rows.
-  // The legacy entry is ALWAYS shown when `media_url` is non-null — even
-  // if the user has since added more attachments — because the legacy
+  // The legacy entry is ALWAYS shown when `media_url` is non-null, even
+  // if the user has since added more attachments, because the legacy
   // attachment and the new ones are independent records, not duplicates
   // of the same image. Suppressing the legacy on the presence of new
   // media meant attaching a second photo made the first one vanish.
@@ -217,7 +217,7 @@ export function SessionDetailDrawer({
             </p>
           </DialogHeader>
 
-          {/* Media — multi-attachment grid. Tap a tile to open the
+          {/* Media: multi-attachment grid. Tap a tile to open the
               fullscreen swipeable lightbox. The "+" tile picks from the
               gallery; the camera tile opens the device camera (iOS uses
               `capture="environment"` to launch the rear camera). */}
@@ -307,7 +307,7 @@ export function SessionDetailDrawer({
               </button>
             </div>
 
-            {/* Hidden inputs — Capacitor on iOS opens the native picker /
+            {/* Hidden inputs: Capacitor on iOS opens the native picker /
                 camera UI when these are clicked. `capture="environment"`
                 hints the rear camera; without it the user gets the
                 full picker including selfie cam. */}
@@ -336,7 +336,7 @@ export function SessionDetailDrawer({
             />
           </div>
 
-          {/* Techniques covered — combos / positions / drills */}
+          {/* Techniques covered: combos / positions / drills */}
           {session.techniques_notes && (
             <div className="rounded-xs border border-border/20 bg-muted/10 dark:bg-white/[0.02] p-4">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">Techniques covered</p>
@@ -344,7 +344,7 @@ export function SessionDetailDrawer({
             </div>
           )}
 
-          {/* Reflection notes — what went well / to improve */}
+          {/* Reflection notes: what went well / to improve */}
           {(isRun ? cleanNotes : session.notes) && (
             <div className="rounded-xs border border-border/20 bg-muted/10 dark:bg-white/[0.02] p-4">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">What went well / to improve</p>
@@ -352,7 +352,7 @@ export function SessionDetailDrawer({
             </div>
           )}
 
-          {/* Metrics — compact chip grid */}
+          {/* Metrics: compact chip grid */}
           <div className="grid grid-cols-3 gap-2">
             {isRest ? (
               <>

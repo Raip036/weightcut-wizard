@@ -68,14 +68,14 @@ export const MealCard = memo(function MealCard({ meal, onDelete, onFavorite, isF
 
   return (
     <div className="relative overflow-hidden rounded-xs">
-      {/* Delete background — visible during swipe */}
+      {/* Delete background: visible during swipe */}
       {canSwipe && isDragging && (
         <div className="absolute inset-0 flex items-center justify-end bg-destructive/90 rounded-xs px-6">
           <Trash2 className="h-5 w-5 text-destructive-foreground" />
         </div>
       )}
 
-      {/* Foreground card — swipe-to-delete */}
+      {/* Foreground card: swipe-to-delete */}
       <motion.div
         className="relative rounded-xs card-surface"
         style={{ x: canSwipe ? dragX : undefined }}
@@ -124,7 +124,7 @@ export const MealCard = memo(function MealCard({ meal, onDelete, onFavorite, isF
             )}
           </div>
 
-          {/* Body — name/type left, action buttons + big kcal right (right column vertically stacked) */}
+          {/* Body: name/type left, action buttons + big kcal right (right column vertically stacked) */}
           <div className="flex-1 min-w-0 flex gap-3">
             <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
               <div className="min-w-0">
@@ -140,7 +140,7 @@ export const MealCard = memo(function MealCard({ meal, onDelete, onFavorite, isF
                 )}
               </div>
 
-              {/* Macros inline — 3 small chips */}
+              {/* Macros inline: 3 small chips */}
               {(p > 0 || c > 0 || f > 0) && (
                 <div className="flex items-center gap-3 mt-1.5">
                   <div className="flex items-center gap-1">
@@ -159,9 +159,9 @@ export const MealCard = memo(function MealCard({ meal, onDelete, onFavorite, isF
               )}
             </div>
 
-            {/* Right rail — star/delete actions above big kcal */}
+            {/* Right rail: star/delete actions above big kcal */}
             <div className="flex flex-col items-end justify-between py-0.5 flex-shrink-0">
-              {/* Action cluster — right-aligned; `-mr-1.5` offsets the icon
+              {/* Action cluster: right-aligned; `-mr-1.5` offsets the icon
                   buttons' internal padding so the X lines up flush with the
                   calorie column below. `-mt-1` keeps it level with the name. */}
               <div className="flex items-center gap-1 -mt-1 -mr-1.5">
@@ -186,7 +186,7 @@ export const MealCard = memo(function MealCard({ meal, onDelete, onFavorite, isF
                   </button>
                 )}
               </div>
-              {/* Calorie readout — vertically centred between the action
+              {/* Calorie readout: vertically centred between the action
                   cluster above and the expand chevron below. */}
               <div className="flex flex-col items-end leading-none">
                 <span className="text-[18px] font-bold tabular-nums text-foreground leading-none">
@@ -197,7 +197,7 @@ export const MealCard = memo(function MealCard({ meal, onDelete, onFavorite, isF
                 </p>
               </div>
 
-              {/* Expand chevron — anchored at the bottom of the rail. */}
+              {/* Expand chevron: anchored at the bottom of the rail. */}
               {hasDetails && (
                 <ChevronDown
                   className={`h-3.5 w-3.5 text-muted-foreground/40 transition-transform ${expanded ? "rotate-180" : ""}`}
@@ -208,7 +208,7 @@ export const MealCard = memo(function MealCard({ meal, onDelete, onFavorite, isF
           </div>
         </div>
 
-        {/* Expandable detail — ingredients / serving / notes / macro split.
+        {/* Expandable detail: ingredients / serving / notes / macro split.
             Revealed on tap; only rendered when there's detail to show. */}
         {hasDetails && (
           <AnimatePresence initial={false}>

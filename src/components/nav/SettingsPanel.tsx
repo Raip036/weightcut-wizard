@@ -53,7 +53,7 @@ function Section({
 }
 
 // `color` is retained on the row API so call sites don't change, but icons no
-// longer sit on coloured tiles — they render as plain glyphs. Everything is
+// longer sit on coloured tiles; they render as plain glyphs. Everything is
 // white except the destructive "red" action (Delete Account), which stays red.
 type TileColor =
   | "brand" | "indigo" | "orange" | "red";
@@ -71,7 +71,7 @@ interface RowProps {
   icon?: { name: IonIconName; color: TileColor };
   label: string;
   sublabel?: string;
-  /** Trailing slot — value text, Switch, or chevron. Replaces the default chevron when set. */
+  /** Trailing slot: value text, Switch, or chevron. Replaces the default chevron when set. */
   trailing?: ReactNode;
   destructive?: boolean;
   onClick?: () => void;
@@ -129,7 +129,7 @@ function Row({ icon, label, sublabel, trailing, destructive, onClick, href, disa
 }
 
 /* ────────────────────────────────────────────────────────────────────
- * Subscription section — Premium status OR upgrade + restore.
+ * Subscription section: Premium status OR upgrade + restore.
  * ──────────────────────────────────────────────────────────────────── */
 
 function SubscriptionSection() {
@@ -182,7 +182,7 @@ function SubscriptionSection() {
 
   // Non-premium: Upgrade gets its own glowing hero card so it pops off the
   // page. Restore Purchases drops down into a normal grouped section below
-  // (lower hierarchy — most users don't need it, and iOS Settings hides
+  // (lower hierarchy; most users don't need it, and iOS Settings hides
   // utility rows below CTA banners too).
   return (
     <>
@@ -214,7 +214,7 @@ function SubscriptionSection() {
 }
 
 /* ────────────────────────────────────────────────────────────────────
- * Apple Health row — Integrations section entry. Reads the current
+ * Apple Health row: Integrations section entry. Reads the current
  * connection tier so the sublabel reflects live status, mirroring
  * `HealthSettingsCard`'s tier mapping.
  * ──────────────────────────────────────────────────────────────────── */
@@ -341,7 +341,7 @@ export function SettingsPanel({
 
         {/* iOS-style large title header. In the Apple Health sub-view a
             back affordance replaces the close button so the modal frame
-            and animation stay identical — only the inner content swaps. */}
+            and animation stay identical; only the inner content swaps. */}
         <div className="px-4 pt-2 pb-3 shrink-0 flex items-center justify-between">
           {healthOpen ? (
             <>
@@ -383,7 +383,7 @@ export function SettingsPanel({
           className="px-3 overflow-y-auto overscroll-contain scrollbar-hide"
           style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1.5rem)" }}
         >
-          {/* Profile card — distinct from grouped sections (hero, not a row) */}
+          {/* Profile card: distinct from grouped sections (hero, not a row) */}
           <div className="rounded-2xl bg-muted/15 p-4 flex items-center gap-3.5">
             <ProfilePictureUpload
               size="lg"
@@ -407,7 +407,7 @@ export function SettingsPanel({
 
           <SubscriptionSection />
 
-          {/* Integrations — iOS only (Apple Health is iOS-exclusive) */}
+          {/* Integrations: iOS only (Apple Health is iOS-exclusive) */}
           {Capacitor.getPlatform() === "ios" && (
             <Section header="Integrations">
               <AppleHealthRow onOpen={() => setHealthOpen(true)} />

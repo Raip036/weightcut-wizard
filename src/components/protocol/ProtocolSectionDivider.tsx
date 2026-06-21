@@ -1,4 +1,4 @@
-// WP-T18 — ProtocolSectionDivider
+// WP-T18: ProtocolSectionDivider
 // Visual chapter break used between major sections on the Weight Protocol
 // screen (e.g. "Before the scale" → "After the scale"). Renders a hairline
 // rule on either side of a small uppercase label. No animation by design;

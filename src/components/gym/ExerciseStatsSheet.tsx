@@ -21,12 +21,12 @@ interface ExerciseStatsSheetProps {
 }
 
 export function ExerciseStatsSheet({ exercise, pr, open, onOpenChange }: ExerciseStatsSheetProps) {
-  // Share-card variant — `dark` (default solid background) or `transparent`
+  // Share-card variant: `dark` (default solid background) or `transparent`
   // (over-photo, no background fill). Mirrors the swipe-to-toggle pattern in
   // GymTracker's session share dialog and the dashboard's fight-form sheet.
   const [shareOpen, setShareOpen] = useState(false);
   const [shareVariant, setShareVariant] = useState<"dark" | "transparent">("dark");
-  // Reactive Convex query — chart and PRs auto-refresh as the user logs more
+  // Reactive Convex query: chart and PRs auto-refresh as the user logs more
   // sets in any active session, including this one. No manual cache layer.
   const rows = useQuery(
     api.gym_sessions.listSetsForExercise,
@@ -38,8 +38,8 @@ export function ExerciseStatsSheet({ exercise, pr, open, onOpenChange }: Exercis
   if (!exercise) return null;
 
   // Has anything worth sharing? We require at least one working set so the
-  // card doesn't render an empty PR strip and a "log more sessions" chart —
-  // that'd be the wrong screenshot to post.
+  // card doesn't render an empty PR strip and a "log more sessions" chart.
+  // That'd be the wrong screenshot to post.
   const hasShareableData = sets.some((set) => !set.is_warmup);
 
   return (
@@ -68,7 +68,7 @@ export function ExerciseStatsSheet({ exercise, pr, open, onOpenChange }: Exercis
           animate="visible"
           className="space-y-5 mt-4"
         >
-          {/* Hero PR — single big card with the headline lift */}
+          {/* Hero PR: single big card with the headline lift */}
           {sets.length > 0 && (() => {
             const workingSets = sets.filter((s) => !s.is_warmup);
             const maxWeight = Math.max(0, ...workingSets.map((s) => s.weight_kg ?? 0));
@@ -135,7 +135,7 @@ export function ExerciseStatsSheet({ exercise, pr, open, onOpenChange }: Exercis
                   </div>
                   <div className="rounded-xs card-surface border border-border/50 px-2 py-3 text-center">
                     <p className="display-number text-[18px] font-black tabular-nums leading-none text-foreground">
-                      {maxVolume > 0 ? formatVolume(maxVolume) : "—"}
+                      {maxVolume > 0 ? formatVolume(maxVolume) : "-"}
                     </p>
                     <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">best vol kg</p>
                   </div>
@@ -150,7 +150,7 @@ export function ExerciseStatsSheet({ exercise, pr, open, onOpenChange }: Exercis
             );
           })()}
 
-          {/* Recent sets — slightly compact list */}
+          {/* Recent sets: slightly compact list */}
           {sets.length > 0 && (
             <motion.div variants={staggerItem} className="space-y-2">
               <p className="px-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/70">
@@ -180,7 +180,7 @@ export function ExerciseStatsSheet({ exercise, pr, open, onOpenChange }: Exercis
 
       {/* Shareable Instagram-story card. Lives outside the bottom sheet so the
           dialog overlay sits cleanly above it. Swipe horizontally on the
-          preview to toggle the transparent / dark variant — matches the
+          preview to toggle the transparent / dark variant, matching the
           existing share dialogs in GymTracker and FightFormScoreSheet. */}
       <ShareCardDialog
         open={shareOpen}

@@ -18,7 +18,7 @@ interface Props {
 /**
  * Sheet-level holistic "AI coaching" card for the Fight Form score.
  *
- * Owns the `useFightFormCoach` hook end-to-end — the parent sheet only
+ * Owns the `useFightFormCoach` hook end-to-end, the parent sheet only
  * supplies the deterministic `context` it already computes. Renders four
  * states off the hook:
  *
@@ -28,7 +28,7 @@ interface Props {
  *               `useAIAction` opens the paywall upfront for non-pro callers).
  *   - LOADING → spinner + "Reading your camp…", CTA disabled.
  *   - LOADED  → `summary` as the headline, `actions` as a tidy pillar list,
- *               plus a subtle Refresh affordance (cached 24h/day — cheap).
+ *               plus a subtle Refresh affordance (cached 24h/day, cheap).
  *   - ERROR   → inline "Couldn't reach the coach" + retry.
  *
  * All reveals are transform/opacity-only so the animation stays cheap on
@@ -49,7 +49,7 @@ export function CoachingCard({ context, onNavigate }: Props) {
     // For non-pro users `generate` → `useAIAction` opens the paywall upfront
     // and rejects with PRO_FEATURE_REQUIRED; the hook swallows that into its
     // `error` state. We surface the paywall as the affordance (button label)
-    // and don't call generate if not pro — keeps the error row pro-only.
+    // and don't call generate if not pro, keeps the error row pro-only.
     void generate(context);
   };
 
@@ -88,7 +88,7 @@ export function CoachingCard({ context, onNavigate }: Props) {
             {...reveal}
             className="mt-3 space-y-3"
           >
-            {/* Derivation — why the score is what it is, in real points.
+            {/* Derivation, why the score is what it is, in real points.
                 Falls back to plain `summary` when the prose fallback path ran. */}
             {coaching.derivation ? (
               <p className="text-body-sm text-foreground font-medium leading-snug">
@@ -136,7 +136,7 @@ export function CoachingCard({ context, onNavigate }: Props) {
               </div>
             )}
 
-            {/* Ranked fixes — biggest point gain first, each with its payoff. */}
+            {/* Ranked fixes, biggest point gain first, each with its payoff. */}
             {coaching.actions.length > 0 && (
               <ul className="space-y-1.5">
                 {coaching.actions.map((a, i) => {
@@ -170,7 +170,7 @@ export function CoachingCard({ context, onNavigate }: Props) {
               </ul>
             )}
 
-            {/* Active ceiling — a rule is capping the score. */}
+            {/* Active ceiling, a rule is capping the score. */}
             {coaching.ceiling && (
               <div className="flex items-start gap-2 rounded-xs border border-func-warning-yellow/30 bg-func-warning-yellow/10 px-3 py-2">
                 <Icon

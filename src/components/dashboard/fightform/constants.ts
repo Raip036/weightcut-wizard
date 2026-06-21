@@ -6,7 +6,7 @@ import type { SubScoreKey } from "@/scoring/types";
  *
  * Extracted verbatim from `FightFormScoreSheet.tsx` so the refactored sheet
  * and the new pillar components share one source of truth. Values are
- * unchanged — do not edit them here without updating the sheet's visuals
+ * unchanged, do not edit them here without updating the sheet's visuals
  * intentionally.
  */
 
@@ -14,7 +14,7 @@ export const SUBSCORE_LABEL: Record<string, string> = {
   trainingLoad: "Training Load",
   sleep: "Sleep",
   weightCut: "Weight Cut",
-  // The `wellness` key IS the recovery dimension in the UI — the self-report
+  // The `wellness` key IS the recovery dimension in the UI, the self-report
   // check-in is its base and HealthKit HRV/RHR folds into it (see
   // `mergeRecoveryDimension`). Both keys read "Recovery" so any stray lookup
   // (e.g. an un-remapped topLimiter) still labels correctly.
@@ -38,13 +38,13 @@ export const SUBSCORE_ICON: Record<string, IonIconName> = {
 // survey → ring link (and the blend) since that's the least obvious of the set.
 export const SUBSCORE_EXPLAINER: Record<string, string> = {
   trainingLoad:
-    "Your training load balance — recent sessions vs. your 4-week baseline. Ramping too fast or sitting idle both pull it down.",
+    "Your training load balance: recent sessions vs. your 4-week baseline. Ramping too fast or sitting idle both pull it down.",
   sleep: "Hours and consistency from your sleep logs, smoothed over the last week.",
   weightCut: "How your weight is tracking against a sustainable pace to your target.",
   wellness:
-    "Your recovery — driven by your daily check-in (sleep, body, soreness and stress), smoothed over 7 days. A better check-in raises this number, which feeds the ring. When Apple Health is connected, heart-rate variability and resting heart rate blend in to sharpen it.",
+    "Your recovery, driven by your daily check-in (sleep, body, soreness and stress), smoothed over 7 days. A better check-in raises this number, which feeds the ring. When Apple Health is connected, heart-rate variability and resting heart rate blend in to sharpen it.",
   recovery:
-    "Measured from Apple Health — heart-rate variability and resting heart rate vs. your baseline. Blended into your recovery score when connected.",
+    "Measured from Apple Health: heart-rate variability and resting heart rate vs. your baseline. Blended into your recovery score when connected.",
   nutritionAdherence: "How closely your logged meals hit your calorie and protein targets.",
 };
 

@@ -22,7 +22,7 @@ export const ConsistencyRing = memo(function ConsistencyRing({
   return (
     <div className="card-surface rounded-xs border border-border p-3.5">
       <div className="flex items-center gap-3">
-        {/* Ring — CSS conic-gradient */}
+        {/* Ring, CSS conic-gradient */}
         <div className="relative w-16 h-16 flex-shrink-0">
           <div
             className="w-full h-full rounded-full"

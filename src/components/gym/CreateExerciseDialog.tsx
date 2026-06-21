@@ -27,7 +27,7 @@ export function CreateExerciseDialog({ open, onOpenChange, onSubmit }: CreateExe
   const [equipment, setEquipment] = useState<Equipment | "none">("barbell");
   const [trackingType, setTrackingType] = useState<TrackingType>("standard");
 
-  // Resolves immediately thanks to the optimistic addCustomExercise — close instantly, no spinner.
+  // Resolves immediately thanks to the optimistic addCustomExercise. Close instantly, no spinner.
   const handleSubmit = async () => {
     if (!name.trim()) return;
     const result = await onSubmit({

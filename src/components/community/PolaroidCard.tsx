@@ -1,5 +1,5 @@
 /**
- * A single polaroid in the stack — pure presentational shell with no
+ * A single polaroid in the stack: pure presentational shell with no
  * gesture logic of its own. The parent (`PolaroidStack`) is responsible
  * for binding drag/tap handlers to the top card; this component just
  * renders the polaroid look + the LQIP blur-up and exposes a
@@ -19,7 +19,7 @@
  *   - Image: square `aspect-square` inside `overflow-hidden`. Falls
  *     back to a neutral-200 swatch if `url` is null.
  *   - Author overlay (avatar + name) sits top-left of the image and
- *     is ONLY visible on the top card — peeked cards are deliberately
+ *     is ONLY visible on the top card; peeked cards are deliberately
  *     anonymous so the eye is drawn to the active card.
  *   - LQIP `thumbDataUrl` is rendered as a background image on the
  *     `<img>`'s parent so the blur-up is instant; the full `<img>`
@@ -42,7 +42,7 @@ import type { FeedPost } from "@/hooks/community/useGymFeed";
 // ── Develop animation timing (spec §4) ─────────────────────────────────
 // All values are in ms (converted to seconds where motion expects sec).
 // `DEVELOP_*` constants are scoped to this file because they describe a
-// single, self-contained effect — no need to surface them through props.
+// single, self-contained effect; no need to surface them through props.
 const DEVELOP_BLUR_DURATION_MS = 600; // blur(20px) → blur(0px)
 const DEVELOP_SHAKE_DURATION_MS = 200; // ±4° wiggle, settles to 0°
 const DEVELOP_META_DELAY_MS = 100; // metadata fade-in starts
@@ -89,7 +89,7 @@ interface PolaroidCardProps {
   /** Drag-progress driver from the parent stack. 0 = at rest behind the
    *  top card; 1 = top card has fully crossed its commit threshold and
    *  this card has fully risen to the foreground. Only the IMMEDIATE
-   *  next card (position 1) is expected to receive this — the deeper
+   *  next card (position 1) is expected to receive this; the deeper
    *  card (position 2) keeps its static resting transform. When
    *  `undefined`, this card falls back to the existing static
    *  `animate`-based path for full backwards compat. `MotionValue`
@@ -99,14 +99,14 @@ interface PolaroidCardProps {
   /** Optional gym branding for the white bottom strip. When provided,
    *  the strip renders a small circular logo + bold black gym name in
    *  place of the date/caption. When undefined/null, the polaroid
-   *  renders exactly as before — zero change for existing consumers. */
+   *  renders exactly as before; zero change for existing consumers. */
   gymBrand?: {
     name: string;
     logoUrl?: string | null;
   } | null;
 }
 
-// Position table — same numbers as `StackSkeleton`. Kept duplicated
+// Position table: same numbers as `StackSkeleton`. Kept duplicated
 // rather than imported because the skeleton's positions are purely
 // visual and may drift from the live stack's behaviour later.
 const STACK_OFFSETS: Record<0 | 1 | 2, { scale: number; y: number; opacity: number; z: number }> = {
@@ -136,7 +136,7 @@ function PolaroidCardBase({
     setLogoErrored(false);
   }, [logoUrl]);
   const offsets = STACK_OFFSETS[stackPosition];
-  // `useReducedMotion` matches what PolaroidStack already uses — same
+  // `useReducedMotion` matches what PolaroidStack already uses; same
   // import surface, same null/false semantics. We coerce to a boolean
   // so the conditional below stays readable.
   const prefersReducedMotion = useReducedMotion() ?? false;
@@ -151,9 +151,9 @@ function PolaroidCardBase({
   // When `developing` is true, the polaroid is rendered outside the
   // stack (e.g. ReviewSheet preview) and the shake takes ownership of
   // the `rotate` animation for its first 200ms. We don't run the
-  // staticTransform spring in that case — it would fight the shake.
+  // staticTransform spring in that case; it would fight the shake.
   // Memoised so framer doesn't see a new object identity for the
-  // animate target every parent re-render — that would otherwise force
+  // animate target every parent re-render; that would otherwise force
   // the background-card spring to re-evaluate mid-drag, causing
   // redundant work on the iOS WebKit raster thread.
   const staticTransform = useMemo(
@@ -169,12 +169,12 @@ function PolaroidCardBase({
     [isTop, developing, offsets.scale, offsets.y, offsets.opacity, rotationDeg],
   );
 
-  // ── Drag-progress wiring (spec §3.x — live background scale-up) ──────
+  // ── Drag-progress wiring (spec §3.x, live background scale-up) ──────
   // Hooks must run unconditionally. We always create a fallback
   // `MotionValue(0)` and feed whichever is current (the parent's
   // `progress` when wired, the zero fallback otherwise) into the three
   // `useTransform` calls. When `progress` is undefined the derived
-  // values stay pinned to the resting offsets — but we only actually
+  // values stay pinned to the resting offsets, but we only actually
   // *consume* them on the position-1 background-card branch (see the
   // `useProgress` flag below). Position 2 keeps the existing static
   // `animate={staticTransform}` path, and the top/developing branches
@@ -185,8 +185,8 @@ function PolaroidCardBase({
   const animatedY = useTransform(sourceProgress, [0, 1], [offsets.y, 0]);
   const animatedOpacity = useTransform(sourceProgress, [0, 1], [offsets.opacity, 1]);
   // Only the immediate next card (position 1, with a real progress MV)
-  // animates live. Position 2 — and any card whose parent hasn't wired
-  // progress — keeps the existing static path for full backwards compat.
+  // animates live. Position 2, and any card whose parent hasn't wired
+  // progress, keeps the existing static path for full backwards compat.
   const useProgress = !isTop && !developing && progress !== undefined && stackPosition === 1;
 
   // Develop animation on the OUTER wrapper.
@@ -195,7 +195,7 @@ function PolaroidCardBase({
   //    Keyframe arrays in motion accept their own `times` so we can
   //    weight the peaks correctly (overshoot at 25%, return at 75%).
   //  - Reduced motion: a 200ms opacity cross-fade with no rotation
-  //    change — the whole point of the reduced-motion branch is to
+  //    change; the whole point of the reduced-motion branch is to
   //    avoid the shake entirely.
   let developWrapperAnimate: TargetAndTransition | undefined;
   let developWrapperTransition: Transition | undefined;
@@ -227,7 +227,7 @@ function PolaroidCardBase({
       className={`absolute inset-0 ${isTop || developing ? "" : "pointer-events-none"}`}
       // When `useProgress` is true (position-1 background card with a
       // wired progress MV), Motion reads `scale`/`y`/`opacity` directly
-      // from MotionValues — no React re-render per drag frame. Otherwise
+      // from MotionValues, no React re-render per drag frame. Otherwise
       // we fall back to the existing `animate={staticTransform}` spring
       // path (position 2, or any caller that hasn't wired `progress`).
       style={
@@ -258,7 +258,7 @@ function PolaroidCardBase({
       <div className="bg-white p-4 pb-10 rounded-sm select-none">
         {/* Image well */}
         <div className="relative aspect-square overflow-hidden bg-neutral-200">
-          {/* LQIP backdrop — visible until the full image loads. */}
+          {/* LQIP backdrop: visible until the full image loads. */}
           {post.thumbDataUrl && (
             <div
               aria-hidden="true"
@@ -278,13 +278,13 @@ function PolaroidCardBase({
               // Shared-element transition target: only bind layoutId on
               // the top card. Binding it on all three cards triggers
               // framer's shared-layout measurement pipeline every render
-              // (perf P0 — flagged 2026-05-18). The grid → polaroid
+              // (perf P0, flagged 2026-05-18). The grid → polaroid
               // back-nav still works because the destination card is
               // always the top of the stack at restore time.
               layoutId={isTop ? `post-${post.id}-image` : undefined}
               // For the top card we load the full-res image immediately.
               // For background cards (positions 1/2) the 256-px thumb is
-              // visually indistinguishable at their scale — use it when
+              // visually indistinguishable at their scale; use it when
               // available so the initial network cost is ~70% lower. Fall
               // back to the full URL when thumbUrl is absent.
               src={effectiveSrc}
@@ -295,13 +295,13 @@ function PolaroidCardBase({
               decoding="async"
               // Intrinsic dimensions give the browser an aspect-ratio
               // hint so it can pre-allocate the layout box before the
-              // image decodes — eliminates CLS without changing the
+              // image decodes; eliminates CLS without changing the
               // rendered size (the parent's `aspect-square` +
               // `object-cover` still own actual layout).
               width={1000}
               height={1000}
               className={`absolute inset-0 h-full w-full object-cover ${developing ? "" : "transition-opacity duration-300"}`}
-              // Default (non-developing) path is unchanged — Tailwind's
+              // Default (non-developing) path is unchanged; Tailwind's
               // opacity transition drives the LQIP-to-full crossfade.
               //
               // Developing path: motion owns both filter (blur 20→0) and
@@ -339,7 +339,7 @@ function PolaroidCardBase({
             </div>
           )}
 
-          {/* Author overlay — top card only. The pointer-events scope
+          {/* Author overlay: top card only. The pointer-events scope
               lets the parent stack absorb drag/tap on the rest of the
               card while still routing long-press here. */}
           {isTop && (
@@ -382,15 +382,15 @@ function PolaroidCardBase({
           )}
         </div>
 
-        {/* Caption strip — 44px bottom region of the polaroid. The
+        {/* Caption strip: 44px bottom region of the polaroid. The
             spec leans on date + relative time only; the session
             metadata + caption belong on the info-card below.
             When developing, this strip fades in from +100ms and lands
-            at full opacity at +700ms — flush with the blur finish.
+            at full opacity at +700ms, flush with the blur finish.
             Reduced-motion: appears statically (no transition).
 
             When `gymBrand` is set, the strip renders the gym logo + name
-            INSTEAD of the date — two competing labels on a 28px strip
+            INSTEAD of the date; two competing labels on a 28px strip
             looks cluttered, so the brand fully replaces the date.
             Same h-7 height + same fade-in transition keep layout +
             develop-animation parity. */}
@@ -445,7 +445,7 @@ function PolaroidCardBase({
   );
 }
 
-/** Custom equality — only re-render when the visible bits change.
+/** Custom equality: only re-render when the visible bits change.
  *  This is the hot path while the stack animates, so dropping refs
  *  (`onAuthorLongPress`) from the compare is worth it. */
 function areEqual(prev: PolaroidCardProps, next: PolaroidCardProps): boolean {
@@ -465,13 +465,13 @@ function areEqual(prev: PolaroidCardProps, next: PolaroidCardProps): boolean {
     // blur/shake props clear and the static stack transform takes over.
     prev.developing === next.developing &&
     // `progress` is a MotionValue created once in the parent via
-    // `useMotionValue` and reused across renders — its identity is
+    // `useMotionValue` and reused across renders; its identity is
     // stable, so a reference check is sufficient. We need this in the
     // compare so that when the parent rewires which card receives the
     // progress driver (top advances, position-1 becomes position-0,
     // etc.), the memoized child re-renders to pick up the new branch.
     prev.progress === next.progress &&
-    // `gymBrand` is an optional object — most call sites will pass
+    // `gymBrand` is an optional object; most call sites will pass
     // undefined/null. Compare by-value on the two visible fields so a
     // newly-resolved logoUrl (or a rename) triggers a re-render without
     // requiring the parent to memoize the object literal.

@@ -12,6 +12,7 @@ import type { Id } from "./_generated/dataModel";
 import { requireUserId } from "./lib/auth";
 import { internal } from "./_generated/api";
 import { normalizeLegacySession } from "./lib/sessionTypes";
+import { assertCanCreateCamp, bumpCampsCreatedCount } from "./_shared/campLimit";
 
 // ───────────────────────────────────────────────────────────────────────
 // Smart-defaults constants
@@ -114,11 +115,17 @@ export const createCamp = mutation({
     const userId = await requireUserId(ctx);
     assertValidFightDate(args.fightDate);
     assertValidStartingWeight(args.startingWeightKg);
-    return await ctx.db.insert("fight_camps", {
+    // Manual create is always a post-onboarding path → Pro-only for free users.
+    const priorUsage = await assertCanCreateCamp(ctx, userId, {
+      isOnboarding: false,
+    });
+    const id = await ctx.db.insert("fight_camps", {
       userId,
       ...args,
       updatedAt: Date.now(),
     });
+    await bumpCampsCreatedCount(ctx, userId, priorUsage);
+    return id;
   },
 });
 
@@ -243,8 +250,15 @@ export const createCampFromOnboarding = mutation({
     eventName: v.optional(v.string()),
     weighInTiming: v.optional(v.string()),
     startingWeightKg: v.optional(v.number()),
+    // True ONLY when called from the genuine onboarding auto-create
+    // (Onboarding.tsx). NextCampFlow (the post-fight / "start next camp"
+    // wizard) omits it → false. Free users may create their single camp only
+    // when this is true AND they've never created a camp before; see
+    // `assertCanCreateCamp`. The flag is non-exploitable: the lifetime-usage
+    // guard caps it at the one camp the user is already entitled to.
+    isOnboarding: v.optional(v.boolean()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, { isOnboarding, ...args }) => {
     const userId = await requireUserId(ctx);
     assertValidFightDate(args.fightDate);
     assertValidStartingWeight(args.startingWeightKg);
@@ -255,12 +269,19 @@ export const createCampFromOnboarding = mutation({
     const dupe = existing.find(
       (r) => !r.isCompleted && r.fightDate === args.fightDate,
     );
+    // Idempotent retry of the SAME onboarding create → return the existing
+    // camp without gating or double-counting.
     if (dupe) return dupe._id;
-    return await ctx.db.insert("fight_camps", {
+    const priorUsage = await assertCanCreateCamp(ctx, userId, {
+      isOnboarding: isOnboarding ?? false,
+    });
+    const id = await ctx.db.insert("fight_camps", {
       userId,
       ...args,
       updatedAt: Date.now(),
     });
+    await bumpCampsCreatedCount(ctx, userId, priorUsage);
+    return id;
   },
 });
 

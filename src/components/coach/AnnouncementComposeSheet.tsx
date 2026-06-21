@@ -52,7 +52,7 @@ export function AnnouncementComposeSheet({ open, onOpenChange, gymId, gymName, a
   const createOffer = useMutation(api.fight_offers.createOffer);
   const generateMediaUploadUrl = useMutation(api.announcements.generateMediaUploadUrl);
 
-  // Media attachment state — the storage id is what gets sent on submit;
+  // Media attachment state: the storage id is what gets sent on submit;
   // previewUrl is a local ObjectURL the compose sheet shows immediately so
   // the coach knows the upload landed. mediaKind drives the right preview
   // element (img vs video) + tells the server which renderer to use.
@@ -121,7 +121,7 @@ export function AnnouncementComposeSheet({ open, onOpenChange, gymId, gymName, a
     e.target.value = ""; // allow re-picking same file
     if (!file) return;
 
-    // MIME sniff — file picker filter is a UX hint, not a guarantee.
+    // MIME sniff: file picker filter is a UX hint, not a guarantee.
     const isImage = file.type.startsWith("image/");
     const isVideo = file.type.startsWith("video/");
     if (!isImage && !isVideo) {
@@ -261,7 +261,7 @@ export function AnnouncementComposeSheet({ open, onOpenChange, gymId, gymName, a
               <><Send className="h-3 w-3" /> Send</>
             )}
           </button>
-          {/* Explicit close — Radix's X is suppressed via `[&>button]:hidden`
+          {/* Explicit close: Radix's X is suppressed via `[&>button]:hidden`
               on SheetContent. Without this the only exit is the drag handle
               or backdrop tap, neither of which is obvious mid-compose. */}
           <button
@@ -275,7 +275,7 @@ export function AnnouncementComposeSheet({ open, onOpenChange, gymId, gymName, a
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto space-y-3 px-1">
-          {/* Kind segmented control — pick what we're posting. Polls and
+          {/* Kind segmented control: pick what we're posting. Polls and
               images compose elsewhere; this sheet handles plain text
               announcements and structured fight offers. */}
           <div className="flex bg-muted/40 dark:bg-white/[0.06] rounded-xs p-1 border border-border/40">
@@ -317,7 +317,7 @@ export function AnnouncementComposeSheet({ open, onOpenChange, gymId, gymName, a
             </button>
           </div>
 
-          {/* Athlete picker — only when specific */}
+          {/* Athlete picker: only when specific */}
           {mode === "specific" && (
             <div className="card-surface rounded-xs border border-border overflow-hidden">
               {athletes.length === 0 ? (
@@ -354,7 +354,7 @@ export function AnnouncementComposeSheet({ open, onOpenChange, gymId, gymName, a
             </div>
           )}
 
-          {/* Media attach — shared by text and fight_offer kinds. Hidden file
+          {/* Media attach: shared by text and fight_offer kinds. Hidden file
               input fires the picker; once uploaded the preview lives in the
               same card so the coach can see what's been attached. */}
           <div className="card-surface rounded-xs border border-border p-3">
@@ -514,7 +514,7 @@ export function AnnouncementComposeSheet({ open, onOpenChange, gymId, gymName, a
               onChange={(e) => setBody(e.target.value.slice(0, MAX_BODY))}
               placeholder={
                 kind === "fight_offer"
-                  ? "Add a short pitch (optional) — context, expectations, anything fighters should know…"
+                  ? "Add a short pitch (optional): context, expectations, anything fighters should know…"
                   : "Share a tip, schedule change, or shoutout…"
               }
               rows={kind === "fight_offer" ? 3 : 5}

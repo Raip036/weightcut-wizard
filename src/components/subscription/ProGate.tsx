@@ -48,7 +48,7 @@ export function ProGate({
     useSubscription();
 
   // Don't paint the locked state while the profile query is still in
-  // flight — that produces a brief lock flash on every cold-start of a
+  // flight; that produces a brief lock flash on every cold-start of a
   // page that contains a Pro CTA.
   if (!isSubscriptionResolved) return <>{children}</>;
   if (checkFeatureAccess(feature)) return <>{children}</>;
@@ -57,7 +57,7 @@ export function ProGate({
     <div
       role="button"
       tabIndex={0}
-      aria-label={`${label} feature — tap to upgrade`}
+      aria-label={`${label} feature, tap to upgrade`}
       onClick={() => {
         triggerHapticSelection();
         openPaywall();

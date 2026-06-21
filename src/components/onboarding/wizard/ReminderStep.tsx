@@ -1,11 +1,11 @@
 /**
- * ReminderStep — onboarding wizard step that requests iOS local-notification
+ * ReminderStep: onboarding wizard step that requests iOS local-notification
  * permission for adaptive reminders.
  *
  * Inserted right after the Apple Health connect step (step 11). Explains the
  * value before the iOS system prompt fires so the user makes an informed
  * choice. Both paths ("Turn on" and "Maybe later") advance the wizard via
- * `onAdvance` — the step is always skippable.
+ * `onAdvance`; the step is always skippable.
  *
  * Behaviour:
  *   - "Turn on reminders" → calls `requestReminderPermission()`. If granted:
@@ -13,7 +13,7 @@
  *     then advances.
  *   - "Maybe later" → `setRemindersEnabled(false)` and advances without
  *     prompting. The user can enable from Settings later.
- *   - Web / non-iOS → permission call is a no-op; both buttons still advance.
+ *   - Web / non-iOS: permission call is a no-op; both buttons still advance.
  */
 
 import { useCallback, useState } from "react";
@@ -27,7 +27,7 @@ import {
 } from "@/lib/reminderScheduler";
 import type { ReminderPlanInput } from "@/lib/reminderSchedule";
 
-/** Cold-start defaults — no log history yet so we use reasonable morning/evening anchors. */
+/** Cold-start defaults: no log history yet so we use reasonable morning/evening anchors. */
 const COLD_START_INPUT: ReminderPlanInput = {
   learnedTimes: {
     weight: { hour: 7, minute: 30 },
@@ -66,12 +66,12 @@ export function ReminderStep({ onAdvance, className }: ReminderStepProps): JSX.E
         try {
           await syncAdaptiveReminders(COLD_START_INPUT);
         } catch (schedErr) {
-          // Non-fatal — permission is already granted; schedule can be
+          // Non-fatal: permission is already granted; schedule can be
           // retried on next app open via `syncAdaptiveReminders`.
           logger.warn("ReminderStep: cold-start schedule failed", schedErr);
         }
       } else {
-        // User denied the iOS prompt, or we're on web — store the preference
+        // User denied the iOS prompt, or we're on web, so store the preference
         // so we don't re-ask next time the app opens.
         setRemindersEnabled(false);
       }
@@ -104,7 +104,7 @@ export function ReminderStep({ onAdvance, className }: ReminderStepProps): JSX.E
           Stay on track
         </h2>
         <p className="text-[14px] text-muted-foreground leading-snug max-w-[300px] mx-auto">
-          We'll nudge you at the times you already log — a couple of taps in
+          We'll nudge you at the times you already log: a couple of taps in
           the morning, one in the evening. Two reminders a day, max.
         </p>
       </div>
@@ -112,7 +112,7 @@ export function ReminderStep({ onAdvance, className }: ReminderStepProps): JSX.E
       {/* Benefit chips */}
       <div className="space-y-2">
         {[
-          "Fires before your natural log time — not at random",
+          "Fires before your natural log time, not at random",
           "Suppressed on days you've already logged",
           "Adapts as your habits change",
         ].map((text) => (

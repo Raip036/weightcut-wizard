@@ -1,5 +1,5 @@
 /**
- * PostWorkoutMediaSheet — after a strength workout is saved, ask the user
+ * PostWorkoutMediaSheet: after a strength workout is saved, ask the user
  * if they want to attach a photo / video. If they do, upload it via the
  * shared `uploadSessionMediaV2` pipeline, which:
  *
@@ -9,7 +9,7 @@
  *      AND (server-side) the uploader's primary gym, so the post lands
  *      in the gym social feed automatically.
  *
- * Stays opt-in — the user can skip and the rest of the save flow is
+ * Stays opt-in. The user can skip and the rest of the save flow is
  * unaffected. Failure to upload doesn't roll back the workout.
  */
 import { useEffect, useState } from "react";

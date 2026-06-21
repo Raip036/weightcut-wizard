@@ -10,7 +10,7 @@ interface DietAnalysisCtaProps {
   hasMeals: boolean;
   /** True while an analysis is in flight (disables the Pro button). */
   loading: boolean;
-  /** Kicks off the real analysis — only reached by Pro users. */
+  /** Kicks off the real analysis, only reached by Pro users. */
   onAnalyse: () => void;
 }
 
@@ -65,7 +65,7 @@ export function DietAnalysisCta({ hasMeals, loading, onAnalyse }: DietAnalysisCt
         transition={prefersReduced ? { duration: 0 } : { duration: 0.4, ease: "easeOut" }}
         className="card-surface w-full p-4 flex items-center gap-3 rounded-2xl text-left"
       >
-        {/* Shimmering crown crest — shared premium marker */}
+        {/* Shimmering crown crest: shared premium marker */}
         <ShimmerCrownBadge size={40} />
         <span className="flex-1 min-w-0">
           <span className="flex items-center gap-2">

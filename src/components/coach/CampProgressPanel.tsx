@@ -4,13 +4,13 @@ import { api } from "../../../convex/_generated/api";
 import { Icon } from "@/components/ui/Icon";
 
 interface CampProgressPanelProps {
-  /** Camp creation time (ms) — start of the progression axis. */
+  /** Camp creation time (ms): start of the progression axis. */
   campStartMs: number;
-  /** Fight date (ms) — end of the progression axis. */
+  /** Fight date (ms): end of the progression axis. */
   fightMs: number;
   /** Days remaining until weigh-in. Drives the phase stepper. */
   daysLeft: number;
-  /** Elapsed fraction of the camp, 0–1. Positions the "today" marker. */
+  /** Elapsed fraction of the camp, 0-1. Positions the "today" marker. */
   pct: number;
   /** Target / goal weight in kg (converted to the display unit here). */
   goalWeightKg: number;
@@ -32,7 +32,7 @@ const toDisplay = (kg: number, unit: "kg" | "lb") =>
   unit === "kg" ? kg : kg * 2.20462;
 
 /**
- * Camp progression panel — a phase stepper (Build → Peak → Fight Week) plus a
+ * Camp progression panel: a phase stepper (Build → Peak → Fight Week) plus a
  * weight-vs-plan trajectory mini-chart. Gives the Camp page real "where am I
  * in this camp" context instead of a wall of nav tiles. Self-contained: pulls
  * its own weight history and renders nothing chart-side until there are ≥ 2
@@ -117,10 +117,10 @@ export function CampProgressPanel({
       {/* Dots sit in equal-width columns so their centres land at evenly
           spaced fractions (1/6, 1/2, 5/6 for three phases) regardless of how
           wide each label is. The connector segments are drawn as an absolute
-          overlay so each spans exactly one column-width — guaranteeing the
+          overlay so each spans exactly one column-width, guaranteeing the
           Build→Peak and Peak→Fight Week lines are identical lengths. */}
       <div className={`relative ${phaseText}`}>
-        {/* Connector overlay — behind the dots, aligned to the dot-row centre. */}
+        {/* Connector overlay: behind the dots, aligned to the dot-row centre. */}
         <div className="pointer-events-none absolute inset-x-0 top-[6px] flex">
           {/* Lead-in spacer reaches the first dot's centre (50/N %). */}
           <div style={{ flexBasis: `${50 / PHASES.length}%` }} className="shrink-0" />
@@ -140,7 +140,7 @@ export function CampProgressPanel({
           ))}
         </div>
 
-        {/* Dots + labels — one equal column per phase. */}
+        {/* Dots + labels: one equal column per phase. */}
         <div
           className="relative grid"
           style={{ gridTemplateColumns: `repeat(${PHASES.length}, minmax(0, 1fr))` }}
@@ -221,7 +221,7 @@ export function CampProgressPanel({
                 strokeWidth={1}
                 vectorEffect="non-scaling-stroke"
               />
-              {/* Plan target line — dashed, muted */}
+              {/* Plan target line: dashed, muted */}
               <polyline
                 points={svg.targetPts}
                 fill="none"
@@ -232,7 +232,7 @@ export function CampProgressPanel({
                 vectorEffect="non-scaling-stroke"
                 strokeLinecap="round"
               />
-              {/* Actual weight line — solid primary */}
+              {/* Actual weight line: solid primary */}
               <polyline
                 points={svg.actualPts}
                 fill="none"

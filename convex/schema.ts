@@ -98,10 +98,25 @@ export default defineSchema({
     // Reset to null by the RC EXPIRATION webhook so a real re-subscribe after
     // a lapse re-arms it.
     welcomeProShownAt: v.optional(v.number()),
+    // Epoch ms the one-time new-user tutorial walkthrough was auto-shown for
+    // this account. Server-authoritative so the tutorial fires exactly once per
+    // account — independent of device, a returning device, or a reinstall (those
+    // already carry the timestamp). Replaces the fragile device-local
+    // localStorage lock that suppressed the tutorial for new accounts on a
+    // device that had been used before.
+    onboardingTutorialShownAt: v.optional(v.number()),
     // Epoch ms the full-screen "start your next camp" overlay was last shown
     // to a fighter who has no active camp. Drives the 7-day cooldown so the
     // nudge doesn't fire on every cold start. See convex/campCompletion.ts.
     nextCampNudgeShownAt: v.optional(v.number()),
+    // Lifetime count of fight camps this user has ever created via the
+    // self-serve paths (onboarding auto-create + manual create). ONLY ever
+    // increments — deleting a camp never decrements it — so the free-tier
+    // "one camp ever" limit can't be reset by deleting. Absent/undefined
+    // reads as 0; `assertCanCreateCamp` falls back to the live camp-row count
+    // for grandfathered users who created a camp before this field existed.
+    // See convex/_shared/campLimit.ts.
+    campsCreatedCount: v.optional(v.number()),
     // Legacy gem/ad columns — the gem system was ripped out, but
     // existing prod rows still carry these fields. Keep them as
     // `v.optional` so schema validation passes during the deploy

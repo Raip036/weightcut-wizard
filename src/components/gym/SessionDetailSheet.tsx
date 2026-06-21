@@ -156,7 +156,7 @@ export function SessionDetailSheet({ session, open, onOpenChange, onDelete, onUp
             initial="hidden"
             animate="visible"
           >
-            {/* Premium hero card — discipline edge + 3-stat row */}
+            {/* Premium hero card: discipline edge + 3-stat row */}
             <motion.div
               variants={staggerItem}
               className="relative mt-3 rounded-xs card-surface pl-4 pr-3 py-3 overflow-hidden"
@@ -181,7 +181,7 @@ export function SessionDetailSheet({ session, open, onOpenChange, onDelete, onUp
               <div className="mt-2.5 grid grid-cols-3 gap-2">
                 <div className="text-center">
                   <p className="display-number text-[20px] font-black tabular-nums leading-none text-foreground">
-                    {session.duration_minutes ?? "—"}
+                    {session.duration_minutes ?? "-"}
                   </p>
                   <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">min</p>
                 </div>
@@ -193,7 +193,7 @@ export function SessionDetailSheet({ session, open, onOpenChange, onDelete, onUp
                 </div>
                 <div className="text-center">
                   <p className="display-number text-[20px] font-black tabular-nums leading-none text-foreground">
-                    {session.totalVolume > 0 ? formatVolume(session.totalVolume) : "—"}
+                    {session.totalVolume > 0 ? formatVolume(session.totalVolume) : "-"}
                   </p>
                   <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">kg vol</p>
                 </div>
@@ -214,7 +214,7 @@ export function SessionDetailSheet({ session, open, onOpenChange, onDelete, onUp
               </motion.div>
             )}
 
-            {/* Collapsible exercise cards — one expanded at a time. Edit
+            {/* Collapsible exercise cards, one expanded at a time. Edit
                 mode auto-expands everything so the user can edit any set. */}
             <div className="mt-4 space-y-2">
               {session.exerciseGroups.map((group) => {

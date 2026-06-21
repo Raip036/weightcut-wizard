@@ -3,7 +3,7 @@
 // per-day "fight plan" cards with one compact grid: each row is a day from
 // D-5 down to D-0, columns Day / Carb / Water / Na / Target.
 //
-// Pure presentational — no Convex, no business logic. The caller computes
+// Pure presentational: no Convex, no business logic. The caller computes
 // the per-day projections (carbs / water / sodium / target weight) and
 // flags the current day via `isToday`.
 //
@@ -18,7 +18,7 @@
 import { cn } from "@/lib/utils";
 
 export interface CutTaperDay {
-  /** 5..0 — rendered as the "D-{n}" label (0 → "D-0"). */
+  /** 5..0, rendered as the "D-{n}" label (0 → "D-0"). */
   daysToWeighIn: number;
   /** Daily carb target in grams. Rendered as an integer. */
   carbsGrams: number;
@@ -34,7 +34,7 @@ export interface CutTaperDay {
 
 export interface CutTaperTableProps {
   days: CutTaperDay[];
-  /** Final weigh-in target weight (kg) — surfaced in the section label. */
+  /** Final weigh-in target weight (kg), surfaced in the section label. */
   targetWeightKg: number;
   className?: string;
 }
@@ -133,7 +133,7 @@ export function CutTaperTable({
                   isToday && "bg-primary/10",
                 )}
               >
-                {/* Day — left-aligned, the only non-tabular label column */}
+                {/* Day: left-aligned, the only non-tabular label column */}
                 <span
                   className={cn(
                     "text-left text-[14px] font-semibold tabular-nums leading-none",

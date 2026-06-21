@@ -1,5 +1,5 @@
 /**
- * SwipeDial — horizontal scroll-snap picker that replaces multi-row chip
+ * SwipeDial: horizontal scroll-snap picker that replaces multi-row chip
  * grids with a single-line "wheel" selector. The active option sits in
  * a fixed center frame; the user swipes horizontally to bring a different
  * option into the frame, or taps any option to scroll it to center.
@@ -12,7 +12,7 @@
  *  - Uses native CSS `scroll-snap-x mandatory` with snap-center on each
  *    option button so iOS Safari momentum settles cleanly.
  *  - The scroller pads itself with `padding-inline: calc(50% - cellWidth/2)`
- *    instead of manual padder divs — manual padders rounded to integer
+ *    instead of manual padder divs. Manual padders rounded to integer
  *    pixels and broke the last option's snap target on devices with
  *    fractional widths (e.g. 375px / 430px iPhones). With CSS padding the
  *    browser handles sub-pixel layout internally so the last option's
@@ -54,7 +54,7 @@ const SETTLE_MS = 160;
 // the settle loop while we're still mid-correction.
 const SMOOTH_SCROLL_MS = 500;
 // Anything within this many pixels of the snap target is considered
-// already snapped — avoids fighting sub-pixel rounding noise.
+// already snapped; avoids fighting sub-pixel rounding noise.
 const SNAP_TOLERANCE_PX = 1.5;
 
 export function SwipeDial({
@@ -153,7 +153,7 @@ export function SwipeDial({
       const idx = indexClosestToCenter();
       const target = centerOffsetFor(idx);
 
-      // Magnetic settle — uses smooth so it reads as a soft snap. The
+      // Magnetic settle, uses smooth so it reads as a soft snap. The
       // programmatic flag is held for the full smooth-scroll duration
       // so the resulting scroll events don't kick the settle loop again.
       if (target !== null && Math.abs(el.scrollLeft - target) > SNAP_TOLERANCE_PX) {

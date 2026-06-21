@@ -35,7 +35,7 @@ function saveIdList(key: string, ids: string[]): void {
   try { localStorage.setItem(key, JSON.stringify(ids.slice(0, 50))); } catch { /* noop */ }
 }
 
-// Tile color per muscle group for the row icon — same palette as ExerciseBlock.
+// Tile color per muscle group for the row icon, same palette as ExerciseBlock.
 const MUSCLE_BG: Record<string, string> = {
   chest: "bg-func-danger-red/15 text-func-danger-red",
   back: "bg-blue-500/15 text-blue-300",
@@ -80,7 +80,7 @@ export function ExercisePickerSheet({
     }
   }, [open]);
 
-  // Smart filtering — search first, then smart-tab, then explicit filters.
+  // Smart filtering: search first, then smart-tab, then explicit filters.
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     let pool = exercises.filter((ex) => {
@@ -318,7 +318,7 @@ export function ExercisePickerSheet({
           </motion.div>
         </div>
 
-        {/* Create custom — anchored bottom */}
+        {/* Create custom, anchored bottom */}
         <div
           className="px-4 border-t border-border/30 shrink-0"
           style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 0.5rem)" }}
@@ -333,7 +333,7 @@ export function ExercisePickerSheet({
         </div>
       </SheetContent>
 
-      {/* Filters bottom-sheet — category + equipment in one polished surface */}
+      {/* Filters bottom-sheet: category + equipment in one polished surface */}
       <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
         <SheetContent
           side="bottom"

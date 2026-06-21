@@ -4,7 +4,7 @@ import { useUser } from "@/contexts/UserContext";
 
 /**
  * Network status banner. Post-Convex migration the legacy "reconnecting" hop
- * (driven by `connectionRecovery.ts`) is gone — Convex's WebSocket client
+ * (driven by `connectionRecovery.ts`) is gone; Convex's WebSocket client
  * auto-reconnects, so we only render the offline / back-online states.
  */
 type BannerMode = "offline" | "back-online" | "hidden";

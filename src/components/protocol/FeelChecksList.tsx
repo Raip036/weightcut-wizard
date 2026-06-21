@@ -1,12 +1,12 @@
-// WP-T17 — FeelChecksList (values + tier + AI feedback)
+// WP-T17: FeelChecksList (values + tier + AI feedback)
 //
 // Each row is a tappable summary of the most recent server-stored feel-check
 // value (urine colour, weight rebound, energy, headache, cramps). Tapping
 // opens a per-metric bottom Sheet with a tailored input UI. On save we:
 //   1. fire `weightProtocols.recordFeelCheck({ campId, metric, value })`
-//      — server computes `tier` deterministically and clears any stale
+//      server computes `tier` deterministically and clears any stale
 //      `aiFeedback`.
-//   2. fire `feelCheckFeedback.generate({ campId, metric, value })` —
+//   2. fire `feelCheckFeedback.generate({ campId, metric, value })`,
 //      ~1-2s Groq call that writes a 1-line coach instruction back to the
 //      row. The reactive `getCurrentForUser` query picks it up and the row
 //      re-renders without us threading state.
@@ -44,7 +44,7 @@ export interface FeelCheck {
   metric: FeelCheckMetric;
   /** Raw value the user last logged (string-encoded per schema docs). */
   value?: string;
-  /** Server-computed tier — drives the leading dot + feedback tint. */
+  /** Server-computed tier: drives the leading dot + feedback tint. */
   tier?: FeelCheckTier;
   /** 1-line AI instruction. Cached on the row; arrives ~1-2s after save. */
   aiFeedback?: string;
@@ -79,7 +79,7 @@ const METRIC_SPECS: Record<FeelCheckMetric, MetricSpec> = {
     icon: "waterOutline",
     sheetTitle: "Urine colour",
     whyCopy:
-      "Best early-warning signal for dehydration. Match the closest shade — pale straw means you're on track.",
+      "Best early-warning signal for dehydration. Match the closest shade; pale straw means you're on track.",
   },
   weigh_back_kg: {
     label: "Weight rebound",
@@ -93,7 +93,7 @@ const METRIC_SPECS: Record<FeelCheckMetric, MetricSpec> = {
     icon: "flashOutline",
     sheetTitle: "Energy level",
     whyCopy:
-      "Subjective gas-in-the-tank. Below 6 the day before a fight is a flag — call your corner.",
+      "Subjective gas-in-the-tank. Below 6 the day before a fight is a flag, so call your corner.",
   },
   headache: {
     label: "Headache",
@@ -138,7 +138,7 @@ const CRAMP_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
-// Tier styling — single source of truth so dot + feedback line stay synced.
+// Tier styling: single source of truth so dot + feedback line stay synced.
 // ─────────────────────────────────────────────────────────────────────────
 
 function tierDotClasses(tier: FeelCheckTier | undefined): string {
@@ -191,7 +191,7 @@ function formatValueDisplay(metric: FeelCheckMetric, value: string): string {
   }
 }
 
-// "X min ago" / "Xh ago" / "just now" — keeps the row dense.
+// "X min ago" / "Xh ago" / "just now", keeps the row dense.
 function formatTimeAgo(ms: number, now: number): string {
   const diff = Math.max(0, now - ms);
   const mins = Math.floor(diff / 60_000);
@@ -279,7 +279,7 @@ export function FeelChecksList({
     try {
       await generateFeedback({ campId, metric, value });
     } catch {
-      // Silent — UI keeps the value + tier from the deterministic compute.
+      // Silent: UI keeps the value + tier from the deterministic compute.
       setPendingFeedback((prev) => {
         const next = { ...prev };
         delete next[metric];
@@ -429,7 +429,7 @@ export function FeelChecksList({
             </button>
           </div>
 
-          {/* Body — swap by metric */}
+          {/* Body: swap by metric */}
           <div className="px-5 pb-5 space-y-4">
             {activeMetric === "urine_colour" && (
               <UrineColourPicker
@@ -476,7 +476,7 @@ export function FeelChecksList({
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Thinking dots — three-dot bouncing indicator, respects reduced motion.
+// Thinking dots: three-dot bouncing indicator, respects reduced motion.
 // ─────────────────────────────────────────────────────────────────────────
 
 function ThinkingDots() {
@@ -511,7 +511,7 @@ function ThinkingDots() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Save bar — reused across every input variant.
+// Save bar: reused across every input variant.
 // ─────────────────────────────────────────────────────────────────────────
 
 function SaveBar({

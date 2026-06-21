@@ -29,7 +29,7 @@ export function MoreMenuSheet({ open, onOpenChange, menuItems, onItemClick, onSe
         side="bottom"
         className="h-[70vh] max-h-[85vh] rounded-t-2xl flex flex-col p-0 gap-0 bg-background border-t border-border [&>button]:hidden"
       >
-        {/* Close button — pinned to the top-right corner of the sheet itself
+        {/* Close button: pinned to the top-right corner of the sheet itself
             so it sits above the menu list rather than sharing a horizontal
             lane with the "Profile" row's chevron below. `modal={false}` +
             `[&>button]:hidden` strips the Radix-provided X and the backdrop

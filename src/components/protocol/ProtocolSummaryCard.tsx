@@ -5,7 +5,7 @@
 // a small descending taper sparkline, and a green "ON TRACK" pill showing
 // the current → target weight.
 //
-// Pure presentational — no Convex, no data fetching. All numbers are
+// Pure presentational: no Convex, no data fetching. All numbers are
 // supplied by the caller.
 //
 // Visual conventions mirror the rest of the protocol surface
@@ -52,7 +52,7 @@ function clampPct(pct: number): number {
   return Math.min(100, Math.max(0, pct));
 }
 
-// Countdown copy — "today" / "1 day" / "N days" — kept compact so the
+// Countdown copy ("today" / "1 day" / "N days"), kept compact so the
 // subline never wraps on a 320px viewport.
 function countdownLabel(days: number): string {
   if (days <= 0) return "weigh-in today";
@@ -98,7 +98,7 @@ export function ProtocolSummaryCard({
       )}
     >
       <div className="flex items-center gap-4">
-        {/* Cut-depth ring — SVG stroke progress, --primary accent */}
+        {/* Cut-depth ring: SVG stroke progress, --primary accent */}
         <div
           className="relative shrink-0 text-primary"
           style={{ width: RING_SIZE, height: RING_SIZE }}
@@ -169,7 +169,7 @@ export function ProtocolSummaryCard({
         </div>
       </div>
 
-      {/* On-track pill — green-toned current → target weight */}
+      {/* On-track pill: green-toned current to target weight */}
       <div className="mt-3">
         <span className="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.06em] text-emerald-400 tabular-nums">
           On track

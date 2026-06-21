@@ -3,9 +3,9 @@ import type { SubScore, SubScoreKey, ScoringPhase } from "@/scoring/types";
 /**
  * Pure, deterministic "how to improve" advice for a Fight Form pillar.
  *
- * No React, no side effects — given a sub-score (its `value` band, `reason`
+ * No React, no side effects, given a sub-score (its `value` band, `reason`
  * string and `meta`) it returns a one-line `headline` explaining why the
- * pillar sits where it does plus 1–3 concrete, tappable `actions`. Routes
+ * pillar sits where it does plus 1-3 concrete, tappable `actions`. Routes
  * mirror (and upgrade) the sheet's existing `LIMITER_ACTIONS` map so a tap
  * lands the user on the page that actually moves that pillar.
  *
@@ -69,7 +69,7 @@ function weightCutAdvice(sub: SubScore): PillarAdvice {
   const week = metaNum(sub, "weekNumber");
   const weekStr = week != null ? `week ${week}'s` : "this week's";
 
-  // No plan / no weight yet — engine paused the pillar.
+  // No plan / no weight yet, engine paused the pillar.
   if (sub.weight === 0 || delta == null) {
     return {
       headline: "Log your weight to track your cut.",
@@ -97,7 +97,7 @@ function weightCutAdvice(sub: SubScore): PillarAdvice {
   if (delta < -0.5) {
     const kg = Math.abs(delta).toFixed(1);
     return {
-      headline: `${kg} kg under target — easing the cut protects muscle.`,
+      headline: `${kg} kg under target. Easing the cut protects muscle.`,
       actions: [
         { label: "Add back some calories", route: "/nutrition" },
         { label: "Keep hydration steady", route: "/weight" },
@@ -111,7 +111,7 @@ function weightCutAdvice(sub: SubScore): PillarAdvice {
 
 // ─── sleep ───────────────────────────────────────────────────────────────────
 function sleepAdvice(sub: SubScore): PillarAdvice {
-  // Not enough nights logged — engine paused the pillar.
+  // Not enough nights logged, engine paused the pillar.
   if (sub.weight === 0) {
     return {
       headline: "Log a few nights to unlock your sleep score.",
@@ -148,7 +148,7 @@ function trainingLoadAdvice(
   sub: SubScore,
   phase?: ScoringPhase | string | null,
 ): PillarAdvice {
-  // Cold start / not enough history — engine paused the pillar.
+  // Cold start / not enough history, engine paused the pillar.
   if (sub.weight === 0) {
     return {
       headline: "Log a few sessions to build your load baseline.",
@@ -160,7 +160,7 @@ function trainingLoadAdvice(
     return maintain("Training load in the sweet spot.");
   }
 
-  // ACWR reason carries the ratio — high vs. low determines the fix.
+  // ACWR reason carries the ratio, high vs. low determines the fix.
   // High ACWR = ramping too fast (overload risk); low = sitting idle.
   const acwr = parseAcwr(sub.reason);
   const tooHigh = acwr != null ? acwr > 1.4 : false;
@@ -189,7 +189,7 @@ function trainingLoadAdvice(
     };
   }
 
-  // Off the sweet spot but ratio unparseable — generic nudge.
+  // Off the sweet spot but ratio unparseable, generic nudge.
   return {
     headline: "Training load is off your usual balance.",
     actions: [
@@ -209,7 +209,7 @@ function parseAcwr(reason: string | undefined): number | null {
 
 // ─── wellness ────────────────────────────────────────────────────────────────
 function wellnessAdvice(sub: SubScore): PillarAdvice {
-  // No check-ins logged — engine paused the pillar.
+  // No check-ins logged, engine paused the pillar.
   if (sub.weight === 0) {
     return {
       headline: "Do today's check-in to read your freshness.",
@@ -238,7 +238,7 @@ function wellnessAdvice(sub: SubScore): PillarAdvice {
 
 // ─── nutritionAdherence ──────────────────────────────────────────────────────
 function nutritionAdvice(sub: SubScore): PillarAdvice {
-  // No target or too few logged days — engine paused the pillar.
+  // No target or too few logged days, engine paused the pillar.
   if (sub.weight === 0) {
     const noTarget = reasonHas(sub, "no calorie target");
     return {
@@ -267,7 +267,7 @@ function nutritionAdvice(sub: SubScore): PillarAdvice {
 
 // ─── recovery ────────────────────────────────────────────────────────────────
 function recoveryAdvice(sub: SubScore): PillarAdvice {
-  // No HealthKit signals — recovery sits out of the composite entirely.
+  // No HealthKit signals, recovery sits out of the composite entirely.
   if (sub.weight === 0) {
     return {
       headline: "Connect Apple Health to read recovery.",

@@ -22,7 +22,7 @@ function sessionEdgeColor(type: string | null | undefined): string {
   }
 }
 
-// Relative date — premium history cards read "Yesterday / Tue / 3d ago"
+// Relative date: premium history cards read "Yesterday / Tue / 3d ago"
 // rather than a raw date, so the eye recognizes recency at a glance.
 function relativeDate(iso: string): string {
   const d = new Date(iso + (iso.length === 10 ? "T00:00:00" : ""));
@@ -116,7 +116,7 @@ export const SessionHistoryList = memo(function SessionHistoryList({ sessions, l
             <div className="mt-2.5 grid grid-cols-3 gap-2">
               <div className="text-center">
                 <p className="display-number text-[18px] font-black tabular-nums leading-none text-foreground">
-                  {session.duration_minutes ?? "—"}
+                  {session.duration_minutes ?? "-"}
                 </p>
                 <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">min</p>
               </div>
@@ -128,7 +128,7 @@ export const SessionHistoryList = memo(function SessionHistoryList({ sessions, l
               </div>
               <div className="text-center">
                 <p className="display-number text-[18px] font-black tabular-nums leading-none text-foreground">
-                  {session.totalVolume > 0 ? formatVolume(session.totalVolume) : "—"}
+                  {session.totalVolume > 0 ? formatVolume(session.totalVolume) : "-"}
                 </p>
                 <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">kg vol</p>
               </div>

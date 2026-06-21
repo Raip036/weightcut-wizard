@@ -1,12 +1,12 @@
 /**
- * MadeWeightShareSheet — bottom sheet that previews the auto-generated
+ * MadeWeightShareSheet: bottom sheet that previews the auto-generated
  * "Made Weight" polaroid card and offers Share / Save-to-photos / Cancel.
  *
  * The card is rendered once (per input) to a JPEG blob and shown via an
  * <img> + object URL. We re-render only when `input` or `open` changes,
  * and revoke object URLs on unmount/regen to keep memory bounded.
  *
- * This component does NOT couple to the WeightTracker — it just accepts
+ * This component does NOT couple to the WeightTracker. It just accepts
  * a fully-resolved `MadeWeightInput`. The decision to open the sheet
  * lives upstream (e.g. when a logged weight meets/beats target).
  */

@@ -1,5 +1,5 @@
 /**
- * CutPlanReview — standalone review of the cut plan persisted on the
+ * CutPlanReview, standalone review of the cut plan persisted on the
  * profile. Renders the same `InlinePlanDisplay` v3 timeline as the
  * onboarding finale so the user sees ONE consistent plan UI everywhere
  * (the previous bespoke wall-of-text version was replaced 2026-05-18).
@@ -8,11 +8,11 @@
  * after a successful AI generation.
  *
  * Closing via the top-right X commits the post-onboarding flags and routes
- * to the dashboard — it takes over what the dedicated "Continue to
+ * to the dashboard, it takes over what the dedicated "Continue to
  * Dashboard" CTA used to do. That CTA and the "Save to Gallery" button were
  * removed (they clashed) in favour of this single close action.
  *
- * 2026-06-06 — premium pass: a slow, animated blue aurora drifts behind the
+ * 2026-06-06, premium pass: a slow, animated blue aurora drifts behind the
  * content layer to match the Recovery feature's editorial polish. The aurora
  * is purely decorative (`pointer-events-none`, behind a relative content
  * layer) and freezes to a static glow when reduced-motion is requested.
@@ -37,7 +37,7 @@ function PlanAurora() {
     "radial-gradient(circle at center, hsl(var(--primary) / 0.5) 0%, transparent 70%)";
   // Perf: two GPU-promoted, TRANSLATE-ONLY blobs at blur-2xl. Animating only
   // translate (never scale) keeps the blurred bitmap cached on the compositor
-  // so it never re-rasterizes per frame — animating scale on a heavily-blurred
+  // so it never re-rasterizes per frame, animating scale on a heavily-blurred
   // element was the cause of the open-plan jank. `translateZ(0)` + willChange
   // forces a dedicated GPU layer so the drift is a cheap compositor transform.
   const gpu = {
@@ -115,7 +115,7 @@ export default function CutPlanReview() {
     try {
       localStorage.setItem("wcw_cut_plan_seen", "true");
     } catch {
-      /* non-fatal — the planClosed router state below covers this case */
+      /* non-fatal, the planClosed router state below covers this case */
     }
     // ALWAYS leave via an explicit route with replace:true.
     //
@@ -127,7 +127,7 @@ export default function CutPlanReview() {
     // redirects back to /cut-plan whenever `wcw_cut_plan` exists and
     // `wcw_cut_plan_seen` is falsy. On iOS the setItem above isn't reliably
     // durable, so the guard would read it back as unseen and snap the user
-    // straight back here — the bounce loop that made the X "do nothing".
+    // straight back here, the bounce loop that made the X "do nothing".
     // Router state is IN-MEMORY (immune to localStorage volatility), so the
     // guard reads `planClosed` and skips the redirect. This guarantees exit.
     navigate("/dashboard", { replace: true, state: { planClosed: true } });
@@ -138,9 +138,9 @@ export default function CutPlanReview() {
       {/* Animated blue aurora behind everything. */}
       <PlanAurora />
 
-      {/* Content layer — sits above the aurora. */}
+      {/* Content layer, sits above the aurora. */}
       <div className="relative z-10 max-w-lg mx-auto px-4 pt-6">
-        {/* Close button — commits the plan-seen flags and routes to the
+        {/* Close button, commits the plan-seen flags and routes to the
             dashboard. Takes over the old "Continue to Dashboard" action so
             there's a single, unambiguous way off this screen. */}
         <button
@@ -152,7 +152,7 @@ export default function CutPlanReview() {
           <X className="h-[18px] w-[18px]" strokeWidth={2.6} />
         </button>
 
-        {/* Reuse the onboarding plan timeline — same component, same data
+        {/* Reuse the onboarding plan timeline, same component, same data
             shape. Its sticky CTA is hidden here (`showContinue={false}`); the
             close X above handles routing. */}
         <InlinePlanDisplay

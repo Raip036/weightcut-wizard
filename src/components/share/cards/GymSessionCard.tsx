@@ -1,5 +1,5 @@
 /**
- * GymSessionCard — shareable image card for a completed gym session.
+ * GymSessionCard: shareable image card for a completed gym session.
  *
  * Visual language matches TrainingCalendarCard:
  *  - FightCamp Wizard brand header (from CardShell)
@@ -9,7 +9,7 @@
  *  - Strava-style hero column: Exercises / Sets / Volume stacked vertically,
  *    huge bold white numbers
  *  - Bottom block: one row per exercise with GitHub-contribution-style green
- *    cubes — one cube per set, intensity scaled to weight relative to the
+ *    cubes, one cube per set, intensity scaled to weight relative to the
  *    session's heaviest set so the user's hardest lifts visually pop
  *
  * Aspect handling:
@@ -76,14 +76,14 @@ function formatDateLabel(dateStr: string): string {
 
 function formatWeightLabel(kg: number | null, isBodyweight: boolean): string {
   if (isBodyweight) return "BW";
-  if (kg === null || kg === 0) return "—";
+  if (kg === null || kg === 0) return "-";
   const formatted = kg % 1 === 0 ? `${kg}` : kg.toFixed(1);
   return `${formatted}kg`;
 }
 
 interface RowData {
   name: string;
-  // Per-set intensity levels (0–4) used to paint the cubes.
+  // Per-set intensity levels (0-4) used to paint the cubes.
   setLevels: number[];
   // Top-set weight label (e.g. "100kg", "BW") shown next to the cubes so
   // the actual lift is legible at a glance, not just the heatmap.
@@ -126,7 +126,7 @@ export const GymSessionCard = forwardRef<HTMLDivElement, GymSessionCardProps>(
         const top = pickTopSet(g.sets);
         const topWeightLabel = top
           ? formatWeightLabel(top.weight_kg, top.is_bodyweight)
-          : "—";
+          : "-";
         return { name: g.exercise.name, setLevels, topWeightLabel };
       });
     }, [exerciseGroups, sessionMaxWeight]);
@@ -140,7 +140,7 @@ export const GymSessionCard = forwardRef<HTMLDivElement, GymSessionCardProps>(
       [rows],
     );
 
-    // Show every exercise — no truncation. Past a comfortable row count the
+    // Show every exercise, no truncation. Past a comfortable row count the
     // text shrinks proportionally so a 12- or 15-exercise session still fits
     // the card cleanly rather than clipping or pushing into the bottom
     // brand area.
@@ -162,7 +162,7 @@ export const GymSessionCard = forwardRef<HTMLDivElement, GymSessionCardProps>(
     const rowGap = Math.max(6, Math.round((s ? 20 : 12) * scale));
     const nameFontSize = Math.round((s ? 60 : 28) * scale);
     const weightFontSize = Math.round((s ? 48 : 24) * scale);
-    // Fixed width for the weight column — keeps "100kg" lined up across
+    // Fixed width for the weight column: keeps "100kg" lined up across
     // every row regardless of how many cubes the row has. Scales with the
     // text so the column doesn't waste space when the type shrinks.
     const weightColumnWidth = Math.round((s ? 220 : 110) * scale);
@@ -179,7 +179,7 @@ export const GymSessionCard = forwardRef<HTMLDivElement, GymSessionCardProps>(
     return (
       <CardShell ref={ref} aspect={aspect} isPremium={isPremium} transparent={transparent}>
         <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-          {/* Period label — session type as the title, date·duration sub-line */}
+          {/* Period label: session type as the title, date·duration sub-line */}
           <StravaPeriodLabel text={String(sessionType).toUpperCase()} s={s} transparent={transparent} />
           <div
             style={{
@@ -199,7 +199,7 @@ export const GymSessionCard = forwardRef<HTMLDivElement, GymSessionCardProps>(
           {/* Top spacer pushes the vertical stats group down */}
           <div style={{ flex: 1, minHeight: s ? 24 : 8 }} />
 
-          {/* Vertical stats column — Strava style, stacked. */}
+          {/* Vertical stats column: Strava style, stacked. */}
           <div
             style={{
               display: "flex",
@@ -223,7 +223,7 @@ export const GymSessionCard = forwardRef<HTMLDivElement, GymSessionCardProps>(
 
               Negative inline margins break the block out of CardShell's
               horizontal padding so the exercise list fills more of the
-              card's bottom area — keeps the cubes large and legible at
+              card's bottom area, keeping the cubes large and legible at
               export resolution. */}
           <div
             style={{
@@ -255,7 +255,7 @@ export const GymSessionCard = forwardRef<HTMLDivElement, GymSessionCardProps>(
                   // child so its right edge sits flush with the row's right
                   // edge; with a fixed weight column width, its left edge
                   // is constant across every row regardless of how many
-                  // cubes precede it — so 100kg / 60kg / BW all line up
+                  // cubes precede it, so 100kg / 60kg / BW all line up
                   // vertically.
                   <div
                     key={`${i}-${row.name}`}
@@ -281,7 +281,7 @@ export const GymSessionCard = forwardRef<HTMLDivElement, GymSessionCardProps>(
                     >
                       {row.name}
                     </div>
-                    {/* Set cubes — sit between the name and the weight
+                    {/* Set cubes: sit between the name and the weight
                         column so the weight column stays anchored right. */}
                     <div
                       style={{
@@ -308,7 +308,7 @@ export const GymSessionCard = forwardRef<HTMLDivElement, GymSessionCardProps>(
                         />
                       ))}
                     </div>
-                    {/* Top set weight — primary-tinted hero accent. Fixed
+                    {/* Top set weight: primary-tinted hero accent. Fixed
                         column width + right alignment keeps every weight
                         in one tidy vertical column regardless of cube
                         count above/below. */}

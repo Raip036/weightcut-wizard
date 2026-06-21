@@ -1,15 +1,15 @@
 /**
- * PostComposer — bottom-sheet flow for creating a Corner tab post.
+ * PostComposer: bottom-sheet flow for creating a Corner tab post.
  *
  * Steps (state machine, single sheet):
  *
- *   1. CAPTURE   — "Take Photo" / "Choose From Library" / Cancel
- *   2. PREVIEW   — square preview, caption textarea (240 chars), privacy toggle
- *   3. UPLOADING — full-sheet spinner with progress label
- *   4. ERROR     — retry button + the error message from useCreatePost
+ *   1. CAPTURE   "Take Photo" / "Choose From Library" / Cancel
+ *   2. PREVIEW   square preview, caption textarea (240 chars), privacy toggle
+ *   3. UPLOADING full-sheet spinner with progress label
+ *   4. ERROR     retry button + the error message from useCreatePost
  *
  * Native iOS image cropping is delegated to `@capacitor/camera`'s
- * `allowEditing: true` flow — we don't ship our own crop UI for v1.
+ * `allowEditing: true` flow; we don't ship our own crop UI for v1.
  *
  * Submit pipeline:
  *
@@ -49,7 +49,7 @@ const CAPTION_MAX = 240;
 
 /**
  * Memoised caption input. Isolated so per-keystroke `caption` updates
- * only re-render this subtree — the preview <img>, privacy toggle, and
+ * only re-render this subtree: the preview <img>, privacy toggle, and
  * Post button stay quiescent. `setCaption` (from useState) is a stable
  * identity so the memo never invalidates on parent re-renders for
  * unrelated reasons.
@@ -95,7 +95,7 @@ export function PostComposer({
   const navigate = useNavigate();
   const createPost = useCreatePost();
 
-  // Hidden file input — used as a web fallback when running outside Capacitor
+  // Hidden file input: used as a web fallback when running outside Capacitor
   // and as a "Choose From Library" path when the gesture context demands it.
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -137,7 +137,7 @@ export function PostComposer({
   );
 
   // Pick the most-recent today-row. `_creationTime` is the canonical
-  // monotonic ordering on Convex docs — preferred over `updatedAt`
+  // monotonic ordering on Convex docs; preferred over `updatedAt`
   // which a coach-edit could bump out of band.
   const autoSessionId = useMemo<Id<"fight_camp_calendar"> | null>(() => {
     if (defaultSessionId) return null;
@@ -148,7 +148,7 @@ export function PostComposer({
     return sorted[0]._id as Id<"fight_camp_calendar">;
   }, [calendarRows, defaultSessionId]);
 
-  // Effective session — prop wins, then auto-detected. `undefined` while
+  // Effective session: prop wins, then auto-detected. `undefined` while
   // the query is in-flight, `null` once we've confirmed there's no
   // session to attach to.
   const effectiveSessionId: Id<"fight_camp_calendar"> | null | undefined =
@@ -188,7 +188,7 @@ export function PostComposer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Revoke any in-flight object URL on unmount — defensive cleanup so a
+  // Revoke any in-flight object URL on unmount: defensive cleanup so a
   // hot-reload doesn't leak a handful of blob: URLs.
   useEffect(() => {
     return () => {
@@ -209,7 +209,7 @@ export function PostComposer({
     [previewUrl],
   );
 
-  // ─── Capture — native ────────────────────────────────────────────────
+  // ─── Capture: native ────────────────────────────────────────────────
   const handleNativePick = useCallback(async () => {
     // The camera plugin requires a live user-gesture; we're inside an
     // onClick so the stack is intact. Dynamic import keeps the bundle
@@ -268,7 +268,7 @@ export function PostComposer({
     } catch (err) {
       const msg =
         err instanceof Error ? err.message.toLowerCase() : String(err);
-      // Cancellation throws on iOS — treat it as a benign no-op.
+      // Cancellation throws on iOS; treat it as a benign no-op.
       if (msg.includes("cancel") || msg.includes("dismiss")) return;
       logger.warn("PostComposer: native capture failed", { error: msg });
       toast({
@@ -279,7 +279,7 @@ export function PostComposer({
     }
   }, [acceptBlob, toast]);
 
-  // ─── Capture — web fallback ─────────────────────────────────────────
+  // ─── Capture: web fallback ─────────────────────────────────────────
   const handleWebPick = useCallback(() => {
     fileInputRef.current?.click();
   }, []);
@@ -295,7 +295,7 @@ export function PostComposer({
     [acceptBlob],
   );
 
-  // Unified entry point — picks the right pathway by platform.
+  // Unified entry point: picks the right pathway by platform.
   const handlePickPhoto = useCallback(() => {
     if (Capacitor.isNativePlatform()) {
       void handleNativePick();
@@ -307,7 +307,7 @@ export function PostComposer({
   // ─── Submit ─────────────────────────────────────────────────────────
   const handleSubmit = useCallback(async () => {
     if (!sourceBlob) return;
-    // We never hit this branch in practice — the preview-step Post
+    // We never hit this branch in practice; the preview-step Post
     // button is disabled when there's no `effectiveSessionId`, and the
     // empty-state fork below takes over when none can be auto-detected.
     // Keep the early-return as a defensive guard.
@@ -317,7 +317,7 @@ export function PostComposer({
     setErrorMsg(null);
 
     try {
-      // Compress in parallel with the LQIP — both read from the source
+      // Compress in parallel with the LQIP: both read from the source
       // blob independently, so there's no work-sharing benefit to
       // sequencing. Saves ~80 ms on midrange iPhones.
       const [compressed, thumbDataUrl] = await Promise.all([
@@ -328,7 +328,7 @@ export function PostComposer({
         generateThumbDataUrl(sourceBlob, { flipHorizontal }),
       ]);
 
-      // Decode the compressed blob once to read its final dimensions —
+      // Decode the compressed blob once to read its final dimensions,
       // the server records them so the grid can reserve aspect-ratio slots
       // before the image fetches.
       const { width, height } = await readBlobDimensions(compressed);
@@ -388,7 +388,7 @@ export function PostComposer({
           </SheetTitle>
         </SheetHeader>
 
-        {/* Hidden web file input — invoked from handleWebPick. */}
+        {/* Hidden web file input: invoked from handleWebPick. */}
         <input
           ref={fileInputRef}
           type="file"
@@ -398,7 +398,7 @@ export function PostComposer({
         />
 
         {hasNoSession ? (
-          // No logged session today and no explicit `defaultSessionId` —
+          // No logged session today and no explicit `defaultSessionId`,
           // replace the entire body (after the open animation) with a
           // friendly empty state that routes to the training calendar.
           <div className="flex flex-1 flex-col items-center justify-center gap-3 px-8 pb-12 text-center">
@@ -449,7 +449,7 @@ export function PostComposer({
 
         {step === "preview" && previewUrl && (
           <div className="flex flex-1 flex-col px-5 pt-2">
-            {/* Square preview — `object-cover` enforces the 1:1 framing the
+            {/* Square preview: `object-cover` enforces the 1:1 framing the
                 feed grid expects. The native picker handles the actual
                 crop on iOS via `allowEditing: true`. */}
             <div className="relative mx-auto aspect-square w-full max-w-[480px] overflow-hidden rounded-xs bg-zinc-900">
@@ -616,7 +616,7 @@ function PrivacyToggle({
 /**
  * Decode a JPEG blob into an `HTMLImageElement` long enough to read its
  * natural dimensions. Returns 0×0 on failure so the caller still posts
- * — the server treats missing dims as "render at default aspect ratio".
+ * The server treats missing dims as "render at default aspect ratio".
  */
 async function readBlobDimensions(
   blob: Blob,

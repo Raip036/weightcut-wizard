@@ -6,7 +6,7 @@ const NOW = new Date(2026, 5, 15, 12, 0, 0).getTime();
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
 
-// Viewer last saw the feed an hour ago — anything newer is "unread".
+// Viewer last saw the feed an hour ago; anything newer is "unread".
 const SEEN_AT = NOW - HOUR;
 
 type Item = GroupableItem & { id: string };
@@ -59,7 +59,7 @@ describe("groupActivity", () => {
   });
 
   it("omits empty sections", () => {
-    // Only a "week" item — no new/today/earlier.
+    // Only a "week" item: no new/today/earlier.
     const sections = groupActivity([item("w", NOW - 3 * DAY)], SEEN_AT, NOW);
     expect(sections.map((s) => s.id)).toEqual(["week"]);
   });

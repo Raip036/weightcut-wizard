@@ -71,7 +71,7 @@ type Props = {
    */
   activeCeilings?: Cap[] | null;
   trend?: FightFormTrendPoint[] | null;
-  // Optional decoration props — all degrade cleanly when missing.
+  // Optional decoration props, all degrade cleanly when missing.
   // `subScoreTrend` powers the per-pillar drill-down sparkline; `loggedToday`
   // drives the calibration teaser's ✓ chips; `calibration` populates the
   // "Unlocks in N days" headline.
@@ -103,7 +103,7 @@ const SUBSCORE_TO_LOGGED: Record<string, keyof LoggedTodayMap> = {
 };
 
 // Sub-score categories rendered as locked rows in the calibration teaser.
-// This is the 4-item calibration list ONLY — distinct from the shared
+// This is the 4-item calibration list ONLY, distinct from the shared
 // 6-item `SUBSCORE_ORDER` in fightform/constants. `nutritionAdherence` and
 // `recovery` are intentionally excluded from the calibration teaser.
 const CALIBRATION_PILLARS: string[] = [
@@ -124,7 +124,7 @@ export function FightFormScoreSheet(p: Props) {
   // resolves, matching the pattern used in Dashboard / Camp / Goals.
   const activeCamp = useQuery(api.fight_camp.getActiveCamp, userId ? {} : "skip");
 
-  // Resolve the cap list — see the prop docs above.
+  // Resolve the cap list, see the prop docs above.
   const caps: Cap[] =
     p.activeCeilings && p.activeCeilings.length > 0
       ? p.activeCeilings
@@ -138,7 +138,7 @@ export function FightFormScoreSheet(p: Props) {
 
   const isCalibrating = !p.subScores || Object.keys(p.subScores).length === 0;
 
-  // Per-pillar contribution decomposition — primary unlocked view.
+  // Per-pillar contribution decomposition, primary unlocked view.
   const phase = (p.phase as ScoringPhase | null) ?? null;
   const breakdown = computeContributions(
     p.subScores as Record<string, SubScoreType> | null,
@@ -152,7 +152,7 @@ export function FightFormScoreSheet(p: Props) {
     p.subScores as Record<string, SubScoreType> | null,
   );
   // HealthKit recovery is active when the raw `recovery` sub-score carries
-  // weight — drives the "Apple Health connected / paused" notice in the dialog.
+  // weight, drives the "Apple Health connected / paused" notice in the dialog.
   const healthKitActive = (p.subScores?.recovery?.weight ?? 0) > 0;
   // Any engine key that resolves to the merged recovery dimension. `recovery`
   // (HealthKit) is folded into `wellness` for display, so remap it.
@@ -192,7 +192,7 @@ export function FightFormScoreSheet(p: Props) {
   const accent = LABEL_ACCENT[p.label];
   const accentForLabel = accent ? `${accent.stroke} ${accent.fill}` : undefined;
 
-  // Confidence band — shown when some pillars are excluded or data is stale.
+  // Confidence band, shown when some pillars are excluded or data is stale.
   const showConfidenceBand =
     p.activePillars != null &&
     p.totalPillars != null &&
@@ -202,7 +202,7 @@ export function FightFormScoreSheet(p: Props) {
     ? Math.round((p.activePillars! / p.totalPillars!) * 100)
     : 0;
 
-  // Limiter focus — concise, deterministic headline + tap into the dialog.
+  // Limiter focus, concise, deterministic headline + tap into the dialog.
   // Remap the engine key so a `recovery` limiter opens the merged recovery
   // pillar (keyed `wellness`) rather than a dialog with no data to show.
   const limiterKey = p.topLimiter ? displayKey(p.topLimiter as SubScoreKey) : null;
@@ -212,7 +212,7 @@ export function FightFormScoreSheet(p: Props) {
       ? pillarAdvice(limiterKey, limiterSub as SubScoreType, phase).headline
       : null;
 
-  // Coach context — built from the deterministic numbers the sheet already has.
+  // Coach context, built from the deterministic numbers the sheet already has.
   const coachContext: FightFormCoachContext = {
     score: p.score,
     label: p.label,
@@ -257,7 +257,7 @@ export function FightFormScoreSheet(p: Props) {
           campAge={p.campAge}
         />
 
-        {/* Limiter focus — pinned beneath the hero so the user sees the most
+        {/* Limiter focus, pinned beneath the hero so the user sees the most
             actionable thing first. One-line headline that taps into the
             limiter's drill-down dialog. Unlocked state only. */}
         {!isCalibrating && limiterKey && limiterHeadline && (
@@ -396,7 +396,7 @@ export function FightFormScoreSheet(p: Props) {
                   />
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-snug">
-                  Pillars you haven't logged aren't counting toward today's number — your score isn't penalised, it's just based on less.
+                  Pillars you haven't logged aren't counting toward today's number; your score isn't penalised, it's just based on less.
                 </p>
               </div>
             )}
@@ -412,7 +412,7 @@ export function FightFormScoreSheet(p: Props) {
           </>
         )}
 
-        {/* Overall 14-day trend — supporting reference below the primary
+        {/* Overall 14-day trend, supporting reference below the primary
             content. */}
         {p.trend && p.trend.length > 0 && (
           <div className="mt-6 space-y-2">
@@ -499,7 +499,7 @@ export function FightFormScoreSheet(p: Props) {
         }}
       </ShareCardDialog>
 
-      {/* Per-pillar drill-down dialog — opened from the contribution
+      {/* Per-pillar drill-down dialog, opened from the contribution
           breakdown / limiter focus above. Centred modal so the parent
           Sheet's scroll position is preserved on close. */}
       <PillarDetailDialog

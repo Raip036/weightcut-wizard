@@ -17,19 +17,20 @@ import { logger } from "@/lib/logger";
 import { WizardCharacter } from "@/tutorial/WizardCharacter";
 import { NewCampWelcomeCutscene } from "./NewCampWelcomeCutscene";
 import { WrapUpStepper, type WrapUpValues } from "./WrapUpStepper";
+import { CampLimitProGate } from "./CampLimitProGate";
 
 /**
  * Two-stage flow used everywhere the user starts a new fight camp without
  * having to re-do the full first-time onboarding:
  *
- *   Stage A — WrapUp:    if there's a current camp, ask the user how the
+ *   Stage A, WrapUp:     if there's a current camp, ask the user how the
  *                        fight went so the schema's retrospective fields
  *                        (endWeightKg, performanceFeeling, etc.) get filled
  *                        and the camp is marked isCompleted=true. The user
  *                        can skip this and just create the next camp if
  *                        they don't want to reflect.
  *
- *   Stage B — NextCamp:  a slim five-step wizard for the new camp. Re-uses
+ *   Stage B, NextCamp:   a slim five-step wizard for the new camp. Re-uses
  *                        the user's existing profile (age, sex, height,
  *                        training frequency, sport) so they only re-enter
  *                        the fight-specific bits: name, fight date, target
@@ -85,17 +86,22 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
   // the iOS WebView's occasional storage wipe doesn't lose it.
   //
   // CREATING the camp is FREE. Only the AI cut-plan *regeneration* for the
-  // next camp is a Pro feature (gated under AI_CUT_PLAN — unlike first-time
+  // next camp is a Pro feature (gated under AI_CUT_PLAN, unlike first-time
   // onboarding, which is free). We must NOT let that Pro step pop a paywall
   // on top of the (free) camp-creation action, or it looks like creating a
   // camp is paywalled. So we pass `featureKey: undefined` to `useAIAction`
-  // here — that disables its upfront paywall — and instead decide whether to
+  // here (that disables its upfront paywall) and instead decide whether to
   // call it at all based on `checkFeatureAccess("AI_CUT_PLAN")` in
   // `submitWizard`. Free users get their camp created and simply skip the AI
   // plan (the existing null-plan path handles it); Pro users still generate.
   // The call below passes `gate: "regenerate"` so the server still enforces
   // the Pro key as a backstop.
-  const { checkFeatureAccess } = useSubscription();
+  const { checkFeatureAccess, isSubscriptionResolved } = useSubscription();
+  // Free-tier limit: a free user's single camp is the onboarding one. The
+  // wrap-up stage stays free (it's their existing camp's data), but CREATING
+  // the next camp is Pro, so a free user is shown the upsell at the wizard
+  // stage instead of the new-camp form. Server enforces authoritatively.
+  const canCreateCamp = checkFeatureAccess("MULTIPLE_FIGHT_CAMPS");
   const generateCutPlanAction = useAIAction(
     api.actions.generateCutPlan.run,
   );
@@ -114,7 +120,7 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
   const [wrappingUp, setWrappingUp] = useState(false);
 
   // Wizard state. `targetWeightKg` = fight-day weight (goal_weight_kg).
-  // `walkAroundWeightKg` = pre-dehydration weight (fight_week_target_kg) —
+  // `walkAroundWeightKg` = pre-dehydration weight (fight_week_target_kg):
   // i.e. the body weight the user should *actually* be carrying at the start
   // of fight week before the water/carb cut drops them to the goal weight.
   // We pre-fill walkAround from the goal using a 5.5% water-cut estimate
@@ -169,7 +175,7 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
 
   // Re-estimate the walk-around weight any time the target changes IF the
   // user hasn't manually edited it. 5.5% buffer matches the "amateur" tier
-  // the onboarding wizard uses as its mid-point — safe enough for most
+  // the onboarding wizard uses as its mid-point, safe enough for most
   // hobbyists and amateurs, easily overridden by pros.
   useEffect(() => {
     if (!walkAroundAuto) return;
@@ -243,7 +249,7 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
   };
 
   const submitWizard = async () => {
-    // Guard against NaN coercion before doing any writes — an empty or
+    // Guard against NaN coercion before doing any writes; an empty or
     // non-numeric input here would silently propagate to the cut plan
     // generator and the profile mutation as NaN, polluting both.
     const currentWeight = parseFloat(wizardData.currentWeightKg);
@@ -270,7 +276,7 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
 
     setCreating(true);
     try {
-      // (a) Create the camp first — cheap, transactional.
+      // (a) Create the camp first: cheap, transactional.
       const newId = await createCampMut({
         name: campName,
         fightDate: wizardData.fightDate,
@@ -287,7 +293,7 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
     }
     setCreating(false);
 
-    // Camp exists — compute the headline targets from the wizard inputs (all
+    // Camp exists: compute the headline targets from the wizard inputs (all
     // available immediately) and hand off to the full-screen welcome cutscene.
     // The cut plan keeps generating in the background; the cutscene's CTA
     // enables once `planReady` flips true.
@@ -311,7 +317,7 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
     try {
       // (b) Generate the cut plan BEFORE writing new targets to the profile.
       // If this fails, we don't want the profile to be left pointing at the
-      // new fight while still carrying the old plan — better to keep the
+      // new fight while still carrying the old plan; better to keep the
       // profile in sync with the data the rest of the app will read.
       let planData: any = null;
       // The AI cut-plan regeneration is Pro-only. Camp creation already
@@ -319,7 +325,7 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
       // who meet the AI_CUT_PLAN tier so free users are NOT shown a paywall
       // as a side-effect of creating a camp. Free users fall through to the
       // null-plan path below (targets saved, "New camp started" toast, the
-      // cutscene CTA still works) — identical to a generation failure, and
+      // cutscene CTA still works): identical to a generation failure, and
       // they can generate the plan later from the Goals page (Pro upsell).
       if (checkFeatureAccess("AI_CUT_PLAN")) {
         try {
@@ -357,7 +363,7 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
         } catch { /* iOS WebView may block; non-fatal */ }
       }
 
-      // (c) ONE consolidated profile write — targets AND plan together so
+      // (c) ONE consolidated profile write: targets AND plan together so
       // they can never end up in a "new targets, stale plan" state. If the
       // plan failed we still write the new targets (camp already exists),
       // but we DON'T clobber `cutPlanJson` with null.
@@ -383,11 +389,11 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
             description: "Your new fight weights and plan are on your profile.",
           });
         } else {
-          // Plan generation failed — camp + targets are saved, user can re-run
+          // Plan generation failed; camp + targets are saved, user can re-run
           // generation from the Goals page.
           toast({
             title: "New camp started",
-            description: `${campName} — ${wizardData.fightDate}`,
+            description: `${campName} · ${wizardData.fightDate}`,
           });
         }
       } catch (saveErr) {
@@ -395,7 +401,7 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
       }
     } finally {
       // Enable the cutscene's "See plan" CTA whether the plan succeeded or
-      // failed — the camp + targets are already saved either way.
+      // failed; the camp + targets are already saved either way.
       setPlanReady(true);
     }
   };
@@ -409,7 +415,7 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
         side="bottom"
         className="max-h-[92vh] p-0 border-t border-border/50 bg-card/95 backdrop-blur-xl gap-0"
       >
-        {/* Shared title — wizard only; the wrap-up stepper brings its own
+        {/* Shared title, wizard only; the wrap-up stepper brings its own
             progress chrome (and a visually-hidden SheetTitle for a11y). */}
         {stage !== "wrapup" && (
           <div className="px-5 pt-5 pb-2">
@@ -438,7 +444,7 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
             </motion.div>
           )}
 
-          {stage === "wizard" && (
+          {stage === "wizard" && canCreateCamp && (
             <motion.div
               key="wizard"
               initial={{ opacity: 0, x: 24 }}
@@ -636,7 +642,16 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
       </SheetContent>
     </Sheet>
 
-    {/* Full-screen welcome cutscene — renders its own fixed portal and takes
+    {/* Free-tier "one camp" Pro gate. A free user reaches the wizard stage
+        (after wrapping up their existing camp, if any) and sees the animated
+        upsell instead of the new-camp form. Dismiss closes the whole flow.
+        Full-screen portal so it covers the sheet behind it. */}
+    <CampLimitProGate
+      open={open && stage === "wizard" && isSubscriptionResolved && !canCreateCamp}
+      onClose={() => onOpenChange(false)}
+    />
+
+    {/* Full-screen welcome cutscene: renders its own fixed portal and takes
         over once the sheet closes. CTA enables when `planReady` flips true. */}
     {welcome && (
       <NewCampWelcomeCutscene

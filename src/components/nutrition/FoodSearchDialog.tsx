@@ -61,7 +61,7 @@ function normalizeMealType(v: string | undefined): MealTypeValue {
   return MEAL_TYPE_OPTIONS.some((o) => o.value === lower) ? (lower as MealTypeValue) : "snack";
 }
 
-/** Swipeable row — swipe left to reveal delete action */
+/** Swipeable row: swipe left to reveal delete action */
 function SwipeToDelete({ onDelete, children }: { onDelete: () => void; children: React.ReactNode }) {
   const [offsetX, setOffsetX] = useState(0);
   const startX = useRef(0);
@@ -235,7 +235,7 @@ export function FoodSearchDialog({ open, onOpenChange, onFoodSelected, mealType,
   const { toast } = useToast();
   const foodSearchAction = useAction(api.actions.foodSearch.run);
 
-  // Server-backed recents — persists across app close / logout / reinstall.
+  // Server-backed recents: persists across app close / logout / reinstall.
   const recentsData = useQuery(api.foodRecents.listRecents, open ? {} : "skip");
   const recentMeals = recentsData ?? [];
   const recordRecent = useMutation(api.foodRecents.recordRecent);
@@ -376,7 +376,7 @@ export function FoodSearchDialog({ open, onOpenChange, onFoodSelected, mealType,
 
   // When a food is selected, hide the search dialog so the detail sheet
   // has the screen to itself. The dialog state is preserved (query,
-  // scroll, meal-type) — closing the sheet returns to the search list.
+  // scroll, meal-type); closing the sheet returns to the search list.
   const dialogVisible = open && !selectedFood;
 
   return (
@@ -387,7 +387,7 @@ export function FoodSearchDialog({ open, onOpenChange, onFoodSelected, mealType,
             <DialogTitle>Search Food</DialogTitle>
           </VisuallyHidden>
 
-          {/* Header — title + close */}
+          {/* Header: title + close */}
           <div className="flex items-center justify-between px-4 pt-4 pb-2">
             <h2 className="text-[17px] font-bold tracking-tight">Search Food</h2>
             <button
@@ -430,7 +430,7 @@ export function FoodSearchDialog({ open, onOpenChange, onFoodSelected, mealType,
             </div>
           </div>
 
-          {/* Meal-type segmented control — compact, no truncation */}
+          {/* Meal-type segmented control: compact, no truncation */}
           <div className="px-4 pb-3">
             <LayoutGroup id="food-search-meal-type">
               <div className="relative grid grid-cols-4 gap-1 rounded-full bg-muted/30 p-1 border border-border/30">
@@ -461,7 +461,7 @@ export function FoodSearchDialog({ open, onOpenChange, onFoodSelected, mealType,
             </LayoutGroup>
           </div>
 
-          {/* Results list — card-style rows */}
+          {/* Results list: card-style rows */}
           <div className="flex-1 overflow-y-auto min-h-[200px] max-h-[60vh] px-4 pb-4">
             {searching && (
               <div className="flex items-center justify-center py-12">
@@ -592,7 +592,7 @@ export function FoodSearchDialog({ open, onOpenChange, onFoodSelected, mealType,
         </DialogContent>
       </Dialog>
 
-      {/* Premium detail bottom sheet — opens over the search results */}
+      {/* Premium detail bottom sheet: opens over the search results */}
       <FoodDetailSheet
         open={!!selectedFood}
         onClose={() => setSelectedFood(null)}
@@ -635,7 +635,7 @@ function FoodDetailSheet({
 }) {
   if (!food) return null;
 
-  // Approximate goals just for the ring fill — purely visual. We use
+  // Approximate goals just for the ring fill: purely visual. We use
   // typical daily targets (150g P / 250g C / 80g F) scaled to a single
   // meal-portion so the rings look reasonable at any grams setting.
   const approxP = 50;
@@ -673,7 +673,7 @@ function FoodDetailSheet({
           </button>
         </div>
 
-        {/* Hero — big calorie number, animates on serving change */}
+        {/* Hero: big calorie number, animates on serving change */}
         <div className="px-5 py-4 text-center border-b border-border/20">
           <motion.p
             key={scaledCalories}
@@ -689,7 +689,7 @@ function FoodDetailSheet({
           </p>
         </div>
 
-        {/* Macro rings — animated */}
+        {/* Macro rings: animated */}
         <div className="px-5 py-4 grid grid-cols-3 gap-2">
           {/* Design System v1 FUNCTIONAL palette */}
           <MacroRing value={scaledProtein} goalApprox={approxP} label="Protein" color="rgb(42 91 221)" />

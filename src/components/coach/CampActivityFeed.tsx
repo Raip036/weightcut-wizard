@@ -1,5 +1,5 @@
 /**
- * CampActivityFeed — last 5–7 events across the user's logging surfaces
+ * CampActivityFeed: last 5-7 events across the user's logging surfaces
  * (training, weight, sleep, wellness, completed missions). Renders nothing
  * while the query is pending or empty so the host page doesn't show a
  * lonely "Recent activity" heading. Each row is tappable and navigates to
@@ -28,7 +28,7 @@ type EventKind = "workout" | "weight" | "sleep" | "wellness" | "mission" | "meal
 
 // Icon per event kind. Weight uses `speedometerOutline` to match the rest
 // of the dashboard chrome (TodayStrip, MilestoneBadges, FightFormScoreSheet
-// all use it for the weight/scale surface — `scaleOutline` would read as
+// all use it for the weight/scale surface; `scaleOutline` would read as
 // inconsistent next to those). Reactions use `happyOutline` to keep a
 // distinct glyph from wellness (which already owns `heartOutline`).
 const ICONS: Record<EventKind, IonIconName> = {
@@ -85,7 +85,7 @@ function timeAgo(ms: number): string {
 export function CampActivityFeed({ userId, limit = 7 }: CampActivityFeedProps) {
   const navigate = useNavigate();
 
-  // `userId` here is a gate — the query authenticates itself via
+  // `userId` here is a gate: the query authenticates itself via
   // `optionalUserId` on the server, so we just need *some* identity to
   // know whether to fire it. Skipping when null keeps the dashboard quiet
   // during the cold-start auth race.
@@ -116,7 +116,7 @@ export function CampActivityFeed({ userId, limit = 7 }: CampActivityFeedProps) {
   };
 
   // Hide the section entirely while loading or when there's nothing to
-  // show — a heading with no rows underneath reads as a broken state.
+  // show. A heading with no rows underneath reads as a broken state.
   const visibleEvents = useMemo(() => events ?? null, [events]);
 
   if (!userId) return null;
@@ -130,7 +130,7 @@ export function CampActivityFeed({ userId, limit = 7 }: CampActivityFeedProps) {
           Recent activity
         </span>
 
-        {/* Clear — two-step inline confirm to avoid accidental taps. */}
+        {/* Clear: two-step inline confirm to avoid accidental taps. */}
         {confirmingClear ? (
           <div className="flex items-center gap-2">
             <button

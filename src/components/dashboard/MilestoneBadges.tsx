@@ -34,13 +34,13 @@ function BadgeSkeleton() {
   );
 }
 
-// Two-column grid — no horizontal scroll, no truncated labels. The 4 most
+// Two-column grid, no horizontal scroll, no truncated labels. The 4 most
 // recent badges sit in a tidy 2×2 layout. "See all →" routes through the
 // achievement sheet (via the header tap) to view the full set.
 const GRID_CLASS = "grid grid-cols-2 gap-2";
 const MAX_VISIBLE = 4;
 
-/* Sparkle burst — 8 Sparkles fly outward from the badge center at evenly
+/* Sparkle burst, 8 Sparkles fly outward from the badge center at evenly
    distributed angles over ~600ms. Pre-computed once at module scope so
    every burst shares the same particle pattern (cheap re-render). */
 const BURST_PARTICLES = Array.from({ length: 8 }, (_, i) => {
@@ -49,7 +49,7 @@ const BURST_PARTICLES = Array.from({ length: 8 }, (_, i) => {
   return {
     x: Math.cos(angle) * radius,
     y: Math.sin(angle) * radius,
-    /* Slight per-particle delay (0–80ms) so the burst feels organic
+    /* Slight per-particle delay (0-80ms) so the burst feels organic
        rather than mechanically simultaneous. */
     delay: (i % 4) * 0.02,
   };
@@ -71,7 +71,7 @@ function BadgeCard({
   /* Track previous unlocked state. When it flips false → true mid-mount
      (the user unlocked the badge during this session), fire a 600ms
      sparkle burst. We DON'T burst on the initial mount where it's
-     already unlocked — that's just "user opened the app", not an
+     already unlocked, that's just "user opened the app", not an
      achievement moment. */
   const prevUnlockedRef = useRef(badge.unlocked);
   const [burstKey, setBurstKey] = useState<number | null>(null);

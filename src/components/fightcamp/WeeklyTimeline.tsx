@@ -8,7 +8,7 @@ interface WeeklyTimelineProps {
 
 /**
  * Compute the ISO 8601 week number for a YYYY-MM-DD date string.
- * Inline helper — small enough that pulling in date-fns just for `getISOWeek`
+ * Inline helper, small enough that pulling in date-fns just for `getISOWeek`
  * isn't worth the bytes here.
  */
 function isoWeekNumber(weekStartDate: string): number {

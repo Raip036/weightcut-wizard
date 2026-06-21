@@ -96,7 +96,7 @@ export const WeightTrackerCard = forwardRef<HTMLDivElement, WeightTrackerCardPro
           </div>
         </div>
 
-        {/* Chart — prominent centrepiece */}
+        {/* Chart: prominent centrepiece */}
         {chartData.length >= 2 && (
           <div
             style={{

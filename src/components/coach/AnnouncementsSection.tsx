@@ -6,7 +6,7 @@ import { useGymAnnouncements, type GymAnnouncement } from "@/hooks/coach/useGymA
 import { FightOfferCard } from "@/components/coach/FightOfferCard";
 
 interface Props {
-  /** Gym ids the user is a member of — used to scope realtime channels. */
+  /** Gym ids the user is a member of, used to scope realtime channels. */
   gymIds: string[];
 }
 
@@ -134,7 +134,7 @@ export function AnnouncementsSection({ gymIds }: Props) {
           {announcements.length > visible.length ? ` of ${announcements.length}` : ""}
         </span>
       </div>
-      {/* Scrollable container — keeps the section from dominating the page
+      {/* Scrollable container: keeps the section from dominating the page
           when many announcements pile up. Swipe-left to dismiss any row. */}
       <div
         className="max-h-[60vh] overflow-y-auto overscroll-contain space-y-2 pr-0.5 scrollbar-hide"

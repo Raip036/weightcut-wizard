@@ -1066,7 +1066,7 @@ export default function Dashboard() {
                     <div className="flex items-center gap-3">
                       <div className="flex flex-col items-center justify-center min-w-[42px]">
                         <span className="text-2xl font-bold text-sky-300 leading-none tabular-nums">
-                          {remaining === 0 ? "—" : remaining}
+                          {remaining === 0 ? "-" : remaining}
                         </span>
                         <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-sky-300/70 mt-1">
                           {remaining === 1 ? "day" : "days"}
@@ -1188,7 +1188,7 @@ export default function Dashboard() {
                 <span className="font-display font-bold text-[40px] leading-none text-foreground tabular-nums">
                   {currentWeightValue
                     ? convertWeight(currentWeightValue).toFixed(1)
-                    : "—"}
+                    : "-"}
                 </span>
                 <span className="text-note font-light text-muted-foreground">
                   {weightUnit}
@@ -1594,18 +1594,18 @@ export default function Dashboard() {
                 <div className="rounded-md bg-muted/30 px-2.5 py-2 animate-in fade-in slide-in-from-top-2 duration-200">
                   <p className="text-note font-semibold mb-1">Risk Level</p>
                   <p className="text-note text-muted-foreground leading-snug mb-1">How aggressive your current cut rate is.</p>
-                  <p className="text-note text-muted-foreground"><span className="text-green-400 font-medium">Green</span> — Safe, sustainable pace</p>
-                  <p className="text-note text-muted-foreground"><span className="text-orange-400 font-medium">Orange</span> — High pace, may affect performance</p>
+                  <p className="text-note text-muted-foreground"><span className="text-green-400 font-medium">Green</span>: safe, sustainable pace</p>
+                  <p className="text-note text-muted-foreground"><span className="text-orange-400 font-medium">Orange</span>: high pace, may affect performance</p>
                 </div>
               )}
               {expandedInfo === 'pace' && (
                 <div className="rounded-md bg-muted/30 px-2.5 py-2 animate-in fade-in slide-in-from-top-2 duration-200">
                   <p className="text-note font-semibold mb-1">Pace</p>
                   <p className="text-note text-muted-foreground leading-snug mb-1">Is your weekly loss on track to hit your target?</p>
-                  <p className="text-note text-muted-foreground"><span className="text-green-400 font-medium">On Track</span> — On schedule</p>
-                  <p className="text-note text-muted-foreground"><span className="text-green-400 font-medium">At Target</span> — Already at goal</p>
-                  <p className="text-note text-muted-foreground"><span className="text-blue-400 font-medium">Ahead</span> — Faster than needed</p>
-                  <p className="text-note text-muted-foreground"><span className="text-yellow-400 font-medium">Behind</span> — May need to adjust</p>
+                  <p className="text-note text-muted-foreground"><span className="text-green-400 font-medium">On Track</span>: on schedule</p>
+                  <p className="text-note text-muted-foreground"><span className="text-green-400 font-medium">At Target</span>: already at goal</p>
+                  <p className="text-note text-muted-foreground"><span className="text-blue-400 font-medium">Ahead</span>: faster than needed</p>
+                  <p className="text-note text-muted-foreground"><span className="text-yellow-400 font-medium">Behind</span>: may need to adjust</p>
                 </div>
               )}
 

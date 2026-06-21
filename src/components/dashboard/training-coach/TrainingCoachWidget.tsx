@@ -1,5 +1,5 @@
 /**
- * Training Coach widget — replaces the stub TrainingInsightsWidget on the
+ * Training Coach widget, replaces the stub TrainingInsightsWidget on the
  * user dashboard. Pro-only. Surfaces:
  *  - Path proposal banners (note-driven, top of widget)
  *  - Hero step card with wizard line + next-2 preview
@@ -36,7 +36,7 @@ export function TrainingCoachWidget() {
   const [feedbackDismissed, setFeedbackDismissed] = useState<Set<string>>(new Set());
 
   // Gate every Convex subscription on the feature flag with `"skip"` so the
-  // widget is fully inert when the flag is off — no server calls, no errors
+  // widget is fully inert when the flag is off, no server calls, no errors
   // if the deployment hasn't deployed the training_paths functions yet.
   // (React hooks still run in the same order; `useQuery` accepts `"skip"`.)
   const enabled = FEATURE_FLAGS.enableTrainingCoachPaths;
@@ -64,7 +64,7 @@ export function TrainingCoachWidget() {
   }
   if (!usage.isPro) return <LockedState />;
 
-  // Empty state — no hero, no active paths, no pending proposals.
+  // Empty state, no hero, no active paths, no pending proposals.
   if (!hero && (activePaths?.length ?? 0) === 0 && (proposals?.length ?? 0) === 0) {
     return (
       <>
@@ -75,7 +75,7 @@ export function TrainingCoachWidget() {
   }
 
   // Build path chips for the carousel from active paths + their step counts.
-  // We don't query steps for every path here — the totalSteps/completedSteps
+  // We don't query steps for every path here, the totalSteps/completedSteps
   // for non-hero paths are exposed via a future enrich query; for v1 we show
   // the hero's count when available and a placeholder dot count otherwise.
   const heroPathId = hero?.path._id ?? null;

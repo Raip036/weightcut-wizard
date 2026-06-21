@@ -31,7 +31,7 @@ import { AchievementSheet } from "@/components/achievements/AchievementSheet";
 import { cn } from "@/lib/utils";
 
 /**
- * LevelSheet — bottom sheet surfacing the user's per-discipline XP, how to
+ * LevelSheet: bottom sheet surfacing the user's per-discipline XP, how to
  * earn XP, what it means, current streak, an achievements preview, and a
  * placeholder list of "daily challenges" that will start tracking in v2.
  *
@@ -58,7 +58,7 @@ const BADGE_ICON_MAP = {
   Crown,
 } as const;
 
-/* "How to earn XP" — static config so the rows stay declarative. */
+/* "How to earn XP": static config so the rows stay declarative. */
 const EARN_ROWS: ReadonlyArray<{
   icon: typeof Calendar;
   amount: string;
@@ -69,7 +69,7 @@ const EARN_ROWS: ReadonlyArray<{
   { icon: Trophy, amount: "+100 XP", label: "Complete an entire mission" },
 ];
 
-/* "Daily challenges" — v1 placeholder data. No live tracking yet. */
+/* "Daily challenges": v1 placeholder data. No live tracking yet. */
 const DAILY_CHALLENGES: ReadonlyArray<{
   icon: typeof Calendar;
   title: string;
@@ -84,11 +84,11 @@ export function LevelSheet({ open, onOpenChange }: LevelSheetProps) {
   const { userId, profile } = useUser();
   const [achievementsOpen, setAchievementsOpen] = useState(false);
 
-  // Per-discipline XP rows — drives the top section.
+  // Per-discipline XP rows, drives the top section.
   const xpRows = useQuery(api.user_discipline_xp.getAllForUser);
 
   // Pull a recent weight-log window so the streak math has real input. We
-  // only need date strings — `useGamification` collapses to date sets.
+  // only need date strings; `useGamification` collapses to date sets.
   const liveWeightLogs = useQuery(
     api.weight_logs.listForUser,
     userId ? { limit: 60 } : "skip",
@@ -182,7 +182,7 @@ export function LevelSheet({ open, onOpenChange }: LevelSheetProps) {
               <p className="text-note text-muted-foreground leading-relaxed">
                 Each discipline tracks its own progress so the work you put
                 into BJJ stays separate from your Muay Thai or strength.
-                Level thresholds widen as you climb — early levels come
+                Level thresholds widen as you climb. Early levels come
                 quickly, advanced ones take real consistency.
               </p>
             </section>
@@ -346,7 +346,7 @@ function DisciplineList({
                 <span className="tabular-nums">{row.nextLevelXp}</span> XP
               </p>
             </div>
-            {/* Level badge — flat foreground-on-muted, no discipline tint.
+            {/* Level badge: flat foreground-on-muted, no discipline tint.
                 The ring on the left already carries the discipline colour;
                 duplicating it on the chip read as neon / AI-generated. */}
             <span

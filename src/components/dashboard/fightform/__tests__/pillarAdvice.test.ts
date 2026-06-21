@@ -7,7 +7,7 @@ import type { SubScore, SubScoreKey } from "@/scoring/types";
  * Unit tests for the pure `pillarAdvice` advice module.
  *
  * The module maps a sub-score (value band + reason + meta) to a one-line
- * headline and 1–3 concrete actions. These assertions pin the behaviour the
+ * headline and 1-3 concrete actions. These assertions pin the behaviour the
  * sheet relies on: weightCut surfaces real meta deltas, healthy pillars
  * affirm + "maintain", and every pillar always yields at least one action.
  */
@@ -36,7 +36,7 @@ describe("pillarAdvice", () => {
       "weightCut",
       stub({
         value: 30,
-        reason: "Cutting faster than plan (0.9 kg under) — risk of muscle loss",
+        reason: "Cutting faster than plan (0.9 kg under), risk of muscle loss",
         meta: { targetKg: 76.0, currentKg: 75.1, deltaKg: -0.9, weekNumber: 3 },
       }),
     );
@@ -53,7 +53,7 @@ describe("pillarAdvice", () => {
   it("trainingLoad with high ACWR tells the user to drop a session", () => {
     const advice = pillarAdvice(
       "trainingLoad",
-      stub({ value: 45, reason: "ACWR 1.85 (sweet spot 0.7–1.4)" }),
+      stub({ value: 45, reason: "ACWR 1.85 (sweet spot 0.7-1.4)" }),
     );
     expect(advice.actions.some((a) => a.label.toLowerCase().includes("drop"))).toBe(true);
   });
@@ -61,7 +61,7 @@ describe("pillarAdvice", () => {
   it("trainingLoad with low ACWR tells the user to add a session", () => {
     const advice = pillarAdvice(
       "trainingLoad",
-      stub({ value: 45, reason: "ACWR 0.45 (sweet spot 0.7–1.4)" }),
+      stub({ value: 45, reason: "ACWR 0.45 (sweet spot 0.7-1.4)" }),
     );
     expect(advice.actions.some((a) => a.label.toLowerCase().includes("add a session"))).toBe(true);
   });

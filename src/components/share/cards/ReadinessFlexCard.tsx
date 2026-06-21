@@ -1,12 +1,12 @@
-// T17: ReadinessFlexCard — share template fired from RecoveryDashboard's hero
-// when readiness ≥ 85. Mirrors the existing share-card visual vocabulary
+// T17: ReadinessFlexCard, the share template fired from RecoveryDashboard's hero
+// when readiness >= 85. Mirrors the existing share-card visual vocabulary
 // (CardShell + StatBlock + tabular-nums hero number) so the export reads as a
 // first-class piece of the share-card family.
 //
 // Spec reference: docs/superpowers/specs/2026-06-01-recovery-page-redesign-design.md
-// §7.3.a — "ReadinessFlexCard". Free tier gets 1/week + watermark, Pro gets
+// §7.3.a, "ReadinessFlexCard". Free tier gets 1/week + watermark, Pro gets
 // unlimited and no watermark. The watermark is delegated to `CardShell`'s
-// existing `isPremium` prop (which renders `CardWatermark` when false) — we
+// existing `isPremium` prop (which renders `CardWatermark` when false); we
 // don't roll our own so the chrome stays consistent with every other share
 // card. The rate-limit gate lives in the trigger sheet, not the card itself,
 // because the sheet owns the share button.
@@ -19,7 +19,7 @@ interface ReadinessFlexCardProps {
   date: Date;
   /** 0..100; rendered as the hero number. */
   readiness: number;
-  /** Per-pillar scores. Null pillars render as "—" so a partial card still
+  /** Per-pillar scores. Null pillars render as "-" so a partial card still
    *  ships rather than blocking the share on a missing driver. */
   pillars: { recovery: number | null; body: number | null; load: number | null };
   /** Optional one-liner from the trigger sheet ("Sparring tonight."). Capped
@@ -27,7 +27,7 @@ interface ReadinessFlexCardProps {
   caption?: string;
   /** Drives accent colour for the hero number + pillar fills. */
   tone: ReadinessTone;
-  /** "@pratik" — drawn on the bottom-right for free users alongside the
+  /** "@pratik", drawn on the bottom-right for free users alongside the
    *  CardShell watermark. Pro users skip both. */
   userHandle?: string;
   /** When true: omit watermark + handle (Pro). When false: render both. */
@@ -36,7 +36,7 @@ interface ReadinessFlexCardProps {
 }
 
 // Match the page's Recovery palette so the share render reads as "the same
-// thing the user just saw" — green/amber/red parity with the hero verdict.
+// thing the user just saw": green/amber/red parity with the hero verdict.
 const TONE: Record<ReadinessTone, { hero: string; accent: string; label: string }> = {
   green: { hero: "#22c55e", accent: "rgba(34,197,94,0.85)", label: "READY" },
   amber: { hero: "#f59e0b", accent: "rgba(245,158,11,0.85)", label: "STEADY" },
@@ -53,9 +53,9 @@ export const ReadinessFlexCard = forwardRef<HTMLDivElement, ReadinessFlexCardPro
     const s = aspect === "story";
     const palette = TONE[tone];
 
-    // "TUE · JUN 3" — uppercase abbreviated weekday + month-day. Done with
+    // "TUE · JUN 3": uppercase abbreviated weekday + month-day. Done with
     // Intl rather than date-fns to keep the share-card bundle tight (the
-    // other cards already lean on Intl too — see WeighInResultCard).
+    // other cards already lean on Intl too, see WeighInResultCard).
     const weekday = date
       .toLocaleDateString("en-US", { weekday: "short" })
       .toUpperCase();
@@ -68,7 +68,7 @@ export const ReadinessFlexCard = forwardRef<HTMLDivElement, ReadinessFlexCardPro
 
     return (
       <CardShell ref={ref} aspect={aspect} isPremium={isPro}>
-        {/* Header strip — replaces the CardShell brand wordmark visual
+        {/* Header strip: replaces the CardShell brand wordmark visual
             weight with a contextual READY/STEADY/RECOVER label so the
             share card communicates the tier at a glance. */}
         <div style={{ marginBottom: s ? 40 : 24 }}>
@@ -96,7 +96,7 @@ export const ReadinessFlexCard = forwardRef<HTMLDivElement, ReadinessFlexCardPro
           </div>
         </div>
 
-        {/* Hero readiness number — tabular-nums, oversized; matches the
+        {/* Hero readiness number: tabular-nums, oversized; matches the
             in-app hero number's visual hierarchy. */}
         <div
           style={{
@@ -134,7 +134,7 @@ export const ReadinessFlexCard = forwardRef<HTMLDivElement, ReadinessFlexCardPro
 
         {/* Three pillar bars: Sleep (recovery), Body, Load. Each row =
             label + score + filled bar. Bars match the page's pillar
-            palette but use a single accent — the share render is a
+            palette but use a single accent: the share render is a
             celebration, not a diagnostic, so we don't tier each bar. */}
         <div
           style={{
@@ -149,7 +149,7 @@ export const ReadinessFlexCard = forwardRef<HTMLDivElement, ReadinessFlexCardPro
           <PillarBar label="Load" score={pillars.load} accent={palette.hero} story={s} />
         </div>
 
-        {/* Optional caption — only renders if the user typed something.
+        {/* Optional caption: only renders if the user typed something.
             Kept under the pillars and above the watermark so the
             watermark still anchors the bottom on free tier. */}
         {trimmedCaption && (
@@ -178,7 +178,7 @@ export const ReadinessFlexCard = forwardRef<HTMLDivElement, ReadinessFlexCardPro
           </div>
         )}
 
-        {/* User handle for free tier — paired with the CardWatermark that
+        {/* User handle for free tier: paired with the CardWatermark that
             CardShell already renders (centered, "Made with FightCamp
             Wizard"). The handle sits bottom-right so it doesn't fight
             with the centered watermark. Pro tier omits both. */}
@@ -206,8 +206,8 @@ export const ReadinessFlexCard = forwardRef<HTMLDivElement, ReadinessFlexCardPro
 ReadinessFlexCard.displayName = "ReadinessFlexCard";
 
 // ── PillarBar ─────────────────────────────────────────────────────────
-// Label / numeric / filled bar — sized for both story and square aspects
-// because the parent decides aspect. Null score renders as "—" with an
+// Label / numeric / filled bar, sized for both story and square aspects
+// because the parent decides aspect. Null score renders as "-" with an
 // empty track so the layout doesn't collapse on a missing pillar.
 interface PillarBarProps {
   label: string;
@@ -217,7 +217,7 @@ interface PillarBarProps {
 }
 
 function PillarBar({ label, score, accent, story }: PillarBarProps) {
-  const display = score == null ? "—" : Math.round(score).toString();
+  const display = score == null ? "-" : Math.round(score).toString();
   const pct = score == null ? 0 : Math.max(0, Math.min(1, score / 100));
 
   return (

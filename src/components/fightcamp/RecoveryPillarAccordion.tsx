@@ -32,7 +32,7 @@ interface PillarMeta {
   reason: string; // copy used when the pillar is "Building…"
 }
 
-// ── Inline helpers (copied from RecoveryDashboard.tsx — will be ─────────
+// ── Inline helpers (copied from RecoveryDashboard.tsx, will be ─────────
 // consolidated in T12). Map a normalized 0-1 fraction to a Tailwind
 // text-color class. When the metric is inverted (low = bad), pass
 // `invert: true` so high values come back green and low values come back red.
@@ -104,7 +104,7 @@ function phaseCopy(phase: AllMetrics["calibration"]["phase"] | undefined): {
       return {
         label: "Build phase",
         tone: "text-func-warning-yellow border-func-warning-yellow/30 bg-func-warning-yellow/10",
-        hint: "Volume rising — expect more strain",
+        hint: "Volume rising, expect more strain",
       };
     case "peak":
       return {
@@ -116,7 +116,7 @@ function phaseCopy(phase: AllMetrics["calibration"]["phase"] | undefined): {
       return {
         label: "Taper",
         tone: "text-blue-300 border-blue-300/30 bg-blue-300/10",
-        hint: "Easing off — recovery is the priority",
+        hint: "Easing off, recovery is the priority",
       };
     default:
       return {
@@ -219,7 +219,7 @@ export function RecoveryPillarAccordion({
         meta={PILLAR_META.body}
         score={pillars.body}
         sparklineValues={body7d}
-        // Soreness is inverted (high = bad) — pass invert so the sparkline
+        // Soreness is inverted (high = bad); pass invert so the sparkline
         // colour matches the score interpretation.
         sparklineInvert
         sparklineMax={7}
@@ -302,7 +302,7 @@ function PillarRow({
         onClick={onToggle}
         className="w-full text-left active:bg-muted/10 transition-colors"
         aria-expanded={open}
-        aria-label={`${meta.label} pillar — ${isBuilding ? "building" : `score ${score}`}`}
+        aria-label={`${meta.label} pillar, ${isBuilding ? "building" : `score ${score}`}`}
       >
         <div className="flex items-center gap-3 p-4">
           <div
@@ -412,11 +412,11 @@ function RecoveryDrilldown({
       <div className="grid grid-cols-2 gap-3">
         <StatTile
           label="Last night"
-          value={metrics.latestSleep > 0 ? `${metrics.latestSleep.toFixed(1)}h` : "—"}
+          value={metrics.latestSleep > 0 ? `${metrics.latestSleep.toFixed(1)}h` : "-"}
         />
         <StatTile
           label="3-night average"
-          value={metrics.avgSleepLast3 > 0 ? `${metrics.avgSleepLast3.toFixed(1)}h` : "—"}
+          value={metrics.avgSleepLast3 > 0 ? `${metrics.avgSleepLast3.toFixed(1)}h` : "-"}
         />
       </div>
       {sleepLogs.length > 0 && (
@@ -500,7 +500,7 @@ function BodyDrilldown({ metrics }: { metrics: AllMetrics }) {
       {showDeficitChip && (
         <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-func-warning-yellow/10 border border-func-warning-yellow/30 px-3 py-1.5 text-[11px] font-semibold text-func-warning-yellow">
           <Icon name="warningOutline" size={14} />
-          <span>Caloric deficit dragging recovery — eat more or ease off.</span>
+          <span>Caloric deficit dragging recovery. Eat more or ease off.</span>
         </div>
       )}
     </>
@@ -540,12 +540,12 @@ function LoadDrilldown({ metrics }: { metrics: AllMetrics }) {
         <StatTile
           label="Monotony"
           value={monotony.toFixed(2)}
-          hint={monotonyHigh ? "Same intensity every day — vary your week" : undefined}
+          hint={monotonyHigh ? "Same intensity every day, vary your week" : undefined}
         />
         <StatTile
           label="Weekly strain"
           value={strain.toFixed(0)}
-          hint={strainHigh ? "Foster danger zone — deload incoming" : undefined}
+          hint={strainHigh ? "Foster danger zone, deload incoming" : undefined}
         />
       </div>
 
@@ -566,7 +566,7 @@ function LoadDrilldown({ metrics }: { metrics: AllMetrics }) {
         </span>
       </div>
 
-      {/* StrainChart — lazy-loaded */}
+      {/* StrainChart: lazy-loaded */}
       <div className="mt-4">
         <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2 font-semibold">
           7-day strain trend

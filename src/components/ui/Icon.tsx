@@ -26,7 +26,7 @@ function getSvg(name: IonIconName): string {
   const cached = svgCache.get(name);
   if (cached) return cached;
   // Defensive: an unknown icon name resolves to `undefined` in the ionicons
-  // module — render nothing rather than crash the whole tree on `.startsWith`.
+  // module; render nothing rather than crash the whole tree on `.startsWith`.
   const raw = ionIcons[name] as string | undefined;
   if (!raw) return "";
   const normalized = normalizeSvg(raw);

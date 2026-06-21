@@ -86,7 +86,7 @@ export function CompleteCelebration({
       role="status"
       aria-live="polite"
     >
-      {/* Confetti burst — skipped entirely under reduced-motion. */}
+      {/* Confetti burst, skipped entirely under reduced-motion. */}
       {!prefersReduced && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden>
           <div className="relative">

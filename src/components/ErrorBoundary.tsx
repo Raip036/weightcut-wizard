@@ -106,7 +106,7 @@ function DefaultFallback({ error, errorInfo, onRetry }: DefaultFallbackProps) {
             Hmm, that didn't go to plan.
           </h2>
           <p className="mt-2 text-[13px] text-muted-foreground leading-snug max-w-[20rem]">
-            Something tripped up on our end. Give it another try — if it
+            Something tripped up on our end. Give it another try. If it
             sticks, a quick reload usually clears it.
           </p>
         </div>

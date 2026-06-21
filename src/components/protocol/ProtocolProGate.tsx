@@ -1,4 +1,4 @@
-// WP — ProtocolProGate
+// WP: ProtocolProGate
 // The single primary upgrade gate for the Weight Protocol page. Replaces the
 // older lock-icon "Generate / Unlock" card. Two states:
 //   • Free user    → premium upsell: shimmering crown, value perks, and a
@@ -61,7 +61,7 @@ export function ProtocolProGate({
             </p>
           </div>
 
-          {/* Dynamic gradient "Generate" pill — shimmer sweep + breathing
+          {/* Dynamic gradient "Generate" pill: shimmer sweep + breathing
               glow + a nudging arrow. Purely visual (the whole card is the
               button), so no nested-button issue. */}
           <motion.span
@@ -111,7 +111,7 @@ export function ProtocolProGate({
         </div>
         <p className="mt-3 text-[12px] text-muted-foreground leading-snug">
           We'll tune the cut + rehydration timeline to your weight, training
-          load, and prior camps. Takes 5–15 seconds.
+          load, and prior camps. Takes 5-15 seconds.
         </p>
       </button>
     );

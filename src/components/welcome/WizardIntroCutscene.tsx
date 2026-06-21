@@ -1,5 +1,5 @@
 /**
- * WizardIntroCutscene — animated welcome sequence before sign-up.
+ * WizardIntroCutscene: animated welcome sequence before sign-up.
  *
  * Flow
  * ----
@@ -23,7 +23,7 @@
  *
  * Design notes
  * ------------
- * - Single mascot instance — we animate position/scale/pose between
+ * - Single mascot instance: we animate position/scale/pose between
  *   acts instead of mounting/unmounting. Keeps the wizard feeling
  *   continuous and live.
  * - Effects render in their own absolutely-positioned layer behind the
@@ -44,7 +44,7 @@ import { mapAuthError, isAppleCancelError } from "@/lib/authErrors";
 import { logger } from "@/lib/logger";
 
 /**
- * Apple Inc. brand mark — solid silhouette per Apple's HIG for "Sign in
+ * Apple Inc. brand mark: solid silhouette per Apple's HIG for "Sign in
  * with Apple" buttons. lucide's `Apple` icon is the *fruit* outline and
  * is not approved for sign-in buttons.
  */
@@ -71,7 +71,7 @@ import {
 } from "./cutsceneScript";
 
 // Per-variant routing + copy. Keep all the role-aware bits in one
-// object so the playback engine stays generic — adding a third variant
+// object so the playback engine stays generic; adding a third variant
 // later means dropping in another entry, not threading conditionals.
 type CutsceneVariant = "fighter" | "coach";
 const VARIANTS: Record<
@@ -130,7 +130,7 @@ async function lightHaptic(): Promise<void> {
     const mod = await import("@capacitor/haptics");
     await mod.Haptics.impact({ style: mod.ImpactStyle.Light });
   } catch {
-    // Plugin missing or denied — silent.
+    // Plugin missing or denied. Silent.
   }
 }
 
@@ -145,14 +145,14 @@ async function reactionHaptic(style: "Light" | "Medium" | "Heavy"): Promise<void
     };
     await mod.Haptics.impact({ style: map[style] });
   } catch {
-    // Plugin missing or denied — silent.
+    // Plugin missing or denied. Silent.
   }
 }
 
 // Variable-reward micro reactions when the user taps the wizard. Each
 // reaction is a small position/scale/rotation tween layered on top of
 // the wizard's stage-position animation. Picked randomly per tap so the
-// behavior feels alive instead of scripted — see `handleWizardTap`.
+// behavior feels alive instead of scripted; see `handleWizardTap`.
 interface WizardReaction {
   id: string;
   transform: { rotate?: number[]; scale?: number[]; y?: number[] };
@@ -206,7 +206,7 @@ function layoutForAct(act: CutsceneAct, dims: StageDims): {
   // Bubble: positioned RELATIVE to the stage (absolute). Compute the
   // anchor point depending on `bubbleSide` so the tail naturally lands
   // on the wizard. We also clamp `maxWidth` against the room available
-  // on the chosen side so the bubble can never escape the stage —
+  // on the chosen side so the bubble can never escape the stage.
   // SpeechBubble itself uses `w-fit` and respects this cap.
   const bubbleStyle: React.CSSProperties = { position: "absolute" };
   let bubbleX: string | number = 0;
@@ -365,7 +365,7 @@ function ConfettiLayer() {
 
 // Animated digital scale: needle counts up, settles ~0.7 lb over the limit,
 // flashes red, and reveals a "1 in 13 miss weight" caption. Sells the
-// "Never miss weight again" promise viscerally — the moment fighters dread,
+// "Never miss weight again" promise viscerally: the moment fighters dread,
 // re-staged as proof we know it.
 function WeightScaleLayer({ dims }: { dims: StageDims }) {
   const prefersReduced = useReducedMotion();
@@ -473,7 +473,7 @@ function WeightScaleLayer({ dims }: { dims: StageDims }) {
           <span>{BAR_HI}</span>
         </div>
 
-        {/* OVER badge — punches in once settled */}
+        {/* OVER badge: punches in once settled */}
         <AnimatePresence>
           {settled && isOver && (
             <motion.div
@@ -494,7 +494,7 @@ function WeightScaleLayer({ dims }: { dims: StageDims }) {
         </AnimatePresence>
       </motion.div>
 
-      {/* Caption — the stat that justifies the whole slide */}
+      {/* Caption: the stat that justifies the whole slide */}
       <motion.div
         className="mt-2.5 text-center text-[11px] font-medium text-zinc-400"
         initial={{ opacity: 0, y: 4 }}
@@ -508,8 +508,8 @@ function WeightScaleLayer({ dims }: { dims: StageDims }) {
 }
 
 // Cut-protocol timeline: 5 dots draw in left-to-right showing the canonical
-// week-of-fight sequence. Sells the Act 3 claim — "we know the names AND
-// the order" — by actually showing the order, day by day.
+// week-of-fight sequence. Sells the Act 3 claim, "we know the names AND
+// the order", by actually showing the order, day by day.
 const PROTOCOL_STAGES: ReadonlyArray<{ day: string; label: string }> = [
   { day: "D-7", label: "Water load" },
   { day: "D-5", label: "Carb taper" },
@@ -628,14 +628,14 @@ function ProtocolTimelineLayer({ dims }: { dims: StageDims }) {
         </div>
       </motion.div>
 
-      {/* Caption — mirrors the Act 2 stat hook */}
+      {/* Caption: mirrors the Act 2 stat hook */}
       <motion.div
         className="mt-2.5 text-center text-[11px] font-medium text-zinc-400"
         initial={{ opacity: 0, y: 4 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 1.1, duration: 0.4 }}
       >
-        <span className="text-zinc-200">Order matters</span> — skip a step, miss the limit
+        <span className="text-zinc-200">Order matters.</span> Skip a step, miss the limit
       </motion.div>
     </div>
   );
@@ -712,7 +712,7 @@ function RosterStatusLayer({ dims }: { dims: StageDims }) {
 function ReadinessMeterLayer({ dims }: { dims: StageDims }) {
   const prefersReduced = useReducedMotion();
   const TIERS = ["Sharp", "Sharpening", "Off Pace", "At Risk"] as const;
-  // Needle settles on "Sharpening" — the most common in-camp state, so
+  // Needle settles on "Sharpening", the most common in-camp state, so
   // the visual reads as "actively-managed athlete" not "everything fine".
   const TARGET_INDEX = 1;
   const segmentWidth = 100 / TIERS.length;
@@ -740,7 +740,7 @@ function ReadinessMeterLayer({ dims }: { dims: StageDims }) {
           <span className="text-[11px] font-bold text-sky-300">{TIERS[TARGET_INDEX]}</span>
         </div>
 
-        {/* Gauge bar — 4 segments left-to-right (green→red) */}
+        {/* Gauge bar: 4 segments left-to-right (green→red) */}
         <div className="relative h-3 w-full overflow-hidden rounded-full bg-zinc-800/80">
           <div className="absolute inset-y-0 left-0 right-0 flex">
             <div className="h-full w-1/4 bg-func-recovery-green/85" />
@@ -787,7 +787,7 @@ function ReadinessMeterLayer({ dims }: { dims: StageDims }) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 1.0, duration: 0.4 }}
       >
-        <span className="text-zinc-200">One score per athlete</span> — updated daily
+        <span className="text-zinc-200">One score per athlete,</span> updated daily
       </motion.div>
     </div>
   );
@@ -812,7 +812,7 @@ function renderEffect(effect: StageEffect, dims: StageDims, mascotCenter: { x: n
     case "readiness-meter":
       return <ReadinessMeterLayer key="readiness-meter" dims={dims} />;
     case "scroll-unroll":
-      // Reserved for future use — script doesn't currently summon it.
+      // Reserved for future use; script doesn't currently summon it.
       return null;
     default:
       return null;
@@ -836,7 +836,7 @@ export function WizardIntroCutscene({
   const [forceComplete, setForceComplete] = useState(false);
   const [appleLoading, setAppleLoading] = useState(false);
   const [reactionAnim, setReactionAnim] = useState<WizardReaction | null>(null);
-  // Crossfade exit when handing off to /auth — the stage opacity drops
+  // Crossfade exit when handing off to /auth: the stage opacity drops
   // before navigation so the auth page fade-in lands on a clean dark
   // background instead of a hard cut.
   const [exiting, setExiting] = useState(false);
@@ -861,7 +861,7 @@ export function WizardIntroCutscene({
     return () => window.removeEventListener("resize", handle);
   }, []);
 
-  // Mark cutscene as seen on mount — once a user lands here we don't want
+  // Mark cutscene as seen on mount; once a user lands here we don't want
   // to gate any other UI on "have they seen it." (Index.tsx still routes
   // them through it for the "Get Started" tap; this flag is for analytics
   // / future variations.)
@@ -869,7 +869,7 @@ export function WizardIntroCutscene({
     try {
       window.localStorage.setItem(config.seenKey, "true");
     } catch {
-      // Storage blocked — fine, not load-bearing.
+      // Storage blocked. Fine, not load-bearing.
     }
   }, [config.seenKey]);
 
@@ -887,7 +887,7 @@ export function WizardIntroCutscene({
     };
   }, [actIndex]);
 
-  // No auto-advance. The cutscene is self-paced — typing complete just
+  // No auto-advance. The cutscene is self-paced; typing complete just
   // unlocks the "tap to continue" affordance; the user controls when to
   // move on. Prevents the "it ran past me before I could read it" complaint
   // earlier copy beats were getting. The act script's dwellMs values are
@@ -895,7 +895,7 @@ export function WizardIntroCutscene({
   //
   // Reduced-motion exception: typewriter is suppressed in that mode, so
   // we honour the user's accessibility preference with a slow time-based
-  // advance — they're not reading character-by-character, just letting
+  // advance; they're not reading character-by-character, just letting
   // the beats sweep past.
   useEffect(() => {
     if (!prefersReduced) return;
@@ -921,7 +921,7 @@ export function WizardIntroCutscene({
 
   const handleStageTap = useCallback((): void => {
     if (!typingDone) {
-      // First tap during typing — complete it instantly.
+      // First tap during typing: complete it instantly.
       setForceComplete(true);
       return;
     }
@@ -947,7 +947,7 @@ export function WizardIntroCutscene({
     setAppleLoading(true);
     try {
       if (Capacitor.isNativePlatform()) {
-        // Native iOS path — mirrors Auth.tsx's handleAppleSignIn so users
+        // Native iOS path: mirrors Auth.tsx's handleAppleSignIn so users
         // who tap "Continue with Apple" from the cutscene get the exact
         // same first-class native experience and avoid a redirect bounce.
         const rawNonce = crypto.randomUUID();
@@ -958,7 +958,7 @@ export function WizardIntroCutscene({
           .join("");
         const convexSiteUrl = import.meta.env.VITE_CONVEX_SITE_URL as string | undefined;
         if (!convexSiteUrl) {
-          throw new Error("VITE_CONVEX_SITE_URL not set — cannot build Apple redirect URI");
+          throw new Error("VITE_CONVEX_SITE_URL not set, cannot build Apple redirect URI");
         }
         const redirectURI = `${convexSiteUrl}/api/auth/callback/apple`;
         logger.debug("[cutscene-apple-signin] starting native authorize", { redirectURI });
@@ -981,12 +981,12 @@ export function WizardIntroCutscene({
           role: config.role,
         });
       } else {
-        // Web fallback — Convex Auth handles the redirect dance.
+        // Web fallback: Convex Auth handles the redirect dance.
         await signIn("apple", { redirectTo: `${window.location.origin}${config.appleSuccessPath}` });
       }
       navigate(config.appleSuccessPath);
     } catch (error: any) {
-      // Silent cancel — user backed out of the Apple sheet, nothing to do.
+      // Silent cancel: user backed out of the Apple sheet, nothing to do.
       // Stays on the cutscene so they can try again or pick the other CTA.
       if (isAppleCancelError(error)) {
         setAppleLoading(false);
@@ -1054,7 +1054,7 @@ export function WizardIntroCutscene({
     <div
       ref={stageRef}
       className="fixed inset-0 z-[9999] overflow-hidden bg-[#020204] text-white transition-opacity duration-[240ms] ease-out"
-      // Cosmic vignette — matches the dark-mode Apple-Fitness aesthetic
+      // Cosmic vignette: matches the dark-mode Apple-Fitness aesthetic
       // of the app shell. Subtle radial so the wizard pops without
       // looking like we slapped him on a black rectangle.
       style={{
@@ -1063,7 +1063,7 @@ export function WizardIntroCutscene({
         opacity: exiting ? 0 : 1,
       }}
     >
-      {/* Skip pill — top-right, screen-relative */}
+      {/* Skip pill: top-right, screen-relative */}
       <button
         type="button"
         onClick={handleSkip}
@@ -1083,7 +1083,7 @@ export function WizardIntroCutscene({
         Skip
       </button>
 
-      {/* Progress dots — top-center, one per act */}
+      {/* Progress dots: top-center, one per act */}
       <div
         className="absolute z-30 flex items-center gap-1.5"
         style={{
@@ -1106,7 +1106,7 @@ export function WizardIntroCutscene({
         ))}
       </div>
 
-      {/* Tap/swipe surface — covers the whole stage. Children above use
+      {/* Tap/swipe surface: covers the whole stage. Children above use
           higher z-index so the buttons still take precedence. */}
       <motion.div
         className="absolute inset-0 z-10"
@@ -1133,7 +1133,7 @@ export function WizardIntroCutscene({
         ))}
       </AnimatePresence>
 
-      {/* Wizard — single instance, animates between stage positions.
+      {/* Wizard: single instance, animates between stage positions.
           Tappable: each tap rolls a random micro-reaction (see
           WIZARD_REACTIONS) for variable-reward engagement. */}
       <motion.div
@@ -1151,7 +1151,7 @@ export function WizardIntroCutscene({
             : { type: "spring", stiffness: 110, damping: 18, mass: 1.1 }
         }
         onClick={(e) => {
-          // Don't bubble to the stage tap handler — the reaction IS the
+          // Don't bubble to the stage tap handler; the reaction IS the
           // response; we don't also want to advance the act.
           e.stopPropagation();
           handleWizardTap();

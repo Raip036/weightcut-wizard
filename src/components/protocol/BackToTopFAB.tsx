@@ -1,4 +1,4 @@
-// WP-T18 — BackToTopFAB
+// WP-T18: BackToTopFAB
 // Floating circular "scroll to top" button that appears once the user has
 // scrolled past the configured threshold (default: 2× viewport height).
 //

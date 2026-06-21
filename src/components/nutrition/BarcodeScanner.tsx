@@ -21,7 +21,7 @@ import { logger } from "@/lib/logger";
 interface ScannedProduct {
   productName: string;
   brand: string | null;
-  // Per-serving figures (already scaled by the action — what the user
+  // Per-serving figures (already scaled by the action, what the user
   // sees by default).
   calories: number;
   protein_g: number;
@@ -120,7 +120,7 @@ export const BarcodeScanner = ({ onFoodScanned, disabled, className, label }: Ba
         if (msg.includes("timed out")) {
           toast({
             title: "Lookup timed out",
-            description: "Try again — the network may be slow.",
+            description: "Try again. The network may be slow.",
             variant: "destructive",
           });
           setIsProcessing(false);
@@ -321,7 +321,7 @@ export const BarcodeScanner = ({ onFoodScanned, disabled, className, label }: Ba
               </div>
             )}
 
-            {/* Viewfinder — Apple-native pulsing primary border + vignette.
+            {/* Viewfinder: Apple-native pulsing primary border + vignette.
                 Hidden once we have a product or a definitive not-found so the
                 result sheet owns the space. */}
             {!scannedProduct && !notFound && !cameraError && (
@@ -341,7 +341,7 @@ export const BarcodeScanner = ({ onFoodScanned, disabled, className, label }: Ba
                 <div className="absolute left-0 top-[29%] bottom-[29%] w-[11%] bg-black/55 backdrop-blur-[2px]" />
                 <div className="absolute right-0 top-[29%] bottom-[29%] w-[11%] bg-black/55 backdrop-blur-[2px]" />
 
-                {/* Pulsing scan-zone border — the Apple-native cue. */}
+                {/* Pulsing scan-zone border: the Apple-native cue. */}
                 <motion.div
                   aria-hidden
                   className="absolute left-[11%] right-[11%] top-[29%] bottom-[29%] rounded-xs border-2 border-primary"
@@ -368,7 +368,7 @@ export const BarcodeScanner = ({ onFoodScanned, disabled, className, label }: Ba
                   </div>
                 )}
 
-                {/* Hint pill — fades when processing kicks in. */}
+                {/* Hint pill: fades when processing kicks in. */}
                 <AnimatePresence>
                   {!isProcessing && (
                     <motion.p
@@ -405,7 +405,7 @@ export const BarcodeScanner = ({ onFoodScanned, disabled, className, label }: Ba
               </div>
             )}
 
-            {/* Not-found inline state — keeps the sheet open, offers
+            {/* Not-found inline state: keeps the sheet open, offers
                 Scan-again and Cancel-rescan paths without bouncing the
                 user out. */}
             {notFound && (
@@ -458,7 +458,7 @@ export const BarcodeScanner = ({ onFoodScanned, disabled, className, label }: Ba
                   </span>
                 </div>
 
-                {/* Hero kcal — anchored to the serving the user is logging,
+                {/* Hero kcal: anchored to the serving the user is logging,
                     NOT per-100g. "Per 127g" is shown prominently, fixing the
                     old footnote behaviour where the user couldn't tell what
                     weight the macros referred to. */}
@@ -498,7 +498,7 @@ export const BarcodeScanner = ({ onFoodScanned, disabled, className, label }: Ba
                   </div>
                 </div>
 
-                {/* Portion adjuster — quick multipliers + grams stepper.
+                {/* Portion adjuster: quick multipliers + grams stepper.
                     Macros above recompute live from the per-100g reference
                     so a 127g packet × 2 reads accurately. */}
                 <div className="mt-5 space-y-2.5">
@@ -600,7 +600,7 @@ export const BarcodeScanner = ({ onFoodScanned, disabled, className, label }: Ba
               </motion.div>
             )}
 
-            {/* Help text — only on the live scanner view, not the result. */}
+            {/* Help text: only on the live scanner view, not the result. */}
             {!scannedProduct && !notFound && !cameraError && !isProcessing && (
               <p className="px-5 py-3 text-[11px] text-muted-foreground/70 text-center">
                 Hold steady. We'll snap as soon as the barcode is in focus.
