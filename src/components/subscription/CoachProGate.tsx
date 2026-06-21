@@ -202,10 +202,10 @@ export function CoachProGate({ className }: { className?: string }): JSX.Element
           <motion.li
             key={reason.title}
             variants={prefersReduced ? undefined : staggerItem}
-            className="flex items-start gap-3.5 rounded-2xl border border-border/50 bg-card/60 p-3.5"
+            className="flex items-center gap-3.5 rounded-2xl border border-border/50 bg-card/60 p-3.5"
           >
-            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-secondary/15 border border-primary/20">
-              <Icon name={reason.icon} size={18} className="text-primary" />
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center">
+              <Icon name={reason.icon} size={20} className="text-primary" />
             </div>
             <div className="min-w-0">
               <p className="text-sm font-semibold text-foreground leading-snug">{reason.title}</p>
