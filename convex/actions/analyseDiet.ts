@@ -8,6 +8,7 @@ import { parseJSON } from "../_shared/parseResponse";
 import { loadAthleteSnapshot, requireUserIdFromAction } from "./_helpers";
 import { enforceFeatureGate } from "../_shared/featureGates";
 import { deriveNutrientCategory } from "../_shared/nutrientCategories";
+import { createPostHogClient } from "../_shared/posthog";
 
 export const run = action({
   args: {
@@ -261,6 +262,20 @@ Address me directly ("you", "your") in every string field — summary, gap reaso
         calorieAvgKcal: cAvg,
         note,
       };
+    }
+
+    const posthog = createPostHogClient();
+    if (posthog) {
+      posthog.capture({
+        distinctId: userId,
+        event: "diet analyzed",
+        properties: {
+          meal_count: meals.length,
+          micronutrient_count: analysisData.micronutrients.length,
+          gap_count: analysisData.gaps?.length ?? 0,
+        },
+      });
+      await posthog.shutdown();
     }
 
     return { analysisData: { ...analysisData, proteinVerdict, weeklyTrend } };

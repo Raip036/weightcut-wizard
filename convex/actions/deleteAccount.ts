@@ -16,6 +16,7 @@
 import { action } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "../_generated/api";
+import { createPostHogClient } from "../_shared/posthog";
 
 export const run = action({
   args: {},
@@ -45,8 +46,19 @@ export const run = action({
         console.error(
           `[deleteAccount] step "${name}" failed for user ${userId}: ${message}`,
         );
+        const posthogErr = createPostHogClient();
+        if (posthogErr) {
+          posthogErr.captureException(err, userId, { failed_step: name });
+          await posthogErr.shutdown();
+        }
         throw new Error(`Account deletion failed during ${name}: ${message}`);
       }
+    }
+
+    const posthog = createPostHogClient();
+    if (posthog) {
+      posthog.capture({ distinctId: userId, event: "account deleted" });
+      await posthog.shutdown();
     }
 
     return { success: true };

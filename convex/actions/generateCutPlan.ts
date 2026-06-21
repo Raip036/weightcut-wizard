@@ -23,6 +23,7 @@ import {
   requireUserIdFromAction,
   SECOND_PERSON_DIRECTIVE,
 } from "./_helpers";
+import { createPostHogClient } from "../_shared/posthog";
 
 export const run = action({
   args: {
@@ -353,6 +354,22 @@ ${snap.block}`;
       totalWeeks: weekCount,
       weeklyLossTarget: `${((args.currentWeight - finalTarget) / weekCount).toFixed(2)} kg/week`,
     };
+
+    const posthog = createPostHogClient();
+    if (posthog) {
+      posthog.capture({
+        distinctId: userId,
+        event: "cut plan generated",
+        properties: {
+          gate: args.gate ?? "onboarding",
+          weigh_in_timing: args.weighInTiming ?? "day_before",
+          hold_carbs: holdCarbs,
+          week_count: weekCount,
+          model: aiResult ? "openai/gpt-oss-120b" : "deterministic-fallback",
+        },
+      });
+      await posthog.shutdown();
+    }
 
     await logDecision(ctx, {
       userId,

@@ -8,6 +8,7 @@ import { callGroqText, GroqError } from "../_shared/groq";
 import { parseJSON } from "../_shared/parseResponse";
 import { requireUserIdFromAction, logDecision, SECOND_PERSON_DIRECTIVE } from "./_helpers";
 import { enforceFeatureGate } from "../_shared/featureGates";
+import { createPostHogClient } from "../_shared/posthog";
 import {
   computeFightWeekProjection,
   estimateSaunaSessions,
@@ -260,6 +261,21 @@ Days to comment on: ${projection.timeline.map((d) => d.day).join(", ")}.`;
       postWeighIn,
       medicalRedFlags,
     };
+
+    const posthog = createPostHogClient();
+    if (posthog) {
+      posthog.capture({
+        distinctId: userId,
+        event: "fight week analyzed",
+        properties: {
+          risk_level: plan.riskLevel,
+          total_to_cut_kg: projection.breakdown.totalToCut,
+          dehydration_needed_kg: projection.breakdown.dehydrationNeeded,
+          llm_error: llmError ?? null,
+        },
+      });
+      await posthog.shutdown();
+    }
 
     await logDecision(ctx, {
       userId,

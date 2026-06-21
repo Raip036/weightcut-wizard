@@ -7,6 +7,7 @@ import { callGroqText } from "../_shared/groq";
 import { parseJSON } from "../_shared/parseResponse";
 import { requireUserIdFromAction, SECOND_PERSON_DIRECTIVE } from "./_helpers";
 import { enforceFeatureGate } from "../_shared/featureGates";
+import { createPostHogClient } from "../_shared/posthog";
 import {
   sanitizeUserText,
   PROMPT_INJECTION_GUARD_INSTRUCTION,
@@ -155,6 +156,19 @@ Return ONLY the JSON object described in the schema. First character must be "{"
             .slice(0, 3)
         : [],
     };
+
+    const posthog = createPostHogClient();
+    if (posthog) {
+      posthog.capture({
+        distinctId: userId,
+        event: "training insights generated",
+        properties: {
+          session_type: insight.session_type,
+          session_count: sessions.length,
+        },
+      });
+      await posthog.shutdown();
+    }
 
     return { insight, library_entry_id: null };
   },

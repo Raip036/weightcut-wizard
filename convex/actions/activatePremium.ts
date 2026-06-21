@@ -32,6 +32,7 @@ import { action } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { verifyEntitlement } from "../lib/revenuecat";
+import { createPostHogClient } from "../_shared/posthog";
 
 export const run = action({
   args: {},
@@ -54,6 +55,27 @@ export const run = action({
       tier: verified.tier,
       expiresAtMs: verified.expiresAtMs,
     });
+
+    const posthog = createPostHogClient();
+    if (posthog) {
+      posthog.identify({
+        distinctId: userId,
+        properties: {
+          subscription_tier: verified.tier,
+          subscription_expires_at: verified.expiresAtMs ? new Date(verified.expiresAtMs).toISOString() : null,
+        },
+      });
+      posthog.capture({
+        distinctId: userId,
+        event: "premium activated",
+        properties: {
+          tier: verified.tier,
+          expires_at: verified.expiresAtMs ? new Date(verified.expiresAtMs).toISOString() : null,
+          source: "rc-verified",
+        },
+      });
+      await posthog.shutdown();
+    }
 
     return {
       tier: verified.tier,

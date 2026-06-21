@@ -39,6 +39,7 @@ import type { Id } from "../_generated/dataModel";
 import { callGroqRaw } from "../_shared/groq";
 import { requireUserIdFromAction } from "./_helpers";
 import { enforceFeatureGate } from "../_shared/featureGates";
+import { createPostHogClient } from "../_shared/posthog";
 import { parseJSON } from "../_shared/parseResponse";
 import {
   computeDerived,
@@ -350,6 +351,20 @@ async function runCore(
       model: PROTOCOL_MODEL,
     },
   );
+
+  const posthog = createPostHogClient();
+  if (posthog) {
+    posthog.capture({
+      distinctId: userId,
+      event: "rehydration protocol generated",
+      properties: {
+        sweat_loss_kg: payload.sweatLossKg,
+        total_litres_target: payload.totalLitresTarget,
+        gap_hours: payload.gapHours,
+      },
+    });
+    await posthog.shutdown();
+  }
 
   return { id, payload };
 }
