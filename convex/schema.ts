@@ -98,6 +98,16 @@ export default defineSchema({
     // Reset to null by the RC EXPIRATION webhook so a real re-subscribe after
     // a lapse re-arms it.
     welcomeProShownAt: v.optional(v.number()),
+    // One-time "Pro ended" cutscene gate — the inverse of welcomeProShownAt.
+    // `proEndedPendingAt` is the epoch ms of a genuine Pro lapse the cutscene
+    // has NOT yet been shown for; armed server-side by the RC EXPIRATION webhook
+    // (only when the profile was previously non-free) and cleared on re-subscribe
+    // so a future lapse re-arms. `proEndedShownAt` is the epoch ms the cutscene
+    // was shown for the current pending lapse — set on show, not dismiss, so a
+    // force-quit mid-cutscene won't replay it. A later lapse (new pending >
+    // prior shown) re-fires exactly once.
+    proEndedPendingAt: v.optional(v.number()),
+    proEndedShownAt: v.optional(v.number()),
     // Epoch ms the one-time new-user tutorial walkthrough was auto-shown for
     // this account. Server-authoritative so the tutorial fires exactly once per
     // account — independent of device, a returning device, or a reinstall (those

@@ -152,8 +152,8 @@ export function ProtocolProGate({
       <div className="relative mt-4 space-y-2">
         {TEASER_PERKS.map((perk) => (
           <div key={perk} className="flex items-center gap-2.5">
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 ring-1 ring-primary/20 text-primary">
-              <Icon name="checkmarkOutline" size={12} />
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center text-primary">
+              <Icon name="checkmarkOutline" size={14} />
             </span>
             <span className="text-[13px] font-medium text-foreground/90">
               {perk}

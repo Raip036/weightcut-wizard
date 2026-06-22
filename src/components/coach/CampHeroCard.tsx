@@ -1,6 +1,7 @@
 import { memo, useEffect, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
+import { Icon } from "@/components/ui/Icon";
 import { AnimatedNumber } from "@/components/motion";
 import { disciplineLabel, disciplineToken } from "@/lib/coachColors";
 import { LevelRing } from "./LevelRing";
@@ -35,187 +36,236 @@ interface CampHeroCardProps {
   campName: string;
   campProgress: CampProgressInfo;
   phase: PhaseInfo;
+  /** Tap target for the camp identity / countdown → the fight-camps surface. */
   onTap: () => void;
+  /** Optional: navigate to the canonical cut/weight plan timeline. When
+   *  provided, a "View full plan" link is shown in the trajectory footer. */
+  onViewPlan?: () => void;
 }
 
-// SVG ring geometry. viewBox is a 0-100 square; the visual ring is scaled by
-// the wrapper's width/height. A bigger focal ring (160px) than before.
-const RING_VIEWBOX = 100;
-const RING_RADIUS = 44;
-const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
-const RING_SIZE = 160;
-
-// Flanking discipline level-ring size.
-const DISC_RING_SIZE = 60;
+const DISC_RING_SIZE = 48;
 
 /**
- * Camp hero: the headline block at the top of the Camp page for fighters
- * with an active camp. Centred vertical stack: camp name (Sora) → days-left →
- * the big fight-progress ring flanked by the user's top discipline level rings
- * → fight date → day-of-camp. On mount the main ring grows from 0 and every
- * number counts up, matching the nutrition page's load-animation language.
+ * Camp hero — the headline block at the top of the Camp page for fighters
+ * with an active camp. Boxless (sits directly on the page, no card surface):
  *
- * The discipline rings replace the old standalone "Your level" card: tapping
- * either of them opens the same LevelSheet that card used to. The central
- * column (name / main ring / dates) taps through to the fight-camps surface.
+ *   camp name + fight date · bold phase label
+ *   ↓
+ *   big "days to fight" countdown (counts up on mount)
+ *   ↓
+ *   Discipline XP — a horizontal-scrolling strip of level rings that scales
+ *   to any number of disciplines
+ *   ↓
+ *   camp trajectory bar (Build → Peak → Fight week) with a "you are here"
+ *   node whose position is `elapsed / total`, so it travels along as the
+ *   camp progresses. The fill + node slide into place on mount.
+ *
+ * Tapping the identity/countdown opens the fight-camps surface; tapping a
+ * discipline ring opens the same LevelSheet the old "Your level" card used.
  */
 export const CampHeroCard = memo(function CampHeroCard({
   campName,
   campProgress,
   phase,
   onTap,
+  onViewPlan,
 }: CampHeroCardProps) {
   const { daysLeft, elapsed, totalDays, pct, fightLabel } = campProgress;
-  // Clamp progress so out-of-range pct values (e.g. >1 from a stale calc)
-  // don't paint a backwards-rotating arc.
+  // Clamp progress so out-of-range pct values don't paint past the track end.
   const clampedPct = Math.max(0, Math.min(1, pct));
   const pctDisplay = Math.round(clampedPct * 100);
 
-  // Mount-gate the arc so it grows from empty → target on load, riding the
-  // CSS transition below (same pattern as the nutrition rings).
+  // Phase boundaries as fractions of the whole camp, derived from the same
+  // day thresholds as derivePhase(): Peak begins 14 days out, Fight week 7.
+  const peakStart = Math.max(0, Math.min(1, (totalDays - 14) / totalDays));
+  const fwStart = Math.max(0, Math.min(1, (totalDays - 7) / totalDays));
+
+  // What's the next milestone the fighter is counting toward?
+  const nextLabel =
+    daysLeft > 14
+      ? `${daysLeft - 14} days to Peak`
+      : daysLeft > 7
+        ? `${daysLeft - 7} days to Fight week`
+        : "Fight week";
+
+  // Mount-gate the trajectory + discipline arcs so they animate from empty →
+  // target on load, matching the count-up on the big number.
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     const id = requestAnimationFrame(() => setMounted(true));
     return () => cancelAnimationFrame(id);
   }, []);
-  const dashOffset = RING_CIRCUMFERENCE * (1 - (mounted ? clampedPct : 0));
 
-  // Top disciplines by XP. One flanks each side of the main ring.
-  const disciplines = useQuery(api.user_discipline_xp.getAllForUser);
-  const [left, right] = (disciplines ?? []).slice(0, 2);
+  // All disciplines (not just two), newest/most-XP first as returned.
+  const disciplines = useQuery(api.user_discipline_xp.getAllForUser) ?? [];
   const [levelSheetOpen, setLevelSheetOpen] = useState(false);
 
   const ariaLabel =
     `${campName}, Day ${elapsed} of ${totalDays}, ` +
     `${daysLeft} days remaining, ${phase.label} phase`;
 
-  // A flanking discipline level ring + label. Tapping opens the LevelSheet.
-  const DisciplineRing = ({
-    row,
-  }: {
-    row: { sport: string; level: number; progress: number };
-  }) => (
-    <button
-      type="button"
-      onClick={() => setLevelSheetOpen(true)}
-      aria-label={`${disciplineLabel(row.sport)} level ${row.level}`}
-      className="flex flex-col items-center gap-1 active:scale-95 transition"
-    >
-      <LevelRing
-        token={disciplineToken(row.sport)}
-        level={row.level}
-        progress={row.progress}
-        size={DISC_RING_SIZE}
-        strokeWidth={5}
-      />
-      <span
-        className="text-[9px] font-bold uppercase tracking-[0.1em] leading-none"
-        style={{ color: `hsl(var(${disciplineToken(row.sport)}))` }}
-      >
-        {disciplineLabel(row.sport)}
-      </span>
-    </button>
-  );
-
   return (
-    <div className="w-full flex flex-col items-center">
-      {/* Camp name + days-left: taps through to the fight-camps surface. */}
-      <button
-        type="button"
-        onClick={onTap}
-        aria-label={ariaLabel}
-        className="flex flex-col items-center active:scale-[0.99] transition"
-      >
-        <p className="font-display text-[24px] font-bold leading-tight tracking-tight text-foreground">
-          {campName}
-        </p>
-        <p className="mt-1 text-[13px] uppercase tracking-[0.14em] font-semibold text-muted-foreground">
-          <AnimatedNumber
-            value={daysLeft}
-            className="text-foreground font-bold tabular-nums"
-          />{" "}
-          days left
-        </p>
-      </button>
+    <div className="relative w-full">
+      {/* Ambient glow — a soft radial wash that anchors the countdown to the
+          page without drawing a container. Pure gradient (no blur()) so it
+          survives the native-app perf stripping. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-4 -left-8 h-56 w-80"
+        style={{
+          background:
+            "radial-gradient(closest-side, hsl(var(--primary) / 0.18), transparent 72%)",
+        }}
+      />
 
-      {/* Ring row: discipline level rings flank the big fight-progress ring
-          as plain flex siblings with a gap, so they can never overlap the
-          centre ring. (An earlier absolute-pinned layout, disc rings pinned
-          to the row edges, main ring centred, collided on narrow widths /
-          wide labels; this is the original, overlap-proof structure.) */}
-      <div className="mt-4 flex items-center justify-center gap-4">
-        {left && <DisciplineRing row={left} />}
-
-        {/* Main fight-progress ring: phase-tinted via `phase.text` →
-            `currentColor`. Grows from 0 on mount. Taps through to camp. */}
+      {/* Identity row: camp name + fight date | bold phase label */}
+      <div className="relative flex items-start justify-between gap-3">
         <button
           type="button"
           onClick={onTap}
           aria-label={ariaLabel}
-          className={`relative active:scale-[0.98] transition ${phase.text}`}
-          style={{ width: RING_SIZE, height: RING_SIZE }}
+          className="flex flex-col items-start text-left active:scale-[0.99] transition"
         >
-          <svg
-            width={RING_SIZE}
-            height={RING_SIZE}
-            viewBox={`0 0 ${RING_VIEWBOX} ${RING_VIEWBOX}`}
-            className="-rotate-90"
-          >
-            <circle
-              cx={RING_VIEWBOX / 2}
-              cy={RING_VIEWBOX / 2}
-              r={RING_RADIUS}
-              stroke="currentColor"
-              strokeOpacity={0.15}
-              strokeWidth={6}
-              fill="none"
-            />
-            <circle
-              cx={RING_VIEWBOX / 2}
-              cy={RING_VIEWBOX / 2}
-              r={RING_RADIUS}
-              stroke="currentColor"
-              strokeWidth={6}
-              fill="none"
-              strokeLinecap="round"
-              strokeDasharray={RING_CIRCUMFERENCE}
-              strokeDashoffset={dashOffset}
-              className="transition-all duration-700 ease-out"
-              style={{ filter: "drop-shadow(0 0 6px currentColor)" }}
-            />
-          </svg>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <AnimatedNumber
-              value={pctDisplay}
-              format={(n) => `${Math.round(n)}%`}
-              className="display-number text-foreground text-[38px] leading-none tabular-nums"
-            />
-          </div>
+          <p className="font-display text-[17px] font-semibold leading-tight tracking-tight text-foreground">
+            {campName}
+          </p>
+          <span className="mt-0.5 flex items-center gap-1.5 text-[12.5px] text-muted-foreground">
+            <Icon name="calendarOutline" size={13} className="flex-shrink-0" />
+            Fight night · {fightLabel}
+          </span>
         </button>
-
-        {right && <DisciplineRing row={right} />}
+        <span
+          className={`font-display text-[13px] font-bold tracking-wide whitespace-nowrap pt-0.5 ${phase.text}`}
+        >
+          {phase.label} phase
+        </span>
       </div>
 
-      {/* Fight date + day-of-camp: taps through to the fight-camps surface. */}
+      {/* Countdown — big days-to-fight numeral, counts up on mount. */}
       <button
         type="button"
         onClick={onTap}
         aria-label={ariaLabel}
-        className="mt-4 flex flex-col items-center active:scale-[0.99] transition"
+        className="relative mt-3 flex items-baseline gap-3 active:scale-[0.99] transition"
       >
-        <p className="text-[13px] text-muted-foreground">
-          Fight:{" "}
-          <span className="text-foreground/90 font-semibold">{fightLabel}</span>
-        </p>
-        <p className="mt-1 text-[13px] text-muted-foreground tabular-nums">
-          Day{" "}
-          <AnimatedNumber
-            value={elapsed}
-            className="text-foreground/90 font-semibold tabular-nums"
-          />{" "}
-          of {totalDays}
-        </p>
+        <AnimatedNumber
+          value={daysLeft}
+          className="display-number font-display font-extrabold bg-gradient-to-b from-white to-[#cfe0ff] bg-clip-text text-transparent text-[78px] sm:text-[92px] leading-[0.8] tracking-[-0.04em] tabular-nums"
+          // textShadow draws a glyph-shaped glow even through the transparent
+          // gradient fill; it isn't blur()/box-shadow so it isn't stripped.
+        />
+        <span className="pb-2.5 text-left">
+          <span className="block font-display text-[16px] font-semibold leading-tight text-foreground">
+            days to fight
+          </span>
+          <span className="mt-0.5 block text-[13px] text-muted-foreground tabular-nums">
+            Day{" "}
+            <AnimatedNumber value={elapsed} className="tabular-nums" /> of{" "}
+            {totalDays} ·{" "}
+            <AnimatedNumber value={pctDisplay} className="tabular-nums" />%
+            complete
+          </span>
+        </span>
       </button>
+
+      {/* Discipline XP — horizontal-scrolling strip, scales to any count. The
+          right edge is masked to a soft fade so overflow reads as scrollable. */}
+      {disciplines.length > 0 && (
+        <>
+          <p className="relative mt-5 mb-3 text-[10.5px] font-bold uppercase tracking-[0.14em] text-muted-foreground/60">
+            Discipline XP
+          </p>
+          <div
+            className="relative flex gap-5 overflow-x-auto scrollbar-hide pb-1"
+            style={{
+              WebkitMaskImage:
+                "linear-gradient(90deg, #000 92%, transparent)",
+              maskImage: "linear-gradient(90deg, #000 92%, transparent)",
+            }}
+          >
+            {disciplines.map((row) => (
+              <button
+                key={row.sport}
+                type="button"
+                onClick={() => setLevelSheetOpen(true)}
+                aria-label={`${disciplineLabel(row.sport)} level ${row.level}`}
+                className="flex flex-shrink-0 flex-col items-center gap-1.5 active:scale-95 transition"
+              >
+                <LevelRing
+                  token={disciplineToken(row.sport)}
+                  level={row.level}
+                  progress={mounted ? row.progress : 0}
+                  size={DISC_RING_SIZE}
+                  strokeWidth={4}
+                />
+                <span
+                  className="text-[10px] font-bold uppercase tracking-[0.04em] leading-none whitespace-nowrap"
+                  style={{ color: `hsl(var(${disciplineToken(row.sport)}))` }}
+                >
+                  {disciplineLabel(row.sport)}
+                </span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Trajectory (signature) — Build → Peak → Fight week, with a node at
+          today's position that slides in on mount and tracks elapsed/total. */}
+      <div className="relative mt-5 border-t border-white/[0.07] pt-4">
+        <div className="mb-3 flex justify-between text-[10.5px] font-semibold uppercase tracking-wide text-muted-foreground/60">
+          <span className="text-primary">Camp start · now</span>
+          <span>Peak</span>
+          <span>Fight week</span>
+        </div>
+
+        <div className="relative mx-1 h-1.5 rounded-full bg-white/[0.07]">
+          {/* phase segments */}
+          <div
+            className="absolute top-0 h-1.5 rounded-full bg-gradient-to-r from-primary/60 to-primary/20"
+            style={{ left: 0, width: `${peakStart * 100}%` }}
+          />
+          <div
+            className="absolute top-0 h-1.5 rounded-full bg-muted-foreground/25"
+            style={{ left: `${peakStart * 100}%`, width: `${(fwStart - peakStart) * 100}%` }}
+          />
+          <div
+            className="absolute top-0 h-1.5 rounded-full bg-red-500/40"
+            style={{ left: `${fwStart * 100}%`, width: `${(1 - fwStart) * 100}%` }}
+          />
+          {/* phase boundary ticks */}
+          <span className="absolute -top-1 h-3.5 w-px bg-white/20" style={{ left: `${peakStart * 100}%` }} />
+          <span className="absolute -top-1 h-3.5 w-px bg-white/20" style={{ left: `${fwStart * 100}%` }} />
+          {/* progress fill (camp start → today) */}
+          <div
+            className="absolute top-0 h-1.5 rounded-full bg-primary shadow-[0_0_12px_hsl(var(--primary)/0.7)] transition-[width] duration-[1200ms] ease-out"
+            style={{ width: mounted ? `${clampedPct * 100}%` : "0%" }}
+          />
+          {/* you-are-here node */}
+          <span
+            className="absolute top-1/2 z-10 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary shadow-[0_0_0_5px_hsl(var(--primary)/0.18),0_0_16px_hsl(var(--primary)/0.9)] transition-[left] duration-[1200ms] ease-out"
+            style={{ left: mounted ? `${clampedPct * 100}%`: "0%", borderWidth: 3, borderColor: "#0c1422" }}
+          />
+        </div>
+
+        <div className="mt-3.5 flex items-center justify-between">
+          <span className="flex items-center gap-1.5 text-[11.5px] font-semibold text-primary">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_8px_hsl(var(--primary))]" />
+            You are here · {nextLabel}
+          </span>
+          {onViewPlan && (
+            <button
+              type="button"
+              data-tutorial="camp-full-plan"
+              onClick={onViewPlan}
+              className="flex items-center gap-0.5 font-display text-[12.5px] font-semibold text-primary active:opacity-70 transition"
+            >
+              View full plan
+              <Icon name="chevronForwardOutline" size={13} />
+            </button>
+          )}
+        </div>
+      </div>
 
       <LevelSheet open={levelSheetOpen} onOpenChange={setLevelSheetOpen} />
     </div>

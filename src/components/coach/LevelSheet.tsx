@@ -21,6 +21,8 @@ import {
   Star,
   Dumbbell,
   Crown,
+  ChevronRight,
+  type LucideIcon,
 } from "lucide-react";
 import { LevelRing } from "./LevelRing";
 import { disciplineToken, disciplineLabel } from "@/lib/coachColors";
@@ -35,8 +37,9 @@ import { cn } from "@/lib/utils";
  * earn XP, what it means, current streak, an achievements preview, and a
  * placeholder list of "daily challenges" that will start tracking in v2.
  *
- * Opened from `<XpSummaryCard>` on `/camp`. All data is read live (no extra
- * caching layer beyond what the underlying queries / hooks already provide).
+ * Opened from the camp hero discipline rings. iOS inset-grouped-list grammar:
+ * each section is one rounded panel with hairline-divided rows, and every
+ * action carries its own semantic icon tint (no wall of identical blue).
  */
 interface LevelSheetProps {
   open: boolean;
@@ -58,26 +61,39 @@ const BADGE_ICON_MAP = {
   Crown,
 } as const;
 
+/* Semantic icon colours. Color encodes meaning, not decoration: blue for
+   logging, green for completing, gold for the big achievement-grade win.
+   No backing tile — the glyph sits bare on the row. */
+type Tone = "blue" | "green" | "gold" | "orange" | "neutral";
+const TONE: Record<Tone, string> = {
+  blue: "text-primary",
+  green: "text-[hsl(var(--health))]",
+  gold: "text-[hsl(var(--warning))]",
+  orange: "text-[hsl(var(--energy))]",
+  neutral: "text-muted-foreground",
+};
+
 /* "How to earn XP": static config so the rows stay declarative. */
 const EARN_ROWS: ReadonlyArray<{
-  icon: typeof Calendar;
+  icon: LucideIcon;
   amount: string;
   label: string;
+  tone: Tone;
 }> = [
-  { icon: Calendar, amount: "+10 XP", label: "Log a session in the Training Calendar" },
-  { icon: Check, amount: "+20 XP", label: "Tick a Training Coach mission item" },
-  { icon: Trophy, amount: "+100 XP", label: "Complete an entire mission" },
+  { icon: Calendar, amount: "+10", label: "Log a training session", tone: "blue" },
+  { icon: Check, amount: "+20", label: "Tick off a coach mission task", tone: "green" },
+  { icon: Trophy, amount: "+100", label: "Finish a full mission", tone: "gold" },
 ];
 
 /* "Daily challenges": v1 placeholder data. No live tracking yet. */
 const DAILY_CHALLENGES: ReadonlyArray<{
-  icon: typeof Calendar;
+  icon: LucideIcon;
   title: string;
   bonus: string;
 }> = [
-  { icon: Calendar, title: "Log a session today", bonus: "+25 XP" },
-  { icon: Check, title: "Tick 3 mission items today", bonus: "+50 XP" },
-  { icon: Pen, title: "Write notes for 1 session", bonus: "+15 XP" },
+  { icon: Calendar, title: "Log a session today", bonus: "+25" },
+  { icon: Check, title: "Tick 3 mission items", bonus: "+50" },
+  { icon: Pen, title: "Add notes to a session", bonus: "+15" },
 ];
 
 export function LevelSheet({ open, onOpenChange }: LevelSheetProps) {
@@ -98,16 +114,11 @@ export function LevelSheet({ open, onOpenChange }: LevelSheetProps) {
     () =>
       (liveWeightLogs ?? []).map((l) => ({
         date: l.date,
-        // Hook expects `weight_kg` as string (Dashboard normalises the
-        // same way); coerce here so the streak math still works.
         weight_kg: String(l.weight_kg),
       })),
     [liveWeightLogs],
   );
 
-  // todayCalories isn't used for the streak / badge surfaces we read, so we
-  // can safely pass 0 here. We piggyback on the same hook the dashboard uses
-  // so the underlying unlocked / progress state is identical.
   const { streak, badges, allAchievements } = useGamification(
     userId ?? null,
     weightLogsForHook,
@@ -122,140 +133,126 @@ export function LevelSheet({ open, onOpenChange }: LevelSheetProps) {
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent
           side="bottom"
-          className="h-[92vh] rounded-t-2xl flex flex-col"
+          hideClose
+          className="h-[92vh] rounded-t-3xl flex flex-col px-5 pt-3"
         >
-          <SheetHeader className="mb-4 flex-shrink-0">
-            <SheetTitle>Your level</SheetTitle>
-            <p className="text-note text-muted-foreground">
-              Progress per discipline, plus how to earn XP.
+          {/* Grabber — native modal affordance. */}
+          <div className="mx-auto mb-3 h-1 w-9 flex-shrink-0 rounded-full bg-white/15" />
+
+          <SheetHeader className="mb-5 flex-shrink-0 text-left sm:text-left">
+            <SheetTitle className="font-display text-[22px] font-bold tracking-tight">
+              Your level
+            </SheetTitle>
+            <p className="text-[13px] text-muted-foreground leading-snug">
+              Train to earn XP. Each discipline levels up on its own.
             </p>
           </SheetHeader>
 
           <div
-            className="flex-1 overflow-y-auto scrollbar-hide space-y-6"
+            className="flex-1 overflow-y-auto scrollbar-hide space-y-7"
             style={{
-              paddingBottom:
-                "max(env(safe-area-inset-bottom, 0px), 6rem)",
+              paddingBottom: "max(env(safe-area-inset-bottom, 0px), 6rem)",
             }}
           >
-            {/* ── 1. All disciplines ───────────────────────────────────── */}
-            <section className="space-y-3">
-              <h3 className="text-micro uppercase tracking-wider text-muted-foreground/70 font-bold">
-                All disciplines
-              </h3>
+            {/* ── 1. Disciplines ───────────────────────────────────────── */}
+            <section className="space-y-2.5">
+              <SectionLabel>Your disciplines</SectionLabel>
               <DisciplineList rows={xpRows} />
-            </section>
-
-            {/* ── 2. How to earn XP ────────────────────────────────────── */}
-            <section className="space-y-3">
-              <h3 className="text-micro uppercase tracking-wider text-muted-foreground/70 font-bold">
-                How to earn XP
-              </h3>
-              <div className="space-y-2">
-                {EARN_ROWS.map((row) => {
-                  const Icon = row.icon;
-                  return (
-                    <div
-                      key={row.label}
-                      className="card-surface rounded-xs p-3 flex items-center gap-3 min-h-[44px]"
-                    >
-                      <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
-                        <Icon className="h-4 w-4 text-primary" />
-                      </div>
-                      <p className="flex-1 text-body-sm text-foreground leading-tight">
-                        {row.label}
-                      </p>
-                      <span className="text-note font-semibold text-primary tabular-nums flex-shrink-0">
-                        {row.amount}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-
-            {/* ── 3. What it means ─────────────────────────────────────── */}
-            <section className="space-y-2">
-              <h3 className="text-micro uppercase tracking-wider text-muted-foreground/70 font-bold">
-                What it means
-              </h3>
-              <p className="text-note text-muted-foreground leading-relaxed">
-                Each discipline tracks its own progress so the work you put
-                into BJJ stays separate from your Muay Thai or strength.
-                Level thresholds widen as you climb. Early levels come
-                quickly, advanced ones take real consistency.
+              <p className="px-1 pt-1 text-[12px] leading-relaxed text-muted-foreground/80">
+                Every discipline climbs separately, so your BJJ progress stays
+                apart from boxing or strength. Higher levels take a little more
+                XP each time.
               </p>
             </section>
 
-            {/* ── 4. Streak ────────────────────────────────────────────── */}
-            {streak > 0 && (
-              <section className="space-y-3">
-                <h3 className="text-micro uppercase tracking-wider text-muted-foreground/70 font-bold">
-                  Streak
-                </h3>
-                <div className="card-surface rounded-xs p-3 flex items-center gap-3 min-h-[44px]">
-                  <div className="w-10 h-10 rounded-full bg-orange-500/15 flex items-center justify-center flex-shrink-0">
-                    <Flame className="h-5 w-5 text-orange-400" />
+            {/* ── 2. How to earn XP ────────────────────────────────────── */}
+            <section className="space-y-2.5">
+              <SectionLabel>How to earn XP</SectionLabel>
+              <Group dividerInset="3.375rem">
+                {EARN_ROWS.map((row) => (
+                  <div
+                    key={row.label}
+                    className="flex items-center gap-3 px-3.5 py-3"
+                  >
+                    <IconTile icon={row.icon} tone={row.tone} />
+                    <p className="flex-1 text-[14px] text-foreground leading-tight">
+                      {row.label}
+                    </p>
+                    <span className="text-[13px] font-semibold tabular-nums text-foreground/90 flex-shrink-0">
+                      {row.amount}
+                      <span className="text-muted-foreground/60 font-medium"> XP</span>
+                    </span>
                   </div>
-                  <p className="text-body-sm font-semibold text-foreground tabular-nums">
-                    {streak}-day streak
-                  </p>
-                </div>
+                ))}
+              </Group>
+            </section>
+
+            {/* ── 3. Streak ────────────────────────────────────────────── */}
+            {streak > 0 && (
+              <section className="space-y-2.5">
+                <SectionLabel>Streak</SectionLabel>
+                <Group>
+                  <div className="flex items-center gap-3 px-3.5 py-3">
+                    <IconTile icon={Flame} tone="orange" />
+                    <p className="flex-1 text-[14px] font-semibold text-foreground tabular-nums">
+                      {streak}-day streak
+                    </p>
+                    <span className="text-[12px] text-muted-foreground">
+                      Keep it going
+                    </span>
+                  </div>
+                </Group>
               </section>
             )}
 
-            {/* ── 5. Achievements preview ──────────────────────────────── */}
-            <section className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-micro uppercase tracking-wider text-muted-foreground/70 font-bold">
-                  Achievements
-                </h3>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
+            {/* ── 4. Achievements ──────────────────────────────────────── */}
+            <section className="space-y-2.5">
+              <SectionLabel>Achievements</SectionLabel>
+              <div className="grid grid-cols-2 gap-2.5">
                 {topBadges.map((badge) => (
                   <BadgePreviewTile key={badge.id} badge={badge} />
                 ))}
               </div>
-              <button
-                type="button"
-                onClick={() => setAchievementsOpen(true)}
-                className="block mx-auto text-note font-medium text-primary touch-target"
-              >
-                See all achievements
-              </button>
+              <Group>
+                <button
+                  type="button"
+                  onClick={() => setAchievementsOpen(true)}
+                  className="flex w-full items-center gap-3 px-3.5 py-3 text-left active:bg-white/[0.03] transition-colors"
+                >
+                  <IconTile icon={Award} tone="gold" />
+                  <span className="flex-1 text-[14px] font-medium text-foreground">
+                    See all achievements
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground/40 flex-shrink-0" />
+                </button>
+              </Group>
             </section>
 
-            {/* ── 6. Daily challenges (placeholder) ────────────────────── */}
-            <section className="space-y-3">
-              <h3 className="text-micro uppercase tracking-wider text-muted-foreground/70 font-bold">
-                Daily challenges
-              </h3>
-              <div className="space-y-2">
-                {DAILY_CHALLENGES.map((row) => {
-                  const Icon = row.icon;
-                  return (
-                    <div
-                      key={row.title}
-                      className="card-surface rounded-xs p-3 flex items-center gap-3 min-h-[44px] opacity-80"
-                    >
-                      <div className="w-8 h-8 rounded-full bg-muted/30 flex items-center justify-center flex-shrink-0">
-                        <Icon className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-body-sm text-foreground leading-tight truncate">
-                          {row.title}
-                        </p>
-                        <p className="text-micro text-muted-foreground/70 leading-tight mt-0.5">
-                          Coming soon
-                        </p>
-                      </div>
-                      <span className="text-note font-semibold text-primary tabular-nums flex-shrink-0 px-2 py-0.5 rounded-full bg-primary/10">
-                        {row.bonus}
-                      </span>
-                    </div>
-                  );
-                })}
+            {/* ── 5. Daily challenges (placeholder) ────────────────────── */}
+            <section className="space-y-2.5">
+              <div className="flex items-center justify-between px-1">
+                <SectionLabel className="px-0">Daily challenges</SectionLabel>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50">
+                  Coming soon
+                </span>
               </div>
+              <Group dividerInset="3.375rem">
+                {DAILY_CHALLENGES.map((row) => (
+                  <div
+                    key={row.title}
+                    className="flex items-center gap-3 px-3.5 py-3 opacity-70"
+                  >
+                    <IconTile icon={row.icon} tone="neutral" />
+                    <p className="flex-1 text-[14px] text-foreground leading-tight">
+                      {row.title}
+                    </p>
+                    <span className="text-[12px] font-semibold tabular-nums text-muted-foreground flex-shrink-0">
+                      {row.bonus}
+                      <span className="text-muted-foreground/50 font-medium"> XP</span>
+                    </span>
+                  </div>
+                ))}
+              </Group>
             </section>
           </div>
         </SheetContent>
@@ -277,6 +274,62 @@ export function LevelSheet({ open, onOpenChange }: LevelSheetProps) {
 // Internal sub-components
 // ───────────────────────────────────────────────────────────────────────────
 
+/** Uppercase section eyebrow, iOS grouped-list header. */
+function SectionLabel({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <h3
+      className={cn(
+        "px-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/60",
+        className,
+      )}
+    >
+      {children}
+    </h3>
+  );
+}
+
+/** A rounded panel that hosts hairline-divided rows (inset past the icon). */
+function Group({
+  children,
+  dividerInset = "0px",
+}: {
+  children: React.ReactNode;
+  dividerInset?: string;
+}) {
+  const rows = (Array.isArray(children) ? children : [children]).filter(Boolean);
+  return (
+    <div className="card-surface rounded-2xl overflow-hidden">
+      {rows.map((row, i) => (
+        <div key={i}>
+          {i > 0 && (
+            <div
+              className="h-px bg-white/[0.06]"
+              style={{ marginLeft: dividerInset }}
+            />
+          )}
+          {row}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Bare coloured icon. Fixed-width wrapper keeps row alignment without a
+    backing tile. */
+function IconTile({ icon: Icon, tone }: { icon: LucideIcon; tone: Tone }) {
+  return (
+    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center">
+      <Icon className={cn("h-[20px] w-[20px]", TONE[tone])} strokeWidth={2.2} />
+    </div>
+  );
+}
+
 type DisciplineRow = {
   sport: string;
   level: number;
@@ -286,50 +339,40 @@ type DisciplineRow = {
   totalXp?: number;
 };
 
-function DisciplineList({
-  rows,
-}: {
-  rows: DisciplineRow[] | undefined;
-}) {
+function DisciplineList({ rows }: { rows: DisciplineRow[] | undefined }) {
   if (rows === undefined) {
     return (
-      <div className="space-y-2">
+      <Group dividerInset="4.75rem">
         {Array.from({ length: 3 }).map((_, i) => (
-          <div
-            key={i}
-            className="card-surface rounded-xs p-3 flex items-center gap-3 min-h-[44px]"
-          >
-            <div className="w-12 h-12 rounded-full shimmer-skeleton flex-shrink-0" />
+          <div key={i} className="flex items-center gap-3 px-3.5 py-3 min-h-[64px]">
+            <div className="h-12 w-12 rounded-full shimmer-skeleton flex-shrink-0" />
             <div className="flex-1 space-y-2">
               <div className="h-3 w-24 rounded shimmer-skeleton" />
               <div className="h-2 w-16 rounded shimmer-skeleton" />
             </div>
           </div>
         ))}
-      </div>
+      </Group>
     );
   }
 
   if (!Array.isArray(rows) || rows.length === 0) {
     return (
-      <div className="card-surface rounded-xs p-4">
-        <p className="text-note text-muted-foreground leading-snug">
-          Train and log notes to start earning XP.
+      <div className="card-surface rounded-2xl p-4">
+        <p className="text-[13px] text-muted-foreground leading-snug">
+          Train and log sessions to start earning XP.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-2">
+    <Group dividerInset="4.75rem">
       {rows.map((row) => {
         const token = disciplineToken(row.sport);
         const label = disciplineLabel(row.sport);
         return (
-          <div
-            key={row.sport}
-            className="card-surface rounded-xs p-3 flex items-center gap-3 min-h-[44px]"
-          >
+          <div key={row.sport} className="flex items-center gap-3 px-3.5 py-3">
             <LevelRing
               token={token}
               level={row.level}
@@ -337,23 +380,22 @@ function DisciplineList({
               size={48}
             />
             <div className="flex-1 min-w-0">
-              <p className="text-body-sm font-bold uppercase tracking-wider truncate leading-tight text-foreground">
+              <p className="text-[14px] font-semibold truncate leading-tight text-foreground">
                 {label}
               </p>
-              <p className="text-micro tabular-nums text-muted-foreground/80 leading-tight mt-0.5">
+              <p className="text-[11.5px] tabular-nums text-muted-foreground/80 leading-tight mt-0.5">
                 <span className="tabular-nums">{row.currentLevelXp}</span>
                 <span className="text-muted-foreground/40"> / </span>
-                <span className="tabular-nums">{row.nextLevelXp}</span> XP
+                <span className="tabular-nums">{row.nextLevelXp}</span> XP to next
               </p>
             </div>
-            {/* Level badge: flat foreground-on-muted, no discipline tint.
-                The ring on the left already carries the discipline colour;
-                duplicating it on the chip read as neon / AI-generated. */}
+            {/* Level badge: neutral, recessed. The ring already carries the
+                discipline colour — duplicating it here read as neon. */}
             <span
               className={cn(
-                "inline-flex items-center h-6 px-2.5 rounded-xs flex-shrink-0",
-                "text-micro font-bold uppercase tracking-wider tabular-nums",
-                "bg-muted/30 text-foreground border border-border/60",
+                "inline-flex items-center h-6 px-2.5 rounded-full flex-shrink-0",
+                "text-[11px] font-bold uppercase tracking-wider tabular-nums",
+                "surface-inset text-foreground/90",
               )}
             >
               Lv {row.level}
@@ -361,35 +403,37 @@ function DisciplineList({
           </div>
         );
       })}
-    </div>
+    </Group>
   );
 }
 
 function BadgePreviewTile({ badge }: { badge: MilestoneBadge }) {
   const Icon = BADGE_ICON_MAP[badge.icon];
   return (
-    <div className="rounded-xs p-3 text-center card-surface">
-      <div
-        className={cn(
-          "relative w-10 h-10 rounded-full mx-auto flex items-center justify-center",
-          badge.unlocked ? "bg-primary/20" : "bg-muted/20",
-        )}
-      >
-        <Icon
-          className={cn(
-            "h-5 w-5",
-            badge.unlocked ? "text-primary" : "text-muted-foreground",
-          )}
-        />
-      </div>
-      <div className="flex items-center justify-center gap-1 mt-2 min-w-0">
-        <span className="text-xs font-semibold truncate">{badge.title}</span>
+    <div className="rounded-2xl p-3.5 card-surface">
+      <div className="flex items-center gap-2.5">
+        {/* Unlocked badges read as gold medals; locked stay neutral. No
+            backing tile — the glyph sits bare. */}
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center">
+          <Icon
+            className={cn(
+              "h-[22px] w-[22px]",
+              badge.unlocked
+                ? "text-[hsl(var(--warning))]"
+                : "text-muted-foreground",
+            )}
+            strokeWidth={2.2}
+          />
+        </div>
+        <span className="min-w-0 flex-1 text-[12.5px] font-semibold leading-tight text-foreground line-clamp-2">
+          {badge.title}
+        </span>
         {badge.unlocked && (
-          <Check className="h-3 w-3 text-func-recovery-green flex-shrink-0" />
+          <Check className="h-3.5 w-3.5 flex-shrink-0 text-[hsl(var(--health))]" />
         )}
       </div>
       {!badge.unlocked && (
-        <div className="h-1 rounded-full bg-muted mt-2 overflow-hidden">
+        <div className="mt-2.5 h-1 overflow-hidden rounded-full surface-inset">
           <div
             className="h-full rounded-full bg-primary transition-all"
             style={{ width: `${Math.round(badge.progress * 100)}%` }}

@@ -27,7 +27,6 @@ import { springs } from "@/lib/motion";
 import { XPProgressBar, DaysToFightSlam, WeightLossSlam, LossFrameCard, DeclarationButton, TaleOfTheTapeCard, CutJourneyChart, BlurredWeekOnePreview, MathWhisper, WittyValidation, sportVocab } from "@/components/onboarding/Gamification";
 import { WizardAuroraBackground } from "@/components/onboarding/WizardAuroraBackground";
 import { OnboardingWizardMascot } from "@/components/onboarding/wizard/OnboardingWizardMascot";
-import { ConnectHealthStep } from "@/components/onboarding/wizard/ConnectHealthStep";
 import { ReminderStep } from "@/components/onboarding/wizard/ReminderStep";
 
 const ACTIVITY_MULTIPLIERS: Record<string, number> = {
@@ -50,6 +49,10 @@ const ACTIVITY_MULTIPLIERS: Record<string, number> = {
 //   2026-06-04 (Weigh-In Timing, Task 2): NEW cutting-only "When do you
 //     weigh in?" screen inserted as cutting step 2, shifting every
 //     subsequent CUTTING step +1 (final 16 → 17). LOSING flow is unchanged.
+//   2026-06-22: Apple Health connect step REMOVED from both flows (users
+//     are treated as having skipped it; they can still connect from
+//     Settings). Every step after it shifts -1 (cutting 17 → 16, losing
+//     16 → 15).
 //
 // `F` = fighter (cutting) flow; `L` = losing flow. The losing numbers are
 // the pre-existing literals, untouched.
@@ -64,13 +67,12 @@ const F = {
   BODY_FAT: 8,     // body fat slider (was 7)
   EXPERIENCE: 9,   // experience level (was 8)
   TRAINING_FREQ: 10,// training frequency (was 9)
-  HEALTH: 11,      // connect Apple Health (was 10)
-  REMINDERS: 12,   // adaptive reminders (was 11)
-  TRAINING_TYPES: 13,// training types (was 12)
-  SLEEP: 14,       // sleep hours (was 13)
-  STRUGGLE: 15,    // primary struggle (was 14)
-  NAME: 16,        // display name (was 15)
-  FINAL: 17,       // declaration + projected cut + generate (was 16)
+  REMINDERS: 11,   // adaptive reminders (Apple Health step removed 2026-06-22)
+  TRAINING_TYPES: 12,// training types
+  SLEEP: 13,       // sleep hours
+  STRUGGLE: 14,    // primary struggle
+  NAME: 15,        // display name
+  FINAL: 16,       // declaration + projected cut + generate
 } as const;
 
 const L = {
@@ -83,19 +85,17 @@ const L = {
   BODY_FAT: 7,     // body fat slider
   EXPERIENCE: 8,   // experience level
   TRAINING_FREQ: 9,// training frequency
-  HEALTH: 10,      // connect Apple Health
-  REMINDERS: 11,   // adaptive reminders
-  TRAINING_TYPES: 12,// training types
-  SLEEP: 13,       // sleep hours
-  AGGRESSIVENESS: 14,// plan aggressiveness (losing struggle slot)
-  NAME: 15,        // display name
-  FINAL: 16,       // declaration + projection + generate
+  REMINDERS: 10,   // adaptive reminders (Apple Health step removed 2026-06-22)
+  TRAINING_TYPES: 11,// training types
+  SLEEP: 12,       // sleep hours
+  AGGRESSIVENESS: 13,// plan aggressiveness (losing struggle slot)
+  NAME: 14,        // display name
+  FINAL: 15,       // declaration + projection + generate
 } as const;
 
-// Total step count per flow. The cutting flow gained one screen (weigh-in
-// timing); the losing flow is unchanged. Displayed as "Round X of N".
-const FIGHTER_TOTAL_STEPS = F.FINAL;  // 17
-const LOSING_TOTAL_STEPS = L.FINAL;   // 16
+// Total step count per flow. Displayed as "Round X of N".
+const FIGHTER_TOTAL_STEPS = F.FINAL;  // 16
+const LOSING_TOTAL_STEPS = L.FINAL;   // 15
 
 // ── Display-name validation ──
 // Trimmed length must be 2–30 characters. Used by the step-13 name screen
@@ -634,18 +634,18 @@ export default function Onboarding() {
   const [achievementLabel, setAchievementLabel] = useState<string | null>(null);
   useEffect(() => {
     let label: string | null = null;
-    // Milestone pulses fire on the SAME screens they always have. For the
-    // cutting flow every screen shifted +1 when the weigh-in step was
-    // inserted, so the gates shift with them (F.AGE/F.EXPERIENCE/F.FINAL =
-    // 5/9/17, the old 4/8/16). The losing flow is unchanged (4/8/16).
+    // Milestone pulses fire on the SAME conceptual screens (goal locked /
+    // discipline declared / camp sealed). Named per-flow constants keep
+    // them honest as steps shift (e.g. the 2026-06-22 Apple Health removal
+    // moved each FINAL down by one).
     if (isFighterFlow) {
       if (step === F.AGE) label = "Goal Locked";
       else if (step === F.EXPERIENCE) label = "Discipline Declared";
       else if (step === F.FINAL) label = "Camp Sealed";
     } else {
-      if (step === 4) label = "Goal Locked";
-      else if (step === 8) label = "Discipline Declared";
-      else if (step === 16) label = "Camp Sealed";
+      if (step === L.TIMEFRAME) label = "Goal Locked";
+      else if (step === L.EXPERIENCE) label = "Discipline Declared";
+      else if (step === L.FINAL) label = "Camp Sealed";
     }
     if (!label) return;
     setAchievementLabel(label);
@@ -1933,29 +1933,12 @@ export default function Onboarding() {
           </StepLayout>
         )}
 
-        {/* ── Screen 10: Connect Apple Health (inserted 2026-05-20) ──
-            The component owns its own Connect / Skip CTAs and calls
-            `onAdvance` for both branches, so we don't render a
-            StepLayout footer here; the step body fills the space.
-            Wrapped in the same StepLayout chrome so the header /
-            progress / mascot all stay consistent with neighbouring
-            screens. */}
-        {((step === F.HEALTH && isFighterFlow) || (step === L.HEALTH && !isFighterFlow)) && (
-          <StepLayout
-            step={step}
-            totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS}
-            title="Connect Apple Health"
-            subtitle="Optional. Powers your Fight Form score with real recovery data."
-          >
-            <ConnectHealthStep onAdvance={goNext} />
-          </StepLayout>
-        )}
-
-        {/* ── Screen 11: Adaptive Reminders ──
-            Sits right after the Apple Health permissions step so all
-            system-permission asks are grouped together. The step body
-            owns its own action buttons (primary + secondary) so no
-            StepLayout footer is needed; mirrors ConnectHealthStep. */}
+        {/* ── Adaptive Reminders (cutting F.REMINDERS / losing L.REMINDERS) ──
+            The Apple Health connect step that used to precede this was
+            removed 2026-06-22; users are treated as having skipped it and
+            can connect from Settings. The step body owns its own action
+            buttons (primary + secondary) so no StepLayout footer is
+            needed. */}
         {((step === F.REMINDERS && isFighterFlow) || (step === L.REMINDERS && !isFighterFlow)) && (
           <StepLayout
             step={step}

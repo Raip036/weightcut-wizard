@@ -518,7 +518,7 @@ export const generateMissionIfReady = internalAction({
     // watermark, the hourly missions sweep would re-extract the same notes
     // every hour (recurring LLM cost). Advance the latest mission's
     // notesWindowStart to this run's window-end boundary so the window is
-    // treated as consumed.
+    // treated as consumed. Returns `{ skipped: "all_deduped" }`.
     //
     // In the all-deduped case a latest mission (or assignment) always exists
     // — dedupe requires a prior journey — so `latest` is expected non-null.

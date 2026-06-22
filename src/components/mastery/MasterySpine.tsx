@@ -421,7 +421,7 @@ function DisciplineCard({
  *
  * Props: `userId` — the Convex user Id.
  */
-export function MasterySpine({ _userId }: MasterySpineProps) {
+export function MasterySpine(_props: MasterySpineProps) {
   const reducedMotion = useReducedMotion();
 
   // ── Subscriptions ─────────────────────────────────────────────────────────

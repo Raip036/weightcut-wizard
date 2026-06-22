@@ -1,8 +1,0 @@
-- generic [active] [ref=e1]:
-  - generic:
-    - region "Notifications (F8)":
-      - list
-    - region "Notifications alt+T"
-    - paragraph [ref=e3]:
-      - text: FightCamp Wizard
-      - superscript [ref=e4]: TM

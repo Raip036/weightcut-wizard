@@ -101,7 +101,7 @@ export function WrapUpStepper({ saving, onComplete, onSkip }: WrapUpStepperProps
   };
 
   return (
-    <div className="relative flex flex-col overflow-hidden max-h-[calc(100dvh-var(--keyboard-inset,0px))]">
+    <div className="relative flex flex-col overflow-hidden max-h-[calc(100dvh-var(--keyboard-inset,0px))] transition-[max-height] duration-300 ease-out">
       <SheetTitle className="sr-only">Wrap up your camp</SheetTitle>
 
       {/* Blue animated backdrop — matches the Pro gate (ProUpsellScreen) */}

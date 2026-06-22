@@ -152,7 +152,12 @@ export function JoinGymGate(): JSX.Element {
   };
 
   return (
-    <div className="relative h-full overflow-hidden bg-background">
+    <div className="relative h-full overflow-y-auto overflow-x-hidden overscroll-contain bg-background">
+      {/* `min-h-full` content sizer: grows with the content AND is always at
+          least one full viewport tall, so the absolute backdrop below covers
+          the ENTIRE scrollable page. The blue stays premium all the way to the
+          bottom when scrolled instead of cutting off after one viewport. */}
+      <div className="relative min-h-full">
       {/* Ambient blue backdrop + drifting motes, matches the Recovery Pro gate
           (CoachProGate) visual language. */}
       <motion.div
@@ -194,7 +199,7 @@ export function JoinGymGate(): JSX.Element {
       )}
 
       <div
-        className="relative z-10 h-full overflow-y-auto overscroll-contain px-6"
+        className="relative z-10 px-6"
         style={{ paddingTop: 12, paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 28px)" }}
       >
         {/* ── Hero: fanned polaroid deck ── */}
@@ -396,6 +401,7 @@ export function JoinGymGate(): JSX.Element {
         <p className="mt-5 text-center text-[12px] text-muted-foreground/70">
           No code? Ask your coach for your gym's invite.
         </p>
+      </div>
       </div>
     </div>
   );

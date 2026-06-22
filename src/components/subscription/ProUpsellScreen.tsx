@@ -213,8 +213,8 @@ export function ProUpsellScreen({
                 {...reveal(perkBase + i * 0.09, 10)}
                 className="flex items-center gap-3 rounded-xl bg-card/50 ring-1 ring-primary/15 px-3.5 py-2.5 text-left"
               >
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/15 ring-1 ring-primary/20">
-                  <Check className="h-3.5 w-3.5 text-primary" strokeWidth={2.5} />
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center">
+                  <Check className="h-4 w-4 text-primary" strokeWidth={2.5} />
                 </span>
                 <span className="text-[13px] font-medium text-foreground/90">{perk}</span>
               </motion.div>
