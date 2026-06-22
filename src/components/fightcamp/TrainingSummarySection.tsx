@@ -18,7 +18,7 @@ import { ProtocolGeneratingOverlay } from "@/components/protocol/ProtocolGenerat
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { WeeklyRecap, type RecapDebrief } from "./WeeklyRecap";
 import { TechniqueLog } from "./TechniqueLog";
-import { WeeklyTimeline } from "./WeeklyTimeline";
+import { PastWeekList } from "./PastWeekCard";
 import { ShimmerCrownBadge } from "@/components/subscription/ShimmerCrownBadge";
 import { ProExplainerOverlay } from "@/components/subscription/ProExplainerOverlay";
 
@@ -548,15 +548,15 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                                 <WeeklyRecap headline={newSummary.weekHeadline} debrief={newSummary.debrief} />
                             </motion.div>
 
-                            {/* Weekly timeline: past-week chips */}
-                            {summarisedWeeks.length > 0 && (
+                            {/* Past weeks: rich-but-lean week cards */}
+                            {savedSummaries.length > 0 && (
                                 <div className="space-y-2">
-                                    <p className="text-micro uppercase tracking-wider text-muted-foreground/70 font-bold">
+                                    <p className="section-header">
                                         Past weeks
                                     </p>
-                                    <WeeklyTimeline
-                                        weeks={summarisedWeeks}
-                                        currentWeek={selectedWeekStart}
+                                    <PastWeekList
+                                        summaries={savedSummaries}
+                                        selectedWeekStart={selectedWeekStart}
                                         onSelectWeek={(w) => {
                                             const ai = summarisedWeeks.indexOf(selectedWeekStart);
                                             const bi = summarisedWeeks.indexOf(w);
