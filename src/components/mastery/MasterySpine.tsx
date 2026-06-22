@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "convex/react";
-import { AnimatePresence, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { api } from "@/../convex/_generated/api";
 import type { Doc, Id } from "@/../convex/_generated/dataModel";
 import { Icon } from "@/components/ui/Icon";
@@ -16,6 +16,7 @@ import { StageIndicator } from "./StageIndicator";
 import { SealedStage } from "./SealedStage";
 import { MasteredShelf } from "./MasteredShelf";
 import { CompleteCelebration } from "@/components/motion";
+import { ProtocolGeneratingOverlay } from "@/components/protocol/ProtocolGeneratingOverlay";
 import type { MasteryFlowEntry } from "@/../convex/mastery_spine";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -106,6 +107,22 @@ const MOTE_OFFSETS = [
 /** XP bonus awarded when a whole discipline cycle is completed. */
 const CYCLE_COMPLETE_XP = 50;
 
+// ─── Wizard overlay copy ──────────────────────────────────────────────────────
+
+const GRADUATING_STEPS: ReadonlyArray<string> = [
+  "Reading your completed drills",
+  "Building live-sparring reads",
+  "Adding setups and counters",
+];
+
+const GENERATING_STEPS: ReadonlyArray<string> = [
+  "Reading your session notes",
+  "Diagnosing what to fix",
+  "Designing your drills",
+];
+
+const LOADING_FOOTNOTE = "This usually takes 5 to 15 seconds.";
+
 // ─── Per-discipline card ───────────────────────────────────────────────────────
 
 interface DisciplineCardProps {
@@ -113,13 +130,13 @@ interface DisciplineCardProps {
   missions: Mission[];
   assignments: SparringAssignment[];
   /** Phase derived by the server (getMasteryFlow). Used as the source of
-   *  truth; client falls back to local derivation only for the "drill" guard
-   *  on remaining-drills count. */
-  serverPhase: "drill" | "spar" | "idle";
+   *  truth. "graduating" and "generating" render the wizard loader while the
+   *  async Groq window is open; the card stays mounted throughout. */
+  serverPhase: "drill" | "graduating" | "spar" | "generating" | "idle";
   reducedMotion: boolean | null;
   /** Called by a child MissionCard when the last drill of this discipline
-   *  is ticked, clearing all missions. Receives the XP for the celebration. */
-  onAllMissionsComplete: (xp: number) => void;
+   *  is ticked, clearing all missions. Receives the discipline key and XP. */
+  onAllMissionsComplete: (discipline: string, xp: number) => void;
   /** Called by a child SparringAssignmentRow when the final un-mastered
    *  graduated assignment for this discipline is mastered (cycleComplete). */
   onCycleComplete: (discipline: string) => void;
@@ -129,8 +146,13 @@ interface DisciplineCardProps {
  * One unified discipline card.
  *
  * Phase derivation:
- *   "drill" — any active mission has an incomplete item.
- *   "spar"  — all items cleared (or no missions); show sparring rows.
+ *   "generating" — session logged but first drills not yet produced; wizard loader.
+ *   "drill"      — any active mission has an incomplete item.
+ *   "graduating" — drills cleared, sparring scenarios being generated; wizard loader.
+ *   "spar"       — sparring assignments ready; show sparring rows.
+ *
+ * Celebrations (unlock + cycle-complete) are rendered at the MasterySpine root,
+ * not here, so they survive phase transitions without unmounting.
  *
  * Minimise/expand: toggles the card body. Persisted to
  *   `wcw_mastery_min_${discipline}` (default expanded).
@@ -148,52 +170,13 @@ function DisciplineCard({
   const token = disciplineToken(discipline);
   const label = disciplineLabel(discipline);
 
-  // Graduation celebration state: fires once when allMissionsComplete arrives.
-  const [unlockOpen, setUnlockOpen] = useState(false);
-  const [unlockXp, setUnlockXp] = useState(0);
-
-  const handleAllMissionsComplete = (_discipline: string, xp: number) => {
-    setUnlockXp(xp);
-    setUnlockOpen(true);
-    onAllMissionsComplete(xp);
+  const handleAllMissionsComplete = (disc: string, xp: number) => {
+    onAllMissionsComplete(disc, xp);
   };
-
-  // Fire haptic + auto-dismiss for the graduation celebration.
-  useEffect(() => {
-    if (!unlockOpen) return;
-    void triggerHapticSuccess();
-    const t = setTimeout(
-      () => setUnlockOpen(false),
-      reducedMotion ? 1600 : 2800,
-    );
-    return () => clearTimeout(t);
-  }, [unlockOpen, reducedMotion]);
-
-  // Cycle-complete celebration state: fires once when the final mastered land
-  // for this discipline arrives. Guards against double-fire with cycleOpenRef.
-  const [cycleOpen, setCycleOpen] = useState(false);
-  const cycleOpenRef = useMemo(() => ({ current: false }), []);
 
   const handleCycleComplete = (disc: string) => {
-    if (cycleOpenRef.current) return; // double-fire guard
-    cycleOpenRef.current = true;
-    setCycleOpen(true);
     onCycleComplete(disc);
   };
-
-  // Haptic + auto-dismiss for the cycle-complete celebration.
-  useEffect(() => {
-    if (!cycleOpen) return;
-    void triggerHapticSuccess();
-    const t = setTimeout(
-      () => {
-        setCycleOpen(false);
-        cycleOpenRef.current = false;
-      },
-      reducedMotion ? 1600 : 3200,
-    );
-    return () => clearTimeout(t);
-  }, [cycleOpen, reducedMotion, cycleOpenRef]);
 
   // Minimise/expand with localStorage persistence (default: expanded).
   const minKey = `wcw_mastery_min_${discipline}`;
@@ -221,9 +204,12 @@ function DisciplineCard({
   // Phase: use the server-derived value from getMasteryFlow.
   // Treat "idle" as "spar" for display purposes (defensive fallback — "idle"
   // entries are normally excluded from results but may appear in edge cases).
+  // Note: "graduating" and "generating" are handled by the early-return below;
+  // this cast is only reached for "drill" | "spar" | "idle".
   const phase: "drill" | "spar" = serverPhase === "drill" ? "drill" : "spar";
 
   // Remaining drill items count (used by SealedStage).
+  // All useMemo/useState hooks MUST be declared before any early-return.
   const remainingDrills = useMemo(() => {
     return missions.reduce((acc, m) => {
       return acc + m.items.filter((item) => !item.completed).length;
@@ -244,8 +230,20 @@ function DisciplineCard({
     Id<"training_missions"> | null
   >(firstMissionId);
 
+  // Wizard-loading phases: render the Aurora overlay, no normal card body.
+  // This early-return is placed AFTER all hooks to satisfy the Rules of Hooks.
+  if (serverPhase === "graduating" || serverPhase === "generating") {
+    const isGraduating = serverPhase === "graduating";
+    return (
+      <ProtocolGeneratingOverlay
+        label={isGraduating ? "Forging your sparring scenarios" : "Building your first drills"}
+        steps={isGraduating ? GRADUATING_STEPS : GENERATING_STEPS}
+        footnote={LOADING_FOOTNOTE}
+      />
+    );
+  }
+
   return (
-    <>
     <div className="relative w-full rounded-2xl card-surface border border-primary/20 overflow-hidden">
       {/* Aurora wash + motes layer (z-index 0, below content) */}
       <AuroraBackground accentToken={token} reducedMotion={reducedMotion} />
@@ -311,21 +309,27 @@ function DisciplineCard({
           {/* Stage indicator */}
           <StageIndicator phase={phase} accentToken={token} />
 
-          {/* Stage 1: Mission cards */}
+          {/* Stage 1: Mission cards — entrance animation when first appearing */}
           {missions.length > 0 && (
             <div className="px-3 pb-3 space-y-2">
-              {missions.map((mission) => {
+              {missions.map((mission, idx) => {
                 const isOpen = mission._id === expandedMissionId;
                 return (
-                  <MissionCard
+                  <motion.div
                     key={mission._id}
-                    mission={mission}
-                    expanded={isOpen}
-                    onToggle={() =>
-                      setExpandedMissionId(isOpen ? null : mission._id)
-                    }
-                    onAllMissionsComplete={handleAllMissionsComplete}
-                  />
+                    initial={reducedMotion ? false : { opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25, delay: reducedMotion ? 0 : idx * 0.06 }}
+                  >
+                    <MissionCard
+                      mission={mission}
+                      expanded={isOpen}
+                      onToggle={() =>
+                        setExpandedMissionId(isOpen ? null : mission._id)
+                      }
+                      onAllMissionsComplete={handleAllMissionsComplete}
+                    />
+                  </motion.div>
                 );
               })}
             </div>
@@ -342,13 +346,19 @@ function DisciplineCard({
                 </p>
               ) : (
                 <div className="space-y-1.5">
-                  {assignments.map((row) => (
-                    <SparringAssignmentRow
+                  {assignments.map((row, idx) => (
+                    <motion.div
                       key={row._id}
-                      assignment={row}
-                      token={token}
-                      onCycleComplete={handleCycleComplete}
-                    />
+                      initial={reducedMotion ? false : { opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.25, delay: reducedMotion ? 0 : idx * 0.05 }}
+                    >
+                      <SparringAssignmentRow
+                        assignment={row}
+                        token={token}
+                        onCycleComplete={handleCycleComplete}
+                      />
+                    </motion.div>
                   ))}
                 </div>
               )}
@@ -357,51 +367,6 @@ function DisciplineCard({
         </div>
       )}
     </div>
-
-    {/* Graduation celebration: fires once when all drills for this discipline
-        are cleared. Tap or auto-dismiss; sparring reveals on next query tick. */}
-    <AnimatePresence>
-      {unlockOpen && (
-        <button
-          type="button"
-          onClick={() => setUnlockOpen(false)}
-          aria-label="Dismiss"
-          className="fixed inset-0 z-[100] cursor-default"
-        >
-          <CompleteCelebration
-            prefersReduced={reducedMotion}
-            accentToken={token}
-            xp={unlockXp}
-            eyebrow="Drills cleared"
-            title="Sparring unlocked"
-            subtitle={`${label} sparring assignments are ready. Land the techniques live.`}
-          />
-        </button>
-      )}
-    </AnimatePresence>
-
-    {/* Cycle-complete celebration: fires once when the final graduated
-        assignment for this discipline is mastered. Awards +50 XP bonus. */}
-    <AnimatePresence>
-      {cycleOpen && (
-        <button
-          type="button"
-          onClick={() => { setCycleOpen(false); cycleOpenRef.current = false; }}
-          aria-label="Dismiss"
-          className="fixed inset-0 z-[100] cursor-default"
-        >
-          <CompleteCelebration
-            prefersReduced={reducedMotion}
-            accentToken={token}
-            xp={CYCLE_COMPLETE_XP}
-            eyebrow="Cycle complete"
-            title="Discipline mastered"
-            subtitle={`You have mastered every technique in your ${label} sparring cycle.`}
-          />
-        </button>
-      )}
-    </AnimatePresence>
-    </>
   );
 }
 
@@ -413,11 +378,11 @@ function DisciplineCard({
  * Replaces the two separate widgets on the Camp page with one per-discipline
  * card that flows the user from drilling through to live sparring.
  *
- * Phase 1: reuses existing queries; no backend changes.
- * Later tasks: mastered shelf + graduation celebrations (leave seam here).
- *
  * Single Pro wall: if isPro is false, render ONE LockedMissionCard for the
  * whole widget. No duplicate upsells.
+ *
+ * Celebrations (unlock + cycle-complete) are owned HERE at the root so they
+ * are never unmounted mid-animation when the discipline card transitions phases.
  *
  * Props: `userId` — the Convex user Id.
  */
@@ -425,24 +390,57 @@ export function MasterySpine(_props: MasterySpineProps) {
   const reducedMotion = useReducedMotion();
 
   // ── Subscriptions ─────────────────────────────────────────────────────────
-  // getMissionFeatureStatus: Pro wall gate (kept separate — free users see it
-  //   before any data loads).
-  // getMasteryFlow: unified per-discipline missions + assignments + phase.
-  // getMasteredTechniques: the mastered shelf (kept as its own subscription
-  //   so MasteredShelf can remain a self-contained component).
   const feature = useQuery(api.training_missions.getMissionFeatureStatus);
   const flow = useQuery(api.mastery_spine.getMasteryFlow) as
     | MasteryFlowEntry[]
     | undefined;
 
+  // ── Root-level celebration state ──────────────────────────────────────────
+  // Hoisted out of DisciplineCard so overlays survive phase transitions and
+  // discipline-list mutations without unmounting mid-animation.
+  const [celebration, setCelebration] = useState<{
+    kind: "unlock" | "cycle";
+    discipline: string;
+    xp: number;
+  } | null>(null);
+
+  // Double-fire guard: stored in a ref-like object via useMemo so it persists
+  // across renders without causing re-renders itself.
+  const cycleFireGuard = useMemo(() => new Set<string>(), []);
+
+  // Haptic + auto-dismiss for whichever celebration is active.
+  useEffect(() => {
+    if (!celebration) return;
+    void triggerHapticSuccess();
+    const ms =
+      celebration.kind === "cycle"
+        ? reducedMotion ? 1600 : 3200
+        : reducedMotion ? 1600 : 2800;
+    const t = setTimeout(() => {
+      if (celebration.kind === "cycle") {
+        cycleFireGuard.delete(celebration.discipline);
+      }
+      setCelebration(null);
+    }, ms);
+    return () => clearTimeout(t);
+  }, [celebration, reducedMotion, cycleFireGuard]);
+
+  const handleAllMissionsComplete = (discipline: string, xp: number) => {
+    setCelebration({ kind: "unlock", discipline, xp });
+  };
+
+  const handleCycleComplete = (discipline: string) => {
+    if (cycleFireGuard.has(discipline)) return; // double-fire guard
+    cycleFireGuard.add(discipline);
+    setCelebration({ kind: "cycle", discipline, xp: CYCLE_COMPLETE_XP });
+  };
+
   // All hooks must run unconditionally — guards come after.
 
   // ── Guards (after all hooks) ──────────────────────────────────────────────
 
-  // Wait for queries to resolve before rendering.
   if (feature === undefined || flow === undefined) return null;
 
-  // Single Pro wall for the entire widget.
   if (!feature.isPro) return <LockedMissionCard />;
 
   // Empty state: no disciplines with missions or assignments.
@@ -459,7 +457,7 @@ export function MasterySpine(_props: MasterySpineProps) {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-body-sm font-semibold text-foreground leading-tight">
-              Mastery Spine
+              Drill & Spar
             </p>
             <p className="text-note text-muted-foreground leading-snug mt-0.5">
               Log a session with notes. Your first mission will appear here and guide you through drilling into live sparring.
@@ -469,6 +467,14 @@ export function MasterySpine(_props: MasterySpineProps) {
       </div>
     );
   }
+
+  // Derive celebration accent token.
+  const celebrationToken = celebration
+    ? disciplineToken(celebration.discipline)
+    : undefined;
+  const celebrationLabel = celebration
+    ? disciplineLabel(celebration.discipline)
+    : "";
 
   return (
     <>
@@ -484,14 +490,53 @@ export function MasterySpine(_props: MasterySpineProps) {
             assignments={entry.assignments as SparringAssignment[]}
             serverPhase={entry.phase}
             reducedMotion={reducedMotion}
-            onAllMissionsComplete={() => {/* celebration owned by DisciplineCard */}}
-            onCycleComplete={() => {/* cycle-complete celebration owned by DisciplineCard */}}
+            onAllMissionsComplete={handleAllMissionsComplete}
+            onCycleComplete={handleCycleComplete}
           />
         ))}
       </div>
 
       {/* Phase 3: MasteredShelf — horizontal embla strip of mastered techniques. */}
       <MasteredShelf />
+
+      {/* ── Root-level celebrations (hoisted from DisciplineCard) ───────────
+          Rendered here so they survive discipline phase transitions / list
+          mutations without unmounting mid-animation. One overlay at a time. */}
+      <AnimatePresence>
+        {celebration && (
+          <button
+            type="button"
+            onClick={() => {
+              if (celebration.kind === "cycle") {
+                cycleFireGuard.delete(celebration.discipline);
+              }
+              setCelebration(null);
+            }}
+            aria-label="Dismiss"
+            className="fixed inset-0 z-[100] cursor-default"
+          >
+            {celebration.kind === "unlock" ? (
+              <CompleteCelebration
+                prefersReduced={reducedMotion}
+                accentToken={celebrationToken}
+                xp={celebration.xp}
+                eyebrow="Drills cleared"
+                title="Sparring unlocked"
+                subtitle={`${celebrationLabel} sparring assignments are ready. Land the techniques live.`}
+              />
+            ) : (
+              <CompleteCelebration
+                prefersReduced={reducedMotion}
+                accentToken={celebrationToken}
+                xp={CYCLE_COMPLETE_XP}
+                eyebrow="Cycle complete"
+                title="Discipline mastered"
+                subtitle={`You have mastered every technique in your ${celebrationLabel} sparring cycle.`}
+              />
+            )}
+          </button>
+        )}
+      </AnimatePresence>
     </>
   );
 }
