@@ -1040,6 +1040,26 @@ export default defineSchema({
     .index("by_user_mastered", ["userId", "masteredAt"]),
 
   // ────────────────────────────────────────────────────────────────────
+  // MASTERY GENERATION JOBS
+  // ────────────────────────────────────────────────────────────────────
+  //
+  // Ephemeral, reactive markers for in-flight mastery-spine generation work.
+  // A row exists ONLY while genuine generation is happening (drills extraction
+  // or sparring graduation), so the UI can show a "generating…" card. Rows are
+  // created by `startGenerationJob` and removed by `endGenerationJob` (called
+  // from a `finally` in the owning action). The `getGenerationStatus` query
+  // skips rows older than 3 minutes so a crashed generation never makes the
+  // loader hang forever.
+  mastery_generation_jobs: defineTable({
+    userId: v.id("users"),
+    discipline: v.string(),
+    kind: v.union(v.literal("drills"), v.literal("sparring")),
+    startedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_discipline_kind", ["userId", "discipline", "kind"]),
+
+  // ────────────────────────────────────────────────────────────────────
   // SKILL TREE
   // ────────────────────────────────────────────────────────────────────
 

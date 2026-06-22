@@ -23,20 +23,24 @@ interface SealedStageProps {
  */
 export function SealedStage({ accentToken, remaining }: SealedStageProps) {
   const reducedMotion = useReducedMotion();
+  // Blue theme: the locked panel uses the app's primary accent for the wash,
+  // glow and border rather than the discipline tint. `accentToken` is retained
+  // in the props signature for callers but is intentionally not used here.
+  void accentToken;
 
-  const accentMuted = `hsl(var(${accentToken}) / 0.15)`;
+  const washTint = "hsl(var(--primary) / 0.12)";
 
   return (
     <div
       className="mx-3 mb-[14px] mt-1 rounded-[14px] border px-4 py-5 text-center"
       style={{
         borderStyle: "dashed",
-        borderColor: "rgba(255,255,255,0.10)",
-        background: accentMuted,
+        borderColor: "hsl(var(--primary) / 0.30)",
+        background: washTint,
       }}
       aria-label="Sparring sealed"
     >
-      {/* Radial accent glow behind icon — iOS-safe (radial-gradient, not box-shadow).
+      {/* Radial blue glow behind icon — iOS-safe (radial-gradient, not box-shadow).
           Omitted under reduced-motion to avoid any decorative visual pulse. */}
       <div
         className="relative mx-auto mb-[9px] flex h-[30px] w-[30px] items-center justify-center"
@@ -46,7 +50,8 @@ export function SealedStage({ accentToken, remaining }: SealedStageProps) {
           <div
             className="absolute inset-0 rounded-full"
             style={{
-              background: `radial-gradient(circle at 50% 50%, hsl(var(${accentToken}) / 0.18), transparent 70%)`,
+              background:
+                "radial-gradient(circle at 50% 50%, hsl(var(--primary) / 0.22), transparent 70%)",
             }}
           />
         )}
@@ -54,7 +59,7 @@ export function SealedStage({ accentToken, remaining }: SealedStageProps) {
           size={20}
           strokeWidth={2}
           className="relative"
-          style={{ color: "hsl(var(--muted-foreground) / 0.6)" }}
+          style={{ color: "hsl(var(--primary) / 0.85)" }}
         />
       </div>
 

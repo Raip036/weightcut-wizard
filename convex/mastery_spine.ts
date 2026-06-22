@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireUserId } from "./lib/auth";
@@ -263,5 +263,109 @@ export const getMasteryFlow = query({
     }
 
     return result;
+  },
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Generation job markers (reactive "generating…" signal)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** A generation job older than this is treated as stale (crashed/abandoned)
+ *  and ignored by `getGenerationStatus`, so the loader never hangs forever. */
+const STALE_MS = 3 * 60 * 1000;
+
+const generationKind = v.union(v.literal("drills"), v.literal("sparring"));
+
+/**
+ * Mark a mastery-generation job as in-flight for (userId, discipline, kind).
+ *
+ * Upsert semantics: if a job for the triple already exists, just refresh its
+ * `startedAt` (so a re-run resets the stale clock); otherwise insert a fresh
+ * row. Called from the generation actions via the scheduler at the start of
+ * genuine work — never on an early idempotency-guard return.
+ */
+export const startGenerationJob = internalMutation({
+  args: {
+    userId: v.id("users"),
+    discipline: v.string(),
+    kind: generationKind,
+  },
+  handler: async (ctx, { userId, discipline, kind }): Promise<null> => {
+    const existing = await ctx.db
+      .query("mastery_generation_jobs")
+      .withIndex("by_user_discipline_kind", (q) =>
+        q.eq("userId", userId).eq("discipline", discipline).eq("kind", kind),
+      )
+      .take(1);
+
+    const now = Date.now();
+    if (existing.length > 0) {
+      await ctx.db.patch(existing[0]._id, { startedAt: now });
+    } else {
+      await ctx.db.insert("mastery_generation_jobs", {
+        userId,
+        discipline,
+        kind,
+        startedAt: now,
+      });
+    }
+    return null;
+  },
+});
+
+/**
+ * Clear the in-flight marker for (userId, discipline, kind). Deletes every
+ * matching row (there should be at most one, but we sweep defensively).
+ * Called from a `finally` in the owning action so the marker is always cleared
+ * even when generation throws.
+ */
+export const endGenerationJob = internalMutation({
+  args: {
+    userId: v.id("users"),
+    discipline: v.string(),
+    kind: generationKind,
+  },
+  handler: async (ctx, { userId, discipline, kind }): Promise<null> => {
+    const rows = await ctx.db
+      .query("mastery_generation_jobs")
+      .withIndex("by_user_discipline_kind", (q) =>
+        q.eq("userId", userId).eq("discipline", discipline).eq("kind", kind),
+      )
+      .take(100);
+
+    for (const row of rows) {
+      await ctx.db.delete(row._id);
+    }
+    return null;
+  },
+});
+
+/**
+ * Reactive signal for the UI: which (discipline, kind) generations are
+ * currently in-flight for the authed user. Returns `[]` when unauthed.
+ *
+ * Robustness: jobs whose `startedAt` is older than STALE_MS are skipped so a
+ * crashed generation (that never reached its `finally`) can't make a loader
+ * hang forever.
+ */
+export const getGenerationStatus = query({
+  args: {},
+  handler: async (
+    ctx,
+  ): Promise<Array<{ discipline: string; kind: "drills" | "sparring" }>> => {
+    const userId = await requireUserId(ctx).catch(
+      () => null as unknown as Id<"users">,
+    );
+    if (!userId) return [];
+
+    const rows = await ctx.db
+      .query("mastery_generation_jobs")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .take(100);
+
+    const cutoff = Date.now() - STALE_MS;
+    return rows
+      .filter((r) => r.startedAt >= cutoff)
+      .map((r) => ({ discipline: r.discipline, kind: r.kind }));
   },
 });

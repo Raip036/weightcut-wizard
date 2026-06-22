@@ -15,8 +15,13 @@ import type { SparringAssignment } from "@/components/sparring/SparringAssignmen
 import { StageIndicator } from "./StageIndicator";
 import { SealedStage } from "./SealedStage";
 import { MasteredShelf } from "./MasteredShelf";
+import { MasteryCutscene } from "./MasteryCutscene";
+import { MasteryGeneratingCard } from "./MasteryGeneratingCard";
 import { CompleteCelebration } from "@/components/motion";
 import type { MasteryFlowEntry } from "@/../convex/mastery_spine";
+
+/** One in-flight generation job surfaced by `getGenerationStatus`. */
+type GenerationJob = { discipline: string; kind: "drills" | "sparring" };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -31,14 +36,13 @@ interface MasterySpineProps {
 // ─── Aurora background (GPU-cheap, iOS-safe) ─────────────────────────────────
 
 /**
- * Premium aurora wash + drifting motes layer.
+ * Card background: an animated BLUE "Pro Gate wall" wash + a slow diagonal
+ * shimmer sweep. Discipline colour is intentionally NOT used here — the
+ * martial-art accent lives on the card's text, pills and rings instead, so
+ * every card shares the same premium blue surface.
  *
- * Aurora: a radial-gradient `::before`-equivalent built as an `aria-hidden`
- * `<div>` with a CSS animation. iOS-safe: radial-gradient only, no box-shadow
- * or backdrop-filter.
- *
- * Motes: 7 slowly-rising blue dots. Suppressed when the user prefers reduced
- * motion OR the app is running natively (further perf guard for device).
+ * iOS-safe: radial-gradient + transform only, no box-shadow/backdrop-filter.
+ * Shimmer + breathe are suppressed under reduced-motion or on native.
  */
 function AuroraBackground({
   accentToken,
@@ -47,61 +51,43 @@ function AuroraBackground({
   accentToken: string;
   reducedMotion: boolean | null;
 }) {
+  void accentToken; // background is always blue; accent is applied to content
   const suppress = reducedMotion || isNativePlatform;
 
   return (
     <>
-      {/* Aurora wash — always rendered but animation respects reduced-motion via CSS */}
+      {/* Soft blue radial wash, gently breathing. */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 rounded-[inherit]"
         style={{
-          background: `linear-gradient(180deg,
-            transparent 0%,
-            hsl(var(${accentToken}) / 0.04) 50%,
-            hsl(var(${accentToken}) / 0.10) 80%,
-            hsl(var(${accentToken}) / 0.15) 100%)`,
+          background: `radial-gradient(130% 90% at 50% 0%,
+            hsl(var(--primary) / 0.16) 0%,
+            hsl(var(--primary) / 0.07) 42%,
+            transparent 72%)`,
           animation: suppress ? undefined : "wcw-wash-breathe 8s ease-in-out infinite",
         }}
       />
-      {/* Drifting motes — omitted on native + reduced-motion */}
+      {/* Diagonal shimmer sweep — the Pro-gate-wall signature. */}
       {!suppress && (
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 overflow-hidden"
+          className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]"
         >
-          {MOTE_OFFSETS.map((m, i) => (
-            <span
-              key={i}
-              className="absolute bottom-[-6px] w-[4px] h-[4px] rounded-full"
-              style={{
-                left: m.l,
-                background: "rgba(147,197,253,0.8)",
-                // On native we never arrive here (guarded above), so radial-glow
-                // is only applied on web where it is safe.
-                boxShadow: "0 0 7px rgba(116,185,237,0.75)",
-                opacity: 0,
-                animation: `wcw-mote-rise ${m.d}s ease-out infinite`,
-                animationDelay: `${m.delay}s`,
-              }}
-            />
-          ))}
+          <span
+            className="absolute inset-y-0 -left-1/2 w-1/3"
+            style={{
+              transform: "skewX(-18deg)",
+              background:
+                "linear-gradient(90deg, transparent, hsl(var(--primary) / 0.14), transparent)",
+              animation: "wcw-card-shimmer 5.2s ease-in-out infinite",
+            }}
+          />
         </div>
       )}
     </>
   );
 }
-
-/** Mote positions/timings — same values as the mockup. */
-const MOTE_OFFSETS = [
-  { l: "8%",  d: 7.5, delay: 0   },
-  { l: "22%", d: 9,   delay: 1.6 },
-  { l: "37%", d: 8,   delay: 0.7 },
-  { l: "52%", d: 9.4, delay: 2.3 },
-  { l: "66%", d: 8.3, delay: 1.1 },
-  { l: "80%", d: 7.8, delay: 0.4 },
-  { l: "92%", d: 9.1, delay: 2   },
-];
 
 /** XP bonus awarded when a whole discipline cycle is completed. */
 const CYCLE_COMPLETE_XP = 50;
@@ -121,8 +107,12 @@ interface DisciplineCardProps {
    *  is ticked, clearing all missions. Receives the XP for the celebration. */
   onAllMissionsComplete: (xp: number) => void;
   /** Called by a child SparringAssignmentRow when the final un-mastered
-   *  graduated assignment for this discipline is mastered (cycleComplete). */
-  onCycleComplete: (discipline: string) => void;
+   *  graduated assignment for this discipline is mastered (cycleComplete).
+   *  The parent owns the full-screen congrats cutscene + XP. */
+  onCycleComplete: (discipline: string, xp: number) => void;
+  /** When this discipline is mid-generation, show the wizard loader card
+   *  instead of the empty sparring state. */
+  generating: "drills" | "sparring" | null;
 }
 
 /**
@@ -144,6 +134,7 @@ function DisciplineCard({
   reducedMotion,
   onAllMissionsComplete,
   onCycleComplete,
+  generating,
 }: DisciplineCardProps) {
   const token = disciplineToken(discipline);
   const label = disciplineLabel(discipline);
@@ -169,31 +160,16 @@ function DisciplineCard({
     return () => clearTimeout(t);
   }, [unlockOpen, reducedMotion]);
 
-  // Cycle-complete celebration state: fires once when the final mastered land
-  // for this discipline arrives. Guards against double-fire with cycleOpenRef.
-  const [cycleOpen, setCycleOpen] = useState(false);
-  const cycleOpenRef = useMemo(() => ({ current: false }), []);
+  // Cycle complete: the final graduated assignment for this discipline is
+  // mastered. We hand off to the PARENT, which owns the full-screen congrats
+  // cutscene + XP and the per-discipline trophy reveal. Double-fire guarded.
+  const cycleFiredRef = useMemo(() => ({ current: false }), []);
 
   const handleCycleComplete = (disc: string) => {
-    if (cycleOpenRef.current) return; // double-fire guard
-    cycleOpenRef.current = true;
-    setCycleOpen(true);
-    onCycleComplete(disc);
+    if (cycleFiredRef.current) return; // double-fire guard
+    cycleFiredRef.current = true;
+    onCycleComplete(disc, CYCLE_COMPLETE_XP);
   };
-
-  // Haptic + auto-dismiss for the cycle-complete celebration.
-  useEffect(() => {
-    if (!cycleOpen) return;
-    void triggerHapticSuccess();
-    const t = setTimeout(
-      () => {
-        setCycleOpen(false);
-        cycleOpenRef.current = false;
-      },
-      reducedMotion ? 1600 : 3200,
-    );
-    return () => clearTimeout(t);
-  }, [cycleOpen, reducedMotion, cycleOpenRef]);
 
   // Minimise/expand with localStorage persistence (default: expanded).
   const minKey = `wcw_mastery_min_${discipline}`;
@@ -337,9 +313,13 @@ function DisciplineCard({
           ) : (
             <div className="px-3 pb-4">
               {assignments.length === 0 ? (
-                <p className="text-[12px] text-muted-foreground text-center py-4">
-                  No sparring assignments yet for {label}. Log more sessions to build your list.
-                </p>
+                generating === "sparring" ? (
+                  <MasteryGeneratingCard kind="sparring" accentToken={token} />
+                ) : (
+                  <p className="text-[12px] text-muted-foreground text-center py-4">
+                    No sparring assignments yet for {label}. Log more sessions to build your list.
+                  </p>
+                )
               ) : (
                 <div className="space-y-1.5">
                   {assignments.map((row) => (
@@ -379,28 +359,6 @@ function DisciplineCard({
         </button>
       )}
     </AnimatePresence>
-
-    {/* Cycle-complete celebration: fires once when the final graduated
-        assignment for this discipline is mastered. Awards +50 XP bonus. */}
-    <AnimatePresence>
-      {cycleOpen && (
-        <button
-          type="button"
-          onClick={() => { setCycleOpen(false); cycleOpenRef.current = false; }}
-          aria-label="Dismiss"
-          className="fixed inset-0 z-[100] cursor-default"
-        >
-          <CompleteCelebration
-            prefersReduced={reducedMotion}
-            accentToken={token}
-            xp={CYCLE_COMPLETE_XP}
-            eyebrow="Cycle complete"
-            title="Discipline mastered"
-            subtitle={`You have mastered every technique in your ${label} sparring cycle.`}
-          />
-        </button>
-      )}
-    </AnimatePresence>
     </>
   );
 }
@@ -428,12 +386,27 @@ export function MasterySpine(_props: MasterySpineProps) {
   // getMissionFeatureStatus: Pro wall gate (kept separate — free users see it
   //   before any data loads).
   // getMasteryFlow: unified per-discipline missions + assignments + phase.
-  // getMasteredTechniques: the mastered shelf (kept as its own subscription
-  //   so MasteredShelf can remain a self-contained component).
+  // getGenerationStatus: in-flight drill/sparring generation jobs (drives the
+  //   wizard loader cards).
+  // getMasteredTechniques: the mastered shelf (its own subscription inside
+  //   MasteredShelf so it stays self-contained).
   const feature = useQuery(api.training_missions.getMissionFeatureStatus);
   const flow = useQuery(api.mastery_spine.getMasteryFlow) as
     | MasteryFlowEntry[]
     | undefined;
+  const generationRaw = useQuery(api.mastery_spine.getGenerationStatus) as
+    | GenerationJob[]
+    | undefined;
+
+  // Full-screen congrats cutscene for a discipline that just finished its
+  // whole cycle (drills + sparring). The discipline stays "hidden" on the
+  // trophy shelf until the cutscene is dismissed, so the reveal feels earned.
+  const [cutscene, setCutscene] = useState<{ discipline: string; xp: number } | null>(null);
+
+  const handleCycleComplete = (discipline: string, xp: number) => {
+    void triggerHapticSuccess();
+    setCutscene({ discipline, xp });
+  };
 
   // All hooks must run unconditionally — guards come after.
 
@@ -445,8 +418,28 @@ export function MasterySpine(_props: MasterySpineProps) {
   // Single Pro wall for the entire widget.
   if (!feature.isPro) return <LockedMissionCard />;
 
-  // Empty state: no disciplines with missions or assignments.
-  if (flow.length === 0) {
+  const generation = generationRaw ?? [];
+  const flowDisciplines = new Set(flow.map((e) => e.discipline.toLowerCase()));
+
+  // Disciplines generating their FIRST drills (no card in the flow yet) get a
+  // standalone loader card at the top. Sparring-generation is shown inside the
+  // owning discipline card instead.
+  const generatingDrills = generation.filter(
+    (g) => g.kind === "drills" && !flowDisciplines.has(g.discipline.toLowerCase()),
+  );
+  const sparringGenByDiscipline = new Set(
+    generation.filter((g) => g.kind === "sparring").map((g) => g.discipline.toLowerCase()),
+  );
+
+  // Trophies stay hidden for any discipline still in the active flow (cycle not
+  // yet complete) and for the discipline whose cutscene is currently playing.
+  const hiddenDisciplines = [
+    ...flow.map((e) => e.discipline),
+    ...(cutscene ? [cutscene.discipline] : []),
+  ];
+
+  // Nothing in flight and nothing in the flow → first-run empty state.
+  if (flow.length === 0 && generatingDrills.length === 0) {
     return (
       <div className="relative w-full rounded-2xl card-surface border border-primary/20 overflow-hidden p-4">
         <div
@@ -459,10 +452,10 @@ export function MasterySpine(_props: MasterySpineProps) {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-body-sm font-semibold text-foreground leading-tight">
-              Mastery Spine
+              Technique Mastery
             </p>
             <p className="text-note text-muted-foreground leading-snug mt-0.5">
-              Log a session with notes. Your first mission will appear here and guide you through drilling into live sparring.
+              Log a session with notes. Your first drills will appear here and guide you through drilling into live sparring.
             </p>
           </div>
         </div>
@@ -476,6 +469,15 @@ export function MasterySpine(_props: MasterySpineProps) {
       <style>{KEYFRAMES}</style>
 
       <div className="space-y-3">
+        {/* Loader cards for disciplines generating their first drills. */}
+        {generatingDrills.map((g) => (
+          <MasteryGeneratingCard
+            key={`gen-${g.discipline}`}
+            kind="drills"
+            accentToken={disciplineToken(g.discipline)}
+          />
+        ))}
+
         {flow.map((entry) => (
           <DisciplineCard
             key={entry.discipline}
@@ -484,14 +486,34 @@ export function MasterySpine(_props: MasterySpineProps) {
             assignments={entry.assignments as SparringAssignment[]}
             serverPhase={entry.phase}
             reducedMotion={reducedMotion}
-            onAllMissionsComplete={() => {/* celebration owned by DisciplineCard */}}
-            onCycleComplete={() => {/* cycle-complete celebration owned by DisciplineCard */}}
+            onAllMissionsComplete={() => {/* drills-cleared celebration owned by DisciplineCard */}}
+            onCycleComplete={handleCycleComplete}
+            generating={
+              sparringGenByDiscipline.has(entry.discipline.toLowerCase())
+                ? "sparring"
+                : null
+            }
           />
         ))}
       </div>
 
-      {/* Phase 3: MasteredShelf — horizontal embla strip of mastered techniques. */}
-      <MasteredShelf />
+      {/* Mastered shelf — a discipline's trophies reveal only once it leaves
+          the active flow AND its congrats cutscene has been dismissed. */}
+      <MasteredShelf hiddenDisciplines={hiddenDisciplines} />
+
+      {/* Full-screen congrats cutscene + XP, fired on whole-cycle completion. */}
+      <MasteryCutscene
+        open={!!cutscene}
+        accentToken={cutscene ? disciplineToken(cutscene.discipline) : "--coach-default"}
+        xp={cutscene?.xp ?? 0}
+        disciplineLabel={cutscene ? disciplineLabel(cutscene.discipline) : ""}
+        techniqueCount={
+          cutscene
+            ? (flow.find((e) => e.discipline === cutscene.discipline)?.assignments.length ?? 3)
+            : 0
+        }
+        onDismiss={() => setCutscene(null)}
+      />
     </>
   );
 }
@@ -513,11 +535,11 @@ const KEYFRAMES = `
     0%, 100% { transform: scale(1); opacity: 0.85; }
     50%       { transform: scale(1.06); opacity: 1; }
   }
-  @keyframes wcw-mote-rise {
-    0%   { opacity: 0; transform: translateY(0); }
-    14%  { opacity: 0.75; }
-    86%  { opacity: 0.75; }
-    100% { opacity: 0; transform: translateY(-240px); }
+  @keyframes wcw-card-shimmer {
+    0%   { transform: translateX(0) skewX(-18deg); opacity: 0; }
+    12%  { opacity: 1; }
+    60%  { opacity: 1; }
+    100% { transform: translateX(420%) skewX(-18deg); opacity: 0; }
   }
   @media (prefers-reduced-motion: reduce) {
     .wcw-mastery-aurora { animation: none !important; }

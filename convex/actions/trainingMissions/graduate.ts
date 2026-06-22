@@ -88,6 +88,15 @@ export const graduateCycleToSparring = internalAction({
     ctx,
     { userId, discipline, cycleId },
   ): Promise<{ graduated: number } | { skipped: string }> => {
+    // ── Generation-job marker (reactive "generating sparring" signal) ───────
+    // Mark in-flight at the start; cleared in `finally` so a crash/throw still
+    // removes the marker.
+    await ctx.runMutation(internal.mastery_spine.startGenerationJob, {
+      userId,
+      discipline,
+      kind: "sparring",
+    });
+    try {
     // ── Step 1: Load completed, not-yet-graduated missions ─────────────────
     const allCycleMissions = await ctx.runQuery(
       internal.training_missions.listCycleMissions,
@@ -222,5 +231,13 @@ export const graduateCycleToSparring = internalAction({
     }
 
     return { graduated };
+    } finally {
+      // Always clear the in-flight marker, even when graduation threw.
+      await ctx.runMutation(internal.mastery_spine.endGenerationJob, {
+        userId,
+        discipline,
+        kind: "sparring",
+      });
+    }
   },
 });

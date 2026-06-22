@@ -360,6 +360,17 @@ export const generateMissionIfReady = internalAction({
       `<user_input>${sanitizedNotes}</user_input>`,
     ].join("\n");
 
+    // ── Generation-job marker (reactive "generating drills" signal) ─────
+    // We only reach here after all idempotency guards (cycle_in_progress,
+    // no_new_notes) and the Pro gate have passed, so genuine generation is
+    // about to begin. Mark the job in-flight and clear it in `finally` so a
+    // crash/throw still removes the marker.
+    await ctx.runMutation(internal.mastery_spine.startGenerationJob, {
+      userId,
+      discipline: sport,
+      kind: "drills",
+    });
+    try {
     // ── Step 5: Extract ≤3 issues ───────────────────────────────────────
     const issues = await extractIssues({ notes: sanitizedNotes });
     // issues is always ≥1 (fallback guaranteed by extractIssues).
@@ -532,5 +543,13 @@ export const generateMissionIfReady = internalAction({
       );
     }
     return { skipped: "all_deduped" };
+    } finally {
+      // Always clear the in-flight marker, even when generation threw.
+      await ctx.runMutation(internal.mastery_spine.endGenerationJob, {
+        userId,
+        discipline: sport,
+        kind: "drills",
+      });
+    }
   },
 });
