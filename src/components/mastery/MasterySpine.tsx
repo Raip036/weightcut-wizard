@@ -14,6 +14,7 @@ import { SparringAssignmentRow } from "@/components/sparring/SparringAssignmentR
 import type { SparringAssignment } from "@/components/sparring/SparringAssignmentRow";
 import { StageIndicator } from "./StageIndicator";
 import { SealedStage } from "./SealedStage";
+import { MasteredShelf } from "./MasteredShelf";
 import { CompleteCelebration } from "@/components/motion";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -101,6 +102,9 @@ const MOTE_OFFSETS = [
   { l: "92%", d: 9.1, delay: 2   },
 ];
 
+/** XP bonus awarded when a whole discipline cycle is completed. */
+const CYCLE_COMPLETE_XP = 50;
+
 // ─── Per-discipline card ───────────────────────────────────────────────────────
 
 interface DisciplineCardProps {
@@ -111,6 +115,9 @@ interface DisciplineCardProps {
   /** Called by a child MissionCard when the last drill of this discipline
    *  is ticked, clearing all missions. Receives the XP for the celebration. */
   onAllMissionsComplete: (xp: number) => void;
+  /** Called by a child SparringAssignmentRow when the final un-mastered
+   *  graduated assignment for this discipline is mastered (cycleComplete). */
+  onCycleComplete: (discipline: string) => void;
 }
 
 /**
@@ -130,6 +137,7 @@ function DisciplineCard({
   assignments,
   reducedMotion,
   onAllMissionsComplete,
+  onCycleComplete,
 }: DisciplineCardProps) {
   const token = disciplineToken(discipline);
   const label = disciplineLabel(discipline);
@@ -154,6 +162,32 @@ function DisciplineCard({
     );
     return () => clearTimeout(t);
   }, [unlockOpen, reducedMotion]);
+
+  // Cycle-complete celebration state: fires once when the final mastered land
+  // for this discipline arrives. Guards against double-fire with cycleOpenRef.
+  const [cycleOpen, setCycleOpen] = useState(false);
+  const cycleOpenRef = useMemo(() => ({ current: false }), []);
+
+  const handleCycleComplete = (disc: string) => {
+    if (cycleOpenRef.current) return; // double-fire guard
+    cycleOpenRef.current = true;
+    setCycleOpen(true);
+    onCycleComplete(disc);
+  };
+
+  // Haptic + auto-dismiss for the cycle-complete celebration.
+  useEffect(() => {
+    if (!cycleOpen) return;
+    void triggerHapticSuccess();
+    const t = setTimeout(
+      () => {
+        setCycleOpen(false);
+        cycleOpenRef.current = false;
+      },
+      reducedMotion ? 1600 : 3200,
+    );
+    return () => clearTimeout(t);
+  }, [cycleOpen, reducedMotion, cycleOpenRef]);
 
   // Minimise/expand with localStorage persistence (default: expanded).
   const minKey = `wcw_mastery_min_${discipline}`;
@@ -310,6 +344,7 @@ function DisciplineCard({
                       key={row._id}
                       assignment={row}
                       token={token}
+                      onCycleComplete={handleCycleComplete}
                     />
                   ))}
                 </div>
@@ -337,6 +372,28 @@ function DisciplineCard({
             eyebrow="Drills cleared"
             title="Sparring unlocked"
             subtitle={`${label} sparring assignments are ready. Land the techniques live.`}
+          />
+        </button>
+      )}
+    </AnimatePresence>
+
+    {/* Cycle-complete celebration: fires once when the final graduated
+        assignment for this discipline is mastered. Awards +50 XP bonus. */}
+    <AnimatePresence>
+      {cycleOpen && (
+        <button
+          type="button"
+          onClick={() => { setCycleOpen(false); cycleOpenRef.current = false; }}
+          aria-label="Dismiss"
+          className="fixed inset-0 z-[100] cursor-default"
+        >
+          <CompleteCelebration
+            prefersReduced={reducedMotion}
+            accentToken={token}
+            xp={CYCLE_COMPLETE_XP}
+            eyebrow="Cycle complete"
+            title="Discipline mastered"
+            subtitle={`You have mastered every technique in your ${label} sparring cycle.`}
           />
         </button>
       )}
@@ -460,11 +517,13 @@ export function MasterySpine({ _userId }: MasterySpineProps) {
             assignments={assignmentsByDiscipline.get(discipline) ?? []}
             reducedMotion={reducedMotion}
             onAllMissionsComplete={() => {/* celebration owned by DisciplineCard */}}
+            onCycleComplete={() => {/* cycle-complete celebration owned by DisciplineCard */}}
           />
         ))}
       </div>
 
-      {/* TODO (Phase 3): MasteredShelf — seam left here intentionally. */}
+      {/* Phase 3: MasteredShelf — horizontal embla strip of mastered techniques. */}
+      <MasteredShelf />
     </>
   );
 }

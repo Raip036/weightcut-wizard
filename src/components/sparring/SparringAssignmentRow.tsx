@@ -38,6 +38,12 @@ interface SparringAssignmentRowProps {
   assignment: SparringAssignment;
   /** Discipline accent CSS custom-property name (e.g. `--coach-sparring`). */
   token: string;
+  /**
+   * Called when `markLanded` returns `cycleComplete: true` — the final
+   * un-mastered graduated assignment for this discipline was just mastered.
+   * Mirrors the `onAllMissionsComplete` callback pattern from MissionCard.
+   */
+  onCycleComplete?: (discipline: string) => void;
 }
 
 /** Number of filled pips shown in the confidence meter (0–5). */
@@ -60,6 +66,7 @@ const PIP_COUNT = 5;
 export function SparringAssignmentRow({
   assignment,
   token,
+  onCycleComplete,
 }: SparringAssignmentRowProps) {
   const reduced = useReducedMotion();
   const toggleAssignment = useMutation(api.sparring_plan.toggleAssignment);
@@ -116,6 +123,9 @@ export function SparringAssignmentRow({
       });
       if (result.mastered) {
         setMastering(true);
+      }
+      if (result.cycleComplete && onCycleComplete) {
+        onCycleComplete(assignment.discipline);
       }
     } catch (err) {
       // Revert optimistic update on failure.

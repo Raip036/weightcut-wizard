@@ -25,25 +25,36 @@ const LAND_XP = 15;
  * Record a single live-sparring landing for the given assignment.
  *
  * - Ownership-checked: throws Forbidden if the row belongs to another user.
+ * - No-op guard: if the row is already mastered, returns immediately without
+ *   incrementing or awarding XP (prevents double-XP on rapid taps).
  * - Increments `landedCount` by 1 and bumps `updatedAt`.
  * - Schedules +15 XP via `internal.user_discipline_xp.awardXp` (fire-and-forget,
  *   matching `toggleAssignment` pattern — a scheduler hiccup cannot block the tap).
  * - When the new `landedCount >= 3`, sets `masteredAt = Date.now()`.
  *   The row will drop from the active list on the next query tick.
+ * - Cycle-complete detection: when THIS land masters the final un-mastered
+ *   graduated assignment for (userId, discipline), schedules a +50 XP bonus
+ *   (reason: "cycle_complete") and returns `cycleComplete: true`.
  *
- * Returns `{ landedCount, mastered }`.
+ * Returns `{ landedCount, mastered, cycleComplete }`.
  */
 export const markLanded = mutation({
   args: { assignmentId: v.id("sparring_assignments") },
   handler: async (
     ctx,
     { assignmentId },
-  ): Promise<{ landedCount: number; mastered: boolean }> => {
+  ): Promise<{ landedCount: number; mastered: boolean; cycleComplete: boolean }> => {
     const userId = await requireUserId(ctx);
 
     const row = await ctx.db.get(assignmentId);
     if (!row) throw new Error("Assignment not found");
     if (row.userId !== userId) throw new Error("Forbidden");
+
+    // ── No-op guard: already mastered ───────────────────────────────────────
+    // Prevents landing past 3 and avoids double XP on rapid taps.
+    if (row.masteredAt != null) {
+      return { landedCount: row.landedCount ?? 0, mastered: true, cycleComplete: false };
+    }
 
     const now = Date.now();
     const nextLandedCount = (row.landedCount ?? 0) + 1;
@@ -67,7 +78,42 @@ export const markLanded = mutation({
       console.warn("mastery_spine: xp schedule failed", err);
     }
 
-    return { landedCount: nextLandedCount, mastered };
+    // ── Cycle-complete detection ─────────────────────────────────────────────
+    // Only check when THIS land just mastered the row.
+    let cycleComplete = false;
+    if (mastered) {
+      // Use the by_user_discipline index; narrow to graduated+non-mastered in JS
+      // (bounded .take avoids full-table scan — typical discipline has <20 rows).
+      const siblings = await ctx.db
+        .query("sparring_assignments")
+        .withIndex("by_user_discipline", (q) =>
+          q.eq("userId", userId).eq("discipline", row.discipline),
+        )
+        .take(100);
+
+      const remainingUnmastered = siblings.filter(
+        (s) =>
+          s.source === "graduated" &&
+          s.masteredAt == null &&
+          s._id !== assignmentId,
+      );
+
+      if (remainingUnmastered.length === 0) {
+        cycleComplete = true;
+        try {
+          await ctx.scheduler.runAfter(0, internal.user_discipline_xp.awardXp, {
+            userId,
+            sport: row.discipline,
+            amount: 50,
+            reason: "cycle_complete",
+          });
+        } catch (err) {
+          console.warn("mastery_spine: cycle_complete xp schedule failed", err);
+        }
+      }
+    }
+
+    return { landedCount: nextLandedCount, mastered, cycleComplete };
   },
 });
 
