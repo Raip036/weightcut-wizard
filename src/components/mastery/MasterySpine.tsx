@@ -17,11 +17,9 @@ import { SealedStage } from "./SealedStage";
 import { MasteredShelf } from "./MasteredShelf";
 import { MasteryCutscene } from "./MasteryCutscene";
 import { MasteryGeneratingCard } from "./MasteryGeneratingCard";
+import { useMinimumDisplay, type GenerationJob } from "./useMinimumDisplay";
 import { CompleteCelebration } from "@/components/motion";
 import type { MasteryFlowEntry } from "@/../convex/mastery_spine";
-
-/** One in-flight generation job surfaced by `getGenerationStatus`. */
-type GenerationJob = { discipline: string; kind: "drills" | "sparring" };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -307,19 +305,25 @@ function DisciplineCard({
             </div>
           )}
 
-          {/* Stage 2: Sealed while drilling, sparring rows when cleared */}
-          {phase === "drill" ? (
+          {/* Stage 2: during the drill→spar swap (sparring being generated and
+              no assignments landed yet) the wizard-aurora loader takes over the
+              Stage-2 region WITHIN the card bounds — this wins over both the
+              sealed-while-drilling state and the empty sparring state so the
+              animation always plays through the swap (min-display latched by
+              the parent). Otherwise: sealed while drilling, sparring rows once
+              cleared. */}
+          {generating === "sparring" && assignments.length === 0 ? (
+            <div className="px-3 pb-4">
+              <MasteryGeneratingCard kind="sparring" accentToken={token} />
+            </div>
+          ) : phase === "drill" ? (
             <SealedStage accentToken={token} remaining={remainingDrills} />
           ) : (
             <div className="px-3 pb-4">
               {assignments.length === 0 ? (
-                generating === "sparring" ? (
-                  <MasteryGeneratingCard kind="sparring" accentToken={token} />
-                ) : (
-                  <p className="text-[12px] text-muted-foreground text-center py-4">
-                    No sparring assignments yet for {label}. Log more sessions to build your list.
-                  </p>
-                )
+                <p className="text-[12px] text-muted-foreground text-center py-4">
+                  No sparring assignments yet for {label}. Log more sessions to build your list.
+                </p>
               ) : (
                 <div className="space-y-1.5">
                   {assignments.map((row) => (
@@ -398,6 +402,11 @@ export function MasterySpine(_props: MasterySpineProps) {
     | GenerationJob[]
     | undefined;
 
+  // Latch generating jobs so the wizard-aurora loader always plays for a brief
+  // minimum even when generation is instant/cached (see useMinimumDisplay).
+  const generationJobs = useMemo(() => generationRaw ?? [], [generationRaw]);
+  const heldGeneration = useMinimumDisplay(generationJobs);
+
   // Full-screen congrats cutscene for a discipline that just finished its
   // whole cycle (drills + sparring). The discipline stays "hidden" on the
   // trophy shelf until the cutscene is dismissed, so the reveal feels earned.
@@ -418,17 +427,23 @@ export function MasterySpine(_props: MasterySpineProps) {
   // Single Pro wall for the entire widget.
   if (!feature.isPro) return <LockedMissionCard />;
 
-  const generation = generationRaw ?? [];
   const flowDisciplines = new Set(flow.map((e) => e.discipline.toLowerCase()));
 
   // Disciplines generating their FIRST drills (no card in the flow yet) get a
-  // standalone loader card at the top. Sparring-generation is shown inside the
-  // owning discipline card instead.
-  const generatingDrills = generation.filter(
-    (g) => g.kind === "drills" && !flowDisciplines.has(g.discipline.toLowerCase()),
-  );
-  const sparringGenByDiscipline = new Set(
-    generation.filter((g) => g.kind === "sparring").map((g) => g.discipline.toLowerCase()),
+  // standalone loader card at the top. Source from the HELD jobs so a fast/
+  // cached job still renders for its full minimum-display window. Sparring-
+  // generation is shown inside the owning discipline card instead. Deduped so
+  // the same discipline can't render twice.
+  const generatingDrills = Array.from(
+    new Set(
+      heldGeneration.jobs
+        .filter(
+          (g) =>
+            g.kind === "drills" &&
+            !flowDisciplines.has(g.discipline.toLowerCase()),
+        )
+        .map((g) => g.discipline),
+    ),
   );
 
   // Trophies stay hidden for any discipline still in the active flow (cycle not
@@ -470,11 +485,11 @@ export function MasterySpine(_props: MasterySpineProps) {
 
       <div className="space-y-3">
         {/* Loader cards for disciplines generating their first drills. */}
-        {generatingDrills.map((g) => (
+        {generatingDrills.map((disc) => (
           <MasteryGeneratingCard
-            key={`gen-${g.discipline}`}
+            key={`gen-${disc}`}
             kind="drills"
-            accentToken={disciplineToken(g.discipline)}
+            accentToken={disciplineToken(disc)}
           />
         ))}
 
@@ -489,7 +504,7 @@ export function MasterySpine(_props: MasterySpineProps) {
             onAllMissionsComplete={() => {/* drills-cleared celebration owned by DisciplineCard */}}
             onCycleComplete={handleCycleComplete}
             generating={
-              sparringGenByDiscipline.has(entry.discipline.toLowerCase())
+              heldGeneration.has(entry.discipline, "sparring")
                 ? "sparring"
                 : null
             }

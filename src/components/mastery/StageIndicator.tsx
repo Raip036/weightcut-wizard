@@ -44,7 +44,7 @@ export function StageIndicator({ phase, accentToken }: StageIndicatorProps) {
     <div className="flex items-center gap-[9px] px-[15px] pb-3">
       {/* Stage 1: Drill */}
       <div
-        className={`flex items-center gap-[5px] whitespace-nowrap py-[5px] text-[10px] font-bold uppercase tracking-[0.05em]${transition ? ` ${transition}` : ""}`}
+        className={`flex items-center gap-[5px] whitespace-nowrap text-[10px] font-bold uppercase tracking-[0.05em]${transition ? ` ${transition}` : ""}`}
         style={
           drillCleared
             ? { color: "#23C599" }
@@ -72,7 +72,7 @@ export function StageIndicator({ phase, accentToken }: StageIndicatorProps) {
 
       {/* Stage 2: Spar */}
       <div
-        className={`flex items-center gap-[5px] whitespace-nowrap py-[5px] text-[10px] font-bold uppercase tracking-[0.05em]${transition ? ` ${transition}` : ""}`}
+        className={`flex items-center gap-[5px] whitespace-nowrap text-[10px] font-bold uppercase tracking-[0.05em]${transition ? ` ${transition}` : ""}`}
         style={
           sparCleared
             ? { color: "#23C599" }

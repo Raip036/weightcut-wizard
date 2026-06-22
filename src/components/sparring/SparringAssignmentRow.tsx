@@ -5,72 +5,19 @@ import { api } from "@/../convex/_generated/api";
 import { triggerHapticSelection } from "@/lib/haptics";
 import { stripDashes } from "@/lib/utils";
 import { AnimatedCheckbox, XpFloat } from "@/components/coach/TickReward";
-import { disciplineToken } from "@/lib/coachColors";
+import { WizardAuroraBackground } from "@/components/onboarding/WizardAuroraBackground";
 
 /** XP awarded per sparring assignment completed or landed. */
 const SPARRING_XP_PER_ITEM = 15;
 
-/** Number of lands required to master a graduated technique. */
-const LAND_THRESHOLD = 3;
-
-/** Diameter of a single land circle. Larger than the legacy checkbox (18px)
- *  so the 3 lands read as a chunky to-do list column. */
-const LAND_CIRCLE_SIZE = 22;
-
 /**
- * A single to-do-list land circle. Mirrors `AnimatedCheckbox` from
- * TickReward.tsx exactly (same border/fill/scale-pop behaviour and the same
- * drawn check path) but rendered as a `rounded-full` circle and driven by a
- * `filled` flag rather than the binary `done` of a checkbox. A filled circle
- * reads as a ticked to-do item; empty reads as an unchecked circle.
+ * Number of lands required to master a graduated technique. This is the "of 3"
+ * count and the single source of truth for how many AnimatedCheckbox boxes the
+ * graduated row renders (the `markLanded` mutation masters at the same
+ * threshold server-side). The data contract carries no per-row `required`
+ * field, so this constant is the real required-count for every graduated row.
  */
-function LandCircle({
-  filled,
-  token,
-  size = LAND_CIRCLE_SIZE,
-}: {
-  filled: boolean;
-  token: string;
-  size?: number;
-}) {
-  const reduced = useReducedMotion();
-  return (
-    <motion.span
-      className="relative rounded-full border flex items-center justify-center flex-shrink-0"
-      style={{ height: size, width: size }}
-      animate={{
-        backgroundColor: filled ? `hsl(var(${token}))` : "hsla(0,0%,100%,0)",
-        borderColor: filled ? `hsl(var(${token}))` : "hsl(var(--border))",
-        scale: filled && !reduced ? [1, 1.3, 1] : 1,
-      }}
-      transition={{ duration: 0.32, ease: "easeOut" }}
-      aria-hidden
-    >
-      <svg
-        viewBox="0 0 24 24"
-        width={size * 0.62}
-        height={size * 0.62}
-        className="text-background"
-      >
-        <motion.path
-          d="M5 12.5 L10 17.5 L19 7"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={3}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          initial={false}
-          animate={{ pathLength: filled ? 1 : 0 }}
-          transition={{
-            duration: reduced ? 0 : 0.28,
-            ease: "easeOut",
-            delay: filled ? 0.08 : 0,
-          }}
-        />
-      </svg>
-    </motion.span>
-  );
-}
+const LAND_THRESHOLD = 3;
 
 /** Shape of a single sparring assignment row, mirroring the
  *  `api.sparring_plan.listSparringAssignments` query contract. */
@@ -105,9 +52,6 @@ interface SparringAssignmentRowProps {
   onCycleComplete?: (discipline: string) => void;
 }
 
-/** Number of filled pips shown in the legacy confidence meter (0–5). */
-const PIP_COUNT = 5;
-
 /**
  * A single tappable sparring to-do. Interaction splits by `source`:
  *
@@ -140,10 +84,6 @@ export function SparringAssignmentRow({
   const done = assignment.status === "done";
   const hasDetails =
     assignment.setups.length > 0 || assignment.counters.length > 0;
-
-  /** Pip color comes from the row's discipline, not a fixed purple. */
-  const pipToken = disciplineToken(assignment.discipline);
-  const filledPips = Math.min(PIP_COUNT, assignment.timesLogged ?? 0);
 
   // For graduated rows: resolve the displayed land count (optimistic takes priority).
   const displayedLanded =
@@ -203,19 +143,26 @@ export function SparringAssignmentRow({
           <motion.div
             layout
             key={assignment._id}
-            className="relative rounded-lg overflow-hidden"
+            className="relative rounded-lg overflow-hidden border border-primary/15"
             exit={
               reduced
                 ? { opacity: 0 }
                 : { opacity: 0, scale: 0.96, transition: { duration: 0.35 } }
             }
           >
-            {/* Mastery flash: brief accent burst when the 3rd land lands. */}
+            {/* Wizard-blue ambient backdrop (subtle) — replaces the old red
+                discipline wash. Absolutely positioned behind content; the
+                content sits above via relative + z-10. iOS-safe: the aurora
+                component animates transform/opacity only and self-gates on
+                reduced motion. */}
+            <WizardAuroraBackground intensity="subtle" />
+
+            {/* Mastery flash: brief accent burst when the final land lands. */}
             <AnimatePresence>
               {displayedLanded >= LAND_THRESHOLD && !reduced && (
                 <motion.span
                   key="mastery-flash"
-                  className="absolute inset-0 pointer-events-none"
+                  className="absolute inset-0 pointer-events-none z-10"
                   style={{ background: `hsl(var(${token}) / 0.28)` }}
                   initial={{ opacity: 0.8 }}
                   animate={{ opacity: 0 }}
@@ -225,24 +172,31 @@ export function SparringAssignmentRow({
               )}
             </AnimatePresence>
 
-            {/* Main tap area: records one land. */}
+            {/* Main tap area: records exactly one land per tap. */}
             <motion.button
               type="button"
               disabled={pending || displayedLanded >= LAND_THRESHOLD}
               onClick={handleLand}
               whileTap={reduced ? undefined : { scale: 0.99 }}
               aria-label={`Land ${assignment.technique}: ${displayedLanded} of ${LAND_THRESHOLD}`}
-              className="relative w-full flex items-start gap-2.5 px-2.5 py-2 text-left"
+              className="relative z-10 w-full flex items-start gap-2.5 px-2.5 py-2 text-left"
             >
-              {/* 3 to-do-list land circles. Styled to match the drill card's
-                  AnimatedCheckbox exactly (border/fill/scale-pop + drawn check),
-                  just larger and circular. filled = displayedLanded of 3. */}
+              {/* N AnimatedCheckbox boxes (N = LAND_THRESHOLD, the "of 3"
+                  count) laid in a column — the SAME 20px animated checkbox the
+                  drill card uses, so the two cards read as one system. Boxes
+                  fill left-to-right (top-to-bottom here): box i is checked when
+                  i < displayedLanded. Tapping advances exactly one land. */}
               <div
-                className="flex flex-col items-center gap-[5px] pt-[1px] flex-none"
+                className="flex flex-col items-center gap-[5px] flex-none"
                 aria-hidden
               >
                 {Array.from({ length: LAND_THRESHOLD }).map((_, i) => (
-                  <LandCircle key={i} filled={i < displayedLanded} token={token} />
+                  <AnimatedCheckbox
+                    key={i}
+                    done={i < displayedLanded}
+                    token={token}
+                    size={20}
+                  />
                 ))}
               </div>
 
@@ -271,9 +225,9 @@ export function SparringAssignmentRow({
             </motion.button>
 
             {/* Setups & counters. Left padding aligns bullets under the text
-                column: px-2.5 + land-circle column (22px) + gap-2.5. */}
+                column: px-2.5 + checkbox column (20px) + gap-2.5. */}
             {hasDetails && (
-              <div className="px-2.5 pb-3 pl-[calc(0.625rem+22px+0.625rem)] space-y-2">
+              <div className="relative z-10 px-2.5 pb-3 pl-[calc(0.625rem+20px+0.625rem)] space-y-2">
                 {assignment.setups.length > 0 && (
                   <div className="min-w-0">
                     <p className="text-[9.5px] font-semibold uppercase tracking-[0.07em] text-emerald-400/80 mb-1">
@@ -318,8 +272,10 @@ export function SparringAssignmentRow({
       layout
       className="relative rounded-lg overflow-hidden"
       animate={{
+        // Neutral surface (no red discipline wash) so the legacy row matches
+        // the graduated card and the drill card's checkbox-row system.
         backgroundColor: done
-          ? `hsl(var(${token}) / 0.06)`
+          ? "hsla(0,0%,100%,0.05)"
           : "hsla(0,0%,100%,0.03)",
       }}
     >
@@ -352,21 +308,6 @@ export function SparringAssignmentRow({
         }
         className="relative w-full flex items-start gap-2.5 px-2.5 py-2 text-left"
       >
-        {/* 5-pip confidence meter: filled = min(5, timesLogged), discipline-colored. */}
-        <div className="flex flex-col items-center gap-[3px] pt-[3px] flex-none" aria-hidden>
-          {Array.from({ length: PIP_COUNT }).map((_, i) => (
-            <span
-              key={i}
-              className="block w-1.5 h-1.5 rounded-full"
-              style={
-                i < filledPips
-                  ? { backgroundColor: `hsl(var(${pipToken}))` }
-                  : { backgroundColor: `hsl(var(${pipToken}) / 0.18)` }
-              }
-            />
-          ))}
-        </div>
-
         <AnimatedCheckbox done={done} token={token} />
         <div className="flex-1 min-w-0">
           {/* Technique name with a strikethrough sweep on done. */}
@@ -405,9 +346,10 @@ export function SparringAssignmentRow({
         />
       </motion.button>
 
-      {/* Setups & counters: always-visible plain bullets — no disclosure toggle. */}
+      {/* Setups & counters: always-visible plain bullets — no disclosure toggle.
+          Left padding aligns under the text column: px-2.5 + checkbox (18px) + gap-2.5. */}
       {hasDetails && (
-        <div className="px-2.5 pb-3 pl-[calc(0.625rem+6px+0.625rem+20px+0.625rem)] space-y-2">
+        <div className="px-2.5 pb-3 pl-[calc(0.625rem+18px+0.625rem)] space-y-2">
           {assignment.setups.length > 0 && (
             <div className="min-w-0">
               <p className="text-[9.5px] font-semibold uppercase tracking-[0.07em] text-emerald-400/80 mb-1">

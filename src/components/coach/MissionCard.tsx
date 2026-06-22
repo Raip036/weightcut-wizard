@@ -10,6 +10,7 @@ import { levelFromXp } from "@/lib/xp";
 import { cn, stripDashes } from "@/lib/utils";
 import { CompleteCelebration } from "@/components/motion";
 import { AnimatedCheckbox, XpFloat } from "@/components/coach/TickReward";
+import { WizardAuroraBackground } from "@/components/onboarding/WizardAuroraBackground";
 import { LevelRing } from "./LevelRing";
 
 type Mission = Doc<"training_missions"> & {
@@ -153,7 +154,7 @@ function TickRow({
       className="relative w-full min-h-[36px] flex items-start gap-2.5 px-2.5 py-2 rounded-xs text-left overflow-hidden"
       animate={{
         backgroundColor: done
-          ? `hsl(var(${token}) / 0.06)`
+          ? "hsl(var(--primary) / 0.06)"
           : "hsla(0,0%,100%,0.03)",
       }}
       whileTap={{ scale: 0.99 }}
@@ -326,10 +327,10 @@ export function MissionCard({ mission, expanded, onToggle, onAllMissionsComplete
   return (
     <>
       <div className="relative w-full rounded-2xl card-surface border border-primary/20 overflow-hidden">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.04] to-transparent"
-        />
+        {/* Premium animated wizard-blue ambient backdrop (replaces the old
+            discipline-tinted gradient wash). Sits behind all card content;
+            handles reduced-motion internally. */}
+        <WizardAuroraBackground intensity="subtle" />
         {/* ────────────────────────────────────────────────────────────
             Header: always visible, tap to expand/collapse.
             Layout: [ring] [discipline + Lv + title] [done/total] [chevron]
@@ -400,7 +401,7 @@ export function MissionCard({ mission, expanded, onToggle, onAllMissionsComplete
         </button>
 
         {/* Single thin progress bar directly under the header. */}
-        <div className="px-4">
+        <div className="relative px-4">
           <div className="h-1 rounded-full bg-muted/40 overflow-hidden">
             <motion.div
               className="h-full rounded-full"

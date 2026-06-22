@@ -90,7 +90,7 @@ export function MasteredShelf({
             return (
               <CarouselItem
                 key={row._id}
-                className="pl-2 basis-auto"
+                className="pl-2 basis-auto shrink-0"
               >
                 <TrophyChip
                   technique={row.technique}
@@ -138,7 +138,7 @@ function TrophyChip({
 
   return (
     <div
-      className="flex h-[132px] w-[132px] flex-col items-center justify-between rounded-[14px] border p-3 text-center select-none"
+      className="flex h-[144px] w-[144px] flex-col items-center justify-between rounded-[14px] border p-3 text-center select-none"
       style={{
         background: `linear-gradient(180deg, hsl(var(${token}) / 0.12) 0%, hsl(var(--card)) 100%)`,
         borderColor: `hsl(var(${token}) / 0.25)`,
@@ -158,9 +158,11 @@ function TrophyChip({
         <Icon name="trophyOutline" size={22} />
       </div>
 
-      {/* Technique name — wraps, never truncates; sized to fit the square */}
+      {/* Technique name — wraps, never truncates; sized to fit the square.
+          flex-1 centres the name in the remaining space; overflow-visible
+          guarantees no clipping/ellipsis even for the longest realistic names. */}
       <p
-        className="flex flex-1 items-center justify-center text-[10px] font-semibold leading-[1.2] text-foreground break-words [text-wrap:balance]"
+        className="flex flex-1 items-center justify-center overflow-visible px-0.5 text-[10px] font-semibold leading-[1.18] text-foreground break-words [text-wrap:balance]"
         title={technique}
       >
         {technique}
