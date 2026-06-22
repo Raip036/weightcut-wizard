@@ -25,14 +25,12 @@ import { Icon } from "@/components/ui/Icon";
 import type { AthleteOverviewRow } from "@/hooks/coach/useCoachData";
 import {
   buildAlerts,
-  campPhase,
   daysSince,
   daysUntil,
   deriveReadiness,
   FIGHT_FORM_LABEL,
   readinessSeverity,
   targetDelta,
-  type CampPhase,
   type Severity,
 } from "./athleteRowHelpers";
 
@@ -49,12 +47,10 @@ const SEV_PILL: Record<Severity, string> = {
   warn: "bg-func-warning-yellow/12 text-func-warning-yellow ring-func-warning-yellow/30",
   alert: "bg-func-danger-red/12 text-func-danger-red ring-func-danger-red/30",
 };
-const PHASE_PILL: Record<CampPhase, string> = {
-  Cut: "bg-func-warning-yellow/12 text-func-warning-yellow ring-func-warning-yellow/25",
-  Build: "bg-func-recovery-green/12 text-func-recovery-green ring-func-recovery-green/25",
-  Maintain: "bg-primary/12 text-primary ring-primary/25",
-  Plan: "bg-muted/40 text-muted-foreground ring-border/40",
-};
+// Neutral pill for athletes with no upcoming fight — "Off camp" reads as a
+// distinct state (no scheduled fight) rather than conflating it with a
+// goal-type word like "Maintain".
+const OFF_CAMP_PILL = "bg-muted/40 text-muted-foreground ring-border/40";
 // Actual fight-camp phase (preferred over the goal-type fallback above).
 // Cool → hot as the fight nears: Build (green) → Peak (orange) → Fight Week (red).
 type CampPhaseKey = "build" | "peak" | "fightWeek";
@@ -151,16 +147,21 @@ export function AthleteListRow({
   const readiness = deriveReadiness(athlete);
   const alerts = buildAlerts(athlete);
   const sev = readinessSeverity(readiness, alerts.length > 0);
-  // Phase pill: prefer the athlete's ACTUAL fight-camp phase (Build / Peak /
-  // Fight Week); fall back to the goal-type label (Maintain / Cut / …) when
-  // they aren't in a dated camp.
-  const campPhaseKey = athlete.fight_form?.phase ?? null;
-  const goalPhase = campPhase(athlete.goal_type);
-  const phaseLabel = campPhaseKey ? CAMP_PHASE_LABEL[campPhaseKey] : goalPhase;
+  // Phase pill: show the athlete's ACTUAL fight-camp phase (Build / Peak /
+  // Fight Week) whenever they're in a dated camp. Prefer the scored fight_form
+  // phase; fall back to a days-to-fight bucket (fightWeek ≤7d, peak ≤14d) so a
+  // calibrating athlete still reads correctly. When there's no upcoming fight,
+  // show a neutral "Off camp" pill instead of a goal-type word.
+  const dToFight = daysUntil(athlete.target_date);
+  const inCamp = dToFight != null && dToFight >= 0;
+  const campPhaseKey: CampPhaseKey | null = inCamp
+    ? (athlete.fight_form?.phase ??
+        (dToFight <= 7 ? "fightWeek" : dToFight <= 14 ? "peak" : "build"))
+    : null;
+  const phaseLabel = campPhaseKey ? CAMP_PHASE_LABEL[campPhaseKey] : "Off camp";
   const phasePillClass = campPhaseKey
     ? CAMP_PHASE_PILL[campPhaseKey]
-    : PHASE_PILL[goalPhase];
-  const dToFight = daysUntil(athlete.target_date);
+    : OFF_CAMP_PILL;
   const delta = targetDelta(athlete);
   const wDays = daysSince(athlete.last_weight_at);
   const lastSessionLabel =

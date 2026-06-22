@@ -101,8 +101,6 @@ export const AthleteSessionsList = memo(function AthleteSessionsList({
                 </p>
                 <p className="text-[11px] text-muted-foreground tabular-nums mt-0.5">
                   {relativeLabel(s.date)}
-                  {" · "}
-                  {s.duration_minutes} min
                   {s.soreness_level != null && ` · sore ${s.soreness_level}/10`}
                 </p>
               </div>
