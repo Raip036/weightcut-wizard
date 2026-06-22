@@ -1002,10 +1002,26 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
     completedAt: v.optional(v.number()),
+    // ── Mastery Spine fields (Task 0.2) ──────────────────────────────────
+    // Where the assignment came from: auto-graduated from XP or manually
+    // added from the technique library.
+    source: v.optional(v.union(v.literal("graduated"), v.literal("library"))),
+    // Id of the training_mission that triggered graduation (if any).
+    sourceMissionId: v.optional(v.id("training_missions")),
+    // How many times this technique has been successfully landed in a
+    // live round (incremented each time the user logs it).
+    landedCount: v.optional(v.number()),
+    // Epoch-ms when the user marked this technique as "mastered".
+    masteredAt: v.optional(v.number()),
+    // Named combination entries (e.g. "jab → cross → takedown").
+    combinations: v.optional(v.array(v.string())),
+    // Total number of sparring rounds/sessions this technique was logged.
+    timesLogged: v.optional(v.number()),
   })
     .index("by_user", ["userId"])
     .index("by_user_discipline", ["userId", "discipline"])
-    .index("by_user_norm", ["userId", "techniqueNormalized"]),
+    .index("by_user_norm", ["userId", "techniqueNormalized"])
+    .index("by_user_mastered", ["userId", "masteredAt"]),
 
   // ────────────────────────────────────────────────────────────────────
   // SKILL TREE
