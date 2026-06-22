@@ -19,7 +19,6 @@ import { effectiveTier } from "./_shared/tier";
  *   - listSparringAssignments  — all assignments for the auth user (opt. by discipline)
  *   - getSparringFeatureStatus — Pro/free state for the widget gating
  *   - toggleAssignment         — tick / untick a single assignment row
- *   - regenerateDiscipline     — retired stub (independent generation removed in Task 2.5)
  *
  * Internal surface:
  *   - upsertAssignments        — persist generated assignments (preserve status)
@@ -120,26 +119,6 @@ export const toggleAssignment = mutation({
     }
 
     return { status: nextStatus };
-  },
-});
-
-/**
- * Manual "Regenerate" button — retired in Task 2.5.
- *
- * Sparring is now graduated-only (fed by `graduateCycleToSparring`). The
- * independent library/note-based generator has been removed. This stub keeps
- * the mutation registered so the frontend compile stays clean until the UI
- * refresh button is removed in a later task.
- *
- * TODO (Task 2.6+): remove this stub once SparringPlanCard.tsx no longer
- * calls `api.sparring_plan.regenerateDiscipline`.
- */
-export const regenerateDiscipline = mutation({
-  args: { discipline: v.string() },
-  handler: async (_ctx, _args): Promise<{ scheduled: true }> => {
-    // No-op: independent generation retired. Graduated path handles all
-    // sparring assignment creation going forward.
-    return { scheduled: true };
   },
 });
 
