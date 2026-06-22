@@ -887,9 +887,14 @@ export default defineSchema({
     // Updated whenever an item is ticked. Drives the active-mission
     // ordering in the widget.
     lastActivityAt: v.number(),
+    focusTechnique: v.optional(v.string()),
+    focusTechniqueNormalized: v.optional(v.string()),
+    graduatedAt: v.optional(v.number()),
+    cycleId: v.optional(v.string()),
   })
     .index("by_user_status", ["userId", "status"])
-    .index("by_user_sport_status", ["userId", "sport", "status"]),
+    .index("by_user_sport_status", ["userId", "sport", "status"])
+    .index("by_user_cycle", ["userId", "cycleId"]),
 
   training_mission_items: defineTable({
     missionId: v.id("training_missions"),
