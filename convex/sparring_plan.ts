@@ -235,8 +235,15 @@ export const getSparringSourceData = internalQuery({
 /**
  * Persist generated assignments. For each entry: if a row already exists for
  * (userId, techniqueNormalized) we patch the AI-derived fields and bump
- * updatedAt while PRESERVING the user's `status` / `completedAt`. Otherwise we
- * insert a fresh "todo" row.
+ * updatedAt while PRESERVING the user's `status` / `completedAt` /
+ * `landedCount` / `masteredAt`. Otherwise we insert a fresh "todo" row.
+ *
+ * Extended for Mastery Spine (Task 2.4): accepts optional `source`,
+ * `combinations`, `timesLogged`, `sourceMissionId`, and `landedCount`.
+ * On insert all supplied fields are written. On update AI-derived content
+ * (`whenToUse`, `setups`, `counters`, `combinations`, `timesLogged`,
+ * `source`, `sourceMissionId`) is refreshed; user-owned state (`status`,
+ * `completedAt`, `landedCount`, `masteredAt`) is preserved.
  */
 export const upsertAssignments = internalMutation({
   args: {
@@ -250,6 +257,12 @@ export const upsertAssignments = internalMutation({
         setups: v.array(v.string()),
         counters: v.array(v.string()),
         sourceFingerprint: v.string(),
+        // Mastery Spine extras (all optional so existing callers are unchanged)
+        source: v.optional(v.union(v.literal("graduated"), v.literal("library"))),
+        sourceMissionId: v.optional(v.id("training_missions")),
+        landedCount: v.optional(v.number()),
+        combinations: v.optional(v.array(v.string())),
+        timesLogged: v.optional(v.number()),
       }),
     ),
   },
@@ -263,13 +276,22 @@ export const upsertAssignments = internalMutation({
         )
         .first();
       if (existing) {
-        // Preserve status + completedAt — the user's checkbox state survives
-        // regeneration. Only the AI-derived content is refreshed.
+        // Preserve status + completedAt + landedCount + masteredAt — the
+        // user's checkbox/counter state survives regeneration. Only refresh
+        // AI-derived content and Mastery Spine provenance fields.
         await ctx.db.patch(existing._id, {
           whenToUse: a.whenToUse,
           setups: a.setups,
           counters: a.counters,
           sourceFingerprint: a.sourceFingerprint,
+          // Mastery Spine: refresh these on every regen; do NOT touch
+          // status / completedAt / landedCount / masteredAt.
+          ...(a.source !== undefined && { source: a.source }),
+          ...(a.sourceMissionId !== undefined && {
+            sourceMissionId: a.sourceMissionId,
+          }),
+          ...(a.combinations !== undefined && { combinations: a.combinations }),
+          ...(a.timesLogged !== undefined && { timesLogged: a.timesLogged }),
           updatedAt: now,
         });
       } else {
@@ -285,6 +307,14 @@ export const upsertAssignments = internalMutation({
           status: "todo",
           createdAt: now,
           updatedAt: now,
+          // Mastery Spine extras — written on first insert only.
+          ...(a.source !== undefined && { source: a.source }),
+          ...(a.sourceMissionId !== undefined && {
+            sourceMissionId: a.sourceMissionId,
+          }),
+          ...(a.landedCount !== undefined && { landedCount: a.landedCount }),
+          ...(a.combinations !== undefined && { combinations: a.combinations }),
+          ...(a.timesLogged !== undefined && { timesLogged: a.timesLogged }),
         });
       }
     }

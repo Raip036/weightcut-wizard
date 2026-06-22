@@ -517,3 +517,70 @@ export const advanceNotesWatermark = internalMutation({
   },
 });
 
+// ── Mastery Spine helpers (Task 2.4) ──────────────────────────────────────────
+
+/**
+ * Stamp `graduatedAt` on a mission so `graduateCycleToSparring` is idempotent.
+ * Actions cannot write to the DB directly; this internal mutation bridges that.
+ */
+export const patchMissionGraduatedAt = internalMutation({
+  args: {
+    missionId: v.id("training_missions"),
+    graduatedAt: v.number(),
+  },
+  handler: async (ctx, { missionId, graduatedAt }) => {
+    await ctx.db.patch(missionId, { graduatedAt });
+  },
+});
+
+/**
+ * Return all missions for a given cycleId, projected to the fields needed by
+ * `graduateCycleToSparring`: id, status, graduatedAt, focusTechnique,
+ * focusTechniqueNormalized.
+ *
+ * Uses the `by_user_cycle` index (userId, cycleId). cycleId is optional on
+ * the mission row, so a null/missing cycleId will never match and returns [].
+ */
+export const listCycleMissions = internalQuery({
+  args: {
+    userId: v.id("users"),
+    cycleId: v.string(),
+  },
+  handler: async (ctx, { userId, cycleId }) => {
+    const rows = await ctx.db
+      .query("training_missions")
+      .withIndex("by_user_cycle", (q) =>
+        q.eq("userId", userId).eq("cycleId", cycleId),
+      )
+      .collect();
+    return rows.map((m) => ({
+      _id: m._id,
+      status: m.status,
+      graduatedAt: m.graduatedAt ?? null,
+      focusTechnique: m.focusTechnique ?? null,
+      focusTechniqueNormalized: m.focusTechniqueNormalized ?? null,
+    }));
+  },
+});
+
+/**
+ * Read `timesLogged` from `training_techniques` for a given
+ * (userId, techniqueNormalized). Returns 0 if no row exists.
+ * Used by `graduateCycleToSparring` (Task 2.4).
+ */
+export const readTimesLogged = internalQuery({
+  args: {
+    userId: v.id("users"),
+    techniqueNormalized: v.string(),
+  },
+  handler: async (ctx, { userId, techniqueNormalized }): Promise<number> => {
+    const row = await ctx.db
+      .query("training_techniques")
+      .withIndex("by_user_norm", (q) =>
+        q.eq("userId", userId).eq("techniqueNormalized", techniqueNormalized),
+      )
+      .first();
+    return row?.timesLogged ?? 0;
+  },
+});
+
