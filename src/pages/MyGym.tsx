@@ -178,7 +178,7 @@ function GymCard({
               <p className="text-[12px] text-muted-foreground mt-0.5 truncate">{gym.gym_location}</p>
             )}
             <p className="text-[12px] text-muted-foreground/90 mt-0.5 truncate">
-              Coach <span className="text-foreground font-medium">{gym.coach_name ?? "—"}</span>
+              Coach <span className="text-foreground font-medium">{gym.coach_name ?? "-"}</span>
               <span className="mx-1.5 text-muted-foreground/50">·</span>
               <span className="text-muted-foreground/80">Joined {joined}</span>
             </p>
@@ -191,7 +191,7 @@ function GymCard({
           <div className="grid grid-cols-2 border-t border-border/40 divide-x divide-border/40">
             <div className="py-3 px-2 text-center">
               <p className="text-[22px] font-bold tabular-nums tracking-tight">
-                {memberCount ?? "—"}
+                {memberCount ?? "-"}
               </p>
               <p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/70 mt-0.5">
                 {memberCount === 1 ? "Member" : "Members"}
@@ -199,7 +199,7 @@ function GymCard({
             </div>
             <div className="py-3 px-2 text-center">
               <p className="text-[22px] font-bold tabular-nums tracking-tight text-primary">
-                {myRank != null ? `#${myRank}` : "—"}
+                {myRank != null ? `#${myRank}` : "-"}
               </p>
               <p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/70 mt-0.5">
                 Your rank

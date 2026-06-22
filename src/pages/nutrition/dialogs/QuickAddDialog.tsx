@@ -388,7 +388,7 @@ export function QuickAddDialog({
                   onFocus={handleInputFocus}
                   placeholder={
                     aiMeal.photoBase64
-                      ? "Add details (optional) — e.g. 1 cup brown rice"
+                      ? "Add details (optional) - e.g. 1 cup brown rice"
                       : "What did you eat?"
                   }
                 />

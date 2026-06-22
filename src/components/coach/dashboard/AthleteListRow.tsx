@@ -166,7 +166,7 @@ export function AthleteListRow({
       ? String(readiness)
       : athlete.fight_form
         ? FIGHT_FORM_LABEL[athlete.fight_form.label]
-        : "—";
+        : "-";
 
   // Stagger entry — capped at 8 so a 50-athlete roster doesn't crawl in.
   const animDelay = Math.min(index, 8) * 0.04;
@@ -267,7 +267,7 @@ export function AthleteListRow({
               />
               <span>
                 {delta == null
-                  ? "—"
+                  ? "-"
                   : delta > 0
                     ? `+${delta.toFixed(1)}kg`
                     : delta < 0

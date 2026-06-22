@@ -10,7 +10,7 @@ import { triggerHapticSelection } from "@/lib/haptics";
 const MEAL_PLAN_PERKS = [
   "A full day of meals built to hit your exact calorie & macro targets",
   "Swap any meal you don't fancy for an instant alternative",
-  "Tune it to you — high protein, low carb, budget or fight-week prep",
+  "Tune it to you - high protein, low carb, budget or fight-week prep",
   "Log the whole day, or a single meal, in one tap",
 ];
 
@@ -49,7 +49,7 @@ export function MealIdeasSection({ onOpen, lastPlanSummary }: {
       <button
         type="button"
         onClick={() => { triggerHapticSelection(); setWallOpen(true); }}
-        aria-label="Meal plan ideas — a Pro feature, tap to unlock"
+        aria-label="Meal plan ideas - a Pro feature, tap to unlock"
         className="relative w-full overflow-hidden rounded-2xl p-4 text-left active:scale-[0.99] transition-transform"
         style={{
           background:
@@ -93,7 +93,7 @@ export function MealIdeasSection({ onOpen, lastPlanSummary }: {
           <div className="fixed inset-0 z-[60] h-screen-safe overflow-y-auto overscroll-contain bg-background animate-in fade-in duration-300">
             <ProUpsellScreen
               title="Unlock AI meal plans"
-              blurb="Let the Wizard plan a full day of meals tuned to your targets and training — then log it in a tap."
+              blurb="Let the Wizard plan a full day of meals tuned to your targets and training - then log it in a tap."
               perks={MEAL_PLAN_PERKS}
               onUpgrade={() => { triggerHapticSelection(); setWallOpen(false); openPaywall(); }}
               onDismiss={() => setWallOpen(false)}

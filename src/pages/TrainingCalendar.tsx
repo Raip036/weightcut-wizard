@@ -306,7 +306,7 @@ export default function TrainingCalendar() {
             if (!cached && isMounted()) {
                 toastRef.current({
                     title: "Couldn't refresh calendar",
-                    description: "Showing offline data — we'll retry when you're reconnected.",
+                    description: "Showing offline data - we'll retry when you're reconnected.",
                 });
             }
         } finally {
@@ -964,7 +964,7 @@ export default function TrainingCalendar() {
 
             toast({
                 title: "Rest day logged",
-                description: "Nice — recovery is part of the work.",
+                description: "Nice - recovery is part of the work.",
             });
         } catch (error) {
             logger.warn("Mark rest day failed", { error: String(error) });

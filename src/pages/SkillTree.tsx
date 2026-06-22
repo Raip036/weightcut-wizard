@@ -7,7 +7,7 @@ export default function SkillTree() {
         <Construction className="h-8 w-8 text-muted-foreground mx-auto" />
         <h1 className="text-lg font-bold">Skill Tree</h1>
         <p className="text-muted-foreground text-sm">
-          Coming soon — track and visualize your technique progression across disciplines.
+          Coming soon - track and visualize your technique progression across disciplines.
         </p>
       </div>
     </div>

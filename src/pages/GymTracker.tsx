@@ -449,7 +449,7 @@ export default function GymTracker() {
                   <div className="flex-1 min-w-0 pt-0.5">
                     <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary/80">Coach</p>
                     <p className="mt-0.5 text-[15px] font-bold leading-tight text-foreground">Ready to train?</p>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground leading-snug">Pick a focus — we'll start the timer.</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground leading-snug">Pick a focus - we'll start the timer.</p>
                   </div>
                 </div>
 

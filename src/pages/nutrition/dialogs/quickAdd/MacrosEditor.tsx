@@ -265,7 +265,7 @@ export function MacrosEditor({
         >
           <span className="text-[rgb(var(--func-warning-yellow))] text-[15px] leading-none">⚠</span>
           <span className="flex-1 text-[12px] leading-snug text-[rgb(var(--func-warning-yellow))]/90">
-            Some items were hard to size — add a side angle to sharpen the estimate.
+            Some items were hard to size - add a side angle to sharpen the estimate.
           </span>
           <span className="shrink-0 text-[11px] font-bold text-black bg-[rgb(var(--func-warning-yellow))] rounded-lg px-2.5 py-1">
             + Angle

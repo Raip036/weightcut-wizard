@@ -247,7 +247,7 @@ export const AthleteHero = memo(function AthleteHero({
             <p className="mt-0.5 text-[15px] font-bold tabular-nums leading-tight">
               {weightBlock.current != null
                 ? `${weightBlock.current.toFixed(1)} kg`
-                : "—"}
+                : "-"}
             </p>
           </div>
           <div className="text-center border-x border-border/30">
@@ -257,7 +257,7 @@ export const AthleteHero = memo(function AthleteHero({
             <p className="mt-0.5 text-[15px] font-bold tabular-nums leading-tight">
               {weightBlock.target != null
                 ? `${weightBlock.target.toFixed(1)} kg`
-                : "—"}
+                : "-"}
             </p>
           </div>
           <div className="text-center">
@@ -276,7 +276,7 @@ export const AthleteHero = memo(function AthleteHero({
               }`}
             >
               {weightBlock.deltaKg == null
-                ? "—"
+                ? "-"
                 : `${weightBlock.deltaKg > 0 ? "+" : ""}${weightBlock.deltaKg.toFixed(1)} kg`}
             </p>
             {weightBlock.deltaPct != null && weightBlock.deltaKg != null && weightBlock.deltaKg !== 0 && (

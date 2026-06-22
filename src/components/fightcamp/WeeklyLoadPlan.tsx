@@ -494,7 +494,7 @@ function WeeklyLoadInfoSheet({
               time, and how that compares to last week. Below that, a Mon→Sun strip.
               Solid bars are real days you've logged; today has a dot above it and
               a ring around its bar. The dashed outlines are days you haven't reached
-              yet — they're placeholders, not predictions. Tap any bar to see exactly
+              yet - they're placeholders, not predictions. Tap any bar to see exactly
               what you did that day.
             </p>
           </section>
@@ -516,7 +516,7 @@ function WeeklyLoadInfoSheet({
               What "Heavy" / "Light" / "Balanced" means
             </p>
             <ul className="space-y-1.5">
-              <li><span className="font-semibold text-func-danger-red">Heavy</span>: you've trained more than usual in the last 7 days compared to your normal. The risk of getting hurt or burnt out goes up if you keep pushing — easier sessions for the rest of the week let you recover.</li>
+              <li><span className="font-semibold text-func-danger-red">Heavy</span>: you've trained more than usual in the last 7 days compared to your normal. The risk of getting hurt or burnt out goes up if you keep pushing - easier sessions for the rest of the week let you recover.</li>
               <li><span className="font-semibold text-muted-foreground">Light</span>: you've trained less than usual. You can add a few harder sessions without overdoing it.</li>
               <li><span className="font-semibold text-func-recovery-green">Balanced</span>: this week's training matches what your body is used to. Keep doing what you're doing.</li>
             </ul>
@@ -529,7 +529,7 @@ function WeeklyLoadInfoSheet({
             <p>
               Tap a bar to see the sessions you logged on that day. Expand
               <span className="font-semibold"> Suggested for the rest of the week </span>
-              to see what each remaining day is pointing toward — treat the colours as
+              to see what each remaining day is pointing toward - treat the colours as
               a real cue. The goal is a steady rhythm, not maxing out every day. That's
               how athletes improve without breaking down.
             </p>

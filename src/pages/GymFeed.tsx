@@ -181,7 +181,7 @@ export default function GymFeed() {
       >
         <p className="text-xl font-bold text-center">No posts yet from {primaryGym.gym_name}</p>
         <p className="text-sm text-white/60 mt-2 text-center">
-          Be the first to share a session. Log a workout and attach a photo or video — your teammates will see it here.
+          Be the first to share a session. Log a workout and attach a photo or video - your teammates will see it here.
         </p>
         <button
           type="button"

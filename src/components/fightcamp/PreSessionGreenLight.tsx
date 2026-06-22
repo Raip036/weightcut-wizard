@@ -181,7 +181,7 @@ function LockedGreenLight({
         className="mt-4 w-full min-h-[44px] rounded-xs bg-primary text-primary-foreground px-4 py-2.5 text-[13px] font-semibold inline-flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
       >
         <Icon name="lockClosedOutline" size={14} />
-        Unlock — Pro
+        Unlock - Pro
       </button>
     </motion.div>
   );

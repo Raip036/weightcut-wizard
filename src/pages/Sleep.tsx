@@ -199,7 +199,7 @@ export default function Sleep() {
               </p>
               <p className="mt-0.5 text-[11.5px] text-muted-foreground/80 leading-snug">
                 {lastGood
-                  ? "Solid recovery window — keep the streak going tonight."
+                  ? "Solid recovery window - keep the streak going tonight."
                   : `${Math.max(0, SLEEP_GOAL - lastNight.hours).toFixed(1)}h short of goal. Aim for an earlier wind-down.`}
               </p>
             </div>

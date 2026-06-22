@@ -90,7 +90,7 @@ export function FightCampCoachProvider({ children }: { children: ReactNode }) {
     return {
       id: "greeting",
       role: "assistant",
-      content: `Hey ${name} — I'm your FightCamp Coach. Ask me about your cut, today's targets, or how to make weight safely.`,
+      content: `Hey ${name} - I'm your FightCamp Coach. Ask me about your cut, today's targets, or how to make weight safely.`,
       createdAt: Date.now(),
     };
   }, [userName]);
