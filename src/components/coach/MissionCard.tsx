@@ -78,7 +78,7 @@ function DrillChips({
 
   const typeLabel = drillType ? (DRILL_TYPE_LABEL[drillType] ?? drillType.toUpperCase()) : null;
   const timeLabel = durationMin != null
-    ? drillType === "live" ? `${durationMin} rnds` : `${durationMin} min`
+    ? drillType === "live" ? `${durationMin} rounds` : `${durationMin} min`
     : null;
 
   return (

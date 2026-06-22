@@ -13,6 +13,65 @@ const SPARRING_XP_PER_ITEM = 15;
 /** Number of lands required to master a graduated technique. */
 const LAND_THRESHOLD = 3;
 
+/** Diameter of a single land circle. Larger than the legacy checkbox (18px)
+ *  so the 3 lands read as a chunky to-do list column. */
+const LAND_CIRCLE_SIZE = 22;
+
+/**
+ * A single to-do-list land circle. Mirrors `AnimatedCheckbox` from
+ * TickReward.tsx exactly (same border/fill/scale-pop behaviour and the same
+ * drawn check path) but rendered as a `rounded-full` circle and driven by a
+ * `filled` flag rather than the binary `done` of a checkbox. A filled circle
+ * reads as a ticked to-do item; empty reads as an unchecked circle.
+ */
+function LandCircle({
+  filled,
+  token,
+  size = LAND_CIRCLE_SIZE,
+}: {
+  filled: boolean;
+  token: string;
+  size?: number;
+}) {
+  const reduced = useReducedMotion();
+  return (
+    <motion.span
+      className="relative rounded-full border flex items-center justify-center flex-shrink-0"
+      style={{ height: size, width: size }}
+      animate={{
+        backgroundColor: filled ? `hsl(var(${token}))` : "hsla(0,0%,100%,0)",
+        borderColor: filled ? `hsl(var(${token}))` : "hsl(var(--border))",
+        scale: filled && !reduced ? [1, 1.3, 1] : 1,
+      }}
+      transition={{ duration: 0.32, ease: "easeOut" }}
+      aria-hidden
+    >
+      <svg
+        viewBox="0 0 24 24"
+        width={size * 0.62}
+        height={size * 0.62}
+        className="text-background"
+      >
+        <motion.path
+          d="M5 12.5 L10 17.5 L19 7"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={3}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          initial={false}
+          animate={{ pathLength: filled ? 1 : 0 }}
+          transition={{
+            duration: reduced ? 0 : 0.28,
+            ease: "easeOut",
+            delay: filled ? 0.08 : 0,
+          }}
+        />
+      </svg>
+    </motion.span>
+  );
+}
+
 /** Shape of a single sparring assignment row, mirroring the
  *  `api.sparring_plan.listSparringAssignments` query contract. */
 export interface SparringAssignment {
@@ -46,13 +105,13 @@ interface SparringAssignmentRowProps {
   onCycleComplete?: (discipline: string) => void;
 }
 
-/** Number of filled pips shown in the confidence meter (0–5). */
+/** Number of filled pips shown in the legacy confidence meter (0–5). */
 const PIP_COUNT = 5;
 
 /**
  * A single tappable sparring to-do. Interaction splits by `source`:
  *
- * - `source === "graduated"`: lands meter (3 pips). Each tap calls `markLanded`
+ * - `source === "graduated"`: lands meter (3 to-do circles). Each tap calls `markLanded`
  *   (+15 XP float). At 3 lands the row animates out (it becomes mastered and
  *   drops from the active list on the next query tick).
  *
@@ -99,7 +158,7 @@ export function SparringAssignmentRow({
     setPending(true);
     triggerHapticSelection();
     try {
-      await toggleAssignment({ id: assignment._id });
+      await toggleAssignment({ id: assignment._id as Parameters<typeof toggleAssignment>[0]["id"] });
     } catch (err) {
       console.warn("SparringAssignmentRow: toggleAssignment failed", err);
     } finally {
@@ -145,7 +204,6 @@ export function SparringAssignmentRow({
             layout
             key={assignment._id}
             className="relative rounded-lg overflow-hidden"
-            animate={{ backgroundColor: "hsla(0,0%,100%,0.03)" }}
             exit={
               reduced
                 ? { opacity: 0 }
@@ -176,48 +234,24 @@ export function SparringAssignmentRow({
               aria-label={`Land ${assignment.technique}: ${displayedLanded} of ${LAND_THRESHOLD}`}
               className="relative w-full flex items-start gap-2.5 px-2.5 py-2 text-left"
             >
-              {/* 5-pip confidence meter (timesLogged). */}
-              <div className="flex flex-col items-center gap-[3px] pt-[3px] flex-none" aria-hidden>
-                {Array.from({ length: PIP_COUNT }).map((_, i) => (
-                  <span
-                    key={i}
-                    className="block w-1.5 h-1.5 rounded-full"
-                    style={
-                      i < filledPips
-                        ? { backgroundColor: `hsl(var(${pipToken}))` }
-                        : { backgroundColor: `hsl(var(${pipToken}) / 0.18)` }
-                    }
-                  />
-                ))}
-              </div>
-
-              {/* 3-land meter replacing the checkbox. */}
+              {/* 3 to-do-list land circles. Styled to match the drill card's
+                  AnimatedCheckbox exactly (border/fill/scale-pop + drawn check),
+                  just larger and circular. filled = displayedLanded of 3. */}
               <div
-                className="flex flex-col items-center gap-[3px] pt-[3px] flex-none"
+                className="flex flex-col items-center gap-[5px] pt-[1px] flex-none"
                 aria-hidden
               >
                 {Array.from({ length: LAND_THRESHOLD }).map((_, i) => (
-                  <motion.span
-                    key={i}
-                    className="block w-2 h-2 rounded-full"
-                    animate={
-                      i < displayedLanded
-                        ? {
-                            backgroundColor: `hsl(var(${token}))`,
-                            scale: reduced ? 1 : [1, 1.35, 1],
-                          }
-                        : { backgroundColor: `hsl(var(${token}) / 0.18)`, scale: 1 }
-                    }
-                    transition={{ duration: 0.25 }}
-                  />
+                  <LandCircle key={i} filled={i < displayedLanded} token={token} />
                 ))}
               </div>
 
               <div className="flex-1 min-w-0">
-                <span className="relative inline-block max-w-full">
-                  <span className="block text-[13px] font-semibold leading-snug break-words text-foreground">
-                    {assignment.technique}
-                  </span>
+                <span
+                  className="block text-[13px] font-semibold leading-snug break-words"
+                  style={{ color: `hsl(var(${token}))` }}
+                >
+                  {assignment.technique}
                 </span>
 
                 {/* Land counter label: "Land 2 of 3". */}
@@ -236,9 +270,10 @@ export function SparringAssignmentRow({
               <XpFloat floatKey={floatKey} token={token} amount={SPARRING_XP_PER_ITEM} />
             </motion.button>
 
-            {/* Setups & counters. */}
+            {/* Setups & counters. Left padding aligns bullets under the text
+                column: px-2.5 + land-circle column (22px) + gap-2.5. */}
             {hasDetails && (
-              <div className="px-2.5 pb-3 pl-[calc(0.625rem+6px+0.625rem+8px+0.5rem+20px+0.625rem)] space-y-2">
+              <div className="px-2.5 pb-3 pl-[calc(0.625rem+22px+0.625rem)] space-y-2">
                 {assignment.setups.length > 0 && (
                   <div className="min-w-0">
                     <p className="text-[9.5px] font-semibold uppercase tracking-[0.07em] text-emerald-400/80 mb-1">

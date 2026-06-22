@@ -30,7 +30,6 @@ export function StageIndicator({ phase, accentToken }: StageIndicatorProps) {
   const reducedMotion = useReducedMotion();
 
   const accentFull = `hsl(var(${accentToken}))`;
-  const accentBg = `hsl(var(${accentToken}) / 0.12)`;
   const sepFilled = `hsl(var(${accentToken}) / 0.55)`;
   const sepPartial = `linear-gradient(90deg, hsl(var(${accentToken}) / 0.55), transparent)`;
 
@@ -45,11 +44,11 @@ export function StageIndicator({ phase, accentToken }: StageIndicatorProps) {
     <div className="flex items-center gap-[9px] px-[15px] pb-3">
       {/* Stage 1: Drill */}
       <div
-        className={`flex items-center gap-[5px] whitespace-nowrap rounded-lg px-[11px] py-[5px] text-[10px] font-bold uppercase tracking-[0.05em]${transition ? ` ${transition}` : ""}`}
+        className={`flex items-center gap-[5px] whitespace-nowrap py-[5px] text-[10px] font-bold uppercase tracking-[0.05em]${transition ? ` ${transition}` : ""}`}
         style={
           drillCleared
-            ? { color: "#23C599", backgroundColor: "rgba(35,197,153,0.10)" }
-            : { color: accentFull, backgroundColor: accentBg }
+            ? { color: "#23C599" }
+            : { color: accentFull }
         }
       >
         {drillCleared ? (
@@ -73,16 +72,13 @@ export function StageIndicator({ phase, accentToken }: StageIndicatorProps) {
 
       {/* Stage 2: Spar */}
       <div
-        className={`flex items-center gap-[5px] whitespace-nowrap rounded-lg px-[11px] py-[5px] text-[10px] font-bold uppercase tracking-[0.05em]${transition ? ` ${transition}` : ""}`}
+        className={`flex items-center gap-[5px] whitespace-nowrap py-[5px] text-[10px] font-bold uppercase tracking-[0.05em]${transition ? ` ${transition}` : ""}`}
         style={
           sparCleared
-            ? { color: "#23C599", backgroundColor: "rgba(35,197,153,0.10)" }
+            ? { color: "#23C599" }
             : sparActive
-              ? { color: accentFull, backgroundColor: accentBg }
-              : {
-                  color: "hsl(var(--muted-foreground) / 0.7)",
-                  backgroundColor: "hsl(var(--muted) / 0.08)",
-                }
+              ? { color: accentFull }
+              : { color: "hsl(var(--muted-foreground) / 0.7)" }
         }
       >
         {sparCleared ? (
