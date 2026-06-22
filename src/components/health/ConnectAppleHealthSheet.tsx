@@ -2,9 +2,12 @@
  * ConnectAppleHealthSheet — full-screen explainer + permission trigger.
  *
  * Shown:
- *   1. From the onboarding wizard step (`ConnectHealthStep.tsx`).
- *   2. From the settings entry card (`HealthSettingsCard.tsx`) when the
+ *   1. From the settings entry card (`HealthSettingsCard.tsx`) when the
  *      user taps Connect.
+ *
+ * (The onboarding wizard no longer includes an Apple Health step — it was
+ *  removed 2026-06-22; new users are treated as having skipped it and can
+ *  connect here from Settings later.)
  *
  * Lists every metric we'd like to read with a one-line "why" each (spec
  * §3.2). The footer line is verbatim from the spec.

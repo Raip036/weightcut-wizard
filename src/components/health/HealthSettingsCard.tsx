@@ -17,6 +17,7 @@ import { useMutation, useQuery } from "convex/react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   CheckCircle2,
+  Clock,
   ExternalLink,
   HeartPulse,
   Loader2,
@@ -38,6 +39,13 @@ import { useUser } from "@/contexts/UserContext";
 import ErrorBoundary from "@/components/ErrorBoundary";
 
 import { ConnectAppleHealthSheet } from "./ConnectAppleHealthSheet";
+
+// Temporary feature gate. Apple Health sync is built but not yet enabled for
+// users — we keep the settings card visible so it reads as an incoming feature,
+// but the Connect flow is barred and taps surface a "coming soon" notice. This
+// does NOT affect Fight Form scoring: the wellness check-in survey takes
+// priority and already drives the recovery pillar. Flip to `true` to ship.
+const APPLE_HEALTH_ENABLED = false;
 
 // Display-friendly labels mirror ConnectAppleHealthSheet's row list but
 // keyed by Agent A's HealthMetric string values.
@@ -156,6 +164,8 @@ function HealthSettingsCardInner({
   const isConnected = !!connectedAt;
 
   const tierBadge = useMemo(() => {
+    // Feature gated → always read as an upcoming feature, never "Not connected".
+    if (!APPLE_HEALTH_ENABLED) return { label: "Coming soon", tone: "muted" as const };
     if (!isConnected) return { label: "Not connected", tone: "muted" as const };
     if (tier === "tier_2") return { label: "Watch connected", tone: "good" as const };
     if (tier === "tier_1") return { label: "Phone only", tone: "warn" as const };
@@ -165,6 +175,21 @@ function HealthSettingsCardInner({
   const handleConnected = useCallback(() => {
     setSheetOpen(false);
   }, []);
+
+  // While the feature is gated, the Connect button surfaces a "coming soon"
+  // notice instead of opening the explainer sheet.
+  const handleComingSoon = useCallback(() => {
+    toast({
+      title: "Coming soon",
+      description:
+        "Apple Health sync is still in progress and will land in an upcoming update. Your wellness check-ins already power your Fight Form score in the meantime.",
+    });
+  }, [toast]);
+
+  // Resolve the Connect handler once so both render modes share it.
+  const onConnect = APPLE_HEALTH_ENABLED
+    ? () => setSheetOpen(true)
+    : handleComingSoon;
 
   // Inline deep-link: when asked to auto-open the connect explainer, surface
   // it immediately — but only for a user who isn't connected. We must wait for
@@ -176,6 +201,7 @@ function HealthSettingsCardInner({
   useEffect(() => {
     if (autoOpenedRef.current) return;
     if (
+      APPLE_HEALTH_ENABLED &&
       autoOpenConnect &&
       connectMode === "inline" &&
       tierInfoRaw !== undefined
@@ -250,7 +276,9 @@ function HealthSettingsCardInner({
   }, [syncing, insertHealthSamples, toast]);
 
   // ─── Web / Android build (spec §10.10) ──────────────────────────
-  if (available === false) {
+  // Skipped while the feature is gated so the "coming soon" card renders
+  // consistently on every platform (the gated body has no native dependency).
+  if (APPLE_HEALTH_ENABLED && available === false) {
     return (
       <Card
         className={cn(
@@ -307,7 +335,7 @@ function HealthSettingsCardInner({
           <TierPill {...tierBadge} />
         </div>
 
-        {isConnected ? (
+        {APPLE_HEALTH_ENABLED && isConnected ? (
           <ConnectedBody
             grantedMetrics={grantedMetrics}
             lastSyncAt={lastSyncAt}
@@ -320,7 +348,7 @@ function HealthSettingsCardInner({
             syncing={syncing}
           />
         ) : (
-          <DisconnectedBody onConnect={() => setSheetOpen(true)} />
+          <DisconnectedBody onConnect={onConnect} enabled={APPLE_HEALTH_ENABLED} />
         )}
       </Card>
     );
@@ -344,7 +372,7 @@ function HealthSettingsCardInner({
           <TierPill {...tierBadge} />
         </div>
 
-        {isConnected ? (
+        {APPLE_HEALTH_ENABLED && isConnected ? (
           <ConnectedBody
             grantedMetrics={grantedMetrics}
             lastSyncAt={lastSyncAt}
@@ -357,7 +385,7 @@ function HealthSettingsCardInner({
             syncing={syncing}
           />
         ) : (
-          <DisconnectedBody onConnect={() => setSheetOpen(true)} />
+          <DisconnectedBody onConnect={onConnect} enabled={APPLE_HEALTH_ENABLED} />
         )}
       </Card>
 
@@ -407,22 +435,36 @@ function TierPill({
 
 function DisconnectedBody({
   onConnect,
+  enabled = true,
 }: {
   onConnect: () => void;
+  /** When false the feature is gated: copy + button read as "coming soon". */
+  enabled?: boolean;
 }): JSX.Element {
   return (
     <div className="space-y-2.5">
       <p className="text-[12px] leading-snug text-muted-foreground">
-        Read HRV, resting heart rate, sleep, workouts, and recovery signals
-        from Apple Health so your Fight Form score reflects how you actually
-        recover.
+        {enabled
+          ? "Read HRV, resting heart rate, sleep, workouts, and recovery signals from Apple Health so your Fight Form score reflects how you actually recover."
+          : "Soon you'll be able to sync HRV, resting heart rate, sleep, and workouts from Apple Health to sharpen your Fight Form score. Your wellness check-ins cover this for now."}
       </p>
-      <Button
-        onClick={onConnect}
-        className="h-10 w-full rounded-xs bg-primary text-primary-foreground hover:opacity-90"
-      >
-        Connect Apple Health
-      </Button>
+      {enabled ? (
+        <Button
+          onClick={onConnect}
+          className="h-10 w-full rounded-xs bg-primary text-primary-foreground hover:opacity-90"
+        >
+          Connect Apple Health
+        </Button>
+      ) : (
+        <button
+          type="button"
+          onClick={onConnect}
+          className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-xs border border-border/50 bg-muted/30 text-[13px] font-semibold text-muted-foreground active:scale-[0.99] transition"
+        >
+          <Clock className="h-3.5 w-3.5" />
+          Coming soon
+        </button>
+      )}
     </div>
   );
 }

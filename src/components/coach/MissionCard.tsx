@@ -23,6 +23,13 @@ interface MissionCardProps {
   expanded: boolean;
   /** Toggle expand/collapse from a header tap. */
   onToggle: () => void;
+  /**
+   * Called when completing the final item clears ALL missions for the
+   * discipline (backend `allMissionsComplete === true`). The parent
+   * (MasterySpine) owns the discipline-level celebration so only one
+   * CompleteCelebration fires for the unlock moment.
+   */
+  onAllMissionsComplete?: (discipline: string, xpForCelebration: number) => void;
 }
 
 const COLLAPSED_ITEM_COUNT = 5;
@@ -42,6 +49,70 @@ function cleanAdvice(text: string): string {
     .replace(/^[\s\-*•]+/, "")
     .replace(/^\d+[.)]\s*/, "")
     .trim();
+}
+
+/** Labels for drillType chips. */
+const DRILL_TYPE_LABEL: Record<string, string> = {
+  solo: "SOLO",
+  partner: "PARTNER",
+  live: "LIVE",
+  shadow: "SHADOW",
+};
+
+/**
+ * A pair of chips shown under each drill item: a fixed-width drillType chip
+ * (78 px) and a duration chip (66 px). They form two aligned columns across
+ * all drill rows. Each chip is hidden when its datum is absent.
+ * iOS perf: border + bg-tint only — no blur/shadow/filter.
+ */
+function DrillChips({
+  drillType,
+  durationMin,
+  token,
+}: {
+  drillType?: string | null;
+  durationMin?: number | null;
+  token: string;
+}) {
+  if (!drillType && !durationMin) return null;
+
+  const typeLabel = drillType ? (DRILL_TYPE_LABEL[drillType] ?? drillType.toUpperCase()) : null;
+  const timeLabel = durationMin != null
+    ? drillType === "live" ? `${durationMin} rnds` : `${durationMin} min`
+    : null;
+
+  return (
+    <div className="flex gap-2 mt-2">
+      {typeLabel != null ? (
+        <span
+          className="inline-flex items-center justify-center text-[10px] font-semibold tracking-wide rounded-[7px] border py-1"
+          style={{
+            width: 78,
+            color: `hsl(var(${token}))`,
+            backgroundColor: `hsl(var(${token}) / 0.08)`,
+            borderColor: `hsl(var(${token}) / 0.22)`,
+          }}
+        >
+          {typeLabel}
+        </span>
+      ) : (
+        /* Invisible placeholder keeps the time chip in column 2 */
+        <span style={{ width: 78, flexShrink: 0 }} />
+      )}
+      {timeLabel != null && (
+        <span
+          className="inline-flex items-center justify-center text-[10px] font-semibold tracking-wide rounded-[7px] border py-1 text-muted-foreground"
+          style={{
+            width: 66,
+            backgroundColor: "hsla(0,0%,100%,0.04)",
+            borderColor: "rgba(255,255,255,0.08)",
+          }}
+        >
+          {timeLabel}
+        </span>
+      )}
+    </div>
+  );
 }
 
 /**
@@ -124,6 +195,7 @@ function TickRow({
             transition={{ duration: reduced ? 0 : 0.3, ease: "easeOut" }}
           />
         </span>
+        <DrillChips drillType={item.drillType} durationMin={item.durationMin} token={token} />
       </div>
 
       <XpFloat floatKey={floatKey} token={token} amount={XP_PER_ITEM} />
@@ -139,7 +211,7 @@ function TickRow({
  * Items support tick AND untick (in case of accidental taps). Ticking the
  * final unchecked item fires a full-screen completion celebration.
  */
-export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
+export function MissionCard({ mission, expanded, onToggle, onAllMissionsComplete }: MissionCardProps) {
   const token = disciplineToken(mission.sport);
   const label = disciplineLabel(mission.sport);
   const prefersReduced = useReducedMotion();
@@ -152,8 +224,7 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
   );
   const progressPct = totalCount > 0 ? (doneCount / totalCount) * 100 : 0;
 
-  // "Why this mission" rationale disclosure, collapsed by default.
-  const [showWhy, setShowWhy] = useState(false);
+  // Rationale is now a permanent subtitle; disclosure state removed.
 
   // Item collapse state persists across navigation via localStorage.
   const itemsExpandedKey = `wcw_mission_items_expanded_${mission._id}`;
@@ -216,15 +287,22 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
         itemId,
         completed: !currentlyCompleted,
       });
-      // Only show the completion celebration when we just transitioned
-      // TO completed (tick), never on an untick.
+      // Only show a celebration when we just transitioned TO completed
+      // (tick), never on an untick.
       if (!currentlyCompleted && result.missionCompleted) {
         const awarded = result.xpAwarded ?? 0;
-        const newLevel = levelFromXp(prevTotalXp + awarded).level;
-        const leveledUp =
-          awarded > 0 && newLevel > levelFromXp(prevTotalXp).level;
-        setCompletionAward({ xpAwarded: awarded, leveledUp, newLevel });
-        setCompleteOpen(true);
+        if (result.allMissionsComplete && onAllMissionsComplete) {
+          // The last mission of the discipline is done: bubble up to the
+          // parent so it fires the single discipline-level unlock
+          // celebration. Skip the per-mission overlay to avoid double-fire.
+          onAllMissionsComplete(mission.sport, awarded);
+        } else {
+          const newLevel = levelFromXp(prevTotalXp + awarded).level;
+          const leveledUp =
+            awarded > 0 && newLevel > levelFromXp(prevTotalXp).level;
+          setCompletionAward({ xpAwarded: awarded, leveledUp, newLevel });
+          setCompleteOpen(true);
+        }
       }
     } catch (err) {
       console.warn("MissionCard: markItemCompleted failed", err);
@@ -290,6 +368,11 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
             <p className="text-body-sm font-semibold text-foreground leading-snug break-words">
               {mission.title}
             </p>
+            {mission.rationale && (
+              <p className="text-[11.5px] text-muted-foreground leading-snug mt-0.5 line-clamp-1">
+                {stripDashes(cleanAdvice(mission.rationale))}
+              </p>
+            )}
           </div>
 
           {/* Mission item count "3/7", coloured once the user has started. */}
@@ -333,42 +416,7 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
             ──────────────────────────────────────────────────────────── */}
         {expanded && (
           <div className="relative pl-4 pr-4 pt-3 pb-4 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
-            {/* "Why this mission", collapsed by default. */}
-            {mission.rationale && (
-              <div>
-                <button
-                  type="button"
-                  onClick={() => setShowWhy((w) => !w)}
-                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground/70 active:text-foreground"
-                  aria-expanded={showWhy}
-                >
-                  <Icon name="informationCircleOutline" size={12} />
-                  Why this mission
-                  <Icon
-                    name="chevronDownOutline"
-                    size={12}
-                    className={cn(
-                      "transition-transform",
-                      showWhy && "rotate-180",
-                    )}
-                  />
-                </button>
-                <AnimatePresence initial={false}>
-                  {showWhy && (
-                    <motion.p
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="overflow-hidden text-note text-muted-foreground leading-snug mt-1.5"
-                    >
-                      {stripDashes(cleanAdvice(mission.rationale))}
-                    </motion.p>
-                  )}
-                </AnimatePresence>
-              </div>
-            )}
-
-            {/* Items: text only, with the full tick-reward animation. */}
+            {/* Items: text + drill chips, with the full tick-reward animation. */}
             <ul className="space-y-1.5" role="list">
               {visibleItems.map((item) => (
                 <li key={item._id}>

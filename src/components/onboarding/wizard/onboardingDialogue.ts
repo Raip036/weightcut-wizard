@@ -114,32 +114,32 @@ const LINES: Record<string, DialogueLine> = {
     body: "Pads, sparring, gym, runs. Count all of them.",
   },
 
-  // Step 13: training types
-  "cutting:13": {
+  // Step 12: training types (was 13; Apple Health step removed 2026-06-22)
+  "cutting:12": {
     headline: "The work.",
     body: "Wrestling burns more than shadowbox. Surprising no one.",
   },
 
-  // Step 14: sleep
-  "cutting:14": {
+  // Step 13: sleep
+  "cutting:13": {
     headline: "Sleep hours.",
     body: "This is when fat actually leaves. Wild, I know.",
   },
 
-  // Step 15: struggle
-  "cutting:15": {
+  // Step 14: struggle
+  "cutting:14": {
     headline: "Your demon.",
     body: "Pick the one that wrecks camps. Naming it is half the fight.",
   },
 
-  // Step 16: name
-  "cutting:16": {
+  // Step 15: name
+  "cutting:15": {
     headline: "Your name.",
     body: "Your gym needs something to chant at the weigh-in.",
   },
 
-  // Step 17: final
-  "cutting:17": {
+  // Step 16: final
+  "cutting:16": {
     headline: "Hold the line.",
     body: "Sign your name, fighter. Then we build the plan.",
     pose: "celebrate",

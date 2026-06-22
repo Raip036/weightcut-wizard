@@ -82,6 +82,8 @@ interface SubscriptionContextType {
   // this surface is exactly how non-paying users got upgraded in sandbox.
   showWelcomePro: boolean;
   dismissWelcomePro: () => void;
+  showProEnded: boolean;
+  dismissProEnded: () => void;
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
@@ -108,8 +110,10 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const { userId } = useAuth();
   const activatePremium = useAction(api.actions.activatePremium.run);
   const markWelcomeProShown = useMutation(api.profiles.markWelcomeProShown);
+  const markProEndedShown = useMutation(api.profiles.markProEndedShown);
   const [isPaywallOpen, setIsPaywallOpen] = useState(false);
   const [showWelcomePro, setShowWelcomePro] = useState(false);
+  const [showProEnded, setShowProEnded] = useState(false);
   // `false` until profile has resolved at least once (undefined = loading, null/obj = resolved)
   const [isSubscriptionResolved, setIsSubscriptionResolved] = useState(false);
 
@@ -237,6 +241,31 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     };
   }, [isPremium, isSubscriptionResolved, userId, markWelcomeProShown]);
 
+  // Fire the one-time "Pro ended" cutscene after a GENUINE lapse. Unlike the
+  // welcome (which is edge-driven from a free->pro transition this session),
+  // this is SERVER-ARMED: the EXPIRATION webhook stamps `proEndedPendingAt`,
+  // and we read the reactive pending/shown flags straight off `profile`. A
+  // server compare-and-set (`markProEndedShown`) decides who actually shows it,
+  // keyed to the pending timestamp so a later lapse re-fires exactly once.
+  useEffect(() => {
+    if (!isSubscriptionResolved || !userId) return;
+    if (isPremium) return; // never while Pro
+    const pending = profile?.pro_ended_pending_at ?? null;
+    const shown = profile?.pro_ended_shown_at ?? null;
+    if (pending == null) return;
+    if (shown != null && shown >= pending) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await markProEndedShown({});
+        if (!cancelled && res?.firstTime) setShowProEnded(true);
+      } catch (err) {
+        logger.warn("markProEndedShown failed", { err });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [profile?.pro_ended_pending_at, profile?.pro_ended_shown_at, isPremium, isSubscriptionResolved, userId, markProEndedShown]);
+
   // Initialize RevenueCat when userId becomes available
   useEffect(() => {
     if (!userId || !Capacitor.isNativePlatform()) return;
@@ -320,6 +349,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   }, [isPremium]);
   const closePaywall = useCallback(() => setIsPaywallOpen(false), []);
   const dismissWelcomePro = useCallback(() => setShowWelcomePro(false), []);
+  const dismissProEnded = useCallback(() => setShowProEnded(false), []);
 
   // Memoize the context value. `profile` pushes from Convex (every weight log,
   // name edit, etc.) re-render this provider, but the subscription-relevant
@@ -342,6 +372,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       closePaywall,
       showWelcomePro,
       dismissWelcomePro,
+      showProEnded,
+      dismissProEnded,
     }),
     // `expiresAt`/`trialEndsAt` are keyed by their ms timestamps (stable across
     // renders) rather than Date identity; the objects themselves are recreated
@@ -360,6 +392,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       closePaywall,
       showWelcomePro,
       dismissWelcomePro,
+      showProEnded,
+      dismissProEnded,
     ],
   );
 

@@ -202,9 +202,9 @@ interface RecoveryDashboardProps {
 // the engine's label boundaries (80/55/35 in performanceEngine/readiness.ts).
 function readinessVerdict(score: number): { line: string; tone: string; tier: string } {
   if (score >= 80)
-    return { line: "You're locked in — push.", tone: "text-func-recovery-green", tier: "GREEN" };
+    return { line: "You're locked in - push.", tone: "text-func-recovery-green", tier: "GREEN" };
   if (score >= 60)
-    return { line: "Solid base — train smart.", tone: "text-blue-300", tier: "GREEN" };
+    return { line: "Solid base - train smart.", tone: "text-blue-300", tier: "GREEN" };
   if (score >= 40)
     return { line: "Run easy and watch fatigue.", tone: "text-func-warning-yellow", tier: "AMBER" };
   return { line: "Recover hard today.", tone: "text-func-danger-red", tier: "RED" };
@@ -245,11 +245,11 @@ function tierTextColor(tier: string): string {
 
 // Gas-tank one-liner copy (kept here so we don't bloat GasTankBar's API).
 function gasTankOneLiner(score: number): string {
-  if (score >= 80) return "Full tank — push it.";
-  if (score >= 60) return "Plenty in the tank — train smart.";
-  if (score >= 40) return "Half-full — keep it controlled.";
-  if (score >= 25) return "Low fuel — easy day.";
-  return "Tank's empty — recover hard.";
+  if (score >= 80) return "Full tank - push it.";
+  if (score >= 60) return "Plenty in the tank - train smart.";
+  if (score >= 40) return "Half-full - keep it controlled.";
+  if (score >= 25) return "Low fuel - easy day.";
+  return "Tank's empty - recover hard.";
 }
 
 // T19: Last-5-days readiness curve for FightWeekFormCard. Takes the
@@ -905,16 +905,16 @@ function HeroCard({
             </div>
             <div className="grid grid-cols-2 gap-x-3 gap-y-1 tabular-nums">
               <span className="text-muted-foreground">HRV</span>
-              <span className="text-right">—</span>
+              <span className="text-right">-</span>
               <span className="text-muted-foreground">RHR</span>
-              <span className="text-right">—</span>
+              <span className="text-right">-</span>
               <span className="text-muted-foreground">Sleep</span>
               <span className="text-right">{Math.round(rawSleepScore)}</span>
               <span className="text-muted-foreground">Strain</span>
               <span className="text-right">{rawStrain.toFixed(1)}</span>
               <span className="text-muted-foreground">Hooper</span>
               <span className="text-right">
-                {rawHooperIndex != null ? `${rawHooperIndex}/28` : "—"}
+                {rawHooperIndex != null ? `${rawHooperIndex}/28` : "-"}
               </span>
             </div>
           </PopoverContent>
@@ -950,7 +950,7 @@ function HeroCard({
                 key={key}
                 type="button"
                 onClick={() => onPillarTap(key)}
-                aria-label={`${label} pillar — ${val == null ? "building" : `score ${Math.round(val)}`}`}
+                aria-label={`${label} pillar - ${val == null ? "building" : `score ${Math.round(val)}`}`}
                 className="flex flex-col items-center gap-1 p-1.5 rounded-md active:bg-muted/20 transition-colors"
               >
                 <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70 font-semibold">
@@ -959,7 +959,7 @@ function HeroCard({
                 <span
                   className={`text-[22px] font-bold tabular-nums leading-none ${pillarMiniColor(val)}`}
                 >
-                  {val == null ? "—" : Math.round(val)}
+                  {val == null ? "-" : Math.round(val)}
                 </span>
               </button>
             );
@@ -1100,7 +1100,7 @@ function FirstReadCard({ onStart }: { onStart: () => void }) {
       </div>
       <p className="mt-2 text-[14px] text-muted-foreground">Tap below</p>
       <p className="mt-4 text-[13px] text-foreground/80 leading-snug max-w-[34ch] mx-auto">
-        We learn your body in 7 days. Check in daily — get your call.
+        We learn your body in 7 days. Check in daily - get your call.
       </p>
       <button
         type="button"

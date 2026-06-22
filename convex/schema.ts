@@ -98,6 +98,16 @@ export default defineSchema({
     // Reset to null by the RC EXPIRATION webhook so a real re-subscribe after
     // a lapse re-arms it.
     welcomeProShownAt: v.optional(v.number()),
+    // One-time "Pro ended" cutscene gate — the inverse of welcomeProShownAt.
+    // `proEndedPendingAt` is the epoch ms of a genuine Pro lapse the cutscene
+    // has NOT yet been shown for; armed server-side by the RC EXPIRATION webhook
+    // (only when the profile was previously non-free) and cleared on re-subscribe
+    // so a future lapse re-arms. `proEndedShownAt` is the epoch ms the cutscene
+    // was shown for the current pending lapse — set on show, not dismiss, so a
+    // force-quit mid-cutscene won't replay it. A later lapse (new pending >
+    // prior shown) re-fires exactly once.
+    proEndedPendingAt: v.optional(v.number()),
+    proEndedShownAt: v.optional(v.number()),
     // Epoch ms the one-time new-user tutorial walkthrough was auto-shown for
     // this account. Server-authoritative so the tutorial fires exactly once per
     // account — independent of device, a returning device, or a reinstall (those
@@ -887,9 +897,14 @@ export default defineSchema({
     // Updated whenever an item is ticked. Drives the active-mission
     // ordering in the widget.
     lastActivityAt: v.number(),
+    focusTechnique: v.optional(v.string()),
+    focusTechniqueNormalized: v.optional(v.string()),
+    graduatedAt: v.optional(v.number()),
+    cycleId: v.optional(v.string()),
   })
     .index("by_user_status", ["userId", "status"])
-    .index("by_user_sport_status", ["userId", "sport", "status"]),
+    .index("by_user_sport_status", ["userId", "sport", "status"])
+    .index("by_user_cycle", ["userId", "cycleId"]),
 
   training_mission_items: defineTable({
     missionId: v.id("training_missions"),
@@ -997,10 +1012,26 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
     completedAt: v.optional(v.number()),
+    // ── Mastery Spine fields (Task 0.2) ──────────────────────────────────
+    // Where the assignment came from: auto-graduated from XP or manually
+    // added from the technique library.
+    source: v.optional(v.union(v.literal("graduated"), v.literal("library"))),
+    // Id of the training_mission that triggered graduation (if any).
+    sourceMissionId: v.optional(v.id("training_missions")),
+    // How many times this technique has been successfully landed in a
+    // live round (incremented each time the user logs it).
+    landedCount: v.optional(v.number()),
+    // Epoch-ms when the user marked this technique as "mastered".
+    masteredAt: v.optional(v.number()),
+    // Named combination entries (e.g. "jab → cross → takedown").
+    combinations: v.optional(v.array(v.string())),
+    // Total number of sparring rounds/sessions this technique was logged.
+    timesLogged: v.optional(v.number()),
   })
     .index("by_user", ["userId"])
     .index("by_user_discipline", ["userId", "discipline"])
-    .index("by_user_norm", ["userId", "techniqueNormalized"]),
+    .index("by_user_norm", ["userId", "techniqueNormalized"])
+    .index("by_user_mastered", ["userId", "masteredAt"]),
 
   // ────────────────────────────────────────────────────────────────────
   // SKILL TREE

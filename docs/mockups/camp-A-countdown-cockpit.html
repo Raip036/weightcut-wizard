@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Your Camp — Countdown Cockpit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --page: #0F0F0F;
+    --surface: #1E1E1E;
+    --surface-2: #181818;
+    --border: #292B2E;
+    --blue: hsl(217 91% 58%);
+    --blue-soft: hsl(217 91% 58% / 0.14);
+    --fg: #F2F2F2;
+    --muted: hsl(220 15% 65%);
+    --muted-dim: hsl(220 12% 45%);
+    --green: hsl(152 69% 46%);
+    --amber: hsl(45 93% 50%);
+    --red: hsl(0 72% 55%);
+    --orange: hsl(24 95% 56%);
+    --purple: hsl(270 55% 60%);
+    --radius: 16px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+
+  html, body {
+    background: #050505;
+    font-family: "Inter", -apple-system, sans-serif;
+    color: var(--fg);
+  }
+
+  body {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 40px 20px 60px;
+    background:
+      radial-gradient(700px 500px at 50% -5%, rgba(59,130,246,0.10), transparent 60%),
+      #050505;
+    min-height: 100vh;
+  }
+
+  .device {
+    width: 390px;
+    background: var(--page);
+    border-radius: 46px;
+    border: 1px solid #1c1c1c;
+    box-shadow: 0 0 0 10px #0a0a0a, 0 40px 90px rgba(0,0,0,0.7);
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* ---------- Status bar ---------- */
+  .statusbar {
+    height: 50px;
+    padding: 0 26px 0 30px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: "Sora", sans-serif;
+    font-weight: 600;
+    font-size: 15px;
+    letter-spacing: 0.2px;
+    position: relative;
+    z-index: 5;
+  }
+  .statusbar .right { display: flex; align-items: center; gap: 7px; }
+  .statusbar svg { display: block; }
+
+  /* ---------- Scroll body ---------- */
+  .screen {
+    height: 760px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 4px 18px 110px;
+    scrollbar-width: none;
+  }
+  .screen::-webkit-scrollbar { display: none; }
+
+  /* ---------- Page header ---------- */
+  .page-head {
+    padding: 6px 4px 18px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+  .eyebrow {
+    font-family: "Inter", sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 2.4px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .page-title {
+    font-family: "Sora", sans-serif;
+    font-weight: 700;
+    font-size: 34px;
+    line-height: 1.02;
+    letter-spacing: -0.5px;
+    margin-top: 2px;
+  }
+  .head-avatar {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: linear-gradient(145deg, #2a2a2a, #161616);
+    border: 1px solid var(--border);
+    display: grid; place-items: center;
+    font-family: "Sora"; font-weight: 700; font-size: 14px;
+    color: var(--muted);
+  }
+
+  /* ---------- HERO: Countdown cockpit ---------- */
+  .hero {
+    position: relative;
+    border-radius: 22px;
+    padding: 22px 20px 20px;
+    overflow: hidden;
+    background:
+      radial-gradient(120% 120% at 88% -10%, rgba(59,130,246,0.22), transparent 55%),
+      linear-gradient(165deg, #1b2233 0%, #141414 58%, #121212 100%);
+    border: 1px solid var(--border);
+  }
+  .hero::after {
+    content: "";
+    position: absolute; inset: 0;
+    background: radial-gradient(60% 40% at 50% 120%, rgba(59,130,246,0.10), transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    position: relative;
+    z-index: 2;
+  }
+  .camp-name {
+    font-family: "Sora"; font-weight: 600; font-size: 17px;
+    letter-spacing: -0.2px;
+  }
+  .camp-sub {
+    font-size: 12.5px; color: var(--muted); margin-top: 3px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .phase-pill {
+    font-family: "Sora"; font-weight: 600; font-size: 11.5px;
+    letter-spacing: 0.3px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    color: var(--blue);
+    background: var(--blue-soft);
+    border: 1px solid rgba(59,130,246,0.3);
+    white-space: nowrap;
+  }
+
+  /* Countdown number block */
+  .countdown {
+    position: relative; z-index: 2;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin: 16px 0 4px;
+  }
+  .count-num {
+    font-family: "Sora"; font-weight: 800;
+    font-size: 88px; line-height: 0.82;
+    letter-spacing: -3px;
+    font-variant-numeric: tabular-nums;
+    background: linear-gradient(180deg, #ffffff 10%, #cfe0ff 95%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 40px rgba(59,130,246,0.25);
+  }
+  .count-meta { padding-bottom: 6px; }
+  .count-label {
+    font-family: "Sora"; font-weight: 600; font-size: 15px;
+    letter-spacing: -0.2px;
+  }
+  .count-detail { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+
+  /* Discipline rings (secondary) */
+  .disc-rings {
+    position: absolute; top: 18px; right: 0;
+    display: none; /* phase pill takes priority slot; rings moved to row below */
+  }
+  .disc-row {
+    position: relative; z-index: 2;
+    display: flex; gap: 10px;
+    margin-top: 14px;
+  }
+  .disc {
+    display: flex; align-items: center; gap: 9px;
+    padding: 8px 12px 8px 9px;
+    background: rgba(255,255,255,0.035);
+    border: 1px solid var(--border);
+    border-radius: 13px;
+    flex: 1;
+  }
+  .ring {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-family: "Sora"; font-weight: 700; font-size: 11px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .ring.bjj { background: conic-gradient(var(--blue) 0 80%, rgba(255,255,255,0.08) 80% 100%); }
+  .ring.box { background: conic-gradient(var(--orange) 0 40%, rgba(255,255,255,0.08) 40% 100%); }
+  .ring::before {
+    content: ""; position: absolute; inset: 3px;
+    border-radius: 50%; background: #15171c;
+  }
+  .ring span { position: relative; z-index: 1; }
+  .disc-meta .d-name { font-size: 11px; color: var(--muted); letter-spacing: 0.2px; }
+  .disc-meta .d-lvl { font-family: "Sora"; font-weight: 600; font-size: 13.5px; margin-top: 1px; }
+
+  /* ---------- Trajectory bar (SIGNATURE) ---------- */
+  .traj {
+    position: relative; z-index: 2;
+    margin-top: 20px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .traj-labels {
+    display: flex; justify-content: space-between;
+    font-size: 10.5px; letter-spacing: 0.4px;
+    color: var(--muted-dim);
+    margin-bottom: 11px;
+    font-weight: 600;
+  }
+  .traj-labels .now { color: var(--blue); }
+  .traj-track {
+    position: relative;
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.07);
+    margin: 0 4px;
+  }
+  /* phase segments under the track */
+  .traj-seg {
+    position: absolute; top: 0; height: 6px; border-radius: 999px;
+  }
+  .seg-build { left: 0; width: 81%; background: linear-gradient(90deg, rgba(59,130,246,0.55), rgba(59,130,246,0.18)); }
+  .seg-peak  { left: 81%; width: 10%; background: rgba(155,163,175,0.28); }
+  .seg-fw    { left: 91%; width: 9%; background: rgba(231,76,60,0.4); }
+  /* progress fill (1%) */
+  .traj-fill {
+    position: absolute; top: 0; left: 0; height: 6px;
+    width: 4%;
+    border-radius: 999px;
+    background: var(--blue);
+    box-shadow: 0 0 12px rgba(59,130,246,0.7);
+  }
+  /* phase ticks */
+  .tick { position: absolute; top: -4px; width: 1px; height: 14px; background: rgba(255,255,255,0.18); }
+  .tick.t1 { left: 81%; }
+  .tick.t2 { left: 91%; }
+  /* you-are-here node */
+  .node {
+    position: absolute; top: 50%; left: 2.5%;
+    width: 16px; height: 16px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: var(--blue);
+    border: 3px solid #0c1422;
+    box-shadow: 0 0 0 5px rgba(59,130,246,0.18), 0 0 16px rgba(59,130,246,0.9);
+    z-index: 3;
+  }
+  .node-pulse {
+    position: absolute; top: 50%; left: 2.5%;
+    width: 16px; height: 16px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: rgba(59,130,246,0.5);
+    z-index: 2;
+    animation: pulse 2.6s ease-out infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(59,130,246,0.45); opacity: 0.8; }
+    100% { box-shadow: 0 0 0 16px rgba(59,130,246,0); opacity: 0; }
+  }
+  .traj-foot {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 14px;
+  }
+  .traj-foot .you-here {
+    font-size: 11.5px; color: var(--blue); font-weight: 600;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .traj-foot .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--blue); box-shadow: 0 0 8px var(--blue); }
+  .plan-link {
+    font-family: "Sora"; font-weight: 600; font-size: 12.5px;
+    color: var(--blue); text-decoration: none;
+    display: flex; align-items: center; gap: 3px;
+  }
+  .plan-link svg { width: 13px; height: 13px; }
+
+  /* ---------- Section label ---------- */
+  .section-label {
+    font-family: "Inter"; font-weight: 700;
+    font-size: 11.5px; letter-spacing: 1.6px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 26px 6px 11px;
+  }
+
+  /* ---------- Unlock Pro (consolidated) ---------- */
+  .pro {
+    border-radius: var(--radius);
+    border: 1px solid rgba(59,130,246,0.28);
+    background:
+      radial-gradient(140% 120% at 0% 0%, rgba(59,130,246,0.16), transparent 50%),
+      var(--surface);
+    overflow: hidden;
+  }
+  .pro-head {
+    display: flex; align-items: center; gap: 12px;
+    padding: 16px 16px 13px;
+  }
+  .crown {
+    width: 40px; height: 40px; border-radius: 12px;
+    background: linear-gradient(150deg, var(--blue), #1d4ed8);
+    display: grid; place-items: center;
+    box-shadow: 0 6px 18px rgba(59,130,246,0.35);
+    flex-shrink: 0;
+  }
+  .crown svg { width: 21px; height: 21px; }
+  .pro-head .pt { font-family: "Sora"; font-weight: 600; font-size: 15.5px; }
+  .pro-head .ps { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .pro-list { padding: 0 16px; }
+  .pro-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 0;
+    border-top: 1px solid rgba(255,255,255,0.055);
+  }
+  .pro-item .pi-icon {
+    width: 30px; height: 30px; border-radius: 9px;
+    display: grid; place-items: center;
+    background: rgba(255,255,255,0.05);
+    flex-shrink: 0;
+  }
+  .pro-item svg { width: 16px; height: 16px; }
+  .pro-item .pi-txt { flex: 1; }
+  .pro-item .pi-name { font-size: 13.5px; font-weight: 500; }
+  .pro-item .pi-desc { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+  .pro-item .lock {
+    color: var(--muted-dim);
+    flex-shrink: 0;
+  }
+  .pro-cta {
+    margin: 14px 16px 16px;
+    height: 46px;
+    border-radius: 13px;
+    background: linear-gradient(180deg, var(--blue), #2563eb);
+    color: #fff;
+    font-family: "Sora"; font-weight: 600; font-size: 14.5px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    border: none;
+    box-shadow: 0 8px 22px rgba(59,130,246,0.32);
+    cursor: pointer;
+  }
+
+  /* ---------- Grouped nav list (iOS) ---------- */
+  .group {
+    background: var(--surface);
+    border: 1px solid rgba(41,43,46,0.7);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .nav-row {
+    display: flex; align-items: center; gap: 13px;
+    padding: 13px 15px;
+    position: relative;
+    cursor: pointer;
+    text-decoration: none;
+    color: var(--fg);
+  }
+  .nav-row + .nav-row::before {
+    content: ""; position: absolute; top: 0; left: 53px; right: 0;
+    height: 1px; background: rgba(255,255,255,0.05);
+  }
+  .nav-icon {
+    width: 30px; height: 30px; border-radius: 9px;
+    display: grid; place-items: center;
+    flex-shrink: 0;
+  }
+  .nav-icon svg { width: 16px; height: 16px; }
+  .ni-blue   { background: rgba(59,130,246,0.16); color: var(--blue); }
+  .ni-orange { background: hsl(24 95% 56% / 0.15); color: var(--orange); }
+  .ni-green  { background: hsl(152 69% 46% / 0.15); color: var(--green); }
+  .ni-purple { background: hsl(270 55% 60% / 0.16); color: var(--purple); }
+  .ni-amber  { background: hsl(45 93% 50% / 0.15); color: var(--amber); }
+  .nav-txt { flex: 1; }
+  .nav-name { font-size: 14.5px; font-weight: 500; letter-spacing: -0.1px; }
+  .nav-stat { font-size: 12px; color: var(--muted); }
+  .chev { color: var(--muted-dim); flex-shrink: 0; }
+
+  /* ---------- Recent activity ---------- */
+  .activity { padding: 2px 4px 0; }
+  .act-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .act-row:last-child { border-bottom: none; }
+  .act-dot {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: grid; place-items: center; flex-shrink: 0;
+  }
+  .act-dot svg { width: 14px; height: 14px; }
+  .act-txt { flex: 1; font-size: 13.5px; }
+  .act-time { font-size: 11.5px; color: var(--muted-dim); font-variant-numeric: tabular-nums; }
+
+  /* ---------- Bottom tab bar ---------- */
+  .tabbar {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: 86px;
+    padding: 10px 22px 26px;
+    display: flex; align-items: flex-start; justify-content: space-between;
+    background: rgba(15,15,15,0.86);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(255,255,255,0.06);
+    z-index: 10;
+  }
+  .tab {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    flex: 1;
+    color: var(--muted-dim);
+    font-size: 10px; font-weight: 500;
+  }
+  .tab svg { width: 23px; height: 23px; }
+  .tab.active { color: var(--blue); }
+  .fab-wrap { flex: 1; display: flex; justify-content: center; }
+  .fab {
+    width: 50px; height: 50px; border-radius: 16px;
+    background: linear-gradient(180deg, var(--blue), #2563eb);
+    display: grid; place-items: center;
+    margin-top: -8px;
+    box-shadow: 0 10px 22px rgba(59,130,246,0.4);
+  }
+  .fab svg { width: 24px; height: 24px; color: #fff; }
+  .home-indicator {
+    position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+    width: 134px; height: 5px; border-radius: 999px;
+    background: rgba(255,255,255,0.3); z-index: 11;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .node-pulse { animation: none; opacity: 0; }
+  }
+</style>
+</head>
+<body>
+  <div class="device">
+    <!-- Status bar -->
+    <div class="statusbar">
+      <span>12:20</span>
+      <div class="right">
+        <!-- signal -->
+        <svg width="18" height="12" viewBox="0 0 18 12" fill="none"><rect x="0" y="8" width="3" height="4" rx="1" fill="#F2F2F2"/><rect x="5" y="5" width="3" height="7" rx="1" fill="#F2F2F2"/><rect x="10" y="2.5" width="3" height="9.5" rx="1" fill="#F2F2F2"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#F2F2F2"/></svg>
+        <!-- wifi -->
+        <svg width="17" height="12" viewBox="0 0 17 12" fill="none"><path d="M8.5 11.2l2-2.4a3.1 3.1 0 00-4 0l2 2.4z" fill="#F2F2F2"/><path d="M3.9 6.6a7 7 0 019.2 0" stroke="#F2F2F2" stroke-width="1.6" stroke-linecap="round"/><path d="M1.2 3.8a11 11 0 0114.6 0" stroke="#F2F2F2" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <!-- battery -->
+        <svg width="26" height="13" viewBox="0 0 26 13" fill="none"><rect x="0.5" y="0.5" width="21" height="12" rx="3.2" stroke="#F2F2F2" stroke-opacity="0.5"/><rect x="2" y="2" width="16" height="9" rx="2" fill="#F2F2F2"/><rect x="23" y="4" width="2" height="5" rx="1" fill="#F2F2F2" fill-opacity="0.5"/></svg>
+      </div>
+    </div>
+
+    <div class="screen">
+      <!-- Header -->
+      <div class="page-head">
+        <div>
+          <div class="eyebrow">Your</div>
+          <div class="page-title">Camp</div>
+        </div>
+        <div class="head-avatar">P</div>
+      </div>
+
+      <!-- HERO -->
+      <div class="hero">
+        <div class="hero-top">
+          <div>
+            <div class="camp-name">Road to Sep 4</div>
+            <div class="camp-sub">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+              Fight night · Sep 4, 2026
+            </div>
+          </div>
+          <div class="phase-pill">Build phase</div>
+        </div>
+
+        <!-- Countdown -->
+        <div class="countdown">
+          <div class="count-num">74</div>
+          <div class="count-meta">
+            <div class="count-label">days to fight</div>
+            <div class="count-detail">Day 1 of 74 · 1% complete</div>
+          </div>
+        </div>
+
+        <!-- Discipline rings -->
+        <div class="disc-row">
+          <div class="disc">
+            <div class="ring bjj"><span>4</span></div>
+            <div class="disc-meta">
+              <div class="d-name">BJJ</div>
+              <div class="d-lvl">Level 4</div>
+            </div>
+          </div>
+          <div class="disc">
+            <div class="ring box"><span>2</span></div>
+            <div class="disc-meta">
+              <div class="d-name">Boxing</div>
+              <div class="d-lvl">Level 2</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trajectory (signature) -->
+        <div class="traj">
+          <div class="traj-labels">
+            <span class="now">Camp start · now</span>
+            <span>Peak</span>
+            <span>Fight week</span>
+          </div>
+          <div class="traj-track">
+            <div class="traj-seg seg-build"></div>
+            <div class="traj-seg seg-peak"></div>
+            <div class="traj-seg seg-fw"></div>
+            <div class="traj-fill"></div>
+            <div class="tick t1"></div>
+            <div class="tick t2"></div>
+            <div class="node-pulse"></div>
+            <div class="node"></div>
+          </div>
+          <div class="traj-foot">
+            <div class="you-here"><span class="dot"></span>You are here — 14 days to Peak</div>
+            <a class="plan-link" href="#">View full plan
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- UNLOCK PRO (consolidated) -->
+      <div class="section-label">Coaching</div>
+      <div class="pro">
+        <div class="pro-head">
+          <div class="crown">
+            <svg viewBox="0 0 24 24" fill="#fff"><path d="M3 17l2-9 4.5 4L12 5l2.5 7L19 8l2 9H3z"/></svg>
+          </div>
+          <div>
+            <div class="pt">Unlock Pro coaching</div>
+            <div class="ps">Three camp tools, one membership</div>
+          </div>
+        </div>
+        <div class="pro-list">
+          <div class="pro-item">
+            <div class="pi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.5 5 5.5.8-4 3.9.9 5.5L12 20l-4.9 2.6.9-5.5-4-3.9L9.5 7z"/></svg></div>
+            <div class="pi-txt">
+              <div class="pi-name">Training missions</div>
+              <div class="pi-desc">Daily targets built from your plan</div>
+            </div>
+            <svg class="lock" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
+          </div>
+          <div class="pro-item">
+            <div class="pi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></div>
+            <div class="pi-txt">
+              <div class="pi-name">Sparring to-do</div>
+              <div class="pi-desc">Round goals and tracked drills</div>
+            </div>
+            <svg class="lock" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
+          </div>
+          <div class="pro-item">
+            <div class="pi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.6l-1-1a5.5 5.5 0 00-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 000-7.8z"/></svg></div>
+            <div class="pi-txt">
+              <div class="pi-name">Recovery</div>
+              <div class="pi-desc">Readiness, sleep and load balance</div>
+            </div>
+            <svg class="lock" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
+          </div>
+        </div>
+        <button class="pro-cta">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M3 17l2-9 4.5 4L12 5l2.5 7L19 8l2 9H3z"/></svg>
+          Try Pro free for 7 days
+        </button>
+      </div>
+
+      <!-- NAV GROUPED LIST -->
+      <div class="section-label">Train &amp; track</div>
+      <div class="group">
+        <a class="nav-row" href="#">
+          <div class="nav-icon ni-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
+          <div class="nav-txt">
+            <div class="nav-name">Training calendar</div>
+            <div class="nav-stat">3 sessions this week</div>
+          </div>
+          <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        </a>
+        <a class="nav-row" href="#">
+          <div class="nav-icon ni-orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/><circle cx="12" cy="12" r="9"/></svg></div>
+          <div class="nav-txt">
+            <div class="nav-name">Fight camps</div>
+            <div class="nav-stat">1 active · 2 archived</div>
+          </div>
+          <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        </a>
+        <a class="nav-row" href="#">
+          <div class="nav-icon ni-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 5v14M18 5v14M3 8h6M3 16h6M15 8h6M15 16h6M9 12h6"/></svg></div>
+          <div class="nav-txt">
+            <div class="nav-name">Gym tracker</div>
+            <div class="nav-stat">Last lift · yesterday</div>
+          </div>
+          <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        </a>
+        <a class="nav-row" href="#">
+          <div class="nav-icon ni-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 2a7 7 0 017 7c0 5-7 13-7 13S5 14 5 9a7 7 0 017-7z"/></svg></div>
+          <div class="nav-txt">
+            <div class="nav-name">Weight protocol</div>
+            <div class="nav-stat">78.4 kg · on track</div>
+          </div>
+          <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        </a>
+        <a class="nav-row" href="#">
+          <div class="nav-icon ni-purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5V5a2 2 0 012-2h14v18H6.5A2.5 2.5 0 014 19.5z"/></svg></div>
+          <div class="nav-txt">
+            <div class="nav-name">Training library</div>
+            <div class="nav-stat">42 techniques saved</div>
+          </div>
+          <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        </a>
+      </div>
+
+      <!-- RECENT ACTIVITY -->
+      <div class="section-label">Recent activity</div>
+      <div class="activity">
+        <div class="act-row">
+          <div class="act-dot" style="background: rgba(59,130,246,0.16); color: var(--blue);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/><circle cx="12" cy="12" r="9"/></svg>
+          </div>
+          <div class="act-txt">Logged BJJ session</div>
+          <div class="act-time">2h ago</div>
+        </div>
+        <div class="act-row">
+          <div class="act-dot" style="background: hsl(45 93% 50% / 0.15); color: var(--amber);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 017 7c0 5-7 13-7 13S5 14 5 9a7 7 0 017-7z"/></svg>
+          </div>
+          <div class="act-txt">Weight 78.4 kg</div>
+          <div class="act-time">Yesterday</div>
+        </div>
+        <div class="act-row">
+          <div class="act-dot" style="background: hsl(152 69% 46% / 0.15); color: var(--green);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+          </div>
+          <div class="act-txt">Completed gym session</div>
+          <div class="act-time">Yesterday</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab bar -->
+    <div class="tabbar">
+      <div class="tab">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
+        Home
+      </div>
+      <div class="tab active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/><circle cx="12" cy="12" r="9"/></svg>
+        Camp
+      </div>
+      <div class="fab-wrap">
+        <div class="fab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+      </div>
+      <div class="tab">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.9"/></svg>
+        Community
+      </div>
+      <div class="tab">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 010 8h-1M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4z"/><path d="M6 1v3M10 1v3M14 1v3"/></svg>
+        Nutrition
+      </div>
+    </div>
+    <div class="home-indicator"></div>
+  </div>
+</body>
+</html>

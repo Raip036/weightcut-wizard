@@ -116,7 +116,7 @@ export function FightOfferDetailSheet({ offerId, open, onOpenChange }: Props) {
         toast({
           title: mode === "change" ? `Reassigned to ${displayName}` : `Offered to ${displayName}`,
           description:
-            "They already have an active fight camp — resolve it in their profile.",
+            "They already have an active fight camp - resolve it in their profile.",
         });
       } else {
         toast({
@@ -221,7 +221,7 @@ export function FightOfferDetailSheet({ offerId, open, onOpenChange }: Props) {
                 Fight offer
               </SheetTitle>
               <p className="text-[11px] text-muted-foreground/80 text-left mt-0.5">
-                {data ? formatOfferDate(data.fight_date) : "—"}
+                {data ? formatOfferDate(data.fight_date) : "-"}
               </p>
             </div>
           </div>

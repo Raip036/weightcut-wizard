@@ -93,26 +93,30 @@ export const getMissionFeatureStatus = query({
 
 /**
  * Mark one mission item as completed. If this tick makes ALL items in the
- * mission completed, schedule `generateMissionIfReady` so the next mission
- * is created from any notes that have accumulated since this one started.
+ * mission completed, archive the mission and schedule graduation if all
+ * missions in the cycle are now complete.
  *
  * Returns `missionCompleted: true` to the caller so the UI can fire the
  * Mission Complete dialog immediately, rather than waiting on a re-query
- * round-trip.
+ * round-trip. Also returns `allMissionsComplete: true` when every active
+ * mission for this discipline has been finished (cycle graduation fires).
  */
 export const markItemCompleted = mutation({
   args: {
     itemId: v.id("training_mission_items"),
     // Optional — defaults to `true` (tick). Pass `false` to untick an
-    // item the user accidentally ticked. Unticking never schedules the
-    // generator action; the action is idempotent and self-skips when
-    // the prior mission has any incomplete items.
+    // item the user accidentally ticked. Unticking never schedules
+    // graduation; it re-opens the mission to active.
     completed: v.optional(v.boolean()),
   },
   handler: async (
     ctx,
     { itemId, completed: rawCompleted },
-  ): Promise<{ missionCompleted: boolean; xpAwarded: number }> => {
+  ): Promise<{
+    missionCompleted: boolean;
+    xpAwarded: number;
+    allMissionsComplete: boolean;
+  }> => {
     const userId = await requireUserId(ctx);
     const completed = rawCompleted ?? true;
 
@@ -134,6 +138,7 @@ export const markItemCompleted = mutation({
       return {
         missionCompleted: allItems.every((i) => i.completed),
         xpAwarded: 0,
+        allMissionsComplete: false,
       };
     }
 
@@ -205,21 +210,50 @@ export const markItemCompleted = mutation({
       }
     }
 
+    // ── Aggregate gate + graduation schedule ──────────────────────────────
+    // Only runs on the completing tick (missionCompleted true, completed true).
+    // Untick must NOT schedule graduation — it re-opens the mission to active
+    // (handled above) so the cycle stays in progress.
+    let allMissionsComplete = false;
     if (completed && missionCompleted) {
-      // Only schedule the generator when transitioning the mission INTO
-      // the completed state. Unticking can't trigger generation.
-      try {
-        await ctx.scheduler.runAfter(
-          0,
-          internal.actions.trainingMissions.generate.generateMissionIfReady,
-          { userId, sport: mission.sport },
-        );
-      } catch (err) {
-        console.warn("training_missions: schedule failed", err);
+      // At this point the mission has been archived to status:"completed"
+      // (the patch above). Query remaining ACTIVE missions for (userId, sport)
+      // to see if this was the last one in the cycle.
+      const remaining = await ctx.db
+        .query("training_missions")
+        .withIndex("by_user_sport_status", (q) =>
+          q.eq("userId", userId).eq("sport", mission.sport).eq("status", "active"),
+        )
+        .take(1);
+
+      allMissionsComplete = remaining.length === 0;
+
+      if (allMissionsComplete) {
+        if (mission.cycleId != null) {
+          try {
+            await ctx.scheduler.runAfter(
+              0,
+              internal.actions.trainingMissions.graduate.graduateCycleToSparring,
+              {
+                userId,
+                discipline: mission.sport,
+                cycleId: mission.cycleId,
+              },
+            );
+          } catch (err) {
+            console.warn("training_missions: graduation schedule failed", err);
+          }
+        } else {
+          // Legacy mission without a cycleId — skip graduation gracefully.
+          console.warn(
+            "training_missions: cycle complete but mission has no cycleId — graduation skipped",
+            { missionId: mission._id },
+          );
+        }
       }
     }
 
-    return { missionCompleted, xpAwarded };
+    return { missionCompleted, xpAwarded, allMissionsComplete };
   },
 });
 
@@ -370,6 +404,15 @@ export const insertMissionInternal = internalMutation({
       }),
     ),
     notesWindowStart: v.number(),
+    focusTechnique: v.optional(v.string()),
+    focusTechniqueNormalized: v.optional(v.string()),
+    cycleId: v.optional(v.string()),
+    // When true, skip the "mark prior active missions completed" step. Used
+    // by the Model B batch generator (Task 2.2) which inserts multiple
+    // missions sharing one cycleId — the second/third insert must NOT mark
+    // the first mission (inserted moments earlier in the same batch) as
+    // completed.
+    skipMarkPrior: v.optional(v.boolean()),
   },
   handler: async (
     ctx,
@@ -381,6 +424,10 @@ export const insertMissionInternal = internalMutation({
       sourceSessionIds,
       items,
       notesWindowStart,
+      focusTechnique,
+      focusTechniqueNormalized,
+      cycleId,
+      skipMarkPrior,
     },
   ): Promise<Id<"training_missions">> => {
     const now = Date.now();
@@ -388,14 +435,19 @@ export const insertMissionInternal = internalMutation({
     // Mark any existing active mission for this (user, sport) as
     // completed — the action only reaches this point if either there
     // was no prior mission or its items were all checked.
-    const prior = await ctx.db
-      .query("training_missions")
-      .withIndex("by_user_sport_status", (q) =>
-        q.eq("userId", userId).eq("sport", sport).eq("status", "active"),
-      )
-      .collect();
-    for (const p of prior) {
-      await ctx.db.patch(p._id, { status: "completed", completedAt: now });
+    // Skip this step when inserting batch missions that share a cycleId
+    // so sibling missions inserted earlier in the same batch are not
+    // inadvertently completed.
+    if (!skipMarkPrior) {
+      const prior = await ctx.db
+        .query("training_missions")
+        .withIndex("by_user_sport_status", (q) =>
+          q.eq("userId", userId).eq("sport", sport).eq("status", "active"),
+        )
+        .collect();
+      for (const p of prior) {
+        await ctx.db.patch(p._id, { status: "completed", completedAt: now });
+      }
     }
 
     const missionId = await ctx.db.insert("training_missions", {
@@ -408,6 +460,9 @@ export const insertMissionInternal = internalMutation({
       notesWindowStart,
       createdAt: now,
       lastActivityAt: now,
+      focusTechnique,
+      focusTechniqueNormalized,
+      cycleId,
     });
 
     for (let i = 0; i < items.length; i += 1) {
@@ -424,6 +479,142 @@ export const insertMissionInternal = internalMutation({
     }
 
     return missionId;
+  },
+});
+
+// ── Model B helpers (Task 2.2) ────────────────────────────────────────────────
+
+/**
+ * Returns all active missions for (userId, sport) via the
+ * `by_user_sport_status` index. Used by `generateMissionIfReady` for the
+ * frozen-cycle guard: if this returns any rows, the current cycle is still
+ * in progress and no new generation should start.
+ */
+export const listActiveMissionsForSport = internalQuery({
+  args: { userId: v.id("users"), sport: v.string() },
+  handler: async (ctx, { userId, sport }) => {
+    return await ctx.db
+      .query("training_missions")
+      .withIndex("by_user_sport_status", (q) =>
+        q.eq("userId", userId).eq("sport", sport).eq("status", "active"),
+      )
+      .take(1);
+  },
+});
+
+/**
+ * Point-lookup: is there an active mission for (userId, sport) whose
+ * `focusTechniqueNormalized` matches the given key?
+ *
+ * Used by the per-issue dedupe loop in `generateMissionIfReady` as a safety
+ * net after the frozen-cycle guard (which already prevents entering if ANY
+ * active mission exists). This catches the edge case where two issues in the
+ * same batch resolve to the same normalised technique.
+ */
+export const findActiveMissionByTechnique = internalQuery({
+  args: {
+    userId: v.id("users"),
+    sport: v.string(),
+    focusTechniqueNormalized: v.string(),
+  },
+  handler: async (ctx, { userId, sport, focusTechniqueNormalized }) => {
+    // Scan active missions for this sport and check focusTechniqueNormalized.
+    // No compound index on (userId, sport, status, focusTechniqueNormalized),
+    // so we use the existing by_user_sport_status index and filter in-process.
+    // safe: bounded by the frozen-cycle guard to <=3 active missions per
+    // (user, sport) — the take(4) gives one slot of headroom while keeping
+    // the read explicitly bounded.
+    const active = await ctx.db
+      .query("training_missions")
+      .withIndex("by_user_sport_status", (q) =>
+        q.eq("userId", userId).eq("sport", sport).eq("status", "active"),
+      )
+      .take(4);
+    return active.find((m) => m.focusTechniqueNormalized === focusTechniqueNormalized) ?? null;
+  },
+});
+
+/**
+ * Advance a mission's `notesWindowStart` watermark to `to`. Used by the
+ * Model B generator's all-deduped path: when every extracted issue is
+ * deduped (no mission inserted), we still need to mark the notes window as
+ * consumed so the hourly sweep doesn't re-extract the same notes forever.
+ * Actions cannot patch the DB directly, hence this internal mutation.
+ */
+export const advanceNotesWatermark = internalMutation({
+  args: {
+    missionId: v.id("training_missions"),
+    to: v.number(),
+  },
+  handler: async (ctx, { missionId, to }) => {
+    await ctx.db.patch(missionId, { notesWindowStart: to });
+  },
+});
+
+// ── Mastery Spine helpers (Task 2.4) ──────────────────────────────────────────
+
+/**
+ * Stamp `graduatedAt` on a mission so `graduateCycleToSparring` is idempotent.
+ * Actions cannot write to the DB directly; this internal mutation bridges that.
+ */
+export const patchMissionGraduatedAt = internalMutation({
+  args: {
+    missionId: v.id("training_missions"),
+    graduatedAt: v.number(),
+  },
+  handler: async (ctx, { missionId, graduatedAt }) => {
+    await ctx.db.patch(missionId, { graduatedAt });
+  },
+});
+
+/**
+ * Return all missions for a given cycleId, projected to the fields needed by
+ * `graduateCycleToSparring`: id, status, graduatedAt, focusTechnique,
+ * focusTechniqueNormalized.
+ *
+ * Uses the `by_user_cycle` index (userId, cycleId). cycleId is optional on
+ * the mission row, so a null/missing cycleId will never match and returns [].
+ */
+export const listCycleMissions = internalQuery({
+  args: {
+    userId: v.id("users"),
+    cycleId: v.string(),
+  },
+  handler: async (ctx, { userId, cycleId }) => {
+    const rows = await ctx.db
+      .query("training_missions")
+      .withIndex("by_user_cycle", (q) =>
+        q.eq("userId", userId).eq("cycleId", cycleId),
+      )
+      .collect();
+    return rows.map((m) => ({
+      _id: m._id,
+      status: m.status,
+      graduatedAt: m.graduatedAt ?? null,
+      focusTechnique: m.focusTechnique ?? null,
+      focusTechniqueNormalized: m.focusTechniqueNormalized ?? null,
+    }));
+  },
+});
+
+/**
+ * Read `timesLogged` from `training_techniques` for a given
+ * (userId, techniqueNormalized). Returns 0 if no row exists.
+ * Used by `graduateCycleToSparring` (Task 2.4).
+ */
+export const readTimesLogged = internalQuery({
+  args: {
+    userId: v.id("users"),
+    techniqueNormalized: v.string(),
+  },
+  handler: async (ctx, { userId, techniqueNormalized }): Promise<number> => {
+    const row = await ctx.db
+      .query("training_techniques")
+      .withIndex("by_user_norm", (q) =>
+        q.eq("userId", userId).eq("techniqueNormalized", techniqueNormalized),
+      )
+      .first();
+    return row?.timesLogged ?? 0;
   },
 });
 

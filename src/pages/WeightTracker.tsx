@@ -679,7 +679,7 @@ export default function WeightTracker() {
                 ].map((m) => (
                   <div key={m.label} className="rounded-xs bg-muted/20 px-2 py-2.5 text-center">
                     <p className={`text-[16px] font-bold tabular-nums ${m.color}`}>
-                      {typeof m.value === "number" ? Math.round(m.value).toLocaleString() : "—"}
+                      {typeof m.value === "number" ? Math.round(m.value).toLocaleString() : "-"}
                     </p>
                     <p className="text-[10px] text-foreground">{m.unit}</p>
                     <p className="text-[9px] text-muted-foreground mt-0.5">{m.label}</p>

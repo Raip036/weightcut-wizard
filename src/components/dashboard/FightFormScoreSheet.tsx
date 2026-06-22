@@ -244,8 +244,11 @@ export function FightFormScoreSheet(p: Props) {
             over the right. */}
         <SheetHeader className="relative flex items-center justify-center min-h-9 space-y-0">
           <SheetTitle className="text-2xl text-center">Fight Form Score</SheetTitle>
-          <div className="absolute left-0 top-1/2 -translate-y-1/2">
-            <ShareButton onClick={() => { setShareVariant("dark"); setShareOpen(true); }} />
+          <div className="absolute -left-1.5 top-1/2 -translate-y-1/2">
+            <ShareButton
+              onClick={() => { setShareVariant("dark"); setShareOpen(true); }}
+              className="focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none"
+            />
           </div>
         </SheetHeader>
 

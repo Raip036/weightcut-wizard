@@ -225,7 +225,7 @@ function LockedCompass({
       </div>
 
       <p className="mt-3 text-[12px] text-muted-foreground leading-snug">
-        Weekly AI recap of your camp — where you broke down and what to fix.
+        Weekly AI recap of your camp - where you broke down and what to fix.
       </p>
 
       <button
@@ -237,7 +237,7 @@ function LockedCompass({
         className="mt-4 w-full min-h-[44px] rounded-xs bg-primary text-primary-foreground px-4 py-2.5 text-[13px] font-semibold inline-flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
       >
         <Icon name="lockClosedOutline" size={14} />
-        Unlock — Pro
+        Unlock - Pro
       </button>
     </motion.div>
   );
@@ -430,7 +430,7 @@ function TrendBlock({
           {label}
         </span>
         <span className="display-number text-[15px] text-foreground">
-          {Number.isNaN(latest) ? "—" : `${Math.round(latest * 10) / 10}${latestSuffix}`}
+          {Number.isNaN(latest) ? "-" : `${Math.round(latest * 10) / 10}${latestSuffix}`}
         </span>
       </div>
       <div className="mt-2 h-7">

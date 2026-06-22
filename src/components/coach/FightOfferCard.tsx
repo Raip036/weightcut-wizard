@@ -260,8 +260,8 @@ export const FightOfferCard = memo(function FightOfferCard({
           }`}
         >
           {isPicked
-            ? "You're up — fight camp opened"
-            : "Filled — good luck to the chosen fighter"}
+            ? "You're up - fight camp opened"
+            : "Filled - good luck to the chosen fighter"}
         </p>
       ) : (
         <p className="text-[12px] text-muted-foreground/70 mt-1">

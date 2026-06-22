@@ -120,8 +120,7 @@ export function ManualRoutineSheet({ open, onOpenChange, exercises, onSave }: Ma
   const addDay = () => {
     triggerHaptic(ImpactStyle.Light);
     setDayCount((c) => c + 1);
-    setCurrentDay((c) => Math.min(dayCount + 1, c + 1) || dayCount + 1);
-    setCurrentDay(dayCount + 1);
+    setCurrentDay(dayCount + 1); // jump to the freshly added day
   };
 
   const handleSave = async () => {
@@ -165,10 +164,20 @@ export function ManualRoutineSheet({ open, onOpenChange, exercises, onSave }: Ma
                 <ChevronLeft className="h-4 w-4" />
               </button>
             )}
-            <SheetTitle className="flex-1 text-left">{step === 1 ? "New routine" : "Build your days"}</SheetTitle>
+            <div className="flex-1 min-w-0">
+              <SheetTitle className="text-left">{step === 1 ? "New routine" : "Build your days"}</SheetTitle>
+              <p className="text-xs text-muted-foreground text-left mt-0.5">
+                {step === 1 ? "Name it and pick a focus" : "Add exercises to each training day"}
+              </p>
+            </div>
             <button onClick={() => onOpenChange(false)} className="h-9 w-9 rounded-full bg-muted/30 flex items-center justify-center shrink-0">
               <X className="h-4 w-4" />
             </button>
+          </div>
+          {/* Step progress */}
+          <div className="flex items-center gap-1.5 pt-1">
+            <span className={`h-1 flex-1 rounded-full transition-colors ${step >= 1 ? "bg-primary" : "bg-muted/40"}`} />
+            <span className={`h-1 flex-1 rounded-full transition-colors ${step >= 2 ? "bg-primary" : "bg-muted/40"}`} />
           </div>
         </SheetHeader>
 
@@ -188,16 +197,23 @@ export function ManualRoutineSheet({ open, onOpenChange, exercises, onSave }: Ma
 
               <div className="space-y-3">
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Training goal</label>
-                <div className="flex flex-wrap gap-2">
-                  {GOALS.map((g) => (
-                    <button
-                      key={g.value}
-                      onClick={() => { setGoal(g.value); triggerHaptic(ImpactStyle.Light); }}
-                      className={pill(goal === g.value)}
-                    >
-                      {g.label}
-                    </button>
-                  ))}
+                <div className="grid grid-cols-4 gap-1.5 p-1 rounded-2xl bg-muted/20 border border-border/30">
+                  {GOALS.map((g) => {
+                    const active = goal === g.value;
+                    return (
+                      <button
+                        key={g.value}
+                        onClick={() => { setGoal(g.value); triggerHaptic(ImpactStyle.Light); }}
+                        className={`flex items-center justify-center text-center h-11 px-1 rounded-xl text-[11px] font-semibold leading-tight transition-all active:scale-[0.96] ${
+                          active
+                            ? "bg-primary text-primary-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {g.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 

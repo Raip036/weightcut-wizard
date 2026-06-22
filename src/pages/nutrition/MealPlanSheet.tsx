@@ -84,7 +84,7 @@ export function MealPlanSheet(p: MealPlanSheetProps) {
               <span className="text-primary">Edit ✎</span>
             </button>
             {p.targetsChanged && (
-              <p className="text-[11px] text-[#e6c45a]">Targets changed — regenerate to refresh.</p>
+              <p className="text-[11px] text-[#e6c45a]">Targets changed - regenerate to refresh.</p>
             )}
             <DayPlanView
               plan={p.dayPlan!}

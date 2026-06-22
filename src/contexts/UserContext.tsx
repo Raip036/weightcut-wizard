@@ -48,6 +48,10 @@ export interface ProfileData {
   trial_ends_at?: number | string | null;
   /** Epoch ms the one-time "Welcome to Pro" cutscene was shown (server CAS). */
   welcome_pro_shown_at?: number | null;
+  /** Epoch ms of the lapse the "Pro ended" cutscene has NOT yet been shown for (server-armed). */
+  pro_ended_pending_at?: number | null;
+  /** Epoch ms the "Pro ended" cutscene was shown for the current pending lapse (server CAS). */
+  pro_ended_shown_at?: number | null;
   /** Epoch ms the one-time new-user tutorial was auto-shown (server CAS). */
   onboarding_tutorial_shown_at?: number | null;
   cut_plan_json?: any;

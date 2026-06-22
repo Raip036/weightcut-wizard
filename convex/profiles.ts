@@ -74,6 +74,8 @@ function toClientShape(
     subscription_updated_at: row.subscriptionUpdatedAt,
     revenuecat_customer_id: row.revenuecatCustomerId,
     welcome_pro_shown_at: row.welcomeProShownAt,
+    pro_ended_pending_at: row.proEndedPendingAt,
+    pro_ended_shown_at: row.proEndedShownAt,
     onboarding_tutorial_shown_at: row.onboardingTutorialShownAt,
     updated_at: row.updatedAt,
     is_premium:
@@ -126,6 +128,36 @@ export const markWelcomeProShown = mutation({
     if (!row) return { firstTime: false };
     if (row.welcomeProShownAt != null) return { firstTime: false };
     await ctx.db.patch(row._id, { welcomeProShownAt: Date.now() });
+    return { firstTime: true };
+  },
+});
+
+/**
+ * One-time "Pro ended" cutscene gate (compare-and-set) — the inverse of
+ * `markWelcomeProShown`.
+ *
+ * Fires keyed to `proEndedPendingAt` (the timestamp of the lapse the RC
+ * EXPIRATION webhook armed). Stamps `proEndedShownAt` to now ONLY when there is
+ * a pending lapse the cutscene hasn't been shown for yet, and reports whether
+ * THIS call was the one that set it. The client plays the farewell cutscene
+ * only when `firstTime` is true, so it fires exactly once per genuine lapse —
+ * a later lapse (new `proEndedPendingAt` > the prior `proEndedShownAt`) re-arms
+ * and re-fires exactly once. Stamping on show (not dismiss) means a force-quit
+ * mid-cutscene won't replay it, and Convex serializable isolation makes the
+ * compare-and-set safe across concurrent devices.
+ */
+export const markProEndedShown = mutation({
+  args: {},
+  handler: async (ctx): Promise<{ firstTime: boolean }> => {
+    const userId = await requireUserId(ctx);
+    const row = await findByUser(ctx, userId);
+    if (!row) return { firstTime: false };
+    const pending = row.proEndedPendingAt;
+    if (pending == null) return { firstTime: false };
+    if (row.proEndedShownAt != null && row.proEndedShownAt >= pending) {
+      return { firstTime: false };
+    }
+    await ctx.db.patch(row._id, { proEndedShownAt: Date.now() });
     return { firstTime: true };
   },
 });
@@ -651,6 +683,12 @@ export const activatePremiumVerified = internalMutation({
       subscriptionTier: effectiveTier,
       subscriptionUpdatedAt: Date.now(),
       updatedAt: Date.now(),
+      // Granting a paid tier clears the "Pro ended" cutscene flags so the
+      // reconcile cron re-granting a missed-renewal user can't trigger a false
+      // "ended" fire. We never ARM pending here — only the genuine RC
+      // EXPIRATION lapse does that.
+      proEndedPendingAt: undefined,
+      proEndedShownAt: undefined,
       ...(effectiveExpiresAtMs !== undefined
         ? { subscriptionExpiresAt: effectiveExpiresAtMs }
         : {}),
@@ -840,6 +878,10 @@ export const updateSubscriptionFromRevenueCat = internalMutation({
         if (typeof expirationAtMs === "number") {
           patch.subscriptionExpiresAt = expirationAtMs;
         }
+        // Becoming (or again) Pro — clear the "Pro ended" cutscene flags so a
+        // future lapse re-arms exactly once.
+        patch.proEndedPendingAt = undefined;
+        patch.proEndedShownAt = undefined;
         break;
       case "PRODUCT_CHANGE":
         // Monthly ↔ annual etc. Update the tier, but never leave it
@@ -864,6 +906,12 @@ export const updateSubscriptionFromRevenueCat = internalMutation({
         // Re-arm the one-time Pro welcome so a genuine re-subscribe after this
         // lapse celebrates again (a new purchase, not a restore).
         patch.welcomeProShownAt = undefined;
+        // Arm the one-time "Pro ended" cutscene — but ONLY when the profile was
+        // previously non-free, so a double EXPIRATION on an already-free profile
+        // doesn't re-arm a lapse the user never had access for.
+        if (profile.subscriptionTier && profile.subscriptionTier !== "free") {
+          patch.proEndedPendingAt = eventTimestampMs ?? Date.now();
+        }
         break;
       case "CANCELLATION":
         // User cancelled but keeps access until expiry — DO NOT change

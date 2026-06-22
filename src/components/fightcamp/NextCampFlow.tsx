@@ -413,6 +413,14 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
+        // Animate the keyboard lift: the sheet's `bottom` is pinned to
+        // `--keyboard-inset`, which flips instantly when the keyboard opens —
+        // without a transition the sheet SNAPS up while the keyboard is still
+        // sliding in, reading as a jerky morph. An inline `transition: bottom`
+        // (matching the ~300ms iOS keyboard slide) makes the lift glide in
+        // sync. Inline (not a Tailwind class) so it can't collide with the
+        // `animate-in` enter/exit slide, which is a keyframe `animation`.
+        style={{ transition: "bottom 300ms ease-out" }}
         className="max-h-[92vh] p-0 border-t border-border/50 bg-card/95 backdrop-blur-xl gap-0"
       >
         {/* Shared title, wizard only; the wrap-up stepper brings its own

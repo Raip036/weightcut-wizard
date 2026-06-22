@@ -585,18 +585,6 @@ export const createCalendarEntry = mutation({
       } catch (err) {
         console.warn("missions schedule failed", err);
       }
-      // Sparring To-Do List — sibling trigger to Training Missions. Same
-      // session-notes signal feeds the per-discipline sparring checklist.
-      // Try-wrapped so a not-yet-deployed action can't break session logging.
-      try {
-        await ctx.scheduler.runAfter(
-          0,
-          internal.actions.sparringPlan.generate.generateSparringPlanIfReady,
-          { userId, sport: args.sessionType },
-        );
-      } catch (err) {
-        console.warn("sparring plan schedule failed", err);
-      }
       // Discipline XP — +10 for logging a session with notes. Initial
       // creation only; `updateCalendarEntry` deliberately does NOT award
       // so users can't farm XP by editing the same row. Fire-and-forget
@@ -728,18 +716,6 @@ export const updateCalendarEntry = mutation({
         );
       } catch (err) {
         console.warn("missions schedule failed", err);
-      }
-      // Sparring To-Do List — sibling trigger to Training Missions, sharing
-      // the same effective-notes / effective-sport signal. Try-wrapped so a
-      // not-yet-deployed action can't break the session edit.
-      try {
-        await ctx.scheduler.runAfter(
-          0,
-          internal.actions.sparringPlan.generate.generateSparringPlanIfReady,
-          { userId, sport: effectiveSport },
-        );
-      } catch (err) {
-        console.warn("sparring plan schedule failed", err);
       }
     }
 

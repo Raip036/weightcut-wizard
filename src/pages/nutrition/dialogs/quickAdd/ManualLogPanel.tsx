@@ -89,7 +89,7 @@ function fmtNum(n: number | undefined | null, digits = 0): string {
 }
 
 function roundedKcal(n: number | undefined | null): string {
-  if (n == null || !Number.isFinite(n)) return "—";
+  if (n == null || !Number.isFinite(n)) return "-";
   return `${Math.round(n)} kcal`;
 }
 
@@ -370,7 +370,7 @@ export function ManualLogPanel({
             )}
             {!searching && results.length === 0 && (
               <p className="text-center py-4 text-[12px] text-muted-foreground/70">
-                No results — try a different name
+                No results - try a different name
               </p>
             )}
             {!searching &&

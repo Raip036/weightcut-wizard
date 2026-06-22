@@ -83,7 +83,7 @@ const FIELD_PROMPTS: Record<FocusKey, { headline: string; body: string; pose: Wi
   },
   default_profile: {
     headline: "Make it yours.",
-    body: "Optional polish — skip if you're in a hurry.",
+    body: "Optional polish - skip if you're in a hurry.",
     pose: "idle",
   },
   logo: {
@@ -361,7 +361,7 @@ export default function CoachOnboarding() {
                     ) : (
                       <ArrowLeftRight className="h-3.5 w-3.5" />
                     )}
-                    I'm not a coach — switch to fighter
+                    I'm not a coach - switch to fighter
                   </button>
                 </motion.form>
               ) : (
@@ -482,7 +482,7 @@ export default function CoachOnboarding() {
                       disabled={finishing}
                       className="w-full text-center text-[13px] text-muted-foreground py-2"
                     >
-                      Skip — I'll do this later
+                      Skip - I'll do this later
                     </button>
                   </div>
                 </motion.div>

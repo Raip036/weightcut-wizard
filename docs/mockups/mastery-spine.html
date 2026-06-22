@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Mastery Spine, concept mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    /* page + surfaces (from index.css) */
+    --bg: #050505;
+    --card: #1a1a1a;          /* neutral-800-ish */
+    --inset: #121212;         /* neutral-900 */
+    --hairline: rgba(255,255,255,0.06);
+    --text: #f4f4f5;
+    --muted: #8a8a90;
+    --muted-2: #5c5c63;
+    --radius: 1rem;
+
+    /* discipline tokens */
+    --bjj: 220 65% 60%;
+    --muay: 350 70% 60%;
+    --box: 30 90% 60%;
+    --wrestle: 45 80% 55%;
+    --spar: 280 60% 65%;
+
+    /* brand + functional */
+    --spirit: #4068EF;
+    --cyan: #4AB4ED;
+    --lilac: #8B7EEA;
+    --green: #23C599;
+    --amber: #FAC146;
+    --orange: #F08439;
+    --red: #F7403F;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; background: var(--bg); }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    color: var(--text);
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    justify-content: center;
+    padding: 28px 16px 80px;
+  }
+  .phone {
+    width: 100%;
+    max-width: 420px;
+  }
+  h1, h2, h3, .display { font-family: 'Sora', sans-serif; letter-spacing: -0.02em; }
+  .display-number { font-variant-numeric: tabular-nums; font-weight: 700; letter-spacing: -0.03em; }
+
+  .kicker {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.12em; color: var(--muted-2);
+  }
+  .section-header {
+    font-size: 11px; font-weight: 500; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--muted); margin: 0 0 10px 4px;
+  }
+
+  .page-title { font-size: 26px; font-weight: 800; margin: 4px 0 2px; }
+  .page-sub { color: var(--muted); font-size: 13px; margin: 0 0 22px; }
+
+  .card {
+    position: relative;
+    background: var(--card);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius);
+    box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.03);
+    overflow: hidden;
+  }
+
+  /* ---------- PREMIUM "Welcome to Pro" backdrop (shared with pro-gate walls) ---------- */
+  /* Aurora wash that builds toward the bottom in brand blue + a slow breathe. */
+  .card::before {
+    content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; z-index:0;
+    background: linear-gradient(180deg,
+      transparent 0%,
+      rgba(64,104,239,0.05) 50%,
+      rgba(58,128,237,0.12) 80%,
+      rgba(74,180,237,0.17) 100%);
+    animation: washBreathe 8s ease-in-out infinite;
+    transform-origin: 50% 100%;
+  }
+  @keyframes washBreathe { 0%,100%{transform:scale(1);opacity:.85;} 50%{transform:scale(1.06);opacity:1;} }
+
+  /* Real card content sits above the backdrop + motes. */
+  .card > *:not(.motes) { position: relative; z-index: 1; }
+
+  /* Drifting blue motes, contained within the card. */
+  .motes { position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
+  .motes span {
+    position:absolute; bottom:-6px; width:4px; height:4px; border-radius:50%;
+    left: var(--l,50%);
+    background: rgba(147,197,253,0.8);
+    box-shadow: 0 0 7px rgba(116,185,237,0.75);
+    opacity:0;
+    animation: moteRise var(--d,8s) ease-out infinite;
+    animation-delay: var(--delay,0s);
+  }
+  @keyframes moteRise {
+    0%   { opacity:0; transform:translateY(0); }
+    14%  { opacity:.75; }
+    86%  { opacity:.75; }
+    100% { opacity:0; transform:translateY(-240px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .card::before, .motes span { animation: none; }
+    .motes { display:none; }
+  }
+  .stack > * + * { margin-top: 14px; }
+  .block { margin-bottom: 30px; }
+
+  /* ---------- JOURNEY RAIL ---------- */
+  .journey {
+    padding: 18px 16px 20px;
+    background:
+      radial-gradient(120% 80% at 0% 0%, hsl(var(--bjj) / 0.10), transparent 55%),
+      var(--card);
+    position: relative;
+  }
+  .journey .legend { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:16px; }
+  .journey .tech { font-family:'Sora'; font-weight:700; font-size:15px; }
+  .journey .tech small { color: var(--muted); font-weight:500; font-family:'Inter'; }
+  .rail { display:flex; align-items:flex-start; position:relative; }
+  .rail-line {
+    position:absolute; top:13px; left:11%; right:11%; height:3px; border-radius:3px;
+    background: var(--inset);
+  }
+  .rail-line .fill {
+    position:absolute; inset:0; width:42%; border-radius:3px;
+    background: linear-gradient(90deg, hsl(var(--bjj)), var(--cyan));
+  }
+  .stop { flex:1; display:flex; flex-direction:column; align-items:center; gap:8px; z-index:1; cursor:pointer; }
+  .dot {
+    width:28px; height:28px; border-radius:50%; display:grid; place-items:center;
+    background: var(--inset); border:2px solid #2a2a2e; font-size:13px; color:var(--muted-2);
+    transition: transform .18s ease;
+  }
+  .stop.done .dot { background: hsl(var(--bjj)); border-color: hsl(var(--bjj)); color:#fff; }
+  .stop.active .dot {
+    background: #0e1726; border-color: var(--cyan); color: var(--cyan);
+    box-shadow: 0 0 0 4px hsl(var(--bjj) / 0.18);
+    animation: pulse 1.8s ease-in-out infinite;
+  }
+  .stop.locked .dot { opacity:.5; }
+  .stop:active .dot { transform: scale(.9); }
+  .stop .lab { font-size:10.5px; font-weight:600; color:var(--muted); text-align:center; }
+  .stop.done .lab, .stop.active .lab { color: var(--text); }
+  @keyframes pulse { 0%,100%{box-shadow:0 0 0 4px hsl(var(--bjj)/0.18);} 50%{box-shadow:0 0 0 7px hsl(var(--bjj)/0.05);} }
+
+  /* ---------- WIDGET HEADER (mastery ring) ---------- */
+  .widget-head { display:flex; align-items:center; gap:13px; padding:14px 15px; cursor:pointer; }
+  .ring { position:relative; width:46px; height:46px; flex:none; }
+  .ring svg { transform: rotate(-90deg); }
+  .ring .lv {
+    position:absolute; inset:0; display:grid; place-items:center;
+    font-family:'Sora'; font-weight:700; font-size:13px;
+  }
+  .head-main { flex:1; min-width:0; }
+  .head-top { display:flex; align-items:center; gap:7px; }
+  .disc {
+    font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;
+  }
+  .lvtag { font-size:10px; color:var(--muted); font-weight:600; }
+  .delta { font-size:10px; color:var(--green); font-weight:600; }
+  .head-title { font-size:13.5px; font-weight:600; margin-top:1px; }
+  .head-why { font-size:11.5px; color:var(--muted); margin-top:2px; line-height:1.35;
+    display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden; }
+  .count { font-size:12px; font-weight:700; color:var(--muted); font-variant-numeric:tabular-nums; flex:none; }
+  .count.has { color: hsl(var(--bjj)); }
+
+  .pbar { height:3px; background: var(--inset); }
+  .pbar .fill { height:100%; background: hsl(var(--bjj)); border-radius:3px; transition:width .5s; }
+
+  /* ---------- DRILL ROWS ---------- */
+  .rows { padding: 6px 6px 12px; }
+  .row { display:flex; gap:11px; padding:11px 9px; border-radius:12px; align-items:flex-start; cursor:pointer; }
+  .row:active { background: rgba(255,255,255,0.02); }
+  .check {
+    width:20px; height:20px; border-radius:7px; border:2px solid #34343a; flex:none; margin-top:1px;
+    display:grid; place-items:center; transition: all .2s ease;
+  }
+  .row.done .check { background: hsl(var(--bjj)); border-color: hsl(var(--bjj)); }
+  .check svg { opacity:0; transition:opacity .2s; }
+  .row.done .check svg { opacity:1; }
+  .row-body { flex:1; min-width:0; }
+  .row-text { font-size:13px; line-height:1.35; }
+  .row.done .row-text { color: var(--muted-2); text-decoration: line-through; }
+  .chips { display:flex; gap:8px; margin-top:8px; }
+  .chip {
+    font-size:10px; font-weight:600; letter-spacing:0.03em;
+    padding:4px 0; border-radius:7px; display:inline-flex; align-items:center; justify-content:center;
+    background: var(--inset); color: var(--muted); border:1px solid var(--hairline);
+  }
+  .chip.type { width:78px; }   /* SOLO / PARTNER / LIVE all share one width → columns line up */
+  .chip.time { width:66px; }
+  .chip.solo  { color:#9db4ef; }
+  .chip.partner { color:#e3a86a; }
+  .chip.live  { color:#e87b7b; }
+
+  /* ---------- SPARRING ROWS ---------- */
+  .spar-row { padding:12px 11px; border-radius:12px; }
+  .spar-row + .spar-row { margin-top:4px; }
+  .spar-top { display:flex; gap:11px; align-items:flex-start; }
+  .reps { display:flex; gap:3px; margin-top:4px; flex:none; }
+  .pip { width:6px; height:6px; border-radius:50%; background:#2c2c31; }
+  .pip.on { background: hsl(var(--bjj)); }
+  .pip.dim { background: hsl(var(--bjj) / 0.4); }
+  .spar-name { font-size:13.5px; font-weight:600; }
+  .spar-when { font-size:11.5px; color: var(--muted); margin-top:1px; font-style:italic; }
+  .tac { margin-top:10px; display:flex; flex-direction:column; gap:9px; }
+  .tac-group { display:flex; flex-direction:column; gap:3px; }
+  .tac-label { font-size:9.5px; font-weight:600; text-transform:uppercase; letter-spacing:0.07em; }
+  .tac-label.set { color:#5fd8b4; }
+  .tac-label.cnt { color:#e7c069; }
+  .bullet { font-size:12px; color:var(--muted); line-height:1.4; padding-left:14px; position:relative; }
+  .bullet::before { content:'•'; position:absolute; left:3px; top:-0.5px; color:var(--muted-2); }
+  .repbadge { font-size:10px; color:var(--muted-2); font-weight:600; margin-left:auto; flex:none; }
+  .spar-row.done .spar-name { color:var(--muted-2); text-decoration:line-through; }
+
+  .disc-head { display:flex; align-items:center; gap:8px; padding:10px 13px 6px; }
+  .disc-head .togo { font-size:11px; color:var(--muted); font-weight:600; margin-left:auto; }
+  .refresh { width:24px; height:24px; display:grid; place-items:center; color:var(--muted-2); }
+
+  /* ---------- MASTERED SHELF ---------- */
+  .shelf { display:flex; gap:9px; overflow-x:auto; padding:4px 2px 8px; scrollbar-width:none; }
+  .shelf::-webkit-scrollbar { display:none; }
+  .trophy {
+    flex:none; width:108px; padding:13px 11px; border-radius:14px; text-align:center;
+    background: linear-gradient(180deg, hsl(var(--bjj) / 0.12), var(--inset));
+    border:1px solid hsl(var(--bjj) / 0.25);
+  }
+  .trophy .ic { width:26px; height:26px; margin:0 auto 7px; color: var(--amber); }
+  .trophy .tn { font-size:11px; font-weight:600; line-height:1.25; }
+  .trophy .ts { font-size:9.5px; color:var(--muted); margin-top:3px; }
+
+  /* ---------- GRADUATION MOMENT ---------- */
+  .grad {
+    padding:26px 18px; text-align:center; position:relative; overflow:hidden;
+    background:
+      radial-gradient(80% 60% at 50% 0%, hsl(var(--bjj) / 0.22), transparent 70%),
+      var(--card);
+  }
+  .grad .badge {
+    width:62px; height:62px; border-radius:50%; margin:0 auto 14px; display:grid; place-items:center;
+    background: radial-gradient(circle at 50% 35%, hsl(var(--bjj) / 0.45), hsl(var(--bjj) / 0.12));
+    border:1.5px solid hsl(var(--bjj) / 0.6);
+  }
+  .grad .badge svg { width:30px; height:30px; color:#fff; }
+  .grad .gk { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.14em; color:var(--cyan); }
+  .grad .gt { font-size:21px; font-weight:800; margin:6px 0 4px; }
+  .grad .gs { font-size:12.5px; color:var(--muted); }
+  .grad .xp { display:inline-block; margin-top:13px; font-family:'Sora'; font-weight:700; font-size:13px;
+    color: hsl(var(--bjj)); padding:5px 13px; border-radius:20px; background: hsl(var(--bjj) / 0.14); }
+  .confetti { position:absolute; width:7px; height:7px; border-radius:2px; opacity:.9; }
+
+  .note {
+    font-size:11.5px; color:var(--muted); background:var(--inset); border:1px dashed var(--hairline);
+    border-radius:12px; padding:11px 13px; margin-top:10px;
+  }
+  .note b { color:var(--text); font-weight:600; }
+  .tap-hint { text-align:center; font-size:11px; color:var(--muted-2); margin-top:10px; }
+
+  /* ---------- UNIFIED WIDGET: stage indicator + sealed stage ---------- */
+  .stages { display:flex; align-items:center; gap:9px; padding:0 15px 12px; }
+  .stage { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;
+    display:flex; align-items:center; gap:5px; padding:5px 11px; border-radius:8px; white-space:nowrap; }
+  .stage.active { color:hsl(var(--bjj)); background:hsl(var(--bjj) / 0.12); }
+  .stage.locked { color:var(--muted-2); background:var(--inset); }
+  .stage.cleared { color:var(--green); background:rgba(35,197,153,0.10); }
+  .stage-sep { flex:1; height:2px; border-radius:2px; }
+  .stage-sep.tofill { background:linear-gradient(90deg, hsl(var(--bjj) / 0.55), var(--inset)); }
+  .stage-sep.filled { background:hsl(var(--bjj) / 0.55); }
+
+  .locked-stage { margin:4px 12px 14px; padding:20px 16px; border-radius:14px;
+    border:1px dashed rgba(255,255,255,0.10); background:var(--inset); text-align:center; }
+  .locked-stage .lk { width:30px; height:30px; margin:0 auto 9px; color:var(--muted-2); display:block; }
+  .locked-stage .lt { font-size:13px; font-weight:700; }
+  .locked-stage .lp { font-size:11.5px; color:var(--muted); margin-top:4px; line-height:1.4; max-width:240px; margin-left:auto; margin-right:auto; }
+  .stage-divider { display:flex; align-items:center; gap:10px; padding:6px 16px 12px; }
+  .stage-divider .ln { flex:1; height:1px; background:var(--hairline); }
+  .stage-divider .tx { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted-2); }
+</style>
+</head>
+<body>
+<div class="phone">
+
+  <div class="kicker">Concept mockup · /camp · one unified widget</div>
+  <h1 class="page-title">Mastery Spine</h1>
+  <p class="page-sub">One widget, two stages per discipline. Clear all your drills to unlock sparring, land them to master.</p>
+
+  <!-- ========== 1. JOURNEY RAIL ========== -->
+  <div class="block">
+    <div class="card journey">
+      <div class="motes" aria-hidden="true"><span style="--l:8%;--d:7.5s;--delay:0s"></span><span style="--l:22%;--d:9s;--delay:1.6s"></span><span style="--l:37%;--d:8s;--delay:.7s"></span><span style="--l:52%;--d:9.4s;--delay:2.3s"></span><span style="--l:66%;--d:8.3s;--delay:1.1s"></span><span style="--l:80%;--d:7.8s;--delay:.4s"></span><span style="--l:92%;--d:9.1s;--delay:2s"></span></div>
+      <div class="legend">
+        <div class="tech">Cross-collar grip break <small>· BJJ</small></div>
+        <button id="spine-toggle" onclick="toggleSpine()" aria-expanded="true" aria-label="Minimise mastery spine"
+          style="background:none;border:none;display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0;color:inherit">
+          <span class="kicker" style="color:var(--cyan)">Stage 2 of 4</span>
+          <svg id="spine-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.5" style="transition:transform .25s ease"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+      </div>
+      <div class="rail">
+        <div class="rail-line"><div class="fill"></div></div>
+        <div class="stop done"><div class="dot">✓</div><div class="lab">Logged</div></div>
+        <div class="stop active"><div class="dot">●</div><div class="lab">Drilling</div></div>
+        <div class="stop locked"><div class="dot">○</div><div class="lab">Landing</div></div>
+        <div class="stop locked"><div class="dot">★</div><div class="lab">Mastered</div></div>
+      </div>
+    </div>
+    <div class="note" id="spine-note">You logged it after sparring got stuck → it's now a <b>drill</b>. Finish the drills and it <b>graduates</b> into your sparring to-do as live scenarios. Land it enough and it's <b>Mastered</b>.</div>
+  </div>
+
+  <!-- ========== 2. UNIFIED WIDGET — STAGE 1 active, STAGE 2 sealed ========== -->
+  <div class="block">
+    <div class="section-header">Mastery flow · BJJ</div>
+    <div class="card">
+      <div class="motes" aria-hidden="true"><span style="--l:8%;--d:7.5s;--delay:0s"></span><span style="--l:22%;--d:9s;--delay:1.6s"></span><span style="--l:37%;--d:8s;--delay:.7s"></span><span style="--l:52%;--d:9.4s;--delay:2.3s"></span><span style="--l:66%;--d:8.3s;--delay:1.1s"></span><span style="--l:80%;--d:7.8s;--delay:.4s"></span><span style="--l:92%;--d:9.1s;--delay:2s"></span></div>
+      <div class="widget-head">
+        <div class="ring">
+          <svg width="46" height="46">
+            <circle cx="23" cy="23" r="19" fill="none" stroke="#242428" stroke-width="4"/>
+            <circle cx="23" cy="23" r="19" fill="none" stroke="hsl(220 65% 60%)" stroke-width="4"
+              stroke-linecap="round" stroke-dasharray="119.4" stroke-dashoffset="74"/>
+            <circle cx="23" cy="23" r="19" fill="none" stroke="hsl(220 65% 60% / 0.3)" stroke-width="2"
+              stroke-linecap="round" stroke-dasharray="119.4" stroke-dashoffset="95"/>
+          </svg>
+          <div class="lv" style="color:hsl(var(--bjj))">4</div>
+        </div>
+        <div class="head-main">
+          <div class="head-top">
+            <span class="disc" style="color:hsl(var(--bjj))">BJJ</span>
+            <span class="lvtag">Lv 4</span>
+            <span class="delta">+2 this camp</span>
+          </div>
+          <div class="head-title">Escape & re-guard under pressure</div>
+          <div class="head-why">You got pinned in side control twice, your escape timing is late.</div>
+        </div>
+        <div class="count has">1/3</div>
+      </div>
+      <div class="stages">
+        <div class="stage active">1 · Drill</div>
+        <div class="stage-sep tofill"></div>
+        <div class="stage locked">2 · Spar
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
+        </div>
+      </div>
+      <div class="pbar"><div class="fill" style="width:33%"></div></div>
+      <div class="rows">
+        <div class="row done" onclick="toggle(this)">
+          <div class="check"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2 6l3 3 5-6" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <div class="row-body">
+            <div class="row-text">Shrimp + frame drill off the wall, focus on hip-first timing</div>
+            <div class="chips"><span class="chip type solo">SOLO</span><span class="chip time">8 min</span></div>
+          </div>
+        </div>
+        <div class="row" onclick="toggle(this)">
+          <div class="check"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2 6l3 3 5-6" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <div class="row-body">
+            <div class="row-text">Partner holds side control at 60%, escape on the inhale, 10 reps each side</div>
+            <div class="chips"><span class="chip type partner">PARTNER</span><span class="chip time">10 min</span></div>
+          </div>
+        </div>
+        <div class="row" onclick="toggle(this)">
+          <div class="check"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2 6l3 3 5-6" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <div class="row-body">
+            <div class="row-text">Live restart from side control bottom, 3 rounds, only goal is to re-guard</div>
+            <div class="chips"><span class="chip type live">LIVE</span><span class="chip time">3 rnds</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- sealed Stage 2 -->
+      <div class="locked-stage">
+        <svg class="lk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
+        <div class="lt">Sparring sealed</div>
+        <div class="lp">Clear all 3 drills and this technique graduates into live sparring scenarios.</div>
+      </div>
+    </div>
+    <div class="tap-hint">tick all three drills to break the seal and unlock Stage 2 ↓</div>
+  </div>
+
+  <!-- ========== 3. UNIFIED WIDGET — STAGE 2 unlocked (same card, after drills cleared) ========== -->
+  <div class="block">
+    <div class="section-header">Mastery flow · BJJ — drills cleared, Stage 2 unlocked</div>
+    <div class="card">
+      <div class="motes" aria-hidden="true"><span style="--l:8%;--d:7.5s;--delay:0s"></span><span style="--l:22%;--d:9s;--delay:1.6s"></span><span style="--l:37%;--d:8s;--delay:.7s"></span><span style="--l:52%;--d:9.4s;--delay:2.3s"></span><span style="--l:66%;--d:8.3s;--delay:1.1s"></span><span style="--l:80%;--d:7.8s;--delay:.4s"></span><span style="--l:92%;--d:9.1s;--delay:2s"></span></div>
+      <div class="stages" style="padding-top:14px">
+        <div class="stage cleared">1 · Drill ✓</div>
+        <div class="stage-sep filled"></div>
+        <div class="stage active">2 · Spar</div>
+      </div>
+      <div class="disc-head">
+        <span class="disc" style="color:hsl(var(--bjj))">BJJ</span>
+        <span class="togo">2 to land</span>
+        <span class="refresh"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9a9 9 0 0114.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0020.5 15"/></svg></span>
+      </div>
+      <div style="padding:2px 6px 10px">
+        <div class="spar-row" onclick="toggle(this,'spar')">
+          <div class="spar-top">
+            <div class="reps" title="drilled 4×"><span class="pip on"></span><span class="pip on"></span><span class="pip on"></span><span class="pip on"></span><span class="pip dim"></span></div>
+            <div style="flex:1; min-width:0">
+              <div style="display:flex; align-items:baseline; gap:8px"><span class="spar-name">Cross-collar grip break</span><span class="repbadge">drilled 4×</span></div>
+              <div class="spar-when">When they grip your collar before you settle posture</div>
+              <div class="tac">
+                <div class="tac-group">
+                  <div class="tac-label set">Set up</div>
+                  <div class="bullet">Break the wrist line</div>
+                  <div class="bullet">Two-on-one peel</div>
+                </div>
+                <div class="tac-group">
+                  <div class="tac-label cnt">Watch for</div>
+                  <div class="bullet">They re-grip the sleeve before you clear it</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="spar-row done" onclick="toggle(this,'spar')">
+          <div class="spar-top">
+            <div class="reps"><span class="pip on"></span><span class="pip on"></span><span class="pip on"></span><span class="pip on"></span><span class="pip on"></span></div>
+            <div style="flex:1; min-width:0">
+              <div style="display:flex; align-items:baseline; gap:8px"><span class="spar-name">Knee-cut pass</span><span class="repbadge">landed ✓</span></div>
+              <div class="spar-when">When they open half-guard to recover</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="tap-hint">setups (green) & counters (amber) now sit on the surface, no tap to read them</div>
+  </div>
+
+  <!-- ========== 4. MASTERED SHELF ========== -->
+  <div class="block">
+    <div class="section-header">Mastered this camp</div>
+    <div class="shelf">
+      <div class="trophy">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 010-5H6M18 9h1.5a2.5 2.5 0 000-5H18M6 4h12v5a6 6 0 11-12 0V4zM9 18h6M10 22h4M12 18v4"/></svg></div>
+        <div class="tn">Hip escape</div><div class="ts">BJJ · 6 lands</div>
+      </div>
+      <div class="trophy" style="background:linear-gradient(180deg, hsl(var(--muay)/0.12), var(--inset)); border-color:hsl(var(--muay)/0.25)">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 010-5H6M18 9h1.5a2.5 2.5 0 000-5H18M6 4h12v5a6 6 0 11-12 0V4zM9 18h6M10 22h4M12 18v4"/></svg></div>
+        <div class="tn">Teep to lead</div><div class="ts">Muay Thai · 5 lands</div>
+      </div>
+      <div class="trophy">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 010-5H6M18 9h1.5a2.5 2.5 0 000-5H18M6 4h12v5a6 6 0 11-12 0V4zM9 18h6M10 22h4M12 18v4"/></svg></div>
+        <div class="tn">Sweep from closed guard</div><div class="ts">BJJ · 4 lands</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 5. GRADUATION MOMENT ========== -->
+  <div class="block">
+    <div class="section-header">Graduation moment (drills → sparring)</div>
+    <div class="card grad" id="grad">
+      <div class="badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/></svg></div>
+      <div class="gk">Drills cleared</div>
+      <div class="gt">Cross-collar break is sparring-ready</div>
+      <div class="gs">Added to your BJJ sparring to-do with live scenarios & counters.</div>
+      <div class="xp">+100 XP · Lv 4 → 5</div>
+    </div>
+    <div class="tap-hint">tap the card to replay the celebration</div>
+  </div>
+
+</div>
+
+<script>
+  function toggle(el, kind) {
+    el.classList.toggle('done');
+    if (navigator.vibrate) navigator.vibrate(8);
+  }
+  // graduation confetti replay
+  const grad = document.getElementById('grad');
+  const colors = ['#4068EF','#4AB4ED','#8B7EEA','#FAC146','#23C599'];
+  function burst() {
+    for (let i=0;i<22;i++){
+      const c=document.createElement('div');
+      c.className='confetti';
+      c.style.background=colors[i%colors.length];
+      c.style.left='50%'; c.style.top='28px';
+      grad.appendChild(c);
+      const ang=(Math.PI*2*i)/22, dist=70+Math.random()*50;
+      const x=Math.cos(ang)*dist, y=Math.sin(ang)*dist+20;
+      c.animate([
+        {transform:'translate(0,0) scale(1)',opacity:1},
+        {transform:`translate(${x}px,${y}px) scale(.4) rotate(${x}deg)`,opacity:0}
+      ],{duration:1100,easing:'cubic-bezier(.22,1,.36,1)'}).onfinish=()=>c.remove();
+    }
+  }
+  grad.addEventListener('click', burst);
+  setTimeout(burst, 400);
+
+  // ---------- minimise / expand the whole Mastery Spine (persists) ----------
+  // Minimised = only the top journey-rail card shows. Everything below collapses.
+  function applySpine(min) {
+    const blocks = [...document.querySelectorAll('.block')];
+    // block[0] is the journey rail (the top card) — always visible.
+    blocks.slice(1).forEach(b => b.style.display = min ? 'none' : '');
+    const note = document.getElementById('spine-note');
+    if (note) note.style.display = min ? 'none' : '';
+    const chev = document.getElementById('spine-chev');
+    if (chev) chev.style.transform = min ? 'rotate(-90deg)' : 'rotate(0deg)';
+    const btn = document.getElementById('spine-toggle');
+    if (btn) btn.setAttribute('aria-expanded', String(!min));
+  }
+  let spineMin = localStorage.getItem('wcw_mastery_min') === '1';
+  function toggleSpine() {
+    spineMin = !spineMin;
+    localStorage.setItem('wcw_mastery_min', spineMin ? '1' : '0');
+    applySpine(spineMin);
+    if (navigator.vibrate) navigator.vibrate(8);
+  }
+  applySpine(spineMin);
+</script>
+</body>
+</html>

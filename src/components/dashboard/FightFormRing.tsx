@@ -632,7 +632,12 @@ export function FightFormRing({
           </>
         )}
         {state === "calibrating" && (
-          <div className="flex flex-col items-center gap-1.5 max-w-[170px] text-center">
+          // `min-h` + `justify-center` keeps this whole stack vertically
+          // centred in the ring at a CONSTANT height, so the rotating sub-
+          // phrase below (which changes length) can never push "Day X of Y"
+          // or the "Score in N days" headline around. max-w stays inside the
+          // ring so nothing spills past the rim.
+          <div className="flex h-[108px] flex-col items-center justify-center gap-1.5 overflow-hidden max-w-[160px] text-center">
             {calibratingDays && (
               <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/80">
                 Day {Math.min(calibratingDays.current, calibratingDays.needed)} of {calibratingDays.needed}
@@ -682,9 +687,13 @@ export function FightFormRing({
                     "Calibrating your score"
                   )}
                 </span>
+                {/* Rotating signal sub-phrase. Fixed-height, single-line and
+                    much smaller so it always fits inside the ring and never
+                    wraps — a longer phrase can't change this row's height, so
+                    the headline above it stays put as phrases cycle. */}
                 <span
                   key={`phrase-${phraseIdx}`}
-                  className="text-[11px] tracking-wide text-muted-foreground ff-ring-calib-phrase"
+                  className="flex h-3.5 items-center justify-center whitespace-nowrap text-[9px] leading-none tracking-wide text-muted-foreground ff-ring-calib-phrase"
                 >
                   {CALIB_PHRASES[phraseIdx]}
                   <span aria-hidden className="ff-ring-calib-dot" style={{ animationDelay: "0s" }}>.</span>

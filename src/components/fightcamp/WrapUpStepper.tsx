@@ -59,7 +59,7 @@ const STEPS: StepDef[] = [
   { kind: "num", icon: Droplets, q: "How much came off via water cut?", help: "Sauna, sweat, dehydration.", field: "dehydrationKg", ph: "2.4" },
   { kind: "num", icon: Utensils, q: "And how much via diet?", help: "Carbs, fibre, sodium.", field: "dietKg", ph: "1.8" },
   { kind: "chip", icon: Trophy, q: "How did it go?", help: "Pick the one that fits best." },
-  { kind: "text", icon: PenLine, q: "Anything to remember for next time?", help: "Optional — totally fine to skip.", field: "notes", ph: "What worked? What to change?" },
+  { kind: "text", icon: PenLine, q: "Anything to remember for next time?", help: "Optional - totally fine to skip.", field: "notes", ph: "What worked? What to change?" },
 ];
 const TOTAL = STEPS.length;
 
@@ -101,7 +101,7 @@ export function WrapUpStepper({ saving, onComplete, onSkip }: WrapUpStepperProps
   };
 
   return (
-    <div className="relative flex flex-col overflow-hidden max-h-[calc(100dvh-var(--keyboard-inset,0px))]">
+    <div className="relative flex flex-col overflow-hidden max-h-[calc(100dvh-var(--keyboard-inset,0px))] transition-[max-height] duration-300 ease-out">
       <SheetTitle className="sr-only">Wrap up your camp</SheetTitle>
 
       {/* Blue animated backdrop — matches the Pro gate (ProUpsellScreen) */}
