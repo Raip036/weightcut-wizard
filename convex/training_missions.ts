@@ -370,6 +370,9 @@ export const insertMissionInternal = internalMutation({
       }),
     ),
     notesWindowStart: v.number(),
+    focusTechnique: v.optional(v.string()),
+    focusTechniqueNormalized: v.optional(v.string()),
+    cycleId: v.optional(v.string()),
   },
   handler: async (
     ctx,
@@ -381,6 +384,9 @@ export const insertMissionInternal = internalMutation({
       sourceSessionIds,
       items,
       notesWindowStart,
+      focusTechnique,
+      focusTechniqueNormalized,
+      cycleId,
     },
   ): Promise<Id<"training_missions">> => {
     const now = Date.now();
@@ -408,6 +414,9 @@ export const insertMissionInternal = internalMutation({
       notesWindowStart,
       createdAt: now,
       lastActivityAt: now,
+      focusTechnique,
+      focusTechniqueNormalized,
+      cycleId,
     });
 
     for (let i = 0; i < items.length; i += 1) {

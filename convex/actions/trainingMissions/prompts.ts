@@ -81,6 +81,7 @@ Use real coaching terms (positional sparring, isolated drilling, hand-fighting, 
 - Second person, imperative.
 - title: 3-60 chars, names the mission's theme tied to the diagnosed issue.
 - rationale: 10-400 chars, cites the notes and the diagnosis.
+- focusTechnique: 2-60 chars — the single named technique, position, or movement pattern the ENTIRE mission is built around (e.g. "Parry teep into counter combo", "Kimura entry from side control", "Double-leg takedown"). One technique only; no em dashes.
 - items: array length EXACTLY 3.
 - Each item.text: 5-140 chars.
 - Each item.technique (optional): max 60 chars — the named move/position.
@@ -94,6 +95,7 @@ Use real coaching terms (positional sparring, isolated drilling, hand-fighting, 
 {
   "title": "Counter the teep and fire back",
   "rationale": "You mentioned you 'kept getting caught with teeps and could not throw my own combos' — that's a timing-and-entry problem: you're letting their teep control the distance instead of catching or parrying it and closing in to counter. We'll drill catching the teep and immediately answering with your own combo.",
+  "focusTechnique": "Parry teep into counter combo",
   "items": [
     {
       "text": "Shadow 3x3 mins: picture a teep coming, parry it down with your lead hand, step in on the same beat and throw 1-2-low kick.",

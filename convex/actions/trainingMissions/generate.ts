@@ -48,6 +48,8 @@ import { callGroqWithRetry, GroqError } from "../../_shared/groq";
 import {
   sanitizeUserText,
 } from "../../_shared/sanitizeUserText";
+import { stripEmDashes } from "../../_shared/parseResponse";
+import { normalizeTechniqueKey } from "../../training_techniques";
 import { enforceFeatureGate } from "../../_shared/featureGates";
 import { logDecision } from "../_helpers";
 import {
@@ -66,6 +68,7 @@ import { buildGroundingBlock } from "./groundingReference";
 const MissionSchema = z.object({
   title: z.string().min(3).max(60),
   rationale: z.string().min(10).max(400),
+  focusTechnique: z.string().min(2).max(60),
   items: z
     .array(
       z.object({
@@ -374,6 +377,11 @@ export const generateMissionIfReady = internalAction({
     //         + completedAt) when its items are all done,
     //       - inserting the new mission row with notesWindowStart=now,
     //       - inserting each item with strict position 0..N.
+    const focusTechnique = stripEmDashes(parsed.focusTechnique).slice(0, 60);
+    const focusTechniqueNormalized = normalizeTechniqueKey(sport, focusTechnique);
+    // cycleId scoped per-mission for now; Task 2.2 will share one cycleId
+    // across a batch of missions for the same issue.
+    const cycleId = `${sport}:${Date.now()}`;
     const missionId: Id<"training_missions"> = await ctx.runMutation(
       internal.training_missions.insertMissionInternal,
       {
@@ -386,6 +394,9 @@ export const generateMissionIfReady = internalAction({
         ),
         items: parsed.items,
         notesWindowStart: Date.now(),
+        focusTechnique,
+        focusTechniqueNormalized,
+        cycleId,
       },
     );
 
