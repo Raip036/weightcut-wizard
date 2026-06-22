@@ -150,7 +150,7 @@ export const CampHeroCard = memo(function CampHeroCard({
       >
         <AnimatedNumber
           value={daysLeft}
-          className="display-number font-display font-extrabold bg-gradient-to-b from-white to-[#cfe0ff] bg-clip-text text-transparent text-[78px] sm:text-[92px] leading-[0.8] tracking-[-0.04em] tabular-nums"
+          className="display-number font-display font-extrabold bg-gradient-to-b from-white to-[#cfe0ff] bg-clip-text text-transparent text-[78px] sm:text-[92px] leading-[0.8] tracking-[-0.04em] tabular-nums relative z-10 pt-[0.12em] -mt-[0.12em]"
           // textShadow draws a glyph-shaped glow even through the transparent
           // gradient fill; it isn't blur()/box-shadow so it isn't stripped.
         />
