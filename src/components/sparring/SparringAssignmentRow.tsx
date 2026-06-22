@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { ChevronDown } from "lucide-react";
 import { useMutation } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import { triggerHapticSelection } from "@/lib/haptics";
 import { stripDashes } from "@/lib/utils";
 import { AnimatedCheckbox, XpFloat } from "@/components/coach/TickReward";
+import { disciplineToken } from "@/lib/coachColors";
 
 /** XP awarded per sparring assignment completed (mirrors the
  *  `toggleAssignment` mutation's `awardXp` amount). */
@@ -22,6 +22,8 @@ export interface SparringAssignment {
   counters: string[];
   status: "todo" | "done";
   updatedAt: number;
+  /** Number of times this technique has been logged in sparring (Phase 0 field). */
+  timesLogged: number;
 }
 
 interface SparringAssignmentRowProps {
@@ -30,11 +32,17 @@ interface SparringAssignmentRowProps {
   token: string;
 }
 
+/** Number of filled pips shown in the confidence meter (0–5). */
+const PIP_COUNT = 5;
+
 /**
  * A single tappable sparring to-do. The main tap area (checkbox + technique +
- * when-to-use) flips the todo/done status via `toggleAssignment`. A separate
- * "Setups & counters" disclosure (collapsed by default) reveals the detail
- * without it ever toggling the row's done state.
+ * when-to-use) flips the todo/done status via `toggleAssignment`. Setups and
+ * counters are always visible as plain-bullet lists under muted labels — no
+ * disclosure toggle needed.
+ *
+ * A 5-pip confidence meter to the left of the content fills based on
+ * `timesLogged` (capped at 5) in the discipline color token.
  *
  * Convex reactivity drives the visual update once the mutation resolves; a
  * short `pending` guard prevents double-fires on rapid taps. On a tick-on we
@@ -48,10 +56,13 @@ export function SparringAssignmentRow({
   const toggleAssignment = useMutation(api.sparring_plan.toggleAssignment);
   const [pending, setPending] = useState(false);
   const [floatKey, setFloatKey] = useState(0);
-  const [detailsOpen, setDetailsOpen] = useState(false);
   const done = assignment.status === "done";
   const hasDetails =
     assignment.setups.length > 0 || assignment.counters.length > 0;
+
+  /** Pip color comes from the row's discipline, not a fixed purple. */
+  const pipToken = disciplineToken(assignment.discipline);
+  const filledPips = Math.min(PIP_COUNT, assignment.timesLogged ?? 0);
 
   const handleToggle = async () => {
     if (pending) return;
@@ -106,6 +117,21 @@ export function SparringAssignmentRow({
         }
         className="relative w-full flex items-start gap-2.5 px-2.5 py-2 text-left"
       >
+        {/* 5-pip confidence meter: filled = min(5, timesLogged), discipline-colored. */}
+        <div className="flex flex-col items-center gap-[3px] pt-[3px] flex-none" aria-hidden>
+          {Array.from({ length: PIP_COUNT }).map((_, i) => (
+            <span
+              key={i}
+              className="block w-1.5 h-1.5 rounded-full"
+              style={
+                i < filledPips
+                  ? { backgroundColor: `hsl(var(${pipToken}))` }
+                  : { backgroundColor: `hsl(var(${pipToken}) / 0.18)` }
+              }
+            />
+          ))}
+        </div>
+
         <AnimatedCheckbox done={done} token={token} />
         <div className="flex-1 min-w-0">
           {/* Technique name with a strikethrough sweep on done. */}
@@ -130,9 +156,9 @@ export function SparringAssignmentRow({
             />
           </span>
 
-          {/* When to use: single muted line. */}
+          {/* When to use: permanent italic subtitle — always visible, no clamp. */}
           {assignment.whenToUse && (
-            <p className="text-[11px] text-muted-foreground leading-snug mt-0.5 line-clamp-1">
+            <p className="text-[11px] text-muted-foreground leading-snug mt-0.5 italic">
               {stripDashes(assignment.whenToUse)}
             </p>
           )}
@@ -144,64 +170,39 @@ export function SparringAssignmentRow({
         />
       </motion.button>
 
-      {/* Per-row disclosure for setups / counters, collapsed by default and
-          fully independent of the done toggle. */}
+      {/* Setups & counters: always-visible plain bullets — no disclosure toggle. */}
       {hasDetails && (
-        <div className="px-2.5 pb-2 -mt-1">
-          <button
-            type="button"
-            onClick={() => setDetailsOpen((o) => !o)}
-            aria-expanded={detailsOpen}
-            className="ml-[28px] inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 active:text-foreground"
-          >
-            Setups &amp; counters
-            <ChevronDown
-              className={`h-3 w-3 transition-transform ${
-                detailsOpen ? "rotate-180" : ""
-              }`}
-            />
-          </button>
-          <AnimatePresence initial={false}>
-            {detailsOpen && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                className="overflow-hidden ml-[28px] mt-1.5 space-y-1.5"
-              >
-                {assignment.setups.length > 0 && (
-                  <div>
-                    <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground/60 mb-0.5">
-                      Setups
-                    </p>
-                    {assignment.setups.map((s, i) => (
-                      <p
-                        key={`setup-${i}`}
-                        className="text-[11px] text-muted-foreground/90 leading-snug"
-                      >
-                        · {stripDashes(s)}
-                      </p>
-                    ))}
-                  </div>
-                )}
-                {assignment.counters.length > 0 && (
-                  <div>
-                    <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground/60 mb-0.5">
-                      Counters
-                    </p>
-                    {assignment.counters.map((c, i) => (
-                      <p
-                        key={`counter-${i}`}
-                        className="text-[11px] text-muted-foreground/90 leading-snug"
-                      >
-                        · {stripDashes(c)}
-                      </p>
-                    ))}
-                  </div>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
+        <div className="px-2.5 pb-3 pl-[calc(0.625rem+6px+0.625rem+20px+0.625rem)] space-y-2">
+          {assignment.setups.length > 0 && (
+            <div className="min-w-0">
+              <p className="text-[9.5px] font-semibold uppercase tracking-[0.07em] text-emerald-400/80 mb-1">
+                Set up
+              </p>
+              {assignment.setups.map((s, i) => (
+                <p
+                  key={`setup-${i}`}
+                  className="relative text-[11.5px] text-muted-foreground leading-snug pl-3.5 min-w-0 break-words before:content-['•'] before:absolute before:left-1 before:top-0 before:text-muted-foreground/40"
+                >
+                  {stripDashes(s)}
+                </p>
+              ))}
+            </div>
+          )}
+          {assignment.counters.length > 0 && (
+            <div className="min-w-0">
+              <p className="text-[9.5px] font-semibold uppercase tracking-[0.07em] text-amber-400/80 mb-1">
+                Watch for
+              </p>
+              {assignment.counters.map((c, i) => (
+                <p
+                  key={`counter-${i}`}
+                  className="relative text-[11.5px] text-muted-foreground leading-snug pl-3.5 min-w-0 break-words before:content-['•'] before:absolute before:left-1 before:top-0 before:text-muted-foreground/40"
+                >
+                  {stripDashes(c)}
+                </p>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </motion.div>
