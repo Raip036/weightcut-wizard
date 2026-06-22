@@ -310,7 +310,7 @@ function DisciplineCard({
  *
  * Props: `userId` — the Convex user Id.
  */
-export function MasterySpine({ userId }: MasterySpineProps) {
+export function MasterySpine({ _userId }: MasterySpineProps) {
   const reducedMotion = useReducedMotion();
 
   const feature = useQuery(api.training_missions.getMissionFeatureStatus);
@@ -365,7 +365,7 @@ export function MasterySpine({ userId }: MasterySpineProps) {
   // ── Guards (after all hooks) ──────────────────────────────────────────────
 
   // Wait for all queries to resolve before rendering.
-  if (feature === undefined || missions === undefined) return null;
+  if (feature === undefined || missions === undefined || assignments === undefined) return null;
 
   // Single Pro wall for the entire widget.
   if (!feature.isPro) return <LockedMissionCard />;
