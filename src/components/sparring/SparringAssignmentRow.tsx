@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useMutation } from "convex/react";
 import { api } from "@/../convex/_generated/api";
@@ -80,6 +80,27 @@ export function SparringAssignmentRow({
   const [optimisticLanded, setOptimisticLanded] = useState<number | null>(null);
   const [mastering, setMastering] = useState(false);
 
+  // Tracks whether this row is still mounted. Internal setState (mastery flash,
+  // optimistic revert) is guarded by this to avoid setState-after-unmount
+  // warnings — but the parent `onCycleComplete` call is deliberately NOT gated
+  // by it, so the cutscene fires even if the row unmounts mid-exit (see below).
+  const mountedRef = useRef(true);
+  // Per-row guard so `onCycleComplete` can only fire once even on rapid taps or
+  // overlapping resolutions.
+  const cycleFiredRef = useRef(false);
+  // Keep the latest callback in a ref so the resolved `markLanded` promise can
+  // call it directly without depending on render-time closures or mounted state.
+  const onCycleCompleteRef = useRef(onCycleComplete);
+  useEffect(() => {
+    onCycleCompleteRef.current = onCycleComplete;
+  });
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   const isGraduated = assignment.source === "graduated";
   const done = assignment.status === "done";
   const hasDetails =
@@ -120,18 +141,31 @@ export function SparringAssignmentRow({
       const result = await markLanded({
         assignmentId: assignment._id as Parameters<typeof markLanded>[0]["assignmentId"],
       });
-      if (result.mastered) {
+
+      // ── Cycle-complete: fire FIRST, before starting the exit animation. ──
+      // This is the cutscene trigger. We call it synchronously off the resolved
+      // promise via a ref so it does NOT depend on this component still being
+      // mounted — even if the parent drops the mastered row on the same query
+      // tick, the cutscene fires instantly rather than a render late. The
+      // `cycleFiredRef` guard makes it idempotent (the per-row double-fire guard
+      // from the task), so overlapping resolutions can't fire it twice.
+      if (result.cycleComplete && !cycleFiredRef.current) {
+        cycleFiredRef.current = true;
+        onCycleCompleteRef.current?.(assignment.discipline);
+      }
+
+      // Starting the exit animation (which unmounts the row) happens AFTER the
+      // callback above, and is guarded by mountedRef so it never warns. Even if
+      // setMastering triggers an unmount, the callback already ran.
+      if (result.mastered && mountedRef.current) {
         setMastering(true);
       }
-      if (result.cycleComplete && onCycleComplete) {
-        onCycleComplete(assignment.discipline);
-      }
     } catch (err) {
-      // Revert optimistic update on failure.
-      setOptimisticLanded(null);
+      // Revert optimistic update on failure (mounted-guarded).
+      if (mountedRef.current) setOptimisticLanded(null);
       console.warn("SparringAssignmentRow: markLanded failed", err);
     } finally {
-      setPending(false);
+      if (mountedRef.current) setPending(false);
     }
   };
 

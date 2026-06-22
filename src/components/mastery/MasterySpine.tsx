@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "convex/react";
-import { AnimatePresence, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { api } from "@/../convex/_generated/api";
 import type { Doc, Id } from "@/../convex/_generated/dataModel";
 import { Icon } from "@/components/ui/Icon";
@@ -17,7 +17,16 @@ import { SealedStage } from "./SealedStage";
 import { MasteredShelf } from "./MasteredShelf";
 import { MasteryCutscene } from "./MasteryCutscene";
 import { MasteryGeneratingCard } from "./MasteryGeneratingCard";
-import { useMinimumDisplay, type GenerationJob } from "./useMinimumDisplay";
+import {
+  useMinimumDisplay,
+  useCycleCompletionDetector,
+  type GenerationJob,
+  type GraduatedCounts,
+} from "./useMinimumDisplay";
+import {
+  useMasterySignals,
+  clearMasterySignal,
+} from "./masteryGenerationSignals";
 import { CompleteCelebration } from "@/components/motion";
 import type { MasteryFlowEntry } from "@/../convex/mastery_spine";
 
@@ -108,9 +117,11 @@ interface DisciplineCardProps {
    *  graduated assignment for this discipline is mastered (cycleComplete).
    *  The parent owns the full-screen congrats cutscene + XP. */
   onCycleComplete: (discipline: string, xp: number) => void;
-  /** When this discipline is mid-generation, show the wizard loader card
-   *  instead of the empty sparring state. */
-  generating: "drills" | "sparring" | null;
+  /** True while this discipline's sparring is in the merged/held generating set
+   *  (backend job, optimistic signal, or deterministic spar-derivation). Drives
+   *  the in-card sparring loader and its cross-fade to the real rows. Held for
+   *  ≥LOADER_MIN_DISPLAY_MS even after assignments arrive. */
+  generatingSparring: boolean;
 }
 
 /**
@@ -132,10 +143,18 @@ function DisciplineCard({
   reducedMotion,
   onAllMissionsComplete,
   onCycleComplete,
-  generating,
+  generatingSparring,
 }: DisciplineCardProps) {
   const token = disciplineToken(discipline);
   const label = disciplineLabel(discipline);
+
+  // Reconcile the optimistic "sparring" signal once the loader has released AND
+  // the real rows exist — clearing it stops the store from re-feeding the latch.
+  useEffect(() => {
+    if (!generatingSparring && assignments.length > 0) {
+      clearMasterySignal(discipline, "sparring");
+    }
+  }, [generatingSparring, assignments.length, discipline]);
 
   // Graduation celebration state: fires once when allMissionsComplete arrives.
   const [unlockOpen, setUnlockOpen] = useState(false);
@@ -305,37 +324,56 @@ function DisciplineCard({
             </div>
           )}
 
-          {/* Stage 2: during the drill→spar swap (sparring being generated and
-              no assignments landed yet) the wizard-aurora loader takes over the
-              Stage-2 region WITHIN the card bounds — this wins over both the
-              sealed-while-drilling state and the empty sparring state so the
-              animation always plays through the swap (min-display latched by
-              the parent). Otherwise: sealed while drilling, sparring rows once
-              cleared. */}
-          {generating === "sparring" && assignments.length === 0 ? (
+          {/* Stage 2: during the drill→spar swap the wizard-aurora loader takes
+              over the Stage-2 region WITHIN the card bounds whenever this
+              discipline is in the merged/held "generating sparring" set — even
+              if assignments have already arrived. The min-display latch keeps it
+              up ≥2.5s, then it cross-fades (AnimatePresence) to the sparring
+              rows. This wins over both the sealed-while-drilling state and the
+              empty-sparring state so the animation always plays through. */}
+          {generatingSparring ? (
             <div className="px-3 pb-4">
-              <MasteryGeneratingCard kind="sparring" accentToken={token} />
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key="spar-loader"
+                  initial={reducedMotion ? false : { opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={reducedMotion ? { opacity: 0 } : { opacity: 0 }}
+                  transition={{ duration: reducedMotion ? 0 : 0.3 }}
+                >
+                  <MasteryGeneratingCard kind="sparring" accentToken={token} />
+                </motion.div>
+              </AnimatePresence>
             </div>
           ) : phase === "drill" ? (
             <SealedStage accentToken={token} remaining={remainingDrills} />
           ) : (
             <div className="px-3 pb-4">
-              {assignments.length === 0 ? (
-                <p className="text-[12px] text-muted-foreground text-center py-4">
-                  No sparring assignments yet for {label}. Log more sessions to build your list.
-                </p>
-              ) : (
-                <div className="space-y-1.5">
-                  {assignments.map((row) => (
-                    <SparringAssignmentRow
-                      key={row._id}
-                      assignment={row}
-                      token={token}
-                      onCycleComplete={handleCycleComplete}
-                    />
-                  ))}
-                </div>
-              )}
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key="spar-rows"
+                  initial={reducedMotion ? false : { opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: reducedMotion ? 0 : 0.3 }}
+                >
+                  {assignments.length === 0 ? (
+                    <p className="text-[12px] text-muted-foreground text-center py-4">
+                      No sparring assignments yet for {label}. Log more sessions to build your list.
+                    </p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {assignments.map((row) => (
+                        <SparringAssignmentRow
+                          key={row._id}
+                          assignment={row}
+                          token={token}
+                          onCycleComplete={handleCycleComplete}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </motion.div>
+              </AnimatePresence>
             </div>
           )}
         </div>
@@ -364,6 +402,50 @@ function DisciplineCard({
       )}
     </AnimatePresence>
     </>
+  );
+}
+
+// ─── Drill regeneration wrapper ────────────────────────────────────────────────
+
+/**
+ * Wraps a DisciplineCard that already exists in the flow but is regenerating
+ * its drills. While the held "drills" latch is on, a drills loader cross-fades
+ * IN over the card; once it releases, the loader cross-fades OUT to reveal the
+ * real card. Once released AND a mission exists, the optimistic "drills" signal
+ * is reconciled (cleared) so the store stops re-feeding the latch.
+ *
+ * When not regenerating, this is a transparent pass-through (renders children).
+ */
+function DrillRegenWrapper({
+  discipline,
+  regeneratingDrills,
+  reducedMotion,
+  children,
+}: {
+  discipline: string;
+  regeneratingDrills: boolean;
+  reducedMotion: boolean | null;
+  children: ReactNode;
+}) {
+  // Reconcile once the loader released (the real card is showing again).
+  useEffect(() => {
+    if (!regeneratingDrills) clearMasterySignal(discipline, "drills");
+  }, [regeneratingDrills, discipline]);
+
+  if (!regeneratingDrills) return <>{children}</>;
+
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key="drill-loader"
+        initial={reducedMotion ? false : { opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: reducedMotion ? 0 : 0.3 }}
+      >
+        <MasteryGeneratingCard kind="drills" accentToken={disciplineToken(discipline)} />
+      </motion.div>
+    </AnimatePresence>
   );
 }
 
@@ -402,20 +484,83 @@ export function MasterySpine(_props: MasterySpineProps) {
     | GenerationJob[]
     | undefined;
 
+  // Optimistic client signals pushed at the moment generation was kicked off
+  // (logging a session, ticking the last drill) — see masteryGenerationSignals.
+  const signals = useMasterySignals();
+
+  // ── Merge THREE generating sources into one job set ───────────────────────
+  // (a) backend job markers from getGenerationStatus
+  // (b) optimistic client signals (useMasterySignals)
+  // (c) deterministic spar-derivation: any flow discipline whose phase is
+  //     "spar" but has no assignments yet is, by definition, generating its
+  //     sparring (drills done, no sparring rows = generating).
+  // All three are deduped by discipline+kind and fed through the minimum-display
+  // latch so anything that appears holds ≥LOADER_MIN_DISPLAY_MS.
+  const generationJobs = useMemo<GenerationJob[]>(() => {
+    const byKey = new Map<string, GenerationJob>();
+    const add = (discipline: string, kind: GenerationJob["kind"]) => {
+      const key = `${discipline.toLowerCase()}|${kind}`;
+      if (!byKey.has(key)) byKey.set(key, { discipline, kind });
+    };
+    // (a) backend markers
+    for (const j of generationRaw ?? []) add(j.discipline, j.kind);
+    // (b) optimistic signals
+    for (const s of signals) add(s.discipline, s.kind);
+    // (c) deterministic spar derivation
+    for (const e of flow ?? []) {
+      if (e.phase === "spar" && e.assignments.length === 0) {
+        add(e.discipline, "sparring");
+      }
+    }
+    return Array.from(byKey.values());
+  }, [generationRaw, signals, flow]);
+
   // Latch generating jobs so the wizard-aurora loader always plays for a brief
   // minimum even when generation is instant/cached (see useMinimumDisplay).
-  const generationJobs = useMemo(() => generationRaw ?? [], [generationRaw]);
   const heldGeneration = useMinimumDisplay(generationJobs);
+
+  // ── Deterministic cycle-complete detection ────────────────────────────────
+  // Track per-discipline graduated, un-mastered sparring count; when it falls
+  // from >0 to 0 the cycle is complete. This does NOT rely on the imperative
+  // onCycleComplete callback bubbling up (which races), but shares its
+  // celebrated-Set guard so the two paths can't double-fire.
+  const graduatedCounts = useMemo<GraduatedCounts>(() => {
+    const counts: GraduatedCounts = {};
+    for (const e of flow ?? []) {
+      counts[e.discipline] = e.assignments.filter(
+        (a) =>
+          (a as { source?: string }).source === "graduated" &&
+          (a as { masteredAt?: number }).masteredAt == null,
+      ).length;
+    }
+    return counts;
+  }, [flow]);
+
+  const cycleDetector = useCycleCompletionDetector(graduatedCounts);
 
   // Full-screen congrats cutscene for a discipline that just finished its
   // whole cycle (drills + sparring). The discipline stays "hidden" on the
   // trophy shelf until the cutscene is dismissed, so the reveal feels earned.
   const [cutscene, setCutscene] = useState<{ discipline: string; xp: number } | null>(null);
 
+  // Imperative path (SparringAssignmentRow → DisciplineCard → here). Shares the
+  // detector's celebrated-Set guard so it can't double-fire with the
+  // deterministic detection below.
   const handleCycleComplete = (discipline: string, xp: number) => {
+    if (cycleDetector.isCelebrated(discipline)) return;
+    cycleDetector.markCelebrated(discipline);
     void triggerHapticSuccess();
     setCutscene({ discipline, xp });
   };
+
+  // Deterministic path: fire the cutscene for any discipline the detector
+  // flagged as newly-complete this render (and not already celebrated).
+  useEffect(() => {
+    if (cycleDetector.completions.length === 0) return;
+    const next = cycleDetector.completions[0];
+    void triggerHapticSuccess();
+    setCutscene((prev) => prev ?? { discipline: next.discipline, xp: next.xp });
+  }, [cycleDetector.completions]);
 
   // All hooks must run unconditionally — guards come after.
 
@@ -429,21 +574,25 @@ export function MasterySpine(_props: MasterySpineProps) {
 
   const flowDisciplines = new Set(flow.map((e) => e.discipline.toLowerCase()));
 
-  // Disciplines generating their FIRST drills (no card in the flow yet) get a
-  // standalone loader card at the top. Source from the HELD jobs so a fast/
-  // cached job still renders for its full minimum-display window. Sparring-
-  // generation is shown inside the owning discipline card instead. Deduped so
-  // the same discipline can't render twice.
-  const generatingDrills = Array.from(
-    new Set(
+  // All disciplines currently held in the "drills" generating set (active OR
+  // within the min-display window). Standalone loader cards render for those
+  // with no card in the flow yet; for disciplines that ALREADY have a card
+  // (regeneration) the loader is shown over the card via the `generatingDrills`
+  // flag passed down (it cross-fades back into the real card when released).
+  const heldDrillsDisciplines = Array.from(
+    new Map(
       heldGeneration.jobs
-        .filter(
-          (g) =>
-            g.kind === "drills" &&
-            !flowDisciplines.has(g.discipline.toLowerCase()),
-        )
-        .map((g) => g.discipline),
-    ),
+        .filter((g) => g.kind === "drills")
+        .map((g) => [g.discipline.toLowerCase(), g.discipline] as const),
+    ).values(),
+  );
+
+  // Standalone loader cards (top of list) for disciplines generating their
+  // FIRST drills — no card in the flow yet. Keep showing until the latch
+  // releases even after the first mission appears (the flow check is only used
+  // to decide standalone-vs-in-card placement, not to hide mid-window).
+  const generatingDrills = heldDrillsDisciplines.filter(
+    (disc) => !flowDisciplines.has(disc.toLowerCase()),
   );
 
   // Trophies stay hidden for any discipline still in the active flow (cycle not
@@ -493,23 +642,31 @@ export function MasterySpine(_props: MasterySpineProps) {
           />
         ))}
 
-        {flow.map((entry) => (
-          <DisciplineCard
-            key={entry.discipline}
-            discipline={entry.discipline}
-            missions={entry.missions as Mission[]}
-            assignments={entry.assignments as SparringAssignment[]}
-            serverPhase={entry.phase}
-            reducedMotion={reducedMotion}
-            onAllMissionsComplete={() => {/* drills-cleared celebration owned by DisciplineCard */}}
-            onCycleComplete={handleCycleComplete}
-            generating={
-              heldGeneration.has(entry.discipline, "sparring")
-                ? "sparring"
-                : null
-            }
-          />
-        ))}
+        {flow.map((entry) => {
+          // Regenerating drills for a discipline that already has a card: show
+          // the drills loader OVER the card for the held min-window, then it
+          // cross-fades back into the real card once the latch releases.
+          const regeneratingDrills = heldGeneration.has(entry.discipline, "drills");
+          return (
+            <DrillRegenWrapper
+              key={entry.discipline}
+              discipline={entry.discipline}
+              regeneratingDrills={regeneratingDrills}
+              reducedMotion={reducedMotion}
+            >
+              <DisciplineCard
+                discipline={entry.discipline}
+                missions={entry.missions as Mission[]}
+                assignments={entry.assignments as SparringAssignment[]}
+                serverPhase={entry.phase}
+                reducedMotion={reducedMotion}
+                onAllMissionsComplete={() => {/* drills-cleared celebration owned by DisciplineCard */}}
+                onCycleComplete={handleCycleComplete}
+                generatingSparring={heldGeneration.has(entry.discipline, "sparring")}
+              />
+            </DrillRegenWrapper>
+          );
+        })}
       </div>
 
       {/* Mastered shelf — a discipline's trophies reveal only once it leaves

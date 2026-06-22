@@ -341,8 +341,8 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
             </div>
           </div>
           {/* Single baseline row so the whole text block centres vertically
-              against the ring. Delta is pushed to the column's right edge,
-              sitting to the right of the hours value. */}
+              against the ring. The week-over-week delta now lives in the
+              bottom-right footer to match the Weight/Sleep/Recovery cards. */}
           <div className="flex-1 min-w-0 flex items-baseline gap-1">
             <span className="display-number text-lg font-bold tabular-nums">
               {Math.round(animatedTotal)}
@@ -350,30 +350,19 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
             <span className="text-[10px] text-muted-foreground font-medium">
               {totalMinutes >= 60 ? "hrs" : "min"}
             </span>
-            {deltaMin != null && deltaDisplay != null && (
-              deltaMin === 0 ? (
-                <span className="ml-auto text-micro font-semibold tabular-nums leading-none text-muted-foreground/70">
-                  ±0{deltaUnitSuffix}
-                </span>
-              ) : (
-                <span className={`ml-auto text-micro font-semibold tabular-nums leading-none ${deltaMin > 0 ? "text-func-recovery-green" : "text-func-danger-red"}`}>
-                  {deltaMin > 0 ? "+" : "−"}{Math.abs(deltaDisplay)}{deltaUnitSuffix}
-                </span>
-              )
-            )}
           </div>
         </div>
 
         {/* Week bar chart, fills remaining space. Each session renders as
             its own rounded segment within the day's column, stacked from
             bottom-up. Per-segment height = (duration / 120) * columnH. */}
-        <div className="flex items-end justify-between mt-auto px-0.5 gap-1">
+        <div className="flex-1 flex items-end justify-between mt-2 px-0.5 gap-1">
           {DAY_LABELS.map((label, i) => {
             const daySessions = dayMap.get(i) ?? [];
             const isToday = i === todayIdx;
             const isFuture = i > todayIdx;
             const maxMin = 120;
-            const columnH = 32;
+            const columnH = 30;
             // Render longest segment first so it visually anchors the day
             const ordered = [...daySessions].sort((a, b) => b.duration_minutes - a.duration_minutes);
 
@@ -407,10 +396,21 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
           })}
         </div>
 
-        {/* Session-type pills removed by design: session colors in the
-            bar chart above carry the type signal on their own. Keeping
-            an explicit label row duplicated information and crowded
-            the compact tile. */}
+        {/* Footer row: week-over-week delta pinned bottom-right, mirroring the
+            Weight/Sleep/Recovery cards so the stat grid stays uniform. */}
+        <div className="mt-1.5 flex items-center justify-end gap-1.5">
+          {deltaMin != null && deltaDisplay != null && (
+            deltaMin === 0 ? (
+              <span className="text-micro font-semibold tabular-nums leading-none text-muted-foreground/70">
+                ±0{deltaUnitSuffix}
+              </span>
+            ) : (
+              <span className={`text-micro font-semibold tabular-nums leading-none ${deltaMin > 0 ? "text-func-recovery-green" : "text-func-danger-red"}`}>
+                {deltaMin > 0 ? "+" : "−"}{Math.abs(deltaDisplay)}{deltaUnitSuffix}
+              </span>
+            )
+          )}
+        </div>
       </div>
     );
   }

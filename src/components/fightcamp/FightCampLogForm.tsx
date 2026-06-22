@@ -26,6 +26,7 @@ import {
 } from "@/lib/sessionTypes";
 import { getSessionColor } from "@/lib/sessionColors";
 import { SessionTypePickerSheet } from "@/components/fightcamp/SessionTypePickerSheet";
+import { pushMasterySignal } from "@/components/mastery/masteryGenerationSignals";
 
 export interface PendingSessionMedia {
   /** Stable id so React doesn't recycle the wrong tile when one is removed. */
@@ -326,6 +327,21 @@ export function FightCampLogForm({
     setDuration(String(next));
     triggerHapticSelection();
   };
+
+  // Wrap the parent's save so we can optimistically tell the Mastery widget a
+  // drill generation is kicking off. The backend only generates drills when the
+  // "What went well / to improve" reflection (`notes`) is non-empty, so we
+  // mirror that guard here and push for the session's PRIMARY discipline
+  // (`sessionType`). Pushed before delegating to `onSave` so the wizard loader
+  // shows immediately, before any navigation/close. Parent owns validation and
+  // the button is already gated by `canSave`/`saving`, so a tap here is a real
+  // submit — no extra validation-failure path to guard.
+  const handleSave = useCallback(() => {
+    if (sessionType && notes.trim()) {
+      pushMasterySignal(sessionType, "drills");
+    }
+    onSave();
+  }, [sessionType, notes, onSave]);
 
   return (
     <div className="space-y-4">
@@ -837,7 +853,7 @@ export function FightCampLogForm({
       {/* ── Save ──────────────────────────────────────────────── */}
       <button
         type="button"
-        onClick={onSave}
+        onClick={handleSave}
         disabled={saving || !canSave}
         className="w-full h-12 rounded-xs bg-primary text-primary-foreground text-[15px] font-semibold active:scale-[0.98] transition-transform flex items-center justify-center gap-2 disabled:opacity-40 disabled:active:scale-100"
       >
