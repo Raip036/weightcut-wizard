@@ -230,9 +230,14 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
             // saved one, so an "older" swipe lands on the newest recap.
             if (idx === -1) idx = -1;
             const next = dir === "older" ? idx + 1 : idx - 1;
-            if (next < 0 || next >= summarisedWeeks.length) return; // at an edge
+            if (next < 0 || next >= summarisedWeeks.length) {
+                triggerHapticSelection(); // at an edge, light no-op feedback so the clamp feels intentional
+                return;
+            }
             triggerHapticSelection();
-            setSlideDir(dir === "older" ? -1 : 1);
+            // Slide the incoming week in from the side the gesture implies:
+            // older (swipe left) enters from the right, newer (swipe right) from the left.
+            setSlideDir(dir === "older" ? 1 : -1);
             setSelectedWeekStart(summarisedWeeks[next]);
         },
         [summarisedWeeks, selectedWeekStart],
@@ -242,8 +247,9 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
         (_e: unknown, info: PanInfo) => {
             const SWIPE_PX = 48;
             const SWIPE_V = 320;
-            if (info.offset.x <= -SWIPE_PX || info.velocity.x < -SWIPE_V) navigateWeek("newer");
-            else if (info.offset.x >= SWIPE_PX || info.velocity.x > SWIPE_V) navigateWeek("older");
+            // Swipe left, go to older/previous weeks; swipe right, go to newer/recent.
+            if (info.offset.x <= -SWIPE_PX || info.velocity.x < -SWIPE_V) navigateWeek("older");
+            else if (info.offset.x >= SWIPE_PX || info.velocity.x > SWIPE_V) navigateWeek("newer");
         },
         [navigateWeek],
     );
