@@ -231,6 +231,12 @@ describe("Mastery Spine state-machine", () => {
     const completedMission = await t.run((ctx) => ctx.db.get(missionId));
     expect(completedMission?.status).toBe("completed");
 
+    // Stamp graduatedAt: in reality, a graduated assignment only exists once
+    // graduation has run, which sets the source mission's graduatedAt. Without
+    // this, the completed-but-ungraduated mission would (correctly) report the
+    // "graduating" phase rather than the post-graduation "spar" state we test.
+    await t.run((ctx) => ctx.db.patch(missionId, { graduatedAt: 1_700_000_000_000 }));
+
     // Also seed a graduated sparring assignment so the discipline would
     // otherwise show "spar" if no active drill missions existed.
     await seedGraduatedAssignment(t, userId, { discipline: "BJJ" });
