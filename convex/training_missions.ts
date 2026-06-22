@@ -487,15 +487,33 @@ export const findActiveMissionByTechnique = internalQuery({
     // Scan active missions for this sport and check focusTechniqueNormalized.
     // No compound index on (userId, sport, status, focusTechniqueNormalized),
     // so we use the existing by_user_sport_status index and filter in-process.
-    // In practice the frozen-cycle guard means this set is at most the missions
-    // already inserted in the current batch (≤3 rows).
+    // safe: bounded by the frozen-cycle guard to <=3 active missions per
+    // (user, sport) — the take(4) gives one slot of headroom while keeping
+    // the read explicitly bounded.
     const active = await ctx.db
       .query("training_missions")
       .withIndex("by_user_sport_status", (q) =>
         q.eq("userId", userId).eq("sport", sport).eq("status", "active"),
       )
-      .collect();
+      .take(4);
     return active.find((m) => m.focusTechniqueNormalized === focusTechniqueNormalized) ?? null;
+  },
+});
+
+/**
+ * Advance a mission's `notesWindowStart` watermark to `to`. Used by the
+ * Model B generator's all-deduped path: when every extracted issue is
+ * deduped (no mission inserted), we still need to mark the notes window as
+ * consumed so the hourly sweep doesn't re-extract the same notes forever.
+ * Actions cannot patch the DB directly, hence this internal mutation.
+ */
+export const advanceNotesWatermark = internalMutation({
+  args: {
+    missionId: v.id("training_missions"),
+    to: v.number(),
+  },
+  handler: async (ctx, { missionId, to }) => {
+    await ctx.db.patch(missionId, { notesWindowStart: to });
   },
 });
 

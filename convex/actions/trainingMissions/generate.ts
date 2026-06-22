@@ -301,6 +301,7 @@ export const generateMissionIfReady = internalAction({
   ): Promise<
     | { skipped: "cycle_in_progress" }
     | { skipped: "no_new_notes" }
+    | { skipped: "all_deduped" }
     | { created: Id<"training_missions"> }
     | { error: string }
   > => {
@@ -512,11 +513,24 @@ export const generateMissionIfReady = internalAction({
       return { created: firstMissionId };
     }
 
-    // All issues were deduped away. The notes window was NOT advanced (no
-    // insert happened). To prevent a spin-loop where the same permanently-
-    // deduped notes are re-examined on every refresh, treat this as a
-    // no-new-notes outcome. The user can always hit "Refresh mission" if
-    // they want to force a new cycle.
-    return { skipped: "no_new_notes" };
+    // All issues were deduped away — no mission was inserted, so the notes
+    // window was NOT advanced via the insert path. Without advancing the
+    // watermark, the hourly missions sweep would re-extract the same notes
+    // every hour (recurring LLM cost). Advance the latest mission's
+    // notesWindowStart to this run's window-end boundary so the window is
+    // treated as consumed.
+    //
+    // In the all-deduped case a latest mission (or assignment) always exists
+    // — dedupe requires a prior journey — so `latest` is expected non-null.
+    // Guard defensively: if somehow no latest mission exists, just return
+    // without patching (the next run will treat the notes as new again, but
+    // that path implies nothing was deduped, which is contradictory).
+    if (latest) {
+      await ctx.runMutation(
+        internal.training_missions.advanceNotesWatermark,
+        { missionId: latest._id, to: notesWindowStart },
+      );
+    }
+    return { skipped: "all_deduped" };
   },
 });
