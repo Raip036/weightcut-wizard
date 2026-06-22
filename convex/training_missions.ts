@@ -93,26 +93,30 @@ export const getMissionFeatureStatus = query({
 
 /**
  * Mark one mission item as completed. If this tick makes ALL items in the
- * mission completed, schedule `generateMissionIfReady` so the next mission
- * is created from any notes that have accumulated since this one started.
+ * mission completed, archive the mission and schedule graduation if all
+ * missions in the cycle are now complete.
  *
  * Returns `missionCompleted: true` to the caller so the UI can fire the
  * Mission Complete dialog immediately, rather than waiting on a re-query
- * round-trip.
+ * round-trip. Also returns `allMissionsComplete: true` when every active
+ * mission for this discipline has been finished (cycle graduation fires).
  */
 export const markItemCompleted = mutation({
   args: {
     itemId: v.id("training_mission_items"),
     // Optional — defaults to `true` (tick). Pass `false` to untick an
-    // item the user accidentally ticked. Unticking never schedules the
-    // generator action; the action is idempotent and self-skips when
-    // the prior mission has any incomplete items.
+    // item the user accidentally ticked. Unticking never schedules
+    // graduation; it re-opens the mission to active.
     completed: v.optional(v.boolean()),
   },
   handler: async (
     ctx,
     { itemId, completed: rawCompleted },
-  ): Promise<{ missionCompleted: boolean; xpAwarded: number }> => {
+  ): Promise<{
+    missionCompleted: boolean;
+    xpAwarded: number;
+    allMissionsComplete: boolean;
+  }> => {
     const userId = await requireUserId(ctx);
     const completed = rawCompleted ?? true;
 
@@ -134,6 +138,7 @@ export const markItemCompleted = mutation({
       return {
         missionCompleted: allItems.every((i) => i.completed),
         xpAwarded: 0,
+        allMissionsComplete: false,
       };
     }
 
@@ -205,21 +210,50 @@ export const markItemCompleted = mutation({
       }
     }
 
+    // ── Aggregate gate + graduation schedule ──────────────────────────────
+    // Only runs on the completing tick (missionCompleted true, completed true).
+    // Untick must NOT schedule graduation — it re-opens the mission to active
+    // (handled above) so the cycle stays in progress.
+    let allMissionsComplete = false;
     if (completed && missionCompleted) {
-      // Only schedule the generator when transitioning the mission INTO
-      // the completed state. Unticking can't trigger generation.
-      try {
-        await ctx.scheduler.runAfter(
-          0,
-          internal.actions.trainingMissions.generate.generateMissionIfReady,
-          { userId, sport: mission.sport },
-        );
-      } catch (err) {
-        console.warn("training_missions: schedule failed", err);
+      // At this point the mission has been archived to status:"completed"
+      // (the patch above). Query remaining ACTIVE missions for (userId, sport)
+      // to see if this was the last one in the cycle.
+      const remaining = await ctx.db
+        .query("training_missions")
+        .withIndex("by_user_sport_status", (q) =>
+          q.eq("userId", userId).eq("sport", mission.sport).eq("status", "active"),
+        )
+        .take(1);
+
+      allMissionsComplete = remaining.length === 0;
+
+      if (allMissionsComplete) {
+        if (mission.cycleId != null) {
+          try {
+            await ctx.scheduler.runAfter(
+              0,
+              internal.actions.trainingMissions.graduate.graduateCycleToSparring,
+              {
+                userId,
+                discipline: mission.sport,
+                cycleId: mission.cycleId,
+              },
+            );
+          } catch (err) {
+            console.warn("training_missions: graduation schedule failed", err);
+          }
+        } else {
+          // Legacy mission without a cycleId — skip graduation gracefully.
+          console.warn(
+            "training_missions: cycle complete but mission has no cycleId — graduation skipped",
+            { missionId: mission._id },
+          );
+        }
       }
     }
 
-    return { missionCompleted, xpAwarded };
+    return { missionCompleted, xpAwarded, allMissionsComplete };
   },
 });
 
