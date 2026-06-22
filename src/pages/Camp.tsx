@@ -7,16 +7,14 @@ import { useUser } from "@/contexts/UserContext";
 import { isFighter } from "@/lib/goalType";
 import { triggerHaptic } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
-import { MissionStack } from "@/components/coach/MissionStack";
-import { SparringPlanCard } from "@/components/sparring/SparringPlanCard";
 import { XpSummaryCard } from "@/components/coach/XpSummaryCard";
 import { CampHeroCard } from "@/components/coach/CampHeroCard";
 import { CampActivityFeed } from "@/components/coach/CampActivityFeed";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useSubscription } from "@/hooks/useSubscription";
 import { ShimmerCrownBadge } from "@/components/subscription/ShimmerCrownBadge";
-import { MissionsProDialog } from "@/components/coach/MissionsProDialog";
 import { PostFightDebrief } from "@/components/fightcamp/PostFightDebrief";
+import { MasterySpine } from "@/components/mastery/MasterySpine";
 
 interface CampSection {
   title: string;
@@ -118,8 +116,6 @@ export default function Camp() {
   const { profile, userId, loadCutPlan } = useUser();
   const { checkFeatureAccess, isSubscriptionResolved } =
     useSubscription();
-  const [missionsExplainerOpen, setMissionsExplainerOpen] = useState(false);
-
   // Recovery is a Pro feature. Only treat a user as locked once the
   // subscription state has resolved, so paid users never flash the lock.
   const recoveryLocked =
@@ -133,19 +129,6 @@ export default function Camp() {
 
   const activeCamp = useQuery(
     api.fight_camp.getActiveCamp,
-    userId ? {} : "skip",
-  );
-
-  // Mission feature gating, drives whether the missions slot renders the
-  // full `<MissionStack />` (Pro or has missions) or a compact upsell line
-  // (non-Pro with zero missions). Mirrors MissionStack's own queries so the
-  // visible component is in sync with what would have rendered.
-  const missionFeature = useQuery(
-    api.training_missions.getMissionFeatureStatus,
-    userId ? {} : "skip",
-  );
-  const missions = useQuery(
-    api.training_missions.getActiveMissions,
     userId ? {} : "skip",
   );
 
@@ -289,6 +272,16 @@ export default function Camp() {
   // has a weigh-in date but no formal camp record.
   const phase = progressSource ? derivePhase(progressSource.daysLeft) : null;
 
+  // Whether the active-camp hero is shown. The hero now hosts the "View full
+  // plan" link, so the standalone plan card below is only rendered when the
+  // hero is absent (avoids showing the same link twice).
+  const heroShown = !!(activeCamp && !activeCamp.isCompleted && campProgress && phase);
+  const planUrl = cutPlanSummary
+    ? cutPlanSummary.planType === "weight_loss"
+      ? "/weight-plan"
+      : "/cut-plan"
+    : null;
+
   // Tap handler with haptic feedback. Centralised so the bento + cut-plan
   // tiles share the same interaction language.
   const goTo = (url: string) => {
@@ -318,12 +311,13 @@ export default function Camp() {
       {/* ── Active camp hero, the headline camp details, first on the page
           for fighters with an active camp (name → days-left → progress ring →
           fight date → day-of-camp). ──────────────────────────────────────── */}
-      {activeCamp && !activeCamp.isCompleted && campProgress && phase && (
+      {heroShown && (
         <CampHeroCard
           campName={activeCamp.name}
           campProgress={campProgress}
           phase={phase}
           onTap={() => goTo("/fight-camps")}
+          onViewPlan={planUrl ? () => goTo(planUrl) : undefined}
         />
       )}
 
@@ -338,8 +332,10 @@ export default function Camp() {
       {/* ── Camp plan area, progression panel + view-full-plan button.
           Wrapped in a single sentinel so the tutorial can spotlight both. */}
       <div data-tutorial="camp-plan-area" className="flex flex-col gap-3">
-        {/* Quick link to the canonical plan timeline */}
-        {cutPlanSummary && (
+        {/* Quick link to the canonical plan timeline. When the active-camp
+            hero is shown it already hosts this link, so only render the
+            standalone card in the no-hero state. */}
+        {cutPlanSummary && !heroShown && (
         <button
           type="button"
           data-tutorial="camp-full-plan"
@@ -363,41 +359,10 @@ export default function Camp() {
         )}
       </div>
 
-      {/* ── Training Missions, compact upsell for non-Pro zero-missions,
-          full MissionStack (+heading) for Pro or anyone with active missions. */}
-      {userId && missionFeature !== undefined && missions !== undefined && (
-        !missionFeature.isPro ? (
-          <button
-            type="button"
-            onClick={() => {
-              triggerHaptic(ImpactStyle.Light);
-              setMissionsExplainerOpen(true);
-            }}
-            className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border border-primary/30 bg-primary/10 active:brightness-110 transition-[filter]"
-          >
-            <span className="flex items-center gap-2.5 min-w-0">
-              <ShimmerCrownBadge size={26} />
-              <span className="text-body-sm font-semibold text-foreground truncate">Unlock training missions</span>
-            </span>
-            <span className="inline-flex items-center gap-0.5 rounded-full border border-primary/40 bg-primary/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-primary shrink-0">
-              Pro
-            </span>
-          </button>
-        ) : (
-          <>
-            <h2 className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/80 pt-2">
-              Training missions
-            </h2>
-            <MissionStack />
-          </>
-        )
-      )}
-
-      {/* ── Sparring To-Do List (Pro), sits directly after Training
-          Missions. Self-gates: non-Pro renders a compact upsell row, Pro
-          renders the grouped, tickable checklist (or a friendly empty
-          state). Component returns null until auth + feature gate resolve. */}
-      <SparringPlanCard userId={userId} />
+      {/* ── Mastery Spine: unified Training Missions + Sparring widget.
+          Owns its own Pro wall (LockedMissionCard), queries, and
+          per-discipline drill→spar flow. */}
+      {userId && <MasterySpine userId={userId} />}
 
       {/* ── Bento grid of navigation tiles ─────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 auto-rows-[6rem]">
@@ -546,7 +511,6 @@ export default function Camp() {
         </div>
       </ErrorBoundary>
 
-      <MissionsProDialog open={missionsExplainerOpen} onOpenChange={setMissionsExplainerOpen} />
     </div>
   );
 }
