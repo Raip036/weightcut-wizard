@@ -1,12 +1,12 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "convex/react";
-import { useReducedMotion } from "motion/react";
+import { AnimatePresence, useReducedMotion } from "motion/react";
 import { api } from "@/../convex/_generated/api";
 import type { Doc, Id } from "@/../convex/_generated/dataModel";
 import { Icon } from "@/components/ui/Icon";
 import { cn } from "@/lib/utils";
 import { disciplineToken, disciplineLabel } from "@/lib/coachColors";
-import { triggerHapticSelection } from "@/lib/haptics";
+import { triggerHapticSelection, triggerHapticSuccess } from "@/lib/haptics";
 import { isNativePlatform } from "@/hooks/useIsNative";
 import { MissionCard } from "@/components/coach/MissionCard";
 import { LockedMissionCard } from "@/components/coach/LockedMissionCard";
@@ -14,6 +14,7 @@ import { SparringAssignmentRow } from "@/components/sparring/SparringAssignmentR
 import type { SparringAssignment } from "@/components/sparring/SparringAssignmentRow";
 import { StageIndicator } from "./StageIndicator";
 import { SealedStage } from "./SealedStage";
+import { CompleteCelebration } from "@/components/motion";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -107,6 +108,9 @@ interface DisciplineCardProps {
   missions: Mission[];
   assignments: SparringAssignment[];
   reducedMotion: boolean | null;
+  /** Called by a child MissionCard when the last drill of this discipline
+   *  is ticked, clearing all missions. Receives the XP for the celebration. */
+  onAllMissionsComplete: (xp: number) => void;
 }
 
 /**
@@ -125,9 +129,31 @@ function DisciplineCard({
   missions,
   assignments,
   reducedMotion,
+  onAllMissionsComplete,
 }: DisciplineCardProps) {
   const token = disciplineToken(discipline);
   const label = disciplineLabel(discipline);
+
+  // Graduation celebration state: fires once when allMissionsComplete arrives.
+  const [unlockOpen, setUnlockOpen] = useState(false);
+  const [unlockXp, setUnlockXp] = useState(0);
+
+  const handleAllMissionsComplete = (_discipline: string, xp: number) => {
+    setUnlockXp(xp);
+    setUnlockOpen(true);
+    onAllMissionsComplete(xp);
+  };
+
+  // Fire haptic + auto-dismiss for the graduation celebration.
+  useEffect(() => {
+    if (!unlockOpen) return;
+    void triggerHapticSuccess();
+    const t = setTimeout(
+      () => setUnlockOpen(false),
+      reducedMotion ? 1600 : 2800,
+    );
+    return () => clearTimeout(t);
+  }, [unlockOpen, reducedMotion]);
 
   // Minimise/expand with localStorage persistence (default: expanded).
   const minKey = `wcw_mastery_min_${discipline}`;
@@ -182,6 +208,7 @@ function DisciplineCard({
   >(firstMissionId);
 
   return (
+    <>
     <div className="relative w-full rounded-2xl card-surface border border-primary/20 overflow-hidden">
       {/* Aurora wash + motes layer (z-index 0, below content) */}
       <AuroraBackground accentToken={token} reducedMotion={reducedMotion} />
@@ -260,6 +287,7 @@ function DisciplineCard({
                     onToggle={() =>
                       setExpandedMissionId(isOpen ? null : mission._id)
                     }
+                    onAllMissionsComplete={handleAllMissionsComplete}
                   />
                 );
               })}
@@ -291,6 +319,29 @@ function DisciplineCard({
         </div>
       )}
     </div>
+
+    {/* Graduation celebration: fires once when all drills for this discipline
+        are cleared. Tap or auto-dismiss; sparring reveals on next query tick. */}
+    <AnimatePresence>
+      {unlockOpen && (
+        <button
+          type="button"
+          onClick={() => setUnlockOpen(false)}
+          aria-label="Dismiss"
+          className="fixed inset-0 z-[100] cursor-default"
+        >
+          <CompleteCelebration
+            prefersReduced={reducedMotion}
+            accentToken={token}
+            xp={unlockXp}
+            eyebrow="Drills cleared"
+            title="Sparring unlocked"
+            subtitle={`${label} sparring assignments are ready. Land the techniques live.`}
+          />
+        </button>
+      )}
+    </AnimatePresence>
+    </>
   );
 }
 
@@ -408,6 +459,7 @@ export function MasterySpine({ _userId }: MasterySpineProps) {
             missions={missionsByDiscipline.get(discipline) ?? []}
             assignments={assignmentsByDiscipline.get(discipline) ?? []}
             reducedMotion={reducedMotion}
+            onAllMissionsComplete={() => {/* celebration owned by DisciplineCard */}}
           />
         ))}
       </div>

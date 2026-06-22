@@ -23,6 +23,13 @@ interface MissionCardProps {
   expanded: boolean;
   /** Toggle expand/collapse from a header tap. */
   onToggle: () => void;
+  /**
+   * Called when completing the final item clears ALL missions for the
+   * discipline (backend `allMissionsComplete === true`). The parent
+   * (MasterySpine) owns the discipline-level celebration so only one
+   * CompleteCelebration fires for the unlock moment.
+   */
+  onAllMissionsComplete?: (discipline: string, xpForCelebration: number) => void;
 }
 
 const COLLAPSED_ITEM_COUNT = 5;
@@ -204,7 +211,7 @@ function TickRow({
  * Items support tick AND untick (in case of accidental taps). Ticking the
  * final unchecked item fires a full-screen completion celebration.
  */
-export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
+export function MissionCard({ mission, expanded, onToggle, onAllMissionsComplete }: MissionCardProps) {
   const token = disciplineToken(mission.sport);
   const label = disciplineLabel(mission.sport);
   const prefersReduced = useReducedMotion();
@@ -280,15 +287,22 @@ export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
         itemId,
         completed: !currentlyCompleted,
       });
-      // Only show the completion celebration when we just transitioned
-      // TO completed (tick), never on an untick.
+      // Only show a celebration when we just transitioned TO completed
+      // (tick), never on an untick.
       if (!currentlyCompleted && result.missionCompleted) {
         const awarded = result.xpAwarded ?? 0;
-        const newLevel = levelFromXp(prevTotalXp + awarded).level;
-        const leveledUp =
-          awarded > 0 && newLevel > levelFromXp(prevTotalXp).level;
-        setCompletionAward({ xpAwarded: awarded, leveledUp, newLevel });
-        setCompleteOpen(true);
+        if (result.allMissionsComplete && onAllMissionsComplete) {
+          // The last mission of the discipline is done: bubble up to the
+          // parent so it fires the single discipline-level unlock
+          // celebration. Skip the per-mission overlay to avoid double-fire.
+          onAllMissionsComplete(mission.sport, awarded);
+        } else {
+          const newLevel = levelFromXp(prevTotalXp + awarded).level;
+          const leveledUp =
+            awarded > 0 && newLevel > levelFromXp(prevTotalXp).level;
+          setCompletionAward({ xpAwarded: awarded, leveledUp, newLevel });
+          setCompleteOpen(true);
+        }
       }
     } catch (err) {
       console.warn("MissionCard: markItemCompleted failed", err);
