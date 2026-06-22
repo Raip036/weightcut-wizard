@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { requireUserId } from "./lib/auth";
 
 /**
@@ -146,5 +146,122 @@ export const getMasteredTechniques = query({
     // Filter out rows that have no masteredAt (undefined sorts before numbers
     // in desc order, so they appear at the end — we strip them here).
     return rows.filter((r) => r.masteredAt != null);
+  },
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared types for getMasteryFlow
+// ─────────────────────────────────────────────────────────────────────────────
+
+type MissionItem = Doc<"training_mission_items">;
+type MissionWithItems = Doc<"training_missions"> & { items: MissionItem[] };
+
+export type MasteryFlowEntry = {
+  discipline: string;
+  phase: "drill" | "spar" | "idle";
+  missions: MissionWithItems[];
+  assignments: Doc<"sparring_assignments">[];
+};
+
+/**
+ * Unified query powering the MasterySpine widget.
+ *
+ * Returns one entry per discipline that has active missions OR non-mastered
+ * graduated sparring assignments. The backend derives the phase so the
+ * client never needs to compute it from raw data.
+ *
+ * Phase rules (per discipline):
+ *   "drill" — any active mission has at least one incomplete item
+ *   "spar"  — no incomplete drill items; non-mastered graduated assignments exist
+ *   "idle"  — neither (normally excluded from results; included defensively)
+ *
+ * Guarantees:
+ *   - Uses indexes only; no .filter() on DB queries.
+ *   - All reads are bounded (take / collect over index-scoped sets).
+ *   - Mission items loaded in parallel per mission.
+ */
+export const getMasteryFlow = query({
+  args: {},
+  handler: async (ctx): Promise<MasteryFlowEntry[]> => {
+    const userId = await requireUserId(ctx).catch(() => null as unknown as Id<"users">);
+    if (!userId) return [];
+
+    // ── 1. Active missions (status "active") with items inline ─────────────
+    const activeMissions = await ctx.db
+      .query("training_missions")
+      .withIndex("by_user_status", (q) =>
+        q.eq("userId", userId).eq("status", "active"),
+      )
+      .collect();
+
+    // Load items per mission in parallel, sorted by position.
+    const missionsWithItems: MissionWithItems[] = await Promise.all(
+      activeMissions.map(async (m) => {
+        const items = await ctx.db
+          .query("training_mission_items")
+          .withIndex("by_mission_position", (q) => q.eq("missionId", m._id))
+          .collect();
+        items.sort((a, b) => a.position - b.position);
+        return { ...m, items };
+      }),
+    );
+
+    // Sort by lastActivityAt descending (most recently active first).
+    missionsWithItems.sort((a, b) => b.lastActivityAt - a.lastActivityAt);
+
+    // ── 2. Non-mastered graduated assignments ──────────────────────────────
+    // Use the by_user index — bounded read since a typical user has <100
+    // assignments total. Narrow to graduated + unmastered in JS.
+    const allAssignments = await ctx.db
+      .query("sparring_assignments")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .take(200);
+
+    const activeAssignments = allAssignments.filter(
+      (a) => a.source === "graduated" && a.masteredAt == null,
+    );
+
+    // ── 3. Group by discipline ─────────────────────────────────────────────
+    const disciplineMap = new Map<
+      string,
+      { missions: MissionWithItems[]; assignments: Doc<"sparring_assignments">[] }
+    >();
+
+    const ensureEntry = (disc: string) => {
+      if (!disciplineMap.has(disc)) {
+        disciplineMap.set(disc, { missions: [], assignments: [] });
+      }
+      return disciplineMap.get(disc)!;
+    };
+
+    for (const m of missionsWithItems) {
+      ensureEntry(m.sport).missions.push(m);
+    }
+
+    for (const a of activeAssignments) {
+      ensureEntry(a.discipline).assignments.push(a);
+    }
+
+    // ── 4. Derive phase per discipline and build result ────────────────────
+    const result: MasteryFlowEntry[] = [];
+
+    for (const [discipline, { missions, assignments }] of disciplineMap) {
+      // Derive phase: "drill" if any mission has an incomplete item.
+      let phase: "drill" | "spar" | "idle";
+      const hasIncompleteDrill = missions.some((m) =>
+        m.items.some((item) => !item.completed),
+      );
+      if (hasIncompleteDrill) {
+        phase = "drill";
+      } else if (assignments.length > 0) {
+        phase = "spar";
+      } else {
+        phase = "idle";
+      }
+
+      result.push({ discipline, phase, missions, assignments });
+    }
+
+    return result;
   },
 });

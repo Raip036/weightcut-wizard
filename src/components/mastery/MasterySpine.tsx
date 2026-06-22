@@ -16,6 +16,7 @@ import { StageIndicator } from "./StageIndicator";
 import { SealedStage } from "./SealedStage";
 import { MasteredShelf } from "./MasteredShelf";
 import { CompleteCelebration } from "@/components/motion";
+import type { MasteryFlowEntry } from "@/../convex/mastery_spine";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -111,6 +112,10 @@ interface DisciplineCardProps {
   discipline: string;
   missions: Mission[];
   assignments: SparringAssignment[];
+  /** Phase derived by the server (getMasteryFlow). Used as the source of
+   *  truth; client falls back to local derivation only for the "drill" guard
+   *  on remaining-drills count. */
+  serverPhase: "drill" | "spar" | "idle";
   reducedMotion: boolean | null;
   /** Called by a child MissionCard when the last drill of this discipline
    *  is ticked, clearing all missions. Receives the XP for the celebration. */
@@ -135,6 +140,7 @@ function DisciplineCard({
   discipline,
   missions,
   assignments,
+  serverPhase,
   reducedMotion,
   onAllMissionsComplete,
   onCycleComplete,
@@ -212,13 +218,10 @@ function DisciplineCard({
     });
   };
 
-  // Phase derivation: "drill" if any mission has at least one incomplete item.
-  const phase = useMemo<"drill" | "spar">(() => {
-    for (const m of missions) {
-      if (m.items.some((item) => !item.completed)) return "drill";
-    }
-    return "spar";
-  }, [missions]);
+  // Phase: use the server-derived value from getMasteryFlow.
+  // Treat "idle" as "spar" for display purposes (defensive fallback — "idle"
+  // entries are normally excluded from results but may appear in edge cases).
+  const phase: "drill" | "spar" = serverPhase === "drill" ? "drill" : "spar";
 
   // Remaining drill items count (used by SealedStage).
   const remainingDrills = useMemo(() => {
@@ -421,65 +424,29 @@ function DisciplineCard({
 export function MasterySpine({ _userId }: MasterySpineProps) {
   const reducedMotion = useReducedMotion();
 
+  // ── Subscriptions ─────────────────────────────────────────────────────────
+  // getMissionFeatureStatus: Pro wall gate (kept separate — free users see it
+  //   before any data loads).
+  // getMasteryFlow: unified per-discipline missions + assignments + phase.
+  // getMasteredTechniques: the mastered shelf (kept as its own subscription
+  //   so MasteredShelf can remain a self-contained component).
   const feature = useQuery(api.training_missions.getMissionFeatureStatus);
-  const missions = useQuery(api.training_missions.getActiveMissions);
-  const assignments = useQuery(api.sparring_plan.listSparringAssignments, {}) as
-    | SparringAssignment[]
+  const flow = useQuery(api.mastery_spine.getMasteryFlow) as
+    | MasteryFlowEntry[]
     | undefined;
 
-  // All hooks must run unconditionally — group data BEFORE early returns.
-
-  // Group missions by discipline (mission.sport).
-  const missionsByDiscipline = useMemo(() => {
-    const map = new Map<string, Mission[]>();
-    for (const m of missions ?? []) {
-      const key = m.sport;
-      const existing = map.get(key);
-      if (existing) existing.push(m);
-      else map.set(key, [m]);
-    }
-    return map;
-  }, [missions]);
-
-  // Group sparring assignments by discipline (assignment.discipline).
-  const assignmentsByDiscipline = useMemo(() => {
-    const map = new Map<string, SparringAssignment[]>();
-    if (!assignments) return map;
-    for (const a of assignments) {
-      const key = a.discipline;
-      const existing = map.get(key);
-      if (existing) existing.push(a);
-      else map.set(key, [a]);
-    }
-    return map;
-  }, [assignments]);
-
-  // Collect all disciplines that have missions or assignments (preserve order,
-  // missions first, then any assignment-only disciplines).
-  const disciplineKeys = useMemo(() => {
-    const seen = new Set<string>();
-    const out: string[] = [];
-    for (const k of missionsByDiscipline.keys()) {
-      if (!seen.has(k)) { seen.add(k); out.push(k); }
-    }
-    if (assignments) {
-      for (const a of assignments) {
-        if (!seen.has(a.discipline)) { seen.add(a.discipline); out.push(a.discipline); }
-      }
-    }
-    return out;
-  }, [missionsByDiscipline, assignments]);
+  // All hooks must run unconditionally — guards come after.
 
   // ── Guards (after all hooks) ──────────────────────────────────────────────
 
-  // Wait for all queries to resolve before rendering.
-  if (feature === undefined || missions === undefined || assignments === undefined) return null;
+  // Wait for queries to resolve before rendering.
+  if (feature === undefined || flow === undefined) return null;
 
   // Single Pro wall for the entire widget.
   if (!feature.isPro) return <LockedMissionCard />;
 
-  // Empty state: no missions and no assignments.
-  if (disciplineKeys.length === 0) {
+  // Empty state: no disciplines with missions or assignments.
+  if (flow.length === 0) {
     return (
       <div className="relative w-full rounded-2xl card-surface border border-primary/20 overflow-hidden p-4">
         <div
@@ -509,12 +476,13 @@ export function MasterySpine({ _userId }: MasterySpineProps) {
       <style>{KEYFRAMES}</style>
 
       <div className="space-y-3">
-        {disciplineKeys.map((discipline) => (
+        {flow.map((entry) => (
           <DisciplineCard
-            key={discipline}
-            discipline={discipline}
-            missions={missionsByDiscipline.get(discipline) ?? []}
-            assignments={assignmentsByDiscipline.get(discipline) ?? []}
+            key={entry.discipline}
+            discipline={entry.discipline}
+            missions={entry.missions as Mission[]}
+            assignments={entry.assignments as SparringAssignment[]}
+            serverPhase={entry.phase}
             reducedMotion={reducedMotion}
             onAllMissionsComplete={() => {/* celebration owned by DisciplineCard */}}
             onCycleComplete={() => {/* cycle-complete celebration owned by DisciplineCard */}}
