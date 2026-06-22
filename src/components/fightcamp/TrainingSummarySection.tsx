@@ -516,22 +516,33 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                                 transition={springs.gentle}
                                 className="space-y-4"
                             >
-                                {/* Stats strip */}
-                                <div className="grid grid-cols-4 gap-3">
-                                    <StatCell label="Sessions" value={`${newSummary.stats.sessionsLogged}`} />
-                                    <StatCell label="Minutes" value={`${newSummary.stats.totalMinutes}`} />
-                                    <StatCell label="Top sport" value={newSummary.stats.topDiscipline || "-"} />
-                                    <StatCell
-                                        label={newSummary.stats.avgRpe !== undefined ? "Avg RPE" : "Avg sleep"}
-                                        value={
-                                            newSummary.stats.avgRpe !== undefined
-                                                ? newSummary.stats.avgRpe.toFixed(1)
-                                                : newSummary.stats.avgSleepHours !== undefined
-                                                    ? `${newSummary.stats.avgSleepHours.toFixed(1)}h`
-                                                    : "-"
-                                        }
-                                    />
-                                </div>
+                                {/* Slim week header: date range + single quiet stat line */}
+                                {(() => {
+                                    const ws = new Date(selectedWeekStart + "T00:00:00");
+                                    const we = new Date(ws);
+                                    we.setDate(ws.getDate() + 6);
+                                    const sameMonth = ws.getMonth() === we.getMonth();
+                                    const weekLabel = sameMonth
+                                        ? `Week of ${format(ws, "MMM d")}–${format(we, "d")}`
+                                        : `Week of ${format(ws, "MMM d")}–${format(we, "MMM d")}`;
+                                    const { sessionsLogged, totalMinutes, topDiscipline, avgRpe, avgSleepHours } = newSummary.stats;
+                                    const extraStat = avgRpe !== undefined
+                                        ? ` · RPE ${avgRpe.toFixed(1)}`
+                                        : avgSleepHours !== undefined
+                                            ? ` · ${avgSleepHours.toFixed(1)}h sleep`
+                                            : "";
+                                    const statLine = `${sessionsLogged} session${sessionsLogged !== 1 ? "s" : ""} · ${totalMinutes} min · ${topDiscipline || "Mixed"}${extraStat}`;
+                                    return (
+                                        <div className="space-y-0.5">
+                                            <p className="text-micro uppercase tracking-wider text-muted-foreground/70 font-bold">
+                                                {weekLabel}
+                                            </p>
+                                            <p className="text-note text-muted-foreground tabular-nums">
+                                                {statLine}
+                                            </p>
+                                        </div>
+                                    );
+                                })()}
 
                                 {/* Recap debrief: headline, takeaways, watch-out */}
                                 <WeeklyRecap headline={newSummary.weekHeadline} debrief={newSummary.debrief} />
@@ -592,16 +603,3 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
     );
 }
 
-// ─── Small inline stats cell, used by the new shape's stats strip ────────
-function StatCell({ label, value }: { label: string; value: string | number }) {
-    return (
-        <div className="flex flex-col gap-0.5">
-            <span className="text-micro uppercase tracking-wider text-muted-foreground/70 font-bold">
-                {label}
-            </span>
-            <span className="text-value font-bold tabular-nums text-foreground truncate">
-                {value}
-            </span>
-        </div>
-    );
-}
