@@ -233,16 +233,16 @@ export function FightFormPanel({ fightForm, trend }: Props) {
           <div className="space-y-2">
             {strengths.slice(0, 3).map((s) => (
               <div key={s.key} className="flex items-start gap-3">
-                <div className="w-14 shrink-0">
+                <div className="min-w-[2.75rem] shrink-0 text-right">
                   <p className="text-[20px] font-semibold tabular-nums leading-none text-func-recovery-green">
-                    {s.value}
+                    {Math.round(s.value)}
                   </p>
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[14px] font-medium leading-tight">
                     {SUB_LABEL[s.key]}
                   </p>
-                  <p className="text-[12px] text-muted-foreground leading-snug truncate">
+                  <p className="text-[12px] text-muted-foreground leading-snug">
                     {s.reason.replace(/\s*—\s*/g, ", ")}
                   </p>
                 </div>
@@ -261,7 +261,7 @@ export function FightFormPanel({ fightForm, trend }: Props) {
           <div className="space-y-2">
             {weaknesses.slice(0, 3).map((s) => (
               <div key={s.key} className="flex items-start gap-3">
-                <div className="w-14 shrink-0">
+                <div className="min-w-[2.75rem] shrink-0 text-right">
                   <p
                     className={`text-[20px] font-semibold tabular-nums leading-none ${
                       s.value < 30
@@ -271,14 +271,14 @@ export function FightFormPanel({ fightForm, trend }: Props) {
                         : "text-func-warning-yellow"
                     }`}
                   >
-                    {s.value}
+                    {Math.round(s.value)}
                   </p>
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[14px] font-medium leading-tight">
                     {SUB_LABEL[s.key]}
                   </p>
-                  <p className="text-[12px] text-muted-foreground leading-snug truncate">
+                  <p className="text-[12px] text-muted-foreground leading-snug">
                     {s.reason.replace(/\s*—\s*/g, ", ")}
                   </p>
                 </div>

@@ -15,11 +15,15 @@ import { api } from "../../../convex/_generated/api";
 export type FightFormLabel = "sharp" | "sharpening" | "off_pace" | "at_risk";
 export type FightFormState = "ok" | "calibrating" | "no_camp" | "paused";
 
+export type CampPhaseKey = "build" | "peak" | "fightWeek";
+
 export interface FightFormSnapshot {
   date: string;
   score: number;
   label: FightFormLabel;
   state: FightFormState;
+  /** Camp phase, when the athlete is in a dated fight camp. */
+  phase?: CampPhaseKey | null;
 }
 
 export interface AthleteOverviewRow {

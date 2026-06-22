@@ -86,14 +86,25 @@ export function TechniqueLog() {
                             {items.map((t) => (
                                 <li
                                     key={t._id}
-                                    className="card-surface rounded-xs border border-border/60 px-3 py-2.5"
+                                    className="relative overflow-hidden card-surface rounded-lg border border-border/60 pl-3.5 pr-3 py-2.5"
                                 >
-                                    <div className="flex items-center gap-2 flex-wrap">
+                                    <span
+                                        aria-hidden
+                                        className="absolute inset-y-0 left-0 w-1"
+                                        style={{ backgroundColor: `hsl(var(${token}))` }}
+                                    />
+                                    <div className="relative flex items-center gap-2 flex-wrap">
                                         <span className="text-body-sm font-semibold text-foreground">
                                             {t.technique}
                                         </span>
                                         {t.cue && (
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted/40 text-note font-medium text-muted-foreground">
+                                            <span
+                                                className="inline-flex items-center px-2 py-0.5 rounded-full text-note font-medium"
+                                                style={{
+                                                    backgroundColor: `hsl(var(${token}) / 0.1)`,
+                                                    color: `hsl(var(${token}))`,
+                                                }}
+                                            >
                                                 {t.cue}
                                             </span>
                                         )}
@@ -103,7 +114,7 @@ export function TechniqueLog() {
                                             </span>
                                         )}
                                     </div>
-                                    <p className="mt-1 text-note text-muted-foreground leading-relaxed">
+                                    <p className="relative mt-1 text-note text-muted-foreground leading-relaxed">
                                         {t.detail}
                                     </p>
                                 </li>

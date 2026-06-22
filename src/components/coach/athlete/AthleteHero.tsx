@@ -217,11 +217,11 @@ export const AthleteHero = memo(function AthleteHero({
         </div>
 
         <div className="flex-1 min-w-0 pt-1">
-          <p className="text-[22px] font-semibold leading-tight truncate">
+          <p className="text-[22px] font-semibold leading-tight break-words">
             {name || "Athlete"}
           </p>
           {(subline || membershipGym) && (
-            <p className="text-[12px] text-muted-foreground truncate mt-0.5">
+            <p className="text-[12px] text-muted-foreground leading-snug mt-0.5">
               {subline}
               {subline && membershipGym ? " · " : ""}
               {membershipGym}

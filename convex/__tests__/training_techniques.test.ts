@@ -47,6 +47,71 @@ describe("training_techniques.upsertFromDebrief", () => {
     expect(rows[0].detail).toBe("updated");
   });
 
+  it("regenerating the SAME week replaces its techniques (no paraphrase duplicates)", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+    const wk = "2026-05-18";
+    // First generation.
+    await t.mutation(internal.training_techniques.upsertFromDebrief, {
+      userId, weekStart: wk,
+      takeaways: [{ discipline: "Boxing", technique: "Slip jab into right uppercut, roll under left hook", detail: "a" }],
+    });
+    // Regeneration of the same week — the LLM paraphrases the same move, so it
+    // normalizes to a DIFFERENT key. It must REPLACE, not stack.
+    await t.mutation(internal.training_techniques.upsertFromDebrief, {
+      userId, weekStart: wk,
+      takeaways: [{ discipline: "Boxing", technique: "Jab slip to right uppercut then roll under left hook", detail: "b" }],
+    });
+    const rows = await t.run((ctx) =>
+      ctx.db.query("training_techniques").withIndex("by_user", (q) => q.eq("userId", userId)).collect(),
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].technique).toBe("Jab slip to right uppercut then roll under left hook");
+    expect(rows[0].timesLogged).toBe(1);
+  });
+
+  it("regenerating one week leaves another week's contribution intact", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+    const base = { discipline: "BJJ", technique: "Scissor sweep", detail: "x" };
+    await t.mutation(internal.training_techniques.upsertFromDebrief, {
+      userId, weekStart: "2026-05-18", takeaways: [base],
+    });
+    await t.mutation(internal.training_techniques.upsertFromDebrief, {
+      userId, weekStart: "2026-05-25", takeaways: [base],
+    });
+    // Regenerate the later week with a paraphrase → that week detaches from the
+    // shared row and re-attaches to a new one; the earlier week is untouched.
+    await t.mutation(internal.training_techniques.upsertFromDebrief, {
+      userId, weekStart: "2026-05-25",
+      takeaways: [{ discipline: "BJJ", technique: "Scissor sweeps", detail: "y" }],
+    });
+    const rows = await t.run((ctx) =>
+      ctx.db.query("training_techniques").withIndex("by_user", (q) => q.eq("userId", userId)).collect(),
+    );
+    expect(rows).toHaveLength(2);
+    const original = rows.find((r) => r.techniqueNormalized.includes("scissor sweep") && r.timesLogged === 1 && r.firstSeenWeek === "2026-05-18");
+    expect(original).toBeTruthy();
+    expect(original!.lastSeenWeek).toBe("2026-05-18");
+  });
+
+  it("dedupes paraphrase collisions WITHIN a single debrief pass", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+    await t.mutation(internal.training_techniques.upsertFromDebrief, {
+      userId, weekStart: "2026-05-18",
+      takeaways: [
+        { discipline: "BJJ", technique: "Scissor sweep", detail: "a" },
+        { discipline: "BJJ", technique: "Scissor Sweep!", detail: "b" },
+      ],
+    });
+    const rows = await t.run((ctx) =>
+      ctx.db.query("training_techniques").withIndex("by_user", (q) => q.eq("userId", userId)).collect(),
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].timesLogged).toBe(1);
+  });
+
   it("listTechniques returns [] for anonymous callers", async () => {
     const t = convexTest(schema);
     const rows = await t.query(api.training_techniques.listTechniques, {});

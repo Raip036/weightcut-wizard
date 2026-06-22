@@ -279,6 +279,9 @@ export const athletesOverview = query({
                     score: latestFightForm.displayedScore,
                     label: latestFightForm.label,
                     state: latestFightForm.state,
+                    // Camp phase drives the coach-row phase pill (Build / Peak /
+                    // Fight Week). Null when the athlete isn't in a dated camp.
+                    phase: latestFightForm.phase ?? null,
                   }
                 : null,
             };
@@ -319,9 +322,11 @@ export const athleteDetail = query({
     const [
       profile,
       weight14d,
+      latestWeight,
       todayMeals,
       recentSessions,
       fightForm14d,
+      camps,
     ] = await Promise.all([
       ctx.db
         .query("profiles")
@@ -333,6 +338,15 @@ export const athleteDetail = query({
           q.eq("userId", athleteUserId).gte("date", fourteenDaysAgo),
         )
         .collect(),
+      // Latest logged weight across all history — the athlete's LIVE current
+      // weight. `profiles.currentWeightKg` is a denormalised onboarding/last-
+      // applied snapshot that lags behind day-to-day weigh-ins, which is one
+      // of the staleness sources the coach saw. Indexed `.first()` is cheap.
+      ctx.db
+        .query("weight_logs")
+        .withIndex("by_user_date", (q) => q.eq("userId", athleteUserId))
+        .order("desc")
+        .first(),
       ctx.db
         .query("meals")
         .withIndex("by_user_date", (q) =>
@@ -353,7 +367,33 @@ export const athleteDetail = query({
           q.eq("userId", athleteUserId).gte("date", fourteenDaysAgo),
         )
         .collect(),
+      // All fight camps so we can derive the athlete's LIVE current camp
+      // (same rule as `fight_camp.getActiveCamp`) instead of reading the
+      // stale denormalised `profiles.targetDate`. Bounded slice — typical
+      // athletes have < 50 camps.
+      ctx.db
+        .query("fight_camps")
+        .withIndex("by_user", (q) => q.eq("userId", athleteUserId))
+        .order("desc")
+        .take(50),
     ]);
+
+    // Derive the athlete's CURRENT fight camp using the canonical project
+    // rule (mirrors `fight_camp.getActiveCamp`): the nearest upcoming
+    // NON-completed camp (`!isCompleted && fightDate >= today`), soonest
+    // first. When nothing is upcoming, fall back to the most-recent camp by
+    // fightDate so a just-passed fight still surfaces. This is the live
+    // source of truth for the fight date — `profiles.targetDate` is only
+    // patched as a side-effect of plan generation and goes stale whenever
+    // the athlete edits a camp date, completes a camp, or starts a new one
+    // without regenerating their plan.
+    const upcomingCamps = camps
+      .filter((c) => !c.isCompleted && c.fightDate >= today)
+      .sort((a, b) => a.fightDate.localeCompare(b.fightDate));
+    const currentCamp =
+      upcomingCamps[0] ??
+      [...camps].sort((a, b) => b.fightDate.localeCompare(a.fightDate))[0] ??
+      null;
 
     // Today's macros — sum items across today's meals.
     let calories = 0;
@@ -422,10 +462,17 @@ export const athleteDetail = query({
             athlete_type: profile.athleteType ?? null,
             avatar_url: profileAvatarUrl,
             goal_type: profile.goalType ?? null,
-            current_weight_kg: profile.currentWeightKg ?? null,
+            // LIVE current weight = latest weigh-in, not the lagging
+            // `profiles.currentWeightKg` snapshot.
+            current_weight_kg:
+              latestWeight?.weightKg ?? profile.currentWeightKg ?? null,
             goal_weight_kg: profile.goalWeightKg ?? null,
             fight_week_target_kg: profile.fightWeekTargetKg ?? null,
-            target_date: profile.targetDate ?? null,
+            // LIVE fight date = current camp's fightDate (canonical
+            // nearest-upcoming-non-completed rule). Falls back to the
+            // profile snapshot only when the athlete has no camps at all.
+            target_date:
+              currentCamp?.fightDate ?? profile.targetDate ?? null,
             ai_recommended_calories: profile.aiRecommendedCalories ?? null,
             ai_recommended_protein_g: profile.aiRecommendedProteinG ?? null,
             ai_recommended_carbs_g: profile.aiRecommendedCarbsG ?? null,

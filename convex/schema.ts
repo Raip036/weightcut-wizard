@@ -976,6 +976,12 @@ export default defineSchema({
     timesLogged: v.number(),
     firstSeenWeek: v.string(),
     lastSeenWeek: v.string(),
+    // Distinct week-starts that have contributed this technique. Drives
+    // idempotent regeneration: re-summarising a week first removes that week
+    // from every technique, then re-adds its current takeaways — so a recap
+    // re-run can't pile up paraphrased duplicates. Optional for back-compat
+    // with rows written before this field existed (seeded lazily on touch).
+    contributingWeeks: v.optional(v.array(v.string())),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

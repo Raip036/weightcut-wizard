@@ -3,10 +3,12 @@
  * glass card per athlete that surfaces all four scan-signals without
  * forcing the coach to expand or tap through:
  *
- *   1. Readiness — tier-coloured ring around the avatar + numeric pill
+ *   1. Readiness — tier-coloured ring around the avatar
  *   2. Weight   — 7-day sparkline + delta to fight target
- *   3. Camp     — phase pill (Cut / Build / Maintain) + days to fight
- *   4. Load     — total training hours this week + last session label
+ *   3. Camp     — fight-camp phase pill (Build / Peak / Fight Week, with a
+ *                 goal-type fallback) + days to fight
+ *
+ * Last-session recency lives in the human-readable footer line.
  *
  * Apple-Fitness flavour: muted glass card, tier-coloured accents, soft
  * breath-pulse animation when the athlete needs urgent attention (low
@@ -30,7 +32,6 @@ import {
   FIGHT_FORM_LABEL,
   readinessSeverity,
   targetDelta,
-  trainingHoursThisWeek,
   type CampPhase,
   type Severity,
 } from "./athleteRowHelpers";
@@ -53,6 +54,19 @@ const PHASE_PILL: Record<CampPhase, string> = {
   Build: "bg-func-recovery-green/12 text-func-recovery-green ring-func-recovery-green/25",
   Maintain: "bg-primary/12 text-primary ring-primary/25",
   Plan: "bg-muted/40 text-muted-foreground ring-border/40",
+};
+// Actual fight-camp phase (preferred over the goal-type fallback above).
+// Cool → hot as the fight nears: Build (green) → Peak (orange) → Fight Week (red).
+type CampPhaseKey = "build" | "peak" | "fightWeek";
+const CAMP_PHASE_LABEL: Record<CampPhaseKey, string> = {
+  build: "Build",
+  peak: "Peak",
+  fightWeek: "Fight Week",
+};
+const CAMP_PHASE_PILL: Record<CampPhaseKey, string> = {
+  build: "bg-func-recovery-green/12 text-func-recovery-green ring-func-recovery-green/25",
+  peak: "bg-func-carbs-orange/12 text-func-carbs-orange ring-func-carbs-orange/25",
+  fightWeek: "bg-func-danger-red/12 text-func-danger-red ring-func-danger-red/25",
 };
 // Left-edge severity stripe — replaces the loud "AT RISK" text chip.
 // Encodes the row's headline status as a single ambient colour bar.
@@ -137,10 +151,17 @@ export function AthleteListRow({
   const readiness = deriveReadiness(athlete);
   const alerts = buildAlerts(athlete);
   const sev = readinessSeverity(readiness, alerts.length > 0);
-  const phase = campPhase(athlete.goal_type);
+  // Phase pill: prefer the athlete's ACTUAL fight-camp phase (Build / Peak /
+  // Fight Week); fall back to the goal-type label (Maintain / Cut / …) when
+  // they aren't in a dated camp.
+  const campPhaseKey = athlete.fight_form?.phase ?? null;
+  const goalPhase = campPhase(athlete.goal_type);
+  const phaseLabel = campPhaseKey ? CAMP_PHASE_LABEL[campPhaseKey] : goalPhase;
+  const phasePillClass = campPhaseKey
+    ? CAMP_PHASE_PILL[campPhaseKey]
+    : PHASE_PILL[goalPhase];
   const dToFight = daysUntil(athlete.target_date);
   const delta = targetDelta(athlete);
-  const hours = trainingHoursThisWeek(athlete);
   const wDays = daysSince(athlete.last_weight_at);
   const lastSessionLabel =
     wDays == null
@@ -250,9 +271,12 @@ export function AthleteListRow({
               isn't a context-free number. Readiness is conveyed via the
               avatar ring + accessibility label, so no separate readiness
               pill. Last-session moves to the human-readable footer. */}
+          {/* Two matched pills — weight delta + camp phase. Identical height,
+              padding, font-weight and icon size so they read as an aligned
+              pair. (The old weekly-hours pill was removed.) */}
           <div className="mt-2 flex items-center gap-1.5 flex-nowrap min-w-0">
             {/* Weight sparkline + delta */}
-            <span className="inline-flex items-center gap-1 rounded-full bg-muted/30 px-2 py-0.5 text-[10px] font-semibold text-foreground/80 ring-1 ring-border/40 tabular-nums shrink-0">
+            <span className="inline-flex h-[22px] items-center gap-1 rounded-full bg-muted/30 px-2 text-[10px] font-semibold text-foreground/80 ring-1 ring-border/40 tabular-nums shrink-0">
               <Icon
                 name="scaleOutline"
                 size={11}
@@ -278,7 +302,7 @@ export function AthleteListRow({
 
             {/* Camp phase + days-to-fight */}
             <span
-              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 tabular-nums shrink-0 ${PHASE_PILL[phase]}`}
+              className={`inline-flex h-[22px] items-center gap-1 rounded-full px-2 text-[10px] font-semibold ring-1 tabular-nums shrink-0 ${phasePillClass}`}
             >
               <Icon
                 name="flagOutline"
@@ -286,24 +310,13 @@ export function AthleteListRow({
                 className="opacity-60"
                 aria-label="camp phase"
               />
-              <span>{phase}</span>
+              <span>{phaseLabel}</span>
               {dToFight != null && dToFight >= 0 && (
                 <>
                   <span className="opacity-50">·</span>
                   <span>{dToFight}d</span>
                 </>
               )}
-            </span>
-
-            {/* Weekly training hours */}
-            <span className="inline-flex items-center gap-1 rounded-full bg-muted/30 px-2 py-0.5 text-[10px] font-semibold text-foreground/80 ring-1 ring-border/40 tabular-nums shrink-0">
-              <Icon
-                name="timeOutline"
-                size={11}
-                className="opacity-60"
-                aria-label="training hours this week"
-              />
-              <span>{hours}h</span>
             </span>
           </div>
         </div>

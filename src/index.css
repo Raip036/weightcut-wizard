@@ -1173,9 +1173,18 @@ All colors MUST be HSL.
     .ff-ring-calib-sweep,
     .ff-ring-calib-track,
     .ff-ring-calib-dot,
+    .ff-ring-calib-scan,
     .ff-ring-phase-pulse,
     .ff-ring-sharp-bloom {
       animation: none !important;
+    }
+
+    /* Reduced motion: the scan text must stay legible with the sweep frozen,
+       so fall back to a flat muted fill instead of the clipped gradient. */
+    .ff-ring-calib-scan {
+      -webkit-text-fill-color: hsl(var(--muted-foreground)) !important;
+      color: hsl(var(--muted-foreground)) !important;
+      background: none !important;
     }
   }
 
@@ -1414,7 +1423,9 @@ All colors MUST be HSL.
   }
 
   /* Sequential dots: each fades in then out on a shared 1.05s cycle with
-     staggered delays (set inline) to produce a rolling ". .. ..." effect. */
+     staggered delays (set inline) to produce a rolling ". .. ..." effect.
+     Still used by CoachThinkingState; the ring's calibrating feed now uses the
+     scanning shimmer below instead. */
   .ff-ring-calib-dot {
     display: inline-block;
     animation: ffCalibDot 1.05s ease-in-out infinite;
@@ -1424,6 +1435,36 @@ All colors MUST be HSL.
   @keyframes ffCalibDot {
     0%, 60%, 100% { opacity: 0; }
     25%           { opacity: 1; }
+  }
+
+  /* Scanning shimmer: a brighter cyan band travels across the muted phrase
+     text, reading as the engine actively scanning the user's profile. Replaces
+     the old trailing dots, whose changing width nudged the centred text
+     off-centre. Clips a moving gradient to the glyphs via background-clip:text,
+     so the text width is constant and it stays dead-centre as phrases cycle. */
+  .ff-ring-calib-scan {
+    display: inline-block;
+    background-image: linear-gradient(
+      100deg,
+      hsl(var(--muted-foreground) / 0.85) 0%,
+      hsl(var(--muted-foreground) / 0.85) 38%,
+      rgb(56, 189, 248) 50%,
+      hsl(var(--muted-foreground) / 0.85) 62%,
+      hsl(var(--muted-foreground) / 0.85) 100%
+    );
+    background-size: 250% 100%;
+    background-repeat: no-repeat;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    animation: ffCalibScan 2.4s linear infinite;
+    will-change: background-position;
+  }
+
+  @keyframes ffCalibScan {
+    0%   { background-position: 160% 0; }
+    100% { background-position: -60% 0; }
   }
 
   /* Subline crossfade: the React component re-keys the span on every phrase

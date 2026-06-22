@@ -149,7 +149,7 @@ export const AthleteChartCard = memo(function AthleteChartCard({
       <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold leading-none">
         {label}
       </p>
-      <div className="flex items-baseline gap-1.5 leading-none">
+      <div className="flex items-baseline gap-1.5 leading-none min-w-0 flex-wrap">
         <span
           className={`display-number text-[22px] tabular-nums ${TONE_TEXT[tone]}`}
         >
@@ -169,7 +169,7 @@ export const AthleteChartCard = memo(function AthleteChartCard({
         />
       </div>
       {changeText ? (
-        <p className="text-[10px] text-muted-foreground tabular-nums leading-none">
+        <p className="text-[10px] text-muted-foreground tabular-nums leading-snug break-words">
           {changeText}
         </p>
       ) : (

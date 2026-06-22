@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { Capacitor } from "@capacitor/core";
 import { X, Mic, MicOff, Loader2, Camera, ImagePlus, Play, ChevronRight } from "lucide-react";
+import { captureCameraPhoto } from "@/lib/captureCameraPhoto";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -228,6 +230,20 @@ export function FightCampLogForm({
     },
     [pendingMedia.length, onAddMedia, toast],
   );
+
+  // Camera tile. On native iOS/Android go through the Capacitor Camera
+  // plugin (a raw `<input capture>` silently drops the file in WKWebView —
+  // the root cause of media not saving from this form). On web, fall back
+  // to clicking the hidden capture input, which works in a real browser.
+  const handleCameraCapture = useCallback(async () => {
+    triggerHapticSelection();
+    if (Capacitor.isNativePlatform()) {
+      const file = await captureCameraPhoto();
+      if (file) handleFilePicked(file);
+      return;
+    }
+    cameraInputRef.current?.click();
+  }, [handleFilePicked]);
 
   // Which textarea the voice transcription should append to. Set when the
   // user taps a box's mic button, so a single recogniser instance can feed
@@ -553,6 +569,10 @@ export function FightCampLogForm({
             </button>
           )}
         </div>
+        <p className="text-[11px] leading-snug text-muted-foreground/55">
+          The skills you drilled. Shows up in your weekly{" "}
+          <span className="font-medium text-muted-foreground/80">training summaries</span>.
+        </p>
         <Textarea
           value={techniquesNotes}
           onChange={(e) => setTechniquesNotes(e.target.value)}
@@ -585,6 +605,10 @@ export function FightCampLogForm({
             </button>
           )}
         </div>
+        <p className="text-[11px] leading-snug text-muted-foreground/55">
+          What clicked and what to fix. Feeds your{" "}
+          <span className="font-medium text-muted-foreground/80">Technique Mastery</span> on the Camp page.
+        </p>
         <Textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
@@ -759,10 +783,7 @@ export function FightCampLogForm({
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  triggerHapticSelection();
-                  cameraInputRef.current?.click();
-                }}
+                onClick={() => { void handleCameraCapture(); }}
                 aria-label="Take photo or video"
                 className="shrink-0 h-20 w-20 rounded-xs border-2 border-dashed border-border/40 bg-muted/20 flex flex-col items-center justify-center text-muted-foreground active:bg-muted/40 transition-colors"
               >

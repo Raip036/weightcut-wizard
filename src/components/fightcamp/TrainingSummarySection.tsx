@@ -1,17 +1,20 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { motion, useReducedMotion, type PanInfo } from "motion/react";
 import { format, startOfWeek, endOfWeek } from "date-fns";
-import { Loader2, ChevronDown, Trash2, CheckCircle, X, Dumbbell, Activity, RotateCw, BookOpen } from "lucide-react";
+import { ChevronDown, Trash2, CheckCircle, X, Dumbbell, Activity, RotateCw, BookOpen } from "lucide-react";
 import { useConvex, useMutation, useQuery } from "convex/react";
 import { useAIAction } from "@/hooks/useAIAction";
 import { api } from "@/../convex/_generated/api";
 import type { Id } from "@/../convex/_generated/dataModel";
 import { useToast } from "@/hooks/use-toast";
+import { triggerHapticSelection } from "@/lib/haptics";
+import { springs } from "@/lib/motion";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 import { logger } from "@/lib/logger";
 import { localCache } from "@/lib/localCache";
 import { useAITask } from "@/contexts/AITaskContext";
-import { AICompactOverlay } from "@/components/AICompactOverlay";
+import { ProtocolGeneratingOverlay } from "@/components/protocol/ProtocolGeneratingOverlay";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { WeeklyRecap, type RecapDebrief } from "./WeeklyRecap";
 import { TechniqueLog } from "./TechniqueLog";
@@ -210,8 +213,49 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
         [savedSummaries]
     );
 
-    // Change detection: only for the current calendar week
+    // ── Horizontal swipe between recapped weeks ─────────────────────────────
+    // The recap content reads off `selectedWeekStart`; swiping (or the timeline
+    // chips) just moves that pointer through `summarisedWeeks`. Swipe right →
+    // older week (going back in time), swipe left → newer week. `slideDir` is
+    // the x-sign the incoming content animates in from, so the transition reads
+    // directionally. NOTE: list is DESC, so older = higher index, newer = lower.
+    const prefersReduced = useReducedMotion();
+    const [slideDir, setSlideDir] = useState(0);
+
+    const navigateWeek = useCallback(
+        (dir: "older" | "newer") => {
+            if (summarisedWeeks.length === 0) return;
+            let idx = summarisedWeeks.indexOf(selectedWeekStart);
+            // Current (possibly unsummarised) week sits just before the newest
+            // saved one, so an "older" swipe lands on the newest recap.
+            if (idx === -1) idx = -1;
+            const next = dir === "older" ? idx + 1 : idx - 1;
+            if (next < 0 || next >= summarisedWeeks.length) return; // at an edge
+            triggerHapticSelection();
+            setSlideDir(dir === "older" ? -1 : 1);
+            setSelectedWeekStart(summarisedWeeks[next]);
+        },
+        [summarisedWeeks, selectedWeekStart],
+    );
+
+    const handleRecapSwipe = useCallback(
+        (_e: unknown, info: PanInfo) => {
+            const SWIPE_PX = 48;
+            const SWIPE_V = 320;
+            if (info.offset.x <= -SWIPE_PX || info.velocity.x < -SWIPE_V) navigateWeek("newer");
+            else if (info.offset.x >= SWIPE_PX || info.velocity.x > SWIPE_V) navigateWeek("older");
+        },
+        [navigateWeek],
+    );
+
+    // Change detection: only for the CURRENT calendar week. When the user is
+    // viewing a past week (via swipe or the timeline chips), the recap is
+    // read-only — `weekSessions`/`sessionsWithNotes` only ever hold the current
+    // week, so comparing their fingerprint against a past week's stored summary
+    // would always mismatch and wrongly prompt "Update recap", which then
+    // regenerated the WRONG week and duplicated its techniques.
     const buttonState: ButtonState = useMemo(() => {
+        if (selectedWeekStart !== calendarWeekStart) return "hidden";
         if (sessionsWithNotes.length === 0) return "hidden";
         if (!selectedSummary) return "generate";
         const currentFingerprint = computeFingerprint(weekSessions);
@@ -221,6 +265,9 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
 
     const handleCancel = () => {
         abortRef.current?.abort();
+        // Also clear the persisted AI task, otherwise the wizard overlay (gated
+        // on `aiTrainingTask`) would stay on screen after the user cancels.
+        if (aiTrainingTask) dismissTask(aiTrainingTask.id);
         setIsLoading(false);
     };
 
@@ -349,13 +396,14 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
     return (
         <div className="mt-6 space-y-4">
             {aiTrainingTask && (
-                <AICompactOverlay
-                    isOpen={true}
-                    isGenerating={true}
-                    steps={aiTrainingTask.steps}
-                    startedAt={aiTrainingTask.startedAt}
-                    title={aiTrainingTask.label}
-                    onCancel={() => { abortRef.current?.abort(); dismissTask(aiTrainingTask.id); setIsLoading(false); }}
+                <ProtocolGeneratingOverlay
+                    label="Conjuring your recap"
+                    steps={[
+                        "Reviewing your logged sessions",
+                        "Distilling the techniques you drilled",
+                        "Writing your coach debrief",
+                    ]}
+                    footnote="This usually takes 5-15 seconds."
                 />
             )}
 
@@ -363,17 +411,13 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
             {buttonState !== "hidden" && (
                 <div className="flex items-center justify-center min-h-[44px]">
                     {isGenerating ? (
-                        <div className="flex items-center gap-2">
-                            <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                            <span className="text-note text-muted-foreground">Analyzing your sessions...</span>
-                            <button
-                                onClick={handleCancel}
-                                className="ml-1 flex items-center gap-1 text-note font-medium text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-xs hover:bg-accent/30"
-                            >
-                                <X className="h-3 w-3" />
-                                Cancel
-                            </button>
-                        </div>
+                        <button
+                            onClick={handleCancel}
+                            className="flex items-center gap-1.5 text-note font-medium text-muted-foreground hover:text-foreground transition-colors px-3 py-2 rounded-xs hover:bg-accent/30"
+                        >
+                            <X className="h-3.5 w-3.5" />
+                            Cancel
+                        </button>
                     ) : buttonState === "up_to_date" ? (
                         <span className="inline-flex items-center gap-1.5 text-note text-muted-foreground">
                             <CheckCircle className="h-3.5 w-3.5 text-func-recovery-green" />
@@ -419,15 +463,21 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                         )}
                     </div>
 
-                    {/* Legacy summaries: small chip + regenerate tap. */}
+                    {/* Legacy summaries: small chip + regenerate tap. Regenerate
+                        only targets the current calendar week, so it's hidden
+                        when viewing a past week (the control would otherwise
+                        regenerate the wrong week). */}
                     {isSummaryOpen && isLegacySummaryShape && (
                         <div className="card-surface rounded-xs border border-border/60 px-4 py-3 flex items-center gap-3">
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted/30 border border-border/50 text-[10px] uppercase tracking-wider font-bold text-muted-foreground flex-shrink-0">
                                 Legacy summary
                             </span>
                             <p className="text-note text-muted-foreground flex-1 min-w-0">
-                                Older format. Regenerate to switch to the new recap.
+                                {selectedWeekStart === calendarWeekStart
+                                    ? "Older format. Regenerate to switch to the new recap."
+                                    : "Older format. Open this week to regenerate."}
                             </p>
+                            {selectedWeekStart === calendarWeekStart && (
                             <button
                                 onClick={handleGenerateOrUpdate}
                                 disabled={isGenerating}
@@ -436,31 +486,50 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                                 <RotateCw className={`h-3.5 w-3.5 ${isGenerating ? "animate-spin" : ""}`} />
                                 Regenerate
                             </button>
+                            )}
                         </div>
                     )}
 
                     {/* New shape: stats strip, recap debrief, timeline */}
                     {isSummaryOpen && isNewSummaryShape && newSummary && (
                         <div className="space-y-4">
-                            {/* Stats strip */}
-                            <div className="grid grid-cols-4 gap-3">
-                                <StatCell label="Sessions" value={`${newSummary.stats.sessionsLogged}`} />
-                                <StatCell label="Minutes" value={`${newSummary.stats.totalMinutes}`} />
-                                <StatCell label="Top sport" value={newSummary.stats.topDiscipline || "-"} />
-                                <StatCell
-                                    label={newSummary.stats.avgRpe !== undefined ? "Avg RPE" : "Avg sleep"}
-                                    value={
-                                        newSummary.stats.avgRpe !== undefined
-                                            ? newSummary.stats.avgRpe.toFixed(1)
-                                            : newSummary.stats.avgSleepHours !== undefined
-                                                ? `${newSummary.stats.avgSleepHours.toFixed(1)}h`
-                                                : "-"
-                                    }
-                                />
-                            </div>
+                            {/* Swipeable week pager: the stats + recap slide as the
+                                user swipes left/right between recapped weeks. Keyed
+                                by week so each change re-runs the directional enter
+                                animation. Timeline chips stay outside so their own
+                                horizontal scroll never fights the swipe. */}
+                            <motion.div
+                                key={selectedWeekStart}
+                                drag={summarisedWeeks.length > 1 ? "x" : false}
+                                dragConstraints={{ left: 0, right: 0 }}
+                                dragElastic={0.16}
+                                dragSnapToOrigin
+                                onDragEnd={handleRecapSwipe}
+                                initial={prefersReduced ? false : { opacity: 0, x: slideDir * 28 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={springs.gentle}
+                                className="space-y-4"
+                            >
+                                {/* Stats strip */}
+                                <div className="grid grid-cols-4 gap-3">
+                                    <StatCell label="Sessions" value={`${newSummary.stats.sessionsLogged}`} />
+                                    <StatCell label="Minutes" value={`${newSummary.stats.totalMinutes}`} />
+                                    <StatCell label="Top sport" value={newSummary.stats.topDiscipline || "-"} />
+                                    <StatCell
+                                        label={newSummary.stats.avgRpe !== undefined ? "Avg RPE" : "Avg sleep"}
+                                        value={
+                                            newSummary.stats.avgRpe !== undefined
+                                                ? newSummary.stats.avgRpe.toFixed(1)
+                                                : newSummary.stats.avgSleepHours !== undefined
+                                                    ? `${newSummary.stats.avgSleepHours.toFixed(1)}h`
+                                                    : "-"
+                                        }
+                                    />
+                                </div>
 
-                            {/* Recap debrief: headline, takeaways, watch-out */}
-                            <WeeklyRecap headline={newSummary.weekHeadline} debrief={newSummary.debrief} />
+                                {/* Recap debrief: headline, takeaways, watch-out */}
+                                <WeeklyRecap headline={newSummary.weekHeadline} debrief={newSummary.debrief} />
+                            </motion.div>
 
                             {/* Weekly timeline: past-week chips */}
                             {summarisedWeeks.length > 0 && (
@@ -471,7 +540,12 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                                     <WeeklyTimeline
                                         weeks={summarisedWeeks}
                                         currentWeek={selectedWeekStart}
-                                        onSelectWeek={setSelectedWeekStart}
+                                        onSelectWeek={(w) => {
+                                            const ai = summarisedWeeks.indexOf(selectedWeekStart);
+                                            const bi = summarisedWeeks.indexOf(w);
+                                            setSlideDir(bi > ai ? -1 : 1);
+                                            setSelectedWeekStart(w);
+                                        }}
                                     />
                                 </div>
                             )}

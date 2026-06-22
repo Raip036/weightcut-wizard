@@ -653,23 +653,15 @@ export function FightFormRing({
             ) : calibRemainingDays === 0 ? (
               // Final stage. The score is moments away, drop the rotating
               // signal feed and use a calmer two-line stack so the long
-              // copy fits the ring without the bulky 22px headline. Dots are
-              // positioned absolutely outside the text so "your first score"
-              // centers under "Computing" without being pushed off-center.
+              // copy fits the ring without the bulky 22px headline. The
+              // scanning shimmer on "Computing" carries the "still working"
+              // signal, so both lines stay centred with no width-shifting dots.
               <div className="flex flex-col items-center leading-tight">
-                <span
-                  className="display-number text-lg"
-                  style={{ color: `rgb(${CALIB_RGB})` }}
-                >
+                <span className="display-number text-lg ff-ring-calib-scan">
                   Computing
                 </span>
-                <span className="relative mt-1 text-[11px] tracking-wide text-muted-foreground">
+                <span className="mt-1 text-[11px] tracking-wide text-muted-foreground">
                   your first score
-                  <span aria-hidden className="absolute left-full top-0 pl-0.5">
-                    <span className="ff-ring-calib-dot" style={{ animationDelay: "0s" }}>.</span>
-                    <span className="ff-ring-calib-dot" style={{ animationDelay: "0.35s" }}>.</span>
-                    <span className="ff-ring-calib-dot" style={{ animationDelay: "0.7s" }}>.</span>
-                  </span>
                 </span>
               </div>
             ) : (
@@ -688,17 +680,16 @@ export function FightFormRing({
                   )}
                 </span>
                 {/* Rotating signal sub-phrase. Fixed-height, single-line and
-                    much smaller so it always fits inside the ring and never
-                    wraps — a longer phrase can't change this row's height, so
-                    the headline above it stays put as phrases cycle. */}
+                    small so it always fits inside the ring and never wraps — a
+                    longer phrase can't change this row's height, so the headline
+                    above it stays put as phrases cycle. No trailing dots: a
+                    scanning shimmer (inner span) signals "actively reading" and
+                    keeps the text a fixed width, so it stays dead-centre. */}
                 <span
                   key={`phrase-${phraseIdx}`}
-                  className="flex h-3.5 items-center justify-center whitespace-nowrap text-[9px] leading-none tracking-wide text-muted-foreground ff-ring-calib-phrase"
+                  className="flex h-3.5 max-w-full items-center justify-center whitespace-nowrap text-[10px] leading-none tracking-wide ff-ring-calib-phrase"
                 >
-                  {CALIB_PHRASES[phraseIdx]}
-                  <span aria-hidden className="ff-ring-calib-dot" style={{ animationDelay: "0s" }}>.</span>
-                  <span aria-hidden className="ff-ring-calib-dot" style={{ animationDelay: "0.35s" }}>.</span>
-                  <span aria-hidden className="ff-ring-calib-dot" style={{ animationDelay: "0.7s" }}>.</span>
+                  <span className="ff-ring-calib-scan">{CALIB_PHRASES[phraseIdx]}</span>
                 </span>
               </>
             )}

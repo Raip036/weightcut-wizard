@@ -3,6 +3,7 @@ import { internalMutation, query } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { requireUserId } from "./lib/auth";
 import { levelFromXp } from "./lib/xp";
+import { REST } from "./lib/sessionTypes";
 
 /**
  * Per-discipline XP / level read+write surface.
@@ -60,7 +61,9 @@ export const getAllForUser = query({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
-    const views = rows.map(toView);
+    // Rest is not a progression discipline — you can't earn XP for it, so
+    // any legacy "Rest" row is hidden from the breakdown. See `awardXp`.
+    const views = rows.filter((r) => r.sport !== REST).map(toView);
     views.sort((a, b) => b.totalXp - a.totalXp);
     return views;
   },
@@ -123,9 +126,10 @@ export const awardXp = internalMutation({
       )
       .first();
 
-    // Skip non-positive awards; return current state untouched so callers
-    // can blindly forward any computed `amount` without guarding.
-    if (amount <= 0) {
+    // Rest is not a progression discipline — you cannot gain XP for it.
+    // No-op here (the single XP-writer chokepoint) so callers don't each
+    // have to special-case Rest sessions.
+    if (sport === REST || amount <= 0) {
       const totalXp = existing?.totalXp ?? 0;
       const level = levelFromXp(totalXp).level;
       return {

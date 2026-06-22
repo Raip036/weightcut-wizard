@@ -12,6 +12,8 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import type { Id } from "@/../convex/_generated/dataModel";
 import { uploadSessionMediaV2 } from "@/lib/uploadSessionMediaV2";
+import { captureCameraPhoto } from "@/lib/captureCameraPhoto";
+import { Capacitor } from "@capacitor/core";
 import { MediaLightbox, type LightboxItem } from "@/components/training/MediaLightbox";
 import { useToast } from "@/hooks/use-toast";
 // Local row type: mirrors the snake_case shape produced by TrainingCalendar.
@@ -165,6 +167,19 @@ export function SessionDetailDrawer({
     }
   };
 
+  // Camera tile. On native, capture via the Capacitor Camera plugin (raw
+  // `<input capture>` drops the file in iOS WKWebView); on web, fall back to
+  // the hidden capture input.
+  const handleCameraCapture = async () => {
+    triggerHapticSelection();
+    if (Capacitor.isNativePlatform()) {
+      const file = await captureCameraPhoto();
+      if (file) await handleFile(file);
+      return;
+    }
+    cameraInputRef.current?.click();
+  };
+
   const handleDeleteMedia = async (item: LightboxItem) => {
     if (item.id.startsWith("legacy-")) {
       // Legacy media still lives on `fight_camp_calendar.mediaStorageId`.
@@ -288,10 +303,7 @@ export function SessionDetailDrawer({
               {/* Take a new photo / video */}
               <button
                 type="button"
-                onClick={() => {
-                  triggerHapticSelection();
-                  cameraInputRef.current?.click();
-                }}
+                onClick={() => { void handleCameraCapture(); }}
                 disabled={uploading}
                 className="aspect-square rounded-xs border-2 border-dashed border-border/50 bg-muted/20 flex flex-col items-center justify-center text-muted-foreground active:bg-muted/40 transition-colors disabled:opacity-50"
                 aria-label="Take a new photo or video"

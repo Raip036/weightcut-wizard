@@ -38,22 +38,35 @@ export function WeeklyRecap({
             )}
 
             {takeaways.length > 0 && (
-                <ul className="space-y-3">
+                <ul className="space-y-2.5">
                     {takeaways.map((t, i) => {
                         const token = disciplineToken(t.discipline);
                         const label = disciplineLabel(t.discipline);
                         return (
                             <li
                                 key={i}
-                                className="card-surface rounded-xs border border-border/60 px-4 py-3"
+                                className="relative overflow-hidden card-surface rounded-lg border border-border/60 pl-4 pr-3.5 py-3"
                             >
-                                <div className="flex items-center gap-2 flex-wrap">
+                                {/* Discipline accent stripe + faint wash so each
+                                    takeaway is colour-coded at a glance. */}
+                                <span
+                                    aria-hidden
+                                    className="absolute inset-y-0 left-0 w-1"
+                                    style={{ backgroundColor: `hsl(var(${token}))` }}
+                                />
+                                <span
+                                    aria-hidden
+                                    className="absolute inset-0 pointer-events-none"
+                                    style={{
+                                        background: `linear-gradient(90deg, hsl(var(${token}) / 0.06), transparent 45%)`,
+                                    }}
+                                />
+                                <div className="relative flex items-center gap-2 flex-wrap">
                                     <span
-                                        className="inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider"
+                                        className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
                                         style={{
-                                            backgroundColor: "hsl(var(--muted) / 0.4)",
+                                            backgroundColor: `hsl(var(${token}) / 0.14)`,
                                             color: `hsl(var(${token}))`,
-                                            borderColor: "hsl(var(--border))",
                                         }}
                                     >
                                         {label}
@@ -62,12 +75,18 @@ export function WeeklyRecap({
                                         {t.technique}
                                     </span>
                                     {t.cue && (
-                                        <span className="ml-auto inline-flex items-center px-2 py-0.5 rounded-full bg-muted/40 text-note font-medium text-muted-foreground">
+                                        <span
+                                            className="ml-auto inline-flex items-center px-2 py-0.5 rounded-full text-note font-medium"
+                                            style={{
+                                                backgroundColor: `hsl(var(${token}) / 0.1)`,
+                                                color: `hsl(var(${token}))`,
+                                            }}
+                                        >
                                             {t.cue}
                                         </span>
                                     )}
                                 </div>
-                                <p className="mt-1.5 text-note text-muted-foreground leading-relaxed">
+                                <p className="relative mt-1.5 text-note text-muted-foreground leading-relaxed">
                                     {t.detail}
                                 </p>
                             </li>

@@ -45,10 +45,10 @@ function relativeLabel(isoDate: string): string {
   });
 }
 
-function rpeChipColor(rpe: number): string {
-  if (rpe >= 9) return "bg-func-danger-red/15 text-func-danger-red";
-  if (rpe >= 7) return "bg-func-warning-yellow/15 text-func-warning-yellow";
-  return "bg-func-recovery-green/15 text-func-recovery-green";
+function rpeTextColor(rpe: number): string {
+  if (rpe >= 9) return "text-func-danger-red";
+  if (rpe >= 7) return "text-func-warning-yellow";
+  return "text-func-recovery-green";
 }
 
 export const AthleteSessionsList = memo(function AthleteSessionsList({
@@ -91,8 +91,8 @@ export const AthleteSessionsList = memo(function AthleteSessionsList({
               style={{ borderLeftColor: getSessionColor(s.session_type) }}
             >
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-medium truncate capitalize leading-tight flex items-center gap-1.5">
-                  <span className="truncate">{s.session_type}</span>
+                <p className="text-[13px] font-medium capitalize leading-tight flex items-center gap-1.5 flex-wrap">
+                  <span className="min-w-0">{s.session_type}</span>
                   {s.session_tag && (
                     <span className="shrink-0 normal-case text-[9px] font-medium tracking-wide px-1.5 py-0.5 rounded-full bg-muted/40 text-muted-foreground">
                       {s.session_tag}
@@ -107,12 +107,12 @@ export const AthleteSessionsList = memo(function AthleteSessionsList({
                 </p>
               </div>
               <span
-                className={`shrink-0 text-[11px] font-semibold tabular-nums px-2 py-1 rounded-full ${rpeChipColor(
-                  s.rpe,
+                className={`shrink-0 text-right text-[12px] font-semibold tabular-nums ${rpeTextColor(
+                  Math.round(s.rpe),
                 )}`}
-                aria-label={`RPE ${s.rpe}`}
+                aria-label={`RPE ${Math.round(s.rpe)}`}
               >
-                RPE {s.rpe}
+                RPE {Math.round(s.rpe)}
               </span>
             </li>
           ))}
