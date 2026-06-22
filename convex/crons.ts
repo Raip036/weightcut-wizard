@@ -59,19 +59,6 @@ crons.hourly(
 );
 
 // ──────────────────────────────────────────────────────────────────────
-// Sparring To-Do List — hourly backstop sweep.
-//
-// Like the missions sweep, generation is primarily triggered by the
-// calendar save mutation. This sweep is the safety net for note writes
-// that bypass the standard trigger. The action is idempotent.
-// ──────────────────────────────────────────────────────────────────────
-crons.hourly(
-  "sparring-plan-sweep",
-  { minuteUTC: 25 },
-  internal.actions.sparringPlan.sweep.run,
-);
-
-// ──────────────────────────────────────────────────────────────────────
 // Camp Compass — Sunday 20:00 UTC weekly recovery report.
 //
 // Flagship Pro feature (spec §7.1). Iterates every currently-Pro user

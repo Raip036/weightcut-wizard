@@ -10,30 +10,23 @@ import type { Doc } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireUserId } from "./lib/auth";
 import { effectiveTier } from "./_shared/tier";
-import { normalizeLegacySession } from "./lib/sessionTypes";
-
 /**
  * Sparring To-Do List — per-discipline AI-generated checklist of techniques
- * to deliberately work in live rounds. Driven by the athlete's logged
- * techniques (training_techniques) + recent session technique notes
- * (fight_camp_calendar.techniquesNotes).
+ * to deliberately work in live rounds. Assignments are now created exclusively
+ * via the graduated path (`graduateCycleToSparring` in Task 2.4).
  *
  * Public surface (called from React):
  *   - listSparringAssignments  — all assignments for the auth user (opt. by discipline)
  *   - getSparringFeatureStatus — Pro/free state for the widget gating
  *   - toggleAssignment         — tick / untick a single assignment row
- *   - regenerateDiscipline     — manual "Regenerate" button
+ *   - regenerateDiscipline     — retired stub (independent generation removed in Task 2.5)
  *
- * Internal surface (called from the `generateSparringPlanIfReady` action):
- *   - getSparringSourceData    — logged techniques + recent notes + existing rows
+ * Internal surface:
  *   - upsertAssignments        — persist generated assignments (preserve status)
+ *   - findAssignmentByNorm     — point-lookup used by trainingMissions/graduate.ts
  */
 
 type SparringAssignment = Doc<"sparring_assignments">;
-
-// How far back to scan session notes for the generator's source signal.
-const RECENT_NOTES_WINDOW_DAYS = 45;
-const RECENT_NOTES_CAP = 20;
 
 // ───────────────────────────────────────────────────────────────────────────
 // Public queries
@@ -131,104 +124,22 @@ export const toggleAssignment = mutation({
 });
 
 /**
- * Manual "Regenerate" button. Schedules the generator action with
- * `force: true` so it re-rolls the discipline even when nothing materially
- * changed. Try-wrapped so a not-yet-deployed action can't break the call.
+ * Manual "Regenerate" button — retired in Task 2.5.
+ *
+ * Sparring is now graduated-only (fed by `graduateCycleToSparring`). The
+ * independent library/note-based generator has been removed. This stub keeps
+ * the mutation registered so the frontend compile stays clean until the UI
+ * refresh button is removed in a later task.
+ *
+ * TODO (Task 2.6+): remove this stub once SparringPlanCard.tsx no longer
+ * calls `api.sparring_plan.regenerateDiscipline`.
  */
 export const regenerateDiscipline = mutation({
   args: { discipline: v.string() },
-  handler: async (ctx, { discipline }): Promise<{ scheduled: true }> => {
-    const userId = await requireUserId(ctx);
-    try {
-      await ctx.scheduler.runAfter(
-        0,
-        internal.actions.sparringPlan.generate.generateSparringPlanIfReady,
-        { userId, sport: discipline, force: true },
-      );
-    } catch (err) {
-      console.warn("sparring_plan.regenerateDiscipline: schedule failed", err);
-    }
+  handler: async (_ctx, _args): Promise<{ scheduled: true }> => {
+    // No-op: independent generation retired. Graduated path handles all
+    // sparring assignment creation going forward.
     return { scheduled: true };
-  },
-});
-
-// ───────────────────────────────────────────────────────────────────────────
-// Internal — called by the generator action
-// ───────────────────────────────────────────────────────────────────────────
-
-/**
- * Source signal for the generator: the user's logged techniques for this
- * discipline, recent session technique notes (last 45 days), and the
- * fingerprints of any assignments that already exist (so the action can
- * skip techniques that haven't materially changed).
- */
-export const getSparringSourceData = internalQuery({
-  args: { userId: v.id("users"), discipline: v.string() },
-  handler: async (
-    ctx,
-    { userId, discipline },
-  ): Promise<{
-    loggedTechniques: Array<{
-      technique: string;
-      techniqueNormalized: string;
-      cue?: string;
-      detail: string;
-    }>;
-    recentNotes: string[];
-    existing: Array<{ techniqueNormalized: string; sourceFingerprint: string }>;
-  }> => {
-    // Logged techniques for (user, discipline).
-    const techniqueRows = await ctx.db
-      .query("training_techniques")
-      .withIndex("by_user_discipline", (q) =>
-        q.eq("userId", userId).eq("discipline", discipline),
-      )
-      .collect();
-    const loggedTechniques = techniqueRows.map((t) => ({
-      technique: t.technique,
-      techniqueNormalized: t.techniqueNormalized,
-      cue: t.cue,
-      detail: t.detail,
-    }));
-
-    // Recent session technique notes whose primary discipline matches, within
-    // the trailing window, newest first, capped. `date` is a YYYY-MM-DD string
-    // so the cutoff compares lexicographically via the by_user_date index.
-    const cutoffMs = Date.now() - RECENT_NOTES_WINDOW_DAYS * 24 * 60 * 60 * 1000;
-    const cutoffDate = new Date(cutoffMs).toISOString().slice(0, 10);
-    const sessions = await ctx.db
-      .query("fight_camp_calendar")
-      .withIndex("by_user_date", (q) =>
-        q.eq("userId", userId).gte("date", cutoffDate),
-      )
-      .collect();
-    const recentNotes = sessions
-      .filter((s) => {
-        const primary = normalizeLegacySession(
-          s.sessionType,
-          s.sessionTag,
-        ).primary;
-        return (
-          primary === discipline && (s.techniquesNotes?.trim().length ?? 0) > 0
-        );
-      })
-      .sort((a, b) => b.date.localeCompare(a.date))
-      .slice(0, RECENT_NOTES_CAP)
-      .map((s) => s.techniquesNotes as string);
-
-    // Existing assignments for (user, discipline) — projected to dedup keys.
-    const existingRows = await ctx.db
-      .query("sparring_assignments")
-      .withIndex("by_user_discipline", (q) =>
-        q.eq("userId", userId).eq("discipline", discipline),
-      )
-      .collect();
-    const existing = existingRows.map((r) => ({
-      techniqueNormalized: r.techniqueNormalized,
-      sourceFingerprint: r.sourceFingerprint,
-    }));
-
-    return { loggedTechniques, recentNotes, existing };
   },
 });
 
