@@ -3,6 +3,7 @@ import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireUserId } from "./lib/auth";
+import { SANDC, REST, normalizeLegacySession } from "./lib/sessionTypes";
 
 /**
  * Mastery Spine — public surface for the 3-land mastery mechanic.
@@ -158,7 +159,7 @@ type MissionWithItems = Doc<"training_missions"> & { items: MissionItem[] };
 
 export type MasteryFlowEntry = {
   discipline: string;
-  phase: "drill" | "spar" | "idle";
+  phase: "drill" | "graduating" | "spar" | "generating" | "idle";
   missions: MissionWithItems[];
   assignments: Doc<"sparring_assignments">[];
 };
@@ -166,19 +167,28 @@ export type MasteryFlowEntry = {
 /**
  * Unified query powering the MasterySpine widget.
  *
- * Returns one entry per discipline that has active missions OR non-mastered
- * graduated sparring assignments. The backend derives the phase so the
- * client never needs to compute it from raw data.
+ * Returns one entry per discipline that is in an active or transitional
+ * mastery phase. The backend derives the phase so the client never needs
+ * to compute it from raw data.
  *
- * Phase rules (per discipline):
- *   "drill" — any active mission has at least one incomplete item
- *   "spar"  — no incomplete drill items; non-mastered graduated assignments exist
- *   "idle"  — neither (normally excluded from results; included defensively)
+ * Phase rules (per discipline, evaluated in priority order):
+ *   "drill"      — any active mission has at least one incomplete item
+ *   "graduating" — no active missions, but ≥1 completed mission with
+ *                  graduatedAt == null (graduation action pending/running)
+ *   "spar"       — non-mastered graduated assignments exist (drilling done,
+ *                  sparring cycle live)
+ *   "generating" — newest noted session for this discipline is newer than
+ *                  the latest mission's notesWindowStart (or no mission at
+ *                  all), and none of the above apply — initial generation
+ *                  is pending. Martial-art disciplines only.
+ *   "idle"       — none of the above (excluded from results)
  *
  * Guarantees:
  *   - Uses indexes only; no .filter() on DB queries.
  *   - All reads are bounded (take / collect over index-scoped sets).
- *   - Mission items loaded in parallel per mission.
+ *   - Mission items loaded in parallel per active mission.
+ *   - "generating" detection: take(50) on by_user_date (desc) + ≤N
+ *     indexed point-lookups, one per distinct martial-art discipline seen.
  */
 export const getMasteryFlow = query({
   args: {},
@@ -209,7 +219,31 @@ export const getMasteryFlow = query({
     // Sort by lastActivityAt descending (most recently active first).
     missionsWithItems.sort((a, b) => b.lastActivityAt - a.lastActivityAt);
 
-    // ── 2. Non-mastered graduated assignments ──────────────────────────────
+    // ── 2. Completed missions that haven't graduated yet ───────────────────
+    // "graduating" phase: status:"completed" + graduatedAt == null.
+    // Uses the by_user_status index; the graduatedAt filter is in-process
+    // (bounded: collect over one user's completed missions — typically small).
+    const completedMissions = await ctx.db
+      .query("training_missions")
+      .withIndex("by_user_status", (q) =>
+        q.eq("userId", userId).eq("status", "completed"),
+      )
+      .collect();
+
+    // Group pending-graduation missions by sport.
+    const pendingGraduationBySport = new Map<string, MissionWithItems[]>();
+    for (const m of completedMissions) {
+      if (m.graduatedAt == null) {
+        // Items are not needed for display in the graduating phase, but we
+        // include the mission doc (with empty items) to match the return type
+        // and give the UI context (title, rationale).
+        const existing = pendingGraduationBySport.get(m.sport) ?? [];
+        existing.push({ ...m, items: [] });
+        pendingGraduationBySport.set(m.sport, existing);
+      }
+    }
+
+    // ── 3. Non-mastered graduated assignments ──────────────────────────────
     // Use the by_user index — bounded read since a typical user has <100
     // assignments total. Narrow to graduated + unmastered in JS.
     const allAssignments = await ctx.db
@@ -221,7 +255,7 @@ export const getMasteryFlow = query({
       (a) => a.source === "graduated" && a.masteredAt == null,
     );
 
-    // ── 3. Group by discipline ─────────────────────────────────────────────
+    // ── 4. Build discipline map from drills, graduating, and spar ─────────
     const disciplineMap = new Map<
       string,
       { missions: MissionWithItems[]; assignments: Doc<"sparring_assignments">[] }
@@ -238,29 +272,141 @@ export const getMasteryFlow = query({
       ensureEntry(m.sport).missions.push(m);
     }
 
+    // Seed graduating disciplines so they show even without active missions.
+    for (const [sport] of pendingGraduationBySport) {
+      ensureEntry(sport);
+    }
+
     for (const a of activeAssignments) {
       ensureEntry(a.discipline).assignments.push(a);
     }
 
-    // ── 4. Derive phase per discipline and build result ────────────────────
+    // ── 5. "generating" phase detection ────────────────────────────────────
+    // Detects the empty→drills gap: notes have been logged for a discipline
+    // but the first mission hasn't been generated yet (or the watermark
+    // hasn't been consumed yet).
+    //
+    // Strategy (bounded):
+    //   a) Scan the most-recent 50 fight_camp_calendar rows for this user
+    //      (by_user_date index, desc). This covers ~6–8 weeks of typical
+    //      fighters (5-7 sessions/week).
+    //   b) Identify distinct martial-art disciplines among those rows that
+    //      have non-empty notes or techniquesNotes.
+    //   c) For each candidate discipline NOT already in disciplineMap, do
+    //      ONE indexed lookup of the latest mission watermark
+    //      (by_user_sport_status collect for the sport, pick most recent).
+    //      If no mission exists, OR if the newest noted session's
+    //      _creationTime > latest mission's notesWindowStart, include as
+    //      "generating".
+    //   Skip "S&C" and "Rest" — they never generate missions.
+
+    const NON_MARTIAL_PRIMARY: ReadonlySet<string> = new Set([SANDC, REST]);
+
+    // Take recent calendar entries — desc by date string (YYYY-MM-DD sorts
+    // lexicographically == chronologically). Bounded at 50 rows.
+    const recentCalendar = await ctx.db
+      .query("fight_camp_calendar")
+      .withIndex("by_user_date", (q) => q.eq("userId", userId))
+      .order("desc")
+      .take(50);
+
+    // Build: sport → newest _creationTime of a row with notes.
+    const newestNotedSessionTime = new Map<string, number>();
+    for (const row of recentCalendar) {
+      const hasNotes =
+        (typeof row.notes === "string" && row.notes.trim().length > 0) ||
+        (typeof row.techniquesNotes === "string" &&
+          row.techniquesNotes.trim().length > 0);
+      if (!hasNotes) continue;
+      const primary = normalizeLegacySession(row.sessionType, row.sessionTag).primary;
+      if (NON_MARTIAL_PRIMARY.has(primary)) continue;
+      const existing = newestNotedSessionTime.get(primary);
+      if (existing == null || row._creationTime > existing) {
+        newestNotedSessionTime.set(primary, row._creationTime);
+      }
+    }
+
+    // For disciplines with notes that are NOT already in the discipline map
+    // (i.e. no active mission, no graduating mission, no assignments), check
+    // whether their watermark is behind the newest noted session.
+    const generatingCandidates: string[] = [];
+    for (const [sport, newestTime] of newestNotedSessionTime) {
+      if (disciplineMap.has(sport)) continue; // already handled by drill/graduating/spar
+
+      // Look up the latest mission for this sport (any status).
+      const sportMissions = await ctx.db
+        .query("training_missions")
+        .withIndex("by_user_sport_status", (q) =>
+          q.eq("userId", userId).eq("sport", sport),
+        )
+        .collect();
+
+      if (sportMissions.length === 0) {
+        // No mission at all — generation hasn't run yet.
+        generatingCandidates.push(sport);
+      } else {
+        // Find the mission with the highest watermark.
+        const latestWatermark = Math.max(
+          ...sportMissions.map((m) => m.notesWindowStart),
+        );
+        if (newestTime > latestWatermark) {
+          // Newest noted session is beyond the consumed watermark — generation
+          // is pending (or running).
+          generatingCandidates.push(sport);
+        }
+      }
+    }
+
+    // ── 6. Derive phase per discipline and build result ────────────────────
     const result: MasteryFlowEntry[] = [];
 
+    // Phase priority: drill → graduating → spar, then "generating" separately.
     for (const [discipline, { missions, assignments }] of disciplineMap) {
-      // Derive phase: "drill" if any mission has an incomplete item.
-      let phase: "drill" | "spar" | "idle";
       const hasIncompleteDrill = missions.some((m) =>
         m.items.some((item) => !item.completed),
       );
+
+      let phase: "drill" | "graduating" | "spar" | "generating" | "idle";
+
       if (hasIncompleteDrill) {
         phase = "drill";
-      } else if (assignments.length > 0) {
-        phase = "spar";
       } else {
-        phase = "idle";
+        const pendingGrad = pendingGraduationBySport.get(discipline) ?? [];
+        if (pendingGrad.length > 0) {
+          phase = "graduating";
+        } else if (assignments.length > 0) {
+          phase = "spar";
+        } else {
+          phase = "idle";
+        }
       }
 
-      result.push({ discipline, phase, missions, assignments });
+      if (phase === "idle") continue; // exclude idle disciplines
+
+      // For graduating phase, surface the pending-graduation missions rather
+      // than the (empty) active-mission list.
+      const phaseMissions =
+        phase === "graduating"
+          ? (pendingGraduationBySport.get(discipline) ?? [])
+          : missions;
+
+      result.push({ discipline, phase, missions: phaseMissions, assignments });
     }
+
+    // Add "generating" entries (always have no missions / assignments yet).
+    for (const sport of generatingCandidates) {
+      result.push({ discipline: sport, phase: "generating", missions: [], assignments: [] });
+    }
+
+    // ── 7. Sort: drill/graduating first, then spar, then generating ────────
+    const PHASE_ORDER: Record<MasteryFlowEntry["phase"], number> = {
+      drill: 0,
+      graduating: 1,
+      spar: 2,
+      generating: 3,
+      idle: 4,
+    };
+    result.sort((a, b) => PHASE_ORDER[a.phase] - PHASE_ORDER[b.phase]);
 
     return result;
   },
