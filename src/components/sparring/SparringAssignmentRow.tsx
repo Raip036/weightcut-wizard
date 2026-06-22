@@ -6,6 +6,7 @@ import { triggerHapticSelection } from "@/lib/haptics";
 import { stripDashes } from "@/lib/utils";
 import { AnimatedCheckbox, XpFloat } from "@/components/coach/TickReward";
 import { disciplineToken } from "@/lib/coachColors";
+import { Check } from "lucide-react";
 
 /** XP awarded per sparring assignment completed or landed. */
 const SPARRING_XP_PER_ITEM = 15;
@@ -167,15 +168,8 @@ export function SparringAssignmentRow({
               )}
             </AnimatePresence>
 
-            {/* Main tap area: records one land. */}
-            <motion.button
-              type="button"
-              disabled={pending || displayedLanded >= LAND_THRESHOLD}
-              onClick={handleLand}
-              whileTap={reduced ? undefined : { scale: 0.99 }}
-              aria-label={`Land ${assignment.technique}: ${displayedLanded} of ${LAND_THRESHOLD}`}
-              className="relative w-full flex items-start gap-2.5 px-2.5 py-2 text-left"
-            >
+            {/* Main row body: not a landing tap target; tick-boxes own the interaction. */}
+            <div className="relative w-full flex items-start gap-2.5 px-2.5 py-2">
               {/* 5-pip confidence meter (timesLogged). */}
               <div className="flex flex-col items-center gap-[3px] pt-[3px] flex-none" aria-hidden>
                 {Array.from({ length: PIP_COUNT }).map((_, i) => (
@@ -191,26 +185,55 @@ export function SparringAssignmentRow({
                 ))}
               </div>
 
-              {/* 3-land meter replacing the checkbox. */}
-              <div
-                className="flex flex-col items-center gap-[3px] pt-[3px] flex-none"
-                aria-hidden
-              >
-                {Array.from({ length: LAND_THRESHOLD }).map((_, i) => (
-                  <motion.span
-                    key={i}
-                    className="block w-2 h-2 rounded-full"
-                    animate={
-                      i < displayedLanded
-                        ? {
-                            backgroundColor: `hsl(var(${token}))`,
-                            scale: reduced ? 1 : [1, 1.35, 1],
-                          }
-                        : { backgroundColor: `hsl(var(${token}) / 0.18)`, scale: 1 }
-                    }
-                    transition={{ duration: 0.25 }}
-                  />
-                ))}
+              {/* 3-land tick-boxes: each individually tappable to record one land. */}
+              <div className="flex flex-col items-center gap-[4px] pt-[2px] flex-none">
+                {Array.from({ length: LAND_THRESHOLD }).map((_, i) => {
+                  const ticked = i < displayedLanded;
+                  const isNext = i === displayedLanded;
+                  const disabled = ticked || displayedLanded >= LAND_THRESHOLD || pending;
+                  return (
+                    <motion.button
+                      key={i}
+                      type="button"
+                      disabled={disabled}
+                      onClick={isNext ? handleLand : undefined}
+                      whileTap={reduced || disabled ? undefined : { scale: 0.88 }}
+                      aria-label={
+                        ticked
+                          ? `Land ${i + 1} of ${LAND_THRESHOLD} already recorded for ${assignment.technique}`
+                          : `Record land ${i + 1} of ${LAND_THRESHOLD} for ${assignment.technique}`
+                      }
+                      aria-disabled={disabled}
+                      className="w-[18px] h-[18px] rounded-[4px] flex items-center justify-center flex-none"
+                      style={
+                        ticked
+                          ? {
+                              backgroundColor: `hsl(var(${token}) / 0.18)`,
+                              border: `1.5px solid hsl(var(${token}))`,
+                            }
+                          : {
+                              backgroundColor: "transparent",
+                              border: `1.5px solid hsl(var(${token}) / 0.35)`,
+                            }
+                      }
+                      animate={
+                        ticked
+                          ? { scale: reduced ? 1 : [1, 1.15, 1] }
+                          : { scale: 1 }
+                      }
+                      transition={{ duration: 0.2 }}
+                    >
+                      {ticked && (
+                        <Check
+                          size={11}
+                          strokeWidth={2.5}
+                          style={{ color: `hsl(var(${token}))` }}
+                          aria-hidden
+                        />
+                      )}
+                    </motion.button>
+                  );
+                })}
               </div>
 
               <div className="flex-1 min-w-0">
@@ -234,7 +257,7 @@ export function SparringAssignmentRow({
                 )}
               </div>
               <XpFloat floatKey={floatKey} token={token} amount={SPARRING_XP_PER_ITEM} />
-            </motion.button>
+            </div>
 
             {/* Setups & counters. */}
             {hasDetails && (
