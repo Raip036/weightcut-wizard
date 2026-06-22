@@ -373,6 +373,12 @@ export const insertMissionInternal = internalMutation({
     focusTechnique: v.optional(v.string()),
     focusTechniqueNormalized: v.optional(v.string()),
     cycleId: v.optional(v.string()),
+    // When true, skip the "mark prior active missions completed" step. Used
+    // by the Model B batch generator (Task 2.2) which inserts multiple
+    // missions sharing one cycleId — the second/third insert must NOT mark
+    // the first mission (inserted moments earlier in the same batch) as
+    // completed.
+    skipMarkPrior: v.optional(v.boolean()),
   },
   handler: async (
     ctx,
@@ -387,6 +393,7 @@ export const insertMissionInternal = internalMutation({
       focusTechnique,
       focusTechniqueNormalized,
       cycleId,
+      skipMarkPrior,
     },
   ): Promise<Id<"training_missions">> => {
     const now = Date.now();
@@ -394,14 +401,19 @@ export const insertMissionInternal = internalMutation({
     // Mark any existing active mission for this (user, sport) as
     // completed — the action only reaches this point if either there
     // was no prior mission or its items were all checked.
-    const prior = await ctx.db
-      .query("training_missions")
-      .withIndex("by_user_sport_status", (q) =>
-        q.eq("userId", userId).eq("sport", sport).eq("status", "active"),
-      )
-      .collect();
-    for (const p of prior) {
-      await ctx.db.patch(p._id, { status: "completed", completedAt: now });
+    // Skip this step when inserting batch missions that share a cycleId
+    // so sibling missions inserted earlier in the same batch are not
+    // inadvertently completed.
+    if (!skipMarkPrior) {
+      const prior = await ctx.db
+        .query("training_missions")
+        .withIndex("by_user_sport_status", (q) =>
+          q.eq("userId", userId).eq("sport", sport).eq("status", "active"),
+        )
+        .collect();
+      for (const p of prior) {
+        await ctx.db.patch(p._id, { status: "completed", completedAt: now });
+      }
     }
 
     const missionId = await ctx.db.insert("training_missions", {
@@ -433,6 +445,57 @@ export const insertMissionInternal = internalMutation({
     }
 
     return missionId;
+  },
+});
+
+// ── Model B helpers (Task 2.2) ────────────────────────────────────────────────
+
+/**
+ * Returns all active missions for (userId, sport) via the
+ * `by_user_sport_status` index. Used by `generateMissionIfReady` for the
+ * frozen-cycle guard: if this returns any rows, the current cycle is still
+ * in progress and no new generation should start.
+ */
+export const listActiveMissionsForSport = internalQuery({
+  args: { userId: v.id("users"), sport: v.string() },
+  handler: async (ctx, { userId, sport }) => {
+    return await ctx.db
+      .query("training_missions")
+      .withIndex("by_user_sport_status", (q) =>
+        q.eq("userId", userId).eq("sport", sport).eq("status", "active"),
+      )
+      .take(1);
+  },
+});
+
+/**
+ * Point-lookup: is there an active mission for (userId, sport) whose
+ * `focusTechniqueNormalized` matches the given key?
+ *
+ * Used by the per-issue dedupe loop in `generateMissionIfReady` as a safety
+ * net after the frozen-cycle guard (which already prevents entering if ANY
+ * active mission exists). This catches the edge case where two issues in the
+ * same batch resolve to the same normalised technique.
+ */
+export const findActiveMissionByTechnique = internalQuery({
+  args: {
+    userId: v.id("users"),
+    sport: v.string(),
+    focusTechniqueNormalized: v.string(),
+  },
+  handler: async (ctx, { userId, sport, focusTechniqueNormalized }) => {
+    // Scan active missions for this sport and check focusTechniqueNormalized.
+    // No compound index on (userId, sport, status, focusTechniqueNormalized),
+    // so we use the existing by_user_sport_status index and filter in-process.
+    // In practice the frozen-cycle guard means this set is at most the missions
+    // already inserted in the current batch (≤3 rows).
+    const active = await ctx.db
+      .query("training_missions")
+      .withIndex("by_user_sport_status", (q) =>
+        q.eq("userId", userId).eq("sport", sport).eq("status", "active"),
+      )
+      .collect();
+    return active.find((m) => m.focusTechniqueNormalized === focusTechniqueNormalized) ?? null;
   },
 });
 

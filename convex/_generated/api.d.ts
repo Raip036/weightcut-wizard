@@ -79,6 +79,7 @@ import type * as actions_sparringPlan_prompts from "../actions/sparringPlan/prom
 import type * as actions_sparringPlan_sweep from "../actions/sparringPlan/sweep.js";
 import type * as actions_trainingCoachPlanner from "../actions/trainingCoachPlanner.js";
 import type * as actions_trainingInsights from "../actions/trainingInsights.js";
+import type * as actions_trainingMissions_extractIssues from "../actions/trainingMissions/extractIssues.js";
 import type * as actions_trainingMissions_generate from "../actions/trainingMissions/generate.js";
 import type * as actions_trainingMissions_groundingReference from "../actions/trainingMissions/groundingReference.js";
 import type * as actions_trainingMissions_prompts from "../actions/trainingMissions/prompts.js";
@@ -141,6 +142,7 @@ import type * as markedSkips from "../markedSkips.js";
 import type * as meal_plans from "../meal_plans.js";
 import type * as meals from "../meals.js";
 import type * as migrations from "../migrations.js";
+import type * as migrations_backfillSparring from "../migrations/backfillSparring.js";
 import type * as profiles from "../profiles.js";
 import type * as profiles_internal from "../profiles_internal.js";
 import type * as pushFanout from "../pushFanout.js";
@@ -237,6 +239,7 @@ declare const fullApi: ApiFromModules<{
   "actions/sparringPlan/sweep": typeof actions_sparringPlan_sweep;
   "actions/trainingCoachPlanner": typeof actions_trainingCoachPlanner;
   "actions/trainingInsights": typeof actions_trainingInsights;
+  "actions/trainingMissions/extractIssues": typeof actions_trainingMissions_extractIssues;
   "actions/trainingMissions/generate": typeof actions_trainingMissions_generate;
   "actions/trainingMissions/groundingReference": typeof actions_trainingMissions_groundingReference;
   "actions/trainingMissions/prompts": typeof actions_trainingMissions_prompts;
@@ -299,6 +302,7 @@ declare const fullApi: ApiFromModules<{
   meal_plans: typeof meal_plans;
   meals: typeof meals;
   migrations: typeof migrations;
+  "migrations/backfillSparring": typeof migrations_backfillSparring;
   profiles: typeof profiles;
   profiles_internal: typeof profiles_internal;
   pushFanout: typeof pushFanout;

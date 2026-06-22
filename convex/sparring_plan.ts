@@ -290,3 +290,28 @@ export const upsertAssignments = internalMutation({
     }
   },
 });
+
+/**
+ * Point-lookup for a sparring assignment by its normalised technique key.
+ * Returns the first matching row (there should be at most one, keyed on
+ * `by_user_norm`), or `null` if none exists.
+ *
+ * Used by `generateMissionIfReady` (Model B, Task 2.2) to deduplicate: if a
+ * non-mastered assignment already exists, we reinforce rather than duplicate.
+ * If the assignment is mastered (`masteredAt != null`), a fresh mission journey
+ * is allowed and the caller handles that by ignoring this result.
+ */
+export const findAssignmentByNorm = internalQuery({
+  args: {
+    userId: v.id("users"),
+    techniqueNormalized: v.string(),
+  },
+  handler: async (ctx, { userId, techniqueNormalized }) => {
+    return await ctx.db
+      .query("sparring_assignments")
+      .withIndex("by_user_norm", (q) =>
+        q.eq("userId", userId).eq("techniqueNormalized", techniqueNormalized),
+      )
+      .first();
+  },
+});
