@@ -600,11 +600,11 @@ export function FightCampLogForm({
         )}
       </div>
 
-      {/* ── What went well / to improve ───────────────────────── */}
+      {/* ── To improve ────────────────────────────────────────── */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <Label className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/60">
-            What went well / to improve
+            To improve
           </Label>
           {voiceSupported && (
             <button
@@ -622,13 +622,13 @@ export function FightCampLogForm({
           )}
         </div>
         <p className="text-[11px] leading-snug text-muted-foreground/55">
-          What clicked and what to fix. Feeds your{" "}
-          <span className="font-medium text-muted-foreground/80">Technique Mastery</span> on the Camp page.
+          What didn’t click and what to fix. Feeds your{" "}
+          <span className="font-medium text-muted-foreground/80">Technique Mastery</span> drills on the Camp page.
         </p>
         <Textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder={isListening && voiceTarget === "reflection" ? "Listening…" : "What clicked, what to fix next time…"}
+          placeholder={isListening && voiceTarget === "reflection" ? "Listening…" : "What to fix, what’s not working yet…"}
           className={`min-h-[88px] resize-none rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/30 text-[14px] px-4 py-3 placeholder:text-muted-foreground/50 ${isListening && voiceTarget === "reflection" ? "ring-2 ring-func-danger-red/40" : ""}`}
         />
         {isListening && voiceTarget === "reflection" && interimText && (

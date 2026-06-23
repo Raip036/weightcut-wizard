@@ -17,6 +17,7 @@ import { SealedStage } from "./SealedStage";
 import { MasteredShelf } from "./MasteredShelf";
 import { MasteryCutscene } from "./MasteryCutscene";
 import { MasteryGeneratingCard } from "./MasteryGeneratingCard";
+import { MasteryEmptyCard } from "./MasteryEmptyCard";
 import {
   useMinimumDisplay,
   useCycleCompletionDetector,
@@ -603,28 +604,10 @@ export function MasterySpine(_props: MasterySpineProps) {
   ];
 
   // Nothing in flight and nothing in the flow → first-run empty state.
+  // Premium wizard-mascot card (Pro users): the only instruction is to log a
+  // session and fill in "What went well" to get the first drills.
   if (flow.length === 0 && generatingDrills.length === 0) {
-    return (
-      <div className="relative w-full rounded-2xl card-surface border border-primary/20 overflow-hidden p-4">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.04] to-transparent"
-        />
-        <div className="relative flex items-start gap-3">
-          <div className="h-10 w-10 flex items-center justify-center flex-shrink-0">
-            <Icon name="listOutline" size={20} className="text-primary" aria-hidden />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-body-sm font-semibold text-foreground leading-tight">
-              Technique Mastery
-            </p>
-            <p className="text-note text-muted-foreground leading-snug mt-0.5">
-              Log a session with notes. Your first drills will appear here and guide you through drilling into live sparring.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
+    return <MasteryEmptyCard />;
   }
 
   return (

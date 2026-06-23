@@ -213,20 +213,30 @@ export const CampHeroCard = memo(function CampHeroCard({
       {/* Trajectory (signature) — Build → Peak → Fight week, with a node at
           today's position that slides in on mount and tracks elapsed/total. */}
       <div className="relative mt-5 border-t border-white/[0.07] pt-4">
-        <div className="mb-3 flex justify-between text-[10.5px] font-semibold uppercase tracking-wide text-muted-foreground/60">
-          <span className="text-primary">Camp start · now</span>
-          <span>Peak</span>
-          <span>Fight week</span>
+        <div className="relative mb-3 h-3 text-[10.5px] font-semibold uppercase tracking-wide text-muted-foreground/60">
+          {/* Each label is centered over the MIDDLE of its phase segment. */}
+          <span
+            className="absolute -translate-x-1/2 whitespace-nowrap text-primary"
+            style={{ left: `${((peakStart + fwStart) / 2) * 100}%` }}
+          >
+            Peak
+          </span>
+          <span
+            className="absolute -translate-x-1/2 whitespace-nowrap"
+            style={{ left: `${((fwStart + 1) / 2) * 100}%` }}
+          >
+            Fight week
+          </span>
         </div>
 
         <div className="relative mx-1 h-1.5 rounded-full bg-white/[0.07]">
-          {/* phase segments */}
+          {/* phase segments — start: gray, peak: blue, fight week: red. */}
           <div
-            className="absolute top-0 h-1.5 rounded-full bg-gradient-to-r from-primary/60 to-primary/20"
+            className="absolute top-0 h-1.5 rounded-full bg-muted-foreground/25"
             style={{ left: 0, width: `${peakStart * 100}%` }}
           />
           <div
-            className="absolute top-0 h-1.5 rounded-full bg-muted-foreground/25"
+            className="absolute top-0 h-1.5 rounded-full bg-gradient-to-r from-primary/55 to-primary/35"
             style={{ left: `${peakStart * 100}%`, width: `${(fwStart - peakStart) * 100}%` }}
           />
           <div
@@ -234,8 +244,8 @@ export const CampHeroCard = memo(function CampHeroCard({
             style={{ left: `${fwStart * 100}%`, width: `${(1 - fwStart) * 100}%` }}
           />
           {/* phase boundary ticks */}
-          <span className="absolute -top-1 h-3.5 w-px bg-white/20" style={{ left: `${peakStart * 100}%` }} />
-          <span className="absolute -top-1 h-3.5 w-px bg-white/20" style={{ left: `${fwStart * 100}%` }} />
+          <span className="absolute -top-1.5 h-[18px] w-0.5 rounded-full bg-white/45" style={{ left: `${peakStart * 100}%` }} />
+          <span className="absolute -top-1.5 h-[18px] w-0.5 rounded-full bg-white/45" style={{ left: `${fwStart * 100}%` }} />
           {/* progress fill (camp start → today) */}
           <div
             className="absolute top-0 h-1.5 rounded-full bg-primary shadow-[0_0_12px_hsl(var(--primary)/0.7)] transition-[width] duration-[1200ms] ease-out"
@@ -251,7 +261,7 @@ export const CampHeroCard = memo(function CampHeroCard({
         <div className="mt-3.5 flex items-center justify-between">
           <span className="flex items-center gap-1.5 text-[11.5px] font-semibold text-primary">
             <span className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_8px_hsl(var(--primary))]" />
-            You are here · {nextLabel}
+            {nextLabel}
           </span>
           {onViewPlan && (
             <button
