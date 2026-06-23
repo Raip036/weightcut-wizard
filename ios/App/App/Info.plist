@@ -36,19 +36,15 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>FightCamp Wizard needs access to your camera to let you take a profile picture.</string>
-	<key>NSHealthShareUsageDescription</key>
-	<string>FightCamp Wizard reads HRV, resting heart rate, sleep, workouts, body mass, VO2 Max, wrist temperature, respiratory rate, steps and active energy from Apple Health to compute a personalised Fight Form recovery and readiness score and tailor your camp coaching. Data is never used for advertising or sold.</string>
-	<key>NSHealthUpdateUsageDescription</key>
-	<string>FightCamp Wizard does not currently write data to Apple Health; this entry is required by Apple because the HealthKit framework includes write APIs even when only read access is used.</string>
+	<string>FightCamp Wizard uses the camera so you can photograph your food for instant AI nutrition analysis. For example, snap a plate of chicken and rice and the app estimates its calories and macros. You can also scan a product barcode to look up its nutrition, capture photos or videos of your training sessions to attach to your log, and take a profile picture.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>FightCamp Wizard needs access to your microphone to allow you to log food and training notes via voice dictation.</string>
+	<string>FightCamp Wizard uses the microphone for voice dictation so you can speak instead of type. For example, describe a meal out loud to log it, dictate the techniques and reflections from a training session, or talk to the AI recovery coach.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>FightCamp Wizard needs access to save photos to your library.</string>
+	<string>FightCamp Wizard saves images to your photo library when you choose to download a generated share card. For example, saving your weigh-in or walkout result card so you can keep it or post it to social media.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>FightCamp Wizard needs access to your photo library to let you upload a profile picture.</string>
+	<string>FightCamp Wizard accesses your photo library so you can choose existing photos instead of taking a new one. For example, selecting a meal photo for AI nutrition analysis, attaching photos or videos to a training session log, picking a profile picture, or adding an image to a community post.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>FightCamp Wizard uses speech recognition to convert your voice into session notes.</string>
+	<string>FightCamp Wizard uses speech recognition to convert what you say into text. For example, turning a spoken description of your meal or a dictated training session reflection into written notes you can review and edit.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

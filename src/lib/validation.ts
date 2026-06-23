@@ -30,7 +30,11 @@ export const fightWeekLogSchema = z.object({
 
 // Profile validation schema
 export const profileSchema = z.object({
-  age: z.number().int().positive("Age must be positive").min(13, "Must be at least 13 years old").max(120, "Invalid age"),
+  // App Store compliance (17+ hard age gate): weight-cutting guidance
+  // involves dehydration and calorie restriction that is not safe to coach
+  // for minors. The onboarding flow also enforces this inline before any
+  // plan can generate; this schema is the server-bound backstop.
+  age: z.number().int().positive("Age must be positive").min(17, "You must be 17 or older to use FightCamp Wizard").max(120, "Invalid age"),
   height_cm: z.number().positive("Height must be positive").min(100, "Height too short").max(250, "Height too tall"),
   current_weight_kg: z.number().positive("Weight must be positive").min(30, "Weight must be at least 30kg").max(250, "Weight must be less than 250kg"),
   goal_weight_kg: z.number().positive("Goal weight must be positive").min(30).max(250),

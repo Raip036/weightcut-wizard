@@ -333,9 +333,9 @@ export default function GymTracker() {
 
   const todayLabel = new Date().toLocaleDateString("en-US", { weekday: "long" });
 
-  const weeklyVolume = analytics.weeklyVolumes.length > 0
-    ? analytics.weeklyVolumes[analytics.weeklyVolumes.length - 1].volume
-    : 0;
+  // Current-week volume (Monday-anchored, 0 when no sessions this week) —
+  // kept consistent with the "This Week" session count and "Avg Duration".
+  const weeklyVolume = analytics.weekVolume;
   // formatVol lifted to module scope above
 
   return (

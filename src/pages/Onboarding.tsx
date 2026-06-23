@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { InlinePlanDisplay } from "@/components/onboarding/InlinePlanDisplay";
 import { WizardPlanForgeOverlay } from "@/components/onboarding/WizardPlanForgeOverlay";
+import { AgeGateBlock } from "@/components/onboarding/AgeGateBlock";
+import { SafetyAcknowledgement } from "@/components/onboarding/SafetyAcknowledgement";
 import { profileSchema } from "@/lib/validation";
 import { celebrateSuccess, triggerHaptic, triggerHapticSelection } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
@@ -28,6 +30,28 @@ import { XPProgressBar, DaysToFightSlam, WeightLossSlam, LossFrameCard, Declarat
 import { WizardAuroraBackground } from "@/components/onboarding/WizardAuroraBackground";
 import { OnboardingWizardMascot } from "@/components/onboarding/wizard/OnboardingWizardMascot";
 import { ReminderStep } from "@/components/onboarding/wizard/ReminderStep";
+
+// App Store compliance: hard age floor (17+). Weight-cut guidance involves
+// dehydration and calorie restriction unsafe to coach for minors. Mirrors the
+// 17 floor in src/lib/validation.ts profileSchema.
+const MIN_AGE = 17;
+
+/**
+ * Age-gate classifier for the onboarding age field.
+ *  - "empty"     → blank or not a real number (block, no error shown yet)
+ *  - "underage"  → a real number < MIN_AGE (block + show inline error)
+ *  - "ok"        → a real number ≥ MIN_AGE (allow)
+ * Replaces the old silent `|| 25` fallback so a blank/invalid age can never
+ * quietly pass the gate as 25.
+ */
+function classifyAge(raw: string): "empty" | "underage" | "ok" {
+  const trimmed = raw.trim();
+  if (!trimmed) return "empty";
+  const n = parseInt(trimmed, 10);
+  if (!Number.isFinite(n) || n <= 0) return "empty";
+  if (n < MIN_AGE) return "underage";
+  return "ok";
+}
 
 const ACTIVITY_MULTIPLIERS: Record<string, number> = {
   sedentary: 1.2,
@@ -264,7 +288,7 @@ export default function Onboarding() {
   const [searchParams] = useSearchParams();
   const isRestartingCamp = searchParams.get("startCamp") === "1";
   const { refreshProfile, setUserName } = useProfile();
-  const { hasProfile, isLoading: authLoading, isCoach } = useAuth();
+  const { hasProfile, isLoading: authLoading, isCoach, signOut } = useAuth();
   const { userId, userName } = useUser();
   const { toast } = useToast();
   const generateCutPlanAction = useAction(api.actions.generateCutPlan.run);
@@ -658,6 +682,39 @@ export default function Onboarding() {
   // user to hold-to-commit. Once declared, normal final-step content renders.
   const [declared, setDeclared] = useState(false);
 
+  // ── App Store compliance: 17+ hard age gate ──────────────────────────
+  // `ageGateBlocked` flips true when a user whose entered age is a real
+  // number < MIN_AGE tries to advance past the age step. It renders the
+  // full-screen AgeGateBlock with no path forward into plan generation.
+  const [ageGateBlocked, setAgeGateBlocked] = useState(false);
+  // Required safety acknowledgement; the FINAL "Generate plan" action is
+  // blocked until the user actively ticks this.
+  const [safetyAcknowledged, setSafetyAcknowledged] = useState(false);
+
+  // Derived age classification for the age step's inline error + Continue gate.
+  const ageStatus = classifyAge(formData.age);
+
+  // Age step's Continue handler. Empty/invalid age never advances; a real
+  // underage value trips the full-screen hard-stop instead of advancing.
+  const handleAgeContinue = useCallback(() => {
+    const status = classifyAge(formData.age);
+    if (status === "ok") {
+      goNext();
+      return;
+    }
+    if (status === "underage") {
+      triggerHaptic(ImpactStyle.Heavy);
+      setAgeGateBlocked(true);
+    }
+    // "empty" → do nothing; Continue is already disabled for it.
+  }, [formData.age, goNext]);
+
+  // AgeGateBlock "Sign out": fire-and-forget; the app's auth state change
+  // tears down onboarding and routes to the auth screen.
+  const handleAgeGateSignOut = useCallback(() => {
+    void signOut();
+  }, [signOut]);
+
   // ── Submit ──
   const handleSubmit = async () => {
     // Pin the user on the onboarding screen for the entire submit run
@@ -667,21 +724,28 @@ export default function Onboarding() {
     // flip `hasProfile` true, which would otherwise yank the user to
     // the dashboard mid-flight.
     setStayOnOnboarding(true);
-    // Quick age/sex prompt: we collect these minimally at submit time
-    // since they don't need their own screen (low friction)
-    if (!formData.age || !formData.sex) {
-      // Default age 25, sex male if not set; user can change in settings later
-      setFormData(prev => ({
-        ...prev,
-        age: prev.age || "25",
-        sex: prev.sex || "male",
-      }));
+
+    // App Store compliance backstop: the age step already gates this inline,
+    // but re-assert here so a blank/underage value can NEVER reach plan
+    // generation. No silent `|| 25` fallback: an empty or <17 age hard-stops.
+    const ageStatusAtSubmit = classifyAge(formData.age);
+    if (ageStatusAtSubmit !== "ok") {
+      setStayOnOnboarding(false);
+      if (ageStatusAtSubmit === "underage") setAgeGateBlocked(true);
+      else toast({ variant: "destructive", title: "Enter your age", description: "We need your age to build a safe plan." });
+      return;
+    }
+    // Default sex to male if somehow unset (it always has a default, but keep
+    // the guard cheap). Age is never defaulted — it's a hard gate.
+    if (!formData.sex) {
+      setFormData(prev => ({ ...prev, sex: prev.sex || "male" }));
     }
 
+    const ageNum = parseInt(formData.age, 10);
     const activityLevel = deriveActivityLevel(formData.training_frequency);
 
     const validationResult = profileSchema.safeParse({
-      age: parseInt(formData.age || "25"),
+      age: ageNum,
       height_cm: parseFloat(formData.height_cm),
       current_weight_kg: parseFloat(formData.current_weight_kg),
       goal_weight_kg: parseFloat(formData.goal_weight_kg),
@@ -720,7 +784,7 @@ export default function Onboarding() {
       //    callback already inserted a placeholder profile row; this is the
       //    first authoritative write of the user's onboarding answers.
       await updateGoalsMut({
-        age: parseInt(formData.age || "25"),
+        age: ageNum,
         sex: formData.sex || "male",
         heightCm: parseFloat(formData.height_cm),
         currentWeightKg: parseFloat(formData.current_weight_kg),
@@ -798,7 +862,7 @@ export default function Onboarding() {
                 goalWeight: parseFloat(formData.goal_weight_kg),
                 fightWeekTargetKg: parseFloat(formData.fight_week_target_kg),
                 targetDate: formData.target_date,
-                age: parseInt(formData.age || "25"),
+                age: ageNum,
                 sex: (formData.sex === "female" ? "female" : "male") as "male" | "female",
                 heightCm: parseFloat(formData.height_cm),
                 activityLevel,
@@ -843,7 +907,7 @@ export default function Onboarding() {
                 currentWeight: parseFloat(formData.current_weight_kg),
                 goalWeight: parseFloat(formData.goal_weight_kg),
                 targetDate: derivedTargetDate,
-                age: parseInt(formData.age || "25"),
+                age: ageNum,
                 sex: (formData.sex === "female" ? "female" : "male") as "male" | "female",
                 heightCm: parseFloat(formData.height_cm),
                 activityLevel,
@@ -1057,6 +1121,25 @@ export default function Onboarding() {
   // "hasProfile → render nothing" black-screen trap.
   if (authLoading || isCoach) return null;
   if (hasProfile && !stayOnOnboarding && !isRestartingCamp) return null;
+
+  // App Store compliance: 17+ hard-stop. Once tripped, this full-screen
+  // block is the ONLY thing rendered — no path forward into plan generation.
+  // "Go back" returns to the age step (clearing the bad value so they can fix
+  // a typo); "Sign out" ends the session.
+  if (ageGateBlocked) {
+    return (
+      <AgeGateBlock
+        onGoBack={() => {
+          setAgeGateBlocked(false);
+          setFormData(prev => ({ ...prev, age: "" }));
+          const ageStep = isFighterFlow ? F.AGE : L.AGE;
+          setDirection(-1);
+          setStep(ageStep);
+        }}
+        onSignOut={handleAgeGateSignOut}
+      />
+    );
+  }
 
   // ── Render screens ──
   return (
@@ -1630,7 +1713,7 @@ export default function Onboarding() {
         {/* ── Age + Sex (cutting F.AGE=5 / losing L.AGE=5) ── */}
         {((step === F.AGE && formData.goal_type === "cutting") || (step === L.AGE && formData.goal_type === "losing")) && (
           <StepLayout step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="How old are you?" subtitle="We'll use this to dial in your metabolic rate."
-            footer={<Button onClick={goNext} disabled={!formData.age}
+            footer={<Button onClick={handleAgeContinue} disabled={ageStatus === "empty"}
               className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
           >
             <div className="flex flex-col items-center pt-8 gap-8">
@@ -1640,17 +1723,28 @@ export default function Onboarding() {
                   initial={{ opacity: 0, y: 12, scale: 0.9 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   transition={{ duration: 0.2, ease: "easeOut" }}
-                  className="text-6xl font-bold tabular-nums text-foreground inline-block"
+                  className={`text-6xl font-bold tabular-nums inline-block ${ageStatus === "underage" ? "text-func-danger-red" : "text-foreground"}`}
                 >
                   {formData.age || "-"}
                 </motion.span>
                 <span className="text-lg text-muted-foreground ml-2">years</span>
               </div>
-              <Input type="number" inputMode="numeric" placeholder="e.g. 25"
-                value={formData.age}
-                onChange={e => setFormData(prev => ({ ...prev, age: e.target.value }))}
-                className="h-14 rounded-xs bg-card border-border/50 text-center text-xl font-semibold max-w-[200px]"
-                autoFocus />
+              <div className="w-full flex flex-col items-center gap-2">
+                <Input type="number" inputMode="numeric" placeholder="e.g. 25"
+                  value={formData.age}
+                  onChange={e => setFormData(prev => ({ ...prev, age: e.target.value }))}
+                  onKeyDown={e => { if (e.key === "Enter" && ageStatus !== "empty") { e.preventDefault(); handleAgeContinue(); } }}
+                  className={`h-14 rounded-xs bg-card text-center text-xl font-semibold max-w-[200px] ${ageStatus === "underage" ? "border-func-danger-red focus-visible:ring-func-danger-red/40" : "border-border/50"}`}
+                  autoFocus />
+                {/* App Store compliance: inline 17+ error. Blocks the Continue
+                    button (disabled handles "empty"; underage is allowed to
+                    press, which trips the full-screen AgeGateBlock). */}
+                {ageStatus === "underage" && (
+                  <p className="text-[12px] font-medium text-func-danger-red text-center max-w-[240px] leading-snug">
+                    You must be 17 or older
+                  </p>
+                )}
+              </div>
               <div className="w-full max-w-[240px] space-y-1.5">
                 <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-center block">Sex</label>
                 <div className="flex gap-2">
@@ -1934,11 +2028,8 @@ export default function Onboarding() {
         )}
 
         {/* ── Adaptive Reminders (cutting F.REMINDERS / losing L.REMINDERS) ──
-            The Apple Health connect step that used to precede this was
-            removed 2026-06-22; users are treated as having skipped it and
-            can connect from Settings. The step body owns its own action
-            buttons (primary + secondary) so no StepLayout footer is
-            needed. */}
+            The step body owns its own action buttons (primary + secondary)
+            so no StepLayout footer is needed. */}
         {((step === F.REMINDERS && isFighterFlow) || (step === L.REMINDERS && !isFighterFlow)) && (
           <StepLayout
             step={step}
@@ -2110,8 +2201,16 @@ export default function Onboarding() {
                   weeks={parseInt(formData.target_weeks) || undefined}
                 />
               ) : (
-                <Button onClick={goNext} disabled={loading}
-                  className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Generate plan</Button>
+                <div className="space-y-3">
+                  {/* App Store compliance: mandatory safety acknowledgement,
+                      required before the FIRST plan can generate. */}
+                  <SafetyAcknowledgement
+                    checked={safetyAcknowledged}
+                    onCheckedChange={setSafetyAcknowledged}
+                  />
+                  <Button onClick={goNext} disabled={loading || !safetyAcknowledged}
+                    className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Generate plan</Button>
+                </div>
               )
             }
           >
@@ -2250,10 +2349,18 @@ export default function Onboarding() {
                     targetDate={formData.target_date}
                   />
                 ) : (
-                  <Button onClick={goNext} disabled={loading || !validInputs}
-                    className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">
-                    Generate plan
-                  </Button>
+                  <div className="space-y-3">
+                    {/* App Store compliance: mandatory safety acknowledgement,
+                        required before the FIRST plan can generate. */}
+                    <SafetyAcknowledgement
+                      checked={safetyAcknowledged}
+                      onCheckedChange={setSafetyAcknowledged}
+                    />
+                    <Button onClick={goNext} disabled={loading || !validInputs || !safetyAcknowledged}
+                      className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">
+                      Generate plan
+                    </Button>
+                  </div>
                 )
               }
             >

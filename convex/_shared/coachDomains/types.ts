@@ -50,9 +50,6 @@ export interface FightScoreSlice {
 
 export interface RecoverySlice {
   readiness?: number;
-  hrv?: number;
-  rhr?: number;
-  hrvSeries?: { x: string; y: number }[];
 }
 
 export interface SleepSlice {

@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { startOfWeek, format } from "date-fns";
 import { useConvex } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import type { Id } from "@/../convex/_generated/dataModel";
@@ -42,6 +43,8 @@ interface GymAnalyticsData {
   muscleDistribution: MuscleDistribution[];
   sessionsThisWeek: number;
   avgDuration: number;
+  /** Total training volume (kg) for the CURRENT week only — 0 when no sessions this week. */
+  weekVolume: number;
   totalSessions: number;
   mostTrainedMuscle: string;
 }
@@ -58,18 +61,22 @@ export function useGymAnalytics(history: SessionWithSets[]) {
         muscleDistribution: [],
         sessionsThisWeek: 0,
         avgDuration: 0,
+        weekVolume: 0,
         totalSessions: 0,
         mostTrainedMuscle: "-",
       };
     }
 
-    // Weekly volume
+    // Monday-anchored start of the current week (yyyy-MM-dd), matching the
+    // app-wide convention (date-fns weekStartsOn: 1). session.date is a
+    // "YYYY-MM-DD" string, so a lexicographic >= comparison is timezone-safe.
+    const weekStartIso = format(startOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
+
+    // Weekly volume (Monday-bucketed) — feeds the multi-week Weekly Overview chart.
     const weekMap = new Map<string, { volume: number; sessions: number }>();
     for (const session of history) {
       const date = new Date(session.date);
-      const weekStart = new Date(date);
-      weekStart.setDate(date.getDate() - date.getDay());
-      const weekKey = weekStart.toISOString().split("T")[0];
+      const weekKey = format(startOfWeek(date, { weekStartsOn: 1 }), "yyyy-MM-dd");
 
       const existing = weekMap.get(weekKey) || { volume: 0, sessions: 0 };
       existing.volume += session.totalVolume;
@@ -104,18 +111,18 @@ export function useGymAnalytics(history: SessionWithSets[]) {
       }))
       .sort((a, b) => b.setCount - a.setCount);
 
-    // Sessions this week
-    const now = new Date();
-    const weekStartDate = new Date(now);
-    weekStartDate.setDate(now.getDate() - now.getDay());
-    weekStartDate.setHours(0, 0, 0, 0);
-    const sessionsThisWeek = history.filter(s => new Date(s.date) >= weekStartDate).length;
+    // Current-week sessions — the single window all three top-row stats use.
+    const thisWeekSessions = history.filter(s => (s.date ?? "").slice(0, 10) >= weekStartIso);
+    const sessionsThisWeek = thisWeekSessions.length;
 
-    // Avg duration
-    const withDuration = history.filter(s => s.duration_minutes);
+    // Avg duration — averaged over THIS WEEK's sessions only (0 when none).
+    const withDuration = thisWeekSessions.filter(s => s.duration_minutes);
     const avgDuration = withDuration.length > 0
       ? Math.round(withDuration.reduce((sum, s) => sum + (s.duration_minutes || 0), 0) / withDuration.length)
       : 0;
+
+    // Week volume — sum of THIS WEEK's session volumes (0 when none).
+    const weekVolume = thisWeekSessions.reduce((sum, s) => sum + (s.totalVolume || 0), 0);
 
     const mostTrainedMuscle = muscleDistribution.length > 0
       ? muscleDistribution[0].muscleGroup
@@ -126,6 +133,7 @@ export function useGymAnalytics(history: SessionWithSets[]) {
       muscleDistribution,
       sessionsThisWeek,
       avgDuration,
+      weekVolume,
       totalSessions: history.length,
       mostTrainedMuscle,
     };

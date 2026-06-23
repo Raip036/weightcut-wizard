@@ -561,7 +561,12 @@ export function buildFightPlanSkeleton(
   d: DerivedInputs,
   effectiveApproach: Approach,
 ): FightPlanSkeleton {
-  const horizon = Math.min(14, Math.max(1, d.daysToWeighIn));
+  // The water-loading / cut window is ALWAYS the final 7 days up to weigh-in,
+  // regardless of how far out the athlete currently is — most fighters only
+  // start manipulating ~7 days out, and anything earlier is overkill. So we
+  // cap the horizon at 7 (T-7 .. weigh-in = 8 cards). If the athlete is already
+  // inside 7 days, daysToWeighIn naturally produces a shorter window.
+  const horizon = Math.min(7, Math.max(1, d.daysToWeighIn));
   const scale = d.currentWeightKg > 0 ? d.currentWeightKg / 75 : 1;
   const days: FightPlanDaySkeleton[] = [];
 

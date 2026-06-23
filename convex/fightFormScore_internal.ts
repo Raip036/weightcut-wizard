@@ -2,115 +2,6 @@ import { v } from "convex/values";
 import { internalQuery, internalMutation } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { CURRENT_CONFIG } from "../src/scoring/config";
-import type { HealthSignal, HealthSignals, ScoringInputSources } from "../src/scoring/types";
-
-/**
- * Metric strings written by `internal.health.computeBaselines` (spec §5.1).
- * Centralised here so a typo can't silently produce a null baseline.
- */
-const HEALTH_METRIC = {
-  hrv: "hrv_sdnn",
-  restingHr: "resting_hr",
-  sleepTotal: "sleep_total",
-  sleepEfficiency: "sleep_efficiency",
-  wristTempDelta: "wrist_temp_delta",
-  vo2Max: "vo2_max",
-} as const;
-
-/**
- * Confidence floor based on how many days of history backed the baseline.
- * Mirrors the tier thresholds in spec §6: ≥7 days → full confidence,
- * 3–6 days → partial, <3 days → unknown baseline (we still surface the
- * raw value but flag z as null so the engine doesn't react).
- */
-function confidenceForSampleCount(sampleCount: number): number {
-  if (sampleCount >= 7) return 1.0;
-  if (sampleCount >= 3) return 0.6;
-  if (sampleCount >= 1) return 0.3;
-  return 0.0;
-}
-
-/**
- * Compose a `HealthSignal` from today's value + the matching baseline row.
- * Clips deviationZ to [-3, 3] (the engine assumes clipped z) and degrades
- * gracefully when either operand is missing.
- *
- * For wrist-temp delta we treat `value` as the deviation itself (HealthKit
- * pre-computes it against the user's 30-day baseline) — pass `treatValueAsDeviation`
- * to skip the baseline-vs-value subtraction.
- */
-function buildSignal(
-  value: number | null | undefined,
-  baseline: { rolling14dMean: number; rolling14dStdDev: number; sampleCount: number } | null,
-  options: { treatValueAsDeviation?: boolean } = {},
-): HealthSignal {
-  if (value === null || value === undefined) {
-    return { value: null, baseline: null, deviationZ: null, confidence: 0 };
-  }
-
-  // Wrist temp: value IS the deviation, baseline is 0 by definition.
-  if (options.treatValueAsDeviation) {
-    return {
-      value,
-      baseline: 0,
-      deviationZ: Math.max(-3, Math.min(3, value)),
-      // Wrist temp has no rolling baseline (HealthKit owns it); trust the
-      // sample directly with full confidence whenever a value exists.
-      confidence: 1.0,
-    };
-  }
-
-  if (!baseline || baseline.rolling14dStdDev <= 0) {
-    return {
-      value,
-      baseline: baseline?.rolling14dMean ?? null,
-      deviationZ: null,
-      confidence: confidenceForSampleCount(baseline?.sampleCount ?? 0),
-    };
-  }
-
-  const rawZ = (value - baseline.rolling14dMean) / baseline.rolling14dStdDev;
-  return {
-    value,
-    baseline: baseline.rolling14dMean,
-    deviationZ: Math.max(-3, Math.min(3, rawZ)),
-    confidence: confidenceForSampleCount(baseline.sampleCount),
-  };
-}
-
-/**
- * Build the full `HealthSignals` bundle for a given user/date. Returns
- * `null` when the user has no `daily_health_summary` row for the target
- * date — the engine then falls back to the pre-HealthKit self-report
- * path and behaviour is identical to today.
- */
-type BaselineRow = {
-  rolling14dMean: number;
-  rolling14dStdDev: number;
-  sampleCount: number;
-};
-
-function assembleHealthSignals(
-  summary: {
-    hrvAvgMs?: number;
-    restingHrBpm?: number;
-    sleepMinutes?: number;
-    sleepEfficiencyPct?: number;
-    wristTempDeltaC?: number;
-    vo2Max?: number;
-  } | null,
-  baselineByMetric: Map<string, BaselineRow>,
-): HealthSignals | null {
-  if (summary === null) return null;
-  return {
-    hrv: buildSignal(summary.hrvAvgMs ?? null, baselineByMetric.get(HEALTH_METRIC.hrv) ?? null),
-    restingHr: buildSignal(summary.restingHrBpm ?? null, baselineByMetric.get(HEALTH_METRIC.restingHr) ?? null),
-    sleepMinutes: buildSignal(summary.sleepMinutes ?? null, baselineByMetric.get(HEALTH_METRIC.sleepTotal) ?? null),
-    sleepEfficiency: buildSignal(summary.sleepEfficiencyPct ?? null, baselineByMetric.get(HEALTH_METRIC.sleepEfficiency) ?? null),
-    wristTempDelta: buildSignal(summary.wristTempDeltaC ?? null, null, { treatValueAsDeviation: true }),
-    vo2Max: buildSignal(summary.vo2Max ?? null, baselineByMetric.get(HEALTH_METRIC.vo2Max) ?? null),
-  };
-}
 
 export const fetchScoringInputs = internalQuery({
   args: { userId: v.id("users"), date: v.string() },
@@ -149,53 +40,6 @@ export const fetchScoringInputs = internalQuery({
       .withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", lookbackStartIso))
       .collect();
 
-    // HealthKit-derived signals (Agent B owns these tables).
-    // We fetch the FULL lookback window of `daily_health_summary` rows
-    // (not just the target date) because sleep / body-mass values from
-    // HealthKit need to win over manual logs on a *per-date* basis, not
-    // only for today. The single row for the target date is then pulled
-    // out for `assembleHealthSignals` (which still drives recovery).
-    const healthSummaryRows = await ctx.db
-      .query("daily_health_summary")
-      .withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", lookbackStartIso))
-      .collect();
-    const healthSummaryRow = healthSummaryRows.find((r) => r.date === date) ?? null;
-    const healthBaselineRows = await ctx.db
-      .query("health_baselines")
-      .withIndex("by_user_metric", (q) => q.eq("userId", userId))
-      .collect();
-    const baselineByMetric = new Map<string, BaselineRow>();
-    for (const row of healthBaselineRows) {
-      baselineByMetric.set(row.metric, {
-        rolling14dMean: row.rolling14dMean,
-        rolling14dStdDev: row.rolling14dStdDev,
-        sampleCount: row.sampleCount,
-      });
-    }
-    const healthSignals = assembleHealthSignals(
-      healthSummaryRow
-        ? {
-            hrvAvgMs: healthSummaryRow.hrvAvgMs,
-            restingHrBpm: healthSummaryRow.restingHrBpm,
-            sleepMinutes: healthSummaryRow.sleepMinutes,
-            sleepEfficiencyPct: healthSummaryRow.sleepEfficiencyPct,
-            wristTempDeltaC: healthSummaryRow.wristTempDeltaC,
-            vo2Max: healthSummaryRow.vo2Max,
-          }
-        : null,
-      baselineByMetric,
-    );
-
-    // Self-report soreness/energy from the morning check-in for the
-    // target date — augments (not replaces) the HealthKit signals.
-    const todayCheckIn = wellness.find((w) => w.date === date);
-    const selfReportRecovery = todayCheckIn
-      ? {
-          // `sorenessLevel` is on a 1..10 scale; `energyLevel` likewise.
-          soreness: todayCheckIn.sorenessLevel ?? null,
-          energy: todayCheckIn.energyLevel ?? null,
-        }
-      : null;
     const meals = await ctx.db
       .query("meals")
       .withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", lookbackStartIso))
@@ -248,73 +92,24 @@ export const fetchScoringInputs = internalQuery({
       .filter((r) => r.appliedCeiling != null)
       .map((r) => ({ date: r.date, ruleId: r.appliedCeiling!.ruleId, cap: r.appliedCeiling!.cap }));
 
-    // HealthKit precedence: per-date overrides for sleep hours + body
-    // mass. When `daily_health_summary` has a usable value for a given
-    // date, it WINS over the matching manual `sleep_logs` / `weight_logs`
-    // row — manual is the fallback. We guard on `> 0` (not just non-null)
-    // because the roll-up can write a 0 for "no samples that day" and
-    // we don't want a phantom 0h sleep / 0kg weigh-in to clobber a real
-    // manual entry. The `sources` map records which source the engine
-    // ended up consuming per date for downstream debugging / UI badges.
-    const healthSleepByDate = new Map<string, number>();   // date -> hours
-    const healthWeightByDate = new Map<string, number>();  // date -> kg
-    for (const row of healthSummaryRows) {
-      if (row.sleepMinutes != null && row.sleepMinutes > 0) {
-        healthSleepByDate.set(row.date, row.sleepMinutes / 60);
-      }
-      if (row.bodyMassKg != null && row.bodyMassKg > 0) {
-        healthWeightByDate.set(row.date, row.bodyMassKg);
-      }
-    }
-
-    const sleepDatesUnion = new Set<string>([
-      ...sleep.map((s) => s.date),
-      ...healthSleepByDate.keys(),
-    ]);
-    const sleepHoursByDateSource: Record<string, "healthkit" | "manual"> = {};
-    const mergedSleep: Array<{ date: string; hours: number }> = [];
-    for (const d of sleepDatesUnion) {
-      const hk = healthSleepByDate.get(d);
-      if (hk != null) {
-        mergedSleep.push({ date: d, hours: hk });
-        sleepHoursByDateSource[d] = "healthkit";
-      } else {
-        const manual = sleep.find((s) => s.date === d);
-        if (manual) {
-          mergedSleep.push({ date: d, hours: manual.hours });
-          sleepHoursByDateSource[d] = "manual";
-        }
-      }
-    }
-
-    const weightDatesUnion = new Set<string>([
-      ...weights.map((w) => w.date),
-      ...healthWeightByDate.keys(),
-    ]);
-    const weightsByDateSource: Record<string, "healthkit" | "manual"> = {};
-    const mergedWeights: Array<{ date: string; weightKg: number }> = [];
-    for (const d of weightDatesUnion) {
-      const hk = healthWeightByDate.get(d);
-      if (hk != null) {
-        mergedWeights.push({ date: d, weightKg: hk });
-        weightsByDateSource[d] = "healthkit";
-      } else {
-        const manual = weights.find((w) => w.date === d);
-        if (manual) {
-          mergedWeights.push({ date: d, weightKg: manual.weightKg });
-          weightsByDateSource[d] = "manual";
-        }
-      }
-    }
+    // Sleep + weight come solely from the manual `sleep_logs` / `weight_logs`
+    // tables (Apple HealthKit was removed — App Store Guideline 2.5.1).
+    const mergedSleep: Array<{ date: string; hours: number }> = sleep.map((s) => ({
+      date: s.date,
+      hours: s.hours,
+    }));
+    const mergedWeights: Array<{ date: string; weightKg: number }> = weights.map((w) => ({
+      date: w.date,
+      weightKg: w.weightKg,
+    }));
 
     // "Forgot to log sleep" rescue: if the user has no sleep entry for
-    // the target date (HK or manual) but logged a meaningful training
-    // session that day (≥ N minutes, where N is tunable in
-    // ScoringConfig), inject a default sleep entry so the score isn't
-    // penalised for a missing log. The assumption is NOT written to
-    // `sleep_logs` — when the user later enters their real hours, the
-    // standard upsert + scheduled recompute (see convex/sleep_logs.ts)
-    // overrides the assumption cleanly.
+    // the target date but logged a meaningful training session that day
+    // (≥ N minutes, where N is tunable in ScoringConfig), inject a default
+    // sleep entry so the score isn't penalised for a missing log. The
+    // assumption is NOT written to `sleep_logs` — when the user later
+    // enters their real hours, the standard upsert + scheduled recompute
+    // (see convex/sleep_logs.ts) overrides the assumption cleanly.
     const minDuration = CURRENT_CONFIG.sleep.minTrainingDurationForAssumption;
     const hasSleepForTargetDate = mergedSleep.some((s) => s.date === date);
     const meaningfulGym = sessions.some(
@@ -335,20 +130,7 @@ export const fetchScoringInputs = internalQuery({
     if (!hasSleepForTargetDate && trainedToday) {
       sleepLogsForScoring.push({ date, hours: CURRENT_CONFIG.sleep.defaultAssumedHours });
       assumedSleepDates.push(date);
-      // Assumed entries are server-injected, not from any user source;
-      // bucket them under 'manual' so the UI doesn't claim "from Apple
-      // Health" for a fallback we generated.
-      sleepHoursByDateSource[date] = "manual";
     }
-
-    const sortedMergedWeights = [...mergedWeights].sort((a, b) => a.date.localeCompare(b.date));
-    const latestMergedWeight = sortedMergedWeights[sortedMergedWeights.length - 1] ?? null;
-    const sources: ScoringInputSources = {
-      sleepHoursByDate: sleepHoursByDateSource,
-      weightsByDate: weightsByDateSource,
-      weightLatest: latestMergedWeight ? weightsByDateSource[latestMergedWeight.date] ?? "manual" : null,
-      sleepHoursTargetDate: sleepHoursByDateSource[date] ?? null,
-    };
 
     // Explicitly-marked rest days within the lookback window. Reuses the
     // `calendarEntries` fetch above (also used by the assumed-sleep rescue)
@@ -382,7 +164,6 @@ export const fetchScoringInputs = internalQuery({
       weights: mergedWeights,
       sleepHours: sleepLogsForScoring,
       assumedSleepDates,
-      sources,
       // gym_sessions has no session-level `rpe`; use `perceivedFatigue` as proxy.
       sessions: sessions
         .filter((s) => s.durationMinutes != null && s.perceivedFatigue != null)
@@ -395,8 +176,6 @@ export const fetchScoringInputs = internalQuery({
       priorRawScores: priorRaw.map((p) => ({ date: p.date, rawScore: p.rawScore })),
       priorCeilings,
       markedSkips,
-      healthSignals,
-      selfReportRecovery,
     };
   },
 });

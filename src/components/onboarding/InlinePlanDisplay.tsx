@@ -40,6 +40,7 @@ import { AnimatedNumber } from "@/components/motion";
 import { triggerHaptic } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
 import { macroCycle, type TrainingDay } from "@/../convex/_shared/math";
+import { MedicalDisclaimerBanner } from "@/components/protocol/MedicalDisclaimerBanner";
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -1078,6 +1079,12 @@ export function InlinePlanDisplay({
       transition={{ duration: 0.4, ease: [0.32, 0.72, 0, 1] }}
       className="w-full pb-24"
     >
+      {/* MEDICAL DISCLAIMER (App Store Guideline 1.4.1): persistent amber notice
+          shown for EVERY plan, at the top of the plan view. Renders in both the
+          onboarding plan preview and the standalone CutPlanReview screen (both
+          mount this component). */}
+      <MedicalDisclaimerBanner variant="banner" className="mb-3" />
+
       {/* HERO CARD: camp name + kicker + count-up ring, in a premium
           card-surface card with a top accent stripe and a blue glow halo
           behind the ring (mirrors the Recovery readiness hero). */}
@@ -1161,6 +1168,12 @@ export function InlinePlanDisplay({
           }
           maintenanceCalories={planData.maintenanceCalories}
         />
+      )}
+
+      {/* Compact stop-immediately notice under the fight-week cut protocol,
+          where dehydration / heat work lives. */}
+      {!isWeightLoss && planData.fightWeekDays && planData.fightWeekDays.length > 0 && (
+        <MedicalDisclaimerBanner variant="compact" className="mt-3" />
       )}
 
       {/* PLAN RULES: editorial glass card */}

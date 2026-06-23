@@ -16,8 +16,8 @@
  *   training_load → fight_camp_calendar (by_user_date)
  *   nutrition     → meals + meal_items (by_user_date / by_meal), profiles (targets)
  *   fight_score   → fight_form_scores (by_user_date, latest)
- *   recovery      → daily_health_summary (by_user_date), daily_wellness_checkins (readiness)
- *   sleep         → daily_health_summary (by_user_date), sleep_logs (fallback)
+ *   recovery      → daily_wellness_checkins (readiness)
+ *   sleep         → sleep_logs
  */
 import { v } from "convex/values";
 import { internalQuery } from "./_generated/server";
@@ -321,36 +321,15 @@ async function buildFightScore(
 }
 
 // ───────────────────────────────────────────────────────────────────────
-// recovery — latest readiness/HRV/RHR + ~14-day HRV series.
-// HRV/RHR come from daily_health_summary (HealthKit roll-up); readiness is
-// the self-reported readinessScore from daily_wellness_checkins. All optional.
+// recovery — latest self-reported readiness.
+// Sourced solely from the wellness check-in (Apple HealthKit was removed —
+// App Store Guideline 2.5.1), so HRV/RHR/HRV-series are no longer surfaced.
 // ───────────────────────────────────────────────────────────────────────
 async function buildRecovery(
   ctx: QueryCtx,
   userId: Id<"users">,
 ): Promise<RecoverySlice> {
-  const summaries = await ctx.db
-    .query("daily_health_summary")
-    .withIndex("by_user_date", (q) => q.eq("userId", userId))
-    .order("desc")
-    .take(14);
-
   const slice: RecoverySlice = {};
-
-  // Latest non-null HRV / RHR across the recent window (most recent first).
-  for (const s of summaries) {
-    if (slice.hrv === undefined && s.hrvAvgMs != null) slice.hrv = round0(s.hrvAvgMs);
-    if (slice.rhr === undefined && s.restingHrBpm != null)
-      slice.rhr = round0(s.restingHrBpm);
-    if (slice.hrv !== undefined && slice.rhr !== undefined) break;
-  }
-
-  // HRV series — oldest → newest, only days that actually have a value.
-  const hrvSeries = summaries
-    .filter((s) => s.hrvAvgMs != null)
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .map((s) => ({ x: toMmDd(s.date), y: round0(s.hrvAvgMs as number) }));
-  if (hrvSeries.length > 0) slice.hrvSeries = hrvSeries;
 
   // Readiness — latest self-reported readinessScore in the last ~14d.
   const checkins = await ctx.db
@@ -369,27 +348,16 @@ async function buildRecovery(
 
 // ───────────────────────────────────────────────────────────────────────
 // sleep — last-night hours, ~7-day avg + series.
-// Prefer daily_health_summary.sleepMinutes (HealthKit); fall back to the
-// self-reported sleep_logs.hours when HealthKit has no sleep data. All optional.
+// Sourced solely from the self-reported sleep_logs (Apple HealthKit was
+// removed — App Store Guideline 2.5.1). All optional.
 // ───────────────────────────────────────────────────────────────────────
 async function buildSleep(
   ctx: QueryCtx,
   userId: Id<"users">,
 ): Promise<SleepSlice> {
-  // hours-by-date over the last 7 days, merging both sources (HealthKit wins).
+  // hours-by-date over the last 7 days.
   const sevenDaysAgo = isoDaysAgo(7);
   const hoursByDate = new Map<string, number>();
-
-  const summaries = await ctx.db
-    .query("daily_health_summary")
-    .withIndex("by_user_date", (q) =>
-      q.eq("userId", userId).gte("date", sevenDaysAgo),
-    )
-    .take(14);
-  for (const s of summaries) {
-    if (s.sleepMinutes != null && s.sleepMinutes > 0)
-      hoursByDate.set(s.date, s.sleepMinutes / 60);
-  }
 
   const logs = await ctx.db
     .query("sleep_logs")

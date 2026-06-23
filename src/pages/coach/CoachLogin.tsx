@@ -21,6 +21,14 @@ import wizardLogo from "@/assets/wizard-logo-3d.png";
 const inputClass =
   "h-[50px] rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/40 text-foreground placeholder:text-muted-foreground/50 px-4 text-[16px] focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all";
 
+// App Store compliance (Guideline 2.1): the password-reset flow has no wired
+// backend yet (no Convex Password `reset:` handler + Resend sender is a
+// Phase-3 TODO that throws), so the entry point is hidden until it ships.
+// Mirrors PASSWORD_RESET_ENABLED in src/pages/Auth.tsx — flip to `true` to
+// re-enable once the email sender is wired. Reset UI/handlers below are left
+// intact (just unreachable).
+const PASSWORD_RESET_ENABLED = false;
+
 export default function CoachLogin() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
@@ -116,11 +124,21 @@ export default function CoachLogin() {
         const rawNonce = crypto.randomUUID();
         const hashBuf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(rawNonce));
         const hashedNonce = Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+        // Derive Convex callback URL from env so dev/staging/prod each
+        // point at their own deployment instead of a hardcoded value.
+        // Mirrors the fighter login (Auth.tsx) so both doors use the
+        // identical production callback. The matching URL must be
+        // registered on the Apple Developer console under the
+        // Sign-in-with-Apple Services ID.
+        const convexSiteUrl = import.meta.env.VITE_CONVEX_SITE_URL as string | undefined;
+        if (!convexSiteUrl) {
+          throw new Error("VITE_CONVEX_SITE_URL not set, cannot build Apple redirect URI");
+        }
+        const redirectURI = `${convexSiteUrl}/api/auth/callback/apple`;
         const { SignInWithApple } = await import("@capacitor-community/apple-sign-in");
         const result = await SignInWithApple.authorize({
           clientId: "com.weightcutwizard.app",
-          // Convex Auth's Apple callback (same as Auth.tsx).
-          redirectURI: "https://warmhearted-koala-322.eu-west-1.convex.site/api/auth/callback/apple",
+          redirectURI,
           scopes: "email",
           nonce: hashedNonce,
         });
@@ -239,7 +257,7 @@ export default function CoachLogin() {
 
           {/* Forms */}
           <div className="space-y-4">
-            {showForgot ? (
+            {PASSWORD_RESET_ENABLED && showForgot ? (
               <form onSubmit={handleForgot} className="space-y-3">
                 <Input type="email" placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} required className={inputClass} autoFocus />
                 <Button type="submit" disabled={loading} className="w-full h-[50px] rounded-xs bg-primary text-primary-foreground font-semibold text-[16px] active:scale-[0.98] transition-transform disabled:opacity-50">
@@ -285,7 +303,7 @@ export default function CoachLogin() {
           {/* Footer */}
           {!showForgot && (
             <div className="mt-8 space-y-3 text-center">
-              {isLogin && (
+              {PASSWORD_RESET_ENABLED && isLogin && (
                 <button type="button" onClick={() => setShowForgot(true)} className="text-sm text-muted-foreground">Forgot password?</button>
               )}
               <div>

@@ -218,7 +218,7 @@ export default function FightCampDetail() {
       ? Math.round((camp.starting_weight_kg - camp.end_weight_kg) * 10) / 10
       : null;
 
-  // Outcome chip: a soft Apple Health-style status. We don't have a true
+  // Outcome chip: a soft status. We don't have a true
   // win/loss field so we derive from completion + cut depth, "Strong finish"
   // when the cut hit a meaningful number, "Wrap-up pending" otherwise.
   const outcome = (() => {

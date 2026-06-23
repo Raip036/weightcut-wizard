@@ -332,7 +332,7 @@ Choose from EXACTLY these domain ids: ${ALL_DOMAINS.join(", ")}.
 - training_load: training volume, sessions, sparring, intensity, techniques drilled, what they are working on / struggling with
 - nutrition: food, calories, macros, meals
 - fight_score: overall readiness, "how am I doing", limiters
-- recovery: HRV, resting heart rate, soreness, fatigue
+- recovery: readiness, soreness, fatigue
 - sleep: sleep quantity / quality
 
 Return ONLY JSON: { "domains": string[] } with at most 3 ids, most relevant first.

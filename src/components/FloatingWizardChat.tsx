@@ -557,7 +557,7 @@ export function FloatingWizardChat() {
                   </button>
                 )}
 
-                {/* Header — Apple Health style with orb avatar (Pro only) */}
+                {/* Header — orb avatar (Pro only) */}
                 {hasAccess && (
                 <div className="shrink-0 px-5 py-3 border-b border-white/10">
                   <div className="flex items-center gap-3">

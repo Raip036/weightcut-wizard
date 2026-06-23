@@ -1,9 +1,11 @@
 /**
  * Fight-week protocol generator (WP-T6).
  *
- * Flagship AI action for the weight-protocol redesign. Produces a 7-14 day
- * fight-week plan (carb taper, water load + restriction, sodium curve,
- * fibre reduction, training taper, sleep targets) grounded in the
+ * Flagship AI action for the weight-protocol redesign. Produces a fight-week
+ * plan of AT MOST the final 7 days up to weigh-in (T-7 .. weigh-in; shorter if
+ * the athlete is already inside 7 days). Covers carb taper, water load +
+ * restriction, sodium curve, fibre reduction, training taper, and sleep
+ * targets — grounded in the
  * deterministic skeleton from `weightProtocolMath.ts` and the research
  * block from `protocolResearch.ts`.
  *

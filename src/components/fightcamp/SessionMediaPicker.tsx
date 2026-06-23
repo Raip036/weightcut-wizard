@@ -1,13 +1,8 @@
 import { useRef, useState } from "react";
-import { Camera, X, Image } from "lucide-react";
+import { Camera, X } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
 import { Camera as CapCamera, CameraResultType, CameraSource } from "@capacitor/camera";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/components/ui/drawer";
+import { IOSActionSheet } from "@/components/ui/ios-action-sheet";
 import { triggerHapticSelection } from "@/lib/haptics";
 
 interface SessionMediaPickerProps {
@@ -32,9 +27,6 @@ export function SessionMediaPicker({
   const displayUrl = mediaPreviewUrl || existingMediaUrl;
 
   const handleTakePhoto = async () => {
-    setActionSheetOpen(false);
-    triggerHapticSelection();
-
     if (Capacitor.isNativePlatform()) {
       try {
         const perms = await CapCamera.requestPermissions({ permissions: ["camera"] });
@@ -68,9 +60,6 @@ export function SessionMediaPicker({
   };
 
   const handleChooseFromLibrary = () => {
-    setActionSheetOpen(false);
-    triggerHapticSelection();
-
     if (fileInputRef.current) {
       fileInputRef.current.removeAttribute("capture");
       fileInputRef.current.setAttribute("accept", "image/*,video/*");
@@ -139,36 +128,16 @@ export function SessionMediaPicker({
         </button>
       )}
 
-      {/* iOS-style action sheet */}
-      <Drawer open={actionSheetOpen} onOpenChange={setActionSheetOpen}>
-        <DrawerContent className="pb-safe">
-          <DrawerHeader className="sr-only">
-            <DrawerTitle>Add Media</DrawerTitle>
-          </DrawerHeader>
-          <div className="px-4 pb-6 pt-2 space-y-2">
-            <button
-              onClick={handleTakePhoto}
-              className="w-full py-3.5 rounded-xs bg-accent/30 text-foreground font-semibold text-base hover:bg-accent/50 transition-colors flex items-center justify-center gap-2.5 active:scale-[0.98]"
-            >
-              <Camera className="h-5 w-5" />
-              Take Photo
-            </button>
-            <button
-              onClick={handleChooseFromLibrary}
-              className="w-full py-3.5 rounded-xs bg-accent/30 text-foreground font-semibold text-base hover:bg-accent/50 transition-colors flex items-center justify-center gap-2.5 active:scale-[0.98]"
-            >
-              <Image className="h-5 w-5" />
-              Choose from Library
-            </button>
-            <button
-              onClick={() => { setActionSheetOpen(false); triggerHapticSelection(); }}
-              className="w-full py-3.5 rounded-xs text-muted-foreground font-semibold text-base hover:bg-accent/20 transition-colors active:scale-[0.98]"
-            >
-              Cancel
-            </button>
-          </div>
-        </DrawerContent>
-      </Drawer>
+      {/* Native-iOS action sheet */}
+      <IOSActionSheet
+        open={actionSheetOpen}
+        onOpenChange={setActionSheetOpen}
+        title="Add Media"
+        actions={[
+          { label: "Take Photo", onClick: handleTakePhoto },
+          { label: "Choose from Library", onClick: handleChooseFromLibrary },
+        ]}
+      />
     </div>
   );
 }

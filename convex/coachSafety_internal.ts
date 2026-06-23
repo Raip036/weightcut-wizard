@@ -11,13 +11,10 @@ import { computeFightWeekProjection } from "./_shared/fightWeekMath";
  * Node/fetch. Every field degrades to `null` on missing data so the evaluator
  * can reason about partial signals without this loader ever throwing.
  *
- * Metric-string constants for `health_baselines` mirror those written by
- * `internal.health.computeBaselines` (see `fightFormScore_internal.ts`).
+ * HRV / RHR readiness signals are no longer collected (Apple HealthKit was
+ * removed — App Store Guideline 2.5.1); those `SafetyInput` fields are always
+ * `null`, which the evaluator treats as "not evaluated".
  */
-const HEALTH_METRIC = {
-  hrv: "hrv_sdnn",
-  restingHr: "resting_hr",
-} as const;
 
 /** Local YYYY-MM-DD for "today" (UTC; matches the date strings stored in DB). */
 function todayIso(): string {
@@ -120,47 +117,13 @@ export const getSafetyInput = internalQuery({
       feelCheckTier = latestWithTier?.tier ?? null;
     }
 
-    // ── Latest HRV / RHR values from the daily roll-up ─────────────────────
-    // Scan recent summaries newest-first and take the first non-null per
-    // metric (a day may carry HRV but not RHR, or vice-versa).
-    let hrv: number | null = null;
-    let rhr: number | null = null;
-    {
-      const summaries = await ctx.db
-        .query("daily_health_summary")
-        .withIndex("by_user_date", (q) => q.eq("userId", userId))
-        .order("desc")
-        .take(30);
-      for (const s of summaries) {
-        if (hrv === null && s.hrvAvgMs !== undefined && s.hrvAvgMs !== null) {
-          hrv = s.hrvAvgMs;
-        }
-        if (
-          rhr === null &&
-          s.restingHrBpm !== undefined &&
-          s.restingHrBpm !== null
-        ) {
-          rhr = s.restingHrBpm;
-        }
-        if (hrv !== null && rhr !== null) break;
-      }
-    }
-
-    // ── HRV / RHR baselines (14d rolling means) ────────────────────────────
-    const hrvBaselineRow = await ctx.db
-      .query("health_baselines")
-      .withIndex("by_user_metric", (q) =>
-        q.eq("userId", userId).eq("metric", HEALTH_METRIC.hrv),
-      )
-      .unique();
-    const rhrBaselineRow = await ctx.db
-      .query("health_baselines")
-      .withIndex("by_user_metric", (q) =>
-        q.eq("userId", userId).eq("metric", HEALTH_METRIC.restingHr),
-      )
-      .unique();
-    const hrvBaseline = hrvBaselineRow?.rolling14dMean ?? null;
-    const rhrBaseline = rhrBaselineRow?.rolling14dMean ?? null;
+    // ── Readiness signals (HRV / RHR) ──────────────────────────────────────
+    // No longer collected (Apple HealthKit removed). Always null so the
+    // evaluator's readiness path is never triggered.
+    const hrv: number | null = null;
+    const rhr: number | null = null;
+    const hrvBaseline: number | null = null;
+    const rhrBaseline: number | null = null;
 
     // ── Fight-week risk level ──────────────────────────────────────────────
     // Derived from the deterministic fight-week math (same engine the cut

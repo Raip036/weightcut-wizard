@@ -12,7 +12,7 @@
     "analyze": "vite build --mode analyze",
     "test": "vitest run",
     "test:watch": "vitest",
-    "sync:ios": "npm run build && npx cap sync ios",
+    "sync:ios": "npm run build && rm -f dist/assets/*.map && npx cap sync ios",
     "dev:ios": "CAP_DEV_URL=http://localhost:5173 npx cap sync ios && echo '\n✅ Synced. Now: 1) npm run dev  2) Run from Xcode\nChanges will hot-reload instantly.'",
     "postinstall": "sed -i '' 's/from: \"7.0.0\"/from: \"8.0.0\"/' node_modules/@capacitor-community/apple-sign-in/Package.swift 2>/dev/null || true"
   },
@@ -32,7 +32,6 @@
     "@capacitor/push-notifications": "^8.0.3",
     "@capacitor/share": "^8.0.1",
     "@capacitor/status-bar": "^8.0.1",
-    "@capgo/capacitor-health": "^8.5.1",
     "@convex-dev/auth": "^0.0.92",
     "@dagrejs/dagre": "^2.0.4",
     "@hookform/resolvers": "^3.10.0",

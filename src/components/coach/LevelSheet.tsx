@@ -12,7 +12,6 @@ import {
   Calendar,
   Check,
   Trophy,
-  Pen,
   Utensils,
   Scale,
   TrendingUp,
@@ -34,8 +33,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * LevelSheet: bottom sheet surfacing the user's per-discipline XP, how to
- * earn XP, what it means, current streak, an achievements preview, and a
- * placeholder list of "daily challenges" that will start tracking in v2.
+ * earn XP, what it means, current streak, and an achievements preview.
  *
  * Opened from the camp hero discipline rings. iOS inset-grouped-list grammar:
  * each section is one rounded panel with hairline-divided rows, and every
@@ -83,17 +81,6 @@ const EARN_ROWS: ReadonlyArray<{
   { icon: Calendar, amount: "+10", label: "Log a training session", tone: "blue" },
   { icon: Check, amount: "+20", label: "Tick off a coach mission task", tone: "green" },
   { icon: Trophy, amount: "+100", label: "Finish a full mission", tone: "gold" },
-];
-
-/* "Daily challenges": v1 placeholder data. No live tracking yet. */
-const DAILY_CHALLENGES: ReadonlyArray<{
-  icon: LucideIcon;
-  title: string;
-  bonus: string;
-}> = [
-  { icon: Calendar, title: "Log a session today", bonus: "+25" },
-  { icon: Check, title: "Tick 3 mission items", bonus: "+50" },
-  { icon: Pen, title: "Add notes to a session", bonus: "+15" },
 ];
 
 export function LevelSheet({ open, onOpenChange }: LevelSheetProps) {
@@ -225,33 +212,6 @@ export function LevelSheet({ open, onOpenChange }: LevelSheetProps) {
                   </span>
                   <ChevronRight className="h-4 w-4 text-muted-foreground/40 flex-shrink-0" />
                 </button>
-              </Group>
-            </section>
-
-            {/* ── 5. Daily challenges (placeholder) ────────────────────── */}
-            <section className="space-y-2.5">
-              <div className="flex items-center justify-between px-1">
-                <SectionLabel className="px-0">Daily challenges</SectionLabel>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50">
-                  Coming soon
-                </span>
-              </div>
-              <Group dividerInset="3.375rem">
-                {DAILY_CHALLENGES.map((row) => (
-                  <div
-                    key={row.title}
-                    className="flex items-center gap-3 px-3.5 py-3 opacity-70"
-                  >
-                    <IconTile icon={row.icon} tone="neutral" />
-                    <p className="flex-1 text-[14px] text-foreground leading-tight">
-                      {row.title}
-                    </p>
-                    <span className="text-[12px] font-semibold tabular-nums text-muted-foreground flex-shrink-0">
-                      {row.bonus}
-                      <span className="text-muted-foreground/50 font-medium"> XP</span>
-                    </span>
-                  </div>
-                ))}
               </Group>
             </section>
           </div>

@@ -742,15 +742,6 @@ export const recomputeForUserDate = internalAction({
       // cap while its governing pillar is stale (anti-gaming).
       priorCeilings: inputs.priorCeilings,
       markedSkips: inputs.markedSkips,
-      // HealthKit-derived signals (HRV, RHR, sleep, wrist temp, VO2max)
-      // assembled by `fetchScoringInputs`; drives the `recovery` sub-score.
-      healthSignals: inputs.healthSignals,
-      // Morning check-in soreness/energy — augments recovery.
-      selfReportRecovery: inputs.selfReportRecovery,
-      // Per-input provenance — recorded by `fetchScoringInputs` based on
-      // which table (HealthKit `daily_health_summary` vs. manual
-      // `sleep_logs` / `weight_logs`) won the merge for each date.
-      sources: inputs.sources,
     };
     const score = computeFightFormScore(scoringInputs, CURRENT_CONFIG);
     await ctx.runMutation(internal.fightFormScore_internal.upsertScore, {
@@ -812,8 +803,7 @@ const DEFAULT_RECOMPUTE_DELAY_MS = 1_200;
 /**
  * Idempotent coalescer entry point. Called from every mutation that
  * changes scoring-relevant data; collapses bursts of writes onto a single
- * recompute. `delayMs` defaults to 1.2s — pass 10s from the Apple Health
- * roll-up chain to give the rollup itself time to settle.
+ * recompute. `delayMs` defaults to 1.2s.
  */
 export const scheduleRecompute = internalMutation({
   args: {

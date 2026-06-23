@@ -80,7 +80,6 @@ export const BottomNav = memo(function BottomNav() {
   const { replayTutorial } = useTutorial();
   const goalType = (profile?.goal_type as 'cutting' | 'losing') ?? 'cutting';
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
-  const [settingsFocus, setSettingsFocus] = useState<"apple-health" | null>(null);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const [deleteAccountDialogOpen, setDeleteAccountDialogOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -157,11 +156,8 @@ export const BottomNav = memo(function BottomNav() {
   }, [userName]);
 
   // Open settings panel via custom event, triggered from Dashboard avatar or Profile page.
-  // An optional `detail.focus` deep-links straight to a sub-section (e.g. Apple Health).
   useEffect(() => {
-    const openSettings = (e: Event) => {
-      const focus = (e as CustomEvent<{ focus?: "apple-health" }>).detail?.focus ?? null;
-      setSettingsFocus(focus);
+    const openSettings = () => {
       setEditedName(userName);
       setSettingsDialogOpen(true);
       if (authUser?.email) setUserEmail(authUser.email);
@@ -179,7 +175,6 @@ export const BottomNav = memo(function BottomNav() {
   };
 
   const handleSettings = async () => {
-    setSettingsFocus(null);
     setEditedName(userName);
     setSettingsDialogOpen(true);
     if (authUser?.email) setUserEmail(authUser.email);
@@ -480,8 +475,7 @@ export const BottomNav = memo(function BottomNav() {
 
       <SettingsPanel
         open={settingsDialogOpen}
-        onClose={() => { setSettingsDialogOpen(false); setSettingsFocus(null); }}
-        focus={settingsFocus}
+        onClose={() => setSettingsDialogOpen(false)}
         userName={userName}
         userEmail={userEmail}
         avatarUrl={avatarUrl}
