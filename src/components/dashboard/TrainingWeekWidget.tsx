@@ -350,6 +350,20 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
             <span className="text-[10px] text-muted-foreground font-medium">
               {totalMinutes >= 60 ? "hrs" : "min"}
             </span>
+            {/* Week-over-week delta sits in line with the hours value: the
+                bottom-right footer used elsewhere gets clipped under this
+                card's aspect-square + overflow-hidden. */}
+            {deltaMin != null && deltaDisplay != null && (
+              deltaMin === 0 ? (
+                <span className="ml-auto text-micro font-semibold tabular-nums leading-none text-muted-foreground/70">
+                  ±0{deltaUnitSuffix}
+                </span>
+              ) : (
+                <span className={`ml-auto text-micro font-semibold tabular-nums leading-none ${deltaMin > 0 ? "text-func-recovery-green" : "text-func-danger-red"}`}>
+                  {deltaMin > 0 ? "+" : "−"}{Math.abs(deltaDisplay)}{deltaUnitSuffix}
+                </span>
+              )
+            )}
           </div>
         </div>
 
@@ -396,21 +410,6 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
           })}
         </div>
 
-        {/* Footer row: week-over-week delta pinned bottom-right, mirroring the
-            Weight/Sleep/Recovery cards so the stat grid stays uniform. */}
-        <div className="mt-1.5 flex items-center justify-end gap-1.5">
-          {deltaMin != null && deltaDisplay != null && (
-            deltaMin === 0 ? (
-              <span className="text-micro font-semibold tabular-nums leading-none text-muted-foreground/70">
-                ±0{deltaUnitSuffix}
-              </span>
-            ) : (
-              <span className={`text-micro font-semibold tabular-nums leading-none ${deltaMin > 0 ? "text-func-recovery-green" : "text-func-danger-red"}`}>
-                {deltaMin > 0 ? "+" : "−"}{Math.abs(deltaDisplay)}{deltaUnitSuffix}
-              </span>
-            )
-          )}
-        </div>
       </div>
     );
   }
