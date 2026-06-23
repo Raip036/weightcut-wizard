@@ -18,6 +18,8 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Icon } from "@/components/ui/Icon";
+import { WizardAuroraBackground } from "@/components/onboarding/WizardAuroraBackground";
+import wizard from "@/assets/wizard_3D.png";
 import { useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import { AIPersistence } from "@/lib/aiPersistence";
@@ -30,7 +32,6 @@ import {
   type PillarKey,
 } from "./RecoveryPillarAccordion";
 import { CampCompassCard } from "./CampCompassCard";
-import { MiniSparkline } from "./_MiniSparkline";
 import { ReadinessFlexSheet } from "@/components/share/cards/ReadinessFlexSheet";
 import { ComebackSheet } from "@/components/share/cards/ComebackSheet";
 import { FightWeekFormSheet } from "@/components/share/cards/FightWeekFormSheet";
@@ -96,79 +97,147 @@ function AnimatedNumber({
   return <span className={className}>{format ? format(display) : Math.round(display)}</span>;
 }
 
-// ── ReadinessGauge ─────────────────────────────────────────────────────
-// Circular SVG instrument (Whoop-instrument design). Tier-coloured arc
-// fills to score%, a 60-tick ring lights up to the same fraction, and the
-// score counts up in the centre via AnimatedNumber. Cheap + composited:
-// only stroke-dashoffset (arc) + opacity/transform (AnimatedNumber text)
-// animate. No blur layers; the thin arc drop-shadow is enhancement-only
+// ── Readiness rings (Trio Rings) ───────────────────────────────────────
+// Three concentric Apple-Fitness-style arcs for the recovery / body / load
+// pillars, drawn around the central readiness number (rendered by HeroCard).
+// Slim strokes + a wide inner clear zone (~134px) keep the centre number and
+// tier badge clear of the innermost arc. Cheap + composited: only
+// stroke-dashoffset animates; the thin arc drop-shadow is enhancement-only
 // (.native-app strips it — visuals read fine without it).
-function ReadinessGauge({
+const RING_SIZE = 248;
+const RING_CENTER = RING_SIZE / 2;
+const RING_STROKE = 13;
+const RING_GAP = 7;
+const RING_PAD = 4;
+const RING_RADII = [
+  RING_CENTER - RING_STROKE / 2 - RING_PAD, // outer (recovery)
+  RING_CENTER - RING_STROKE / 2 - RING_PAD - (RING_STROKE + RING_GAP), // middle (body)
+  RING_CENTER - RING_STROKE / 2 - RING_PAD - 2 * (RING_STROKE + RING_GAP), // inner (load)
+];
+const RING_TRACK = "rgba(255,255,255,0.055)";
+
+// Ring + legend colours. The outer readiness ring uses the tier accent
+// (passed in per-render); the two inner rings are the recovery + load
+// pillars. Body lives in the RecoveryPillarAccordion below the hero.
+const RING_RECOVERY_COLOR = "#12CAE6"; // func-hydration-cyan
+const RING_LOAD_COLOR = "#2A5BDD"; // func-protein-blue
+
+function PillarRing({
+  radius,
+  color,
+  value,
+  index,
+  reducedMotion,
+}: {
+  radius: number;
+  color: string;
+  value: number | null;
+  index: number;
+  reducedMotion: boolean;
+}) {
+  const circumference = 2 * Math.PI * radius;
+  const fraction = value == null ? 0 : Math.max(0, Math.min(1, value / 100));
+  const id = `rd-ring-grad-${index}`;
+  return (
+    <g transform={`rotate(-90 ${RING_CENTER} ${RING_CENTER})`}>
+      <circle
+        cx={RING_CENTER}
+        cy={RING_CENTER}
+        r={radius}
+        fill="none"
+        stroke={RING_TRACK}
+        strokeWidth={RING_STROKE}
+      />
+      {value != null && (
+        <>
+          <defs>
+            <linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor={color} stopOpacity={0.65} />
+              <stop offset="60%" stopColor={color} stopOpacity={0.95} />
+              <stop offset="100%" stopColor={color} stopOpacity={1} />
+            </linearGradient>
+          </defs>
+          <motion.circle
+            cx={RING_CENTER}
+            cy={RING_CENTER}
+            r={radius}
+            fill="none"
+            stroke={`url(#${id})`}
+            strokeWidth={RING_STROKE}
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            style={{ filter: `drop-shadow(0 0 5px ${color}55)` }}
+            initial={reducedMotion ? false : { strokeDashoffset: circumference }}
+            animate={{ strokeDashoffset: circumference * (1 - fraction) }}
+            transition={
+              reducedMotion
+                ? { duration: 0 }
+                : {
+                    duration: 1.2,
+                    delay: 0.15 + index * 0.16,
+                    ease: [0.22, 1, 0.36, 1],
+                  }
+            }
+          />
+        </>
+      )}
+    </g>
+  );
+}
+
+function ReadinessRings({
   score,
-  tier,
+  accent,
+  pillars,
   reducedMotion,
 }: {
   score: number;
-  tier: string;
+  accent: string;
+  pillars: { recovery: number | null; body: number | null; load: number | null };
   reducedMotion: boolean;
 }) {
-  const R = 86;
-  const C = 2 * Math.PI * R;
-  const pct = Math.max(0, Math.min(1, score / 100));
-  const colorClass = tierTextColor(tier);
+  // outer → inner: readiness (tier accent), recovery (cyan), load (blue).
+  const rings = [
+    { value: score as number | null, color: accent },
+    { value: pillars.recovery, color: RING_RECOVERY_COLOR },
+    { value: pillars.load, color: RING_LOAD_COLOR },
+  ];
   return (
-    <div className="relative h-[200px] w-[200px]">
-      <svg viewBox="0 0 200 200" className="h-full w-full -rotate-90" aria-hidden>
-        <circle
-          cx="100"
-          cy="100"
-          r={R}
-          fill="none"
-          strokeWidth="13"
-          className="stroke-white/[0.06]"
+    <svg
+      width={RING_SIZE}
+      height={RING_SIZE}
+      viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}
+      className="relative block"
+      aria-hidden
+    >
+      {rings.map((r, i) => (
+        <PillarRing
+          key={i}
+          radius={RING_RADII[i]}
+          color={r.color}
+          value={r.value}
+          index={i}
+          reducedMotion={reducedMotion}
         />
-        <motion.circle
-          cx="100"
-          cy="100"
-          r={R}
-          fill="none"
-          strokeWidth="13"
-          strokeLinecap="round"
-          className={`${colorClass} stroke-current`}
-          strokeDasharray={C}
-          initial={reducedMotion ? false : { strokeDashoffset: C }}
-          animate={{ strokeDashoffset: C - C * pct }}
-          transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
-        />
-        {/* 60-tick instrument ring — lit fraction tracks the score. */}
-        {Array.from({ length: 60 }).map((_, i) => {
-          const a = (i / 60) * 360;
-          const lit = i / 60 <= pct;
-          return (
-            <line
-              key={i}
-              x1="100"
-              y1="9"
-              x2="100"
-              y2="14"
-              transform={`rotate(${a} 100 100)`}
-              strokeWidth="1.5"
-              className={
-                lit ? `${colorClass} stroke-current opacity-60` : "stroke-white/[0.07]"
-              }
-            />
-          );
-        })}
-      </svg>
-      <div className="absolute inset-0 flex items-center justify-center">
-        {/* 72px figure, centred — matches the old hero number weight. */}
-        <AnimatedNumber
-          value={score}
-          className={`text-[72px] font-display font-bold tabular-nums leading-none ${colorClass}`}
-        />
-      </div>
-    </div>
+      ))}
+    </svg>
   );
+}
+
+// Tier → hex for the centre glow + badge tint (CSS vars can't be used in
+// inline-style colour math). GREEN→recovery-green, AMBER→warning-yellow,
+// RED→danger-red.
+function tierHex(tier: string): string {
+  if (tier === "GREEN") return "#23C599";
+  if (tier === "AMBER") return "#FAC146";
+  if (tier === "RED") return "#F7403F";
+  return "#9CA3AF";
+}
+function tierHexDark(tier: string): string {
+  if (tier === "GREEN") return "#1AA37E";
+  if (tier === "AMBER") return "#D99A1F";
+  if (tier === "RED") return "#C92F2E";
+  return "#6B7280";
 }
 
 // Isolated streak query — if the function isn't deployed yet (or fails), the
@@ -216,31 +285,6 @@ function tierBorderColor(tier: string): string {
   if (tier === "AMBER") return "border-t-func-warning-yellow/80";
   if (tier === "RED") return "border-t-func-danger-red/80";
   return "border-t-border/50";
-}
-
-// Mini-pillar score colour map (matches RecoveryPillarAccordion's pillar tone).
-function pillarMiniColor(score: number | null): string {
-  if (score == null) return "text-muted-foreground/40";
-  if (score >= 80) return "text-func-recovery-green";
-  if (score >= 60) return "text-foreground";
-  if (score >= 40) return "text-func-warning-yellow";
-  return "text-func-danger-red";
-}
-
-function sparklineColorForScore(score: number): string {
-  if (score >= 80) return "text-func-recovery-green";
-  if (score >= 55) return "text-emerald-400";
-  if (score >= 35) return "text-func-warning-yellow";
-  return "text-func-danger-red";
-}
-
-// Tier → arc/text colour for the readiness gauge.
-// GREEN → func-recovery-green, AMBER → func-warning-yellow, RED → func-danger-red.
-function tierTextColor(tier: string): string {
-  if (tier === "GREEN") return "text-func-recovery-green";
-  if (tier === "AMBER") return "text-func-warning-yellow";
-  if (tier === "RED") return "text-func-danger-red";
-  return "text-foreground";
 }
 
 // Gas-tank one-liner copy (kept here so we don't bloat GasTankBar's API).
@@ -637,8 +681,6 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({
   const droppedHard = prevReadiness != null && prevReadiness - score > 15;
 
   // ── 7-day readiness sparkline (fallback synth if no history) ──────
-  const heroSpark = prev7d.length >= 2 ? prev7d : [0, 0, 0, 0, 0, 0, score];
-
   // Timestamp on the hero — HH:MM (24h) for today's call.
   const now = new Date();
   const timeLabel = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
@@ -674,7 +716,6 @@ export const RecoveryDashboard = memo(function RecoveryDashboard({
         verdict={verdict}
         actionLine={metrics.actionLine}
         pillars={pillars}
-        heroSpark={heroSpark}
         droppedHard={droppedHard}
         breath={breath}
         timeLabel={timeLabel}
@@ -803,7 +844,6 @@ interface HeroCardProps {
   verdict: { line: string; tone: string; tier: string };
   actionLine: string;
   pillars: { recovery: number | null; body: number | null; load: number | null };
-  heroSpark: number[];
   droppedHard: boolean;
   breath: boolean;
   timeLabel: string;
@@ -827,7 +867,6 @@ function HeroCard({
   verdict,
   actionLine,
   pillars,
-  heroSpark,
   droppedHard,
   breath,
   timeLabel,
@@ -844,63 +883,120 @@ function HeroCard({
   onFlex,
 }: HeroCardProps) {
   const prefersReduced = useReducedMotion();
+  const reduce = !!prefersReduced;
+  const accent = tierHex(verdict.tier);
+  const accentDark = tierHexDark(verdict.tier);
   return (
     <motion.div
-      initial={prefersReduced ? false : { opacity: 0, y: 10, scale: 0.98 }}
+      initial={reduce ? false : { opacity: 0, y: 10, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ type: "spring", damping: 22, stiffness: 260 }}
-      className={`relative overflow-hidden card-surface rounded-2xl border border-border/50 border-t-2 ${tierBorderColor(verdict.tier)} p-5`}
+      className={`relative overflow-hidden card-surface rounded-2xl border border-border/50 border-t-2 ${tierBorderColor(verdict.tier)} p-6`}
     >
-      {/* Subtle radial highlight at top — 10% blur. */}
+      {/* Ambient glow — behind everything, clipped by overflow-hidden. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute -top-12 left-1/2 -translate-x-1/2 h-32 w-64 rounded-full opacity-10 blur-2xl"
-        style={{ background: "radial-gradient(circle, currentColor 0%, transparent 70%)" }}
+        className="pointer-events-none absolute -top-16 left-1/2 h-56 w-56 -translate-x-1/2 rounded-full opacity-30 blur-3xl"
+        style={{ background: `radial-gradient(circle, ${accent}, transparent 70%)` }}
       />
-      <div className="flex items-center justify-between relative">
-        <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70 font-semibold tabular-nums">
-          Today's call · {timeLabel}
+
+      {/* ── Header ─────────────────────────────────────────────── */}
+      <div className="relative flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="relative flex h-2 w-2">
+            {!reduce && (
+              <span
+                className="absolute inline-flex h-full w-full rounded-full opacity-60"
+                style={{
+                  backgroundColor: accent,
+                  animation: "ping 1.8s cubic-bezier(0,0,0.2,1) infinite",
+                }}
+              />
+            )}
+            <span
+              className="relative inline-flex h-2 w-2 rounded-full"
+              style={{ backgroundColor: accent }}
+            />
+          </span>
+          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] tabular-nums text-muted-foreground/70">
+            Today's call · {timeLabel}
+          </span>
         </div>
-        <button
-          type="button"
-          onClick={onHelp}
-          aria-label="How to read this page"
-          aria-describedby={helpId}
-          className="h-8 w-8 -mr-1 rounded-full flex items-center justify-center text-muted-foreground/70 active:text-foreground transition-colors"
-        >
-          <Icon name="helpCircleOutline" size={18} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onHelp}
+            aria-label="How to read this page"
+            aria-describedby={helpId}
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-border/50 text-muted-foreground transition-colors active:text-foreground"
+          >
+            <Icon name="helpCircleOutline" size={16} />
+          </button>
+          {canFlex && (
+            <button
+              type="button"
+              onClick={onFlex}
+              aria-label="Share today's readiness"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-border/50 text-muted-foreground transition-colors active:text-foreground"
+            >
+              <Icon name="shareOutline" size={16} />
+            </button>
+          )}
+        </div>
       </div>
-      <div className="mt-4 flex flex-col items-center text-center">
+
+      {/* ── Rings + centre cluster (long-press → raw breakdown) ── */}
+      <div
+        className="relative mx-auto mt-5"
+        style={{ width: RING_SIZE, height: RING_SIZE }}
+      >
         <Popover open={rawOpen} onOpenChange={setRawOpen}>
           <PopoverTrigger asChild>
             <motion.button
               type="button"
               aria-label={`Readiness ${Math.round(score)} out of 100. Long-press for breakdown.`}
-              className="relative inline-flex flex-col items-center outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded-full"
-              animate={breath ? { scale: [1, 1.015, 1] } : { scale: 1 }}
+              className="relative block h-full w-full rounded-full outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              animate={breath && !reduce ? { scale: [1, 1.012, 1] } : { scale: 1 }}
               transition={
-                breath
-                  ? { duration: 4, repeat: Infinity, repeatType: "loop", ease: "easeInOut" }
+                breath && !reduce
+                  ? { duration: 4, repeat: Infinity, ease: "easeInOut" }
                   : { duration: 0 }
               }
               {...longPress}
             >
-              <ReadinessGauge score={score} tier={verdict.tier} reducedMotion={!!prefersReduced} />
-              {delta > 0 && (
-                <span className="-mt-2 text-[14px] font-semibold tabular-nums text-func-recovery-green">
-                  ▲ {delta}
-                </span>
-              )}
-              {delta < 0 && (
-                <span className="-mt-2 text-[14px] font-semibold tabular-nums text-func-danger-red">
-                  ▼ {Math.abs(delta)}
-                </span>
-              )}
+              <ReadinessRings
+                score={score}
+                accent={accent}
+                pillars={pillars}
+                reducedMotion={reduce}
+              />
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                <AnimatedNumber
+                  value={score}
+                  className="font-display text-[54px] font-bold leading-none tabular-nums text-foreground"
+                />
+                <div className="mt-2 flex items-center gap-1.5">
+                  <span
+                    className={`text-[9px] font-bold uppercase tracking-[0.14em] ${droppedHard ? "animate-warning-shimmer" : ""}`}
+                    style={{ color: accent }}
+                  >
+                    {verdict.tier}
+                  </span>
+                  {delta !== 0 && (
+                    <span
+                      className="flex items-center gap-0.5 text-[11px] font-semibold tabular-nums"
+                      style={{ color: delta > 0 ? "#23C599" : "#F7403F" }}
+                    >
+                      <Icon name={delta > 0 ? "arrowUp" : "arrowDown"} size={11} />
+                      {Math.abs(delta)}
+                    </span>
+                  )}
+                </div>
+              </div>
             </motion.button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-3 text-[11px] leading-snug">
-            <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70 font-semibold mb-1.5">
+            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70">
               Raw components
             </div>
             <div className="grid grid-cols-2 gap-x-3 gap-y-1 tabular-nums">
@@ -919,76 +1015,108 @@ function HeroCard({
             </div>
           </PopoverContent>
         </Popover>
+      </div>
 
-        <span
-          className={`mt-2 inline-block px-2 py-0.5 rounded-sm text-[11px] font-bold uppercase tracking-[0.14em] ${verdict.tone} ${droppedHard ? "animate-warning-shimmer" : ""}`}
-        >
-          {verdict.tier}
-        </span>
-        <p className={`mt-3 text-[18px] font-semibold leading-snug ${verdict.tone}`}>
-          {verdict.line}
-        </p>
-
-        <div className="mt-4 w-full">
-          <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70 font-semibold flex items-center gap-1.5">
-            <span aria-hidden>▸</span>
-            <span>Action</span>
-          </div>
-          <p className="mt-1 text-[14px] font-medium text-foreground leading-snug">
-            {actionLine}
-          </p>
-        </div>
-
-        <div className="my-4 w-full border-t border-border/30" />
-
-        <div className="grid grid-cols-3 gap-2 w-full">
-          {(["recovery", "body", "load"] as const).map((key) => {
-            const val = pillars[key];
-            const label = key === "recovery" ? "Recovery" : key === "body" ? "Body" : "Load";
-            return (
-              <button
-                key={key}
-                type="button"
-                onClick={() => onPillarTap(key)}
-                aria-label={`${label} pillar - ${val == null ? "building" : `score ${Math.round(val)}`}`}
-                className="flex flex-col items-center gap-1 p-1.5 rounded-md active:bg-muted/20 transition-colors"
-              >
-                <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70 font-semibold">
-                  {label}
-                </span>
+      {/* ── Legend (tappable drill-downs) ───────────────────────── */}
+      <div className="relative mt-6 flex items-stretch">
+        {[
+          { label: "Readiness", value: score as number | null, color: accent, onTap: onHelp },
+          {
+            label: "Recovery",
+            value: pillars.recovery,
+            color: RING_RECOVERY_COLOR,
+            onTap: () => onPillarTap("recovery"),
+          },
+          {
+            label: "Load",
+            value: pillars.load,
+            color: RING_LOAD_COLOR,
+            onTap: () => onPillarTap("load"),
+          },
+        ].map((item, i) => {
+          const building = item.value == null;
+          return (
+            <button
+              key={item.label}
+              type="button"
+              onClick={item.onTap}
+              aria-label={`${item.label} - ${building ? "building" : `score ${Math.round(item.value as number)}`}`}
+              className={`flex min-w-0 flex-1 flex-col items-center gap-1.5 px-1 py-1 transition-colors active:bg-muted/20 ${i > 0 ? "border-l border-border/40" : ""}`}
+            >
+              <span className="flex items-center gap-1.5">
                 <span
-                  className={`text-[22px] font-bold tabular-nums leading-none ${pillarMiniColor(val)}`}
-                >
-                  {val == null ? "-" : Math.round(val)}
+                  className="h-2 w-2 shrink-0 rounded-full"
+                  style={{
+                    backgroundColor: building ? "rgba(255,255,255,0.22)" : item.color,
+                    boxShadow: building ? undefined : `0 0 6px ${item.color}aa`,
+                  }}
+                />
+                <span className="truncate text-[9.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  {item.label}
                 </span>
-              </button>
-            );
-          })}
-        </div>
+              </span>
+              {building ? (
+                <span className="flex h-[26px] items-center">
+                  <span
+                    aria-hidden
+                    className="h-1 w-3.5 rounded-full bg-muted-foreground/30"
+                  />
+                </span>
+              ) : (
+                <span
+                  className="font-display text-[26px] font-bold leading-none tabular-nums"
+                  style={{ color: item.color }}
+                >
+                  {Math.round(item.value as number)}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
 
-        <div className="mt-3 w-full flex justify-center">
-          <MiniSparkline
-            values={heroSpark}
-            color={sparklineColorForScore(score)}
-            className="w-full max-w-[180px] h-6"
+      {/* ── Verdict ─────────────────────────────────────────────── */}
+      <p
+        className={`relative mt-6 text-center text-[15px] font-semibold leading-snug ${verdict.tone}`}
+      >
+        {verdict.line}
+      </p>
+
+      {/* ── Action — full-width directive banner ────────────────── */}
+      <div
+        className="relative mt-5 w-full overflow-hidden rounded-2xl px-5 py-3.5 shadow-lg"
+        style={{
+          background: `linear-gradient(135deg, ${accent}, ${accentDark})`,
+          boxShadow: `0 8px 24px -8px ${accent}99`,
+        }}
+      >
+        {!reduce && (
+          <motion.span
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 skew-x-[-20deg] bg-white/20 blur-md"
+            initial={{ x: 0 }}
+            animate={{ x: ["0%", "420%"] }}
+            transition={{
+              duration: 2.6,
+              repeat: Infinity,
+              repeatDelay: 2.4,
+              ease: "easeInOut",
+            }}
           />
-        </div>
-
-        {/* Spec §7.3.a — "Flex today" share CTA, only when readiness ≥ 85.
-            Sits below the sparkline so it doesn't compete with the action
-            line for primary attention; the hero already establishes the
-            score, this is the optional victory lap. */}
-        {canFlex && (
-          <button
-            type="button"
-            onClick={onFlex}
-            aria-label="Share today's readiness"
-            className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-func-recovery-green/40 bg-func-recovery-green/10 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-func-recovery-green active:scale-[0.97] transition-transform"
-          >
-            <span aria-hidden>✦</span>
-            Flex today
-          </button>
         )}
+        <div className="relative flex items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/15 text-black">
+            <Icon name="flash" size={18} />
+          </span>
+          <span className="flex min-w-0 flex-col">
+            <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-black/55">
+              Today's action
+            </span>
+            <span className="text-[15px] font-bold leading-tight text-black">
+              {actionLine}
+            </span>
+          </span>
+        </div>
       </div>
     </motion.div>
   );
@@ -1011,23 +1139,13 @@ function DailyCheckInCTA({ streak, onOpen }: { streak: number; onOpen: () => voi
       initial={prefersReduced ? false : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.18, type: "spring", damping: 24, stiffness: 260 }}
-      className="group relative w-full overflow-hidden rounded-2xl card-surface card-glow text-left active:scale-[0.99] transition-transform"
+      className="group relative w-full overflow-hidden rounded-2xl card-surface border border-primary/25 text-left active:scale-[0.99] transition-transform"
       aria-label="Open daily check-in"
     >
-      {/* Gradient hairline edge — masked 1px border, no blur. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 rounded-2xl"
-        style={{
-          background:
-            "linear-gradient(135deg, hsl(var(--primary)/0.5), transparent 40%, hsl(var(--primary)/0.18))",
-          WebkitMask: "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
-          WebkitMaskComposite: "xor",
-          maskComposite: "exclude",
-          padding: 1,
-        }}
-      />
-      <div className="flex items-center gap-4 rounded-2xl px-4 py-4">
+      {/* Blue animated aurora — premium Pro-wall wash. */}
+      <WizardAuroraBackground intensity="full" />
+
+      <div className="relative z-10 flex items-center gap-4 rounded-2xl px-4 py-4">
         <div className="relative h-[52px] w-[52px] shrink-0">
           <svg viewBox="0 0 52 52" className="h-full w-full -rotate-90" aria-hidden>
             <circle
@@ -1052,8 +1170,20 @@ function DailyCheckInCTA({ streak, onOpen }: { streak: number; onOpen: () => voi
               transition={{ duration: 0.9, ease: "easeOut", delay: 0.2 }}
             />
           </svg>
-          <div className="absolute inset-0 flex items-center justify-center text-primary">
-            <Icon name="bulbOutline" size={22} />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <motion.img
+              src={wizard}
+              alt=""
+              draggable={false}
+              style={{
+                width: 34,
+                height: 34,
+                objectFit: "contain",
+                filter: "drop-shadow(0 0 8px hsl(var(--primary) / 0.5))",
+              }}
+              animate={prefersReduced ? { y: 0 } : { y: [0, -3, 0] }}
+              transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
+            />
           </div>
         </div>
         <div className="min-w-0 flex-1">

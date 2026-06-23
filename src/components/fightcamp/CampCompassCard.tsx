@@ -38,6 +38,7 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { triggerHapticSelection } from "@/lib/haptics";
 import Sparkline from "@/components/charts/Sparkline";
 import { getSessionColor } from "@/lib/sessionColors";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 interface CampCompassCardProps {
   userId: string | null;
@@ -79,6 +80,32 @@ interface WellnessRow {
   readinessScore?: number;
   hooperIndex?: number;
   sleepHours?: number;
+}
+
+// ── Live weekly breakdown shape (from api.recoveryReports.getWeekBreakdown) ──
+// Reactive, deterministic recompute of the same week window the report covers.
+// Replaces the FROZEN `report.breakdown` prose so the list always matches the
+// top cards even after the user edits/deletes sessions. Read defensively with
+// optional chaining — field names may shift slightly when the backend lands.
+interface WeekBreakdownSession {
+  date: string;
+  dayLabel?: string;
+  type?: string;
+  durationMinutes?: number;
+  rpe?: number | null;
+}
+
+interface WeekBreakdown {
+  weekStartIso?: string;
+  weekEndIso?: string;
+  sessionCount?: number;
+  totalMinutes?: number;
+  avgRpe?: number | null;
+  totalLoad?: number;
+  avgSleepH?: number | null;
+  hardestDay?: string | null;
+  sessions?: WeekBreakdownSession[];
+  restOrMissedDays?: string[];
 }
 
 // Functional readiness thresholds shared by the trend stroke + delta tint.
@@ -157,6 +184,63 @@ function formatWeekOfLabel(iso: string): string {
   } catch {
     return iso;
   }
+}
+
+// "Mon Jun 16" from "2026-06-16" — weekday + month-day, no separator dot.
+// Used for the live breakdown week-range header. Same local-parse UTC caveat.
+function formatRangeDay(iso: string): string {
+  try {
+    const [y, m, d] = iso.split("-").map((n) => parseInt(n, 10));
+    if (!y || !m || !d) return iso;
+    const date = new Date(y, m - 1, d);
+    const weekday = date.toLocaleDateString(undefined, { weekday: "short" });
+    const monthDay = date.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+    });
+    return `${weekday} ${monthDay}`;
+  } catch {
+    return iso;
+  }
+}
+
+// Short weekday ("Mon") from an ISO date or pass-through if it's already a
+// label. Used for the "Rest: Tue, Sun" line + per-row day labels when the
+// backend hasn't supplied a `dayLabel`.
+function shortWeekday(value: string): string {
+  // Already a short label (no dashes) — pass through.
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  try {
+    const [y, m, d] = value.split("-").map((n) => parseInt(n, 10));
+    if (!y || !m || !d) return value;
+    return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+      weekday: "short",
+    });
+  } catch {
+    return value;
+  }
+}
+
+// "5 sessions · 3h 40m · RPE 6.8 · load 240" — the summary stat clause under
+// the week range. Each segment self-hides when its value is absent so the
+// line never shows a stray "·" or null.
+function formatBreakdownSummary(b: WeekBreakdown): string {
+  const parts: string[] = [];
+  const count = b.sessionCount ?? 0;
+  parts.push(`${count} ${count === 1 ? "session" : "sessions"}`);
+
+  const mins = b.totalMinutes ?? 0;
+  if (mins > 0) {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    parts.push(h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`);
+  }
+  if (typeof b.avgRpe === "number" && b.avgRpe > 0)
+    parts.push(`RPE ${b.avgRpe.toFixed(1)}`);
+  if (typeof b.totalLoad === "number" && b.totalLoad > 0)
+    parts.push(`load ${Math.round(b.totalLoad)}`);
+
+  return parts.join(" · ");
 }
 
 // ── Skeleton ───────────────────────────────────────────────────────────
@@ -542,6 +626,159 @@ function SessionList({
   );
 }
 
+// ── Live "This week" breakdown ────────────────────────────────────────
+// Reactive, deterministic replacement for the stale `report.breakdown` prose.
+// Pulls `api.recoveryReports.getWeekBreakdown` for the SAME week window the
+// report covers (weekStartIso → +6 days), so its summary line + session list
+// always agree with the top stat cards. Handles loading (undefined) and the
+// empty (sessionCount === 0) states inline.
+//
+// NOTE (build): `getWeekBreakdown` may not be in the generated Convex API yet
+// (another agent is adding the backend query). We read the function reference
+// defensively so this file type-checks before `npx convex codegen`/`deploy`
+// regenerates `convex/_generated/api`.
+const getWeekBreakdownRef = (
+  api.recoveryReports as unknown as {
+    getWeekBreakdown?: Parameters<typeof useQuery>[0];
+  }
+).getWeekBreakdown;
+
+function BreakdownRow({ session }: { session: WeekBreakdownSession }) {
+  const type = session.type ?? "Session";
+  const color = getSessionColor(type);
+  const dayLabel = session.dayLabel ?? shortWeekday(session.date);
+  const mins = session.durationMinutes;
+  const rpe = session.rpe;
+  return (
+    <li className="flex items-center gap-3 px-3 py-2.5">
+      <span
+        className="shrink-0 h-6 w-6 rounded-lg flex items-center justify-center text-[10px] font-bold text-white/95"
+        style={{ backgroundColor: color }}
+        aria-hidden
+      >
+        {type.charAt(0).toUpperCase()}
+      </span>
+      <span className="shrink-0 w-[44px] text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground/80">
+        {dayLabel}
+      </span>
+      <span className="flex-1 min-w-0 text-[13px] font-medium text-foreground truncate">
+        {type}
+      </span>
+      <span className="shrink-0 text-[12px] text-foreground/80 tabular-nums">
+        {typeof mins === "number" && mins > 0 ? `${mins}m` : "—"}
+        {typeof rpe === "number" && rpe > 0 ? ` · RPE ${rpe}` : ""}
+      </span>
+    </li>
+  );
+}
+
+function LiveBreakdownSkeleton({ expanded }: { expanded: boolean }) {
+  return (
+    <div className="card-surface rounded-xl border border-border/40 p-3.5">
+      <div className={SECTION_LABEL}>This week</div>
+      <Skeleton className="mt-2 h-4 w-2/3" />
+      <Skeleton className="mt-2 h-3 w-1/2" />
+      <div className="mt-3 space-y-2">
+        {Array.from({ length: expanded ? 4 : 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-7 w-full rounded-md" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LiveBreakdown({
+  weekStartIso,
+  expanded,
+}: {
+  weekStartIso: string;
+  expanded: boolean;
+}) {
+  // Reactive: edits/deletes to this week's sessions auto-refresh the list.
+  // `"skip"` while the ref is missing (backend query not generated yet) so
+  // the build/runtime stays safe; the section just renders nothing then.
+  const breakdown = useQuery(
+    getWeekBreakdownRef ?? api.recoveryReports.listRecent,
+    getWeekBreakdownRef ? { weekStartIso } : "skip",
+  ) as WeekBreakdown | undefined;
+
+  // Backend query not wired yet — render nothing (the rest of the report,
+  // verdict/stats/trend/sessions, still shows). Removed once codegen runs.
+  if (!getWeekBreakdownRef) return null;
+
+  // Loading — subtle skeleton, never a layout jump.
+  if (breakdown === undefined) return <LiveBreakdownSkeleton expanded={expanded} />;
+
+  const startIso = breakdown.weekStartIso ?? weekStartIso;
+  const endIso = breakdown.weekEndIso ?? addDaysIso(weekStartIso, 6);
+  const range = `${formatRangeDay(startIso)} – ${formatRangeDay(endIso)}`;
+  const summary = formatBreakdownSummary(breakdown);
+  const sessions = breakdown.sessions ?? [];
+  const restDays = breakdown.restOrMissedDays ?? [];
+  const sessionCount = breakdown.sessionCount ?? sessions.length;
+
+  // In the compact card cap rows so the carousel page stays tidy; the sheet
+  // shows the full list.
+  const shown = expanded ? sessions : sessions.slice(0, 6);
+  const moreCount = sessions.length - shown.length;
+
+  return (
+    <div className="card-surface rounded-xl border border-border/40 p-3.5">
+      {/* Header: week range + summary stat line (consistent with top cards) */}
+      <div className="flex items-baseline justify-between gap-3">
+        <div className={SECTION_LABEL}>This week</div>
+        <div className="text-[10px] font-semibold tracking-tight text-muted-foreground/70 tabular-nums">
+          {range}
+        </div>
+      </div>
+      <p className="mt-1 text-[13px] font-semibold text-foreground/90 tabular-nums">
+        {summary}
+      </p>
+
+      {/* Optional callouts — hardest day / avg sleep */}
+      {(breakdown.hardestDay || typeof breakdown.avgSleepH === "number") && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {breakdown.hardestDay && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-muted/40 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+              Hardest · {shortWeekday(breakdown.hardestDay)}
+            </span>
+          )}
+          {typeof breakdown.avgSleepH === "number" && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-muted/40 px-2 py-0.5 text-[10px] font-medium text-muted-foreground tabular-nums">
+              Sleep · {breakdown.avgSleepH.toFixed(1)}h avg
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {sessionCount === 0 ? (
+        <p className="mt-3 text-[12px] text-muted-foreground/60 leading-snug">
+          No sessions logged this week.
+        </p>
+      ) : (
+        <ul className="mt-3 divide-y divide-border/40 rounded-md border border-border/30 overflow-hidden">
+          {shown.map((s, i) => (
+            <BreakdownRow key={`${s.date}-${i}`} session={s} />
+          ))}
+          {moreCount > 0 && (
+            <li className="px-3 py-2 text-[11px] text-muted-foreground/60">
+              +{moreCount} more {moreCount === 1 ? "session" : "sessions"}
+            </li>
+          )}
+        </ul>
+      )}
+
+      {/* Rest / missed days */}
+      {restDays.length > 0 && (
+        <p className="mt-2.5 text-[11px] text-muted-foreground/70">
+          Rest: {restDays.map(shortWeekday).join(", ")}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ── Shared body (used by card + full sheet) ───────────────────────────
 function ReportBody({
   report,
@@ -558,8 +795,6 @@ function ReportBody({
   const actions = expanded
     ? report.nextWeekActions
     : report.nextWeekActions.slice(0, 3);
-
-  const breakdown = cleanText(report.breakdown);
 
   // Does any data-driven visual section have something to show this week?
   // When nothing was logged, all three self-hide — so we surface one quiet
@@ -599,20 +834,20 @@ function ReportBody({
         </p>
       )}
 
-      {/* WHERE YOU BROKE DOWN — AI prose, restyled (hidden when empty) */}
-      {breakdown && (
-        <div className="card-surface rounded-xl border border-border/40 p-3.5">
-          <div className={SECTION_LABEL}>Where you broke down</div>
-          <p
-            className={`mt-1.5 ${expanded ? "text-[14px]" : "text-[13px]"} text-foreground/85 leading-relaxed`}
-          >
-            {breakdown}
-          </p>
-        </div>
-      )}
+      {/* THIS WEEK — LIVE deterministic breakdown (replaces stale AI prose).
+          Reactive: edits/deletes auto-refresh so it always matches the cards.
 
-      {/* THIS WEEK'S SESSIONS — live read-only rows */}
-      <SessionList sessions={weekData.sessions} expanded={expanded} />
+          `getWeekBreakdown` may not be deployed yet (Convex deploy is held
+          during App Store review). If it errors server-side, silently fall back
+          to the live SessionList — which uses the already-deployed
+          `listCalendar` query — so the page never crashes. It auto-upgrades to
+          the live breakdown the moment the query is deployed. */}
+      <ErrorBoundary
+        silent
+        fallback={<SessionList sessions={weekData.sessions} expanded={expanded} />}
+      >
+        <LiveBreakdown weekStartIso={report.weekStartIso} expanded={expanded} />
+      </ErrorBoundary>
 
       {actions.length > 0 && (
         <div>

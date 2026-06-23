@@ -146,6 +146,73 @@ export const TrainingCalendarCard = forwardRef<HTMLDivElement, TrainingCalendarC
       ? `${Math.round(stats.totalDuration / 60)}h ${stats.totalDuration % 60}m`
       : `${stats.totalDuration}m`;
 
+    // ─── WEEK + STORY: the "Hero Stack" design ───
+    // The weekly session count is the bragging-rights centerpiece: a giant
+    // number under a "SESSIONS THIS WEEK" label, with duration + most-trained
+    // beneath, and a clean bar chart (solid discipline colours, no container
+    // box, one-letter weekday labels) pinned at the bottom.
+    if (timeRange === "week" && s) {
+      return (
+        <CardShell ref={ref} aspect={aspect} isPremium={isPremium} transparent={transparent}>
+          <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+            <StravaPeriodLabel text={TIME_LABELS[timeRange] ?? timeRange} s={s} transparent={transparent} />
+
+            <div style={{ flex: 1, minHeight: 24 }} />
+
+            {/* HERO: giant session count */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
+              <div
+                style={{
+                  fontSize: 34,
+                  fontWeight: 700,
+                  letterSpacing: "0.2em",
+                  paddingLeft: "0.2em",
+                  textTransform: "uppercase",
+                  color: transparent ? "rgba(255,255,255,0.72)" : "rgba(255,255,255,0.55)",
+                  marginBottom: 10,
+                }}
+              >
+                Sessions This Week
+              </div>
+              <div
+                style={{
+                  fontSize: 380,
+                  fontWeight: 800,
+                  lineHeight: 0.92,
+                  letterSpacing: "-0.04em",
+                  color: "#ffffff",
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                {stats.total}
+              </div>
+            </div>
+
+            {/* Secondary row: duration + most trained */}
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-start", gap: 80, marginTop: 44 }}>
+              <StravaStat label="Duration" value={durationDisplay} s={s} transparent={transparent} />
+              <StravaStat
+                label="Most Trained"
+                value={topDiscipline}
+                s={s}
+                transparent={transparent}
+                accentColor={topDiscipline !== "-" ? getSessionColor(topDiscipline, customColors) : undefined}
+              />
+            </div>
+
+            <div style={{ flex: 1, minHeight: 24 }} />
+
+            <WeekHeroChart
+              days={days}
+              maxDayMinutes={maxDayMinutes}
+              customColors={customColors}
+              transparent={transparent}
+            />
+          </div>
+        </CardShell>
+      );
+    }
+
     return (
       <CardShell ref={ref} aspect={aspect} isPremium={isPremium} transparent={transparent}>
         {/* Layout: period label stays at top under FightCamp Wizard, stats are
@@ -206,6 +273,151 @@ export const TrainingCalendarCard = forwardRef<HTMLDivElement, TrainingCalendarC
 );
 
 TrainingCalendarCard.displayName = "TrainingCalendarCard";
+
+/* ─── Week Hero Chart (story): solid discipline-coloured columns, no
+   container box, one-letter weekday labels, no date numbers. Minutes total
+   sits above each active column. ─── */
+function WeekHeroChart({
+  days,
+  maxDayMinutes,
+  customColors,
+  transparent,
+}: {
+  days: DayData[];
+  maxDayMinutes: number;
+  customColors?: Record<string, string>;
+  transparent?: boolean;
+}) {
+  // Fixed canvas; the SVG scales to width.
+  const VB_W = 960;
+  const colWidth = 104;
+  const colGap = 18;
+  const segGap = 6;
+  const segRadius = 14;
+  const minuteLabelArea = 50; // space above the tallest bar for "Xm" labels
+  const maxColHeight = 560;
+  const dayLabelArea = 80; // space below baseline for the single-letter day
+
+  const chartTop = minuteLabelArea;
+  const baselineY = chartTop + maxColHeight;
+  const VB_H = baselineY + dayLabelArea;
+
+  const svgWidth = 7 * colWidth + 6 * colGap;
+  const padX = Math.floor((VB_W - svgWidth) / 2);
+
+  return (
+    <div style={{ marginBottom: 48, display: "flex", justifyContent: "center" }}>
+      <svg viewBox={`0 0 ${VB_W} ${VB_H}`} width="100%" style={{ maxWidth: VB_W }}>
+        {/* Faint baseline rule */}
+        <rect
+          x={padX - 4}
+          y={baselineY}
+          width={svgWidth + 8}
+          height={2}
+          rx={1}
+          fill={transparent ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.1)"}
+        />
+
+        {days.map((day, i) => {
+          const x = padX + i * (colWidth + colGap);
+          const cx = x + colWidth / 2;
+          const totalMin = day.sessions.reduce((sum, sess) => sum + sess.duration_minutes, 0);
+          const oneLetter = day.dayLabel.charAt(0).toUpperCase();
+          const active = day.sessions.length > 0;
+
+          const dayLabelEl = (
+            <text
+              x={cx}
+              y={baselineY + 54}
+              textAnchor="middle"
+              fill={
+                active
+                  ? transparent
+                    ? "rgba(255,255,255,1)"
+                    : "rgba(255,255,255,0.88)"
+                  : transparent
+                  ? "rgba(255,255,255,0.65)"
+                  : "rgba(255,255,255,0.4)"
+              }
+              fontSize={38}
+              fontWeight={700}
+            >
+              {oneLetter}
+            </text>
+          );
+
+          if (!active) {
+            return (
+              <g key={day.date}>
+                {/* Empty-day stub on the baseline */}
+                <rect
+                  x={cx - 7}
+                  y={baselineY - 8}
+                  width={14}
+                  height={8}
+                  rx={4}
+                  fill={transparent ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.08)"}
+                />
+                {dayLabelEl}
+              </g>
+            );
+          }
+
+          // Total column height proportional to minutes, leaving room for gaps.
+          const totalGaps = (day.sessions.length - 1) * segGap;
+          const columnHeight = Math.max(
+            day.sessions.length * 10 + totalGaps,
+            (totalMin / maxDayMinutes) * maxColHeight
+          );
+          const availableHeight = columnHeight - totalGaps;
+
+          let currentY = baselineY;
+          const segments = day.sessions.map((sess, si) => {
+            const proportion = sess.duration_minutes / totalMin;
+            const segHeight = Math.max(10, proportion * availableHeight);
+            currentY -= segHeight;
+            const segY = currentY;
+            const r = Math.min(segRadius, segHeight / 2, colWidth / 2);
+            currentY -= segGap;
+            return (
+              <rect
+                key={si}
+                x={x}
+                y={segY}
+                width={colWidth}
+                height={segHeight}
+                rx={r}
+                ry={r}
+                fill={getSessionColor(sess.session_type, customColors)}
+              />
+            );
+          });
+
+          const colTopY = currentY + segGap; // top of the highest segment
+
+          return (
+            <g key={day.date}>
+              {/* Minutes total above the column */}
+              <text
+                x={cx}
+                y={colTopY - 16}
+                textAnchor="middle"
+                fill={transparent ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.92)"}
+                fontSize={26}
+                fontWeight={800}
+                style={{ fontVariantNumeric: "tabular-nums" }}
+              >
+                {totalMin}m
+              </text>
+              {segments}
+              {dayLabelEl}
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
 
 /* ─── Day View: horizontal session bars ─── */
 function DayView({ days, s, customColors }: { days: DayData[]; s: boolean; customColors?: Record<string, string> }) {

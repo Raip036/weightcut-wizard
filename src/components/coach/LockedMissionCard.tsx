@@ -36,10 +36,6 @@ export function LockedMissionCard() {
                 Pro
               </span>
             </div>
-            <p className="text-note text-muted-foreground leading-snug mt-0.5">
-              Turn your session notes into a linear checklist that adapts as
-              you train.
-            </p>
           </div>
         </div>
 

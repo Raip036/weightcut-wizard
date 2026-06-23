@@ -452,7 +452,22 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
             </motion.div>
           )}
 
-          {stage === "wizard" && canCreateCamp && (
+          {/* Subscription state not resolved yet: show a brief spinner rather
+              than an empty sheet (and so a Pro user never flashes the upsell
+              before `canCreateCamp` settles). */}
+          {stage === "wizard" && !isSubscriptionResolved && (
+            <motion.div
+              key="resolving"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex items-center justify-center py-16"
+            >
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </motion.div>
+          )}
+
+          {stage === "wizard" && isSubscriptionResolved && canCreateCamp && (
             <motion.div
               key="wizard"
               initial={{ opacity: 0, x: 24 }}

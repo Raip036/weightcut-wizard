@@ -161,8 +161,13 @@ export function WrapUpStepper({ saving, onComplete, onSkip }: WrapUpStepperProps
 
       {/* Body — one centered field per step. `min-h-0 overflow-y-auto` lets the
           body (not the footer) absorb any squeeze when the keyboard is open on
-          small screens, so the primary button is always reachable. */}
-      <div className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-7 text-center">
+          small screens. `pb-6` guarantees a gap above the opaque footer so the
+          active input is never flush with — or hidden behind — the Continue
+          button when the keyboard shortens the sheet. `m-auto` (instead of
+          `justify-center`) centres the field while staying scroll-safe: when
+          content is taller than the squeezed body it scrolls instead of
+          clipping the top out of reach. */}
+      <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pt-7 pb-6 text-center">
         <AnimatePresence mode="wait" custom={dir}>
           <motion.div
             key={step}
@@ -171,7 +176,7 @@ export function WrapUpStepper({ saving, onComplete, onSkip }: WrapUpStepperProps
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: dir * -36 }}
             transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
-            className="flex w-full flex-col items-center"
+            className="m-auto flex w-full flex-col items-center"
           >
             <div className="mb-5 grid h-11 w-11 place-items-center rounded-2xl bg-muted/40 text-primary">
               <cur.icon className="h-[22px] w-[22px]" />
@@ -235,8 +240,12 @@ export function WrapUpStepper({ saving, onComplete, onSkip }: WrapUpStepperProps
         </AnimatePresence>
       </div>
 
-      {/* Footer — primary action + subtle skip */}
-      <div className="relative z-10 bg-gradient-to-t from-card via-card to-transparent px-6 pb-[max(20px,env(safe-area-inset-bottom))] pt-8">
+      {/* Footer — primary action + subtle skip. Opaque `bg-card` with a hairline
+          top divider (survives the native box-shadow stripping) so it reads as a
+          distinct bottom bar: the active input always sits clearly above it and
+          can never be overlapped by the Continue button, even when the keyboard
+          shortens the sheet. */}
+      <div className="relative z-20 border-t border-white/[0.06] bg-card/90 px-6 pb-[max(20px,env(safe-area-inset-bottom))] pt-5">
         <button
           onClick={advance}
           disabled={saving}

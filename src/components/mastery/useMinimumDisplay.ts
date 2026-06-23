@@ -10,7 +10,7 @@ export type GenerationJob = { discipline: string; kind: "drills" | "sparring" };
 
 /** Minimum time (ms) a loader stays visible once it first appears for a given
  *  discipline+kind, even if the underlying job has already cleared. */
-export const LOADER_MIN_DISPLAY_MS = 1900;
+export const LOADER_MIN_DISPLAY_MS = 2500;
 
 function makeKey(discipline: string, kind: "drills" | "sparring"): string {
   return `${discipline.toLowerCase()}|${kind}`;
@@ -95,5 +95,84 @@ export function useMinimumDisplay(jobs: GenerationJob[]): MinimumDisplay {
   return {
     has: (discipline, kind) => held.has(makeKey(discipline, kind)),
     jobs: heldJobs,
+  };
+}
+
+// ─── Deterministic cycle-complete detection ──────────────────────────────────
+
+/** Per-discipline count of graduated, not-yet-mastered sparring assignments. */
+export type GraduatedCounts = Record<string, number>;
+
+/** One discipline whose cycle just completed (its un-mastered graduated count
+ *  fell from >0 to 0 this render). Carries an XP figure for the cutscene. */
+export interface CycleCompletion {
+  discipline: string;
+  xp: number;
+}
+
+/** XP awarded per graduated technique (3 lands × 15 XP each). */
+const XP_PER_GRADUATED_TECHNIQUE = 3 * 15;
+/** Flat bonus for completing a whole discipline cycle. */
+const CYCLE_BONUS_XP = 50;
+
+/**
+ * Deterministic cycle-complete detector.
+ *
+ * Pass the CURRENT per-discipline count of graduated, un-mastered sparring
+ * assignments (derived from `getMasteryFlow`). When a discipline's count
+ * transitions from >0 (previous render) to 0 — i.e. its last graduated
+ * assignment just got mastered — this returns a `CycleCompletion` for it ONCE.
+ *
+ * Double-fire is guarded by an internal already-celebrated Set, shared with the
+ * imperative path via `markCelebrated` / `isCelebrated` so the legacy
+ * `onCycleComplete` callback and this deterministic detection can't both fire.
+ *
+ * The detector is render-pure (no effects): it reads/writes refs during render
+ * and returns the newly-completed disciplines. Callers should fire at most one
+ * cutscene at a time (the spine shows them serially).
+ */
+export interface CycleDetector {
+  /** Disciplines whose cycle completed since the last call (deduped). */
+  completions: CycleCompletion[];
+  /** True if a discipline has already had its cutscene fired this session. */
+  isCelebrated: (discipline: string) => boolean;
+  /** Mark a discipline celebrated (call from the imperative callback path too). */
+  markCelebrated: (discipline: string) => void;
+}
+
+export function useCycleCompletionDetector(
+  counts: GraduatedCounts,
+): CycleDetector {
+  const prevCountsRef = useRef<GraduatedCounts>({});
+  const celebratedRef = useRef<Set<string>>(new Set());
+
+  const completions: CycleCompletion[] = [];
+  const prev = prevCountsRef.current;
+
+  for (const [discipline, prevCount] of Object.entries(prev)) {
+    const current = counts[discipline] ?? 0;
+    // Transition from >0 to 0 = the final graduated assignment was mastered.
+    if (prevCount > 0 && current === 0 && !celebratedRef.current.has(discipline)) {
+      celebratedRef.current.add(discipline);
+      const xp = prevCount * XP_PER_GRADUATED_TECHNIQUE + CYCLE_BONUS_XP;
+      completions.push({ discipline, xp });
+    }
+  }
+
+  // Reset the celebrated guard for a discipline that re-enters the cycle (a new
+  // graduated batch appears after its trophy was already shown), so a future
+  // cycle can celebrate again.
+  for (const [discipline, current] of Object.entries(counts)) {
+    if (current > 0 && (prev[discipline] ?? 0) === 0) {
+      celebratedRef.current.delete(discipline);
+    }
+  }
+
+  prevCountsRef.current = { ...counts };
+
+  return {
+    completions,
+    isCelebrated: (discipline) => celebratedRef.current.has(discipline),
+    markCelebrated: (discipline) => celebratedRef.current.add(discipline),
   };
 }

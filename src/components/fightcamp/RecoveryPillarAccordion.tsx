@@ -187,6 +187,37 @@ export function RecoveryPillarAccordion({
 
   const { pillars } = metrics;
 
+  // ── Real "still building" countdown for the Load pillar ──
+  // loadConfidence is already on AllMetrics, so we can show the true
+  // N-of-14 training-day progress rather than generic copy.
+  const lc = metrics.loadConfidence;
+  const loadBuildingHint =
+    lc && typeof lc.trainingDaysIn28d === "number" && typeof lc.required === "number" ? (
+      <BuildingCountdown
+        done={lc.trainingDaysIn28d}
+        required={lc.required}
+        label="training days"
+        unlockLabel="ACWR unlocks at"
+      />
+    ) : (
+      <p className="text-[11px] text-muted-foreground/80 leading-snug">
+        Log ~14 training days to unlock load tracking.
+      </p>
+    );
+
+  const bodyBuildingHint = (
+    <p className="text-[11px] text-muted-foreground/80 leading-snug">
+      Do your daily check-in (sleep, soreness, fatigue, stress) to unlock this — it sharpens over
+      ~2 weeks as it learns your baseline.
+    </p>
+  );
+
+  const recoveryBuildingHint = (
+    <p className="text-[11px] text-muted-foreground/80 leading-snug">
+      Log your sleep each night to keep this accurate.
+    </p>
+  );
+
   // ── 7-day sparkline series per pillar ──
   // Recovery → sleep hours; Body → soreness (1-7, inverted); Load → daily load.
   const recovery7d = sleepLogs.slice(-7).map(l => l.hours);
@@ -211,6 +242,7 @@ export function RecoveryPillarAccordion({
         onToggle={() => toggle("recovery")}
         index={0}
         rowRef={assignRef("recovery")}
+        buildingHint={recoveryBuildingHint}
       >
         <RecoveryDrilldown metrics={metrics} sleepLogs={sleepLogs} />
       </PillarRow>
@@ -227,6 +259,7 @@ export function RecoveryPillarAccordion({
         onToggle={() => toggle("body")}
         index={1}
         rowRef={assignRef("body")}
+        buildingHint={bodyBuildingHint}
       >
         <BodyDrilldown metrics={metrics} />
       </PillarRow>
@@ -240,6 +273,7 @@ export function RecoveryPillarAccordion({
         onToggle={() => toggle("load")}
         index={2}
         rowRef={assignRef("load")}
+        buildingHint={loadBuildingHint}
       >
         <LoadDrilldown metrics={metrics} />
       </PillarRow>
@@ -263,6 +297,8 @@ interface PillarRowProps {
   index: number;
   children: React.ReactNode;
   rowRef?: (el: HTMLDivElement | null) => void;
+  /** Extra hint shown under the "Building…" empty state (e.g. a real countdown). */
+  buildingHint?: React.ReactNode;
 }
 
 function PillarRow({
@@ -276,6 +312,7 @@ function PillarRow({
   index,
   children,
   rowRef,
+  buildingHint,
 }: PillarRowProps) {
   const prefersReduced = useReducedMotion();
   const isBuilding = score === null;
@@ -355,7 +392,11 @@ function PillarRow({
             className="overflow-hidden"
           >
             <div className="px-4 pb-4 pt-1 border-t border-border/30">
-              {isBuilding ? <BuildingEmptyState reason={meta.reason} /> : children}
+              {isBuilding ? (
+                <BuildingEmptyState reason={meta.reason} hint={buildingHint} />
+              ) : (
+                children
+              )}
             </div>
           </motion.div>
         )}
@@ -364,7 +405,13 @@ function PillarRow({
   );
 }
 
-function BuildingEmptyState({ reason }: { reason: string }) {
+function BuildingEmptyState({
+  reason,
+  hint,
+}: {
+  reason: string;
+  hint?: React.ReactNode;
+}) {
   return (
     <div className="py-3 text-center">
       <div className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-muted/30 text-muted-foreground mb-2">
@@ -374,6 +421,54 @@ function BuildingEmptyState({ reason }: { reason: string }) {
       <p className="mt-1 text-[12px] text-muted-foreground leading-snug max-w-[34ch] mx-auto">
         {reason}
       </p>
+      {hint && <div className="mt-2 max-w-[34ch] mx-auto">{hint}</div>}
+    </div>
+  );
+}
+
+// Real progress countdown shown while a pillar is still "Building…".
+// Renders an N-of-M line + a thin progress track so the user can see how
+// close they are to unlocking the score. Reduced-motion safe (CSS width only,
+// no animation) and iOS-safe (no shadow/blur).
+function BuildingCountdown({
+  done,
+  required,
+  label,
+  unlockLabel,
+}: {
+  done: number;
+  required: number;
+  label: string;
+  unlockLabel: string;
+}) {
+  const safeDone = Math.max(0, Math.min(done, required));
+  const remaining = Math.max(0, required - safeDone);
+  const pct = required > 0 ? Math.round((safeDone / required) * 100) : 0;
+  return (
+    <div className="space-y-1.5">
+      <p className="text-[11px] text-muted-foreground/80 leading-snug">
+        Log your training sessions —{" "}
+        <span className="font-semibold text-foreground tabular-nums">
+          {safeDone} of {required}
+        </span>{" "}
+        {label}.{" "}
+        <span className="text-muted-foreground/70">
+          {unlockLabel} {required}
+          {remaining > 0 ? ` (${remaining} to go)` : ""}.
+        </span>
+      </p>
+      <div
+        className="h-1.5 w-full rounded-full bg-muted/30 overflow-hidden"
+        role="progressbar"
+        aria-valuenow={safeDone}
+        aria-valuemin={0}
+        aria-valuemax={required}
+      >
+        <div
+          className="h-full rounded-full bg-func-recovery-green/70"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
     </div>
   );
 }
@@ -428,7 +523,8 @@ function RecoveryDrilldown({
         </div>
       )}
       <div className="mt-3 text-[12px] text-muted-foreground leading-snug">
-        Sleep score blends duration vs. your needs and recent consistency. Aim for 7-9 hours.
+        Sleep score blends duration vs. your needs and recent consistency. Aim for 7-9 hours, and
+        log your sleep each night to keep this accurate.
       </div>
     </>
   );
@@ -503,6 +599,11 @@ function BodyDrilldown({ metrics }: { metrics: AllMetrics }) {
           <span>Caloric deficit dragging recovery. Eat more or ease off.</span>
         </div>
       )}
+
+      {/* What moves this score */}
+      <p className="mt-3 text-[11px] text-muted-foreground/80 leading-snug">
+        Driven by your daily check-ins. Log one each day so it tracks how fresh vs fatigued you are.
+      </p>
     </>
   );
 }
@@ -582,6 +683,12 @@ function LoadDrilldown({ metrics }: { metrics: AllMetrics }) {
       <div className="mt-4 pt-3 border-t border-border/30">
         <WeeklyLoadPlan metrics={metrics} />
       </div>
+
+      {/* What moves this score */}
+      <p className="mt-3 text-[11px] text-muted-foreground/80 leading-snug">
+        Driven by your logged session load (duration × RPE) over the last 4 weeks. Keep logging
+        every session.
+      </p>
     </>
   );
 }

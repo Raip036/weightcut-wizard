@@ -498,6 +498,230 @@ export const getCurrentForUser = query({
 });
 
 // ───────────────────────────────────────────────────────────────────────
+// LIVE week breakdown — always-fresh replacement for the frozen `breakdown`
+// ───────────────────────────────────────────────────────────────────────
+
+/**
+ * LIVE, deterministic breakdown of a single report week's training.
+ *
+ * WHY THIS EXISTS
+ * ---------------
+ * The Sunday report's `breakdown` field is a FROZEN AI prose snapshot written
+ * once by the Sunday cron (see `actions/recovery/campCompass.ts`). The moment a
+ * user edits / deletes / adds a session for that week afterwards, that prose
+ * goes stale while the top cards (computed live) stay correct.
+ *
+ * This query is the live, always-fresh source for the "Where you broke down"
+ * section: a plain Convex `query` (so it re-runs reactively whenever any
+ * `fight_camp_calendar` / `sleep_logs` row in the week changes) that computes a
+ * 100% DETERMINISTIC breakdown from the actual sessions of that exact week.
+ * It never calls the AI and never touches the stored `breakdown` — the UI can
+ * still render the stored AI `verdict` line; we only replace the stale prose
+ * paragraph with this live, card-matching payload.
+ *
+ * WEEK BOUNDARIES
+ * ---------------
+ * Weeks are UTC Monday → Sunday, identical to the cron's `computeLastMondayIsoUtc`
+ * (which derives `weekStartIso`). Given the report's Monday `weekStartIso`, the
+ * window is [weekStartIso, weekStartIso + 6 days] inclusive, computed in UTC so
+ * it divides weeks exactly the same way the cron does (no DST drift).
+ *
+ * Auth: scoped to the calling user via `getAuthUserId` — the same pattern as
+ * `listRecent` / `getCurrentForUser`. We deliberately do NOT accept a userId
+ * arg (per Convex auth guidelines). Returns a null-safe empty-ish payload for
+ * a week with no logged sessions rather than throwing, so a partial week still
+ * renders.
+ *
+ * `totalLoad` is a simple session-load proxy: sum of `durationMinutes * rpe`
+ * over non-rest sessions (minutes weighted by perceived intensity). Rest
+ * sessions (sessionType === "Rest") are excluded from all "trained" stats but
+ * are reported via `restOrMissedDays` / the per-day map.
+ */
+export const getWeekBreakdown = query({
+  args: { weekStartIso: v.string() },
+  handler: async (ctx, { weekStartIso }) => {
+    const userId = await getAuthUserId(ctx);
+
+    // ── Deterministic UTC Monday → Sunday window ────────────────────────────
+    // Mirror `computeLastMondayIsoUtc`: treat weekStartIso as a UTC midnight
+    // Monday and add 6 days for Sunday. Parsing "YYYY-MM-DD" via `Date` yields
+    // UTC midnight, and `setUTCDate` keeps the math in UTC.
+    const weekStartDate = new Date(`${weekStartIso}T00:00:00.000Z`);
+    const weekEndDate = new Date(weekStartDate);
+    weekEndDate.setUTCDate(weekEndDate.getUTCDate() + 6);
+    const weekEndIso = weekEndDate.toISOString().slice(0, 10);
+
+    // Mon..Sun day labels, indexed by offset from the Monday start.
+    const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+    type DayLabel = (typeof DAY_LABELS)[number];
+    const isoForOffset = (offset: number): string => {
+      const d = new Date(weekStartDate);
+      d.setUTCDate(d.getUTCDate() + offset);
+      return d.toISOString().slice(0, 10);
+    };
+    const labelForIso = (iso: string): DayLabel | null => {
+      for (let i = 0; i < 7; i++) {
+        if (isoForOffset(i) === iso) return DAY_LABELS[i];
+      }
+      return null;
+    };
+
+    // Empty-but-valid payload (unauthed, or a week with no data) — keeps the
+    // return type stable so the UI never has to special-case null.
+    const emptyDayMap: Record<DayLabel, "session" | "rest" | "missed"> = {
+      Mon: "missed",
+      Tue: "missed",
+      Wed: "missed",
+      Thu: "missed",
+      Fri: "missed",
+      Sat: "missed",
+      Sun: "missed",
+    };
+
+    if (!userId) {
+      return {
+        weekStartIso,
+        weekEndIso,
+        sessionCount: 0,
+        totalMinutes: 0,
+        avgRpe: null as number | null,
+        totalLoad: 0,
+        sessions: [] as Array<{
+          date: string;
+          dayLabel: DayLabel;
+          type: string;
+          durationMinutes: number;
+          rpe: number;
+        }>,
+        perDay: { ...emptyDayMap },
+        restOrMissedDays: [...DAY_LABELS] as DayLabel[],
+        hardestDay: null as DayLabel | null,
+        avgSleepH: null as number | null,
+      };
+    }
+
+    // ── LIVE session fetch for the exact week (by_user_date index) ───────────
+    const rawSessions = await ctx.db
+      .query("fight_camp_calendar")
+      .withIndex("by_user_date", (q) =>
+        q.eq("userId", userId).gte("date", weekStartIso).lte("date", weekEndIso),
+      )
+      .order("asc")
+      .take(100);
+
+    // Normalize legacy rows (sessionType = primary), then split Rest vs trained.
+    const normalized = rawSessions.map((s) => {
+      const { primary } = normalizeLegacySession(s.sessionType, s.sessionTag);
+      return {
+        date: s.date,
+        type: primary,
+        durationMinutes: s.durationMinutes ?? 0,
+        rpe: s.rpe ?? 0,
+        isRest: primary === "Rest",
+      };
+    });
+
+    const trained = normalized.filter((s) => !s.isRest);
+
+    // ── Deterministic aggregates over non-rest sessions ─────────────────────
+    const sessionCount = trained.length;
+    const totalMinutes = trained.reduce((a, s) => a + s.durationMinutes, 0);
+    const totalLoad = trained.reduce(
+      (a, s) => a + s.durationMinutes * s.rpe,
+      0,
+    );
+    const rpeVals = trained.map((s) => s.rpe).filter((r) => r > 0);
+    const avgRpe =
+      rpeVals.length > 0
+        ? Math.round((rpeVals.reduce((a, r) => a + r, 0) / rpeVals.length) * 10) /
+          10
+        : null;
+
+    // Per-day map: a day with ≥1 trained session is "session"; a day whose only
+    // logged rows are Rest is "rest"; a day with nothing logged is "missed".
+    const perDay: Record<DayLabel, "session" | "rest" | "missed"> = {
+      ...emptyDayMap,
+    };
+    const loadByDay: Record<DayLabel, number> = {
+      Mon: 0,
+      Tue: 0,
+      Wed: 0,
+      Thu: 0,
+      Fri: 0,
+      Sat: 0,
+      Sun: 0,
+    };
+    for (const s of normalized) {
+      const label = labelForIso(s.date);
+      if (!label) continue; // out-of-window safety
+      if (s.isRest) {
+        // Don't downgrade a day that already has a trained session.
+        if (perDay[label] === "missed") perDay[label] = "rest";
+      } else {
+        perDay[label] = "session";
+        loadByDay[label] += s.durationMinutes * s.rpe;
+      }
+    }
+
+    // Sorted, labelled live session list — the list the UI renders.
+    const sessions = trained
+      .map((s) => ({
+        date: s.date,
+        dayLabel: labelForIso(s.date) ?? ("Mon" as DayLabel),
+        type: s.type,
+        durationMinutes: s.durationMinutes,
+        rpe: s.rpe,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    const restOrMissedDays = DAY_LABELS.filter(
+      (d) => perDay[d] !== "session",
+    ) as DayLabel[];
+
+    // Hardest day = max daily training load (null if no trained sessions).
+    let hardestDay: DayLabel | null = null;
+    let hardestLoad = 0;
+    for (const d of DAY_LABELS) {
+      if (loadByDay[d] > hardestLoad) {
+        hardestLoad = loadByDay[d];
+        hardestDay = d;
+      }
+    }
+
+    // ── Optional in-range sleep average ─────────────────────────────────────
+    const sleepRows = await ctx.db
+      .query("sleep_logs")
+      .withIndex("by_user_date", (q) =>
+        q.eq("userId", userId).gte("date", weekStartIso).lte("date", weekEndIso),
+      )
+      .take(14);
+    const sleepHours = sleepRows
+      .map((r) => r.hours)
+      .filter((h): h is number => typeof h === "number" && h > 0);
+    const avgSleepH =
+      sleepHours.length > 0
+        ? Math.round(
+            (sleepHours.reduce((a, h) => a + h, 0) / sleepHours.length) * 10,
+          ) / 10
+        : null;
+
+    return {
+      weekStartIso,
+      weekEndIso,
+      sessionCount,
+      totalMinutes,
+      avgRpe,
+      totalLoad,
+      sessions,
+      perDay,
+      restOrMissedDays,
+      hardestDay,
+      avgSleepH,
+    };
+  },
+});
+
+// ───────────────────────────────────────────────────────────────────────
 // Internal queries — for the campCompass action
 // ───────────────────────────────────────────────────────────────────────
 

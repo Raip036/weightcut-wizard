@@ -11,6 +11,7 @@ import { cn, stripDashes } from "@/lib/utils";
 import { CompleteCelebration } from "@/components/motion";
 import { AnimatedCheckbox, XpFloat } from "@/components/coach/TickReward";
 import { WizardAuroraBackground } from "@/components/onboarding/WizardAuroraBackground";
+import { pushMasterySignal } from "@/components/mastery/masteryGenerationSignals";
 import { LevelRing } from "./LevelRing";
 
 type Mission = Doc<"training_missions"> & {
@@ -291,6 +292,12 @@ export function MissionCard({ mission, expanded, onToggle, onAllMissionsComplete
       // Only show a celebration when we just transitioned TO completed
       // (tick), never on an untick.
       if (!currentlyCompleted && result.missionCompleted) {
+        // The final drill of the mission was just ticked: this kicks off the
+        // async drill→spar graduation backend-side. Push an optimistic signal
+        // so the Mastery sparring wizard loader shows immediately instead of
+        // racing the job marker. `result.missionCompleted` (+ the !untick
+        // guard) means we only push on the transition to fully complete, once.
+        pushMasterySignal(mission.sport, "sparring");
         const awarded = result.xpAwarded ?? 0;
         if (result.allMissionsComplete && onAllMissionsComplete) {
           // The last mission of the discipline is done: bubble up to the

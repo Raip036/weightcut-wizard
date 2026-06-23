@@ -17,7 +17,7 @@ export const ScoringConfigV1: ScoringConfig = {
   },
   phaseThresholdsDays: { fightWeek: 7, peak: 14 },
   trainingLoad: {
-    acwrSweetSpot: [0.8, 1.3],
+    acwrSweetSpot: [0.7, 1.4],
     acwrPenaltyEdges: [0.5, 1.5],
     acwrFloor: 20,
     acuteWindowDays: 7,

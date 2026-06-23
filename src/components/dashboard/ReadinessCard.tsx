@@ -61,11 +61,6 @@ export function ReadinessCard({ userId }: ReadinessCardProps) {
   const latest = scored[0] ?? null;
   const displayScore = liveScore != null ? liveScore : latest ? latest.readinessScore : null;
 
-  const prevPersisted = asc.filter((r) => r.date !== today).slice(-1)[0] ?? null;
-  const delta =
-    liveScore != null && prevPersisted
-      ? liveScore - prevPersisted.readinessScore
-      : null;
   const hasData = series.length >= 2;
   const verdict = displayScore != null ? verdictFor(displayScore) : null;
 
@@ -98,11 +93,6 @@ export function ReadinessCard({ userId }: ReadinessCardProps) {
             <span className="font-display font-bold text-[40px] leading-none text-foreground tabular-nums">
               {displayScore != null ? Math.round(displayScore) : "-"}
             </span>
-            {verdict && (
-              <span className={`text-note font-semibold ${verdict.color}`}>
-                {verdict.label}
-              </span>
-            )}
           </div>
 
           <div className="flex-1 min-h-0 mt-2">
@@ -110,25 +100,24 @@ export function ReadinessCard({ userId }: ReadinessCardProps) {
               <Sparkline data={series} className="h-full w-full" />
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center">
-                <Icon name="pulseOutline" size={20} className="text-muted-foreground/40 mb-1" />
-                <p className="text-note text-muted-foreground">No data yet</p>
+                <Icon name="pulseOutline" size={14} className="text-muted-foreground/40 mb-0.5" />
+                <p className="text-micro text-muted-foreground">No data yet</p>
               </div>
             )}
           </div>
 
-          {/* Footer row: 7-day avg (left) + signed delta (right) */}
-          <div className="mt-1.5 flex items-center justify-between">
+          {/* Footer row: 7-day avg (left) + verdict band (right). The verdict
+              lives bottom-right so the coloured token lines up with the signed
+              deltas on the Weight/Sleep cards — keeps the stat grid uniform. */}
+          <div className="mt-1.5 flex items-center justify-between gap-1.5">
             <span className="text-micro text-muted-foreground tabular-nums">
               {series.length >= 2 ? `avg ${Math.round(series.reduce((a, b) => a + b, 0) / series.length)}` : ""}
             </span>
-            {delta != null && Math.abs(delta) >= 1 && (() => {
-              const isUp = delta > 0; // higher readiness is better
-              return (
-                <span className={`text-micro font-semibold tabular-nums leading-none ${isUp ? "text-func-recovery-green" : "text-func-danger-red"}`}>
-                  {isUp ? "+" : "−"}{Math.abs(Math.round(delta))}
-                </span>
-              );
-            })()}
+            {verdict && (
+              <span className={`text-micro font-semibold leading-none ${verdict.color}`}>
+                {verdict.label}
+              </span>
+            )}
           </div>
         </>
       ) : (

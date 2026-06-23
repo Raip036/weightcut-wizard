@@ -13,6 +13,7 @@ import { Plus, Trophy, Trash2, GitCompareArrows, X, CheckSquare, Check } from "l
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
+import { SwipeToDelete } from "@/components/ui/SwipeToDelete";
 import { ShareCardDialog } from "@/components/share/ShareCardDialog";
 import { CampComparisonCard } from "@/components/share/cards/CampComparisonCard";
 import { NextCampFlow } from "@/components/fightcamp/NextCampFlow";
@@ -230,8 +231,14 @@ export default function FightCamps() {
     const completed = camp.is_completed;
     const isActive = !completed && camp.id === activeCampId;
     return (
-      <div
+      // Swipe left to delete (touch-first). Disabled in select/compare modes
+      // where a tap already selects, so the gesture can't fight those flows.
+      <SwipeToDelete
         key={camp.id}
+        enabled={!selectMode && !compareMode}
+        onDelete={() => initiateDelete(camp)}
+      >
+      <div
         className={`group relative card-surface p-4 active:scale-[0.98] transition-all duration-200 overflow-hidden ${
           isActive ? "border border-primary/30 card-glow" : ""
         } ${completed ? "opacity-[0.92]" : ""} ${
@@ -345,6 +352,7 @@ export default function FightCamps() {
           </Button>
         )}
       </div>
+      </SwipeToDelete>
     );
   };
 

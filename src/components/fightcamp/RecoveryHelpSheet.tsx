@@ -22,7 +22,6 @@ type GlossaryItem = {
   key: string;
   icon: IonIconName;
   color: string;
-  bg: string;
   title: string;
   summary: string;               // plain meaning, one sentence
   details: string;               // tap-to-expand technical detail
@@ -34,98 +33,54 @@ const GLOSSARY: GlossaryItem[] = [
     key: "readiness",
     icon: "heartOutline",
     color: "text-func-recovery-green",
-    bg: "bg-func-recovery-green/10",
     title: "Readiness",
-    summary: "How prepared your body is to train today, scored 0 to 100. Higher is better.",
-    details: "Combines your wellness check-in (sleep, fatigue, soreness, stress), your training load balance, recent recovery patterns, and your logging consistency. It's smoothed across the last few days so one bad night doesn't tank it.",
+    summary: "The outer ring. How prepared you are to train today, 0 to 100. Higher is better.",
+    details: "Blends your Recovery, Body, and Load pillars into one score, then smooths it across recent days so one bad night doesn't tank it.",
     states: [
-      { label: "Peaked",     meaning: "80+",      color: "text-func-recovery-green" },
-      { label: "Ready",      meaning: "55 to 79", color: "text-brand-spirit-blue" },
-      { label: "Recovering", meaning: "35 to 54", color: "text-func-warning-yellow" },
-      { label: "Strained",   meaning: "under 35", color: "text-func-danger-red" },
+      { label: "Green", meaning: "60+",      color: "text-func-recovery-green" },
+      { label: "Amber", meaning: "40 to 59", color: "text-func-warning-yellow" },
+      { label: "Red",   meaning: "under 40", color: "text-func-danger-red" },
     ],
+  },
+  {
+    key: "recovery",
+    icon: "moonOutline",
+    color: "text-func-hydration-cyan",
+    title: "Recovery",
+    summary: "The middle ring. Your sleep and baseline rested state, 0 to 100.",
+    details: "Driven mostly by sleep: your last few nights weighed against your personal baseline. Needs a few nights of sleep logs before it leaves 'Building'.",
+  },
+  {
+    key: "load",
+    icon: "barChartOutline",
+    color: "text-brand-spirit-blue",
+    title: "Load",
+    summary: "The inner ring. This week's training volume versus your normal, 0 to 100.",
+    details: "Compares your recent training to your 28-day baseline so you can see if you're ramping up, holding, or backing off. Needs 14 training days logged in the last 28 to leave 'Building'.",
+  },
+  {
+    key: "body",
+    icon: "speedometerOutline",
+    color: "text-func-carbs-orange",
+    title: "Body",
+    summary: "Your daily check-in pillar (how you feel), 0 to 100. Do a check-in to unlock it.",
+    details: "Built from your daily wellness check-in. Rising fatigue and soreness show up here before they hit your training. Stays 'Building' until you complete a check-in.",
   },
   {
     key: "strain",
     icon: "flameOutline",
-    color: "text-func-carbs-orange",
-    bg: "bg-func-carbs-orange/10",
-    title: "Strain",
-    summary: "How hard your training was today, on a 0 to 21 scale. Higher means tougher.",
-    details: "Calculated from how long you trained, how hard it felt (RPE), and the type of session. The scale has diminishing returns at the top, so getting from 18 to 20 is way harder than 8 to 10. Mirrors how real fatigue piles up.",
-    states: [
-      { label: "Light",   meaning: "0 to 7",   color: "text-func-recovery-green" },
-      { label: "Moderate", meaning: "8 to 13", color: "text-brand-spirit-blue" },
-      { label: "Hard",    meaning: "14 to 17", color: "text-func-warning-yellow" },
-      { label: "All Out", meaning: "18 to 21", color: "text-func-danger-red" },
-    ],
-  },
-  {
-    key: "ot",
-    icon: "shieldOutline",
     color: "text-func-danger-red",
-    bg: "bg-func-danger-red/10",
-    title: "Overtraining risk",
-    summary: "Tracks whether you're piling on too much, too fast.",
-    details: "Flags include sudden training spikes, sustained high effort, climbing soreness, and dropping sleep. Multiple flags compound. A good wellness check-in (you actually feel fine) softens the score by one tier.",
-    states: [
-      { label: "Low",      meaning: "0 to 30",  color: "text-func-recovery-green" },
-      { label: "Moderate", meaning: "31 to 60", color: "text-func-warning-yellow" },
-      { label: "High",     meaning: "61 to 80", color: "text-func-carbs-orange" },
-      { label: "Critical", meaning: "81+",      color: "text-func-danger-red" },
-    ],
-  },
-  {
-    key: "training-load",
-    icon: "barChartOutline",
-    color: "text-brand-spirit-blue",
-    bg: "bg-brand-spirit-blue/10",
-    title: "Training load",
-    summary: "Compares your last 7 days of training to your typical month. Tells you if you're ramping up too fast, holding steady, or backing off.",
-    details: "Uses the acute-to-chronic ratio (your 7-day load divided by your 28-day baseline). Needs at least 14 training days in the last month before this number is trustworthy. Until then the card shows 'Building'.",
-    states: [
-      { label: "Building", meaning: "less than 14 training days logged", color: "text-muted-foreground" },
-      { label: "Low",      meaning: "below your normal volume",            color: "text-brand-spirit-blue" },
-      { label: "Optimal",  meaning: "matches your normal pattern",         color: "text-func-recovery-green" },
-      { label: "High",     meaning: "above normal, watch recovery",        color: "text-func-warning-yellow" },
-      { label: "Spike",    meaning: "much more than usual, real risk",     color: "text-func-danger-red" },
-    ],
-  },
-  {
-    key: "sleep",
-    icon: "moonOutline",
-    color: "text-brand-night-indigo",
-    bg: "bg-brand-night-indigo/10",
-    title: "Sleep score",
-    summary: "How well-rested you are based on your last 3 nights versus your normal.",
-    details: "Sleep is the single biggest recovery lever. Even small deficits add up. This score weights the last 3 nights against your personal baseline once it's established.",
+    title: "Strain",
+    summary: "Today's training load on a 0 to 21 scale. Found in the long-press raw breakdown.",
+    details: "Press and hold the centre of the rings to see today's raw Strain. It's built from how long and how hard you trained, with diminishing returns at the top so 18 to 20 is far harder than 8 to 10.",
   },
   {
     key: "hooper",
-    icon: "speedometerOutline",
-    color: "text-func-hydration-cyan",
-    bg: "bg-func-hydration-cyan/10",
-    title: "Daily check-in score",
-    summary: "How you feel today, on a 4 to 28 scale. Higher is better.",
-    details: "A validated sports-science survey (Hooper Index) combining sleep, stress, fatigue, and soreness. Rising values signal accumulating fatigue before it shows in your training. If this score is good, it softens load and overtraining warnings.",
-  },
-  {
-    key: "forecast",
-    icon: "flashOutline",
-    color: "text-func-warning-yellow",
-    bg: "bg-func-warning-yellow/10",
-    title: "Projected tomorrow",
-    summary: "What your strain and risk are likely to look like tomorrow if you train as planned.",
-    details: "Extrapolates from your current trajectory. Use it to decide whether tomorrow should be push, steady, or recover. Improves as you log more sessions.",
-  },
-  {
-    key: "coach",
-    icon: "bulbOutline",
-    color: "text-primary",
-    bg: "bg-primary/10",
-    title: "Recovery coach",
-    summary: "A conversational AI you can ask anything recovery-related.",
-    details: "Tell it where you're sore, how you slept, or what session you're considering. It factors in your readiness, load, recent sessions, and a peer-reviewed combat-sports recovery library. Tap the mic to dictate when supported. Free accounts get 1 message per day; Pro is unlimited.",
+    icon: "clipboardOutline",
+    color: "text-brand-spirit-blue",
+    title: "Daily check-in (Hooper)",
+    summary: "The 4-tap survey, scored 4 to 28, that feeds your Body pillar.",
+    details: "A validated sports-science survey (Hooper Index) covering sleep, stress, fatigue, and soreness. Takes about 20 seconds and personalises the whole page.",
   },
 ];
 
@@ -147,22 +102,20 @@ export function RecoveryHelpSheet({ open, onOpenChange }: RecoveryHelpSheetProps
             users who only read the first card still get value. */}
         <section className="mt-4 space-y-2 text-[13px] leading-snug text-foreground/90">
           <p>
-            Start with the <span className="font-semibold">Today's call</span> card up top.
-            It tells you whether to push, do a steady session, take it easy, or rest. That's the
-            short answer for what to do.
+            Start with the <span className="font-semibold">Today's call</span> card up top. It's
+            the short answer for today: whether to push, train smart, ease off and watch fatigue,
+            or recover hard.
           </p>
           <p>
-            Glance at the three <span className="font-semibold">rings</span> for the why:
-            Readiness (how prepared you are), Strain (today's load so far), and Overtraining risk
-            (if you're piling on too much).
+            The three <span className="font-semibold">rings</span> are the why:{" "}
+            <span className="font-semibold">Readiness</span> (outer, how prepared you are),{" "}
+            <span className="font-semibold">Recovery</span> (middle, sleep and rested state), and{" "}
+            <span className="font-semibold">Load</span> (inner, this week's training volume).
           </p>
           <p>
-            Open the <span className="font-semibold">Daily check-in</span> when prompted. It's
-            four taps and makes everything on this page personalised to how you actually feel.
-          </p>
-          <p>
-            Use <span className="font-semibold">This week's training load</span> to plan ahead.
-            It suggests intent for each remaining day so your week balances out.
+            Open the <span className="font-semibold">Daily check-in</span> when prompted. Four
+            quick taps, about twenty seconds, and the whole page is personalised to how you
+            actually feel.
           </p>
         </section>
 
@@ -173,9 +126,11 @@ export function RecoveryHelpSheet({ open, onOpenChange }: RecoveryHelpSheetProps
             Why does it say "Building"?
           </p>
           <p className="text-[12px] text-foreground/85 leading-snug">
-            Some scores need at least two weeks of logged training to give an honest read. Until
-            then they show "Building" instead of a colour so the page doesn't shout warnings based
-            on too little data. Log sessions, check in daily, and the page sharpens automatically.
+            A pillar shows "Building" until it has enough data to be honest.{" "}
+            <span className="font-semibold">Load</span> needs 14 training days logged in the last
+            28. <span className="font-semibold">Body</span> needs your daily check-in.{" "}
+            <span className="font-semibold">Recovery</span> needs a few nights of sleep logs. Keep
+            logging and the page sharpens automatically.
           </p>
         </section>
 
@@ -203,8 +158,8 @@ export function RecoveryHelpSheet({ open, onOpenChange }: RecoveryHelpSheetProps
                   className="w-full text-left rounded-xs border border-border/30 overflow-hidden active:bg-muted/20 transition-colors"
                 >
                   <div className="flex items-start gap-2.5 p-3">
-                    <div className={`w-7 h-7 rounded-full ${item.bg} flex items-center justify-center shrink-0 mt-0.5`}>
-                      <Icon name={item.icon} size={14} className={item.color} />
+                    <div className="w-7 h-7 flex items-center justify-center shrink-0 mt-0.5">
+                      <Icon name={item.icon} size={16} className={item.color} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">

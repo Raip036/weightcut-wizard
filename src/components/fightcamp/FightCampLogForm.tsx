@@ -26,6 +26,7 @@ import {
 } from "@/lib/sessionTypes";
 import { getSessionColor } from "@/lib/sessionColors";
 import { SessionTypePickerSheet } from "@/components/fightcamp/SessionTypePickerSheet";
+import { pushMasterySignal } from "@/components/mastery/masteryGenerationSignals";
 
 export interface PendingSessionMedia {
   /** Stable id so React doesn't recycle the wrong tile when one is removed. */
@@ -327,6 +328,21 @@ export function FightCampLogForm({
     triggerHapticSelection();
   };
 
+  // Wrap the parent's save so we can optimistically tell the Mastery widget a
+  // drill generation is kicking off. The backend only generates drills when the
+  // "What went well / to improve" reflection (`notes`) is non-empty, so we
+  // mirror that guard here and push for the session's PRIMARY discipline
+  // (`sessionType`). Pushed before delegating to `onSave` so the wizard loader
+  // shows immediately, before any navigation/close. Parent owns validation and
+  // the button is already gated by `canSave`/`saving`, so a tap here is a real
+  // submit — no extra validation-failure path to guard.
+  const handleSave = useCallback(() => {
+    if (sessionType && notes.trim()) {
+      pushMasterySignal(sessionType, "drills");
+    }
+    onSave();
+  }, [sessionType, notes, onSave]);
+
   return (
     <div className="space-y-4">
       {/* ── Session type: collapsed summary row → focused picker sheet ─
@@ -584,11 +600,11 @@ export function FightCampLogForm({
         )}
       </div>
 
-      {/* ── What went well / to improve ───────────────────────── */}
+      {/* ── To improve ────────────────────────────────────────── */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <Label className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/60">
-            What went well / to improve
+            To improve
           </Label>
           {voiceSupported && (
             <button
@@ -606,13 +622,13 @@ export function FightCampLogForm({
           )}
         </div>
         <p className="text-[11px] leading-snug text-muted-foreground/55">
-          What clicked and what to fix. Feeds your{" "}
-          <span className="font-medium text-muted-foreground/80">Technique Mastery</span> on the Camp page.
+          What didn’t click and what to fix. Feeds your{" "}
+          <span className="font-medium text-muted-foreground/80">Technique Mastery</span> drills on the Camp page.
         </p>
         <Textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder={isListening && voiceTarget === "reflection" ? "Listening…" : "What clicked, what to fix next time…"}
+          placeholder={isListening && voiceTarget === "reflection" ? "Listening…" : "What to fix, what’s not working yet…"}
           className={`min-h-[88px] resize-none rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/30 text-[14px] px-4 py-3 placeholder:text-muted-foreground/50 ${isListening && voiceTarget === "reflection" ? "ring-2 ring-func-danger-red/40" : ""}`}
         />
         {isListening && voiceTarget === "reflection" && interimText && (
@@ -837,7 +853,7 @@ export function FightCampLogForm({
       {/* ── Save ──────────────────────────────────────────────── */}
       <button
         type="button"
-        onClick={onSave}
+        onClick={handleSave}
         disabled={saving || !canSave}
         className="w-full h-12 rounded-xs bg-primary text-primary-foreground text-[15px] font-semibold active:scale-[0.98] transition-transform flex items-center justify-center gap-2 disabled:opacity-40 disabled:active:scale-100"
       >

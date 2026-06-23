@@ -98,10 +98,9 @@ export function computeTrainingLoad(
   }
 
   const acwr = acute / chronic;
-  // Widen the score-100 band to [0.7, 1.4] locally (calibration override)
-  // while preserving the configured penalty edges and floor behaviour.
-  const lo = 0.7;
-  const hi = 1.4;
+  // Sweet-spot band (score = 100) comes from config; the penalty edges + floor
+  // are applied around it below. (config is the single source of truth.)
+  const [lo, hi] = c.acwrSweetSpot;
   const [loEdge, hiEdge] = c.acwrPenaltyEdges;
   let value: number;
   if (acwr >= lo && acwr <= hi) {

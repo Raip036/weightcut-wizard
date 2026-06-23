@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import { Icon } from "@/components/ui/Icon";
@@ -79,6 +79,11 @@ export const CampHeroCard = memo(function CampHeroCard({
   // day thresholds as derivePhase(): Peak begins 14 days out, Fight week 7.
   const peakStart = Math.max(0, Math.min(1, (totalDays - 14) / totalDays));
   const fwStart = Math.max(0, Math.min(1, (totalDays - 7) / totalDays));
+  // Label anchor points (fraction of bar width): centred over each phase
+  // segment's midpoint. For long camps these land close together near the
+  // right edge, so the labels are auto-fitted below to avoid overlap.
+  const peakCenter = (peakStart + fwStart) / 2;
+  const fwCenter = (fwStart + 1) / 2;
 
   // What's the next milestone the fighter is counting toward?
   const nextLabel =
@@ -95,6 +100,79 @@ export const CampHeroCard = memo(function CampHeroCard({
     const id = requestAnimationFrame(() => setMounted(true));
     return () => cancelAnimationFrame(id);
   }, []);
+
+  // ── Auto-fit phase labels ──────────────────────────────────────────
+  // "Peak" and "Fight week" are absolutely positioned over their segment
+  // midpoints. On long camps those midpoints crowd together near the right
+  // edge and the uppercase text overlaps (and clips the edge). Measure both
+  // labels + the track at layout time and (1) shrink the text uniformly when
+  // they'd collide, then (2) clamp positions so they can never overlap or run
+  // past the edges — shrink first, separate only if still tight.
+  const labelRowRef = useRef<HTMLDivElement>(null);
+  const peakLabelRef = useRef<HTMLSpanElement>(null);
+  const fwLabelRef = useRef<HTMLSpanElement>(null);
+  const [labelFit, setLabelFit] = useState<{
+    scale: number;
+    peak: number;
+    fw: number;
+  } | null>(null);
+
+  useLayoutEffect(() => {
+    const row = labelRowRef.current;
+    const pEl = peakLabelRef.current;
+    const fEl = fwLabelRef.current;
+    if (!row || !pEl || !fEl) return;
+
+    const fit = () => {
+      const W = row.offsetWidth;
+      if (!W) return;
+      // offsetWidth ignores CSS transforms, so these stay the labels' natural
+      // (unscaled) widths even after a scale is applied on a later pass — no
+      // measure/relayout feedback loop.
+      const wP = pEl.offsetWidth;
+      const wF = fEl.offsetWidth;
+      const MIN = 0.72; // floor scale (~7.5px) — still legible
+      const PAD = 2; // keep this far from each edge
+      const GAP = 8; // min clear space between the two labels
+
+      let xP = peakCenter * W;
+      let xF = fwCenter * W;
+
+      // Largest uniform scale that satisfies: centres far enough apart for no
+      // overlap, and each label stays inside its edge.
+      const sOverlap = (xF - xP - GAP) / ((wP + wF) / 2);
+      const sRight = (2 * (W - PAD - xF)) / wF;
+      const sLeft = (2 * (xP - PAD)) / wP;
+      let s = Math.min(1, sOverlap, sRight, sLeft);
+      if (!Number.isFinite(s) || s <= 0) s = MIN;
+      s = Math.max(MIN, Math.min(1, s));
+
+      const hwP = (wP * s) / 2;
+      const hwF = (wF * s) / 2;
+
+      // Clamp inside the edges first.
+      xF = Math.min(xF, W - PAD - hwF);
+      xP = Math.max(xP, PAD + hwP);
+
+      // Then guarantee separation — push Peak left so it can't touch Fight week.
+      if (xP + hwP + GAP > xF - hwF) {
+        xP = xF - hwF - GAP - hwP;
+        if (xP < PAD + hwP) {
+          // No room even at floor scale: pin Peak to the left edge and slide
+          // Fight week right as far as its edge allows.
+          xP = PAD + hwP;
+          xF = Math.min(W - PAD - hwF, xP + hwP + GAP + hwF);
+        }
+      }
+
+      setLabelFit({ scale: s, peak: xP, fw: xF });
+    };
+
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(row);
+    return () => ro.disconnect();
+  }, [peakCenter, fwCenter]);
 
   // All disciplines (not just two), newest/most-XP first as returned.
   const disciplines = useQuery(api.user_discipline_xp.getAllForUser) ?? [];
@@ -213,20 +291,46 @@ export const CampHeroCard = memo(function CampHeroCard({
       {/* Trajectory (signature) — Build → Peak → Fight week, with a node at
           today's position that slides in on mount and tracks elapsed/total. */}
       <div className="relative mt-5 border-t border-white/[0.07] pt-4">
-        <div className="mb-3 flex justify-between text-[10.5px] font-semibold uppercase tracking-wide text-muted-foreground/60">
-          <span className="text-primary">Camp start · now</span>
-          <span>Peak</span>
-          <span>Fight week</span>
+        <div
+          ref={labelRowRef}
+          className="relative mb-3 h-3 text-[10.5px] font-semibold uppercase tracking-wide text-muted-foreground/60"
+        >
+          {/* Labels sit over each phase-segment midpoint, then auto-fit
+              (shrink + separate) so they never overlap or clip — see the
+              useLayoutEffect above. translateX(-50%) centres each label on its
+              anchor; scale shrinks it about that centre. */}
+          <span
+            ref={peakLabelRef}
+            className="absolute top-0 whitespace-nowrap text-primary"
+            style={{
+              left: labelFit ? `${labelFit.peak}px` : `${peakCenter * 100}%`,
+              transform: `translateX(-50%) scale(${labelFit?.scale ?? 1})`,
+              transformOrigin: "center",
+            }}
+          >
+            Peak
+          </span>
+          <span
+            ref={fwLabelRef}
+            className="absolute top-0 whitespace-nowrap"
+            style={{
+              left: labelFit ? `${labelFit.fw}px` : `${fwCenter * 100}%`,
+              transform: `translateX(-50%) scale(${labelFit?.scale ?? 1})`,
+              transformOrigin: "center",
+            }}
+          >
+            Fight week
+          </span>
         </div>
 
         <div className="relative mx-1 h-1.5 rounded-full bg-white/[0.07]">
-          {/* phase segments */}
+          {/* phase segments — start: gray, peak: blue, fight week: red. */}
           <div
-            className="absolute top-0 h-1.5 rounded-full bg-gradient-to-r from-primary/60 to-primary/20"
+            className="absolute top-0 h-1.5 rounded-full bg-muted-foreground/25"
             style={{ left: 0, width: `${peakStart * 100}%` }}
           />
           <div
-            className="absolute top-0 h-1.5 rounded-full bg-muted-foreground/25"
+            className="absolute top-0 h-1.5 rounded-full bg-gradient-to-r from-primary/55 to-primary/35"
             style={{ left: `${peakStart * 100}%`, width: `${(fwStart - peakStart) * 100}%` }}
           />
           <div
@@ -234,8 +338,8 @@ export const CampHeroCard = memo(function CampHeroCard({
             style={{ left: `${fwStart * 100}%`, width: `${(1 - fwStart) * 100}%` }}
           />
           {/* phase boundary ticks */}
-          <span className="absolute -top-1 h-3.5 w-px bg-white/20" style={{ left: `${peakStart * 100}%` }} />
-          <span className="absolute -top-1 h-3.5 w-px bg-white/20" style={{ left: `${fwStart * 100}%` }} />
+          <span className="absolute -top-1.5 h-[18px] w-0.5 rounded-full bg-white/45" style={{ left: `${peakStart * 100}%` }} />
+          <span className="absolute -top-1.5 h-[18px] w-0.5 rounded-full bg-white/45" style={{ left: `${fwStart * 100}%` }} />
           {/* progress fill (camp start → today) */}
           <div
             className="absolute top-0 h-1.5 rounded-full bg-primary shadow-[0_0_12px_hsl(var(--primary)/0.7)] transition-[width] duration-[1200ms] ease-out"
@@ -251,7 +355,7 @@ export const CampHeroCard = memo(function CampHeroCard({
         <div className="mt-3.5 flex items-center justify-between">
           <span className="flex items-center gap-1.5 text-[11.5px] font-semibold text-primary">
             <span className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_8px_hsl(var(--primary))]" />
-            You are here · {nextLabel}
+            {nextLabel}
           </span>
           {onViewPlan && (
             <button

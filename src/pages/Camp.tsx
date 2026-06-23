@@ -365,7 +365,9 @@ export default function Camp() {
       {userId && <MasterySpine userId={userId} />}
 
       {/* ── Bento grid of navigation tiles ─────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-3 auto-rows-[6rem]">
+      {/* auto-rows-min lets the full-width banners (Training Calendar /
+          Recovery) be slimmer than the square medium tiles. */}
+      <div className="grid grid-cols-2 gap-3 auto-rows-min">
         {tiles.map((tile) => {
           const isHero = tile.size === "hero";
           const isMedium = tile.size === "medium";
@@ -381,6 +383,10 @@ export default function Camp() {
           const spanClass = isBanner
             ? "col-span-2 row-span-1"
             : "col-span-1 row-span-1";
+
+          // Banners (Training Calendar / Recovery) are slim single-line rows;
+          // medium/small tiles keep their square 6rem footprint.
+          const heightClass = isBanner ? "h-[4.25rem]" : "h-24";
 
           // Per-size surface styling. Every tile carries the primary-tinted
           // border + gradient wash so the Camp grid reads as a single
@@ -413,7 +419,7 @@ export default function Camp() {
                 key={tile.url}
                 type="button"
                 onClick={() => goTo("/recovery")}
-                className={`${spanClass} h-full flex items-center justify-between gap-3 rounded-2xl border border-primary/30 bg-primary/10 px-4 active:brightness-110 transition-[filter]`}
+                className={`${spanClass} ${heightClass} flex items-center justify-between gap-3 rounded-2xl border border-primary/30 bg-primary/10 px-4 active:brightness-110 transition-[filter]`}
               >
                 <span className="flex items-center gap-2.5 min-w-0">
                   <ShimmerCrownBadge size={26} />
@@ -421,7 +427,7 @@ export default function Camp() {
                     Unlock recovery
                   </span>
                 </span>
-                <span className="inline-flex items-center rounded-full border border-primary/40 bg-primary/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-primary shrink-0">
+                <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-[0.08em] text-primary shrink-0">
                   Pro
                 </span>
               </button>
@@ -440,7 +446,7 @@ export default function Camp() {
               type="button"
               data-tutorial={tileTutorialAttr[tile.url]}
               onClick={() => goTo(tile.url)}
-              className={`${spanClass} ${surfaceClass} rounded-2xl p-4 text-left card-press flex ${
+              className={`${spanClass} ${heightClass} ${surfaceClass} rounded-2xl p-4 text-left card-press flex ${
                 isBanner ? "flex-row items-center gap-3.5" : "flex-col"
               }`}
             >
