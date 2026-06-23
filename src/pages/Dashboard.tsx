@@ -1123,13 +1123,6 @@ export default function Dashboard() {
                 />
               );
             })()}
-            {ffScore.campAge && (
-              <p className="text-micro text-muted-foreground/80 mt-2">
-                {ffScore.campAge.weeksAhead === 0
-                  ? "Camp pace: on schedule"
-                  : `Camp pace: ${Math.abs(ffScore.campAge.weeksAhead).toFixed(0)} ${Math.abs(ffScore.campAge.weeksAhead) === 1 ? "week" : "weeks"} ${ffScore.campAge.weeksAhead > 0 ? "ahead of" : "behind"} schedule`}
-              </p>
-            )}
           </div>
 
           {/* Gym invites + announcements — below the hero ring so they
