@@ -58,13 +58,49 @@ export function CampCompletionOverlay(): JSX.Element | null {
   const [snapshot, setSnapshot] = useState<Prompt | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const createdRef = useRef(false);
+  // Set when the user taps the primary CTA: the NextCampFlow sheet should open
+  // once the cutscene has finished exiting (see `startFlow`).
+  const pendingOpenRef = useRef(false);
+  const safetyTimerRef = useRef<number | null>(null);
+
+  const clearSafetyTimer = () => {
+    if (safetyTimerRef.current !== null) {
+      clearTimeout(safetyTimerRef.current);
+      safetyTimerRef.current = null;
+    }
+  };
 
   const reset = () => {
+    clearSafetyTimer();
+    pendingOpenRef.current = false;
     createdRef.current = false;
     setSheetOpen(false);
     setSnapshot(null);
     setPhase("idle");
   };
+
+  // Primary CTA ("Start next camp" / "Wrap up & continue"). The cutscene is a
+  // full-screen `z-[10010]` takeover that animates out over ~0.4s. If we opened
+  // the NextCampFlow sheet (`z-50`) immediately, the exiting takeover would sit
+  // ON TOP of it and swallow every tap until it unmounted — which read as the
+  // button "doing nothing". Instead we flip phase to "flow" (removing the
+  // cutscene from <AnimatePresence>, which starts its exit) and open the sheet
+  // only from `onExitComplete`, once the takeover is fully gone. A safety
+  // timeout opens it regardless so the CTA can never hang.
+  const startFlow = () => {
+    pendingOpenRef.current = true;
+    setPhase("flow");
+    clearSafetyTimer();
+    safetyTimerRef.current = window.setTimeout(() => {
+      if (pendingOpenRef.current) {
+        pendingOpenRef.current = false;
+        setSheetOpen(true);
+      }
+    }, 600);
+  };
+
+  // Clear any pending safety timer on unmount.
+  useEffect(() => () => clearSafetyTimer(), []);
 
   // ── Decide whether to show, and mark it shown (on reveal) ──
   useEffect(() => {
@@ -116,15 +152,22 @@ export function CampCompletionOverlay(): JSX.Element | null {
 
   return (
     <>
-      <AnimatePresence>
+      <AnimatePresence
+        onExitComplete={() => {
+          // The intro takeover has fully animated out — now it's safe to open
+          // the sheet beneath it (it can no longer cover or block taps).
+          if (pendingOpenRef.current) {
+            pendingOpenRef.current = false;
+            clearSafetyTimer();
+            setSheetOpen(true);
+          }
+        }}
+      >
         {phase === "intro" && (
           <CampCompleteCutscene
             kind={snapshot.kind}
             campName={snapshot.kind === "wrapup" ? snapshot.camp.name : null}
-            onContinue={() => {
-              setSheetOpen(true);
-              setPhase("flow");
-            }}
+            onContinue={startFlow}
             onSkip={reset}
           />
         )}

@@ -38,6 +38,7 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { triggerHapticSelection } from "@/lib/haptics";
 import Sparkline from "@/components/charts/Sparkline";
 import { getSessionColor } from "@/lib/sessionColors";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 interface CampCompassCardProps {
   userId: string | null;
@@ -834,14 +835,19 @@ function ReportBody({
       )}
 
       {/* THIS WEEK — LIVE deterministic breakdown (replaces stale AI prose).
-          Reactive: edits/deletes auto-refresh so it always matches the cards. */}
-      <LiveBreakdown weekStartIso={report.weekStartIso} expanded={expanded} />
+          Reactive: edits/deletes auto-refresh so it always matches the cards.
 
-      {/* Fallback session list — only while the live breakdown query isn't
-          wired yet (avoids showing the same sessions twice once it is). */}
-      {!getWeekBreakdownRef && (
-        <SessionList sessions={weekData.sessions} expanded={expanded} />
-      )}
+          `getWeekBreakdown` may not be deployed yet (Convex deploy is held
+          during App Store review). If it errors server-side, silently fall back
+          to the live SessionList — which uses the already-deployed
+          `listCalendar` query — so the page never crashes. It auto-upgrades to
+          the live breakdown the moment the query is deployed. */}
+      <ErrorBoundary
+        silent
+        fallback={<SessionList sessions={weekData.sessions} expanded={expanded} />}
+      >
+        <LiveBreakdown weekStartIso={report.weekStartIso} expanded={expanded} />
+      </ErrorBoundary>
 
       {actions.length > 0 && (
         <div>

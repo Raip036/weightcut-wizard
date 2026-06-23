@@ -18,6 +18,8 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Icon } from "@/components/ui/Icon";
+import { WizardAuroraBackground } from "@/components/onboarding/WizardAuroraBackground";
+import wizard from "@/assets/wizard_3D.png";
 import { useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import { AIPersistence } from "@/lib/aiPersistence";
@@ -948,11 +950,6 @@ function HeroCard({
         className="relative mx-auto mt-5"
         style={{ width: RING_SIZE, height: RING_SIZE }}
       >
-        <div
-          aria-hidden
-          className="pointer-events-none absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full blur-2xl"
-          style={{ background: `radial-gradient(circle, ${accent}22, transparent 72%)` }}
-        />
         <Popover open={rawOpen} onOpenChange={setRawOpen}>
           <PopoverTrigger asChild>
             <motion.button
@@ -980,8 +977,8 @@ function HeroCard({
                 />
                 <div className="mt-2 flex items-center gap-1.5">
                   <span
-                    className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] ${droppedHard ? "animate-warning-shimmer" : ""}`}
-                    style={{ backgroundColor: `${accent}22`, color: accent }}
+                    className={`text-[9px] font-bold uppercase tracking-[0.14em] ${droppedHard ? "animate-warning-shimmer" : ""}`}
+                    style={{ color: accent }}
                   >
                     {verdict.tier}
                   </span>
@@ -1142,23 +1139,13 @@ function DailyCheckInCTA({ streak, onOpen }: { streak: number; onOpen: () => voi
       initial={prefersReduced ? false : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.18, type: "spring", damping: 24, stiffness: 260 }}
-      className="group relative w-full overflow-hidden rounded-2xl card-surface card-glow text-left active:scale-[0.99] transition-transform"
+      className="group relative w-full overflow-hidden rounded-2xl card-surface border border-primary/25 text-left active:scale-[0.99] transition-transform"
       aria-label="Open daily check-in"
     >
-      {/* Gradient hairline edge — masked 1px border, no blur. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 rounded-2xl"
-        style={{
-          background:
-            "linear-gradient(135deg, hsl(var(--primary)/0.5), transparent 40%, hsl(var(--primary)/0.18))",
-          WebkitMask: "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
-          WebkitMaskComposite: "xor",
-          maskComposite: "exclude",
-          padding: 1,
-        }}
-      />
-      <div className="flex items-center gap-4 rounded-2xl px-4 py-4">
+      {/* Blue animated aurora — premium Pro-wall wash. */}
+      <WizardAuroraBackground intensity="full" />
+
+      <div className="relative z-10 flex items-center gap-4 rounded-2xl px-4 py-4">
         <div className="relative h-[52px] w-[52px] shrink-0">
           <svg viewBox="0 0 52 52" className="h-full w-full -rotate-90" aria-hidden>
             <circle
@@ -1183,8 +1170,20 @@ function DailyCheckInCTA({ streak, onOpen }: { streak: number; onOpen: () => voi
               transition={{ duration: 0.9, ease: "easeOut", delay: 0.2 }}
             />
           </svg>
-          <div className="absolute inset-0 flex items-center justify-center text-primary">
-            <Icon name="bulbOutline" size={22} />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <motion.img
+              src={wizard}
+              alt=""
+              draggable={false}
+              style={{
+                width: 34,
+                height: 34,
+                objectFit: "contain",
+                filter: "drop-shadow(0 0 8px hsl(var(--primary) / 0.5))",
+              }}
+              animate={prefersReduced ? { y: 0 } : { y: [0, -3, 0] }}
+              transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
+            />
           </div>
         </div>
         <div className="min-w-0 flex-1">
