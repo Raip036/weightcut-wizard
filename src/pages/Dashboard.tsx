@@ -4,7 +4,6 @@ import { useAction, useConvex, useMutation, useQuery } from "convex/react";
 import { Capacitor } from "@capacitor/core";
 import { format } from "date-fns";
 import { api } from "@/../convex/_generated/api";
-import { runHealthKitSync } from "@/services/healthKitSync";
 import { FEATURE_FLAGS } from "@/lib/featureFlags";
 import { FightFormRing } from "@/components/dashboard/FightFormRing";
 import { FightFormInsightStrip } from "@/components/dashboard/FightFormInsightStrip";
@@ -394,27 +393,6 @@ export default function Dashboard() {
   }, [userId, hasCutPlan, loadCutPlan]);
 
   useEffect(() => { trackInstallDate(); }, []);
-
-  // Dashboard-mount HealthKit sync.
-  //
-  // Fires once per mount, gated to:
-  //   1. Native platform (web/Android short-circuits inside the helper
-  //      anyway, but skipping the call keeps the dashboard's first-paint
-  //      profile cleaner).
-  //   2. A connected profile (`healthKitConnectedAt`). Unconnected users
-  //      would just see the helper return null after `isAvailable()`.
-  //
-  // The helper's module-level 60s throttle is shared with the App.tsx
-  // foreground listener so the typical "open app → land on Dashboard"
-  // flow only triggers one sync, not two.
-  const insertHealthSamples = useMutation(api.health.insertSamples);
-  useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
-    if (!profile?.healthKitConnectedAt) return;
-    runHealthKitSync(insertHealthSamples).catch((err) => {
-      logger.error("dashboard-mount HealthKit sync failed", err);
-    });
-  }, [profile?.healthKitConnectedAt, insertHealthSamples]);
 
   // Sharp crossing celebration. Conditions for firing:
   //   1. State is "ok" and the displayed score is in Sharp territory (>=80).
@@ -1101,7 +1079,6 @@ export default function Dashboard() {
                 weightCut: "weight cut",
                 wellness: "recovery",
                 nutritionAdherence: "nutrition",
-                recovery: "recovery",
               };
               const ffHeld =
                 ffScoreData &&

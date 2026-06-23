@@ -1,10 +1,9 @@
-import type { FightFormScore, FightFormState, ScoringConfig, ScoringInputs, ScoringInputSources, SubScore, SubScoreKey } from "./types";
+import type { FightFormScore, FightFormState, ScoringConfig, ScoringInputs, SubScore, SubScoreKey } from "./types";
 import { computeTrainingLoad } from "./subScores/trainingLoad";
 import { computeSleep } from "./subScores/sleep";
 import { computeWeightCut } from "./subScores/weightCut";
 import { computeWellness } from "./subScores/wellness";
 import { computeNutritionAdherence } from "./subScores/nutritionAdherence";
-import { computeRecovery } from "./subScores/recovery";
 import { resolvePhase, weightsForPhase } from "./phaseWeights";
 import { applyCeilings, latchCeilings } from "./ceilings";
 import { computeCampAge } from "./campAge";
@@ -148,41 +147,17 @@ function emptySubScores(): FightFormScore["subScores"] {
     weightCut: empty,
     wellness: empty,
     nutritionAdherence: empty,
-    recovery: empty,
   };
 }
 
-/**
- * Build the `inputSources` surface for the engine output. When
- * `inputs.sources` was populated (Convex call path), pass it straight
- * through. When absent (legacy tests, ad-hoc callers), derive a
- * `'manual'`-everywhere fallback from the inputs themselves so the field
- * is never undefined on the output.
- */
-function resolveInputSources(inputs: ScoringInputs): ScoringInputSources {
-  if (inputs.sources) return inputs.sources;
-  const sleepHoursByDate: Record<string, "healthkit" | "manual"> = {};
-  for (const s of inputs.sleepHours) sleepHoursByDate[s.date] = "manual";
-  const weightsByDate: Record<string, "healthkit" | "manual"> = {};
-  for (const w of inputs.weights) weightsByDate[w.date] = "manual";
-  const sortedWeights = [...inputs.weights].sort((a, b) => a.date.localeCompare(b.date));
-  const weightLatest = sortedWeights.length > 0 ? "manual" : null;
-  const sleepHoursTargetDate = inputs.sleepHours.some((s) => s.date === inputs.date)
-    ? "manual"
-    : null;
-  return { sleepHoursByDate, weightsByDate, weightLatest, sleepHoursTargetDate };
-}
-
 export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig): FightFormScore {
-  const inputSources = resolveInputSources(inputs);
   if (inputs.isCampPaused) {
     return {
       score: 0, rawScore: 0, label: "off_pace", state: "paused", phase: null,
       campAge: null, subScores: emptySubScores(), topDriver: "weightCut",
       topLimiter: "weightCut", appliedCeiling: null, algorithmVersion: cfg.version,
-      recoveryConfidence: 0, dataConfidence: 0, dataAgeDays: 0, activePillars: 0, totalPillars: 0,
+      dataConfidence: 0, dataAgeDays: 0, activePillars: 0, totalPillars: 0,
       formMomentum: 0,
-      inputSources,
     };
   }
   if (!inputs.fightDate || !inputs.campStartDate) {
@@ -190,9 +165,8 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
       score: 0, rawScore: 0, label: "off_pace", state: "no_camp", phase: null,
       campAge: null, subScores: emptySubScores(), topDriver: "weightCut",
       topLimiter: "weightCut", appliedCeiling: null, algorithmVersion: cfg.version,
-      recoveryConfidence: 0, dataConfidence: 0, dataAgeDays: 0, activePillars: 0, totalPillars: 0,
+      dataConfidence: 0, dataAgeDays: 0, activePillars: 0, totalPillars: 0,
       formMomentum: 0,
-      inputSources,
     };
   }
 
@@ -207,9 +181,8 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
       score: 0, rawScore: 0, label: "off_pace", state: "paused", phase: null,
       campAge: null, subScores: emptySubScores(), topDriver: "weightCut",
       topLimiter: "weightCut", appliedCeiling: null, algorithmVersion: cfg.version,
-      recoveryConfidence: 0, dataConfidence: 0, dataAgeDays: 0, activePillars: 0, totalPillars: 0,
+      dataConfidence: 0, dataAgeDays: 0, activePillars: 0, totalPillars: 0,
       formMomentum: 0,
-      inputSources,
     };
   }
 
@@ -219,9 +192,8 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
       score: 0, rawScore: 0, label: "off_pace", state: "calibrating", phase: null,
       campAge: null, subScores: emptySubScores(), topDriver: "weightCut",
       topLimiter: "weightCut", appliedCeiling: null, algorithmVersion: cfg.version,
-      recoveryConfidence: 0, dataConfidence: 0, dataAgeDays: 0, activePillars: 0, totalPillars: 0,
+      dataConfidence: 0, dataAgeDays: 0, activePillars: 0, totalPillars: 0,
       formMomentum: 0,
-      inputSources,
     };
   }
 
@@ -240,7 +212,7 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
   // and then decayed toward neutral over its full staleness horizon — instead
   // of vanishing the instant its data leaves the sub-score's own short window.
   const computeWindowedPillar = (
-    key: Exclude<SubScoreKey, "recovery">,
+    key: SubScoreKey,
     asOf: string,
   ): { value: number; reason: string; meta?: SubScore["meta"] } => {
     switch (key) {
@@ -280,22 +252,13 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
       case "weightCut": return !/^(No weight logs yet|Camp data incomplete|No cut plan or weight data yet)/.test(reason);
       case "wellness": return reason !== "No wellness check-ins in 7 days";
       case "nutritionAdherence": return !/^(Only \d+|No calorie)/.test(reason);
-      case "recovery": return false; // recovery presence is signal-based, handled below
     }
   };
-
-  // Recovery is signal-based (no date window): computed once at today.
-  const recovery = computeRecovery(
-    inputs.healthSignals ?? null,
-    inputs.selfReportRecovery ?? null,
-    cfg,
-  );
-  const recoveryHasSignal = (inputs.healthSignals ?? null) !== null && recovery.confidence > 0;
 
   // Build a windowed pillar: read it at its last-log date, gate presence on
   // cold-start AND staleness horizon, then ease the value toward neutral by
   // the decay factor. Past the horizon (or never logged) → weight 0 (excluded).
-  const buildWindowedPillar = (key: Exclude<SubScoreKey, "recovery">, phaseWeight: number): SubScore => {
+  const buildWindowedPillar = (key: SubScoreKey, phaseWeight: number): SubScore => {
     const pCfg = cfg.staleness.byPillar[key];
     // Use the real (non-skip) date for sub-score computation so the window
     // reflects actual data; use lastDates (includes skips) for staleness so
@@ -318,41 +281,15 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
     };
   };
 
-  // Wellness pillar: build at the full phase weight first. `buildWindowedPillar`
-  // zeroes the weight internally when there's no usable check-in (cold start /
-  // stale), so a non-zero weight here means the survey actually has data.
-  const wellnessPillar = buildWindowedPillar("wellness", weights.wellness);
-  const wellnessHasData = wellnessPillar.weight > 0;
-
-  // Blend policy: the self-reported survey ALWAYS contributes once it's been
-  // logged. When HealthKit recovery signals are also present, split the wellness
-  // slot 50/50 between the survey and the device-measured recovery — both move
-  // the ring without inflating the recovery dimension's total weight. If only
-  // one side has data, it takes the whole slot.
-  let wellnessWeight = wellnessPillar.weight;
-  let recoveryWeight = 0;
-  if (recoveryHasSignal) {
-    if (wellnessHasData) {
-      wellnessWeight = weights.wellness * 0.5;
-      recoveryWeight = weights.wellness * 0.5;
-    } else {
-      recoveryWeight = weights.wellness;
-    }
-  }
-
+  // The self-reported wellness (Hooper) survey is the sole recovery-dimension
+  // driver. It carries its full phase weight whenever it has data;
+  // `buildWindowedPillar` zeroes the weight internally on cold start / stale.
   const subScores: FightFormScore["subScores"] = {
     trainingLoad: buildWindowedPillar("trainingLoad", weights.trainingLoad),
     sleep: buildWindowedPillar("sleep", weights.sleep),
     weightCut: buildWindowedPillar("weightCut", weights.weightCut),
-    wellness: { ...wellnessPillar, weight: wellnessWeight },
+    wellness: buildWindowedPillar("wellness", weights.wellness),
     nutritionAdherence: buildWindowedPillar("nutritionAdherence", weights.nutritionAdherence),
-    recovery: {
-      value: recovery.value,
-      weight: recoveryWeight,
-      reason: recovery.reason,
-      // Recovery signals are today's HealthKit snapshot — treat as fresh.
-      completeness: recoveryWeight > 0 ? 1 : 0,
-    },
   };
 
   // Composite redistribution on missing data: divide only by present weights.
@@ -370,15 +307,8 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
       completeness: subScores[k].completeness ?? 0,
     })),
   );
-  // When the survey + HealthKit recovery are blended, both occupy the single
-  // "recovery dimension" slot — collapse them to one for the X-of-Y signal
-  // count so a blended day reads as N/5, not (N+1)/5.
-  const blendDouble =
-    subScores.wellness.weight > 0 && subScores.recovery.weight > 0 ? 1 : 0;
-  const activePillars = present.length - blendDouble;
-  // Pillars eligible this phase. Recovery shares the wellness slot (it has no
-  // standalone phase weight), so the eligible count is invariant whether or not
-  // HealthKit signals are present.
+  const activePillars = present.length;
+  // Pillars eligible this phase (weight defined > 0).
   const phaseKeys = (Object.keys(weights) as SubScoreKey[]).filter((k) => weights[k] > 0);
   const totalPillars = phaseKeys.length;
   const dataAgeDays = (Object.keys(subScores) as SubScoreKey[])
@@ -453,12 +383,10 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
     topLimiter,
     appliedCeiling: latched.applied,
     algorithmVersion: cfg.version,
-    recoveryConfidence: recovery.confidence,
     dataConfidence,
     dataAgeDays,
     activePillars,
     totalPillars,
     formMomentum,
-    inputSources,
   };
 }

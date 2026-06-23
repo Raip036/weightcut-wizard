@@ -5,7 +5,7 @@ import { Calendar, Dumbbell } from "lucide-react";
 import { formatVolume } from "@/lib/gymCalculations";
 import type { SessionWithSets } from "@/pages/gym/types";
 
-// Apple Health-style colored edge per discipline. Keeps the history
+// Colored edge per discipline. Keeps the history
 // scannable: blue = strength, violet = hypertrophy, yellow = explosive
 // session, etc. Anything unrecognized falls back to primary.
 function sessionEdgeColor(type: string | null | undefined): string {
@@ -91,7 +91,7 @@ export const SessionHistoryList = memo(function SessionHistoryList({ sessions, l
             onClick={() => onSessionTap(session)}
             className="group relative w-full text-left card-surface rounded-xs border border-border/50 pl-4 pr-3 py-3 active:scale-[0.98] transition-transform overflow-hidden"
           >
-            {/* Apple Health-style colored edge bar */}
+            {/* Colored edge bar */}
             <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${edge}`} />
 
             {/* Top row: discipline + relative date */}

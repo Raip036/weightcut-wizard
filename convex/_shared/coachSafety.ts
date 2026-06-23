@@ -2,8 +2,9 @@
  * Deterministic safety guardrail for the Fight Camp Coach (Phase 3).
  *
  * Pure functions — NO ctx / IO. A sibling loader produces `SafetyInput` from
- * weight logs, protocol feel-checks, HealthKit (HRV/RHR) and fight-week math;
- * this module turns those facts into a safety verdict that the coach action
+ * weight logs, protocol feel-checks and fight-week math (HRV/RHR readiness
+ * signals are no longer collected and are always null — Apple HealthKit was
+ * removed); this module turns those facts into a safety verdict that the coach action
  * prepends to its blocks. Safety guidance is ALWAYS free and NEVER paywalled,
  * and a `danger` verdict must override any "make weight" tone (slow down /
  * rehydrate / see a professional) — never advise pushing harder.

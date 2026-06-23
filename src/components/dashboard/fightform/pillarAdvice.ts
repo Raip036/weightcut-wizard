@@ -56,8 +56,6 @@ export function pillarAdvice(
       return wellnessAdvice(sub);
     case "nutritionAdherence":
       return nutritionAdvice(sub);
-    case "recovery":
-      return recoveryAdvice(sub);
     default:
       return maintain("On track.");
   }
@@ -261,32 +259,6 @@ function nutritionAdvice(sub: SubScore): PillarAdvice {
     actions: [
       { label: "Log today's meals", route: "/nutrition" },
       { label: "Tighten to your calorie target", route: "/nutrition" },
-    ],
-  };
-}
-
-// ─── recovery ────────────────────────────────────────────────────────────────
-function recoveryAdvice(sub: SubScore): PillarAdvice {
-  // No HealthKit signals, recovery sits out of the composite entirely.
-  if (sub.weight === 0) {
-    return {
-      headline: "Connect Apple Health to read recovery.",
-      actions: [
-        { label: "Connect Apple Health", route: "settings:apple-health" },
-        { label: "Do today's 4-tap check-in", route: "/recovery/check-in" },
-      ],
-    };
-  }
-
-  if (sub.value >= HEALTHY) {
-    return maintain("Recovery looking strong.");
-  }
-
-  return {
-    headline: "Recovery is below your baseline.",
-    actions: [
-      { label: "Prioritise sleep tonight", route: "/sleep" },
-      { label: "Take a rest day", route: "/training-calendar" },
     ],
   };
 }

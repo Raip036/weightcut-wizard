@@ -27,10 +27,6 @@ export function lastLogDates(inputs: ScoringInputs): Record<SubScoreKey, string 
     weightCut: maxDate([...inputs.weights.map((w) => w.date), ...skipsFor("weightCut")]),
     wellness: maxDate([...inputs.hooperByDate.map((h) => h.date), ...skipsFor("wellness")]),
     nutritionAdherence: maxDate([...inputs.meals.map((m) => m.date), ...skipsFor("nutritionAdherence")]),
-    // recovery has no log-date array; its freshness is governed by
-    // recoveryConfidence, handled in confidence.ts. Treat as "today" when it
-    // contributes so it doesn't drag dataAgeDays.
-    recovery: inputs.healthSignals ? inputs.date : null,
   };
 }
 
@@ -49,7 +45,6 @@ export function lastRealLogDates(inputs: ScoringInputs): Record<SubScoreKey, str
     weightCut: maxDate(inputs.weights.map((w) => w.date)),
     wellness: maxDate(inputs.hooperByDate.map((h) => h.date)),
     nutritionAdherence: maxDate(inputs.meals.map((m) => m.date)),
-    recovery: inputs.healthSignals ? inputs.date : null,
   };
 }
 

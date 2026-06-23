@@ -1,5 +1,4 @@
 import { useEffect, lazy, Suspense } from "react";
-import { useMutation } from "convex/react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -57,7 +56,6 @@ const TrainingLibrary = lazy(() => import("./pages/TrainingLibrary"));
 const Recovery = lazy(() => import("./pages/Recovery"));
 const RecoveryCheckIn = lazy(() => import("./pages/RecoveryCheckIn"));
 const Sleep = lazy(() => import("./pages/Sleep"));
-// const SkillTree = lazy(() => import("./pages/SkillTree"));
 const GymTracker = lazy(() => import("./pages/GymTracker"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const CutPlanReview = lazy(() => import("./pages/CutPlanReview"));
@@ -120,18 +118,10 @@ import { App as CapacitorApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
 import { logger } from "@/lib/logger";
-import { runHealthKitSync } from "@/services/healthKitSync";
-import { api } from "@/../convex/_generated/api";
 
 function RouteTracker() {
   const location = useLocation();
   const navigate = useNavigate();
-  // Convex mutation handle for HealthKit ingest. Safe to call from inside
-  // `RouteTracker` because <UserProvider>/<SubscriptionProvider> already
-  // mount the ConvexAuth context above us; the mutation no-ops while
-  // unauthenticated (the server will reject and `runHealthKitSync` will
-  // log + swallow the error).
-  const insertHealthSamples = useMutation(api.health.insertSamples);
 
   useEffect(() => {
     if (!SKIP_ROUTES.includes(location.pathname)) {
@@ -201,46 +191,6 @@ function RouteTracker() {
       }
     });
   }, [navigate]);
-
-  // Foreground HealthKit sync.
-  //
-  // Fires every time iOS reports the app has become active. The 60s
-  // throttle (inside `runHealthKitSync`) is shared with the Dashboard
-  // mount sync, the post-permission sync from ConnectAppleHealthSheet,
-  // and the manual "Sync now" button in HealthSettingsCard so racing
-  // call sites collapse to one network round trip.
-  //
-  // Gated to native — on web/Android `healthKit.isAvailable()` returns
-  // false and the helper short-circuits to `null` anyway, but skipping
-  // the listener attach entirely keeps the bundle quieter.
-  useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
-
-    let handleRef: { remove: () => void } | null = null;
-    let cleanedUp = false;
-
-    CapacitorApp.addListener('appStateChange', ({ isActive }) => {
-      if (!isActive) return;
-      // Fire-and-forget — never block the foreground transition. Errors
-      // are already logged inside `runHealthKitSync`; the .catch here
-      // is a belt-and-braces guard against unexpected throws.
-      runHealthKitSync(insertHealthSamples).catch((err) => {
-        logger.error("foreground HealthKit sync failed", err);
-      });
-    })
-      .then((h) => {
-        if (cleanedUp) h.remove();
-        else handleRef = h;
-      })
-      .catch((err) => {
-        logger.warn("appStateChange (HealthKit) attach failed", { err: String(err) });
-      });
-
-    return () => {
-      cleanedUp = true;
-      handleRef?.remove();
-    };
-  }, [insertHealthSamples]);
 
   return null;
 }
@@ -460,7 +410,6 @@ const App = () => (
                   <Route path="/fight-camp-calendar" element={<Navigate to="/training-calendar" replace />} />
                   <Route path="/recovery" element={<ErrorBoundary><Suspense fallback={<DashboardSkeleton />}><ProRouteGate feature="RECOVERY"><Recovery /></ProRouteGate></Suspense></ErrorBoundary>} />
                   <Route path="/sleep" element={<ErrorBoundary><Suspense fallback={<DashboardSkeleton />}><Sleep /></Suspense></ErrorBoundary>} />
-                  {/* Skill Tree temporarily hidden from UI */}
                   <Route path="/gym" element={<ErrorBoundary><Suspense fallback={<DashboardSkeleton />}><GymTracker /></Suspense></ErrorBoundary>} />
                   <Route path="/my-gym" element={<ErrorBoundary><Suspense fallback={<DashboardSkeleton />}><MyGym /></Suspense></ErrorBoundary>} />
                   <Route path="/gym-feed" element={<Navigate to="/community" replace />} />

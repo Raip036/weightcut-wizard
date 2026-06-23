@@ -15,11 +15,9 @@ const SUBSCORE_HUMAN: Record<SubScoreKey, string> = {
   trainingLoad: "training load",
   sleep: "sleep",
   weightCut: "weight cut",
-  // `wellness` is the merged recovery dimension in the UI; `recovery` (HealthKit)
-  // folds into it, so both read "recovery".
+  // `wellness` is the recovery dimension in the UI, driven by the check-in.
   wellness: "recovery",
   nutritionAdherence: "nutrition",
-  recovery: "recovery",
 };
 
 // Threshold below which day-over-day movement is considered noise rather

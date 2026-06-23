@@ -14,13 +14,10 @@ export const SUBSCORE_LABEL: Record<string, string> = {
   trainingLoad: "Training Load",
   sleep: "Sleep",
   weightCut: "Weight Cut",
-  // The `wellness` key IS the recovery dimension in the UI, the self-report
-  // check-in is its base and HealthKit HRV/RHR folds into it (see
-  // `mergeRecoveryDimension`). Both keys read "Recovery" so any stray lookup
-  // (e.g. an un-remapped topLimiter) still labels correctly.
+  // The `wellness` key IS the recovery dimension in the UI, driven by the
+  // self-report check-in.
   wellness: "Recovery",
   nutritionAdherence: "Nutrition",
-  recovery: "Recovery",
 };
 
 // Icon per sub-score. Matched to TodayStrip where possible so the same
@@ -34,17 +31,15 @@ export const SUBSCORE_ICON: Record<string, IonIconName> = {
 };
 
 // "How this is measured" copy shown in the drill-down dialog so the user
-// understands what actually feeds each pillar. Wellness/recovery spell out the
-// survey → ring link (and the blend) since that's the least obvious of the set.
+// understands what actually feeds each pillar. Wellness spells out the
+// survey → ring link since that's the least obvious of the set.
 export const SUBSCORE_EXPLAINER: Record<string, string> = {
   trainingLoad:
     "Your training load balance: recent sessions vs. your 4-week baseline. Ramping too fast or sitting idle both pull it down.",
   sleep: "Hours and consistency from your sleep logs, smoothed over the last week.",
   weightCut: "How your weight is tracking against a sustainable pace to your target.",
   wellness:
-    "Your recovery, driven by your daily check-in (sleep, body, soreness and stress), smoothed over 7 days. A better check-in raises this number, which feeds the ring. When Apple Health is connected, heart-rate variability and resting heart rate blend in to sharpen it.",
-  recovery:
-    "Measured from Apple Health: heart-rate variability and resting heart rate vs. your baseline. Blended into your recovery score when connected.",
+    "Your recovery, driven by your daily check-in (sleep, body, soreness and stress), smoothed over 7 days. A better check-in raises this number, which feeds the ring.",
   nutritionAdherence: "How closely your logged meals hit your calorie and protein targets.",
 };
 
@@ -66,7 +61,7 @@ export function ceilingLabel(ruleId: string): string {
 }
 
 // Canonical ordering for the full set of pillars. Unlike the sheet's local
-// 4-item locked-state list, this is the complete six-pillar order used by the
+// 4-item locked-state list, this is the complete pillar order used by the
 // advice module and tests so every SubScoreKey is covered.
 export const SUBSCORE_ORDER: SubScoreKey[] = [
   "trainingLoad",
@@ -74,5 +69,4 @@ export const SUBSCORE_ORDER: SubScoreKey[] = [
   "weightCut",
   "wellness",
   "nutritionAdherence",
-  "recovery",
 ];

@@ -532,7 +532,6 @@ const CoachBlockSchema = z.discriminatedUnion("type", [
       "training_load",
       "calories",
       "sleep",
-      "hrv",
     ]),
     // SERVER-supplied only — the LLM never emits chart series.
     series: z.array(z.object({ x: z.string(), y: z.number() })).max(30),

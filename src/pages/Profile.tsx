@@ -43,7 +43,6 @@ import { useUser } from "@/contexts/UserContext";
 import { useProfilePosts } from "@/hooks/community/useProfilePosts";
 import { PostGrid } from "@/components/community/PostGrid";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { HealthSettingsCard } from "@/components/health/HealthSettingsCard";
 
 // ─── Design tokens ─────────────────────────────────────────────────────
 
@@ -272,13 +271,6 @@ export default function Profile() {
           value={compactNumber(campsCompleted)}
         />
       </div>
-
-      {/* ─── Apple Health settings (self-view only) ─────────────────── */}
-      {isViewingSelf && (
-        <div className="mx-5 mt-4">
-          <HealthSettingsCard />
-        </div>
-      )}
 
       {/* ─── Posts grid ─────────────────────────────────────────────── */}
       {/* PostGrid owns its own tile rounding/gutter (off-limits to this

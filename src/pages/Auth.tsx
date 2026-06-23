@@ -16,6 +16,17 @@ import { logger } from "@/lib/logger";
 import { useScrollIntoViewOnFocus } from "@/hooks/useScrollIntoViewOnFocus";
 
 // ──────────────────────────────────────────────────────────────────────
+// App Store compliance (Guideline 2.1): the password-reset flow is exposed
+// in the UI but its backend is not wired yet — the Convex Password provider
+// has no `reset:` handler and the Resend email sender is a Phase-3 TODO that
+// throws. A reviewer testing account recovery would hit a dead feature, so
+// the entry point is gated off until the email sender ships.
+//
+// TO RE-ENABLE once `auth.ts`'s Password({ reset: ... }) + Resend are wired:
+// flip this single flag to `true`. The reset UI/handlers below are left
+// fully intact (just unreachable) so nothing else needs to change.
+const PASSWORD_RESET_ENABLED = false;
+// ──────────────────────────────────────────────────────────────────────
 // PremiumInput, floating-label, glass-style text field used in the
 // expanded email/password form. Designed so iOS Keychain autofill,
 // Strong Password suggestions and the keyboard's Next/Go affordance
@@ -421,7 +432,7 @@ export default function Auth() {
                   {loading ? "Updating..." : "Update Password"}
                 </Button>
               </form>
-            ) : showForgotPassword ? (
+            ) : PASSWORD_RESET_ENABLED && showForgotPassword ? (
               <form onSubmit={handleForgotPassword} className="space-y-3">
                 <Input type="email" placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} onFocus={handleInputFocus} required className={inputClass} autoFocus />
                 <Button type="submit" disabled={loading} className="no-tap-select w-full h-[50px] rounded-xs text-[16px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform">
@@ -546,7 +557,7 @@ export default function Auth() {
           {/* Footer links */}
           {!showForgotPassword && !isPasswordReset && (
             <div className="mt-8 space-y-3 text-center">
-              {isLogin && (
+              {PASSWORD_RESET_ENABLED && isLogin && (
                 <button type="button" onClick={() => setShowForgotPassword(true)} className="text-sm text-muted-foreground">
                   Forgot password?
                 </button>

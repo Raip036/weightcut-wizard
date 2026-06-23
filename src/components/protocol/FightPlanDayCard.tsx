@@ -233,6 +233,20 @@ export function FightPlanDayCard({
                     <span>{c}</span>
                   </li>
                 ))}
+                {/* App Store 1.4.1: supervision caveat sits next to the risky
+                    abort-trigger / heat & sweat cautions, not elsewhere. */}
+                <li className="flex items-start gap-1.5 text-[11px] leading-snug text-muted-foreground/80">
+                  <Icon
+                    name="warningOutline"
+                    size={12}
+                    aria-hidden
+                    className="mt-[1px] shrink-0"
+                  />
+                  <span>
+                    Only attempt heat or sauna protocols under qualified
+                    supervision.
+                  </span>
+                </li>
               </ul>
             )}
           </div>

@@ -24,27 +24,6 @@ crons.hourly(
 );
 
 // ──────────────────────────────────────────────────────────────────────
-// Apple Health integration (spec §6)
-//
-// Nightly fan-out: re-rolls yesterday's daily health summary for every
-// connected user (catches late-arriving Whoop/Oura sync data) and then
-// refreshes the per-user rolling baselines + tier classification.
-// Times are UTC — see spec §10.9 for the timezone-drift rationale.
-// `crons.cron` is preferred over `crons.daily` per the Convex guidelines.
-// ──────────────────────────────────────────────────────────────────────
-crons.cron(
-  "health-nightly-rollup",
-  "0 4 * * *",
-  internal.health.scheduleNightlyRollups,
-);
-
-crons.cron(
-  "health-nightly-baselines",
-  "30 4 * * *",
-  internal.health.scheduleNightlyBaselines,
-);
-
-// ──────────────────────────────────────────────────────────────────────
 // Training Missions — hourly backstop sweep.
 //
 // Generation is primarily triggered by the calendar save mutation. This

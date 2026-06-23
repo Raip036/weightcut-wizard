@@ -12,7 +12,7 @@ import { Icon } from "@/components/ui/Icon";
 import { cn } from "@/lib/utils";
 import { triggerHapticSelection } from "@/lib/haptics";
 import { useUser } from "@/contexts/UserContext";
-import { computeContributions, mergeRecoveryDimension } from "@/scoring/contributions";
+import { computeContributions } from "@/scoring/contributions";
 import {
   SUBSCORE_LABEL,
   SUBSCORE_ICON,
@@ -20,7 +20,6 @@ import {
   ceilingLabel,
 } from "./fightform/constants";
 import { pillarAdvice } from "./fightform/pillarAdvice";
-import { openSettings, type SettingsFocus } from "@/lib/openSettings";
 import { ScoreHero } from "./fightform/ScoreHero";
 import { ContributionBreakdown } from "./fightform/ContributionBreakdown";
 import { PillarDetailDialog } from "./fightform/PillarDetailDialog";
@@ -145,32 +144,15 @@ export function FightFormScoreSheet(p: Props) {
     phase,
   );
 
-  // The recovery dimension is shown as ONE pillar keyed `wellness` (the
-  // self-report check-in with HealthKit HRV/RHR folded in). `mergedSubs` is the
-  // same fold the breakdown uses, so the drill-down reads the blended value.
-  const mergedSubs = mergeRecoveryDimension(
-    p.subScores as Record<string, SubScoreType> | null,
-  );
-  // HealthKit recovery is active when the raw `recovery` sub-score carries
-  // weight, drives the "Apple Health connected / paused" notice in the dialog.
-  const healthKitActive = (p.subScores?.recovery?.weight ?? 0) > 0;
-  // Any engine key that resolves to the merged recovery dimension. `recovery`
-  // (HealthKit) is folded into `wellness` for display, so remap it.
-  const displayKey = (k: SubScoreKey): SubScoreKey =>
-    k === "recovery" ? "wellness" : k;
+  // The recovery dimension is shown as ONE pillar keyed `wellness`, driven by
+  // the self-report check-in.
+  const subs = (p.subScores ?? {}) as Record<string, SubScoreType>;
 
   const handleNavigate = (route: string) => {
     // Close the per-pillar drill-down dialog AND the score sheet first so
     // neither overlaps whatever opens next.
     setSelectedPillar(null);
     p.onClose();
-    if (route.startsWith("settings:")) {
-      const focus = route.slice("settings:".length) as SettingsFocus;
-      // Wait for the bottom sheet's close animation (~250ms) to finish before
-      // opening the Apple Health settings sheet, so the two never overlap.
-      window.setTimeout(() => openSettings(focus), 280);
-      return;
-    }
     navigate(route);
   };
 
@@ -203,10 +185,8 @@ export function FightFormScoreSheet(p: Props) {
     : 0;
 
   // Limiter focus, concise, deterministic headline + tap into the dialog.
-  // Remap the engine key so a `recovery` limiter opens the merged recovery
-  // pillar (keyed `wellness`) rather than a dialog with no data to show.
-  const limiterKey = p.topLimiter ? displayKey(p.topLimiter as SubScoreKey) : null;
-  const limiterSub = limiterKey ? mergedSubs[limiterKey] : null;
+  const limiterKey = p.topLimiter ? (p.topLimiter as SubScoreKey) : null;
+  const limiterSub = limiterKey ? subs[limiterKey] : null;
   const limiterHeadline =
     limiterKey && limiterSub
       ? pillarAdvice(limiterKey, limiterSub as SubScoreType, phase).headline
@@ -227,11 +207,11 @@ export function FightFormScoreSheet(p: Props) {
       value: pillar.value,
       weightPct: pillar.effectiveWeightPct,
       contributionPts: pillar.contributionPts,
-      reason: mergedSubs[pillar.key]?.reason ?? "",
+      reason: subs[pillar.key]?.reason ?? "",
     })),
   };
 
-  const selectedSub = selectedPillar ? mergedSubs[selectedPillar] ?? null : null;
+  const selectedSub = selectedPillar ? subs[selectedPillar] ?? null : null;
   const selectedContribution = selectedPillar
     ? breakdown.pillars.find((pillar) => pillar.key === selectedPillar) ?? null
     : null;
@@ -514,7 +494,6 @@ export function FightFormScoreSheet(p: Props) {
         phase={p.phase}
         trend={selectedPillar ? p.subScoreTrend?.[selectedPillar] : undefined}
         onNavigate={handleNavigate}
-        healthKitActive={healthKitActive}
       />
     </Sheet>
   );

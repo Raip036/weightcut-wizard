@@ -21,6 +21,7 @@
 //   - all motion respects `prefers-reduced-motion`
 import { motion, useReducedMotion } from "motion/react";
 import { Icon, type IonIconName } from "@/components/ui/Icon";
+import { MedicalDisclaimerBanner } from "@/components/protocol/MedicalDisclaimerBanner";
 
 export interface TimelineEntry {
   /** Time label, e.g. "06:00". Rendered as a tabular-nums chip. */
@@ -137,6 +138,10 @@ export function WeighInDaySpotlight({
           </p>
         )}
       </div>
+
+      {/* Compact stop-immediately notice next to the weigh-in-day heat work
+          (the "final sauna IF needed" beat lives in the timeline above). */}
+      <MedicalDisclaimerBanner variant="compact" className="mt-4" />
     </motion.section>
   );
 }

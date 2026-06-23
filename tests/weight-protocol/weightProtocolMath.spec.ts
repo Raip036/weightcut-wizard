@@ -277,7 +277,9 @@ describe("buildFightPlanSkeleton", () => {
     // T-4: restriction 0.5 g/kg → round(37.5) = 38g (under 50g) ; 75mL/kg → 5.63L
     expect(byDtw[4].carbsGrams).toBe(38);
     expect(byDtw[4].waterLitres).toBeCloseTo(5.63, 2);
-    expect(byDtw[4].fibreNote).toBe("eliminate");
+    // Fibre stays NORMAL through T-4 per the research-backed late taper
+    // (reduce at T-3, low-residue T-2, minimal T-1, none weigh-in morning).
+    expect(byDtw[4].fibreNote).toBe("normal");
     // Weigh-in day (dtw=0): fixed 30g
     expect(byDtw[0].dayLabel).toBe("Weigh-in");
     expect(byDtw[0].carbsGrams).toBe(30);

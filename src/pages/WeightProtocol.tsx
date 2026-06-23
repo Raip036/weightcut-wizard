@@ -32,6 +32,10 @@ import {
   type ProtocolScaleSubmit,
 } from "@/components/protocol/ProtocolScaleCard";
 import { SafetyWarningBanner, friendlyWarningTitle } from "@/components/protocol/SafetyWarningBanner";
+import {
+  MedicalDisclaimerAck,
+  MedicalDisclaimerBanner,
+} from "@/components/protocol/MedicalDisclaimerBanner";
 import { OrsRecipeCard } from "@/components/protocol/OrsRecipeCard";
 import { RehydrationTimeline } from "@/components/protocol/RehydrationTimeline";
 import { DoNotCallouts } from "@/components/protocol/DoNotCallouts";
@@ -417,6 +421,13 @@ export default function WeightProtocol() {
             Walkout). Shows the athlete where they are in the arc. */}
       <ProtocolJourneySpine active={journeyActive} />
 
+      {/* Medical disclaimer (App Store Guideline 1.4.1) — persistent, shown for
+          EVERY plan. First view gets a one-time "I understand" acknowledgement;
+          afterwards it stays as a passive amber notice. Sits above the cut /
+          rehydration protocol so the disclaimer is visible at the point of use,
+          not buried in Settings. */}
+      <MedicalDisclaimerAck />
+
       {!fpPayload ? (
         /* ── Chapter 01 · The Plan — clean intro shown before generation.
               The athlete's weight, target and profile are already known, so
@@ -472,6 +483,13 @@ export default function WeightProtocol() {
             isToday: d.dayIso === today,
           }))}
         />
+      )}
+
+      {/* Compact stop-immediately notice next to the dehydration / heat phase
+          of the cut. Mirrors the abort triggers (HR spikes, cramping,
+          dizziness, confusion) surfaced by the fight-week analysis. */}
+      {!isGeneratingProtocol && (
+        <MedicalDisclaimerBanner variant="compact" />
       )}
 
       {/* The Scale → Rehydrate. Enter kilos sweated off; on submit the

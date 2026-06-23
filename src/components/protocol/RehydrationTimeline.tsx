@@ -16,6 +16,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Droplet, AlertTriangle, Moon, ChevronDown } from "lucide-react";
 import { Icon, type IonIconName } from "@/components/ui/Icon";
 import { cn } from "@/lib/utils";
+import { MedicalDisclaimerBanner } from "@/components/protocol/MedicalDisclaimerBanner";
 
 // ── Public types ─────────────────────────────────────────────────────
 
@@ -865,6 +866,10 @@ export function RehydrationTimeline({
 
       {/* What to eat: neutral reference (specific foods live here, not per-hour). */}
       <MealIdeasBox />
+
+      {/* Compact stop-immediately notice — rehydration follows the dehydration
+          cut, so the abort triggers belong next to it. */}
+      <MedicalDisclaimerBanner variant="compact" className="mt-4" />
 
       {/* Footer hint */}
       <p className="mt-4 text-center text-[10.5px] text-muted-foreground/45">

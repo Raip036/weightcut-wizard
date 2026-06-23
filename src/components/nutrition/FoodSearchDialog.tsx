@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
-import { Search, Loader2, Mic, ChevronRight, Minus, Plus, X, PlusCircle, Trash2 } from "lucide-react";
+import { Search, Loader2, ChevronRight, Minus, Plus, X, PlusCircle, Trash2 } from "lucide-react";
 import { motion, LayoutGroup, AnimatePresence } from "motion/react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -410,7 +410,7 @@ export function FoodSearchDialog({ open, onOpenChange, onFoodSelected, mealType,
                 autoFocus
                 className="h-[52px] w-full pl-12 pr-12 text-[15px] font-medium rounded-full border-border/40 bg-muted/30 dark:bg-white/[0.05] focus:bg-card focus:border-primary/40 focus:ring-4 focus:ring-primary/15 transition-all"
               />
-              {query ? (
+              {query && (
                 <button
                   onClick={() => setQuery("")}
                   aria-label="Clear search"
@@ -418,14 +418,6 @@ export function FoodSearchDialog({ open, onOpenChange, onFoodSelected, mealType,
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
-              ) : (
-                <span
-                  aria-hidden
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/50"
-                  title="Voice search coming soon"
-                >
-                  <Mic className="h-[18px] w-[18px]" />
-                </span>
               )}
             </div>
           </div>

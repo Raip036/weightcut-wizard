@@ -5,11 +5,8 @@ import type { SubScore, SubScoreKey, ScoringPhase } from "./types";
  * are "inactive" — a key is inactive when it's present with weight 0 OR missing
  * from `subScores` entirely (not logged / excluded this phase).
  *
- * NOTE: `recovery` (HealthKit HRV/RHR) is intentionally absent. The recovery
- * dimension is presented as a SINGLE pillar — the self-reported daily check-in
- * (the `wellness` key) is the base, and HealthKit recovery is folded into it by
- * `mergeRecoveryDimension` so the device signal can never surface as its own
- * "PAUSED" row when Apple Health isn't connected.
+ * The recovery dimension is presented as a SINGLE pillar — the self-reported
+ * daily check-in (the `wellness` key) is its sole driver.
  */
 const CANONICAL_KEYS: readonly SubScoreKey[] = [
   "trainingLoad",
@@ -18,51 +15,6 @@ const CANONICAL_KEYS: readonly SubScoreKey[] = [
   "wellness",
   "nutritionAdherence",
 ];
-
-/**
- * Collapse the engine's two recovery-dimension sub-scores — the self-reported
- * `wellness` (Hooper check-in) and the HealthKit `recovery` (HRV/RHR) — into a
- * single displayed pillar keyed `wellness`.
- *
- * The combined value is the weight-weighted blend and the combined weight is
- * the sum, so the decomposition stays EXACT: `value × weight` of the merged
- * pillar equals `wellness.value×wellness.weight + recovery.value×recovery.weight`
- * (the engine already splits the shared slot 50/50 when both are present, full
- * to whichever side has data otherwise). Idempotent — calling it on an
- * already-merged record (no `recovery` key) is a no-op.
- *
- * Exported so every consumer (breakdown bar, drill-down dialog, share card)
- * presents one "Recovery" pillar from the same math.
- */
-export function mergeRecoveryDimension(
-  subScores: Record<string, SubScore> | null | undefined,
-): Record<string, SubScore> {
-  const entries: Record<string, SubScore> = { ...(subScores ?? {}) };
-  const r = entries.recovery;
-  if (!r) return entries; // already merged / no device signal in play
-
-  const w = entries.wellness;
-  const wWeight = w?.weight ?? 0;
-  const rWeight = r.weight ?? 0;
-  const combinedWeight = wWeight + rWeight;
-  const combinedValue =
-    combinedWeight > 0
-      ? ((w?.value ?? 0) * wWeight + r.value * rWeight) / combinedWeight
-      : (w?.value ?? r.value);
-  // Primary reason tracks the self-report check-in when it has data, else the
-  // device signal — keeps the detail dialog's headline truthful in each case.
-  const reason = wWeight > 0 ? (w?.reason ?? r.reason) : r.reason;
-
-  entries.wellness = {
-    ...(w ?? r),
-    value: combinedValue,
-    weight: combinedWeight,
-    reason,
-    completeness: w?.completeness ?? r.completeness,
-  };
-  delete entries.recovery;
-  return entries;
-}
 
 export interface PillarContribution {
   key: SubScoreKey;
@@ -102,9 +54,7 @@ export function computeContributions(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   phase?: ScoringPhase | string | null,
 ): ContributionBreakdown {
-  // Merge the HealthKit recovery signal into the self-report check-in so the
-  // recovery dimension is one pillar (never a standalone "PAUSED" row).
-  const entries = mergeRecoveryDimension(subScores);
+  const entries: Record<string, SubScore> = { ...(subScores ?? {}) };
 
   // Active pillars = present with weight > 0.
   const active: Array<{ key: SubScoreKey; value: number; weight: number }> = [];

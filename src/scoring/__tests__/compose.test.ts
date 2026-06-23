@@ -64,33 +64,6 @@ describe("computeFightFormScore", () => {
     expect(r.topLimiter).toBeDefined();
   });
 
-  describe("inputSources passthrough", () => {
-    it("populates a 'manual'-everywhere fallback when inputs.sources is absent", () => {
-      const r = computeFightFormScore(baseInputs(), ScoringConfigV1);
-      expect(r.inputSources).toBeDefined();
-      // All sleep/weight entries in the base fixture should fall back to 'manual'.
-      for (const v of Object.values(r.inputSources!.sleepHoursByDate)) {
-        expect(v).toBe("manual");
-      }
-      for (const v of Object.values(r.inputSources!.weightsByDate)) {
-        expect(v).toBe("manual");
-      }
-      expect(r.inputSources!.weightLatest).toBe("manual");
-      expect(r.inputSources!.sleepHoursTargetDate).toBe("manual");
-    });
-
-    it("passes inputs.sources through to inputSources on the engine output", () => {
-      const sources = {
-        sleepHoursByDate: { "2026-05-01": "healthkit" as const },
-        weightsByDate: { "2026-05-01": "healthkit" as const, "2026-04-01": "manual" as const },
-        weightLatest: "healthkit" as const,
-        sleepHoursTargetDate: "healthkit" as const,
-      };
-      const r = computeFightFormScore(baseInputs({ sources }), ScoringConfigV1);
-      expect(r.inputSources).toEqual(sources);
-    });
-  });
-
   describe("Fix #1 — composite redistribution on missing data", () => {
     it("composite uses only present sub-scores (weight:0 entries excluded)", () => {
       // Strong signal in every domain EXCEPT meals (which is empty).

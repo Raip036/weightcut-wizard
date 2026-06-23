@@ -46,10 +46,9 @@ function readinessTone(v: number): "good" | "warn" | "bad" {
 /**
  * Recovery cards from a RecoverySlice:
  *  - `stat_card` "Readiness" when present (value %, tone by band).
- *  - `metric_row` with HRV (ms) and RHR (bpm) when present. HRV higher is
- *    better and RHR lower is better, but without a personal baseline we can
- *    only flag at coarse population reference points — otherwise neutral.
- *  - `chart` kind "hrv" from hrvSeries when there are ≥2 points.
+ * Recovery is now driven solely by the self-reported wellness check-in
+ * (Apple HealthKit was removed — App Store Guideline 2.5.1), so HRV/RHR
+ * metric rows and the HRV trend chart are no longer emitted.
  * Omits any card lacking data; returns [] for an empty slice.
  */
 export function buildRecoveryCards(slice: RecoverySlice): CoachBlock[] {
@@ -66,51 +65,15 @@ export function buildRecoveryCards(slice: RecoverySlice): CoachBlock[] {
     });
   }
 
-  const metrics: {
-    label: string;
-    value: string;
-    tone?: "good" | "warn" | "bad";
-  }[] = [];
-  if (isNum(slice.hrv)) {
-    // Coarse reference only (no personal baseline available): high HRV is a
-    // positive signal, very low is a concern. Neutral in the middle band.
-    const hrv = Math.round(slice.hrv);
-    const tone: "good" | "warn" | "bad" | undefined =
-      hrv >= 70 ? "good" : hrv < 30 ? "bad" : undefined;
-    metrics.push({ label: "HRV", value: `${hrv} ms`, ...(tone ? { tone } : {}) });
-  }
-  if (isNum(slice.rhr)) {
-    // Lower resting HR is generally better; flag clearly elevated values.
-    const rhr = Math.round(slice.rhr);
-    const tone: "good" | "warn" | "bad" | undefined =
-      rhr <= 50 ? "good" : rhr >= 70 ? "warn" : undefined;
-    metrics.push({ label: "RHR", value: `${rhr} bpm`, ...(tone ? { tone } : {}) });
-  }
-  if (metrics.length > 0) {
-    blocks.push({ type: "metric_row", metrics: metrics.slice(0, 4) });
-  }
-
-  const hrvPoints = toSeries(slice.hrvSeries);
-  if (hrvPoints.length >= 2) {
-    blocks.push({
-      type: "chart",
-      title: "HRV trend",
-      kind: "hrv",
-      series: hrvPoints,
-    });
-  }
-
   return blocks;
 }
 
 /** One- or two-sentence plain-text recovery summary. Empty-safe; no markdown. */
 export function summarizeRecovery(slice: RecoverySlice): string {
-  const parts: string[] = [];
-  if (isNum(slice.hrv)) parts.push(`HRV ${Math.round(slice.hrv)}ms`);
-  if (isNum(slice.rhr)) parts.push(`RHR ${Math.round(slice.rhr)}bpm`);
-  if (isNum(slice.readiness)) parts.push(`readiness ${Math.round(slice.readiness)}%`);
-  if (parts.length === 0) return "Recovery: no data yet.";
-  return `Recovery: ${parts.join(", ")}.`;
+  if (isNum(slice.readiness)) {
+    return `Recovery: readiness ${Math.round(slice.readiness)}%.`;
+  }
+  return "Recovery: no data yet.";
 }
 
 // ── Sleep ────────────────────────────────────────────────────────────────

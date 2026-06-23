@@ -11,10 +11,7 @@ import { localCache } from "@/lib/localCache";
 import { Skeleton } from "@/components/ui/skeleton-loader";
 import { Card } from "@/components/ui/card";
 import { triggerHapticSelection } from "@/lib/haptics";
-import { HealthTilesPanel } from "@/components/health/HealthTilesPanel";
 import { Icon } from "@/components/ui/Icon";
-import { openSettings } from "@/lib/openSettings";
-import { Capacitor } from "@capacitor/core";
 
 // Local row shape — snake_case shape consumed by RecoveryDashboard / performanceEngine.
 interface TrainingCalendarRow {
@@ -97,22 +94,6 @@ export default function Recovery() {
     const isLoading = rawSessions === undefined && cachedSessions.length === 0;
     const display = rawSessions ? sessions28d : cachedSessions;
 
-    // Apple Health tier — drives whether we surface the tiles panel or the
-    // self-report morning check-in banner. Hand-off contract: Agent B's
-    // `api.health.getTier` returns `{ tier, grantedMetrics, lastSyncAt,
-    // connectedAt }`. Treated as any until codegen runs.
-    const tierInfo = useQuery(
-        (api as any).health?.getTier,
-        userId ? {} : "skip",
-    ) as { tier?: "tier_0" | "tier_1" | "tier_2" } | undefined;
-    const healthTier = tierInfo?.tier ?? "tier_0";
-    const showHealthTiles = healthTier !== "tier_0";
-    // On iOS, when Apple Health is not yet connected (tier_0), offer a path to
-    // connect it via the global Settings modal — the recovery tiles are
-    // otherwise gated with no in-page route to turn them on.
-    const showConnectHealth =
-        Capacitor.getPlatform() === "ios" && healthTier === "tier_0";
-
     if (isLoading) {
         return (
             <div className="space-y-3 px-5 py-3 sm:p-5 md:p-6 max-w-7xl mx-auto pb-16 md:pb-6">
@@ -127,7 +108,6 @@ export default function Recovery() {
     if (display.length === 0) {
         return (
             <div className="animate-page-in space-y-3 px-5 py-3 sm:p-5 md:p-6 max-w-7xl mx-auto pb-16 md:pb-6">
-                {userId && showHealthTiles && <HealthTilesPanel />}
                 <motion.div
                     initial={prefersReduced ? false : { opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -174,15 +154,6 @@ export default function Recovery() {
                             <Icon name="heartOutline" size={14} className="text-func-danger-red" />
                             Log sleep
                         </button>
-                        {showConnectHealth && (
-                            <button
-                                onClick={() => { triggerHapticSelection(); openSettings("apple-health"); }}
-                                className="inline-flex items-center gap-1.5 rounded-full border border-border/40 px-3.5 py-2 text-[12px] font-semibold text-foreground active:scale-[0.97] transition"
-                            >
-                                <Icon name="pulseOutline" size={14} className="text-primary" />
-                                Connect Apple Health
-                            </button>
-                        )}
                     </div>
                 </motion.div>
             </div>
@@ -201,17 +172,7 @@ export default function Recovery() {
                     <p className="text-micro uppercase tracking-[0.15em] text-muted-foreground/70 font-bold">Your</p>
                     <h1 className="text-title font-semibold leading-tight">Wellness</h1>
                 </div>
-                {showConnectHealth && (
-                    <button
-                        onClick={() => { triggerHapticSelection(); openSettings("apple-health"); }}
-                        className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-border/40 px-3 py-1.5 text-[11px] font-semibold text-muted-foreground active:scale-[0.97] transition"
-                    >
-                        <Icon name="pulseOutline" size={13} className="text-primary" />
-                        Connect Health
-                    </button>
-                )}
             </motion.header>
-            {userId && showHealthTiles && <HealthTilesPanel />}
             {userId && (
                 <RecoveryDashboard
                     sessions28d={display as any}

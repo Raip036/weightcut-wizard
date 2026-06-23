@@ -2,7 +2,7 @@
  * ReminderStep: onboarding wizard step that requests iOS local-notification
  * permission for adaptive reminders.
  *
- * Inserted right after the Apple Health connect step (step 11). Explains the
+ * Explains the
  * value before the iOS system prompt fires so the user makes an informed
  * choice. Both paths ("Turn on" and "Maybe later") advance the wizard via
  * `onAdvance`; the step is always skippable.
