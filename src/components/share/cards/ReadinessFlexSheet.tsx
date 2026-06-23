@@ -15,7 +15,6 @@
 // §7.3.a.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Textarea } from "@/components/ui/textarea";
 import { Share2, Download, Loader2, Sparkles } from "lucide-react";
 import { format, startOfWeek } from "date-fns";
 import { useShareCard } from "@/hooks/useShareCard";
@@ -48,7 +47,6 @@ const ASPECT: AspectRatio = "story";
 // keyboard even when the caption input is focused.
 const MAX_PREVIEW_H = 300;
 
-const CAPTION_MAX = 60;
 const FREE_WEEKLY_LIMIT = 1;
 
 // localStorage key: ISO date of the week's Monday, namespaced per user so
@@ -93,7 +91,9 @@ export function ReadinessFlexSheet({
   const { toast } = useToast();
   const { cardRef, isCapturing, captureAndShare, captureAndDownload } = useShareCard();
 
-  const [caption, setCaption] = useState("");
+  // Background variation: solid (default) or transparent (for overlaying the
+  // card on a photo/story).
+  const [transparent, setTransparent] = useState(false);
 
   // Recompute the gate on every open so a card shared in a previous app
   // session updates correctly. The user expects "I shared this morning,
@@ -102,10 +102,9 @@ export function ReadinessFlexSheet({
   const usedThisWeek = readWeeklyCount(userId, today);
   const locked = !isPremium && usedThisWeek >= FREE_WEEKLY_LIMIT;
 
-  // Reset caption when the sheet closes so it doesn't bleed into the next
-  // open. Keep it intact while open so a misfired blur doesn't lose typing.
+  // Reset the background choice when the sheet closes.
   useEffect(() => {
-    if (!open) setCaption("");
+    if (!open) setTransparent(false);
   }, [open]);
 
   // Preview scale: fit the source 1080×1920 card into the preview budget.
@@ -145,6 +144,7 @@ export function ReadinessFlexSheet({
     await captureAndShare(
       "I'm ready today.",
       `Readiness ${Math.round(readiness)}, built with FightCamp Wizard`,
+      transparent,
     );
     if (!isPremium) bumpWeeklyCount(userId, today);
   }, [
@@ -156,6 +156,7 @@ export function ReadinessFlexSheet({
     locked,
     openPaywall,
     toast,
+    transparent,
   ]);
 
   const handleDownload = useCallback(async () => {
@@ -167,7 +168,7 @@ export function ReadinessFlexSheet({
       openPaywall();
       return;
     }
-    await captureAndDownload(`readiness-${format(date, "yyyy-MM-dd")}.png`);
+    await captureAndDownload(`readiness-${format(date, "yyyy-MM-dd")}.png`, transparent);
     if (!isPremium) bumpWeeklyCount(userId, today);
   }, [
     captureAndDownload,
@@ -178,6 +179,7 @@ export function ReadinessFlexSheet({
     locked,
     openPaywall,
     toast,
+    transparent,
   ]);
 
   return (
@@ -218,33 +220,45 @@ export function ReadinessFlexSheet({
             </div>
           ) : (
             <>
-              {/* ── Caption input ────────────────────────────────────── */}
+              {/* ── Background toggle: solid / transparent ───────────── */}
               <div className="space-y-1.5">
-                <label
-                  htmlFor="flex-card-caption"
-                  className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground"
-                >
-                  Caption (optional)
-                </label>
-                <Textarea
-                  id="flex-card-caption"
-                  value={caption}
-                  onChange={(e) => setCaption(e.target.value.slice(0, CAPTION_MAX))}
-                  maxLength={CAPTION_MAX}
-                  rows={2}
-                  placeholder="Sparring tonight."
-                  className="resize-none text-[14px]"
-                />
-                <div className="text-[10px] text-muted-foreground/70 text-right tabular-nums">
-                  {caption.length}/{CAPTION_MAX}
+                <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                  Background
+                </span>
+                <div className="inline-flex w-full rounded-full bg-muted p-1">
+                  {([
+                    { key: false, label: "Solid" },
+                    { key: true, label: "Transparent" },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.label}
+                      type="button"
+                      onClick={() => setTransparent(opt.key)}
+                      className={`flex-1 h-8 rounded-full text-[12px] font-semibold transition-colors ${
+                        transparent === opt.key
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
               {/* ── Preview ──────────────────────────────────────────── */}
               <div ref={wrapperRef} className="w-full flex justify-center">
                 <div
-                  className="overflow-hidden rounded-xl border border-border/50 bg-black"
-                  style={{ width: dims.w, height: dims.h }}
+                  className="overflow-hidden rounded-xl border border-border/50"
+                  style={{
+                    width: dims.w,
+                    height: dims.h,
+                    // Transparent variant: show a sample backdrop so the
+                    // see-through card is visible; solid renders on black.
+                    background: transparent
+                      ? "linear-gradient(160deg, #1e3a5f 0%, #0c1219 50%, #2a1414 100%)"
+                      : "#000000",
+                  }}
                 >
                   <div
                     style={{
@@ -259,10 +273,10 @@ export function ReadinessFlexSheet({
                       date={date}
                       readiness={readiness}
                       pillars={pillars}
-                      caption={caption || undefined}
                       tone={tone}
                       userHandle={userHandle}
                       isPro={isPremium}
+                      transparent={transparent}
                       aspect={ASPECT}
                     />
                   </div>

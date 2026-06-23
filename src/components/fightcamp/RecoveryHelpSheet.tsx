@@ -82,7 +82,7 @@ const GLOSSARY: GlossaryItem[] = [
     bg: "bg-brand-spirit-blue/10",
     title: "Training load",
     summary: "Compares your last 7 days of training to your typical month. Tells you if you're ramping up too fast, holding steady, or backing off.",
-    details: "Uses the acute-to-chronic ratio (your 7-day load divided by your 28-day baseline). Needs at least 14 training days in the last month before this number is trustworthy. Until then the card shows 'Building'.",
+    details: "Uses the acute-to-chronic ratio (your 7-day load divided by your 28-day baseline). This card needs at least 14 training days in the last month before the standalone number is trustworthy — until then it shows 'Building'. (Your overall Fight Form score starts factoring training load in sooner.)",
     states: [
       { label: "Building", meaning: "less than 14 training days logged", color: "text-muted-foreground" },
       { label: "Low",      meaning: "below your normal volume",            color: "text-brand-spirit-blue" },

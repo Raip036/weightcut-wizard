@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { Icon } from "@/components/ui/Icon";
 import { cn } from "@/lib/utils";
@@ -7,6 +8,168 @@ import {
   useFightFormCoach,
   type FightFormCoachContext,
 } from "@/hooks/dashboard/useFightFormCoach";
+import wizard from "@/assets/wizard_3D.png";
+
+const BLUE = "217 91% 58%";
+const blue = (a = 1) => `hsl(${BLUE} / ${a})`;
+
+/**
+ * Premium "Aurora Wizard" idle teaser for the Fight Form coach.
+ *
+ * A self-contained blue, wizard-mascot card shown before the user has
+ * generated a read — replaces the old flat glass-card teaser with the sparkle
+ * iconography. The 3D wizard floats in a breathing blue halo over a rising
+ * aurora wash with a few drifting motes; the CTA is a glowing blue pill, no
+ * icons. Matches the app's reference loading aesthetic (ProtocolGenerating
+ * Overlay / reference_aurora_wizard_loader). All motion is transform/opacity
+ * only and collapses to a calm static state under reduced-motion.
+ *
+ * Presentational on purpose (no hooks beyond motion) so the preview lab can
+ * render it without the Convex-backed `useFightFormCoach` context.
+ */
+export function CoachReadIdleCard({
+  isPro,
+  loading = false,
+  onRun,
+  className,
+}: {
+  isPro: boolean;
+  loading?: boolean;
+  onRun: () => void;
+  className?: string;
+}) {
+  const prefersReduced = useReducedMotion();
+
+  // Deterministic drifting motes (index-based, no Math.random in render).
+  const motes = useMemo(
+    () =>
+      Array.from({ length: 5 }, (_, i) => ({
+        id: i,
+        x: ((i * 53) % 200) - 100,
+        delay: (i % 4) * 0.7,
+        dur: 6 + (i % 3),
+        size: 3 + (i % 3),
+      })),
+    [],
+  );
+
+  return (
+    <motion.div
+      initial={prefersReduced ? false : { opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: "easeOut" }}
+      className={cn(
+        "mt-6 relative overflow-hidden rounded-2xl border border-primary/25 px-5 pt-5 pb-5",
+        className,
+      )}
+      style={{
+        background:
+          "linear-gradient(165deg, hsl(217 55% 13% / 0.55) 0%, hsl(222 47% 7% / 0.7) 60%)",
+      }}
+    >
+      {/* Aurora wash rising from the base. */}
+      <motion.div
+        aria-hidden
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: `radial-gradient(120% 75% at 50% 100%, ${blue(0.3)}, transparent 70%)`,
+        }}
+        animate={
+          prefersReduced ? { opacity: 0.7 } : { opacity: [0.55, 0.9, 0.55], scale: [1, 1.05, 1] }
+        }
+        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+      />
+
+      {/* Rising blue motes. */}
+      {!prefersReduced &&
+        motes.map((m) => (
+          <motion.span
+            key={m.id}
+            aria-hidden
+            className="absolute rounded-full"
+            style={{
+              left: `calc(50% + ${m.x}px)`,
+              bottom: 0,
+              width: m.size,
+              height: m.size,
+              background: blue(0.7),
+              boxShadow: `0 0 6px ${blue(0.9)}`,
+            }}
+            initial={{ y: 0, opacity: 0 }}
+            animate={{ y: -140, opacity: [0, 1, 0] }}
+            transition={{ duration: m.dur, repeat: Infinity, ease: "easeOut", delay: m.delay }}
+          />
+        ))}
+
+      <div className="relative z-10 flex flex-col items-center text-center">
+        {/* Haloed, bobbing wizard mascot. */}
+        <div className="relative flex items-center justify-center" style={{ height: 68 }}>
+          {!prefersReduced && (
+            <motion.div
+              aria-hidden
+              className="absolute"
+              style={{
+                width: 90,
+                height: 90,
+                borderRadius: "50%",
+                background: `radial-gradient(circle, ${blue(0.45)} 0%, ${blue(0.12)} 42%, transparent 70%)`,
+                filter: "blur(6px)",
+              }}
+              animate={{ opacity: [0.5, 0.85, 0.5], scale: [0.95, 1.07, 0.95] }}
+              transition={{ duration: 3.4, repeat: Infinity, ease: "easeInOut" }}
+            />
+          )}
+          <motion.img
+            src={wizard}
+            alt=""
+            draggable={false}
+            style={{
+              width: 64,
+              height: 64,
+              objectFit: "contain",
+              position: "relative",
+              zIndex: 2,
+              filter: `drop-shadow(0 0 14px ${blue(0.4)})`,
+            }}
+            animate={prefersReduced ? { y: 0 } : { y: [0, -6, 0] }}
+            transition={{ duration: 3.4, repeat: Infinity, ease: "easeInOut" }}
+          />
+        </div>
+
+        <div className="mt-1.5 flex items-center justify-center gap-1.5">
+          <span className="text-body font-semibold text-foreground">Coach's read</span>
+          {!isPro && (
+            <span className="text-[10px] uppercase tracking-wide text-primary font-semibold">
+              Pro
+            </span>
+          )}
+        </div>
+
+        <p className="mt-1 text-body-sm text-muted-foreground leading-snug max-w-[15rem]">
+          {isPro
+            ? "A holistic read on your camp and what to fix next."
+            : "Unlock a holistic read on your camp and what to fix next."}
+        </p>
+
+        <button
+          type="button"
+          onClick={onRun}
+          disabled={loading}
+          className={cn(
+            "mt-4 w-full rounded-xl px-4 py-2.5 text-body-sm font-semibold text-white",
+            "active:scale-[0.99] transition-transform disabled:opacity-60",
+          )}
+          style={{
+            background: `linear-gradient(180deg, ${blue(1)}, ${blue(0.82)})`,
+            boxShadow: `0 6px 20px ${blue(0.35)}`,
+          }}
+        >
+          {isPro ? "Get AI coaching" : "Unlock AI coaching"}
+        </button>
+      </div>
+    </motion.div>
+  );
+}
 
 interface Props {
   /** Deterministic score context, built by the sheet. */
@@ -61,15 +224,18 @@ export function CoachingCard({ context, onNavigate }: Props) {
         transition: { duration: 0.35, ease: "easeOut" as const },
       };
 
+  // Before a read exists (and outside the loading/error flow), show the
+  // premium aurora-wizard teaser instead of the flat glass header card.
+  const isIdle = !coaching && !loading && !(error && isPro);
+  if (isIdle) {
+    return <CoachReadIdleCard isPro={isPro} loading={loading} onRun={run} />;
+  }
+
   return (
     <div className="mt-6 glass-card rounded-2xl border border-border/50 px-4 py-4">
       <div className="flex items-center gap-2">
-        <span className="h-8 w-8 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
-          <Icon
-            name={isPro ? "sparklesOutline" : "lockClosedOutline"}
-            size={16}
-            className={isPro ? "text-primary" : "text-muted-foreground"}
-          />
+        <span className="h-8 w-8 rounded-xl bg-primary/15 flex items-center justify-center shrink-0 overflow-hidden">
+          <img src={wizard} alt="" draggable={false} className="h-6 w-6 object-contain" />
         </span>
         <div className="flex items-center gap-1.5 min-w-0">
           <span className="text-body-sm font-semibold truncate">Coach's read</span>
@@ -231,33 +397,7 @@ export function CoachingCard({ context, onNavigate }: Props) {
               <span>Retry</span>
             </button>
           </motion.div>
-        ) : (
-          <motion.div key="idle" {...reveal} className="mt-3 space-y-3">
-            <p className="text-body-sm text-muted-foreground leading-snug">
-              {isPro
-                ? "A holistic read on your camp, what's working and the few things to fix next."
-                : "Unlock a holistic read on your camp, what's working and the few things to fix next."}
-            </p>
-            <button
-              type="button"
-              onClick={run}
-              className={cn(
-                "w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2.5",
-                "text-body-sm font-semibold active:scale-[0.99] transition-transform",
-                isPro
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-primary/15 text-primary ring-1 ring-primary/25",
-              )}
-            >
-              <Icon
-                name={isPro ? "sparklesOutline" : "lockClosedOutline"}
-                size={15}
-                className="shrink-0"
-              />
-              <span>{isPro ? "Get AI coaching" : "Unlock AI coaching"}</span>
-            </button>
-          </motion.div>
-        )}
+        ) : null}
       </AnimatePresence>
     </div>
   );
