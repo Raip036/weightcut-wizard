@@ -255,6 +255,25 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
 
     if (autoTriggeredRef.current) return;
 
+    // A freshly generated cut plan must be viewed first: Dashboard redirects a
+    // just-onboarded user from here to /cut-plan (wcw_cut_plan set, seen flag
+    // cleared by onboarding). That redirect lands us on this transient
+    // /dashboard mount BEFORE the user has actually settled here. If we consumed
+    // the one-shot `wcw_onboarding_just_completed` flag and armed the start timer
+    // now, the imminent navigation to /cut-plan would cancel the timer (effect
+    // cleanup) AND we'd already have CAS-stamped the server "shown" field — so
+    // the tutorial would be lost forever and never re-fire. Bail WITHOUT
+    // consuming the flag; the effect re-runs when the user closes the plan and
+    // returns to a settled /dashboard (seen flag now set), and the tutorial
+    // fires then. This is the root-cause fix for the "tutorial never starts for
+    // a 2nd new account on the same device" race: a warm session has the profile
+    // ready at this transient mount and loses the race; a cold first install
+    // lags a render and accidentally survived it.
+    const cutPlanPendingFirstView =
+      !!localStorage.getItem("wcw_cut_plan") &&
+      !localStorage.getItem("wcw_cut_plan_seen");
+    if (justOnboarded && cutPlanPendingFirstView) return;
+
     // Server-authoritative per-account guard; localStorage completion is a
     // fallback for users who finished the tutorial before this field existed.
     const alreadyShown =
