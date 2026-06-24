@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, forwardRef, type ComponentProps, type ReactNode } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useAuthActions } from "@convex-dev/auth/react";
+import { useMutation } from "convex/react";
+import { api } from "@/../convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -121,6 +123,7 @@ export default function Auth() {
   const { toast } = useToast();
   const { userId } = useAuth();
   const { signIn } = useAuthActions();
+  const purgeOrphanedAccount = useMutation(api.authCleanup.purgeOrphanedAccount);
   const handleInputFocus = useScrollIntoViewOnFocus();
 
   const isPasswordReset = searchParams.get("reset") === "true";
@@ -165,6 +168,13 @@ export default function Auth() {
         }
         // Stash intended role so the profile bootstrap / onboarding flow picks it up.
         try { localStorage.setItem("wcw_intended_role", ROLE); } catch {}
+
+        // Clear any orphaned auth account left behind by a manual `users`-row
+        // delete (e.g. straight from the Convex dashboard) so a previously
+        // deleted email can register cleanly. No-op for fresh emails and for
+        // live accounts — a real duplicate still errors below. Best-effort:
+        // if it fails we still attempt sign-up and surface that error.
+        try { await purgeOrphanedAccount({ email }); } catch (err) { logger.warn("Auth: orphan purge failed", { err }); }
 
         try {
           await signIn("password", { email, password, flow: "signUp", role: ROLE });

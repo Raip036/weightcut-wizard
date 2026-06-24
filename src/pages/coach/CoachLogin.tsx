@@ -43,6 +43,7 @@ export default function CoachLogin() {
   const { userId } = useAuth();
   const { signIn } = useAuthActions();
   const setRoleMut = useMutation(api.profiles.setRole);
+  const purgeOrphanedAccount = useMutation(api.authCleanup.purgeOrphanedAccount);
 
   // Already-authed user — route them to the right surface
   useEffect(() => {
@@ -82,6 +83,12 @@ export default function CoachLogin() {
         // the cryptic "Invalid password" round-trip.
         if (password.length < 8) { setErrorMsg("Password must be at least 8 characters"); return; }
         try { localStorage.setItem("wcw_intended_role", "coach"); } catch {}
+        // Clear any orphaned auth account left behind by a manual `users`-row
+        // delete (e.g. straight from the Convex dashboard) so a previously
+        // deleted email can register cleanly. No-op for fresh emails and for
+        // live accounts — a real duplicate still errors below. Best-effort.
+        try { await purgeOrphanedAccount({ email }); } catch (purgeErr) { logger.warn("CoachLogin: orphan purge failed", { purgeErr }); }
+
         try {
           await signIn("password", { email, password, flow: "signUp", role: "coach" });
         } catch (err) {

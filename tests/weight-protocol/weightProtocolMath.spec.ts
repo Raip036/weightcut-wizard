@@ -269,17 +269,20 @@ describe("buildFightPlanSkeleton", () => {
     // 8 days expected: dtw 7..0
     expect(plan.days.length).toBe(8);
     const byDtw = Object.fromEntries(plan.days.map((d) => [d.daysToWeighIn, d]));
-    // T-7: early step-down 2 g/kg * 75 = 150g ; 100mL/kg * 75 = 7.5L ; 2500mg sodium
+    // T-7: early step-down 2 g/kg * 75 = 150g ; canonical normal water 40mL/kg *
+    // 75 = 3.0L ; sodium 35mg/kg * 75 = 2625mg
     expect(byDtw[7].carbsGrams).toBe(150);
-    expect(byDtw[7].waterLitres).toBeCloseTo(7.5, 2);
-    expect(byDtw[7].sodiumMg).toBe(2500);
+    expect(byDtw[7].waterLitres).toBeCloseTo(3.0, 2);
+    expect(byDtw[7].sodiumMg).toBe(2625);
     expect(byDtw[7].fibreNote).toBe("normal");
-    // T-4: restriction 0.5 g/kg → round(37.5) = 38g (under 50g) ; 75mL/kg → 5.63L
+    // T-4: restriction 0.5 g/kg → round(37.5) = 38g (under 50g) ; this is the
+    // first WATER-LOAD day → 100mL/kg * 75 = 7.5L ; fibre now low-residue (T-4
+    // is ~96h out, the start of the gut taper per Reale 2018).
     expect(byDtw[4].carbsGrams).toBe(38);
-    expect(byDtw[4].waterLitres).toBeCloseTo(5.63, 2);
-    // Fibre stays NORMAL through T-4 per the research-backed late taper
-    // (reduce at T-3, low-residue T-2, minimal T-1, none weigh-in morning).
-    expect(byDtw[4].fibreNote).toBe("normal");
+    expect(byDtw[4].waterLitres).toBeCloseTo(7.5, 2);
+    expect(byDtw[4].fibreNote).toBe("low_residue_only");
+    // T-1 is the FLUSH: water drops sharply to 15mL/kg * 75 = 1.125L (round2 → 1.13)
+    expect(byDtw[1].waterLitres).toBeCloseTo(1.13, 2);
     // Weigh-in day (dtw=0): fixed 30g
     expect(byDtw[0].dayLabel).toBe("Weigh-in");
     expect(byDtw[0].carbsGrams).toBe(30);
@@ -293,10 +296,13 @@ describe("buildFightPlanSkeleton", () => {
     const t7 = plan.days.find((d) => d.daysToWeighIn === 7)!;
     // early step-down 2 g/kg * 60 = 120
     expect(t7.carbsGrams).toBe(120);
-    // water 100mL/kg * 60 = 6L
-    expect(t7.waterLitres).toBeCloseTo(6.0, 2);
-    // sodium scaled by 60/75 = 0.8 → 2500 * 0.8 = 2000
-    expect(t7.sodiumMg).toBe(2000);
+    // T-7 is normal water (pre-load) 40mL/kg * 60 = 2.4L
+    expect(t7.waterLitres).toBeCloseTo(2.4, 2);
+    // sodium 35mg/kg * 60 = 2100
+    expect(t7.sodiumMg).toBe(2100);
+    // T-4 water-load scales too: 100mL/kg * 60 = 6.0L
+    const t4 = plan.days.find((d) => d.daysToWeighIn === 4)!;
+    expect(t4.waterLitres).toBeCloseTo(6.0, 2);
     // restriction day (T-3): 0.5 g/kg * 60 = 30g
     const t3 = plan.days.find((d) => d.daysToWeighIn === 3)!;
     expect(t3.carbsGrams).toBe(30);
@@ -339,6 +345,46 @@ describe("buildFightPlanSkeleton", () => {
     ).days.find((d) => d.daysToWeighIn === 3)!;
     // 0.5 * 100 = 50 → capped to 49g (strictly under 50)
     expect(t3.carbsGrams).toBe(49);
+  });
+
+  it("same-day weigh-in HOLDS carbs AND is water-neutral (no load/flush); fibre still taper", () => {
+    const d = baseDerived({ daysToWeighIn: 7, currentWeightKg: 75, cutDepthKg: 3.75 });
+    const dayBefore = buildFightPlanSkeleton(d, "standard", false);
+    const sameDay = buildFightPlanSkeleton(d, "standard", true);
+    const sdByDtw = Object.fromEntries(
+      sameDay.days.map((day) => [day.daysToWeighIn, day]),
+    );
+    const dbByDtw = Object.fromEntries(
+      dayBefore.days.map((day) => [day.daysToWeighIn, day]),
+    );
+    // Carbs held at maintenance (3 g/kg * 75 = 225g) EVERY day — including the
+    // restriction window and weigh-in morning where day-before depletes.
+    for (const day of sameDay.days) {
+      expect(day.carbsGrams).toBe(225);
+    }
+    // Day-before still depletes (T-4 restriction 38g, weigh-in 30g) — proves
+    // the two strategies actually diverge.
+    expect(dbByDtw[4].carbsGrams).toBe(38);
+    expect(dbByDtw[0].carbsGrams).toBe(30);
+    // WATER-NEUTRAL same-day: no water load. On the day-before LOAD day (T-4)
+    // day-before is 100mL/kg → 7.5L, same-day stays near-normal 40mL/kg → 3.0L.
+    expect(dbByDtw[4].waterLitres).toBeCloseTo(7.5, 2);
+    expect(sdByDtw[4].waterLitres).toBeCloseTo(3.0, 2);
+    expect(sdByDtw[4].waterLitres).toBeLessThan(dbByDtw[4].waterLitres);
+    // Same-day never water-loads on ANY day (cap near-normal ~40mL/kg → 3.0L).
+    for (const day of sameDay.days) {
+      expect(day.waterLitres).toBeLessThanOrEqual(3.0);
+    }
+    // Fibre taper IS shared — same-day still cuts fibre to empty the gut.
+    for (const dtw of [7, 4, 2, 0]) {
+      expect(sdByDtw[dtw].fibreNote).toBe(dbByDtw[dtw].fibreNote);
+    }
+    // No glycogen stripped when carbs are held; far less bound water too.
+    expect(sameDay.expectedWeightLossKg.glycogen).toBe(0);
+    expect(sameDay.expectedWeightLossKg.water).toBeLessThan(
+      dayBefore.expectedWeightLossKg.water,
+    );
+    expect(dayBefore.expectedWeightLossKg.glycogen).toBeCloseTo(0.015 * 75, 3);
   });
 
   it("1 day to weigh-in → produces 2 days (T-1 and Weigh-in)", () => {

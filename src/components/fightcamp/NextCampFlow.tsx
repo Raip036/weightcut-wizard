@@ -69,10 +69,8 @@ const STEP_PROMPTS: Record<string, string> = {
 };
 
 const WEIGH_IN_CHIPS = [
-  { value: "day_before",  label: "Day before" },
-  { value: "morning_of",  label: "Morning of" },
-  { value: "two_hour",    label: "2-hour rule" },
-  { value: "unknown",     label: "Not sure yet" },
+  { value: "day_before", label: "Day before", sub: "24–36 hrs before you compete" },
+  { value: "same_day", label: "Same day", sub: "2–8 hrs before you compete" },
 ];
 
 export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: NextCampFlowProps) {
@@ -527,7 +525,7 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
                       className="h-12 rounded-xs text-center"
                     />
                   ) : currentStep.key === "weighInTiming" ? (
-                    <div className="grid grid-cols-2 gap-1.5">
+                    <div className="grid grid-cols-1 gap-1.5">
                       {WEIGH_IN_CHIPS.map((w) => {
                         const active = wizardData.weighInTiming === w.value;
                         return (
@@ -539,11 +537,14 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
                               setWizardData((d) => ({ ...d, weighInTiming: w.value }));
                             }}
                             aria-pressed={active}
-                            className={`h-11 rounded-xs text-[13px] font-semibold transition-colors ${
+                            className={`px-4 py-3 rounded-xs text-left transition-colors ${
                               active ? "bg-primary text-primary-foreground" : "bg-muted/40 text-muted-foreground/85 active:bg-muted/60"
                             }`}
                           >
-                            {w.label}
+                            <div className="text-[13px] font-semibold">{w.label}</div>
+                            <div className={`text-[11px] ${active ? "text-primary-foreground/80" : "text-muted-foreground/60"}`}>
+                              {w.sub}
+                            </div>
                           </button>
                         );
                       })}

@@ -87,8 +87,16 @@ interface FightWeekDay {
   proteinGrams: number;
   sodiumGrams: number;
   fluidLiters: number;
+  fibreGrams?: number;
   notes: string;
-  flag?: "sodium-cliff" | "fluid-cliff" | "weigh-in";
+  flag?:
+    | "water-load"
+    | "flush"
+    | "sodium-cliff"
+    | "fluid-cliff"
+    | "sodium-taper"
+    | "low-residue"
+    | "weigh-in";
 }
 
 interface FightWeekRefeed {
@@ -960,7 +968,7 @@ function FightWeekDayStack({
                       </span>
                     </div>
 
-                    {/* Sodium + water as secondary chips. */}
+                    {/* Sodium + water + fibre as secondary chips. */}
                     <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
                       <FightWeekChip
                         label="Na"
@@ -970,8 +978,19 @@ function FightWeekDayStack({
                       <FightWeekChip
                         label="H₂O"
                         value={d.fluidLiters < 0.5 ? "sips" : `${d.fluidLiters}L`}
-                        tone={d.flag === "fluid-cliff" ? "warn" : "hydration"}
+                        tone={
+                          d.flag === "fluid-cliff" || d.flag === "flush"
+                            ? "warn"
+                            : "hydration"
+                        }
                       />
+                      {typeof d.fibreGrams === "number" && (
+                        <FightWeekChip
+                          label="Fibre"
+                          value={d.fibreGrams <= 0 ? "none" : `${d.fibreGrams}g`}
+                          tone={d.flag === "low-residue" ? "warn" : "muted"}
+                        />
+                      )}
                     </div>
 
                     {d.notes && (

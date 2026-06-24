@@ -1218,8 +1218,8 @@ export default function Onboarding() {
           >
             <div className="space-y-2.5">
               {([
-                { value: "day_before", label: "Day before weigh-in", description: "About a day to recover and rehydrate. Pro MMA, boxing, kickboxing, Muay Thai.", icon: <Moon className="h-5 w-5 text-func-fats-purple" /> },
-                { value: "same_day", label: "Same day weigh-in", description: "You weigh in hours before you compete. BJJ/IBJJF, amateur MMA, wrestling, most matches.", icon: <Gauge className="h-5 w-5 text-func-warning-yellow" /> },
+                { value: "day_before", label: "Day before weigh-in", description: "24–36 hrs before you compete", icon: <Moon className="h-5 w-5 text-func-fats-purple" /> },
+                { value: "same_day", label: "Same day weigh-in", description: "2–8 hrs before you compete", icon: <Gauge className="h-5 w-5 text-func-warning-yellow" /> },
               ] as const).map(opt => (
                 <OptionCard key={opt.value} selected={formData.weigh_in_timing === opt.value} icon={opt.icon}
                   label={opt.label} description={opt.description} onClick={() => selectAndAdvance("weigh_in_timing", opt.value)} />
@@ -1627,40 +1627,38 @@ export default function Onboarding() {
                         </p>
 
                         {/* Water cut risk indicator */}
-                        {targetKg > 0 && goalKg > 0 && (
-                          <div className={`w-full max-w-[300px] rounded-xs p-3 border ${isSafe ? "border-func-recovery-green/20 bg-func-recovery-green/5" : isModerate ? "border-func-warning-yellow/20 bg-func-warning-yellow/5" : "border-func-danger-red/20 bg-func-danger-red/5"}`}>
-                            <div className="flex items-center justify-between mb-2">
-                              <span className={`text-sm font-bold ${isSafe ? "text-func-recovery-green" : isModerate ? "text-func-warning-yellow" : "text-func-danger-red"}`}>
-                                {waterCutKg.toFixed(1)}kg water cut ({waterCutPct.toFixed(1)}%)
-                              </span>
-                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${isSafe ? "text-func-recovery-green" : isModerate ? "text-func-warning-yellow" : "text-func-danger-red"}`}>
-                                {isSafe ? "Safe" : isModerate ? "Moderate Risk" : "High Risk"}
-                              </span>
+                        {targetKg > 0 && goalKg > 0 && (() => {
+                          const tone = isSafe
+                            ? { border: "border-func-recovery-green/20", bg: "bg-func-recovery-green/[0.06]", text: "text-func-recovery-green", body: "text-func-recovery-green/90", dot: "bg-func-recovery-green/60", badge: "bg-func-recovery-green/10", label: "Safe" }
+                            : isModerate
+                            ? { border: "border-func-warning-yellow/20", bg: "bg-func-warning-yellow/[0.06]", text: "text-func-warning-yellow", body: "text-func-warning-yellow/90", dot: "bg-func-warning-yellow/60", badge: "bg-func-warning-yellow/10", label: "Moderate Risk" }
+                            : { border: "border-func-danger-red/20", bg: "bg-func-danger-red/[0.06]", text: "text-func-danger-red", body: "text-func-danger-red/90", dot: "bg-func-danger-red/60", badge: "bg-func-danger-red/10", label: "High Risk" };
+                          const bullets = isSafe
+                            ? ["Within safe limits for most athletes", "Minimal impact on strength and reaction time"]
+                            : isModerate
+                            ? ["May reduce power output 5-10% if poorly rehydrated", "Increased cramping risk, so prioritise sodium and potassium", "Allow 12+ hours between weigh-in and fight for recovery"]
+                            : ["Significant risk of impaired reaction time and decision-making", "Strength reduction of 10-20% even with proper rehydration", "Consider working with a sports nutritionist to manage the load, and we'll guide you through the rest"];
+                          return (
+                            <div className={`w-full max-w-[300px] rounded-xs p-4 border ${tone.border} ${tone.bg}`}>
+                              <div className="flex items-center justify-between gap-3 mb-3">
+                                <span className={`text-sm font-bold ${tone.text}`}>
+                                  {waterCutKg.toFixed(1)}kg water cut ({waterCutPct.toFixed(1)}%)
+                                </span>
+                                <span className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full ${tone.badge} ${tone.text}`}>
+                                  {tone.label}
+                                </span>
+                              </div>
+                              <ul className="space-y-2">
+                                {bullets.map((bullet, i) => (
+                                  <li key={i} className="flex items-start gap-2.5">
+                                    <span className={`mt-[6px] h-1 w-1 shrink-0 rounded-full ${tone.dot}`} />
+                                    <span className={`text-xs leading-relaxed ${tone.body}`}>{bullet}</span>
+                                  </li>
+                                ))}
+                              </ul>
                             </div>
-                            <div className="space-y-1.5">
-                              {isSafe && (
-                                <>
-                                  <p className="text-[11px] text-func-recovery-green/80 flex items-start gap-1.5"><span className="mt-0.5">•</span>Within safe limits for most athletes</p>
-                                  <p className="text-[11px] text-func-recovery-green/80 flex items-start gap-1.5"><span className="mt-0.5">•</span>Minimal impact on strength and reaction time</p>
-                                </>
-                              )}
-                              {isModerate && (
-                                <>
-                                  <p className="text-[11px] text-func-warning-yellow/80 flex items-start gap-1.5"><span className="mt-0.5">•</span>May reduce power output 5-10% if poorly rehydrated</p>
-                                  <p className="text-[11px] text-func-warning-yellow/80 flex items-start gap-1.5"><span className="mt-0.5">•</span>Increased cramping risk, so prioritise sodium and potassium</p>
-                                  <p className="text-[11px] text-func-warning-yellow/80 flex items-start gap-1.5"><span className="mt-0.5">•</span>Allow 12+ hours between weigh-in and fight for recovery</p>
-                                </>
-                              )}
-                              {isDangerous && (
-                                <>
-                                  <p className="text-[11px] text-func-danger-red/80 flex items-start gap-1.5"><span className="mt-0.5">•</span>Significant risk of impaired reaction time and decision-making</p>
-                                  <p className="text-[11px] text-func-danger-red/80 flex items-start gap-1.5"><span className="mt-0.5">•</span>Strength reduction of 10-20% even with proper rehydration</p>
-                                  <p className="text-[11px] text-func-danger-red/80 flex items-start gap-1.5"><span className="mt-0.5">•</span>Consider working with a sports nutritionist to manage the load, and we'll guide you through the rest</p>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        )}
+                          );
+                        })()}
                       </div>
                     );
                   })()}
@@ -2148,7 +2146,7 @@ export default function Onboarding() {
               </Button>
             }
           >
-            <div className="space-y-3">
+            <div className="space-y-3 pt-4">
               <input
                 type="text"
                 value={formData.display_name}

@@ -474,27 +474,71 @@ interface DayAnchor {
   fiberGrams: number;
 }
 
-// Index = daysToWeighIn (0 = weigh-in day, 7 = T-7). Water/sodium/fibre per
-// spec §3. Carbs are intentionally NOT in this table — they follow the
-// body-weight-scaled RESTRICTION model in `carbsForDay` below (which replaces
-// the previous gradual per-kg taper of 3→2→1 g/kg).
+// ── CANONICAL VALIDATED FIGHT-WEEK CURVE — SINGLE SOURCE OF TRUTH ──
+// Keyed by daysToWeighIn (0 = weigh-in morning, 7 = T-7). These exported records
+// are consumed by BOTH plan generators — this skeleton (generateFightPlan) AND
+// generateCutPlan's day-by-day bundles — so every cut plan the app produces uses
+// IDENTICAL water/sodium/fibre numbers and cannot drift apart. Carbs are NOT
+// here: they follow `carbsForDay` (day-before depletes; same-day holds).
 //
-// FIBRE TAPER (evidence-based, Reale & Slater / GSSI / ISSN 2025 position
-// stand): keep fibre NORMAL until ~4 days out, then a short late taper —
-// ≤10 g/day for ~48 h captures essentially the full ~1.5% gut-content benefit,
-// and restricting earlier adds GI stress with no extra weight loss. So:
-//   T-7..T-4 normal (~30 g) · T-3 reduce (~18 g) · T-2 low-residue (~12 g) ·
-//   T-1 minimal (~7 g) · weigh-in morning none (0 g).
-const FIGHT_WEEK_ANCHORS: Record<number, DayAnchor> = {
-  7: { waterMlPerKg: 100, sodiumMgAt75kg: 2500, fibreNote: "normal", fiberGrams: 30 },
-  6: { waterMlPerKg: 100, sodiumMgAt75kg: 2500, fibreNote: "normal", fiberGrams: 30 },
-  5: { waterMlPerKg: 100, sodiumMgAt75kg: 2500, fibreNote: "normal", fiberGrams: 30 },
-  4: { waterMlPerKg: 75, sodiumMgAt75kg: 2500, fibreNote: "normal", fiberGrams: 30 },
-  3: { waterMlPerKg: 50, sodiumMgAt75kg: 1000, fibreNote: "reduce", fiberGrams: 18 },
-  2: { waterMlPerKg: 30, sodiumMgAt75kg: 500, fibreNote: "low_residue_only", fiberGrams: 12 },
-  1: { waterMlPerKg: 15, sodiumMgAt75kg: 200, fibreNote: "low_residue_only", fiberGrams: 7 },
-  0: { waterMlPerKg: 5, sodiumMgAt75kg: 0, fibreNote: "eliminate", fiberGrams: 0 },
+// Evidence base — Reale, Slater & Burke 2018 water-loading RCT (IJSNEM 28:565);
+// AIS/GSSI acute-weight-management reviews:
+//   • WATER: 3-day load at 100 mL/kg (T-4..T-2), then a SHARP flush to 15 mL/kg
+//     at T-1 — the cut lands here, while renal output is still elevated — then a
+//     sip (~5 mL/kg) on weigh-in morning. T-7..T-5 sit at normal (~40 mL/kg).
+//     Holding the load to T-2 or tapering it gently blunts the flush, so we don't.
+//   • SODIUM: kept MODERATE (~32-35 mg/kg) THROUGH the load days — dropping
+//     sodium toward zero while water-loading is the hyponatremia danger zone —
+//     then eased to a low floor at the T-1 flush / weigh-in (never literally 0).
+//   • FIBRE: low-residue (≤13 g) from ~T-4 (48-96 h out) captures ~1.5% BW of gut
+//     content; restricting earlier just adds GI stress for no extra loss.
+export const FIGHT_WEEK_WATER_ML_PER_KG: Record<number, number> = {
+  7: 40, 6: 40, 5: 40, 4: 100, 3: 100, 2: 100, 1: 15, 0: 5,
 };
+export const FIGHT_WEEK_SODIUM_MG_PER_KG: Record<number, number> = {
+  7: 35, 6: 35, 5: 35, 4: 32, 3: 32, 2: 32, 1: 12, 0: 6,
+};
+export const FIGHT_WEEK_FIBRE_GRAMS: Record<number, number> = {
+  7: 30, 6: 30, 5: 18, 4: 13, 3: 12, 2: 10, 1: 8, 0: 0,
+};
+
+// ── SAME-DAY weigh-in: WATER-NEUTRAL overrides ──
+// Same-day fighters have NO recovery window, so we do NOT water-load or flush —
+// dehydration carried into a same-day bout costs performance you can't get back.
+// Weight is made with held carbs + low-residue fibre (shared FIBRE table above)
+// + a LIGHT sodium/water taper only. Water stays near-normal (~40 mL/kg) with a
+// small trim on the last day; sodium eases down over the final 2 days (never a
+// loading spike or a cliff). FIBRE is shared with the day-before curve.
+export const SAMEDAY_WATER_ML_PER_KG: Record<number, number> = {
+  7: 40, 6: 40, 5: 40, 4: 40, 3: 40, 2: 40, 1: 32, 0: 30,
+};
+export const SAMEDAY_SODIUM_MG_PER_KG: Record<number, number> = {
+  // Gentle monotonic taper over the final ~3 days (never a spike) — re-salting
+  // happens AFTER the scale via the refeed block, not as a weigh-in-day bump.
+  7: 35, 6: 35, 5: 35, 4: 35, 3: 35, 2: 30, 1: 25, 0: 22,
+};
+export function fightWeekFibreNote(
+  daysToWeighIn: number,
+): DayAnchor["fibreNote"] {
+  if (daysToWeighIn >= 6) return "normal";
+  if (daysToWeighIn === 5) return "reduce";
+  if (daysToWeighIn === 0) return "eliminate";
+  return "low_residue_only";
+}
+
+const FIGHT_WEEK_ANCHORS: Record<number, DayAnchor> = Object.fromEntries(
+  [7, 6, 5, 4, 3, 2, 1, 0].map((d) => [
+    d,
+    {
+      waterMlPerKg: FIGHT_WEEK_WATER_ML_PER_KG[d],
+      // Stored at-75kg so the skeleton's `* scale` (weight/75) yields the
+      // canonical per-kg value: (mgPerKg * 75) * (weight/75) = mgPerKg * weight.
+      sodiumMgAt75kg: FIGHT_WEEK_SODIUM_MG_PER_KG[d] * 75,
+      fibreNote: fightWeekFibreNote(d),
+      fiberGrams: FIGHT_WEEK_FIBRE_GRAMS[d],
+    } as DayAnchor,
+  ]),
+) as Record<number, DayAnchor>;
 
 /**
  * Fight-week carb target in grams — a body-weight-scaled RESTRICTION rather
@@ -513,7 +557,16 @@ const CARB_RESTRICT_MAX_G = 49; // strictly under 50 g
 const CARB_EARLY_PER_KG = 2.0;
 const CARB_NORMAL_PER_KG = 3.0;
 
-function carbsForDay(daysToWeighIn: number, bodyWeightKg: number): number {
+function carbsForDay(
+  daysToWeighIn: number,
+  bodyWeightKg: number,
+  weighInSameDay: boolean,
+): number {
+  // SAME-DAY weigh-in: the athlete fights with no rehydration window, so
+  // glycogen must stay loaded — carbs are HELD at maintenance EVERY day (no
+  // depletion). Weight is made through water-loading + sodium taper + fibre
+  // (and a little sweating) only. This mirrors the onboarding carb-hold path.
+  if (weighInSameDay) return Math.round(CARB_NORMAL_PER_KG * bodyWeightKg);
   if (daysToWeighIn <= 0) return CARB_WEIGH_IN_G;
   if (daysToWeighIn >= 8) return Math.round(CARB_NORMAL_PER_KG * bodyWeightKg);
   if (daysToWeighIn >= 6) return Math.round(CARB_EARLY_PER_KG * bodyWeightKg);
@@ -560,6 +613,11 @@ function dayLabelForDay(daysToWeighIn: number): string {
 export function buildFightPlanSkeleton(
   d: DerivedInputs,
   effectiveApproach: Approach,
+  // SAME-DAY weigh-in holds carbs (no glycogen depletion) AND is water-neutral
+  // (no water-load / flush) — see SAMEDAY_* curves. Fibre is shared with the
+  // day-before curve. Defaults to false (day-before full taper) so legacy
+  // callers and tests keep the original behaviour.
+  weighInSameDay: boolean = false,
 ): FightPlanSkeleton {
   // The water-loading / cut window is ALWAYS the final 7 days up to weigh-in,
   // regardless of how far out the athlete currently is — most fighters only
@@ -579,12 +637,23 @@ export function buildFightPlanSkeleton(
     const carbsGrams = carbsForDay(
       approachShiftedDay(dtw, effectiveApproach),
       d.currentWeightKg,
+      weighInSameDay,
     );
 
-    const waterMl = anchor.waterMlPerKg * d.currentWeightKg;
+    // Day-before uses the validated water-load + flush curve (the anchor table).
+    // Same-day is WATER-NEUTRAL: a near-normal water + light sodium taper from
+    // the SAMEDAY_* curves, no loading or flush. Fibre is shared (anchor) either
+    // way. Clamp the lookup to 0..7 to match the anchor key range.
+    const dtwKey = Math.min(7, Math.max(0, dtw));
+    const waterMlPerKg = weighInSameDay
+      ? SAMEDAY_WATER_ML_PER_KG[dtwKey]
+      : anchor.waterMlPerKg;
+    const waterMl = waterMlPerKg * d.currentWeightKg;
     const waterLitres = round2(waterMl / 1000);
 
-    const sodiumMg = Math.round(anchor.sodiumMgAt75kg * scale);
+    const sodiumMg = weighInSameDay
+      ? Math.round(SAMEDAY_SODIUM_MG_PER_KG[dtwKey] * d.currentWeightKg)
+      : Math.round(anchor.sodiumMgAt75kg * scale);
 
     // Linear interpolation of target weight from current → target across horizon.
     // dtw === horizon → currentWeightKg ; dtw === 0 → targetWeightKg.
@@ -610,9 +679,11 @@ export function buildFightPlanSkeleton(
     });
   }
 
-  // Expected weight loss decomposition.
-  const glycogen = 0.015 * d.currentWeightKg;
-  const water = 0.025 * d.currentWeightKg;
+  // Expected weight loss decomposition. Same-day weigh-in holds carbs (no
+  // glycogen stripped) and is water-neutral (only a light water trim), so far
+  // less comes off as glycogen/bound-water — the cut is mostly gut + fat.
+  const glycogen = weighInSameDay ? 0 : 0.015 * d.currentWeightKg;
+  const water = weighInSameDay ? 0.008 * d.currentWeightKg : 0.025 * d.currentWeightKg;
   const gut = 0.012 * d.currentWeightKg;
   const fat = Math.max(0, d.cutDepthKg - (glycogen + water + gut));
   const total = glycogen + water + gut + fat;

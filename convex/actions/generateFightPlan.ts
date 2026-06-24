@@ -194,7 +194,11 @@ async function runCore(
 
   // 3. Build the deterministic per-day skeleton (numerics are
   //    server-authoritative — the AI never invents these).
-  const skeleton = buildFightPlanSkeleton(derived, effectiveApproach);
+  const skeleton = buildFightPlanSkeleton(
+    derived,
+    effectiveApproach,
+    weighInSameDay,
+  );
 
   // 4. Build prompt + call the AI for copy.
   const userPrompt = buildUserPrompt(

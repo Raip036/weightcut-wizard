@@ -35,6 +35,12 @@ export interface TutorialContextValue {
   skip: () => void;
   triggerTutorial: (flowId: string) => void;
   replayTutorial: (flowId: string) => void;
+  /** True when the "Want a quick tour?" bubble should show on the coach orb. */
+  onboardingPromptVisible: boolean;
+  /** User tapped "Start tour" — begins the onboarding tour. */
+  acceptOnboardingPrompt: () => void;
+  /** User tapped "Later"/dismiss — hides the bubble (already marked shown). */
+  declineOnboardingPrompt: () => void;
 }
 
 export const TutorialContext = createContext<TutorialContextValue | null>(null);
@@ -57,6 +63,11 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
 
   // Whether we're waiting for a navigation to settle before revealing the tooltip
   const [waitingForNav, setWaitingForNav] = useState(false);
+
+  // Drives the "Want a quick tour?" speech bubble on the coach orb. Set true on
+  // the first settled /dashboard after onboarding (replaces the old silent
+  // auto-start); the user explicitly accepts or declines.
+  const [onboardingPromptVisible, setOnboardingPromptVisible] = useState(false);
 
   const [state, setState] = useState<TutorialManagerState>({
     isActive: false,
@@ -288,25 +299,18 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
     }
 
     // First-time post-plan: consume the trigger flag, lock the in-memory guard,
-    // and CAS-stamp the server field BEFORE starting, so it can never run twice
-    // even if this effect re-runs or the user switches devices.
+    // and CAS-stamp the server field. Per the "ask once per account" design we
+    // stamp on SHOW (not on the user's answer) — if they ignore the bubble it
+    // won't re-appear, and Settings → Replay is the way back in. Instead of the
+    // old silent auto-start, surface a prompt bubble on the coach orb and let
+    // the user choose (accept → start the tour, decline → dismiss).
     localStorage.removeItem("wcw_onboarding_just_completed");
     autoTriggeredRef.current = true;
     void markTutorialShown().catch(() => {
       // Non-fatal: the in-memory guard already prevents a same-session re-fire;
       // the stamp will retry on a later session if it failed.
     });
-
-    // Seed demo data only for brand-new users (no cached weight data yet).
-    const hasRealData = localCache.get(userId, "dashboard_weight_logs");
-    if (!hasRealData && !isDemoActive(userId)) {
-      seedDemoData(userId);
-    }
-
-    const timer = setTimeout(() => {
-      managerRef.current.start("onboarding", getUserState());
-    }, 400);
-    return () => clearTimeout(timer);
+    setOnboardingPromptVisible(true);
   }, [location.pathname, userId, hasProfile, state.isActive, profile?.onboarding_tutorial_shown_at]);
 
   // Pause on route change — ONLY if the user navigated manually (not via tutorial navigation).
@@ -401,6 +405,29 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
     [userId, getUserState]
   );
 
+  // Onboarding prompt bubble (rendered on the coach orb by FloatingWizardChat).
+  // Accept → seed demo data for brand-new users so the tour has something to
+  // point at, then start the onboarding flow. A short delay lets the bubble's
+  // exit animation play before the tour overlay takes the screen.
+  const acceptOnboardingPrompt = useCallback(() => {
+    setOnboardingPromptVisible(false);
+    if (userId) {
+      const hasRealData = localCache.get(userId, "dashboard_weight_logs");
+      if (!hasRealData && !isDemoActive(userId)) {
+        seedDemoData(userId);
+      }
+    }
+    setTimeout(() => {
+      managerRef.current.start("onboarding", getUserState());
+    }, 280);
+  }, [userId, getUserState]);
+
+  // Decline → just hide the bubble. The "shown" stamp already happened when it
+  // appeared, so it won't re-prompt; Settings → Replay remains the way back in.
+  const declineOnboardingPrompt = useCallback(() => {
+    setOnboardingPromptVisible(false);
+  }, []);
+
   // Don't show overlay while waiting for navigation to settle
   const showOverlay = state.isActive && !waitingForNav;
 
@@ -418,6 +445,9 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
       skip,
       triggerTutorial,
       replayTutorial,
+      onboardingPromptVisible,
+      acceptOnboardingPrompt,
+      declineOnboardingPrompt,
     }),
     [
       state.isActive,
@@ -429,6 +459,9 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
       skip,
       triggerTutorial,
       replayTutorial,
+      onboardingPromptVisible,
+      acceptOnboardingPrompt,
+      declineOnboardingPrompt,
     ]
   );
 
