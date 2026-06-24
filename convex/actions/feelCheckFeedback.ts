@@ -14,6 +14,8 @@ import { v } from "convex/values";
 import { action } from "../_generated/server";
 import { api } from "../_generated/api";
 import { callGroqRaw } from "../_shared/groq";
+import { enforceFeatureGate } from "../_shared/featureGates";
+import { requireUserIdFromAction } from "./_helpers";
 
 // gpt-oss-120b on both providers; on OpenRouter we pin the call to Cerebras
 // via CEREBRAS_ROUTING for its very high throughput. reasoning_effort "low"
@@ -42,6 +44,12 @@ export const generate = action({
     value: v.string(),
   },
   handler: async (ctx, { campId, metric, value }): Promise<{ feedback: string }> => {
+    // Server-side Pro gate — feel-check coaching is part of the weight-protocol
+    // (Pro) surface. Fail-closed BEFORE spending the Groq call so a direct
+    // client call can't get free AI.
+    const userId = await requireUserIdFromAction(ctx);
+    await enforceFeatureGate(ctx, userId, "AI_WEIGHT_PROTOCOL");
+
     const label = FEEL_CHECK_LABELS[metric] ?? metric;
     const systemPrompt = `You are a combat-sports rehydration coach. Give one short actionable instruction (≤120 chars) about what the athlete should do right now based on their feel-check value. Second person. No emojis. No hedging. If the value is alarming, tell them to stop and contact their corner.`;
     const userPrompt = `Metric: ${label}\nLogged value: ${value}\nReturn ONLY the single-line instruction. No preamble. No quotes.`;
