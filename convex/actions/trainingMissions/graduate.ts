@@ -115,91 +115,23 @@ export const graduateCycleToSparring = internalAction({
       return { skipped: "already_graduated" };
     }
 
-    // ── Step 2: Build prompt — one call covers ALL eligible missions ────────
-    //    This mirrors how generateSparringPlanIfReady batches up to 8 techniques.
-
-    const systemPrompt =
-      `${SPARRING_PLAN_SYSTEM_PROMPT}${COMBINATIONS_ADDON}\n\n${buildGroundingBlock(discipline)}`;
-
-    const techniqueLines = eligible
-      .map((m) => {
-        const name = sanitizeUserText(m.focusTechnique!, { maxLength: 80, raw: true });
-        return `- <user_input>${name}</user_input>`;
-      })
-      .join("\n");
-
-    const userMsg = [
-      `Discipline: ${discipline}`,
-      `Build a live-sparring plan for EACH of these techniques the athlete has drilled to mission-completion:`,
-      techniqueLines,
-      "",
-      "Return ONLY the JSON object described in your instructions — one assignment per technique above, names echoed verbatim.",
-    ].join("\n");
-
-    let parsed: z.infer<typeof GraduationResponseSchema>;
-    try {
-      parsed = await callGroqWithRetry({
-        model: "openai/gpt-oss-120b",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userMsg },
-        ],
-        temperature: 0.4,
-        max_tokens: 2400,
-        response_format: { type: "json_object" },
-        timeoutMs: 20000,
-        schema: GraduationResponseSchema,
-      });
-    } catch (err) {
-      const msg =
-        err instanceof GroqError
-          ? `${err.code}: ${err.message}`
-          : err instanceof Error
-            ? err.message
-            : String(err);
-      console.error("graduateCycleToSparring: Groq call failed", msg);
-      // Re-throw so the scheduler can retry; this is not a silent skip path.
-      throw new Error(`Groq call failed: ${msg}`);
-    }
-
-    // Build lookup map: normalised technique name → parsed assignment.
-    // We normalise by lower-casing + trimming (cheap; mission focusTechnique
-    // was stored as-is). The model echoes them verbatim so this should match.
-    const parsedMap = new Map(
-      parsed.assignments.map((a) => [a.technique.trim().toLowerCase(), a]),
-    );
-
-    // ── Steps 3–5: For each eligible mission, read timesLogged, upsert, patch ─
-
     let graduated = 0;
 
-    for (const mission of eligible) {
+    // ── Path A: missions that already carry a sparring plan ────────────────
+    // The plan was authored in the SAME pipeline as the drills, from the same
+    // diagnosis + objective, so it can't invert the athlete's intent. Reveal
+    // it deterministically — NO LLM call here.
+    const withPlan = eligible.filter((m) => m.sparringPlan != null);
+    for (const mission of withPlan) {
+      const plan = mission.sparringPlan!;
       const focusTechnique = mission.focusTechnique!;
       const focusTechniqueNormalized = mission.focusTechniqueNormalized!;
 
-      // Match the parsed assignment back to this mission's technique.
-      const parsed_a =
-        parsedMap.get(focusTechnique.trim().toLowerCase()) ??
-        // Fallback: iterate to find any key that starts with the same word
-        [...parsedMap.entries()].find(
-          ([k]) =>
-            k.split(/\s+/)[0] === focusTechnique.trim().toLowerCase().split(/\s+/)[0],
-        )?.[1];
-
-      if (!parsed_a) {
-        console.warn(
-          `graduateCycleToSparring: no match for technique "${focusTechnique}" — skipping`,
-        );
-        continue;
-      }
-
-      // ── Step 3: Read timesLogged from training_techniques ─────────────────
       const timesLogged = await ctx.runQuery(
         internal.training_missions.readTimesLogged,
         { userId, techniqueNormalized: focusTechniqueNormalized },
       );
 
-      // ── Step 4: Upsert sparring assignment ────────────────────────────────
       await ctx.runMutation(internal.sparring_plan.upsertAssignments, {
         userId,
         discipline,
@@ -207,27 +139,131 @@ export const graduateCycleToSparring = internalAction({
           {
             technique: focusTechnique,
             techniqueNormalized: focusTechniqueNormalized,
-            whenToUse: stripEmDashes(parsed_a.whenToUse),
-            setups: stripFromArray(parsed_a.setups),
-            counters: stripFromArray(parsed_a.counters),
+            whenToUse: stripEmDashes(plan.whenToUse),
+            setups: stripFromArray(plan.setups),
+            counters: stripFromArray(plan.counters),
             sourceFingerprint: `graduated:${mission._id}`,
-            // Graduate-specific extras:
             source: "graduated" as const,
             sourceMissionId: mission._id,
             landedCount: 0,
-            combinations: stripFromArray(parsed_a.combinations),
+            combinations: stripFromArray(plan.combinations),
             timesLogged,
+            objective: plan.objective,
           },
         ],
       });
 
-      // ── Step 5: Patch mission graduatedAt (idempotency) ───────────────────
       await ctx.runMutation(
         internal.training_missions.patchMissionGraduatedAt,
         { missionId: mission._id, graduatedAt: Date.now() },
       );
-
       graduated += 1;
+    }
+
+    // ── Path B: legacy missions with NO stored plan ────────────────────────
+    // Author the sparring plan now from the technique names (one batched LLM
+    // call). Back-compat for cycles created before unified generation.
+    const withoutPlan = eligible.filter((m) => m.sparringPlan == null);
+    if (withoutPlan.length > 0) {
+      const systemPrompt =
+        `${SPARRING_PLAN_SYSTEM_PROMPT}${COMBINATIONS_ADDON}\n\n${buildGroundingBlock(discipline)}`;
+
+      const techniqueLines = withoutPlan
+        .map((m) => {
+          const name = sanitizeUserText(m.focusTechnique!, { maxLength: 80, raw: true });
+          return `- <user_input>${name}</user_input>`;
+        })
+        .join("\n");
+
+      const userMsg = [
+        `Discipline: ${discipline}`,
+        `Build a live-sparring plan for EACH of these techniques the athlete has drilled to mission-completion:`,
+        techniqueLines,
+        "",
+        "Return ONLY the JSON object described in your instructions — one assignment per technique above, names echoed verbatim.",
+      ].join("\n");
+
+      let parsed: z.infer<typeof GraduationResponseSchema>;
+      try {
+        parsed = await callGroqWithRetry({
+          model: "openai/gpt-oss-120b",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userMsg },
+          ],
+          temperature: 0.4,
+          max_tokens: 2400,
+          response_format: { type: "json_object" },
+          timeoutMs: 20000,
+          schema: GraduationResponseSchema,
+        });
+      } catch (err) {
+        const msg =
+          err instanceof GroqError
+            ? `${err.code}: ${err.message}`
+            : err instanceof Error
+              ? err.message
+              : String(err);
+        console.error("graduateCycleToSparring: Groq call failed", msg);
+        // Re-throw so the scheduler can retry; this is not a silent skip path.
+        throw new Error(`Groq call failed: ${msg}`);
+      }
+
+      // Build lookup map: normalised technique name → parsed assignment.
+      const parsedMap = new Map(
+        parsed.assignments.map((a) => [a.technique.trim().toLowerCase(), a]),
+      );
+
+      for (const mission of withoutPlan) {
+        const focusTechnique = mission.focusTechnique!;
+        const focusTechniqueNormalized = mission.focusTechniqueNormalized!;
+
+        const parsed_a =
+          parsedMap.get(focusTechnique.trim().toLowerCase()) ??
+          [...parsedMap.entries()].find(
+            ([k]) =>
+              k.split(/\s+/)[0] ===
+              focusTechnique.trim().toLowerCase().split(/\s+/)[0],
+          )?.[1];
+
+        if (!parsed_a) {
+          console.warn(
+            `graduateCycleToSparring: no match for technique "${focusTechnique}" — skipping`,
+          );
+          continue;
+        }
+
+        const timesLogged = await ctx.runQuery(
+          internal.training_missions.readTimesLogged,
+          { userId, techniqueNormalized: focusTechniqueNormalized },
+        );
+
+        await ctx.runMutation(internal.sparring_plan.upsertAssignments, {
+          userId,
+          discipline,
+          assignments: [
+            {
+              technique: focusTechnique,
+              techniqueNormalized: focusTechniqueNormalized,
+              whenToUse: stripEmDashes(parsed_a.whenToUse),
+              setups: stripFromArray(parsed_a.setups),
+              counters: stripFromArray(parsed_a.counters),
+              sourceFingerprint: `graduated:${mission._id}`,
+              source: "graduated" as const,
+              sourceMissionId: mission._id,
+              landedCount: 0,
+              combinations: stripFromArray(parsed_a.combinations),
+              timesLogged,
+            },
+          ],
+        });
+
+        await ctx.runMutation(
+          internal.training_missions.patchMissionGraduatedAt,
+          { missionId: mission._id, graduatedAt: Date.now() },
+        );
+        graduated += 1;
+      }
     }
 
     return { graduated };

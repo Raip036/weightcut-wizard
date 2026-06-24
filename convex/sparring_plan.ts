@@ -153,6 +153,7 @@ export const upsertAssignments = internalMutation({
         landedCount: v.optional(v.number()),
         combinations: v.optional(v.array(v.string())),
         timesLogged: v.optional(v.number()),
+        objective: v.optional(v.string()),
       }),
     ),
   },
@@ -182,6 +183,7 @@ export const upsertAssignments = internalMutation({
           }),
           ...(a.combinations !== undefined && { combinations: a.combinations }),
           ...(a.timesLogged !== undefined && { timesLogged: a.timesLogged }),
+          ...(a.objective !== undefined && { objective: a.objective }),
           updatedAt: now,
         });
       } else {
@@ -205,6 +207,7 @@ export const upsertAssignments = internalMutation({
           ...(a.landedCount !== undefined && { landedCount: a.landedCount }),
           ...(a.combinations !== undefined && { combinations: a.combinations }),
           ...(a.timesLogged !== undefined && { timesLogged: a.timesLogged }),
+          ...(a.objective !== undefined && { objective: a.objective }),
         });
       }
     }

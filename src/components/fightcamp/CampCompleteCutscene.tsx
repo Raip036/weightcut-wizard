@@ -64,6 +64,21 @@ export function CampCompleteCutscene({
     [],
   );
 
+  // Defensive un-stick: a Radix <Dialog> or vaul <Sheet> on the page underneath
+  // (the FightCamps new-camp dialog / NextCampFlow) can leave
+  // `document.body { pointer-events: none }` stuck after it closes. This
+  // takeover is a sibling of <body>, so it INHERITS that frozen state and every
+  // button reads as `pointer-events: none` — taps do nothing. The root below
+  // also forces `pointer-events: auto` on itself (immune to the inherited none),
+  // but we additionally clear a stuck body value here so backing out / opening
+  // the sheet lands on a usable page. Scoped to this overlay's mount; never
+  // re-applied on unmount.
+  useEffect(() => {
+    if (document.body.style.pointerEvents === "none") {
+      document.body.style.pointerEvents = "";
+    }
+  }, []);
+
   // One-shot celebration: confetti burst + success haptic on reveal.
   useEffect(() => {
     celebrateSuccess();
@@ -94,8 +109,13 @@ export function CampCompleteCutscene({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      className="fixed inset-0 z-[10010] flex flex-col items-center justify-center overflow-hidden bg-background px-7"
+      className="fixed inset-0 z-[10010] flex flex-col items-center justify-center overflow-hidden bg-background px-7 pointer-events-auto"
       style={{
+        // Explicit `pointer-events: auto` makes this takeover immune to a stuck
+        // `body { pointer-events: none }` left behind by a Radix/vaul overlay on
+        // the page underneath (the recurring "frozen buttons" bug). Without it,
+        // the fixed overlay inherits the body's frozen state and no tap lands.
+        pointerEvents: "auto",
         paddingTop: "calc(env(safe-area-inset-top) + 24px)",
         paddingBottom: "calc(env(safe-area-inset-bottom) + 24px)",
       }}

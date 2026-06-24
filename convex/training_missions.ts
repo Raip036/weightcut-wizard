@@ -407,6 +407,19 @@ export const insertMissionInternal = internalMutation({
     focusTechnique: v.optional(v.string()),
     focusTechniqueNormalized: v.optional(v.string()),
     cycleId: v.optional(v.string()),
+    // Strategic objective + pre-generated sparring plan (generated alongside the
+    // drills from the same diagnosis). Stored so graduation can reveal the plan
+    // deterministically without re-deriving (and inverting) it from the name.
+    objective: v.optional(v.string()),
+    sparringPlan: v.optional(
+      v.object({
+        objective: v.string(),
+        whenToUse: v.string(),
+        setups: v.array(v.string()),
+        counters: v.array(v.string()),
+        combinations: v.array(v.string()),
+      }),
+    ),
     // When true, skip the "mark prior active missions completed" step. Used
     // by the Model B batch generator (Task 2.2) which inserts multiple
     // missions sharing one cycleId — the second/third insert must NOT mark
@@ -427,6 +440,8 @@ export const insertMissionInternal = internalMutation({
       focusTechnique,
       focusTechniqueNormalized,
       cycleId,
+      objective,
+      sparringPlan,
       skipMarkPrior,
     },
   ): Promise<Id<"training_missions">> => {
@@ -463,6 +478,8 @@ export const insertMissionInternal = internalMutation({
       focusTechnique,
       focusTechniqueNormalized,
       cycleId,
+      objective,
+      sparringPlan,
     });
 
     for (let i = 0; i < items.length; i += 1) {
@@ -593,6 +610,8 @@ export const listCycleMissions = internalQuery({
       graduatedAt: m.graduatedAt ?? null,
       focusTechnique: m.focusTechnique ?? null,
       focusTechniqueNormalized: m.focusTechniqueNormalized ?? null,
+      objective: m.objective ?? null,
+      sparringPlan: m.sparringPlan ?? null,
     }));
   },
 });

@@ -70,3 +70,30 @@ export const setTierByEmail = internalMutation({
     return { email, tier: "free" };
   },
 });
+
+/**
+ * Re-arm the one-time "Welcome to Pro" cutscene for a test account by clearing
+ * `welcomeProShownAt`. On the next app load (while the account is Pro), the
+ * client's compare-and-set in SubscriptionContext sees the gate unset and plays
+ * the celebration exactly once.
+ *
+ *   npx convex run devTools:armWelcomePro '{"email":"you@example.com"}'
+ */
+export const armWelcomePro = internalMutation({
+  args: { email: v.string() },
+  handler: async (ctx, { email }) => {
+    const target = email.trim().toLowerCase();
+    const users = await ctx.db.query("users").collect();
+    const user = users.find((u) => (u.email ?? "").toLowerCase() === target);
+    if (!user) throw new Error(`No auth user found with email "${email}"`);
+
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .unique();
+    if (!profile) throw new Error(`No profile found for ${email}`);
+
+    await ctx.db.patch(profile._id, { welcomeProShownAt: undefined });
+    return { email, welcomeProArmed: true };
+  },
+});

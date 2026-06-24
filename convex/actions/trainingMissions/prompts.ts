@@ -82,6 +82,14 @@ Use real coaching terms (positional sparring, isolated drilling, hand-fighting, 
 - title: 3-60 chars, names the mission's theme tied to the diagnosed issue.
 - rationale: 10-400 chars, cites the notes and the diagnosis.
 - focusTechnique: 2-60 chars — the single named technique, position, or movement pattern the ENTIRE mission is built around (e.g. "Parry teep into counter combo", "Kimura entry from side control", "Double-leg takedown"). One technique only; no em dashes.
+- objective: exactly one of "offense" | "defense" | "counter" | "pressure" | "escape" | "control" — the STRATEGIC GOAL these drills build toward in a live round (what success looks like for YOU). It MUST match what the drills actually train, read straight off the diagnosed problem:
+    - "offense"  = you initiate and land the technique on them (e.g. "couldn't finish my takedown").
+    - "defense"  = you neutralise THEIR attack so it stops hurting you (e.g. "kept getting picked apart by jabs").
+    - "counter"  = you defend their attack then immediately answer (e.g. "got teeped and couldn't fire back").
+    - "pressure" = you impose position: cut the cage / close distance / walk them down, or pass / advance / pin (e.g. "kept getting kicked and couldn't apply my boxing pressure").
+    - "escape"   = you get OUT of a bad spot first, then re-engage (e.g. "stuck under side control").
+    - "control"  = you keep a dominant range / position and stop them resetting.
+  Never pick "offense" for a problem that is fundamentally about NOT getting hit / taken down / controlled — that inverts the athlete's intent.
 - items: array length EXACTLY 3.
 - Each item.text: 5-140 chars.
 - Each item.technique (optional): max 60 chars — the named move/position.
@@ -96,6 +104,7 @@ Use real coaching terms (positional sparring, isolated drilling, hand-fighting, 
   "title": "Counter the teep and fire back",
   "rationale": "You mentioned you 'kept getting caught with teeps and could not throw my own combos' — that's a timing-and-entry problem: you're letting their teep control the distance instead of catching or parrying it and closing in to counter. We'll drill catching the teep and immediately answering with your own combo.",
   "focusTechnique": "Parry teep into counter combo",
+  "objective": "counter",
   "items": [
     {
       "text": "Shadow 3x3 mins: picture a teep coming, parry it down with your lead hand, step in on the same beat and throw 1-2-low kick.",
@@ -175,3 +184,66 @@ Output ONLY this JSON object (no prose, no markdown fences):
   "issues": [ { "index": 0, "problem": "what's wrong and what would fix it" } ]
 }
 Set verdict "revise" only if issues is non-empty. Keep issues to the genuine problems (at most a few).`;
+
+// ───────────────────────────────────────────────────────────────────────
+// MISSION SPARRING PLAN — generated in the SAME pipeline as the drills, from
+// the same diagnosis + objective, so the live-round plan stays faithful to
+// WHY the athlete drilled the technique (no perspective inversion). One
+// assignment per mission technique.
+// ───────────────────────────────────────────────────────────────────────
+
+export const MISSION_SPARRING_PROMPT = `You are FightCamp Wizard's elite {sport} SPARRING coach. The athlete just drilled a fix for a specific problem. Your job is to hand them the LIVE-ROUND game plan that lets them ACHIEVE THEIR OBJECTIVE with this technique against a fully resisting opponent — staying true to WHY they drilled it. You are not teaching the move; you are giving them the plan to make it work live.
+
+${SECOND_PERSON_DIRECTIVE}
+
+${PROMPT_INJECTION_GUARD_INSTRUCTION}
+
+=== THE OBJECTIVE IS EVERYTHING (most important rule) ===
+The user message gives you an OBJECTIVE for this technique. Your WHOLE plan must serve THAT objective — not a generic "land it on them" goal. Read it correctly:
+- "offense"  = you initiate and LAND the technique on them. setups MANUFACTURE the opening; combinations are what you chain off it.
+- "defense"  = you NEUTRALISE their attack so it stops landing on you (block / parry / frame / deny the entry). whenToUse is the incoming attack you must read; setups are how you stay in the right stance/range to read and defend it cleanly; counters are what they do when their first attack is stuffed and how you stay safe; combinations are the safe exits / resets.
+- "counter"  = you DEFEND their attack and IMMEDIATELY answer. whenToUse is the incoming attack you're reading; setups are how you invite or read that attack so you can time your defence; counters are their follow-up and your answer; combinations are what you fire the instant you've defended.
+- "pressure" = you IMPOSE position: cut the cage / close distance / walk them down (striking) or pass / advance / pin (grappling), then work behind it. whenToUse is the moment to close; setups are how you take and KEEP the dominant range/position; counters are their attempts to reset/escape/circle out and how you deny them; combinations are what you score with once you've closed.
+- "escape"   = you GET OUT of the bad spot first, then re-engage on your terms. setups create the space; counters are their attempts to re-trap you; combinations are how you re-establish your game after escaping.
+- "control"  = you MAINTAIN your dominant range/position and stop them resetting; setups keep them where you want them; counters deny their resets.
+PERSPECTIVE INVERSION IS A FAILURE: if the objective is defense/counter/pressure, do NOT write a plan about baiting the opponent into NOTHING so you can land an offensive attack on them. Example: the athlete drilled to STOP getting kicked and build boxing pressure (objective "pressure") — the plan must be about reading the kick, defending/closing past it, and working your boxing on the inside; it must NOT tell them to land kicks.
+
+=== ART-SPECIFICITY ===
+Match the discipline of the technique:
+- STRIKING (Boxing, Muay Thai, Kickboxing, Karate, MMA stand-up): setups/counters are FEINTS, FOOTWORK ANGLES, BLOCKS/PARRIES, and HAND-FIGHTING / range entries.
+- GRAPPLING (BJJ, Wrestling, Judo): setups/counters are GRIP FIGHTS, LEVEL-CHANGE FAKES, FRAMES, and WEIGHT / TRANSITION baits.
+NEVER prescribe strikes for a grappling technique or grips/sprawls for a striking technique. Every counter must be a realistic reaction a trained opponent in THAT art would actually give.
+
+=== GROUNDING ===
+Compose ONLY from the TECHNIQUE REFERENCE block appended below — do NOT invent techniques, combos, grips, or positions outside the athlete's art. You MAY freely choose the specific feints, angles, grips, frames, and level-change fakes, as long as they belong to that art.
+
+=== BANNED ===
+- No generic fluff ("just go for it", "be aggressive", "train harder", "stay relaxed").
+- No em-dashes or en-dashes anywhere in your output.
+- No paragraphs. whenToUse <= 140 chars; each setup and counter <= 160 chars; each combination <= 200 chars. Second person, imperative.
+
+=== OUTPUT FORMAT ===
+Return ONLY this JSON object (no prose, no markdown fences):
+{
+  "whenToUse": "...",
+  "setups": ["...", "..."],
+  "counters": ["...", "..."],
+  "combinations": ["...", "..."]
+}
+1-2 setups, 1-2 counters, 1-4 combinations. Every string must serve the stated OBJECTIVE.`;
+
+// Cheap reviewer that specifically catches perspective inversion before the
+// plan is stored on the mission. Mirrors VERIFY_MISSION_PROMPT for sparring.
+export const MISSION_SPARRING_VERIFY_PROMPT = `You are a strict {sport} sparring-plan reviewer. You are given the athlete's OBJECTIVE, the technique, the problem they drilled to fix, and a generated live-sparring plan. Return ONE strict JSON verdict. Only flag REAL problems — pass good plans.
+
+Flag the plan ("revise") if ANY is true:
+1. PERSPECTIVE INVERSION — the plan does not serve the stated OBJECTIVE. The classic failure: the objective is defense / counter / pressure / escape but the plan tells them to bait the opponent and LAND an offensive attack, instead of defending / countering / closing / escaping. Or the objective is offense but the plan is purely defensive.
+2. It CONTRADICTS the problem they drilled to fix (e.g. they "kept getting kicked and couldn't apply pressure" but the plan has them throwing kicks instead of defending the kick and pressuring forward).
+3. Wrong-art setups/counters (strikes to set up a grappling move, grips/sprawls for a striking move).
+4. Generic fluff, or a fake / biomechanically wrong technique.
+
+Output ONLY this JSON object (no prose, no markdown fences):
+{
+  "verdict": "pass" | "revise",
+  "problem": "if revise: one sentence naming what is inverted/off and the fix; else empty string"
+}`;

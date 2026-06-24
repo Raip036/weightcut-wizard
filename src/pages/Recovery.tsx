@@ -7,6 +7,7 @@ import { api } from "@/../convex/_generated/api";
 import { useUser } from "@/contexts/UserContext";
 import { RecoveryDashboard } from "@/components/fightcamp/RecoveryDashboard";
 import { WizardCharacter } from "@/tutorial/WizardCharacter";
+import { WizardAuroraBackground } from "@/components/onboarding/WizardAuroraBackground";
 import { localCache } from "@/lib/localCache";
 import { Skeleton } from "@/components/ui/skeleton-loader";
 import { Card } from "@/components/ui/card";
@@ -107,52 +108,60 @@ export default function Recovery() {
 
     if (display.length === 0) {
         return (
-            <div className="animate-page-in space-y-3 px-5 py-3 sm:p-5 md:p-6 max-w-7xl mx-auto pb-16 md:pb-6">
+            <div className="animate-page-in relative flex min-h-[82vh] flex-col overflow-hidden px-5 py-3 sm:p-6 max-w-2xl mx-auto pb-16 md:pb-6">
+                {/* Animated blue aurora — ambient hero atmosphere, glow centered behind the wizard. */}
+                <WizardAuroraBackground intensity="full" radialGlow />
+
                 <motion.div
-                    initial={prefersReduced ? false : { opacity: 0, y: 10 }}
+                    initial={prefersReduced ? false : { opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ type: "spring", damping: 22, stiffness: 260 }}
-                    className="relative overflow-hidden p-5"
+                    className="relative flex flex-1 flex-col items-center justify-center text-center"
                 >
-                    <div className="flex items-start gap-3 mb-4">
-                        <div className="relative shrink-0" style={{ width: 72, height: 72 }}>
-                            <div style={{ width: 140, height: 140, transform: "scale(0.51)", transformOrigin: "top left" }}>
-                                <WizardCharacter pose="wave" />
-                            </div>
+                    {/* Wizard hero — large, centered, gently floating. */}
+                    <motion.div
+                        className="relative"
+                        style={{ width: 132, height: 132 }}
+                        animate={prefersReduced ? undefined : { y: [0, -7, 0] }}
+                        transition={prefersReduced ? undefined : { duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
+                    >
+                        <div style={{ width: 140, height: 140, transform: "scale(0.94)", transformOrigin: "top left" }}>
+                            <WizardCharacter pose="wave" />
                         </div>
-                        <div className="min-w-0 flex-1 pt-1.5">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary/80">
-                                Coach
-                            </p>
-                            <h4 className="mt-0.5 text-[19px] font-bold leading-tight text-foreground">
-                                Let's measure your recovery.
-                            </h4>
-                            <p className="mt-1 text-[12px] text-muted-foreground leading-snug">
-                                Log a session or do a check-in. Your readiness, strain, and weekly load build from there.
-                            </p>
-                        </div>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
+                    </motion.div>
+
+                    <p className="mt-3 text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
+                        Coach
+                    </p>
+                    <h2 className="mt-1.5 max-w-[15ch] text-[27px] font-bold leading-[1.08] text-foreground">
+                        Let's measure your recovery.
+                    </h2>
+                    <p className="mt-3 max-w-[34ch] text-[13px] leading-snug text-muted-foreground">
+                        Log a session or do a check-in. Your readiness, strain, and weekly load build from there.
+                    </p>
+
+                    {/* Three equal, horizontal action tiles. */}
+                    <div className="mt-8 grid w-full max-w-md grid-cols-3 gap-2.5">
                         <button
                             onClick={() => { triggerHapticSelection(); navigate("/recovery/check-in"); }}
-                            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-2 text-[12px] font-bold text-primary-foreground active:scale-[0.97] transition"
+                            className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-primary px-2 py-4 font-bold text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.7)] active:scale-[0.97] transition"
                         >
-                            <Icon name="sparklesOutline" size={14} />
-                            Daily check-in
+                            <Icon name="sparklesOutline" size={22} />
+                            <span className="text-[12px] leading-tight">Daily check-in</span>
                         </button>
                         <button
                             onClick={() => { triggerHapticSelection(); navigate("/training-calendar"); }}
-                            className="inline-flex items-center gap-1.5 rounded-full border border-border/40 px-3.5 py-2 text-[12px] font-semibold text-foreground active:scale-[0.97] transition"
+                            className="glass-card flex flex-col items-center justify-center gap-2 rounded-2xl border border-border/50 px-2 py-4 font-semibold text-foreground active:scale-[0.97] transition"
                         >
-                            <Icon name="pulseOutline" size={14} />
-                            Log a session
+                            <Icon name="pulseOutline" size={22} className="text-primary" />
+                            <span className="text-[12px] leading-tight">Log a session</span>
                         </button>
                         <button
                             onClick={() => { triggerHapticSelection(); navigate("/sleep"); }}
-                            className="inline-flex items-center gap-1.5 rounded-full border border-border/40 px-3.5 py-2 text-[12px] font-semibold text-foreground active:scale-[0.97] transition"
+                            className="glass-card flex flex-col items-center justify-center gap-2 rounded-2xl border border-border/50 px-2 py-4 font-semibold text-foreground active:scale-[0.97] transition"
                         >
-                            <Icon name="heartOutline" size={14} className="text-func-danger-red" />
-                            Log sleep
+                            <Icon name="heartOutline" size={22} className="text-func-danger-red" />
+                            <span className="text-[12px] leading-tight">Log sleep</span>
                         </button>
                     </div>
                 </motion.div>

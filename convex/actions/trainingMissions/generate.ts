@@ -59,6 +59,8 @@ import {
   GENERATE_MISSION_PROMPT,
   DIAGNOSE_MISSION_PROMPT,
   VERIFY_MISSION_PROMPT,
+  MISSION_SPARRING_PROMPT,
+  MISSION_SPARRING_VERIFY_PROMPT,
 } from "./prompts";
 import { buildGroundingBlock } from "./groundingReference";
 import { extractIssues } from "./extractIssues";
@@ -71,6 +73,9 @@ const MissionSchema = z.object({
   title: z.string().min(3).max(60),
   rationale: z.string().min(10).max(400),
   focusTechnique: z.string().min(2).max(60),
+  // Strategic objective the drills serve. Kept loose (string + normalised in
+  // code) so an off-vocabulary value never fails the whole mission parse.
+  objective: z.string().max(24).optional(),
   items: z
     .array(
       z.object({
@@ -85,6 +90,40 @@ const MissionSchema = z.object({
     .min(3)
     .max(3),
 });
+
+// Allowed strategic objectives. Anything else normalises to "counter" (a safe
+// defend-then-answer default that rarely inverts the athlete's intent).
+const OBJECTIVES = [
+  "offense",
+  "defense",
+  "counter",
+  "pressure",
+  "escape",
+  "control",
+] as const;
+function normalizeObjective(raw: string | undefined): string {
+  const v = (raw ?? "").trim().toLowerCase();
+  return (OBJECTIVES as readonly string[]).includes(v) ? v : "counter";
+}
+
+// Sparring plan generated alongside the drills (one per mission technique).
+const SparringPlanSchema = z.object({
+  whenToUse: z.string().min(3).max(160),
+  setups: z.array(z.string().max(160)).min(1).max(2),
+  counters: z.array(z.string().max(160)).min(1).max(2),
+  combinations: z.array(z.string().max(200)).min(1).max(4),
+});
+const SparringVerifySchema = z.object({
+  verdict: z.enum(["pass", "revise"]),
+  problem: z.string().max(240).default(""),
+});
+type StoredSparringPlan = {
+  objective: string;
+  whenToUse: string;
+  setups: string[];
+  counters: string[];
+  combinations: string[];
+};
 
 const DiagnosisSchema = z.object({
   category: z.enum([
@@ -162,6 +201,124 @@ function formatVerifierFeedback(
 }
 
 // ───────────────────────────────────────────────────────────────────────
+// Sparring plan — generated in the SAME pipeline as the drills so the
+// live-round plan stays faithful to the diagnosed objective (no perspective
+// inversion). GENERATE (strong) → VERIFY (cheap, catches inversions) → one
+// revision pass. Returns null on failure so the mission still persists (its
+// graduation then falls back to the legacy LLM path).
+// ───────────────────────────────────────────────────────────────────────
+
+async function generateAndVerifySparring({
+  sport,
+  focusTechnique,
+  objective,
+  rationale,
+  diagnosis,
+  groundingBlock,
+}: {
+  sport: string;
+  focusTechnique: string;
+  objective: string;
+  rationale: string;
+  diagnosis: Diagnosis | null;
+  groundingBlock: string;
+}): Promise<StoredSparringPlan | null> {
+  const fillSport = (tpl: string) => tpl.replace(/\{sport\}/g, sport);
+  const diagnosisBlock = diagnosis ? formatDiagnosisBlock(diagnosis) : "";
+
+  const userMsg = [
+    `Discipline: ${sport}`,
+    `Technique the athlete just drilled: ${focusTechnique}`,
+    `OBJECTIVE for this technique (your whole plan MUST serve this): ${objective}`,
+    `Why they drilled it (mission rationale): ${rationale}`,
+    diagnosisBlock,
+    groundingBlock,
+    `Return ONLY the JSON object: { whenToUse, setups, counters, combinations }.`,
+  ]
+    .filter((b) => b.length > 0)
+    .join("\n\n");
+
+  const gen = (extraSystem?: string): Promise<z.infer<typeof SparringPlanSchema>> =>
+    callGroqWithRetry({
+      model: "openai/gpt-oss-120b",
+      messages: [
+        {
+          role: "system",
+          content: extraSystem
+            ? `${fillSport(MISSION_SPARRING_PROMPT)}\n\n${extraSystem}`
+            : fillSport(MISSION_SPARRING_PROMPT),
+        },
+        { role: "user", content: userMsg },
+      ],
+      temperature: 0.4,
+      max_tokens: 900,
+      response_format: { type: "json_object" },
+      timeoutMs: 15000,
+      schema: SparringPlanSchema,
+    });
+
+  let plan: z.infer<typeof SparringPlanSchema>;
+  try {
+    plan = await gen();
+  } catch (err) {
+    console.warn("trainingMissions.generate: sparring generate failed", err);
+    return null;
+  }
+
+  // VERIFY — specifically catches perspective inversion (offense vs the
+  // drilled defensive/pressure objective). One revision pass on "revise".
+  try {
+    const review = await callGroqWithRetry({
+      model: "llama-3.1-8b-instant",
+      messages: [
+        { role: "system", content: fillSport(MISSION_SPARRING_VERIFY_PROMPT) },
+        {
+          role: "user",
+          content: [
+            `OBJECTIVE: ${objective}`,
+            `Technique: ${focusTechnique}`,
+            diagnosis ? `Problem drilled to fix: ${diagnosis.problem}` : "",
+            rationale ? `Mission rationale: ${rationale}` : "",
+            "=== PLAN TO REVIEW ===",
+            `whenToUse: ${plan.whenToUse}`,
+            `setups: ${plan.setups.join(" | ")}`,
+            `counters: ${plan.counters.join(" | ")}`,
+            `combinations: ${plan.combinations.join(" | ")}`,
+          ]
+            .filter((l) => l.length > 0)
+            .join("\n"),
+        },
+      ],
+      temperature: 0.2,
+      max_tokens: 300,
+      response_format: { type: "json_object" },
+      timeoutMs: 12000,
+      schema: SparringVerifySchema,
+      maxRetries: 1,
+    });
+    if (review.verdict === "revise" && review.problem.length > 0) {
+      try {
+        plan = await gen(
+          `=== REVISION REQUIRED — your previous plan had this problem; fix it while keeping the OBJECTIVE "${objective}" front and centre: ${review.problem}`,
+        );
+      } catch (err) {
+        console.warn("trainingMissions.generate: sparring revision failed", err);
+      }
+    }
+  } catch (err) {
+    console.warn("trainingMissions.generate: sparring verify failed", err);
+  }
+
+  return {
+    objective,
+    whenToUse: stripEmDashes(plan.whenToUse),
+    setups: plan.setups.map(stripEmDashes),
+    counters: plan.counters.map(stripEmDashes),
+    combinations: plan.combinations.map(stripEmDashes),
+  };
+}
+
+// ───────────────────────────────────────────────────────────────────────
 // Per-issue DIAGNOSE → GENERATE → VERIFY pipeline
 // ───────────────────────────────────────────────────────────────────────
 
@@ -182,7 +339,12 @@ async function runGeneratePipeline({
   groundingBlock: string;
   /** Optional one-line focus injected when generating for a specific extracted issue. */
   issueFocus?: string;
-}): Promise<{ payload: MissionPayload; verifyVerdict: "pass" | "revise" | "skipped" }> {
+}): Promise<{
+  payload: MissionPayload;
+  verifyVerdict: "pass" | "revise" | "skipped";
+  objective: string;
+  sparringPlan: StoredSparringPlan | null;
+}> {
   const fillSport = (tpl: string) => tpl.replace(/\{sport\}/g, sport);
 
   // Build the user message for this issue's generation call.
@@ -286,7 +448,26 @@ async function runGeneratePipeline({
     console.warn("trainingMissions.generate: verify stage failed", err);
   }
 
-  return { payload: finalPayload, verifyVerdict };
+  // Stage D — SPARRING PLAN (generated from the SAME diagnosis + objective so
+  // the live-round plan can never invert the drilled intent). Best-effort: if
+  // it fails, the mission still persists and graduation falls back to the LLM.
+  const objective = normalizeObjective(finalPayload.objective);
+  const focusTechnique = stripEmDashes(finalPayload.focusTechnique).slice(0, 60);
+  let sparringPlan: StoredSparringPlan | null = null;
+  try {
+    sparringPlan = await generateAndVerifySparring({
+      sport,
+      focusTechnique,
+      objective,
+      rationale: finalPayload.rationale,
+      diagnosis,
+      groundingBlock,
+    });
+  } catch (err) {
+    console.warn("trainingMissions.generate: sparring plan stage failed", err);
+  }
+
+  return { payload: finalPayload, verifyVerdict, objective, sparringPlan };
 }
 
 // ───────────────────────────────────────────────────────────────────────
@@ -437,14 +618,17 @@ export const generateMissionIfReady = internalAction({
 
       let payload: MissionPayload;
       let verifyVerdict: "pass" | "revise" | "skipped";
+      let objective: string;
+      let sparringPlan: StoredSparringPlan | null;
       try {
-        ({ payload, verifyVerdict } = await runGeneratePipeline({
-          sport,
-          userMsg,
-          historyBlock,
-          groundingBlock,
-          issueFocus,
-        }));
+        ({ payload, verifyVerdict, objective, sparringPlan } =
+          await runGeneratePipeline({
+            sport,
+            userMsg,
+            historyBlock,
+            groundingBlock,
+            issueFocus,
+          }));
       } catch (err) {
         const message =
           err instanceof GroqError
@@ -481,6 +665,11 @@ export const generateMissionIfReady = internalAction({
           focusTechnique,
           focusTechniqueNormalized,
           cycleId,
+          objective,
+          // Only attach the plan when the technique it was authored for matches
+          // the persisted focusTechnique (they can differ if the model renamed
+          // it post-verify); a deterministic graduation reads this verbatim.
+          sparringPlan: sparringPlan ?? undefined,
           skipMarkPrior: insertCount > 0,
         },
       );

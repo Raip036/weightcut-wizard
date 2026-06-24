@@ -20,6 +20,7 @@ import { Leaf } from "lucide-react";
 const BLUE = "217 91% 58%"; // the cut
 const AMBER = "35 92% 58%"; // carbs / energy
 const CYAN = "190 90% 55%"; // hydration
+const VIOLET = "262 83% 68%"; // sodium
 const GREEN = "152 64% 47%"; // fiber
 const hsl = (t: string, a = 1) => `hsl(${t} / ${a})`;
 
@@ -86,8 +87,12 @@ export function ProtocolCutChapter(props: {
         {/* same-day weigh-in banner (amber) */}
         {sameDay && (
           <div
-            className="mb-3 rounded-lg px-3 py-2 text-[11px] font-medium"
-            style={{ background: hsl(AMBER, 0.12), color: hsl(AMBER) }}
+            className="mb-3 rounded-lg px-3 py-2.5 text-[11px] font-semibold text-center"
+            style={{
+              background: hsl(AMBER, 0.12),
+              color: hsl(AMBER),
+              border: `1px solid ${hsl(AMBER, 0.22)}`,
+            }}
           >
             Same-day weigh-in, no carb cut. Water, sodium &amp; fiber only.
           </div>
@@ -100,55 +105,53 @@ export function ProtocolCutChapter(props: {
             return (
               <div
                 key={day.daysToWeighIn}
-                className="rounded-lg px-2.5 py-2 flex items-center gap-2.5"
+                className="rounded-lg px-3 py-2.5 flex items-center gap-3"
                 style={{
                   background: isToday ? hsl(BLUE, 0.12) : "hsla(0,0%,100%,0.03)",
                   border: isToday ? `1px solid ${hsl(BLUE, 0.4)}` : "1px solid transparent",
                 }}
               >
-                <div className="w-8 text-center shrink-0">
+                <div className="w-9 text-center shrink-0">
                   <p
-                    className="text-[14px] font-bold tabular-nums leading-none"
+                    className="text-[15px] font-bold tabular-nums leading-none"
                     style={{ color: isToday ? hsl(BLUE) : "hsl(var(--foreground))" }}
                   >
                     D-{day.daysToWeighIn}
                   </p>
                   {isToday && (
-                    <p className="text-[8px] uppercase tracking-wide font-bold" style={{ color: hsl(BLUE) }}>
+                    <p className="mt-0.5 text-[8px] uppercase tracking-wide font-bold" style={{ color: hsl(BLUE) }}>
                       Today
                     </p>
                   )}
                 </div>
-                <div className="flex-1 grid grid-cols-4 gap-1 text-center">
-                  <span className="text-[10px]">
+                <div className="flex-1 grid grid-cols-4 gap-1">
+                  <div className="flex flex-col items-center gap-0.5">
                     <b
-                      className="tabular-nums"
+                      className="text-[12px] font-bold tabular-nums leading-none"
                       style={{ color: sameDay ? "hsl(var(--muted-foreground))" : hsl(AMBER) }}
                     >
                       {sameDay ? "Hold" : `${day.carbsGrams}g`}
                     </b>
-                    <br />
-                    <span className="text-[8px] text-muted-foreground/60">carbs</span>
-                  </span>
-                  <span className="text-[10px]">
-                    <b className="tabular-nums" style={{ color: hsl(CYAN) }}>
+                    <span className="text-[8px] uppercase tracking-wide text-muted-foreground/55">carbs</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-0.5">
+                    <b className="text-[12px] font-bold tabular-nums leading-none" style={{ color: hsl(CYAN) }}>
                       {day.waterLitres.toFixed(1)}L
                     </b>
-                    <br />
-                    <span className="text-[8px] text-muted-foreground/60">water</span>
-                  </span>
-                  <span className="text-[10px]">
-                    <b className="tabular-nums text-foreground/90">{sodiumLabel(day.sodiumMg)}</b>
-                    <br />
-                    <span className="text-[8px] text-muted-foreground/60">sodium</span>
-                  </span>
-                  <span className="text-[10px]">
-                    <b className="tabular-nums" style={{ color: hsl(GREEN) }}>
+                    <span className="text-[8px] uppercase tracking-wide text-muted-foreground/55">water</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-0.5">
+                    <b className="text-[12px] font-bold tabular-nums leading-none" style={{ color: hsl(VIOLET) }}>
+                      {sodiumLabel(day.sodiumMg)}
+                    </b>
+                    <span className="text-[8px] uppercase tracking-wide text-muted-foreground/55">sodium</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-0.5">
+                    <b className="text-[12px] font-bold tabular-nums leading-none" style={{ color: hsl(GREEN) }}>
                       {fiberLabel(day.fiberGrams)}
                     </b>
-                    <br />
-                    <span className="text-[8px] text-muted-foreground/60">fiber</span>
-                  </span>
+                    <span className="text-[8px] uppercase tracking-wide text-muted-foreground/55">fiber</span>
+                  </div>
                 </div>
               </div>
             );
@@ -156,7 +159,7 @@ export function ProtocolCutChapter(props: {
         </div>
 
         {/* fiber callout */}
-        <div className="mt-3 flex items-start gap-2 rounded-lg px-3 py-2" style={{ background: hsl(GREEN, 0.1) }}>
+        <div className="mt-3 flex items-start gap-2 rounded-lg px-3 py-2" style={{ background: hsl(GREEN, 0.1), border: `1px solid ${hsl(GREEN, 0.2)}` }}>
           <Leaf className="h-3.5 w-3.5 shrink-0 mt-0.5" style={{ color: hsl(GREEN) }} />
           <p className="text-[11px] text-foreground/90 leading-snug">{fiberStrategy ?? DEFAULT_FIBER_STRATEGY}</p>
         </div>

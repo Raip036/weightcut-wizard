@@ -606,7 +606,13 @@ export function MasterySpine(_props: MasterySpineProps) {
   // Nothing in flight and nothing in the flow → first-run empty state.
   // Premium wizard-mascot card (Pro users): the only instruction is to log a
   // session and fill in "What went well" to get the first drills.
-  if (flow.length === 0 && generatingDrills.length === 0) {
+  //
+  // BUT do NOT bail while a cycle-complete cutscene is pending: mastering the
+  // LAST graduated assignment empties `flow` on the same render the cutscene is
+  // set, so returning the empty card here would unmount the <MasteryCutscene>
+  // before it ever plays. Keep rendering (the main return mounts the cutscene
+  // over an empty body); the empty card shows once the cutscene is dismissed.
+  if (flow.length === 0 && generatingDrills.length === 0 && !cutscene) {
     return <MasteryEmptyCard />;
   }
 
