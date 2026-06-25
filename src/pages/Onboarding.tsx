@@ -130,25 +130,41 @@ function isNameValid(name: string): boolean {
 }
 
 // ── Selectable card ──
-function OptionCard({ selected, icon, label, description, onClick }: {
+function OptionCard({ selected, label, description, onClick }: {
   selected: boolean; icon?: React.ReactNode; label: string; description?: string; onClick: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`w-full flex items-center gap-3.5 p-4 rounded-xs border transition-all active:scale-[0.98] text-left ${
-        selected
-          ? "border-primary bg-primary/10 ring-1 ring-primary/30"
-          : "border-border/50 bg-card hover:bg-muted/30"
-      }`}
+      className="w-full flex items-center justify-between gap-3 p-4 rounded-2xl transition-all active:scale-[0.98] text-left"
+      style={{
+        background: selected
+          ? "linear-gradient(180deg, hsl(217 91% 60%), hsl(217 91% 50%))"
+          : "#0f1217",
+        border: selected ? "1px solid transparent" : "1px solid rgba(255,255,255,0.06)",
+        boxShadow: selected
+          ? "0 16px 36px -12px hsl(217 91% 50% / 0.7)"
+          : "0 6px 18px -10px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04)",
+      }}
     >
-      {icon && <span className="text-lg flex-shrink-0">{icon}</span>}
       <div className="flex-1 min-w-0">
-        <p className="font-semibold text-sm text-foreground">{label}</p>
-        {description && <p className="text-xs text-muted-foreground mt-0.5">{description}</p>}
+        <p
+          className="font-semibold text-[15px]"
+          style={{ color: selected ? "#fff" : "hsl(var(--foreground))" }}
+        >
+          {label}
+        </p>
+        {description && (
+          <p
+            className="text-xs mt-0.5"
+            style={{ color: selected ? "rgba(255,255,255,0.82)" : "hsl(var(--muted-foreground))" }}
+          >
+            {description}
+          </p>
+        )}
       </div>
-      {selected && <CheckCircle className="h-5 w-5 text-primary flex-shrink-0" />}
+      {selected && <CheckCircle className="h-5 w-5 text-white flex-shrink-0" />}
     </button>
   );
 }
@@ -161,18 +177,32 @@ function MultiCard({ selected, label, onClick }: {
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center gap-2.5 px-4 py-3 rounded-xs border transition-all active:scale-[0.98] ${
-        selected
-          ? "border-primary bg-primary/10 ring-1 ring-primary/30"
-          : "border-border/50 bg-card hover:bg-muted/30"
-      }`}
+      className="flex items-center gap-2.5 px-4 py-3 rounded-2xl transition-all active:scale-[0.98]"
+      style={{
+        background: selected
+          ? "linear-gradient(180deg, hsl(217 91% 60%), hsl(217 91% 50%))"
+          : "#0f1217",
+        border: selected ? "1px solid transparent" : "1px solid rgba(255,255,255,0.06)",
+        boxShadow: selected
+          ? "0 14px 30px -12px hsl(217 91% 50% / 0.65)"
+          : "0 6px 18px -10px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04)",
+      }}
     >
-      <div className={`h-5 w-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-        selected ? "border-primary bg-primary" : "border-muted-foreground/30"
-      }`}>
-        {selected && <CheckCircle className="h-3.5 w-3.5 text-primary-foreground" />}
+      <div
+        className="h-5 w-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-colors"
+        style={{
+          borderColor: selected ? "rgba(255,255,255,0.9)" : "rgba(148,163,184,0.3)",
+          background: selected ? "rgba(255,255,255,0.2)" : "transparent",
+        }}
+      >
+        {selected && <CheckCircle className="h-3.5 w-3.5 text-white" />}
       </div>
-      <span className="text-sm font-medium text-foreground">{label}</span>
+      <span
+        className="text-sm font-medium"
+        style={{ color: selected ? "#fff" : "hsl(var(--foreground))" }}
+      >
+        {label}
+      </span>
     </button>
   );
 }
@@ -241,7 +271,9 @@ function StepLayout({ step, totalSteps = LOSING_TOTAL_STEPS, title, subtitle, ch
   // (z-0) sits behind the z-10 content without escaping the step.
   return (
     <div className="relative isolate flex flex-col h-full min-h-0 px-5 pb-2">
-      {background}
+      {/* Ambient blue aurora behind every step (steps that pass their own
+          `background`, e.g. the finale, override this default). */}
+      {background ?? <WizardAuroraBackground intensity="subtle" />}
       <div className="relative z-10 pt-2 pb-1.5">
         <p className="text-[10px] uppercase tracking-[0.15em] text-primary/60 font-bold mb-1">
           Round {step} of {totalSteps}
@@ -1190,7 +1222,7 @@ export default function Onboarding() {
         {step === 1 && (
           <StepLayout step={1} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="What brings you here?" subtitle="We'll build your plan around this."
             footer={<Button onClick={goNext} disabled={!formData.goal_type}
-              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-2xl cta-premium disabled:opacity-50">Continue</Button>}
           >
             <div className="space-y-2.5">
               {[
@@ -1214,7 +1246,7 @@ export default function Onboarding() {
         {step === F.WEIGH_IN && formData.goal_type === "cutting" && (
           <StepLayout step={F.WEIGH_IN} totalSteps={FIGHTER_TOTAL_STEPS} title="When do you weigh in?" subtitle="This changes how we plan your cut."
             footer={<Button onClick={goNext} disabled={!formData.weigh_in_timing}
-              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-2xl cta-premium disabled:opacity-50">Continue</Button>}
           >
             <div className="space-y-2.5">
               {([
@@ -1232,7 +1264,7 @@ export default function Onboarding() {
         {step === F.DISCIPLINES && formData.goal_type === "cutting" && (
           <StepLayout step={F.DISCIPLINES} totalSteps={FIGHTER_TOTAL_STEPS} title="What's your discipline?" subtitle={`Pick your sport${userName ? `, ${userName}` : ""}, and we'll tailor everything to it.`}
             footer={<Button onClick={goNext} disabled={formData.athlete_types.length === 0}
-              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-2xl cta-premium disabled:opacity-50">Continue</Button>}
           >
             <div className="space-y-2.5">
               {[
@@ -1256,7 +1288,7 @@ export default function Onboarding() {
         {step === 2 && formData.goal_type === "losing" && (
           <StepLayout step={2} title="What's your current weight?" subtitle="Step on the scale. This is your starting line."
             footer={<Button onClick={goNext} disabled={!formData.current_weight_kg}
-              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-2xl cta-premium disabled:opacity-50">Continue</Button>}
           >
             <div className="flex flex-col items-center pt-8 gap-6">
               <div className="text-center">
@@ -1284,7 +1316,7 @@ export default function Onboarding() {
         {step === 3 && formData.goal_type === "losing" && (
           <StepLayout step={3} title="What's your goal weight?" subtitle="The weight you want to reach."
             footer={<Button onClick={goNext} disabled={!formData.goal_weight_kg}
-              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-2xl cta-premium disabled:opacity-50">Continue</Button>}
           >
             <div className="flex flex-col items-center pt-8 gap-6">
               <div className="text-center">
@@ -1317,7 +1349,7 @@ export default function Onboarding() {
         {step === 4 && formData.goal_type === "losing" && (
           <StepLayout step={4} title="How long do you want to take?" subtitle="We'll calculate your weekly target."
             footer={<Button onClick={goNext} disabled={!formData.target_weeks || parseInt(formData.target_weeks) < 1}
-              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-2xl cta-premium disabled:opacity-50">Continue</Button>}
           >
             <div className="flex flex-col items-center pt-6 gap-5">
               <div className="text-center">
@@ -1405,7 +1437,7 @@ export default function Onboarding() {
               mascotBump={step * 10 + fightSubStep}
               footer={
                 <Button onClick={goNext} disabled={continueDisabled}
-                  className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>
+                  className="no-tap-select w-full h-12 rounded-2xl cta-premium disabled:opacity-50">Continue</Button>
               }
             >
               <AnimatePresence mode="wait" initial={false}>
@@ -1712,7 +1744,7 @@ export default function Onboarding() {
         {((step === F.AGE && formData.goal_type === "cutting") || (step === L.AGE && formData.goal_type === "losing")) && (
           <StepLayout step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="How old are you?" subtitle="We'll use this to dial in your metabolic rate."
             footer={<Button onClick={handleAgeContinue} disabled={ageStatus === "empty"}
-              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-2xl cta-premium disabled:opacity-50">Continue</Button>}
           >
             <div className="flex flex-col items-center pt-8 gap-8">
               <div className="text-center">
@@ -1766,7 +1798,7 @@ export default function Onboarding() {
         {((step === F.HEIGHT && formData.goal_type === "cutting") || (step === L.HEIGHT && formData.goal_type === "losing")) && (
           <StepLayout step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="What's your height?" subtitle="Used to calculate your metabolic rate."
             footer={<Button onClick={goNext} disabled={!formData.height_cm}
-              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-2xl cta-premium disabled:opacity-50">Continue</Button>}
           >
             <div className="flex flex-col items-center pt-8 gap-6">
               <div className="text-center">
@@ -1798,7 +1830,7 @@ export default function Onboarding() {
         {step === F.WEIGHT && formData.goal_type === "cutting" && (
           <StepLayout step={F.WEIGHT} totalSteps={FIGHTER_TOTAL_STEPS} title="What's your current weight?" subtitle="Step on the scale. Be honest. This is your starting line."
             footer={<Button onClick={goNext} disabled={!formData.current_weight_kg}
-              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-2xl cta-premium disabled:opacity-50">Continue</Button>}
           >
             <div className="flex flex-col items-center pt-8 gap-6">
               <div className="text-center">
@@ -1922,7 +1954,7 @@ export default function Onboarding() {
           <StepLayout step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="Estimate your body fat" subtitle="Drag the slider. Skip if you're not sure."
             footer={
               <div className="space-y-2">
-                <Button onClick={goNext} className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90">Continue</Button>
+                <Button onClick={goNext} className="no-tap-select w-full h-12 rounded-2xl cta-premium">Continue</Button>
                 <button onClick={() => { setFormData(prev => ({ ...prev, body_fat_pct: "" })); goNext(); }} className="w-full text-center text-xs text-muted-foreground/60 py-2 hover:text-muted-foreground transition-colors">
                   Skip this step
                 </button>
@@ -1990,7 +2022,7 @@ export default function Onboarding() {
         {((step === F.EXPERIENCE && isFighterFlow) || (step === L.EXPERIENCE && !isFighterFlow)) && (
           <StepLayout step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="What's your experience level?" subtitle="No judgment. We just need to know where you're at."
             footer={<Button onClick={goNext} disabled={!formData.experience_level}
-              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-2xl cta-premium disabled:opacity-50">Continue</Button>}
           >
             <div className="space-y-2.5">
               {[
@@ -2009,7 +2041,7 @@ export default function Onboarding() {
         {((step === F.TRAINING_FREQ && isFighterFlow) || (step === L.TRAINING_FREQ && !isFighterFlow)) && (
           <StepLayout step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="How often do you train?" subtitle="All sessions: pads, sparring, gym, running."
             footer={<Button onClick={goNext} disabled={!formData.training_frequency}
-              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-2xl cta-premium disabled:opacity-50">Continue</Button>}
           >
             <div className="space-y-2.5">
               {[
@@ -2043,7 +2075,7 @@ export default function Onboarding() {
         {((step === F.TRAINING_TYPES && isFighterFlow) || (step === L.TRAINING_TYPES && !isFighterFlow)) && (
           <StepLayout step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="What does your training include?" subtitle="Select all that apply."
             footer={<Button onClick={goNext} disabled={formData.training_types.length === 0}
-              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-2xl cta-premium disabled:opacity-50">Continue</Button>}
           >
             <div className="space-y-2.5">
               {["Pads", "Sparring", "Strength & Conditioning", "Running"].map(t => (
@@ -2058,7 +2090,7 @@ export default function Onboarding() {
         {((step === F.SLEEP && isFighterFlow) || (step === L.SLEEP && !isFighterFlow)) && (
           <StepLayout step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="How many hours do you sleep?" subtitle="Recovery is half the game."
             footer={<Button onClick={goNext} disabled={!formData.sleep_hours}
-              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-2xl cta-premium disabled:opacity-50">Continue</Button>}
           >
             <div className="space-y-2.5">
               {[
@@ -2085,7 +2117,7 @@ export default function Onboarding() {
         {step === F.STRUGGLE && formData.goal_type === "cutting" && (
           <StepLayout step={F.STRUGGLE} totalSteps={FIGHTER_TOTAL_STEPS} title="What do you struggle with most?" subtitle="Be real. We'll build around your weak spots."
             footer={<Button onClick={goNext} disabled={!formData.primary_struggle}
-              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-2xl cta-premium disabled:opacity-50">Continue</Button>}
           >
             <div className="space-y-2.5">
               {[
@@ -2109,7 +2141,7 @@ export default function Onboarding() {
         {step === L.AGGRESSIVENESS && formData.goal_type === "losing" && (
           <StepLayout step={L.AGGRESSIVENESS} totalSteps={LOSING_TOTAL_STEPS} title="How aggressive do you want to go?" subtitle="Picks the pace of your cut. You can change it later in Settings."
             footer={<Button onClick={goNext} disabled={!formData.plan_aggressiveness}
-              className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Continue</Button>}
+              className="no-tap-select w-full h-12 rounded-2xl cta-premium disabled:opacity-50">Continue</Button>}
           >
             <div className="space-y-2.5">
               {[
@@ -2140,7 +2172,7 @@ export default function Onboarding() {
               <Button
                 onClick={handleNameContinue}
                 disabled={!isNameValid(formData.display_name)}
-                className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                className="no-tap-select w-full h-12 rounded-2xl cta-premium disabled:opacity-50"
               >
                 Continue
               </Button>
@@ -2207,7 +2239,7 @@ export default function Onboarding() {
                     onCheckedChange={setSafetyAcknowledged}
                   />
                   <Button onClick={goNext} disabled={loading || !safetyAcknowledged}
-                    className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">Generate plan</Button>
+                    className="no-tap-select w-full h-12 rounded-2xl cta-premium disabled:opacity-50">Generate plan</Button>
                 </div>
               )
             }
@@ -2355,7 +2387,7 @@ export default function Onboarding() {
                       onCheckedChange={setSafetyAcknowledged}
                     />
                     <Button onClick={goNext} disabled={loading || !validInputs || !safetyAcknowledged}
-                      className="no-tap-select w-full h-12 rounded-xs bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">
+                      className="no-tap-select w-full h-12 rounded-2xl cta-premium disabled:opacity-50">
                       Generate plan
                     </Button>
                   </div>

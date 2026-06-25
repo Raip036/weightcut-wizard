@@ -653,6 +653,20 @@ All colors MUST be HSL.
     letter-spacing: -0.025em;
   }
 
+  /* Premium primary CTA — gradient + inner sheen + blue glow (the onboarding
+     "Variant 4" makeover). On native the glow box-shadow is stripped for perf,
+     the gradient stays. */
+  .cta-premium {
+    background: linear-gradient(180deg, hsl(217 91% 62%), hsl(217 91% 50%));
+    color: #fff;
+    box-shadow:
+      0 16px 36px -10px hsl(217 91% 50% / 0.65),
+      inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  }
+  .cta-premium:active {
+    filter: brightness(0.97);
+  }
+
   /* Dashboard motion utilities — Apple+Whoop polish */
 
   /* Fade-up entrance for dashboard sections */

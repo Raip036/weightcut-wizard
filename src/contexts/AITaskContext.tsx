@@ -111,7 +111,11 @@ export function AITaskProvider({ children }: { children: ReactNode }) {
     [tasks]
   );
 
+  // Sweep timer to expire done/error tasks. Gated on `tasks.length` so it only
+  // ticks while tasks exist — otherwise this fired every second for every user
+  // forever (1 re-render/sec × all clients) even when nothing was running.
   useEffect(() => {
+    if (tasks.length === 0) return;
     const interval = setInterval(() => {
       const now = Date.now();
       setTasks((prev) => prev.filter((t) => {
@@ -121,7 +125,7 @@ export function AITaskProvider({ children }: { children: ReactNode }) {
       }));
     }, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [tasks.length]);
 
   const stateValue = useMemo<AITaskState>(() => ({ tasks, activeTask }), [tasks, activeTask]);
   const actionsValue = useMemo<AITaskActions>(

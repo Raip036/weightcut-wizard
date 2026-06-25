@@ -132,10 +132,17 @@ export function FloatingWizardChat() {
   // composer is unmounted for them).
   const { hasAccess } = useFeatureAccess("AI_FIGHT_CAMP_COACH");
 
-  // Proactive cockpit read — powers the pinned header + adaptive chips. Loading
-  // (`undefined`) is treated as null so children render their no-data fallback.
-  // Skipped when unauthenticated so the component renders safely before login.
-  const cockpit = useQuery(api.coachCockpit.getCockpit, userId ? {} : "skip");
+  // Chat open state — declared early so the cockpit query below can gate on it.
+  const [open, setOpen] = useState(false);
+
+  // Proactive cockpit read — powers the pinned header + adaptive chips, which
+  // only render INSIDE the open Pro chat. Gated on `open && hasAccess` so it
+  // isn't a live subscription for every user at rest (it used to run all
+  // session even though nothing consumed it until the panel opened).
+  const cockpit = useQuery(
+    api.coachCockpit.getCockpit,
+    userId && open && hasAccess ? {} : "skip",
+  );
   const cockpitData = cockpit ?? null;
 
   // Proactive speech bubble off the orb (chat closed) — surfaces the coach's
@@ -165,7 +172,6 @@ export function FloatingWizardChat() {
   const bubbleHashRef = useRef("");
   const autoCollapseRef = useRef<number | null>(null);
 
-  const [open, setOpen] = useState(false);
   const [tutorialPulse, setTutorialPulse] = useState(false);
   const [input, setInput] = useState("");
   const [inputFocused, setInputFocused] = useState(false);
