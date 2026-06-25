@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "convex/react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { api } from "@/../convex/_generated/api";
@@ -14,7 +14,6 @@ import { SparringAssignmentRow } from "@/components/sparring/SparringAssignmentR
 import type { SparringAssignment } from "@/components/sparring/SparringAssignmentRow";
 import { StageIndicator } from "./StageIndicator";
 import { SealedStage } from "./SealedStage";
-import { MasteredShelf } from "./MasteredShelf";
 import { MasteryCutscene } from "./MasteryCutscene";
 import { MasteryGeneratingCard } from "./MasteryGeneratingCard";
 import { MasteryEmptyCard } from "./MasteryEmptyCard";
@@ -563,6 +562,32 @@ export function MasterySpine(_props: MasterySpineProps) {
     setCutscene((prev) => prev ?? { discipline: next.discipline, xp: next.xp });
   }, [cycleDetector.completions]);
 
+  // ── Reactive reconciliation: clear the optimistic "generating" signal the
+  // MOMENT the real drills/sparring land in the live `flow` query (a discipline
+  // gains its first missions / first assignments). Without this the signal rode
+  // its full 15s TTL — the existing per-card "reconcile" effects gate on the
+  // loader's own held-state, which the signal itself keeps true, so they never
+  // fire early. The result was a loader held over already-arrived data until a
+  // manual pull-to-refresh reset the in-memory signal store. This is a pure
+  // reactive handoff to Convex's push (no polling); the 2.5s min-display latch
+  // still guarantees the loader animation plays. We track 0→≥1 transitions per
+  // discipline so REGENERATION loaders (count already ≥1) are unaffected.
+  const dataPresenceRef = useRef<Map<string, { drills: boolean; sparring: boolean }>>(
+    new Map(),
+  );
+  useEffect(() => {
+    if (!flow) return;
+    for (const e of flow) {
+      const key = e.discipline.toLowerCase();
+      const prev = dataPresenceRef.current.get(key) ?? { drills: false, sparring: false };
+      const hasDrills = e.missions.length > 0;
+      const hasSparring = e.assignments.length > 0;
+      if (hasDrills && !prev.drills) clearMasterySignal(e.discipline, "drills");
+      if (hasSparring && !prev.sparring) clearMasterySignal(e.discipline, "sparring");
+      dataPresenceRef.current.set(key, { drills: hasDrills, sparring: hasSparring });
+    }
+  }, [flow]);
+
   // All hooks must run unconditionally — guards come after.
 
   // ── Guards (after all hooks) ──────────────────────────────────────────────
@@ -596,17 +621,16 @@ export function MasterySpine(_props: MasterySpineProps) {
     (disc) => !flowDisciplines.has(disc.toLowerCase()),
   );
 
-  // Trophies stay hidden for any discipline still in the active flow (cycle not
-  // yet complete) and for the discipline whose cutscene is currently playing.
-  const hiddenDisciplines = [
-    ...flow.map((e) => e.discipline),
-    ...(cutscene ? [cutscene.discipline] : []),
-  ];
-
   // Nothing in flight and nothing in the flow → first-run empty state.
   // Premium wizard-mascot card (Pro users): the only instruction is to log a
   // session and fill in "What went well" to get the first drills.
-  if (flow.length === 0 && generatingDrills.length === 0) {
+  //
+  // BUT do NOT bail while a cycle-complete cutscene is pending: mastering the
+  // LAST graduated assignment empties `flow` on the same render the cutscene is
+  // set, so returning the empty card here would unmount the <MasteryCutscene>
+  // before it ever plays. Keep rendering (the main return mounts the cutscene
+  // over an empty body); the empty card shows once the cutscene is dismissed.
+  if (flow.length === 0 && generatingDrills.length === 0 && !cutscene) {
     return <MasteryEmptyCard />;
   }
 
@@ -652,9 +676,8 @@ export function MasterySpine(_props: MasterySpineProps) {
         })}
       </div>
 
-      {/* Mastered shelf — a discipline's trophies reveal only once it leaves
-          the active flow AND its congrats cutscene has been dismissed. */}
-      <MasteredShelf hiddenDisciplines={hiddenDisciplines} />
+      {/* Mastered "trophy" shelf moved to the bottom of the Camp page (below
+          Recent activity) and made collapsible — see <MasteredShelf> in Camp.tsx. */}
 
       {/* Full-screen congrats cutscene + XP, fired on whole-cycle completion. */}
       <MasteryCutscene

@@ -423,23 +423,35 @@ export const athleteDetail = query({
     const sortedSessions = [...recentSessions].sort((a, b) =>
       a.date < b.date ? 1 : -1,
     );
-    const recentWithSoreness = await Promise.all(
-      sortedSessions.slice(0, 10).map(async (s) => {
-        const checkin = await ctx.db
-          .query("daily_wellness_checkins")
-          .withIndex("by_user_date", (q) =>
-            q.eq("userId", athleteUserId).eq("date", s.date),
-          )
-          .unique();
-        return {
-          date: s.date,
-          session_type: s.sessionType,
-          rpe: s.rpe,
-          soreness_level: checkin?.sorenessLevel ?? null,
-          duration_minutes: s.durationMinutes,
-        };
-      }),
-    );
+    const topSessions = sortedSessions.slice(0, 10);
+    // Batch the wellness join: ONE indexed range read over these sessions' date
+    // window, joined by date in memory. Replaces a per-session N+1 (one
+    // `.unique()` call per session). At most one checkin exists per
+    // (user, date), so a Map keyed by date reproduces the old `.unique()`
+    // result exactly.
+    const sorenessByDate = new Map<string, number>();
+    if (topSessions.length > 0) {
+      let minDate = topSessions[0].date;
+      let maxDate = topSessions[0].date;
+      for (const s of topSessions) {
+        if (s.date < minDate) minDate = s.date;
+        if (s.date > maxDate) maxDate = s.date;
+      }
+      const checkins = await ctx.db
+        .query("daily_wellness_checkins")
+        .withIndex("by_user_date", (q) =>
+          q.eq("userId", athleteUserId).gte("date", minDate).lte("date", maxDate),
+        )
+        .collect();
+      for (const c of checkins) sorenessByDate.set(c.date, c.sorenessLevel);
+    }
+    const recentWithSoreness = topSessions.map((s) => ({
+      date: s.date,
+      session_type: s.sessionType,
+      rpe: s.rpe,
+      soreness_level: sorenessByDate.get(s.date) ?? null,
+      duration_minutes: s.durationMinutes,
+    }));
 
     const profileAvatarUrl = await resolveStorageUrl(
       ctx,

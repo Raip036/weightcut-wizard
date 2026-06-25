@@ -194,7 +194,11 @@ async function runCore(
 
   // 3. Build the deterministic per-day skeleton (numerics are
   //    server-authoritative — the AI never invents these).
-  const skeleton = buildFightPlanSkeleton(derived, effectiveApproach);
+  const skeleton = buildFightPlanSkeleton(
+    derived,
+    effectiveApproach,
+    weighInSameDay,
+  );
 
   // 4. Build prompt + call the AI for copy.
   const userPrompt = buildUserPrompt(
@@ -274,7 +278,7 @@ function buildUserPrompt(
   // Weigh-in timing rule. Same-day weigh-in means the athlete fights with
   // no rehydration window, so glycogen MUST stay loaded — no carb cut.
   const carbRule = weighInSameDay
-    ? `WEIGH-IN TIMING: SAME DAY as the fight. Do NOT reduce carbohydrate at any point. Hold carbs at maintenance every day so glycogen stays full for the bout. Make weight using water-loading then a flush, a sodium taper, and fibre manipulation ONLY. Never instruct the athlete to deplete or cut carbs.`
+    ? `WEIGH-IN TIMING: SAME DAY as the fight. Do NOT reduce carbohydrate at any point. Hold carbs at maintenance every day so glycogen stays full for the bout. Make weight with a gentle sodium taper and fibre (low-residue) manipulation only, keeping water NEAR NORMAL — no water-loading, no flush, no sauna. Never instruct the athlete to deplete carbs or cut water.`
     : `WEIGH-IN TIMING: DAY BEFORE the fight. Run the normal full taper: reduce carbohydrate to deplete glycogen as weigh-in approaches, alongside water-loading then a flush, a sodium taper, and fibre manipulation. The post-weigh-in window refuels carbs before the bout.`;
 
   return `## KNOWLEDGE

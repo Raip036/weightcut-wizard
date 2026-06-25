@@ -21,17 +21,22 @@ Source: Reale GSSI SSE #183 (2018); ISSN 2025 position stand (PMC11894756).
 Reale 2018 protocol: 100 mL/kg/day for 3 days (load), then 15 mL/kg on D-1 (restrict).
 Adds ~0.6-1% BM loss vs restriction alone. Hyponatremia rare under this protocol
 (intakes >10L in <6h are the actual danger pattern).
-D-1 floor: 15 mL/kg (~1L for 70kg athlete). Weigh-in day: <300mL total.
+D-1 floor: 15 mL/kg (~1L for 70kg athlete). Weigh-in morning: nil (sips only).
 Always scale by mL/kg, never prescribe absolute litres without scaling.
 Source: Reale et al. 2018 IJSNEM (PMID 29182412); Reale GSSI SSE #183.
 
 ## SODIUM REDUCTION
-Start at D-2 (48h out) — earlier is counterproductive (chronic depletion hurts
-water loading). Targets (practitioner convention, NOT peer-reviewed):
-D-2: 1000 mg/day. D-1: <500 mg/day. D-0: near zero.
+Taper GRADUALLY from D-5/D-4 — aldosterone-escape natriuresis takes ~3-5 days to
+develop, so a late D-2 drop catches the kidney still in the Na+/water RETENTION
+phase and harvests less water. Keep the taper MODERATE through the high-water
+load days (the hyponatremia danger zone is NEAR-ZERO sodium + high water intake,
+NOT a moderate taper), then a low floor at the D-1 flush. Targets (per-kg curve;
+absolute mg are practitioner convention, NOT peer-reviewed):
+D-5: ~30 mg/kg → D-2: ~18 mg/kg (still moderate while water is high) → D-1: ~12
+mg/kg → D-0: low floor (never literally zero).
 Post-weigh-in: 50-90 mmol/L Na+ ORS at 1-1.5 L/hr (ISSN 2025).
-Hyponatremia danger: sodium reduction + continued high water intake. Never combine.
-Source: ISSN 2025; Reale GSSI SSE #183; Maughan & Leiper 1995.
+Hyponatremia red line: NEAR-ZERO sodium + continued high water. Never combine.
+Source: ISSN 2025; Reale GSSI SSE #183; aldosterone-escape renal physiology.
 
 ## FIBRE REDUCTION
 <10 g/day for 48-96h → ~1-1.5% BM from clearing gut residue.

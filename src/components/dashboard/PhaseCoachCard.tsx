@@ -54,12 +54,6 @@ const PHASE_META: Record<NonNullable<Phase>, {
   },
 };
 
-const DEFAULT_FALLBACK_GUIDANCE: Record<NonNullable<Phase>, string> = {
-  build: "Lock in the weekly volume and log streak. Weight should be trending down steadily.",
-  peak: "Protect sleep, load peaks here. Deload one session and keep recovery dialed.",
-  fightWeek: "Hydration and sodium control take over. Taper training, sharpen technique.",
-};
-
 interface ChartData {
   actualPath: string;
   /** Actual line closed down to the baseline, for the area-fill gradient. */
@@ -139,13 +133,34 @@ function buildChart(
   };
 }
 
-function fixSuggestion(driftKg: number | null): string {
-  if (driftKg == null) return "Log your weight to see drift vs plan.";
-  if (Math.abs(driftKg) < 0.3) return "On pace. Hold the line.";
-  if (driftKg > 1.0) return "Cut 150 kcal from breakfast this week.";
-  if (driftKg > 0.3) return "Add 1 sauna session this week.";
-  if (driftKg < -1.0) return "Cutting too fast. Refeed +500 kcal tomorrow.";
-  return "Ahead of plan. Add 50 g carbs to dinner.";
+// ---- Deterministic fueling nudge (no AI) -----------------------------------
+// Translates drift-vs-plan into a concrete daily calorie adjustment.
+//   driftKg > 0  →  heavier than plan (behind)  →  trim calories
+//   driftKg < 0  →  lighter than plan (ahead)   →  room to add calories
+// Magnitude spreads the correction across the days left to weigh-in, then
+// clamps to a safe daily band and rounds to the nearest 50 kcal. Bodyweight
+// enters naturally — heavier athletes drift in larger kg, so N scales with it.
+const KCAL_PER_KG = 7700; // codebase constant: ~7700 kcal ≈ 1 kg
+const ON_PLAN_TOLERANCE_KG = 0.3; // within this band = on plan, no nudge
+const MIN_KCAL_NUDGE = 100;
+const MAX_KCAL_NUDGE = 350; // safety ceiling on a single-day swing
+
+function computeFuelAdvice(
+  driftKg: number | null,
+  daysUntilFight: number | null,
+): string | null {
+  if (driftKg == null || Math.abs(driftKg) <= ON_PLAN_TOLERANCE_KG) return null;
+
+  const days = Math.max(1, daysUntilFight ?? 7);
+  const raw = (Math.abs(driftKg) * KCAL_PER_KG) / days;
+  const clamped = Math.min(MAX_KCAL_NUDGE, Math.max(MIN_KCAL_NUDGE, raw));
+  const kcal = Math.round(clamped / 50) * 50;
+  const absKg = Math.abs(driftKg).toFixed(1);
+
+  if (driftKg > 0) {
+    return `You're ${absKg} kg over plan — trim about ${kcal} kcal a day to ease back on track before weigh-in.`;
+  }
+  return `You're ${absKg} kg ahead of plan — you've got room to add about ${kcal} kcal a day to fuel your training.`;
 }
 
 export function PhaseCoachCard({
@@ -165,9 +180,9 @@ export function PhaseCoachCard({
     [weightLogs, currentWeight, targetWeight, targetDateISO],
   );
 
-  const fix = useMemo(
-    () => fixSuggestion(chart ? chart.driftKg : null),
-    [chart],
+  const fuelAdvice = useMemo(
+    () => computeFuelAdvice(chart ? chart.driftKg : null, daysUntilFight),
+    [chart, daysUntilFight],
   );
 
   // One verdict drives every drift-colored element (line, area fill, today
@@ -180,10 +195,6 @@ export function PhaseCoachCard({
     (weightLogs && weightLogs.length > 0
       ? parseFloat(String(weightLogs[weightLogs.length - 1].weight_kg))
       : null);
-  const kgToGo =
-    currentDisplay != null && typeof targetWeight === "number" && targetWeight > 0
-      ? Math.max(0, currentDisplay - targetWeight)
-      : null;
 
   return (
     <button
@@ -192,52 +203,32 @@ export function PhaseCoachCard({
         triggerHapticSelection();
         navigate("/fight-camps");
       }}
-      className="w-full card-surface rounded-2xl p-3.5 text-left active:scale-[0.99] transition-transform"
+      className="w-full card-surface rounded-2xl p-4 text-left active:scale-[0.99] transition-transform"
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          {/* Phase eyebrow, muted, so the single accent on this card is the
-              drift verdict (chart + pill), not the phase label. */}
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-            {meta.label} phase
-          </p>
-          {/* Hero, current weight is the one number the eye lands on. */}
-          <p className="mt-1.5 flex items-baseline gap-1.5">
-            <span className="display-number font-bold tabular-nums text-foreground text-[30px] leading-none">
-              {currentDisplay != null ? currentDisplay.toFixed(1) : "-"}
-            </span>
-            <span className="text-[13px] text-muted-foreground font-light">kg now</span>
-          </p>
-          {/* Subline, distance + countdown, the two facts that matter. */}
-          <p className="mt-1.5 text-[12px] text-muted-foreground">
-            {kgToGo != null && (
-              <>
-                <span className="tabular-nums font-semibold text-foreground/90">
-                  {kgToGo.toFixed(1)} kg
-                </span>{" "}
-                to go
-              </>
-            )}
-            {kgToGo != null && daysUntilFight != null && daysUntilFight > 0 && " · "}
-            {daysUntilFight != null && daysUntilFight > 0 && (
-              <>
-                <span className="tabular-nums font-semibold text-foreground/90">
-                  {daysUntilFight}
-                </span>{" "}
-                {daysUntilFight === 1 ? "day" : "days"} to weigh-in
-              </>
-            )}
-          </p>
-        </div>
+      {/* Header row: phase eyebrow ↔ weigh-in countdown on one line. The single
+          accent on this card stays the drift verdict (chart + pill). */}
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="min-w-0 truncate text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+          {meta.label}
+        </p>
+        {daysUntilFight != null && daysUntilFight > 0 && (
+          <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+            {daysUntilFight} {daysUntilFight === 1 ? "day" : "days"} to weigh-in
+          </span>
+        )}
+      </div>
+
+      {/* Hero row: current weight (the number the eye lands on) + target
+          caption trailing, so the old top-right target block folds away. */}
+      <div className="mt-2 flex min-w-0 items-baseline gap-2">
+        <span className="display-number font-bold tabular-nums text-foreground text-[34px] leading-none">
+          {currentDisplay != null ? currentDisplay.toFixed(1) : "-"}
+        </span>
+        <span className="text-[13px] text-muted-foreground font-light">kg now</span>
         {typeof targetWeight === "number" && targetWeight > 0 && (
-          <div className="text-right shrink-0">
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground">
-              target
-            </p>
-            <p className="text-[14px] font-semibold tabular-nums text-foreground/90 leading-tight">
-              {targetWeight.toFixed(1)} kg
-            </p>
-          </div>
+          <span className="ml-0.5 text-[10px] uppercase tracking-[0.1em] text-muted-foreground/60 font-semibold">
+            target {targetWeight.toFixed(1)}
+          </span>
         )}
       </div>
 
@@ -277,17 +268,21 @@ export function PhaseCoachCard({
             <circle cx={chart.todayPx.x} cy={chart.todayPx.y} r={5.5} className="fill-[hsl(var(--card))]" />
             <circle cx={chart.todayPx.x} cy={chart.todayPx.y} r={3.5} fill="currentColor" />
           </svg>
-          {/* Legend dropped (dashed-grey = plan, colored = actual is
-              self-evident); the single drift pill carries the verdict. */}
-          <div className="mt-2 flex justify-end">
+          {/* Drift pill, bottom-right — same slot as the forecast card above so
+              the two cards' deltas read as an aligned pair. */}
+          <div className="mt-3 flex justify-end">
             <DeltaPill value={chart.driftKg} noun="plan" />
           </div>
         </div>
       ) : null}
 
-      <p className="mt-2.5 text-[12.5px] leading-snug text-foreground/90">
-        {chart ? fix : phase ? DEFAULT_FALLBACK_GUIDANCE[phase] : DEFAULT_FALLBACK_GUIDANCE.build}
-      </p>
+      {/* Deterministic fueling nudge. Hidden when on-plan or no drift data, so
+          the card stays quiet rather than inventing advice. */}
+      {fuelAdvice && (
+        <p className="mt-3 pt-3 border-t border-border/40 text-[12.5px] leading-snug text-foreground/90">
+          {fuelAdvice}
+        </p>
+      )}
 
       {signal && (
         <p className="mt-2 pt-2 border-t border-border/40 text-[11px] text-muted-foreground leading-snug">

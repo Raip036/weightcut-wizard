@@ -226,8 +226,6 @@ export function MissionCard({ mission, expanded, onToggle, onAllMissionsComplete
   );
   const progressPct = totalCount > 0 ? (doneCount / totalCount) * 100 : 0;
 
-  // Rationale is now a permanent subtitle; disclosure state removed.
-
   // Item collapse state persists across navigation via localStorage.
   const itemsExpandedKey = `wcw_mission_items_expanded_${mission._id}`;
   const [itemsExpanded, setItemsExpanded] = useState<boolean>(() => {
@@ -376,11 +374,6 @@ export function MissionCard({ mission, expanded, onToggle, onAllMissionsComplete
             <p className="text-body-sm font-semibold text-foreground leading-snug break-words">
               {mission.title}
             </p>
-            {mission.rationale && (
-              <p className="text-[11.5px] text-muted-foreground leading-snug mt-0.5 line-clamp-1">
-                {stripDashes(cleanAdvice(mission.rationale))}
-              </p>
-            )}
           </div>
 
           {/* Mission item count "3/7", coloured once the user has started. */}

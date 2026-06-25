@@ -93,6 +93,7 @@ import type * as ai_decisions from "../ai_decisions.js";
 import type * as announcement_polls from "../announcement_polls.js";
 import type * as announcements from "../announcements.js";
 import type * as auth from "../auth.js";
+import type * as authCleanup from "../authCleanup.js";
 import type * as campActivityFeed from "../campActivityFeed.js";
 import type * as campCompletion from "../campCompletion.js";
 import type * as coach from "../coach.js";
@@ -250,6 +251,7 @@ declare const fullApi: ApiFromModules<{
   announcement_polls: typeof announcement_polls;
   announcements: typeof announcements;
   auth: typeof auth;
+  authCleanup: typeof authCleanup;
   campActivityFeed: typeof campActivityFeed;
   campCompletion: typeof campCompletion;
   coach: typeof coach;

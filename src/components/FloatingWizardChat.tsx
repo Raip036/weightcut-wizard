@@ -15,6 +15,8 @@ import { CoachCockpitHeader } from "@/components/fightcamp/cockpit/CoachCockpitH
 import { AdaptiveChips } from "@/components/fightcamp/cockpit/AdaptiveChips";
 import { CoachThinkingState } from "@/components/fightcamp/cockpit/CoachThinkingState";
 import { CoachSpeechBubble } from "@/components/fightcamp/cockpit/CoachSpeechBubble";
+import { TutorialPromptBubble } from "@/components/TutorialPromptBubble";
+import { useTutorial } from "@/tutorial/useTutorial";
 import { CoachProGate } from "@/components/subscription/CoachProGate";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 import { api } from "@/../convex/_generated/api";
@@ -121,6 +123,8 @@ export function FloatingWizardChat() {
   const { userId } = useUser();
   const navigate = useNavigate();
   const prefersReduced = useReducedMotion();
+  // Onboarding tour prompt — shown on the orb after a new user closes their plan.
+  const { onboardingPromptVisible, acceptOnboardingPrompt, declineOnboardingPrompt } = useTutorial();
 
   // FREE-vs-PRO split. Pro users get the full chat; free users open the coach
   // and land on the engaging <CoachProGate /> — the gate owns its own paywall
@@ -128,10 +132,17 @@ export function FloatingWizardChat() {
   // composer is unmounted for them).
   const { hasAccess } = useFeatureAccess("AI_FIGHT_CAMP_COACH");
 
-  // Proactive cockpit read — powers the pinned header + adaptive chips. Loading
-  // (`undefined`) is treated as null so children render their no-data fallback.
-  // Skipped when unauthenticated so the component renders safely before login.
-  const cockpit = useQuery(api.coachCockpit.getCockpit, userId ? {} : "skip");
+  // Chat open state — declared early so the cockpit query below can gate on it.
+  const [open, setOpen] = useState(false);
+
+  // Proactive cockpit read — powers the pinned header + adaptive chips, which
+  // only render INSIDE the open Pro chat. Gated on `open && hasAccess` so it
+  // isn't a live subscription for every user at rest (it used to run all
+  // session even though nothing consumed it until the panel opened).
+  const cockpit = useQuery(
+    api.coachCockpit.getCockpit,
+    userId && open && hasAccess ? {} : "skip",
+  );
   const cockpitData = cockpit ?? null;
 
   // Proactive speech bubble off the orb (chat closed) — surfaces the coach's
@@ -161,7 +172,6 @@ export function FloatingWizardChat() {
   const bubbleHashRef = useRef("");
   const autoCollapseRef = useRef<number | null>(null);
 
-  const [open, setOpen] = useState(false);
   const [tutorialPulse, setTutorialPulse] = useState(false);
   const [input, setInput] = useState("");
   const [inputFocused, setInputFocused] = useState(false);
@@ -468,10 +478,37 @@ export function FloatingWizardChat() {
         </span>
       </button>
 
+      {/* Onboarding "Want a quick tour?" bubble — pops out of the orb after a
+          brand-new user closes their generated plan. Anchored exactly like the
+          coach nudge below; takes priority over it while visible. */}
+      {!open && onboardingPromptVisible && !dragging && fabPos && (() => {
+        const side: "left" | "right" =
+          fabPos.x + FAB_SIZE / 2 > window.innerWidth / 2 ? "right" : "left";
+        const posStyle =
+          side === "right"
+            ? { right: Math.max(EDGE_MARGIN, window.innerWidth - (fabPos.x + FAB_SIZE) - 4) }
+            : { left: Math.max(EDGE_MARGIN, fabPos.x - 4) };
+        const placeBelow = fabPos.y < 150;
+        const vStyle = placeBelow
+          ? { top: fabPos.y + FAB_SIZE + 12 }
+          : { bottom: window.innerHeight - fabPos.y + 12 };
+        return (
+          <div className="fixed z-[9999] md:hidden" style={{ ...vStyle, ...posStyle }}>
+            <TutorialPromptBubble
+              side={side}
+              placement={placeBelow ? "below" : "above"}
+              onAccept={acceptOnboardingPrompt}
+              onDecline={declineOnboardingPrompt}
+            />
+          </div>
+        );
+      })()}
+
       {/* Proactive coach speech bubble — pops out of the orb (chat closed) and
           "speaks" the coach's current read to entice a tap. Positioned above
-          the orb, tail pointing to whichever edge it snapped to. */}
-      {!open && bubbleVisible && !dragging && bubbleText && fabPos && (() => {
+          the orb, tail pointing to whichever edge it snapped to. Suppressed
+          while the onboarding tour prompt is showing. */}
+      {!open && !onboardingPromptVisible && bubbleVisible && !dragging && bubbleText && fabPos && (() => {
         const side: "left" | "right" =
           fabPos.x + FAB_SIZE / 2 > window.innerWidth / 2 ? "right" : "left";
         // Horizontal: anchor to the orb's edge so the bubble grows INTO the

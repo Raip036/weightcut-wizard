@@ -368,26 +368,33 @@ export const unreadActivityCount = query({
       .filter((p) => p.gymId === gymId && p.deletedAt === undefined)
       .map((p) => p._id);
 
+    // The bell (ActivityBell) renders "99+" for any count over 99, so an exact
+    // count past that is never shown. Cap each per-post read at DISPLAY_CAP+1
+    // and stop early once we cross the cap — this bounds a previously-unbounded
+    // per-post `.collect()` (a viral post could otherwise scan hundreds of
+    // rows) WITHOUT changing anything the UI displays.
+    const DISPLAY_CAP = 99;
     let count = 0;
     for (const postId of myPostIds) {
+      if (count > DISPLAY_CAP) break;
       // feed_likes: use by_post_user prefix scan then filter in memory
       const newLikes = await ctx.db
         .query("feed_likes")
         .withIndex("by_post_user", (q) => q.eq("postId", postId))
         .filter((q) => q.gt(q.field("_creationTime"), since))
-        .collect();
+        .take(DISPLAY_CAP + 1);
       const newComments = await ctx.db
         .query("feed_comments")
         .withIndex("by_post", (q) => q.eq("postId", postId))
         .filter((q) => q.gt(q.field("_creationTime"), since))
-        .collect();
+        .take(DISPLAY_CAP + 1);
       // feed_reactions: by_post_key prefix scan; `createdAt` is an explicit
       // field (not _creationTime), so compare against it.
       const newReactions = await ctx.db
         .query("feed_reactions")
         .withIndex("by_post_key", (q) => q.eq("postId", postId))
         .filter((q) => q.gt(q.field("createdAt"), since))
-        .collect();
+        .take(DISPLAY_CAP + 1);
       count += newLikes.filter((l) => l.userId !== viewerId).length;
       count += newComments.filter((c) => c.userId !== viewerId).length;
       count += newReactions.filter((r) => r.userId !== viewerId).length;

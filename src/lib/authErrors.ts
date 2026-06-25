@@ -104,6 +104,16 @@ export function mapAuthError(err: unknown, flow: AuthFlow): string {
 }
 
 /**
+ * True when a sign-up rejection is Convex Auth's "Account <email> already
+ * exists" (thrown by the Password provider when the (provider, email) slot is
+ * occupied). Used by the sign-up flow to decide whether to attempt an
+ * orphaned-account purge + retry before surfacing the duplicate error.
+ */
+export function isAccountExistsError(err: unknown): boolean {
+  return extractRaw(err).toLowerCase().includes("already exists");
+}
+
+/**
  * True when an Apple Sign-In rejection represents the user dismissing the
  * native sheet (or closing the web popup) — not a real failure. The plugin,
  * Convex's wrapper, and the web fallback each surface cancels differently;

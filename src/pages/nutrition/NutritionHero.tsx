@@ -1,5 +1,4 @@
 import { format, startOfWeek, subWeeks, addDays, isSameDay, isAfter } from "date-fns";
-import { motion } from "motion/react";
 import { useLayoutEffect, useRef } from "react";
 import { MacroPieChart } from "@/components/nutrition/MacroPieChart";
 import { SyncingIndicator } from "@/components/SyncingIndicator";
@@ -88,7 +87,11 @@ function DateStrip({
     return Array.from({ length: 7 }, (_, k) => addDays(weekStart, k));
   });
 
-  // Show the current (last) week on mount, no smooth scroll for the initial position.
+  // Jump the strip to the current (last) week on mount. This MUST be an
+  // instant jump, never a smooth scroll: the container is not `scroll-smooth`
+  // (see className) precisely so this CSSOM write doesn't animate horizontally
+  // while the page-entry fade is still running — a competing scroll there reads
+  // as jank. User swipes still get native momentum + snap.
   useLayoutEffect(() => {
     const el = containerRef.current;
     if (el) el.scrollLeft = el.scrollWidth;
@@ -97,7 +100,7 @@ function DateStrip({
   return (
     <div
       ref={containerRef}
-      className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="flex overflow-x-auto snap-x snap-mandatory [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       {weeks.map((week, wi) => (
         <div key={wi} className="w-full shrink-0 snap-center grid grid-cols-7">
@@ -106,14 +109,13 @@ function DateStrip({
             const active = ds === selectedDate;
             const isFuture = isAfter(d, todayStart) && !isSameDay(d, todayStart);
             return (
-              <motion.button
+              <button
                 key={ds}
                 type="button"
                 data-date={ds}
                 disabled={isFuture}
                 onClick={() => { triggerHapticSelection(); setSelectedDate(ds); }}
-                whileTap={{ scale: 0.94 }}
-                className={`relative flex flex-col items-center justify-center min-h-[44px] py-1.5 [-webkit-tap-highlight-color:transparent] ${
+                className={`relative flex flex-col items-center justify-center min-h-[44px] py-1.5 transition-transform duration-100 active:scale-[0.94] [-webkit-tap-highlight-color:transparent] ${
                   isFuture ? "opacity-30 pointer-events-none" : ""
                 }`}
                 aria-label={format(d, "EEEE, MMMM d")}
@@ -133,7 +135,7 @@ function DateStrip({
                 >
                   {format(d, "d")}
                 </span>
-              </motion.button>
+              </button>
             );
           })}
         </div>

@@ -874,6 +874,22 @@ export default defineSchema({
     focusTechniqueNormalized: v.optional(v.string()),
     graduatedAt: v.optional(v.number()),
     cycleId: v.optional(v.string()),
+    // Strategic objective the drills build toward in live sparring
+    // ("offense" | "defense" | "counter" | "pressure" | "escape" | "control").
+    // Carried into the sparring plan so it stays faithful to the drilled intent.
+    objective: v.optional(v.string()),
+    // Sparring plan generated in the SAME pipeline as the drills (same diagnosis
+    // + objective), revealed deterministically on graduation. Optional so legacy
+    // missions (no stored plan) fall back to the LLM graduation path.
+    sparringPlan: v.optional(
+      v.object({
+        objective: v.string(),
+        whenToUse: v.string(),
+        setups: v.array(v.string()),
+        counters: v.array(v.string()),
+        combinations: v.array(v.string()),
+      }),
+    ),
   })
     .index("by_user_status", ["userId", "status"])
     .index("by_user_sport_status", ["userId", "sport", "status"])
@@ -1006,6 +1022,9 @@ export default defineSchema({
     combinations: v.optional(v.array(v.string())),
     // Total number of sparring rounds/sessions this technique was logged.
     timesLogged: v.optional(v.number()),
+    // Strategic objective this plan serves (mirrors training_missions.objective).
+    // Drives correct framing of whenToUse/setups/counters (no perspective flip).
+    objective: v.optional(v.string()),
   })
     .index("by_user", ["userId"])
     .index("by_user_discipline", ["userId", "discipline"])

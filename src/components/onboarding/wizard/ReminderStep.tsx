@@ -93,21 +93,13 @@ export function ReminderStep({ onAdvance, className }: ReminderStepProps): JSX.E
     <div className={cn("flex flex-col gap-5 pt-4 px-1", className)}>
       {/* Icon */}
       <div className="flex justify-center">
-        <div className="h-16 w-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-          <Bell className="h-8 w-8 text-primary" strokeWidth={1.8} />
-        </div>
+        <Bell className="h-12 w-12 text-primary" strokeWidth={1.6} />
       </div>
 
       {/* Body copy */}
-      <div className="space-y-2 text-center">
-        <h2 className="text-[22px] font-bold leading-tight text-foreground">
-          Stay on track
-        </h2>
-        <p className="text-[14px] text-muted-foreground leading-snug max-w-[300px] mx-auto">
-          We'll nudge you at the times you already log: a couple of taps in
-          the morning, one in the evening. Two reminders a day, max.
-        </p>
-      </div>
+      <p className="text-[14px] text-muted-foreground leading-snug text-center max-w-[300px] mx-auto">
+        A couple of taps in the morning, one in the evening — two reminders a day, max.
+      </p>
 
       {/* Benefit chips */}
       <div className="space-y-2">

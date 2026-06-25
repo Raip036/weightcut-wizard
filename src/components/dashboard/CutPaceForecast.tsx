@@ -443,93 +443,56 @@ export function CutPaceForecast({
       >
         {/* Subtle fade-in on focus change, key forces remount → re-plays anim. */}
         <div key={focusCheckpoint.week} className="animate-in fade-in duration-200">
-          {/* Top row, days-left/position chip. Status is now conveyed by the
-              card's left-edge colour accent rather than a textual badge. */}
-          {chip && (
-            <div className="flex items-center justify-end gap-2">
-              <span className="text-[11px] text-muted-foreground tabular-nums">
+          {/* Header row: week/date eyebrow ↔ days-left/position chip on one
+              line. Status stays on the card's left-edge colour accent. */}
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="min-w-0 truncate text-[10px] uppercase tracking-[0.12em] text-muted-foreground/85 font-semibold">
+              {heroEyebrow}
+            </p>
+            {chip && (
+              <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
                 {chip.label}
               </span>
-            </div>
-          )}
-
-          {/* Eyebrow, WEEK N · Sun May 31 (or WEIGH-IN · …). */}
-          <p className="mt-3 text-[10px] uppercase tracking-[0.12em] text-muted-foreground/85 font-semibold">
-            {heroEyebrow}
-          </p>
-
-          {/* Hero target weight. */}
-          <p className="mt-1 flex items-baseline gap-1.5">
-            <span className="display-number font-bold tabular-nums text-foreground text-[32px] leading-none">
-              {focusCheckpoint.targetWeight.toFixed(1)}
-            </span>
-            <span className="text-[13px] text-muted-foreground font-light">kg</span>
-          </p>
-          <p className="mt-1 text-[10px] uppercase tracking-[0.08em] text-muted-foreground/70 font-semibold">
-            target
-          </p>
-
-          {/* You line + context line. Past / current / future each get the
-              line that's most actionable for that week. */}
-          <div className="mt-3 space-y-1">
-            {isPastWeek ? (
-              <p className="text-[12.5px] text-muted-foreground">
-                {focusCheckpoint.actualWeight != null ? (
-                  <>
-                    Logged:{" "}
-                    <span className="tabular-nums text-foreground/85 font-semibold">
-                      {focusCheckpoint.actualWeight.toFixed(1)} kg
-                    </span>
-                  </>
-                ) : (
-                  <span className="italic">No log this week</span>
-                )}
-              </p>
-            ) : (
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[12.5px] text-muted-foreground">
-                {displayActual != null ? (
-                  <>
-                    <span>
-                      You:{" "}
-                      <span className="tabular-nums text-foreground/90 font-semibold">
-                        {displayActual.toFixed(1)} kg
-                      </span>
-                    </span>
-                    {delta != null && <DeltaPill value={delta} noun="target" />}
-                    {isCurrentWeek && noLogThisWeek && latestLog && (
-                      <span className="text-[11px] text-muted-foreground/70">
-                        (last {fmtWeekDate(latestLog.date)})
-                      </span>
-                    )}
-                  </>
-                ) : (
-                  <span className="italic">You: no data yet</span>
-                )}
-              </div>
             )}
-
-            {isCurrentWeek ? (
-              <>
-                {/* Progress toward pre-dehydration, a bar reads more
-                    premium than a comma-jammed sentence. Hidden when the
-                    start-weight denominator isn't trustworthy. */}
-                {progressPct != null && (
-                  <div className="pt-1.5">
-                    <div className="h-1.5 overflow-hidden rounded-full bg-muted-foreground/15">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-primary to-cyan-400 transition-[width] duration-700 ease-out"
-                        style={{ width: `${progressPct * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </>
-            ) : isFutureWeek ? (
-              <p className="text-[11.5px] text-muted-foreground">
-                Target by {fmtWeekDate(focusCheckpoint.weekEndDate)}
-              </p>
-            ) : null}
           </div>
+
+          {/* Hero row: target weight (left) + drift pill (right, above the
+              bar) so the card stays slim. The pill replaces the old "You: X kg"
+              line — its value (over/under target) carries the same fact. */}
+          <div className="mt-2 flex items-end justify-between gap-2">
+            <div className="flex min-w-0 items-baseline gap-2">
+              <span className="display-number font-bold tabular-nums text-foreground text-[34px] leading-none">
+                {focusCheckpoint.targetWeight.toFixed(1)}
+              </span>
+              <span className="text-[13px] text-muted-foreground font-light">kg</span>
+              <span className="ml-0.5 text-[10px] uppercase tracking-[0.1em] text-muted-foreground/60 font-semibold">
+                target
+              </span>
+            </div>
+            {delta != null && <DeltaPill value={delta} noun="target" />}
+          </div>
+
+          {/* Contextual bottom slot: progress bar (current) / target-by-date
+              (future) / no-log note (past with no weight). The bar is the
+              card's slim bottom edge. */}
+          {isCurrentWeek ? (
+            progressPct != null && (
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted-foreground/15">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-primary to-cyan-400 transition-[width] duration-700 ease-out"
+                  style={{ width: `${progressPct * 100}%` }}
+                />
+              </div>
+            )
+          ) : isFutureWeek ? (
+            <p className="mt-2.5 text-[11.5px] text-muted-foreground">
+              Target by {fmtWeekDate(focusCheckpoint.weekEndDate)}
+            </p>
+          ) : isPastWeek && displayActual == null ? (
+            <p className="mt-2.5 text-[12px] italic text-muted-foreground">
+              No log this week
+            </p>
+          ) : null}
 
           {/* Inline CTA, only when the user hasn't logged this calendar week. */}
           {noLogThisWeek && (
