@@ -482,21 +482,26 @@ interface DayAnchor {
 // here: they follow `carbsForDay` (day-before depletes; same-day holds).
 //
 // Evidence base — Reale, Slater & Burke 2018 water-loading RCT (IJSNEM 28:565);
-// AIS/GSSI acute-weight-management reviews:
-//   • WATER: 3-day load at 100 mL/kg (T-4..T-2), then a SHARP flush to 15 mL/kg
-//     at T-1 — the cut lands here, while renal output is still elevated — then a
-//     sip (~5 mL/kg) on weigh-in morning. T-7..T-5 sit at normal (~40 mL/kg).
-//     Holding the load to T-2 or tapering it gently blunts the flush, so we don't.
-//   • SODIUM: kept MODERATE (~32-35 mg/kg) THROUGH the load days — dropping
-//     sodium toward zero while water-loading is the hyponatremia danger zone —
-//     then eased to a low floor at the T-1 flush / weigh-in (never literally 0).
+// Reale/Burke acute-weight-loss reviews; ISSN 2025 combat-sports position stand;
+// aldosterone-escape renal physiology:
+//   • WATER: 4-day load at 100 mL/kg (T-5..T-2), then a SHARP flush to 15 mL/kg
+//     at T-1 — the cut lands here, while renal output is still elevated — then
+//     NIL on weigh-in morning (T-0). T-7..T-6 sit at normal (~40 mL/kg). Holding
+//     the load to T-2 or tapering it gently blunts the flush, so we don't.
+//   • SODIUM: a GRADUAL taper that begins ~T-5 (NOT a flat hold then a late
+//     cliff). Aldosterone-escape natriuresis takes ~3-5 days to develop, so the
+//     taper has to start 4-5 days out for the renal water loss to land during
+//     fight week. It stays MODERATE through the high-water load days (T-4..T-2 =
+//     26→18 mg/kg ≈ 1350-1950 mg at 75 kg) — the hyponatremia danger zone is
+//     NEAR-ZERO sodium combined with high water, not a moderate taper — then
+//     eases to a low floor at the T-1 flush / weigh-in (never literally 0).
 //   • FIBRE: low-residue (≤13 g) from ~T-4 (48-96 h out) captures ~1.5% BW of gut
 //     content; restricting earlier just adds GI stress for no extra loss.
 export const FIGHT_WEEK_WATER_ML_PER_KG: Record<number, number> = {
-  7: 40, 6: 40, 5: 40, 4: 100, 3: 100, 2: 100, 1: 15, 0: 5,
+  7: 40, 6: 40, 5: 100, 4: 100, 3: 100, 2: 100, 1: 15, 0: 0,
 };
 export const FIGHT_WEEK_SODIUM_MG_PER_KG: Record<number, number> = {
-  7: 35, 6: 35, 5: 35, 4: 32, 3: 32, 2: 32, 1: 12, 0: 6,
+  7: 35, 6: 35, 5: 30, 4: 26, 3: 22, 2: 18, 1: 12, 0: 6,
 };
 export const FIGHT_WEEK_FIBRE_GRAMS: Record<number, number> = {
   7: 30, 6: 30, 5: 18, 4: 13, 3: 12, 2: 10, 1: 8, 0: 0,

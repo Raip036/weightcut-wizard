@@ -630,8 +630,8 @@ function buildFightWeekBundle(opts: {
   // Water / sodium / fibre come from the SHARED canonical curve (Reale 2018)
   // keyed by days-to-weigh-in (= -offset), so this matches the fight-week
   // skeleton and the carb-hold bundle to the gram. Validated water-load: normal
-  // ~40 mL/kg out to T-5, 100 mL/kg load T-4..T-2, sharp flush 15 mL/kg at T-1,
-  // sip 5 mL/kg weigh-in morning.
+  // ~40 mL/kg out to T-6, 100 mL/kg load T-5..T-2, sharp flush 15 mL/kg at T-1,
+  // nil on weigh-in morning. Sodium tapers gradually from T-5 (not a late cliff).
   const waterMlForOffset = (offset: number): number =>
     FIGHT_WEEK_WATER_ML_PER_KG[-offset] ?? 40;
   const sodiumMgKgForOffset = (offset: number): number =>
@@ -721,8 +721,8 @@ function buildFightWeekBundle(opts: {
 
   const block = {
     lowCarb: `Carbs hold near ${dMinus7?.carbsGrams ?? Math.round(2.5 * bw)} g, then cut sharp to ~${dMinus5?.carbsGrams ?? Math.round(0.6 * bw)} g from day -5 and stay at the floor to day -1. Glycogen empties so the water cut lands clean.`,
-    sodium: `Keep sodium steady through the water-load days, then drop it to the floor on the day -1 flush. Low sodium WHILE loading is unsafe, so the cut waits for the flush.`,
-    waterLoading: `Load ~${peakFluidL} L/day on days -4 to -2, then flush hard to ~${flushFluidL} L on day -1. The sharp drop, not the volume, is what sheds the water. A sip only on weigh-in morning.`,
+    sodium: `Start tapering sodium from day -5 and keep it stepping down through fight week — the renal water dump from a sodium drop takes 3-5 days to kick in, so a last-minute cut is too late. Hold the taper MODERATE while you're water-loading (near-zero sodium plus high water is the unsafe combo), then a low floor at the day -1 flush.`,
+    waterLoading: `Load ~${peakFluidL} L/day on days -5 to -2, then flush hard to ~${flushFluidL} L on day -1. The sharp drop, not the volume, is what sheds the water. Nil on weigh-in morning — sips only if you're parched.`,
     nutrition: `Post weigh-in: 1.0 g/kg/hr carbs (rice, banana) plus sodium 1.5 g per L fluid for the first 2 hours. Then 0.5 g/kg/hr until refed.`,
   };
 

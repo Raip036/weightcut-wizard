@@ -15,6 +15,7 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { ShimmerCrownBadge } from "@/components/subscription/ShimmerCrownBadge";
 import { PostFightDebrief } from "@/components/fightcamp/PostFightDebrief";
 import { MasterySpine } from "@/components/mastery/MasterySpine";
+import { MasteredShelf } from "@/components/mastery/MasteredShelf";
 
 interface CampSection {
   title: string;
@@ -515,6 +516,13 @@ export default function Camp() {
         <div data-tutorial="camp-recent-activity">
           <CampActivityFeed userId={userId} limit={7} />
         </div>
+      </ErrorBoundary>
+
+      {/* ── "Mastered this camp" trophy shelf — pinned to the very bottom,
+          below Recent activity, and collapsible (the user can hide it). It
+          owns its own query, so it renders null when there's nothing mastered. */}
+      <ErrorBoundary silent fallback={<></>}>
+        <MasteredShelf />
       </ErrorBoundary>
 
     </div>

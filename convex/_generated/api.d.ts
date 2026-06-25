@@ -109,7 +109,6 @@ import type * as coachSafety_internal from "../coachSafety_internal.js";
 import type * as coachTrends from "../coachTrends.js";
 import type * as crons from "../crons.js";
 import type * as deleteAccountMutations from "../deleteAccountMutations.js";
-import type * as devTools from "../devTools.js";
 import type * as device_tokens from "../device_tokens.js";
 import type * as exercise_prs from "../exercise_prs.js";
 import type * as exercises from "../exercises.js";
@@ -268,7 +267,6 @@ declare const fullApi: ApiFromModules<{
   coachTrends: typeof coachTrends;
   crons: typeof crons;
   deleteAccountMutations: typeof deleteAccountMutations;
-  devTools: typeof devTools;
   device_tokens: typeof device_tokens;
   exercise_prs: typeof exercise_prs;
   exercises: typeof exercises;

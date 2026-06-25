@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { useQuery } from "convex/react";
 import { useReducedMotion } from "motion/react";
+import { ChevronDown } from "lucide-react";
 import { api } from "@/../convex/_generated/api";
 import { Icon } from "@/components/ui/Icon";
 import { disciplineToken, disciplineLabel } from "@/lib/coachColors";
@@ -45,6 +47,27 @@ export function MasteredShelf({
   const reducedMotion = useReducedMotion();
   const mastered = useQuery(api.mastery_spine.getMasteredTechniques);
 
+  // Collapsible: the user can hide the trophies. Preference persists across
+  // sessions. Hook runs before any early return so order stays stable.
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(COLLAPSE_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const toggleCollapsed = () => {
+    setCollapsed((c) => {
+      const next = !c;
+      try {
+        localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
+      } catch {
+        /* storage unavailable (private mode) — keep in-memory only */
+      }
+      return next;
+    });
+  };
+
   // Loading or empty: render nothing.
   if (!mastered || mastered.length === 0) return null;
 
@@ -72,41 +95,60 @@ export function MasteredShelf({
 
   return (
     <div className="mt-3">
-      {/* Section header */}
-      <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground mb-2 px-1">
-        Mastered this camp
-      </p>
-
-      <Carousel
-        opts={{ dragFree: true, align: "start" }}
-        aria-label="Mastered techniques"
+      {/* Section header — tappable to hide/show the trophies. */}
+      <button
+        type="button"
+        onClick={toggleCollapsed}
+        aria-expanded={!collapsed}
+        aria-label={collapsed ? "Show mastered techniques" : "Hide mastered techniques"}
+        className="mb-2 flex w-full items-center justify-between px-1 transition active:opacity-70"
       >
-        <CarouselContent className="-ml-2">
-          {visible.map((row) => {
-            const token = disciplineToken(row.discipline);
-            const label = disciplineLabel(row.discipline);
-            const lands = row.landedCount ?? LAND_THRESHOLD;
+        <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+          Mastered this camp · {visible.length}
+        </span>
+        <ChevronDown
+          className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${
+            collapsed ? "-rotate-90" : ""
+          }`}
+          aria-hidden
+        />
+      </button>
 
-            return (
-              <CarouselItem
-                key={row._id}
-                className="pl-2 basis-auto shrink-0"
-              >
-                <TrophyChip
-                  technique={row.technique}
-                  token={token}
-                  disciplineLabel={label}
-                  lands={lands}
-                  reducedMotion={reducedMotion}
-                />
-              </CarouselItem>
-            );
-          })}
-        </CarouselContent>
-      </Carousel>
+      {!collapsed && (
+        <Carousel
+          opts={{ dragFree: true, align: "start" }}
+          aria-label="Mastered techniques"
+        >
+          <CarouselContent className="-ml-2">
+            {visible.map((row) => {
+              const token = disciplineToken(row.discipline);
+              const label = disciplineLabel(row.discipline);
+              const lands = row.landedCount ?? LAND_THRESHOLD;
+
+              return (
+                <CarouselItem
+                  key={row._id}
+                  className="pl-2 basis-auto shrink-0"
+                >
+                  <TrophyChip
+                    technique={row.technique}
+                    token={token}
+                    disciplineLabel={label}
+                    lands={lands}
+                    reducedMotion={reducedMotion}
+                  />
+                </CarouselItem>
+              );
+            })}
+          </CarouselContent>
+        </Carousel>
+      )}
     </div>
   );
 }
+
+/** localStorage key persisting the user's hide/show preference for the shelf. */
+const COLLAPSE_KEY = "wcw_mastered_shelf_collapsed";
 
 // ── Internal chip ──────────────────────────────────────────────────────────────
 

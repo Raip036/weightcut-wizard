@@ -2375,8 +2375,11 @@ export default function Onboarding() {
                   <WizardPlanForgeOverlay
                     isFighter
                     currentWeightKg={parseFloat(formData.current_weight_kg)}
-                    goalWeightKg={parseFloat(formData.fight_week_target_kg || formData.goal_weight_kg)}
+                    goalWeightKg={parseFloat(formData.goal_weight_kg || formData.fight_week_target_kg)}
+                    fightWeekTargetKg={parseFloat(formData.fight_week_target_kg) || undefined}
                     targetDate={formData.target_date}
+                    weighInTiming={formData.weigh_in_timing}
+                    sport={formData.athlete_types?.[0]}
                   />
                 ) : (
                   <div className="space-y-3">
