@@ -1627,41 +1627,47 @@ export default function Onboarding() {
                           value={formData.fight_week_target_kg}
                           onChange={e => { setUseAutoTarget(false); setFormData(prev => ({ ...prev, fight_week_target_kg: e.target.value })); }}
                           className="h-14 rounded-xs bg-card border-border/50 text-center text-xl font-semibold max-w-[200px]" />
-                        <p className="text-[11px] text-muted-foreground text-center max-w-[280px]">
-                          {useAutoTarget ? "AI recommended based on your competition level" : `Manually set. AI recommendation was ${recommendedTarget}kg`}
+                        <div className="flex flex-col items-center gap-1.5 max-w-[280px]">
+                          <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
+                            {useAutoTarget ? "AI recommended based on your competition level" : `Manually set. AI recommendation was ${recommendedTarget}kg`}
+                          </p>
                           {!useAutoTarget && (
                             <button type="button" onClick={() => { setUseAutoTarget(true); setFormData(prev => ({ ...prev, fight_week_target_kg: recommendedTarget.toString() })); }}
-                              className="block text-primary font-medium mt-1.5">Reset to {recommendedTarget}kg</button>
+                              className="text-[11px] text-primary font-semibold">Reset to {recommendedTarget}kg</button>
                           )}
-                        </p>
+                        </div>
 
-                        {/* Water cut risk indicator */}
+                        {/* Water cut risk indicator (borderless, premium) */}
                         {targetKg > 0 && goalKg > 0 && (() => {
                           const tone = isSafe
-                            ? { border: "border-func-recovery-green/20", bg: "bg-func-recovery-green/[0.06]", text: "text-func-recovery-green", body: "text-func-recovery-green/90", dot: "bg-func-recovery-green/60", badge: "bg-func-recovery-green/10", label: "Safe" }
+                            ? { text: "text-func-recovery-green", body: "text-func-recovery-green/85", dot: "bg-func-recovery-green/70", divider: "bg-func-recovery-green/15", label: "Safe" }
                             : isModerate
-                            ? { border: "border-func-warning-yellow/20", bg: "bg-func-warning-yellow/[0.06]", text: "text-func-warning-yellow", body: "text-func-warning-yellow/90", dot: "bg-func-warning-yellow/60", badge: "bg-func-warning-yellow/10", label: "Moderate Risk" }
-                            : { border: "border-func-danger-red/20", bg: "bg-func-danger-red/[0.06]", text: "text-func-danger-red", body: "text-func-danger-red/90", dot: "bg-func-danger-red/60", badge: "bg-func-danger-red/10", label: "High Risk" };
+                            ? { text: "text-func-warning-yellow", body: "text-func-warning-yellow/85", dot: "bg-func-warning-yellow/70", divider: "bg-func-warning-yellow/15", label: "Moderate Risk" }
+                            : { text: "text-func-danger-red", body: "text-func-danger-red/85", dot: "bg-func-danger-red/70", divider: "bg-func-danger-red/15", label: "High Risk" };
                           const bullets = isSafe
                             ? ["Within safe limits for most athletes", "Minimal impact on strength and reaction time"]
                             : isModerate
                             ? ["May reduce power output 5-10% if poorly rehydrated", "Increased cramping risk, so prioritise sodium and potassium", "Allow 12+ hours between weigh-in and fight for recovery"]
                             : ["Significant risk of impaired reaction time and decision-making", "Strength reduction of 10-20% even with proper rehydration", "Consider working with a sports nutritionist to manage the load, and we'll guide you through the rest"];
                           return (
-                            <div className={`w-full max-w-[300px] rounded-xs p-4 border ${tone.border} ${tone.bg}`}>
-                              <div className="flex items-center justify-between gap-3 mb-3">
-                                <span className={`text-sm font-bold ${tone.text}`}>
-                                  {waterCutKg.toFixed(1)}kg water cut ({waterCutPct.toFixed(1)}%)
+                            <div className="w-full max-w-[300px] flex flex-col items-center mt-1">
+                              <div className={`h-px w-12 rounded-full mb-4 ${tone.divider}`} />
+                              <div className="flex items-baseline gap-2 mb-1">
+                                <span className={`text-2xl font-bold tabular-nums ${tone.text}`}>
+                                  {waterCutKg.toFixed(1)}kg
                                 </span>
-                                <span className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full ${tone.badge} ${tone.text}`}>
-                                  {tone.label}
-                                </span>
+                                <span className="text-sm text-muted-foreground">water cut</span>
                               </div>
-                              <ul className="space-y-2">
+                              <div className="flex items-center gap-2 mb-5">
+                                <span className={`text-xs font-semibold tabular-nums ${tone.body}`}>{waterCutPct.toFixed(1)}%</span>
+                                <span className={`h-1 w-1 rounded-full ${tone.dot}`} />
+                                <span className={`text-xs font-semibold uppercase tracking-wide ${tone.text}`}>{tone.label}</span>
+                              </div>
+                              <ul className="space-y-2.5 self-stretch">
                                 {bullets.map((bullet, i) => (
                                   <li key={i} className="flex items-start gap-2.5">
-                                    <span className={`mt-[6px] h-1 w-1 shrink-0 rounded-full ${tone.dot}`} />
-                                    <span className={`text-xs leading-relaxed ${tone.body}`}>{bullet}</span>
+                                    <span className={`mt-[7px] h-1 w-1 shrink-0 rounded-full ${tone.dot}`} />
+                                    <span className={`text-[13px] leading-relaxed ${tone.body}`}>{bullet}</span>
                                   </li>
                                 ))}
                               </ul>

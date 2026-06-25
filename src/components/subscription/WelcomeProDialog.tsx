@@ -3,6 +3,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { Crown, Infinity as InfinityIcon, Utensils, Swords } from "lucide-react";
 import wizardImg from "@/assets/wizard_3D.png";
 import { useProfile } from "@/contexts/UserContext";
+import { useClearStuckPointerEvents } from "@/hooks/useClearStuckPointerEvents";
 import { celebrateSuccess } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 
@@ -45,6 +46,9 @@ function isNum(n: unknown): n is number {
 export function WelcomeProDialog({ open, onClose }: WelcomeProDialogProps) {
   const prefersReduced = useReducedMotion();
   const { profile } = useProfile();
+  // Clear any stuck `body { pointer-events: none }` left by a badly-closed
+  // Radix/vaul overlay so this full-screen dialog's buttons aren't frozen.
+  useClearStuckPointerEvents();
   // phase: 0 rising · 1 crest/haptic · 2 title · 3 unlocks+cta
   const [phase, setPhase] = useState(0);
 
@@ -99,7 +103,10 @@ export function WelcomeProDialog({ open, onClose }: WelcomeProDialogProps) {
         };
 
   return (
-    <div className="fixed inset-0 z-[10005] flex flex-col items-center justify-center px-7 text-center overflow-hidden bg-background">
+    <div
+      className="fixed inset-0 z-[10005] flex flex-col items-center justify-center px-7 text-center overflow-hidden bg-background pointer-events-auto"
+      style={{ pointerEvents: "auto" }}
+    >
       {/* Aurora rising from black. */}
       <motion.div
         aria-hidden

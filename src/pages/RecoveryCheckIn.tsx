@@ -8,6 +8,7 @@ import { WellnessCheckIn } from "@/components/fightcamp/WellnessCheckIn";
 import { Icon } from "@/components/ui/Icon";
 import { celebrateSuccess } from "@/lib/haptics";
 import { readDateParam } from "@/lib/dateParam";
+import { useSafeDismiss } from "@/hooks/useSafeDismiss";
 
 /**
  * Distraction-free full-screen wellness check-in. Reached from the
@@ -17,6 +18,9 @@ import { readDateParam } from "@/lib/dateParam";
  */
 export default function RecoveryCheckIn() {
   const navigate = useNavigate();
+  // Returns to the prior screen, or /dashboard on cold-start/deep-land
+  // (window.history.length is unreliable after iOS restores the last route).
+  const dismiss = useSafeDismiss();
   const { userId } = useUser();
   const { checkFeatureAccess, isSubscriptionResolved } = useSubscription();
   // The wellness survey is free (it feeds the fight-form-score ring), but the
@@ -52,10 +56,7 @@ export default function RecoveryCheckIn() {
 
   if (!userId) return <Navigate to="/" replace />;
 
-  const handleBack = () => {
-    if (window.history.length > 1) navigate(-1);
-    else navigate("/");
-  };
+  const handleBack = dismiss;
 
   const handleSubmit = () => {
     celebrateSuccess();

@@ -1076,7 +1076,7 @@ export default function Dashboard() {
                               ? "One more day until your score"
                               : "Until your Fight Form Score"}
                         </p>
-                        <p className="text-[10px] text-muted-foreground leading-snug mt-1">
+                        <p className="text-[9.5px] text-muted-foreground leading-snug mt-1 whitespace-nowrap">
                           Unlocks score, top driver &amp; weight-cut pacing
                         </p>
                       </div>

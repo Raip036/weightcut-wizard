@@ -147,6 +147,36 @@ export function FightFormInsightStrip(p: Props) {
 
   const headline = headlineFor(p);
 
+  // Cold-start "Fresh start" copy when nothing is logged yet — suppresses the
+  // carded calibration treatment and the day counter so the welcome message
+  // isn't immediately contradicted by a countdown.
+  const nothingLoggedToday =
+    !p.adherence.sleep
+    && !p.adherence.weight
+    && !p.adherence.training
+    && !p.adherence.wellnessCheckin;
+
+  // Calibrating (with something already logged) → present the countdown copy
+  // and the day counter inside translucent pill cards, the same UI family as
+  // the unlocked delta banner, instead of bare text floating under the ring.
+  if (p.state === "calibrating" && p.calibration && !p.calibration.unlocked && !nothingLoggedToday) {
+    const dayN = Math.min(p.calibration.daysWithAnyLog, p.calibration.daysNeeded);
+    return (
+      <div className="mt-10 flex flex-col items-center gap-2.5">
+        <div className="mx-auto w-fit max-w-sm rounded-2xl border border-border/40 bg-foreground/[0.03] px-3.5 py-2 backdrop-blur-sm">
+          <p className="text-[11px] text-foreground/90 text-center leading-snug whitespace-pre-line">
+            {headline}
+          </p>
+        </div>
+        <div className="mx-auto w-fit flex items-center gap-1.5 rounded-full border border-border/40 bg-foreground/[0.03] px-2.5 py-1 backdrop-blur-sm">
+          <span className="text-[11.5px] font-medium leading-snug text-muted-foreground tabular-nums tracking-tight">
+            Day {dayN} of {p.calibration.daysNeeded}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   // When the strip carries diagnostic info (an applied cap, or a driver/
   // limiter once the score is unlocked) we surface a "Why?" tap target so
   // the user can pull up the full explanation sheet instead of guessing
@@ -174,22 +204,6 @@ export function FightFormInsightStrip(p: Props) {
           {headline}
         </p>
       )}
-
-      {p.state === "calibrating" && p.calibration && !p.calibration.unlocked && (() => {
-        // Suppress the "Day N of N" chip during the cold-start case so the
-        // "Fresh start" headline isn't immediately contradicted by a counter.
-        const nothingLoggedToday =
-          !p.adherence.sleep
-          && !p.adherence.weight
-          && !p.adherence.training
-          && !p.adherence.wellnessCheckin;
-        if (nothingLoggedToday) return null;
-        return (
-          <p className="text-[11px] text-muted-foreground tabular-nums">
-            Day {Math.min(p.calibration.daysWithAnyLog, p.calibration.daysNeeded)} of {p.calibration.daysNeeded}
-          </p>
-        );
-      })()}
     </div>
   );
 }

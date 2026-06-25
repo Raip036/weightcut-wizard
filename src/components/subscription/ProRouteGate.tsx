@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useSafeDismiss } from "@/hooks/useSafeDismiss";
+import { useClearStuckPointerEvents } from "@/hooks/useClearStuckPointerEvents";
 import type { FeatureKey } from "@/lib/featureGates";
 import { triggerHapticSelection } from "@/lib/haptics";
 import { ProUpsellScreen } from "./ProUpsellScreen";
@@ -45,7 +46,10 @@ export function ProRouteGate({
 }: ProRouteGateProps) {
   const { checkFeatureAccess, openPaywall, isSubscriptionResolved } =
     useSubscription();
-  const navigate = useNavigate();
+  const dismiss = useSafeDismiss();
+  // Clear any stuck `body { pointer-events: none }` left by a badly-closed
+  // Radix/vaul overlay so this full-screen gate's buttons aren't frozen.
+  useClearStuckPointerEvents();
 
   // Hold off painting the locked state until the tier is known, otherwise a
   // Pro user briefly sees the upsell on every cold start of this route.
@@ -59,7 +63,10 @@ export function ProRouteGate({
   // premium background fills the entire viewport (incl. behind the nav) and the
   // gate is its own `overscroll-contain` scroll container.
   return createPortal(
-    <div className="fixed inset-0 z-[60] h-screen-safe overflow-y-auto overscroll-contain bg-background animate-in fade-in duration-300">
+    <div
+      className="fixed inset-0 z-[60] h-screen-safe overflow-y-auto overscroll-contain bg-background animate-in fade-in duration-300 pointer-events-auto"
+      style={{ pointerEvents: "auto" }}
+    >
       <ProUpsellScreen
         title={title ?? DEFAULT_TITLE}
         blurb={blurb ?? DEFAULT_BLURB}
@@ -67,7 +74,7 @@ export function ProRouteGate({
           triggerHapticSelection();
           openPaywall();
         }}
-        onDismiss={() => navigate(-1)}
+        onDismiss={dismiss}
       />
     </div>,
     document.body,

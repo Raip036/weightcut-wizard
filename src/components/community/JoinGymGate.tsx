@@ -8,6 +8,7 @@ import { useUser } from "@/contexts/UserContext";
 import { Icon, type IonIconName } from "@/components/ui/Icon";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { useClearStuckPointerEvents } from "@/hooks/useClearStuckPointerEvents";
 import { celebrateSuccess, triggerHaptic } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
 import { logger } from "@/lib/logger";
@@ -100,6 +101,8 @@ export function JoinGymGate(): JSX.Element {
   const prefersReduced = useReducedMotion();
   const navigate = useNavigate();
   const { userId } = useUser();
+  // Immune to a stuck `body{pointer-events:none}` left by a badly-closed overlay.
+  useClearStuckPointerEvents();
   const { toast } = useToast();
 
   const [code, setCode] = useState("");
@@ -152,7 +155,7 @@ export function JoinGymGate(): JSX.Element {
   };
 
   return (
-    <div className="relative h-full overflow-y-auto overflow-x-hidden overscroll-contain bg-background">
+    <div className="relative h-full overflow-y-auto overflow-x-hidden overscroll-contain bg-background pointer-events-auto">
       {/* `min-h-full` content sizer: grows with the content AND is always at
           least one full viewport tall, so the absolute backdrop below covers
           the ENTIRE scrollable page. The blue stays premium all the way to the

@@ -108,6 +108,16 @@ export function DriverStack({ metrics, prevReadiness: _prevReadiness }: DriverSt
   // score (e.g. 0 from a genuine bad check-in) is a number and still shows.
   const wellnessScore = b.wellnessScore ?? null;
 
+  // Training load is only meaningful once there's a chronic baseline (≈14
+  // training days in 28). Before that, ACWR is undefined and `loadBalanceScore`
+  // sits at 0 — which would otherwise render as a red "Red zone, back off",
+  // scaring a brand-new user into thinking they're overtrained when the app
+  // simply hasn't built a baseline yet. So until it's reliable we pass `null`
+  // (neutral "-", no red) with a "Building baseline · N/14 days" status note.
+  const loadReliable = metrics.loadConfidence.isReliable;
+  const loadScore = loadReliable ? b.loadBalanceScore : null;
+  const loadDaysHint = `${metrics.loadConfidence.trainingDaysIn28d}/${metrics.loadConfidence.required} days`;
+
   return (
     <div className="card-surface rounded-2xl border border-border/50 overflow-hidden">
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border/30">
@@ -158,9 +168,11 @@ export function DriverStack({ metrics, prevReadiness: _prevReadiness }: DriverSt
           label="Training load"
           weight={1}
           icon="barbellOutline"
-          oneLiner={loadBandCopy(b.loadBalanceScore)}
+          oneLiner={loadReliable ? loadBandCopy(b.loadBalanceScore) : "Building baseline"}
           delta={0}
-          score={b.loadBalanceScore}
+          score={loadScore}
+          nullHint={loadDaysHint}
+          nullHintActionable={false}
           sparkline7d={load7d}
           detail={loadDetail(metrics)}
           expanded={expandedKey === "load"}

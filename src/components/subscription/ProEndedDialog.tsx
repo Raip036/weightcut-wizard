@@ -3,6 +3,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { Crown, Lock } from "lucide-react";
 import wizardImg from "@/assets/wizard_3D.png";
 import { useProfile } from "@/contexts/UserContext";
+import { useClearStuckPointerEvents } from "@/hooks/useClearStuckPointerEvents";
 import { celebrateSuccess } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 
@@ -46,6 +47,9 @@ const MOTES: Array<{ left: string; size: number; dur: number; delay: number }> =
 export function ProEndedDialog({ open, onClose, onReactivate }: ProEndedDialogProps) {
   const prefersReduced = useReducedMotion();
   const { profile } = useProfile();
+  // Clear any stuck `body { pointer-events: none }` left by a badly-closed
+  // Radix/vaul overlay so this full-screen dialog's buttons aren't frozen.
+  useClearStuckPointerEvents();
   // phase: 0 dimming · 1 crest powers down/haptic · 2 title · 3 locked+cta
   const [phase, setPhase] = useState(0);
 
@@ -92,7 +96,10 @@ export function ProEndedDialog({ open, onClose, onReactivate }: ProEndedDialogPr
         };
 
   return (
-    <div className="fixed inset-0 z-[10005] flex flex-col items-center justify-center px-7 text-center overflow-hidden bg-background">
+    <div
+      className="fixed inset-0 z-[10005] flex flex-col items-center justify-center px-7 text-center overflow-hidden bg-background pointer-events-auto"
+      style={{ pointerEvents: "auto" }}
+    >
       {/* Aurora, receded: the same gradient as the welcome, roughly half opacity. */}
       <motion.div
         aria-hidden

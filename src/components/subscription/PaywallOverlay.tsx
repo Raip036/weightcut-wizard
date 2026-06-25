@@ -15,6 +15,7 @@ import {
 import { useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useToast } from "@/hooks/use-toast";
+import { useClearStuckPointerEvents } from "@/hooks/useClearStuckPointerEvents";
 import { logger } from "@/lib/logger";
 import { isNativePlatform } from "@/hooks/useIsNative";
 
@@ -271,6 +272,9 @@ export function PaywallOverlay() {
 function WebFallbackPaywall({ activatePro }: { activatePro: (info: any) => Promise<void> }) {
   const { closePaywall } = useSubscriptionContext();
   const { toast } = useToast();
+  // Clear any stuck `body { pointer-events: none }` left by a badly-closed
+  // Radix/vaul overlay so this full-screen paywall's buttons aren't frozen.
+  useClearStuckPointerEvents();
   const [selectedPlan, setSelectedPlan] = useState<"monthly" | "yearly">("yearly");
   const [offerings, setOfferings] = useState<any>(null);
   const [purchasing, setPurchasing] = useState(false);
@@ -333,7 +337,10 @@ function WebFallbackPaywall({ activatePro }: { activatePro: (info: any) => Promi
   };
 
   return (
-    <div className="fixed inset-0 z-[10003] flex flex-col bg-background animate-in fade-in duration-300">
+    <div
+      className="fixed inset-0 z-[10003] flex flex-col bg-background animate-in fade-in duration-300 pointer-events-auto"
+      style={{ pointerEvents: "auto" }}
+    >
       <button
         onClick={closePaywall}
         className="absolute right-4 z-10 h-11 w-11 flex items-center justify-center rounded-full bg-muted/50 border border-border/30 active:scale-90 transition-transform"

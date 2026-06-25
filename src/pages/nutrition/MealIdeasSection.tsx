@@ -4,6 +4,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { ShimmerCrownBadge } from "@/components/subscription/ShimmerCrownBadge";
 import { ProUpsellScreen } from "@/components/subscription/ProUpsellScreen";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useClearStuckPointerEvents } from "@/hooks/useClearStuckPointerEvents";
 import { triggerHapticSelection } from "@/lib/haptics";
 
 /** The reasons a free user should unlock AI meal plans — shown on the wall. */
@@ -20,6 +21,9 @@ export function MealIdeasSection({ onOpen, lastPlanSummary }: {
   const { checkFeatureAccess, openPaywall, isSubscriptionResolved } = useSubscription();
   const prefersReduced = useReducedMotion();
   const [wallOpen, setWallOpen] = useState(false);
+  // Clear any stuck `body { pointer-events: none }` left by a badly-closed
+  // Radix/vaul overlay so the full-screen upsell wall's buttons aren't frozen.
+  useClearStuckPointerEvents();
 
   // Pro (or still resolving — avoid a locked flash on cold start) → the plain
   // card that opens the meal-plan sheet directly.
@@ -90,7 +94,10 @@ export function MealIdeasSection({ onOpen, lastPlanSummary }: {
 
       {wallOpen &&
         createPortal(
-          <div className="fixed inset-0 z-[60] h-screen-safe overflow-y-auto overscroll-contain bg-background animate-in fade-in duration-300">
+          <div
+            className="fixed inset-0 z-[60] h-screen-safe overflow-y-auto overscroll-contain bg-background animate-in fade-in duration-300 pointer-events-auto"
+            style={{ pointerEvents: "auto" }}
+          >
             <ProUpsellScreen
               title="Unlock AI meal plans"
               blurb="Let the Wizard plan a full day of meals tuned to your targets and training - then log it in a tap."

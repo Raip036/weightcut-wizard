@@ -31,6 +31,11 @@ export interface DriverRowProps {
   icon?: IonIconName;
   /** One-sentence "why this is X" detail string, shown when expanded. */
   detail?: string;
+  /** Affordance text shown in the NULL (no-data) state. Default "Tap to check in". */
+  nullHint?: string;
+  /** Whether the null hint is a tappable action (primary tint) or a passive
+   *  status note (muted). Default true → primary, matching the check-in CTA. */
+  nullHintActionable?: boolean;
   expanded: boolean;
   onToggle: () => void;
 }
@@ -153,6 +158,8 @@ export function DriverRow({
   sparkline7d,
   icon,
   detail,
+  nullHint = "Tap to check in",
+  nullHintActionable = true,
   expanded,
   onToggle,
 }: DriverRowProps) {
@@ -208,7 +215,13 @@ export function DriverRow({
               </span>
             )}
             {isNull ? (
-              <span className="text-[10px] font-semibold text-primary">Tap to check in</span>
+              <span
+                className={`text-[10px] font-semibold ${
+                  nullHintActionable ? "text-primary" : "text-muted-foreground/60"
+                }`}
+              >
+                {nullHint}
+              </span>
             ) : (
               <DeltaPill delta={delta} />
             )}

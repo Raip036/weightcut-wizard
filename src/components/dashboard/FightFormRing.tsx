@@ -687,7 +687,7 @@ export function FightFormRing({
                     keeps the text a fixed width, so it stays dead-centre. */}
                 <span
                   key={`phrase-${phraseIdx}`}
-                  className="flex h-3.5 max-w-full items-center justify-center whitespace-nowrap text-[10px] leading-none tracking-wide ff-ring-calib-phrase"
+                  className="flex h-3.5 max-w-full items-center justify-center whitespace-nowrap text-[8.5px] leading-none tracking-tight ff-ring-calib-phrase"
                 >
                   <span className="ff-ring-calib-scan">{CALIB_PHRASES[phraseIdx]}</span>
                 </span>

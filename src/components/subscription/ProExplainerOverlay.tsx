@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useClearStuckPointerEvents } from "@/hooks/useClearStuckPointerEvents";
 import { triggerHapticSelection } from "@/lib/haptics";
 import { ProUpsellScreen } from "./ProUpsellScreen";
 
@@ -37,6 +38,9 @@ export function ProExplainerOverlay({
   dismissLabel,
 }: ProExplainerOverlayProps) {
   const { openPaywall } = useSubscription();
+  // Clear any stuck `body { pointer-events: none }` left by a badly-closed
+  // Radix/vaul overlay so this full-screen overlay's buttons aren't frozen.
+  useClearStuckPointerEvents();
 
   useEffect(() => {
     if (!open) return;
@@ -55,7 +59,8 @@ export function ProExplainerOverlay({
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-[10000] h-screen-safe overflow-y-auto overscroll-contain bg-background"
+          className="fixed inset-0 z-[10000] h-screen-safe overflow-y-auto overscroll-contain bg-background pointer-events-auto"
+          style={{ pointerEvents: "auto" }}
           role="dialog"
           aria-modal="true"
           initial={{ opacity: 0 }}

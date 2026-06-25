@@ -11,11 +11,11 @@
 // page owns the data fetch, the approach selector local state, and the
 // regenerate action.
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import { useUser } from "@/contexts/UserContext";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useSafeDismiss } from "@/hooks/useSafeDismiss";
 import { triggerHapticSelection } from "@/lib/haptics";
 import { toast } from "sonner";
 import { ProUpsellScreen } from "@/components/subscription/ProUpsellScreen";
@@ -73,7 +73,7 @@ const FEEL_CHECK_METRICS: ReadonlyArray<FeelCheckMetric> = [
 export default function WeightProtocol() {
   const { userId, profile } = useUser();
   const { isPremium: subIsPremium, openPaywall, isSubscriptionResolved } = useSubscription();
-  const navigate = useNavigate();
+  const dismiss = useSafeDismiss();
   // DEV-ONLY: drop the Pro gate on the dev server so the full protocol +
   // rehydration output is visible while iterating on the UI. `import.meta.env.DEV`
   // is false in production builds, so the paywall stays intact in prod.
@@ -252,7 +252,7 @@ export default function WeightProtocol() {
           triggerHapticSelection();
           openPaywall();
         }}
-        onDismiss={() => navigate(-1)}
+        onDismiss={dismiss}
       />
     );
   }
