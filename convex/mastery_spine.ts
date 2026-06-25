@@ -3,6 +3,7 @@ import { internalMutation, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireUserId } from "./lib/auth";
+import { resolveActiveCampId } from "./fight_camp";
 
 /**
  * Mastery Spine — public surface for the 3-land mastery mechanic.
@@ -71,6 +72,7 @@ export const markLanded = mutation({
       await ctx.scheduler.runAfter(0, internal.user_discipline_xp.awardXp, {
         userId,
         sport: row.discipline,
+        campId: row.campId,
         amount: LAND_XP,
         reason: "sparring_land",
       });
@@ -82,12 +84,13 @@ export const markLanded = mutation({
     // Only check when THIS land just mastered the row.
     let cycleComplete = false;
     if (mastered) {
-      // Use the by_user_discipline index; narrow to graduated+non-mastered in JS
-      // (bounded .take avoids full-table scan — typical discipline has <20 rows).
+      // Scope the sibling scan to THIS row's camp so a technique still pending
+      // in another camp can't keep the current camp's cycle from completing.
+      // Bounded .take avoids a full-table scan — typical discipline has <20 rows.
       const siblings = await ctx.db
         .query("sparring_assignments")
-        .withIndex("by_user_discipline", (q) =>
-          q.eq("userId", userId).eq("discipline", row.discipline),
+        .withIndex("by_user_camp_discipline", (q) =>
+          q.eq("userId", userId).eq("campId", row.campId).eq("discipline", row.discipline),
         )
         .take(100);
 
@@ -104,6 +107,7 @@ export const markLanded = mutation({
           await ctx.scheduler.runAfter(0, internal.user_discipline_xp.awardXp, {
             userId,
             sport: row.discipline,
+            campId: row.campId,
             amount: 50,
             reason: "cycle_complete",
           });
@@ -133,15 +137,23 @@ export const markLanded = mutation({
  * Caller can treat any row with `masteredAt != null` as genuinely mastered.
  */
 export const getMasteredTechniques = query({
-  args: {},
-  handler: async (ctx): Promise<Doc<"sparring_assignments">[]> => {
+  args: { campId: v.optional(v.id("fight_camps")) },
+  handler: async (ctx, { campId }): Promise<Doc<"sparring_assignments">[]> => {
     const userId = await requireUserId(ctx);
 
-    const rows = await ctx.db
-      .query("sparring_assignments")
-      .withIndex("by_user_mastered", (q) => q.eq("userId", userId))
-      .order("desc")
-      .take(50);
+    const rows = campId
+      ? await ctx.db
+          .query("sparring_assignments")
+          .withIndex("by_user_camp_mastered", (q) =>
+            q.eq("userId", userId).eq("campId", campId),
+          )
+          .order("desc")
+          .take(50)
+      : await ctx.db
+          .query("sparring_assignments")
+          .withIndex("by_user_mastered", (q) => q.eq("userId", userId))
+          .order("desc")
+          .take(50);
 
     // Filter out rows that have no masteredAt (undefined sorts before numbers
     // in desc order, so they appear at the end — we strip them here).
@@ -181,18 +193,29 @@ export type MasteryFlowEntry = {
  *   - Mission items loaded in parallel per mission.
  */
 export const getMasteryFlow = query({
-  args: {},
-  handler: async (ctx): Promise<MasteryFlowEntry[]> => {
+  args: { campId: v.optional(v.id("fight_camps")) },
+  handler: async (ctx, { campId }): Promise<MasteryFlowEntry[]> => {
     const userId = await requireUserId(ctx).catch(() => null as unknown as Id<"users">);
     if (!userId) return [];
 
     // ── 1. Active missions (status "active") with items inline ─────────────
-    const activeMissions = await ctx.db
-      .query("training_missions")
-      .withIndex("by_user_status", (q) =>
-        q.eq("userId", userId).eq("status", "active"),
-      )
-      .collect();
+    // When a camp is supplied, scope to that camp (by_user_camp) and keep only
+    // active missions; otherwise read all active missions for the user.
+    const activeMissions = campId
+      ? (
+          await ctx.db
+            .query("training_missions")
+            .withIndex("by_user_camp", (q) =>
+              q.eq("userId", userId).eq("campId", campId),
+            )
+            .collect()
+        ).filter((m) => m.status === "active")
+      : await ctx.db
+          .query("training_missions")
+          .withIndex("by_user_status", (q) =>
+            q.eq("userId", userId).eq("status", "active"),
+          )
+          .collect();
 
     // Load items per mission in parallel, sorted by position.
     const missionsWithItems: MissionWithItems[] = await Promise.all(
@@ -210,12 +233,19 @@ export const getMasteryFlow = query({
     missionsWithItems.sort((a, b) => b.lastActivityAt - a.lastActivityAt);
 
     // ── 2. Non-mastered graduated assignments ──────────────────────────────
-    // Use the by_user index — bounded read since a typical user has <100
-    // assignments total. Narrow to graduated + unmastered in JS.
-    const allAssignments = await ctx.db
-      .query("sparring_assignments")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .take(200);
+    // Use the by_user(_camp) index — bounded read since a typical user has
+    // <100 assignments total. Narrow to graduated + unmastered in JS.
+    const allAssignments = campId
+      ? await ctx.db
+          .query("sparring_assignments")
+          .withIndex("by_user_camp", (q) =>
+            q.eq("userId", userId).eq("campId", campId),
+          )
+          .take(200)
+      : await ctx.db
+          .query("sparring_assignments")
+          .withIndex("by_user", (q) => q.eq("userId", userId))
+          .take(200);
 
     const activeAssignments = allAssignments.filter(
       (a) => a.source === "graduated" && a.masteredAt == null,
@@ -291,10 +321,17 @@ export const startGenerationJob = internalMutation({
     kind: generationKind,
   },
   handler: async (ctx, { userId, discipline, kind }): Promise<null> => {
+    // Scope the marker to the active camp so two camps don't share a single
+    // "generating…" row. Uses the camp-scoped triple index.
+    const campId = await resolveActiveCampId(ctx, userId);
     const existing = await ctx.db
       .query("mastery_generation_jobs")
-      .withIndex("by_user_discipline_kind", (q) =>
-        q.eq("userId", userId).eq("discipline", discipline).eq("kind", kind),
+      .withIndex("by_user_camp_discipline_kind", (q) =>
+        q
+          .eq("userId", userId)
+          .eq("campId", campId)
+          .eq("discipline", discipline)
+          .eq("kind", kind),
       )
       .take(1);
 
@@ -304,6 +341,7 @@ export const startGenerationJob = internalMutation({
     } else {
       await ctx.db.insert("mastery_generation_jobs", {
         userId,
+        campId,
         discipline,
         kind,
         startedAt: now,
@@ -326,10 +364,17 @@ export const endGenerationJob = internalMutation({
     kind: generationKind,
   },
   handler: async (ctx, { userId, discipline, kind }): Promise<null> => {
+    // Clear the marker for the active camp's (discipline, kind). Sweep the
+    // camp-scoped index defensively (at most one row expected).
+    const campId = await resolveActiveCampId(ctx, userId);
     const rows = await ctx.db
       .query("mastery_generation_jobs")
-      .withIndex("by_user_discipline_kind", (q) =>
-        q.eq("userId", userId).eq("discipline", discipline).eq("kind", kind),
+      .withIndex("by_user_camp_discipline_kind", (q) =>
+        q
+          .eq("userId", userId)
+          .eq("campId", campId)
+          .eq("discipline", discipline)
+          .eq("kind", kind),
       )
       .take(100);
 
@@ -349,19 +394,27 @@ export const endGenerationJob = internalMutation({
  * hang forever.
  */
 export const getGenerationStatus = query({
-  args: {},
+  args: { campId: v.optional(v.id("fight_camps")) },
   handler: async (
     ctx,
+    { campId },
   ): Promise<Array<{ discipline: string; kind: "drills" | "sparring" }>> => {
     const userId = await requireUserId(ctx).catch(
       () => null as unknown as Id<"users">,
     );
     if (!userId) return [];
 
-    const rows = await ctx.db
-      .query("mastery_generation_jobs")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .take(100);
+    const rows = campId
+      ? await ctx.db
+          .query("mastery_generation_jobs")
+          .withIndex("by_user_camp_discipline_kind", (q) =>
+            q.eq("userId", userId).eq("campId", campId),
+          )
+          .take(100)
+      : await ctx.db
+          .query("mastery_generation_jobs")
+          .withIndex("by_user", (q) => q.eq("userId", userId))
+          .take(100);
 
     const cutoff = Date.now() - STALE_MS;
     return rows

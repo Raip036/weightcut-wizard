@@ -3,6 +3,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { disciplineToken, disciplineLabel } from "@/lib/coachColors";
+import { deriveFocusDiscipline } from "./recapFocus";
 
 // ─── ISO week helper (ported from WeeklyTimeline.tsx) ───────────────────────
 function isoWeekNumber(weekStartDate: string): number {
@@ -90,7 +91,7 @@ export function PastWeekCard({ weekStart, summaryData, isSelected, onSelectWeek,
   const previewText = headline ?? topTechnique ?? null;
 
   // Discipline chip
-  const topDiscipline = stats?.topDiscipline ?? "";
+  const topDiscipline = deriveFocusDiscipline(debrief?.takeaways, stats?.topDiscipline ?? "");
   const token = disciplineToken(topDiscipline);
   const label = topDiscipline ? disciplineLabel(topDiscipline) : null;
 

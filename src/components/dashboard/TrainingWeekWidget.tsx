@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { format, startOfWeek, endOfWeek, subWeeks } from "date-fns";
+import { format, startOfWeek, endOfWeek } from "date-fns";
 import { Icon } from "@/components/ui/Icon";
 import { useQuery } from "convex/react";
 import { convex } from "@/integrations/convex/client";
@@ -196,32 +196,6 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
     setLoading(false);
   }, [userId, liveCalendar]);
 
-  // Previous-week totals, fetched once per userId, separate from the current
-  // week so we don't disturb the existing caching pipeline. Compact-only.
-  const [prevWeekTotals, setPrevWeekTotals] = useState<{ sessions: number; minutes: number } | null>(null);
-  useEffect(() => {
-    if (!userId || !compact) return;
-    let cancelled = false;
-    const now = new Date();
-    const prevWs = startOfWeek(subWeeks(now, 1), { weekStartsOn: 1 });
-    const prevWe = endOfWeek(subWeeks(now, 1), { weekStartsOn: 1 });
-    (async () => {
-      try {
-        const raw = (await convex.query(api.fight_camp.listCalendar, {
-          from: format(prevWs, "yyyy-MM-dd"),
-          to: format(prevWe, "yyyy-MM-dd"),
-        })) ?? [];
-        if (cancelled) return;
-        const items = (raw as any[]).filter((r) => r.sessionType !== "Rest");
-        const minutes = items.reduce((s, r) => s + (r.durationMinutes ?? 0), 0);
-        setPrevWeekTotals({ sessions: items.length, minutes });
-      } catch {
-        // Non-critical, leave delta unrendered
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [userId, compact]);
-
   // Build day-of-week map (Mon=0..Sun=6)
   const dayMap = new Map<number, WeekSession[]>();
   const ws = startOfWeek(new Date(), { weekStartsOn: 1 });
@@ -243,15 +217,6 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
   const animatedSessions = useCountUp(totalSessions);
   const totalDisplayRaw = totalMinutes >= 60 ? Math.round(totalMinutes / 60) : totalMinutes;
   const animatedTotal = useCountUp(totalDisplayRaw);
-
-  // Delta vs previous week (in same unit as the displayed total)
-  const deltaMin = prevWeekTotals ? totalMinutes - prevWeekTotals.minutes : null;
-  const deltaDisplay = deltaMin == null
-    ? null
-    : (totalMinutes >= 60 || (prevWeekTotals?.minutes ?? 0) >= 60)
-      ? Math.round(deltaMin / 60)
-      : deltaMin;
-  const deltaUnitSuffix = totalMinutes >= 60 ? "h" : "m";
 
   // Type breakdown for the ring segments
   const typeCounts = new Map<string, number>();
@@ -350,20 +315,6 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
             <span className="text-[10px] text-muted-foreground font-medium">
               {totalMinutes >= 60 ? "hrs" : "min"}
             </span>
-            {/* Week-over-week delta sits in line with the hours value: the
-                bottom-right footer used elsewhere gets clipped under this
-                card's aspect-square + overflow-hidden. */}
-            {deltaMin != null && deltaDisplay != null && (
-              deltaMin === 0 ? (
-                <span className="ml-auto text-micro font-semibold tabular-nums leading-none text-muted-foreground/70">
-                  ±0{deltaUnitSuffix}
-                </span>
-              ) : (
-                <span className={`ml-auto text-micro font-semibold tabular-nums leading-none ${deltaMin > 0 ? "text-func-recovery-green" : "text-func-danger-red"}`}>
-                  {deltaMin > 0 ? "+" : "−"}{Math.abs(deltaDisplay)}{deltaUnitSuffix}
-                </span>
-              )
-            )}
           </div>
         </div>
 

@@ -87,12 +87,10 @@ function DrillChips({
     <div className="flex gap-2 mt-2">
       {typeLabel != null ? (
         <span
-          className="inline-flex items-center justify-center text-[10px] font-semibold tracking-wide rounded-[7px] border py-1"
+          className="inline-flex items-center text-[10px] font-semibold tracking-wide py-1"
           style={{
             width: 78,
             color: `hsl(var(${token}))`,
-            backgroundColor: `hsl(var(${token}) / 0.08)`,
-            borderColor: `hsl(var(${token}) / 0.22)`,
           }}
         >
           {typeLabel}
@@ -103,12 +101,8 @@ function DrillChips({
       )}
       {timeLabel != null && (
         <span
-          className="inline-flex items-center justify-center text-[10px] font-semibold tracking-wide rounded-[7px] border py-1 text-muted-foreground"
-          style={{
-            width: 66,
-            backgroundColor: "hsla(0,0%,100%,0.04)",
-            borderColor: "rgba(255,255,255,0.08)",
-          }}
+          className="inline-flex items-center text-[10px] font-semibold tracking-wide py-1 text-muted-foreground"
+          style={{ width: 66 }}
         >
           {timeLabel}
         </span>
@@ -214,7 +208,12 @@ function TickRow({
  * final unchecked item fires a full-screen completion celebration.
  */
 export function MissionCard({ mission, expanded, onToggle, onAllMissionsComplete }: MissionCardProps) {
+  // Discipline accent — used ONLY for the discipline name label. Every other
+  // accent on the card (level ring, progress bar, checkboxes, chips, XP) uses
+  // the wizard-blue primary so the card reads as one calm blue system and only
+  // the martial-art name carries its discipline colour.
   const token = disciplineToken(mission.sport);
+  const accent = "--primary";
   const label = disciplineLabel(mission.sport);
   const prefersReduced = useReducedMotion();
 
@@ -263,8 +262,12 @@ export function MissionCard({ mission, expanded, onToggle, onAllMissionsComplete
   // Per-discipline XP, drives the LevelRing on the card header. Lives behind a
   // dedicated query so the header still renders instantly when this comes back
   // `undefined` (initial load); we just show level 1 / progress 0 in that case.
+  // Scope to the mission's OWN camp — XP is stored per (user, camp, sport), so
+  // a no-arg read returns the earliest camp's row, not this mission's. Legacy
+  // missions without a campId fall back to the unscoped (pre-per-camp) row.
   const disciplineXp = useQuery(api.user_discipline_xp.getForSport, {
     sport: mission.sport,
+    campId: mission.campId,
   });
   const xpLevel = disciplineXp?.level ?? 1;
   const xpProgress = disciplineXp?.progress ?? 0;
@@ -352,7 +355,7 @@ export function MissionCard({ mission, expanded, onToggle, onAllMissionsComplete
           {/* Level ring: renders with level 1 / progress 0 while the
               per-sport XP query is loading. */}
           <LevelRing
-            token={token}
+            token={accent}
             level={xpLevel}
             progress={xpProgress}
             size={44}
@@ -382,7 +385,7 @@ export function MissionCard({ mission, expanded, onToggle, onAllMissionsComplete
             style={{
               color:
                 doneCount > 0
-                  ? `hsl(var(${token}))`
+                  ? `hsl(var(${accent}))`
                   : "hsl(var(--muted-foreground))",
             }}
           >
@@ -405,7 +408,7 @@ export function MissionCard({ mission, expanded, onToggle, onAllMissionsComplete
           <div className="h-1 rounded-full bg-muted/40 overflow-hidden">
             <motion.div
               className="h-full rounded-full"
-              style={{ background: `hsl(var(${token}))` }}
+              style={{ background: `hsl(var(${accent}))` }}
               animate={{ width: `${progressPct}%` }}
               transition={{ duration: prefersReduced ? 0 : 0.5 }}
             />
@@ -423,7 +426,7 @@ export function MissionCard({ mission, expanded, onToggle, onAllMissionsComplete
                 <li key={item._id}>
                   <TickRow
                     item={item}
-                    token={token}
+                    token={accent}
                     disabled={pending === item._id}
                     onTick={handleTick}
                   />
@@ -467,7 +470,7 @@ export function MissionCard({ mission, expanded, onToggle, onAllMissionsComplete
           >
             <CompleteCelebration
               prefersReduced={prefersReduced}
-              accentToken={token}
+              accentToken={accent}
               xp={completionAward.xpAwarded}
               eyebrow={completionAward.leveledUp ? "Level up" : "Mission complete"}
               title={

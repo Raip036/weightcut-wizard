@@ -45,11 +45,7 @@ export function StageIndicator({ phase, accentToken }: StageIndicatorProps) {
       {/* Stage 1: Drill */}
       <div
         className={`flex items-center gap-[5px] whitespace-nowrap text-[10px] font-bold uppercase tracking-[0.05em]${transition ? ` ${transition}` : ""}`}
-        style={
-          drillCleared
-            ? { color: "#23C599" }
-            : { color: accentFull }
-        }
+        style={{ color: accentFull }}
       >
         {drillCleared ? (
           <>
@@ -74,11 +70,9 @@ export function StageIndicator({ phase, accentToken }: StageIndicatorProps) {
       <div
         className={`flex items-center gap-[5px] whitespace-nowrap text-[10px] font-bold uppercase tracking-[0.05em]${transition ? ` ${transition}` : ""}`}
         style={
-          sparCleared
-            ? { color: "#23C599" }
-            : sparActive
-              ? { color: accentFull }
-              : { color: "hsl(var(--muted-foreground) / 0.7)" }
+          sparCleared || sparActive
+            ? { color: accentFull }
+            : { color: "hsl(var(--muted-foreground) / 0.7)" }
         }
       >
         {sparCleared ? (

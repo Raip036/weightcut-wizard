@@ -22,7 +22,6 @@ import { celebrateSuccess, triggerHaptic, triggerHapticSelection } from "@/lib/h
 import { ImpactStyle } from "@capacitor/haptics";
 import { logger } from "@/lib/logger";
 import { seedDemoData } from "@/lib/demoData";
-import { presentPaywallIfNeeded } from "@/lib/purchases";
 import { Capacitor } from "@capacitor/core";
 import { AnimatePresence, motion } from "motion/react";
 import { springs } from "@/lib/motion";
@@ -325,10 +324,6 @@ export default function Onboarding() {
   const { toast } = useToast();
   const generateCutPlanAction = useAction(api.actions.generateCutPlan.run);
   const generateWeightPlanAction = useAction(api.actions.generateWeightPlan.run);
-  // Server-verified premium activation. Only called when the paywall returns
-  // PURCHASED / RESTORED, never on dismiss. Action hits RC REST server-side
-  // and refuses to flip the profile unless RC confirms entitlement.
-  const activatePremiumAction = useAction(api.actions.activatePremium.run);
   const updateGoalsMut = useMutation(api.profiles.updateGoals);
   // Auto-creates a fight_camps row when the fighter flow finishes so the user
   // has a real camp record to reuse for future "Start next camp" flows
@@ -979,29 +974,11 @@ export default function Onboarding() {
         }
       })();
 
-      // 3. Show the RevenueCat paywall in parallel with generation. The user
-      //    only sees the inline pill on the chart page; no full-screen takeover.
-      if (Capacitor.isNativePlatform()) {
-        try {
-          const result = await presentPaywallIfNeeded();
-          // Strict gate: only flip premium when the user actually paid OR
-          // restored. Dismiss (CANCELLED / ERROR / NOT_PRESENTED) leaves the
-          // user on the free tier; their plan still generates from the AI
-          // call above. The action verifies entitlement against RC's REST
-          // API server-side, so a "PURCHASED" result with no real Apple
-          // transaction would still be rejected.
-          if (result?.paywallResult === "PURCHASED" || result?.paywallResult === "RESTORED") {
-            try {
-              await activatePremiumAction({});
-            } catch (activateErr) {
-              logger.warn("Onboarding: activatePremium did not confirm entitlement", {
-                error: activateErr instanceof Error ? activateErr.message : String(activateErr),
-              });
-            }
-          }
-          await refreshProfile();
-        } catch (err) { logger.warn("Paywall presentation error", { err: String(err) }); }
-      }
+      // 3. NO paywall here. The onboarding paywall used to fire during
+      //    generation (before the user saw any value, the worst timing). The
+      //    upsell now lives at the value peak: the post-onboarding soft paywall
+      //    shown when the user closes /cut-plan after reviewing their free plan
+      //    (see CutPlanReview.tsx). The free starter plan still generates below.
 
       // 4. Await the plan. The inline pill stays visible until it resolves.
       const planPayload = await planPromise;

@@ -115,6 +115,11 @@ export default defineSchema({
     // localStorage lock that suppressed the tutorial for new accounts on a
     // device that had been used before.
     onboardingTutorialShownAt: v.optional(v.number()),
+    // Epoch ms the post-onboarding soft paywall was shown for this account.
+    // Server-authoritative so the upsell fires exactly once per account (fired
+    // when the user closes /cut-plan after reviewing their free starter plan),
+    // independent of device / reinstall. Set via markOnboardingPaywallShown.
+    onboardingPaywallShownAt: v.optional(v.number()),
     // Epoch ms the full-screen "start your next camp" overlay was last shown
     // to a fighter who has no active camp. Drives the 7-day cooldown so the
     // nudge doesn't fire on every cold start. See convex/campCompletion.ts.
@@ -850,6 +855,7 @@ export default defineSchema({
 
   training_missions: defineTable({
     userId: v.id("users"),
+    campId: v.optional(v.id("fight_camps")),
     // Matches `fight_camp_calendar.sessionType` (free-form string in DB).
     sport: v.string(),
     status: v.union(
@@ -893,7 +899,8 @@ export default defineSchema({
   })
     .index("by_user_status", ["userId", "status"])
     .index("by_user_sport_status", ["userId", "sport", "status"])
-    .index("by_user_cycle", ["userId", "cycleId"]),
+    .index("by_user_cycle", ["userId", "cycleId"])
+    .index("by_user_camp", ["userId", "campId"]),
 
   training_mission_items: defineTable({
     missionId: v.id("training_missions"),
@@ -944,10 +951,12 @@ export default defineSchema({
   user_discipline_xp: defineTable({
     userId: v.id("users"),
     sport: v.string(),
+    campId: v.optional(v.id("fight_camps")),
     totalXp: v.number(),
     updatedAt: v.number(),
   })
     .index("by_user_sport", ["userId", "sport"])
+    .index("by_user_camp_sport", ["userId", "campId", "sport"])
     .index("by_user", ["userId"]),
 
   // All-time technique log distilled from weekly recaps. Replaces the
@@ -988,6 +997,7 @@ export default defineSchema({
   // ────────────────────────────────────────────────────────────────────
   sparring_assignments: defineTable({
     userId: v.id("users"),
+    campId: v.optional(v.id("fight_camps")),
     discipline: v.string(),
     technique: v.string(),
     // "<discipline>::<technique>" dedup key (normalizeTechniqueKey).
@@ -1029,7 +1039,11 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_user_discipline", ["userId", "discipline"])
     .index("by_user_norm", ["userId", "techniqueNormalized"])
-    .index("by_user_mastered", ["userId", "masteredAt"]),
+    .index("by_user_mastered", ["userId", "masteredAt"])
+    .index("by_user_camp", ["userId", "campId"])
+    .index("by_user_camp_discipline", ["userId", "campId", "discipline"])
+    .index("by_user_camp_norm", ["userId", "campId", "techniqueNormalized"])
+    .index("by_user_camp_mastered", ["userId", "campId", "masteredAt"]),
 
   // ────────────────────────────────────────────────────────────────────
   // MASTERY GENERATION JOBS
@@ -1044,12 +1058,14 @@ export default defineSchema({
   // loader hang forever.
   mastery_generation_jobs: defineTable({
     userId: v.id("users"),
+    campId: v.optional(v.id("fight_camps")),
     discipline: v.string(),
     kind: v.union(v.literal("drills"), v.literal("sparring")),
     startedAt: v.number(),
   })
     .index("by_user", ["userId"])
-    .index("by_user_discipline_kind", ["userId", "discipline", "kind"]),
+    .index("by_user_discipline_kind", ["userId", "discipline", "kind"])
+    .index("by_user_camp_discipline_kind", ["userId", "campId", "discipline", "kind"]),
 
   // ────────────────────────────────────────────────────────────────────
   // SKILL TREE

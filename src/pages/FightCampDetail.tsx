@@ -20,6 +20,7 @@ import { logger } from "@/lib/logger";
 import { useSafeAsync } from "@/hooks/useSafeAsync";
 import { ShareCardDialog } from "@/components/share/ShareCardDialog";
 import { FightCampSummaryCard } from "@/components/share/cards/FightCampSummaryCard";
+import { CampTrophyCase } from "@/components/fightcamp/CampTrophyCase";
 
 interface FightCamp {
   id: string;
@@ -305,6 +306,10 @@ export default function FightCampDetail() {
       </header>
 
       <div className="space-y-6">
+        {/* Per-camp XP + mastery badges (read-only). Stats load only here on
+            the detail route — never on the camp list page. */}
+        {id && <CampTrophyCase campId={id as Id<"fight_camps">} />}
+
         {/* WEIGHT CUT group */}
         <SettingsGroup title="Weight cut">
           <SettingsRow

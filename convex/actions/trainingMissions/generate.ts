@@ -570,6 +570,14 @@ export const generateMissionIfReady = internalAction({
     // ── Step 6: Shared cycleId for the whole batch ──────────────────────
     const cycleId = `${sport}:${Date.now()}`;
 
+    // Active camp for this generation — dedup must be camp-scoped so a
+    // technique earned in a prior camp doesn't suppress a fresh mission in
+    // the current one. The mission insert resolves its own campId server-side.
+    const activeCampId = await ctx.runQuery(
+      internal.fight_camp.getActiveCampIdInternal,
+      { userId },
+    );
+
     // ── Step 7: Per-issue dedupe + generate ─────────────────────────────
     const sourceSessionIds = noteRows.map(
       (r: { _id: Id<"fight_camp_calendar"> }) => r._id,
@@ -606,7 +614,7 @@ export const generateMissionIfReady = internalAction({
       //     fresh journey.
       const existingAssignment = await ctx.runQuery(
         internal.sparring_plan.findAssignmentByNorm,
-        { userId, techniqueNormalized: normKey },
+        { userId, techniqueNormalized: normKey, campId: activeCampId ?? undefined },
       );
       if (existingAssignment && !existingAssignment.masteredAt) {
         auditIssues.push({ technique: rawTechnique, normalized: normKey, skippedReason: "non_mastered_assignment_exists" });

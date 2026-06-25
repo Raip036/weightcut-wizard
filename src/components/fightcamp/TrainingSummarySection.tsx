@@ -17,6 +17,7 @@ import { useAITask } from "@/contexts/AITaskContext";
 import { ProtocolGeneratingOverlay } from "@/components/protocol/ProtocolGeneratingOverlay";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { WeeklyRecap, type RecapDebrief } from "./WeeklyRecap";
+import { deriveFocusDiscipline } from "./recapFocus";
 import { TechniqueLog } from "./TechniqueLog";
 import { PastWeekList } from "./PastWeekCard";
 import { ShimmerCrownBadge } from "@/components/subscription/ShimmerCrownBadge";
@@ -526,12 +527,13 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                                         ? `Week of ${format(ws, "MMM d")}–${format(we, "d")}`
                                         : `Week of ${format(ws, "MMM d")}–${format(we, "MMM d")}`;
                                     const { sessionsLogged, totalMinutes, topDiscipline, avgRpe, avgSleepHours } = newSummary.stats;
+                                    const focusDiscipline = deriveFocusDiscipline(newSummary.debrief?.takeaways, topDiscipline);
                                     const extraStat = avgRpe !== undefined
                                         ? ` · RPE ${avgRpe.toFixed(1)}`
                                         : avgSleepHours !== undefined
                                             ? ` · ${avgSleepHours.toFixed(1)}h sleep`
                                             : "";
-                                    const statLine = `${sessionsLogged} session${sessionsLogged !== 1 ? "s" : ""} · ${totalMinutes} min · ${topDiscipline || "Mixed"}${extraStat}`;
+                                    const statLine = `${sessionsLogged} session${sessionsLogged !== 1 ? "s" : ""} · ${totalMinutes} min · ${focusDiscipline || "Mixed"}${extraStat}`;
                                     return (
                                         <div className="space-y-0.5">
                                             <p className="text-micro uppercase tracking-wider text-muted-foreground/70 font-bold">

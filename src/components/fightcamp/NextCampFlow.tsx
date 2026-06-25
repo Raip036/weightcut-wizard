@@ -14,6 +14,7 @@ import { useUser } from "@/contexts/UserContext";
 import { useToast } from "@/hooks/use-toast";
 import { triggerHapticSelection, celebrateSuccess } from "@/lib/haptics";
 import { logger } from "@/lib/logger";
+import { armReviewPending } from "@/lib/appReview";
 import { WizardCharacter } from "@/tutorial/WizardCharacter";
 import { NewCampWelcomeCutscene } from "./NewCampWelcomeCutscene";
 import { WrapUpStepper, type WrapUpValues } from "./WrapUpStepper";
@@ -234,6 +235,9 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
             ? { totalWeightCut: +breakdownTotal.toFixed(1) }
             : {}),
         });
+        // Win moment: an engaged (non-skipped) wrap-up. Arm the review card to
+        // show on the next Dashboard visit (eligibility checked inside).
+        armReviewPending();
       } else {
         await completeCampMut({ id: activeCamp._id });
       }

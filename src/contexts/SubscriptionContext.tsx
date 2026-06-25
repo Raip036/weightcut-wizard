@@ -6,6 +6,7 @@ import {
   addCustomerInfoUpdateListener,
   isPremiumFromCustomerInfo,
   getCustomerInfo,
+  getEntitlementDisplayInfo,
 } from "@/lib/purchases";
 import { useAction, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -71,6 +72,11 @@ interface SubscriptionContextType {
    *  fields are populated by the server (the trial UX ships in a later PR). */
   isInTrial: boolean;
   trialEndsAt: Date | null;
+  /** RC display-only signals for the trial banner (native; null on web/dev).
+   *  `willRenew` false = the user cancelled auto-renew (the "save" moment).
+   *  `isTrialActive` = RC reports the entitlement is in its trial/intro phase. */
+  willRenew: boolean | null;
+  isTrialActive: boolean;
   isPaywallOpen: boolean;
   isSubscriptionResolved: boolean;
   openPaywall: () => void;
@@ -116,6 +122,11 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const [showProEnded, setShowProEnded] = useState(false);
   // `false` until profile has resolved at least once (undefined = loading, null/obj = resolved)
   const [isSubscriptionResolved, setIsSubscriptionResolved] = useState(false);
+  // RC display-only renewal context for the trial banner. Captured from
+  // `customerInfo` reads (cold-start reconcile, resume reconcile, RC listener).
+  // DISPLAY ONLY — never gates entitlement. Stays null on web/dev (no RC).
+  const [rcWillRenew, setRcWillRenew] = useState<boolean | null>(null);
+  const [rcPeriodType, setRcPeriodType] = useState<string | null>(null);
 
   // One-time cleanup of legacy localStorage on every mount.
   useEffect(() => {
@@ -154,6 +165,11 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     lastVerifyAtRef.current = Date.now();
     try {
       const info = await getCustomerInfo();
+      if (info) {
+        const display = getEntitlementDisplayInfo(info);
+        setRcWillRenew(display.willRenew);
+        setRcPeriodType(display.periodType);
+      }
       if (info && isPremiumFromCustomerInfo(info)) {
         try {
           await activatePremium({});
@@ -205,6 +221,13 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const trialEndsAtMs = parseTrialEndsAt((profile as ProfileSubscriptionShape)?.trial_ends_at);
   const trialEndsAt = trialEndsAtMs !== null ? new Date(trialEndsAtMs) : null;
   const isInTrial = trialEndsAtMs !== null && trialEndsAtMs > Date.now();
+
+  // RC display-only signals (native). `willRenew` exposes auto-renew state for
+  // the trial banner; `isTrialActive` reflects RC's trial/intro billing phase
+  // and is the reliable trial indicator (the device-clock `trial_ends_at` may
+  // be unpopulated). Both are for UI copy only and never affect entitlement.
+  const willRenew = rcWillRenew;
+  const isTrialActive = rcPeriodType === "trial" || rcPeriodType === "intro";
 
   const wasPremiumRef = useRef(isPremium);
 
@@ -293,7 +316,15 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       //     REST verification) or the RC server-to-server webhook.
       //   - This handler's only job is to call `refreshProfile()` so the
       //     reactive `useQuery(api.profiles.getMine)` re-fetches the row.
-      const cleanup = await addCustomerInfoUpdateListener(async () => {
+      const cleanup = await addCustomerInfoUpdateListener(async (info: unknown) => {
+        // Capture display-only renewal context for the trial banner. This does
+        // NOT grant premium (see the strict policy above) — it only updates UI
+        // copy signals. Tier still flows solely from the reactive profile.
+        if (info) {
+          const display = getEntitlementDisplayInfo(info);
+          setRcWillRenew(display.willRenew);
+          setRcPeriodType(display.periodType);
+        }
         await refreshProfile();
       });
       removeListener = cleanup;
@@ -366,6 +397,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       expiresAt,
       isInTrial,
       trialEndsAt,
+      willRenew,
+      isTrialActive,
       isPaywallOpen,
       isSubscriptionResolved,
       openPaywall,
@@ -386,6 +419,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       expiresAtMs,
       isInTrial,
       trialEndsAtMs,
+      willRenew,
+      isTrialActive,
       isPaywallOpen,
       isSubscriptionResolved,
       openPaywall,

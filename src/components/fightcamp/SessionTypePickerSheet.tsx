@@ -158,13 +158,14 @@ export function SessionTypePickerSheet({
               <p className="text-[9.5px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/55 px-0.5">
                 {cat.label}
               </p>
-              <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {cat.options.map((opt) => (
                   <SessionTypePill
                     key={opt}
                     type={opt}
                     active={sessionType === opt}
                     onPick={pickPrimary}
+                    block
                   />
                 ))}
 
@@ -177,6 +178,7 @@ export function SessionTypePickerSheet({
                           active={sessionType === type}
                           onPick={pickPrimary}
                           extraPadRight
+                          block
                         />
                         <button
                           type="button"
@@ -195,13 +197,14 @@ export function SessionTypePickerSheet({
                         legacy
                         active
                         onPick={() => { /* already selected */ }}
+                        block
                       />
                     )}
                     <button
                       type="button"
                       onClick={() => setIsAddingNew(!isAddingNew)}
                       aria-label="Add custom martial art"
-                      className="h-10 w-10 rounded-full bg-muted/40 dark:bg-white/[0.06] border border-border/30 flex items-center justify-center active:scale-[0.96] transition-transform"
+                      className="h-10 w-full rounded-full bg-muted/40 dark:bg-white/[0.06] border border-border/30 flex items-center justify-center active:scale-[0.96] transition-transform"
                     >
                       <Plus className="h-4 w-4 text-foreground/70" strokeWidth={2.4} />
                     </button>
@@ -239,7 +242,7 @@ export function SessionTypePickerSheet({
               <p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/60">
                 Activity <span className="text-muted-foreground/40 normal-case tracking-normal">· optional</span>
               </p>
-              <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <SessionTagChip
                   label="None"
                   active={!sessionTag}
@@ -249,7 +252,6 @@ export function SessionTypePickerSheet({
                   <SessionTagChip
                     key={t.id}
                     label={t.id}
-                    iconName={t.icon as IonIconName}
                     active={sessionTag === t.id}
                     onPick={() => { setSessionTag(t.id); triggerHapticSelection(); }}
                   />
@@ -283,6 +285,7 @@ function SessionTypePill({
   onPick,
   legacy = false,
   extraPadRight = false,
+  block = false,
 }: {
   type: string;
   iconName?: IonIconName;
@@ -290,13 +293,17 @@ function SessionTypePill({
   onPick: (type: string) => void;
   legacy?: boolean;
   extraPadRight?: boolean;
+  /** Fill the grid cell (centered). Off = hug content + scroll-snap for the rail. */
+  block?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={() => onPick(type)}
       aria-pressed={active}
-      className={`inline-flex items-center gap-1.5 h-10 px-3.5 rounded-full text-[13px] font-semibold transition-all active:scale-[0.96] shrink-0 snap-start ${
+      className={`inline-flex items-center gap-1.5 h-10 px-3.5 rounded-full text-[13px] font-semibold transition-all active:scale-[0.96] ${
+        block ? "w-full justify-center" : "shrink-0 snap-start"
+      } ${
         active
           ? "bg-primary text-primary-foreground"
           : "bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-foreground/80 hover:bg-muted/60"
@@ -326,12 +333,10 @@ function SessionTypePill({
 // ── Optional activity-tag chip ─────────────────────────────────────────
 function SessionTagChip({
   label,
-  iconName,
   active,
   onPick,
 }: {
   label: string;
-  iconName?: IonIconName;
   active: boolean;
   onPick: () => void;
 }) {
@@ -340,19 +345,12 @@ function SessionTagChip({
       type="button"
       onClick={onPick}
       aria-pressed={active}
-      className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-semibold transition-all active:scale-[0.96] shrink-0 ${
+      className={`inline-flex w-full items-center justify-center h-9 px-3 rounded-full text-[12.5px] font-semibold transition-all active:scale-[0.96] ${
         active
           ? "bg-primary/15 text-primary border border-primary/40"
           : "bg-muted/30 dark:bg-white/[0.04] border border-border/30 text-muted-foreground hover:bg-muted/50"
       }`}
     >
-      {iconName && (
-        <Icon
-          name={iconName}
-          size={12}
-          className={active ? "text-primary" : "text-muted-foreground/70"}
-        />
-      )}
       <span className="leading-none">{label}</span>
     </button>
   );

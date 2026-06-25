@@ -583,7 +583,15 @@ function carbsForDay(
  *  no shift. Used for BOTH the anchor lookup and the carb target so the three
  *  approaches stay meaningful. */
 function approachShiftedDay(daysToWeighIn: number, approach: Approach): number {
-  if (approach === "gradual") return daysToWeighIn + 1;
+  if (approach === "gradual") {
+    // Gradual = a LIGHTER cut: shift the early water-load / carb ramp a day
+    // later so the loading phase is shorter and gentler. But the T-1 FLUSH and
+    // the NIL-water weigh-in morning (T-0) are what actually make weight — a dry
+    // flush day, then nothing on the scale — and must hold for EVERY approach.
+    // Shifting those would drag the full 7.6 L load onto T-1 and leave 1.1 L on
+    // weigh-in morning (no flush at all), so we only shift T-2 and earlier.
+    return daysToWeighIn >= 2 ? daysToWeighIn + 1 : daysToWeighIn;
+  }
   if (approach === "aggressive") return Math.max(0, daysToWeighIn - 1);
   return daysToWeighIn;
 }

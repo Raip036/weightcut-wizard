@@ -61,7 +61,7 @@ export function MedicalDisclaimerBanner({
     return (
       <div
         role="note"
-        className={`flex items-start gap-1.5 rounded-2xl border ${AMBER_BORDER} ${AMBER_TINT} px-2.5 py-1.5 ${className}`}
+        className={`card-surface flex items-start gap-1.5 rounded-2xl border border-border/50 px-2.5 py-1.5 ${className}`}
       >
         <span className={`mt-[1px] shrink-0 ${AMBER_TEXT}`}>
           <ShieldAlert className="h-3.5 w-3.5" aria-hidden />
@@ -79,7 +79,7 @@ export function MedicalDisclaimerBanner({
       // reader the way the red critical alert does.
       role="note"
       aria-label="Medical disclaimer"
-      className={`card-surface rounded-2xl border ${AMBER_BORDER} ${AMBER_TINT} p-2.5 ${className}`}
+      className={`card-surface rounded-2xl border border-border/50 p-2.5 ${className}`}
     >
       <div className="flex items-start gap-2">
         <span className={`mt-[1px] flex shrink-0 ${AMBER_TEXT}`}>

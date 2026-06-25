@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { useReducedMotion } from "motion/react";
+import { ChevronRight } from "lucide-react";
 import { Icon } from "@/components/ui/Icon";
+import { WizardAuroraBackground } from "@/components/onboarding/WizardAuroraBackground";
 import { type CutApproach } from "@/components/protocol/CutApproachSelector";
 
 const APPROACHES: readonly CutApproach[] = ["gradual", "standard", "aggressive"];
@@ -10,13 +12,13 @@ const APPROACHES: readonly CutApproach[] = ["gradual", "standard", "aggressive"]
  * before generation. The athlete's weight, target and profile are already
  * known, so this is just the read + the one Generate action.
  *
- * Numbers are a vertical "spine": a muted start dot up top and a glowing target
- * dot whose row is in line with the big target number, which ticks down from
- * start → target on mount (dynamic, not a static figure). A descending track
- * carries the "drop" so no separate delta label / arrows are needed.
+ * Numbers are shown as a horizontal "Now → Target" row so both values read
+ * at a glance: muted start on the left, blue-accented target on the right,
+ * separated by a chevron. The target ticks down from start → target on mount.
  */
 
 const BLUE = "217 91% 58%";
+const BLUE_HI = "213 94% 64%";
 const hsl = (a = 1) => `hsl(${BLUE} / ${a})`;
 
 function useCountDown(from: number, to: number, run: boolean, ms = 1100): number {
@@ -53,7 +55,6 @@ export function ProtocolPlanIntro({
   onApproachChange: (a: CutApproach) => void;
   onGenerate: () => void;
 }) {
-  const reduced = useReducedMotion();
   const hasNums = startKg > 0 && targetKg != null && targetKg > 0;
   const hero = useCountDown(startKg, targetKg ?? 0, hasNums);
 
@@ -70,67 +71,23 @@ export function ProtocolPlanIntro({
             Chapter 01 · The Plan
           </p>
           <h2 className="text-[22px] font-bold tracking-tight text-foreground leading-tight">
-            Your cut, one chapter at a time.
+            Cut to {targetKg != null ? targetKg.toFixed(1) : "—"} kg
           </h2>
-          <p className="text-[13px] text-muted-foreground leading-snug mt-1.5">
-            A day-by-day taper to weigh-in, then a rehydration plan after the
-            scale. Tuned to your weight, training and weigh-in window.
-          </p>
 
           {hasNums ? (
-            <div className="my-5">
-              {/* start: muted dot in line with the "from" line */}
-              <div className="flex items-center gap-3">
-                <span className="w-3 flex justify-center shrink-0">
-                  <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/50" />
-                </span>
-                <p className="text-[12px] text-muted-foreground/70">
-                  From{" "}
-                  <span className="tabular-nums font-semibold text-muted-foreground">
-                    {startKg.toFixed(1)} kg
-                  </span>
+            <div className="my-5 flex items-end justify-center gap-6">
+              <div className="text-center">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground/60 font-semibold mb-1">Now</p>
+                <p className="display-number text-[32px] font-extrabold tabular-nums text-muted-foreground">
+                  {startKg.toFixed(1)}
                 </p>
               </div>
-
-              {/* connector: sits under the dot centres */}
-              <div
-                className="ml-1.5 w-px h-7 my-1"
-                style={{ background: `linear-gradient(${hsl(0.2)}, ${hsl()})` }}
-              />
-
-              {/* target: glowing dot in line with the big ticking number */}
-              <div className="flex items-center gap-3">
-                <span className="w-3 flex justify-center shrink-0">
-                  <span
-                    className="h-3 w-3 rounded-full"
-                    style={{ background: hsl(), boxShadow: `0 0 10px ${hsl(0.7)}` }}
-                  />
-                </span>
-                <div className="flex items-end gap-1.5">
-                  <span
-                    className="display-number font-extrabold tabular-nums leading-none"
-                    style={{ fontSize: 56, color: hsl() }}
-                  >
-                    {hero.toFixed(1)}
-                  </span>
-                  <span className="text-[18px] font-bold text-muted-foreground mb-1.5">kg</span>
-                </div>
-              </div>
-
-              {/* label + descending track, aligned under the number (dot 12 + gap 12) */}
-              <div className="ml-6 mt-1.5">
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground/60">
-                  Weigh-in target
+              <ChevronRight className="h-5 w-5 mb-2" style={{ color: hsl() }} />
+              <div className="text-center">
+                <p className="text-[10px] uppercase tracking-wide font-semibold mb-1" style={{ color: hsl() }}>Target</p>
+                <p className="display-number text-[32px] font-extrabold tabular-nums text-foreground">
+                  {hero.toFixed(1)}
                 </p>
-                <div className="mt-2 h-1 rounded-full overflow-hidden" style={{ background: hsl(0.12) }}>
-                  <motion.div
-                    className="h-full rounded-full"
-                    style={{ background: hsl() }}
-                    initial={{ width: "100%" }}
-                    animate={{ width: `${((targetKg ?? 0) / startKg) * 100}%` }}
-                    transition={{ duration: reduced ? 0 : 1.1, ease: "easeOut" }}
-                  />
-                </div>
               </div>
             </div>
           ) : (
@@ -178,9 +135,14 @@ export function ProtocolPlanIntro({
           <button
             type="button"
             onClick={onGenerate}
-            className="w-full mt-5 flex items-center justify-center rounded-2xl bg-primary px-4 py-3.5 text-[14px] font-bold text-primary-foreground active:scale-[0.98] transition-transform"
+            className="w-full mt-5 flex items-center justify-center rounded-2xl px-4 py-3.5 text-[14px] font-bold text-white relative overflow-hidden active:scale-[0.98] transition-transform border border-primary/30"
+            style={{
+              background: `linear-gradient(135deg, ${hsl()}, hsl(${BLUE_HI}))`,
+              boxShadow: `0 8px 28px ${hsl(0.45)}`,
+            }}
           >
-            Generate my protocol
+            <WizardAuroraBackground intensity="subtle" motes={false} />
+            <span className="relative">Generate my protocol</span>
           </button>
         </div>
       </div>

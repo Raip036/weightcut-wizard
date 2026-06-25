@@ -58,6 +58,8 @@ export function useSubscription() {
     expiresAt: ctx.expiresAt,
     isInTrial: ctx.isInTrial,
     trialEndsAt: ctx.trialEndsAt,
+    willRenew: ctx.willRenew,
+    isTrialActive: ctx.isTrialActive,
     isSubscriptionResolved: ctx.isSubscriptionResolved,
     isPaywallOpen: ctx.isPaywallOpen,
     checkFeatureAccess,

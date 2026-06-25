@@ -13,16 +13,27 @@ import { Leaf } from "lucide-react";
  * Approach lives in Chapter 1 / The Plan now; it is NOT rendered here.
  * The taper has 4 columns: Carbs · Water · Sodium · Fiber. Same-day
  * weigh-in holds carbs and shows an amber banner; fiber gets its own
- * green callout below the taper.
+ * inset note below the taper.
  * ------------------------------------------------------------------ */
 
 // Per-chapter accents (inline hsl so Tailwind purge never drops them).
-const BLUE = "217 91% 58%"; // the cut
-const AMBER = "35 92% 58%"; // carbs / energy
-const CYAN = "190 90% 55%"; // hydration
-const VIOLET = "262 83% 68%"; // sodium
-const GREEN = "152 64% 47%"; // fiber
+const BLUE = "217 91% 58%"; // today accent
+const AMBER = "35 92% 58%"; // same-day banner only
+
+// B · Cool palette — desaturated, harmonized.
+const C_CARB = "30 70% 62%";
+const C_WATER = "200 60% 62%";
+const C_SODIUM = "220 22% 64%";
+const C_FIBER = "165 38% 56%";
+
 const hsl = (t: string, a = 1) => `hsl(${t} / ${a})`;
+
+const COLS = [
+  { label: "Carbs", tint: C_CARB },
+  { label: "Water", tint: C_WATER },
+  { label: "Sodium", tint: C_SODIUM },
+  { label: "Fiber", tint: C_FIBER },
+];
 
 const DEFAULT_FIBER_STRATEGY =
   "Keep fiber normal until about 4 days out, then taper over the final days to empty the gut: low-residue 2 days out, minimal the day before, none the morning of weigh-in.";
@@ -62,9 +73,6 @@ export function ProtocolCutChapter(props: {
   const { targetKg, sameDay, fiberStrategy, days } = props;
 
   const title = targetKg != null ? `The cut · taper to ${targetKg.toFixed(1)} kg` : "The cut";
-  const sub = sameDay
-    ? "Carbs held. Water, sodium & fiber only. Today is highlighted."
-    : "Carbs down, water loaded then flushed, sodium & fiber tapered. Today is highlighted.";
 
   return (
     // StoryCard (blue accent), replicated inline from the mockup.
@@ -75,13 +83,12 @@ export function ProtocolCutChapter(props: {
         style={{ background: `linear-gradient(135deg, ${hsl(BLUE, 0.06)}, transparent 60%)` }}
       />
       <div className="relative p-4">
-        {/* ChapterHead: eyebrow + title + sub, replicated inline. */}
+        {/* ChapterHead: eyebrow + title. */}
         <div className="mb-3">
           <p className="text-[10px] font-bold uppercase tracking-[0.22em] mb-1" style={{ color: hsl(BLUE) }}>
             Chapter 02 · The Cut
           </p>
           <h2 className="text-[22px] font-bold tracking-tight text-foreground leading-tight">{title}</h2>
-          <p className="text-[13px] text-muted-foreground leading-snug mt-1">{sub}</p>
         </div>
 
         {/* same-day weigh-in banner (amber) */}
@@ -98,6 +105,19 @@ export function ProtocolCutChapter(props: {
           </div>
         )}
 
+        {/* column header */}
+        <div className="flex items-center gap-3 px-3 pb-1.5 mb-0.5">
+          <div className="w-9 shrink-0" />
+          <div className="flex-1 grid grid-cols-4 gap-1">
+            {COLS.map((c) => (
+              <div key={c.label} className="flex items-center justify-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: hsl(c.tint) }} />
+                <span className="text-[9px] uppercase tracking-wider text-muted-foreground/70 font-semibold">{c.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* taper list: 4 columns incl. fiber */}
         <div className="space-y-1.5">
           {days.map((day) => {
@@ -105,10 +125,10 @@ export function ProtocolCutChapter(props: {
             return (
               <div
                 key={day.daysToWeighIn}
-                className="rounded-lg px-3 py-2.5 flex items-center gap-3"
+                className="rounded-xl px-3 py-2.5 flex items-center gap-3"
                 style={{
-                  background: isToday ? hsl(BLUE, 0.12) : "hsla(0,0%,100%,0.03)",
-                  border: isToday ? `1px solid ${hsl(BLUE, 0.4)}` : "1px solid transparent",
+                  background: isToday ? hsl(BLUE, 0.1) : "transparent",
+                  border: isToday ? `1px solid ${hsl(BLUE, 0.35)}` : "1px solid transparent",
                 }}
               >
                 <div className="w-9 text-center shrink-0">
@@ -125,32 +145,28 @@ export function ProtocolCutChapter(props: {
                   )}
                 </div>
                 <div className="flex-1 grid grid-cols-4 gap-1">
-                  <div className="flex flex-col items-center gap-0.5">
-                    <b
-                      className="text-[12px] font-bold tabular-nums leading-none"
-                      style={{ color: sameDay ? "hsl(var(--muted-foreground))" : hsl(AMBER) }}
+                  <div className="flex items-center justify-center">
+                    <span
+                      className="text-[13px] font-semibold tabular-nums leading-none"
+                      style={{ color: sameDay ? "hsl(var(--muted-foreground))" : hsl(C_CARB) }}
                     >
                       {sameDay ? "Hold" : `${day.carbsGrams}g`}
-                    </b>
-                    <span className="text-[8px] uppercase tracking-wide text-muted-foreground/55">carbs</span>
+                    </span>
                   </div>
-                  <div className="flex flex-col items-center gap-0.5">
-                    <b className="text-[12px] font-bold tabular-nums leading-none" style={{ color: hsl(CYAN) }}>
+                  <div className="flex items-center justify-center">
+                    <span className="text-[13px] font-semibold tabular-nums leading-none" style={{ color: hsl(C_WATER) }}>
                       {day.waterLitres.toFixed(1)}L
-                    </b>
-                    <span className="text-[8px] uppercase tracking-wide text-muted-foreground/55">water</span>
+                    </span>
                   </div>
-                  <div className="flex flex-col items-center gap-0.5">
-                    <b className="text-[12px] font-bold tabular-nums leading-none" style={{ color: hsl(VIOLET) }}>
+                  <div className="flex items-center justify-center">
+                    <span className="text-[13px] font-semibold tabular-nums leading-none" style={{ color: hsl(C_SODIUM) }}>
                       {sodiumLabel(day.sodiumMg)}
-                    </b>
-                    <span className="text-[8px] uppercase tracking-wide text-muted-foreground/55">sodium</span>
+                    </span>
                   </div>
-                  <div className="flex flex-col items-center gap-0.5">
-                    <b className="text-[12px] font-bold tabular-nums leading-none" style={{ color: hsl(GREEN) }}>
+                  <div className="flex items-center justify-center">
+                    <span className="text-[13px] font-semibold tabular-nums leading-none" style={{ color: hsl(C_FIBER) }}>
                       {fiberLabel(day.fiberGrams)}
-                    </b>
-                    <span className="text-[8px] uppercase tracking-wide text-muted-foreground/55">fiber</span>
+                    </span>
                   </div>
                 </div>
               </div>
@@ -158,10 +174,15 @@ export function ProtocolCutChapter(props: {
           })}
         </div>
 
-        {/* fiber callout */}
-        <div className="mt-3 flex items-start gap-2 rounded-lg px-3 py-2" style={{ background: hsl(GREEN, 0.1), border: `1px solid ${hsl(GREEN, 0.2)}` }}>
-          <Leaf className="h-3.5 w-3.5 shrink-0 mt-0.5" style={{ color: hsl(GREEN) }} />
-          <p className="text-[11px] text-foreground/90 leading-snug">{fiberStrategy ?? DEFAULT_FIBER_STRATEGY}</p>
+        {/* fiber inset note */}
+        <div className="mt-3 flex items-start gap-2.5 rounded-xl px-3 py-2.5 surface-inset">
+          <div
+            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full mt-0.5"
+            style={{ background: hsl(C_FIBER, 0.16) }}
+          >
+            <Leaf className="h-3 w-3" style={{ color: hsl(C_FIBER) }} />
+          </div>
+          <p className="text-[11px] text-muted-foreground leading-snug">{fiberStrategy ?? DEFAULT_FIBER_STRATEGY}</p>
         </div>
       </div>
     </div>

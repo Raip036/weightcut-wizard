@@ -7,6 +7,7 @@
  */
 import { v } from "convex/values";
 import { query, mutation, internalQuery } from "./_generated/server";
+import type { QueryCtx, MutationCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Id } from "./_generated/dataModel";
 import { requireUserId } from "./lib/auth";
@@ -179,6 +180,39 @@ export const deleteCamp = mutation({
  * Pure-read; no schema change. Keeps existing consumers (which still read
  * profiles.target_date) backwards-compatible.
  */
+/** Resolve the camp new XP/mastery should attribute to: soonest non-completed
+ *  upcoming camp, else most-recent camp, else undefined (no camp yet). */
+export async function resolveActiveCampId(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">,
+): Promise<Id<"fight_camps"> | undefined> {
+  const rows = await ctx.db
+    .query("fight_camps")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .order("desc")
+    .take(50);
+  if (rows.length === 0) return undefined;
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const upcoming = rows
+    .filter((r) => !r.isCompleted && r.fightDate >= todayIso)
+    .sort((a, b) => a.fightDate.localeCompare(b.fightDate));
+  if (upcoming.length > 0) return upcoming[0]._id;
+  const sorted = [...rows].sort((a, b) => b.fightDate.localeCompare(a.fightDate));
+  return sorted[0]._id;
+}
+
+/**
+ * Action-callable resolver for the active campId. Actions cannot read the DB
+ * directly, so the mission/sparring generation pipeline resolves the camp to
+ * attribute new XP/missions to via this internal query.
+ */
+export const getActiveCampIdInternal = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }): Promise<Id<"fight_camps"> | null> => {
+    return (await resolveActiveCampId(ctx, userId)) ?? null;
+  },
+});
+
 export const getActiveCamp = query({
   args: {},
   handler: async (ctx) => {
@@ -591,12 +625,14 @@ export const createCalendarEntry = mutation({
       // try/catch so a scheduler/codegen hiccup never blocks the save.
       try {
         if (args.sessionType) {
+          const campId = await resolveActiveCampId(ctx, userId);
           await ctx.scheduler.runAfter(
             0,
             internal.user_discipline_xp.awardXp,
             {
               userId,
               sport: args.sessionType,
+              campId,
               amount: 10,
               reason: "log_session",
             },

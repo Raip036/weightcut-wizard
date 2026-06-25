@@ -45,7 +45,14 @@ export function MasteredShelf({
   hiddenDisciplines,
 }: MasteredShelfProps = {}) {
   const reducedMotion = useReducedMotion();
-  const mastered = useQuery(api.mastery_spine.getMasteredTechniques);
+  // Scope the mastered shelf to the active camp — the "Mastered this camp"
+  // label is now truthful. Skip while the active camp is still resolving so we
+  // never briefly show cross-camp trophies.
+  const activeCamp = useQuery(api.fight_camp.getActiveCamp);
+  const mastered = useQuery(
+    api.mastery_spine.getMasteredTechniques,
+    activeCamp === undefined ? "skip" : { campId: activeCamp?._id },
+  );
 
   // Collapsible: the user can hide the trophies. Preference persists across
   // sessions. Hook runs before any early return so order stays stable.

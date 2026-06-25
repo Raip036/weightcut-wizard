@@ -42,8 +42,11 @@ export interface SparringAssignment {
 
 interface SparringAssignmentRowProps {
   assignment: SparringAssignment;
-  /** Discipline accent CSS custom-property name (e.g. `--coach-sparring`). */
-  token: string;
+  /**
+   * @deprecated The card now uses a single wizard-blue accent (`--primary`)
+   * regardless of discipline. Kept optional for call-site compatibility.
+   */
+  token?: string;
   /**
    * Called when `markLanded` returns `cycleComplete: true` — the final
    * un-mastered graduated assignment for this discipline was just mastered.
@@ -68,10 +71,14 @@ interface SparringAssignmentRowProps {
  */
 export function SparringAssignmentRow({
   assignment,
-  token,
   onCycleComplete,
 }: SparringAssignmentRowProps) {
   const reduced = useReducedMotion();
+  // Single accent for the whole card: the wizard-blue primary. We deliberately
+  // ignore the red discipline `token` for visual accents here so the card reads
+  // as one calm blue system (checkbox fill, flash, XP float, technique title)
+  // instead of the old red + green + amber + blue mix.
+  const accent = "--primary";
   const toggleAssignment = useMutation(api.sparring_plan.toggleAssignment);
   const markLanded = useMutation(api.mastery_spine.markLanded);
   const [pending, setPending] = useState(false);
@@ -197,7 +204,7 @@ export function SparringAssignmentRow({
                 <motion.span
                   key="mastery-flash"
                   className="absolute inset-0 pointer-events-none z-10"
-                  style={{ background: `hsl(var(${token}) / 0.28)` }}
+                  style={{ background: `hsl(var(${accent}) / 0.28)` }}
                   initial={{ opacity: 0.8 }}
                   animate={{ opacity: 0 }}
                   transition={{ duration: 0.6 }}
@@ -228,7 +235,7 @@ export function SparringAssignmentRow({
                   <AnimatedCheckbox
                     key={i}
                     done={i < displayedLanded}
-                    token={token}
+                    token={accent}
                     size={20}
                   />
                 ))}
@@ -237,7 +244,7 @@ export function SparringAssignmentRow({
               <div className="flex-1 min-w-0">
                 <span
                   className="block text-[13px] font-semibold leading-snug break-words"
-                  style={{ color: `hsl(var(${token}))` }}
+                  style={{ color: `hsl(var(${accent}))` }}
                 >
                   {assignment.technique}
                 </span>
@@ -255,22 +262,22 @@ export function SparringAssignmentRow({
                   </p>
                 )}
               </div>
-              <XpFloat floatKey={floatKey} token={token} amount={SPARRING_XP_PER_ITEM} />
+              <XpFloat floatKey={floatKey} token={accent} amount={SPARRING_XP_PER_ITEM} />
             </motion.button>
 
             {/* Setups & counters. Left padding aligns bullets under the text
                 column: px-2.5 + checkbox column (20px) + gap-2.5. */}
             {hasDetails && (
-              <div className="relative z-10 px-2.5 pb-3 pl-[calc(0.625rem+20px+0.625rem)] space-y-2">
+              <div className="relative z-10 px-2.5 pb-3 pl-[calc(0.625rem+20px+0.625rem)] space-y-2.5">
                 {assignment.setups.length > 0 && (
                   <div className="min-w-0">
-                    <p className="text-[9.5px] font-semibold uppercase tracking-[0.07em] text-emerald-400/80 mb-1">
+                    <p className="text-[9.5px] font-semibold uppercase tracking-[0.07em] text-muted-foreground/60 mb-1">
                       Set up
                     </p>
                     {assignment.setups.map((s, i) => (
                       <p
                         key={`setup-${i}`}
-                        className="relative text-[11.5px] text-muted-foreground leading-snug pl-3.5 min-w-0 break-words before:content-['•'] before:absolute before:left-1 before:top-0 before:text-muted-foreground/40"
+                        className="relative text-[11.5px] text-foreground/75 leading-relaxed pl-3.5 min-w-0 break-words before:content-['•'] before:absolute before:left-1 before:top-0 before:text-muted-foreground/40"
                       >
                         {stripDashes(s)}
                       </p>
@@ -279,13 +286,13 @@ export function SparringAssignmentRow({
                 )}
                 {assignment.counters.length > 0 && (
                   <div className="min-w-0">
-                    <p className="text-[9.5px] font-semibold uppercase tracking-[0.07em] text-amber-400/80 mb-1">
+                    <p className="text-[9.5px] font-semibold uppercase tracking-[0.07em] text-muted-foreground/60 mb-1">
                       Watch for
                     </p>
                     {assignment.counters.map((c, i) => (
                       <p
                         key={`counter-${i}`}
-                        className="relative text-[11.5px] text-muted-foreground leading-snug pl-3.5 min-w-0 break-words before:content-['•'] before:absolute before:left-1 before:top-0 before:text-muted-foreground/40"
+                        className="relative text-[11.5px] text-foreground/75 leading-relaxed pl-3.5 min-w-0 break-words before:content-['•'] before:absolute before:left-1 before:top-0 before:text-muted-foreground/40"
                       >
                         {stripDashes(c)}
                       </p>
@@ -319,7 +326,7 @@ export function SparringAssignmentRow({
           <motion.span
             key="flash"
             className="absolute inset-0 pointer-events-none"
-            style={{ background: `hsl(var(${token}) / 0.18)` }}
+            style={{ background: `hsl(var(${accent}) / 0.18)` }}
             initial={{ opacity: 0.5 }}
             animate={{ opacity: 0 }}
             transition={{ duration: 0.5 }}
@@ -342,7 +349,7 @@ export function SparringAssignmentRow({
         }
         className="relative w-full flex items-start gap-2.5 px-2.5 py-2 text-left"
       >
-        <AnimatedCheckbox done={done} token={token} />
+        <AnimatedCheckbox done={done} token={accent} />
         <div className="flex-1 min-w-0">
           {/* Technique name with a strikethrough sweep on done. */}
           <span className="relative inline-block max-w-full">
@@ -351,7 +358,7 @@ export function SparringAssignmentRow({
               animate={{
                 color: done
                   ? "hsl(var(--muted-foreground))"
-                  : "hsl(var(--foreground))",
+                  : `hsl(var(${accent}))`,
               }}
             >
               {assignment.technique}
@@ -375,7 +382,7 @@ export function SparringAssignmentRow({
         </div>
         <XpFloat
           floatKey={floatKey}
-          token={token}
+          token={accent}
           amount={SPARRING_XP_PER_ITEM}
         />
       </motion.button>
@@ -383,16 +390,16 @@ export function SparringAssignmentRow({
       {/* Setups & counters: always-visible plain bullets — no disclosure toggle.
           Left padding aligns under the text column: px-2.5 + checkbox (18px) + gap-2.5. */}
       {hasDetails && (
-        <div className="px-2.5 pb-3 pl-[calc(0.625rem+18px+0.625rem)] space-y-2">
+        <div className="px-2.5 pb-3 pl-[calc(0.625rem+18px+0.625rem)] space-y-2.5">
           {assignment.setups.length > 0 && (
             <div className="min-w-0">
-              <p className="text-[9.5px] font-semibold uppercase tracking-[0.07em] text-emerald-400/80 mb-1">
+              <p className="text-[9.5px] font-semibold uppercase tracking-[0.07em] text-muted-foreground/60 mb-1">
                 Set up
               </p>
               {assignment.setups.map((s, i) => (
                 <p
                   key={`setup-${i}`}
-                  className="relative text-[11.5px] text-muted-foreground leading-snug pl-3.5 min-w-0 break-words before:content-['•'] before:absolute before:left-1 before:top-0 before:text-muted-foreground/40"
+                  className="relative text-[11.5px] text-foreground/75 leading-relaxed pl-3.5 min-w-0 break-words before:content-['•'] before:absolute before:left-1 before:top-0 before:text-muted-foreground/40"
                 >
                   {stripDashes(s)}
                 </p>
@@ -401,13 +408,13 @@ export function SparringAssignmentRow({
           )}
           {assignment.counters.length > 0 && (
             <div className="min-w-0">
-              <p className="text-[9.5px] font-semibold uppercase tracking-[0.07em] text-amber-400/80 mb-1">
+              <p className="text-[9.5px] font-semibold uppercase tracking-[0.07em] text-muted-foreground/60 mb-1">
                 Watch for
               </p>
               {assignment.counters.map((c, i) => (
                 <p
                   key={`counter-${i}`}
-                  className="relative text-[11.5px] text-muted-foreground leading-snug pl-3.5 min-w-0 break-words before:content-['•'] before:absolute before:left-1 before:top-0 before:text-muted-foreground/40"
+                  className="relative text-[11.5px] text-foreground/75 leading-relaxed pl-3.5 min-w-0 break-words before:content-['•'] before:absolute before:left-1 before:top-0 before:text-muted-foreground/40"
                 >
                   {stripDashes(c)}
                 </p>

@@ -77,6 +77,7 @@ function toClientShape(
     pro_ended_pending_at: row.proEndedPendingAt,
     pro_ended_shown_at: row.proEndedShownAt,
     onboarding_tutorial_shown_at: row.onboardingTutorialShownAt,
+    onboarding_paywall_shown_at: row.onboardingPaywallShownAt,
     updated_at: row.updatedAt,
     is_premium:
       row.subscriptionTier !== "free" &&
@@ -179,6 +180,28 @@ export const markOnboardingTutorialShown = mutation({
     if (!row) return { firstTime: false };
     if (row.onboardingTutorialShownAt != null) return { firstTime: false };
     await ctx.db.patch(row._id, { onboardingTutorialShownAt: Date.now() });
+    return { firstTime: true };
+  },
+});
+
+/**
+ * One-time post-onboarding soft-paywall gate (compare-and-set).
+ *
+ * Stamps `onboardingPaywallShownAt` to now ONLY if currently unset, and reports
+ * whether THIS call was the one that set it. The soft paywall (shown when a free
+ * user closes /cut-plan after reviewing their free starter plan) fires exactly
+ * once per account — server-authoritative so it never re-shows across devices or
+ * reinstalls. Stamping on show (not on purchase) means a dismiss still spends the
+ * one shot, so we never nag.
+ */
+export const markOnboardingPaywallShown = mutation({
+  args: {},
+  handler: async (ctx): Promise<{ firstTime: boolean }> => {
+    const userId = await requireUserId(ctx);
+    const row = await findByUser(ctx, userId);
+    if (!row) return { firstTime: false };
+    if (row.onboardingPaywallShownAt != null) return { firstTime: false };
+    await ctx.db.patch(row._id, { onboardingPaywallShownAt: Date.now() });
     return { firstTime: true };
   },
 });

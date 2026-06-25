@@ -6,6 +6,8 @@ import { format } from "date-fns";
 import { api } from "@/../convex/_generated/api";
 import { FEATURE_FLAGS } from "@/lib/featureFlags";
 import { FightFormRing } from "@/components/dashboard/FightFormRing";
+import { TrialBanner } from "@/components/dashboard/TrialBanner";
+import { ReviewPromptCard } from "@/components/dashboard/ReviewPromptCard";
 import { FightFormInsightStrip } from "@/components/dashboard/FightFormInsightStrip";
 import { FightFormDeltaBanner } from "@/components/dashboard/FightFormDeltaBanner";
 import TodayStrip from "@/components/dashboard/TodayStrip";
@@ -40,7 +42,7 @@ import { WeightIncreaseQuestionnaire } from "@/components/dashboard/WeightIncrea
 import { triggerHaptic, triggerHapticSelection } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
 import { logger } from "@/lib/logger";
-import { trackInstallDate, maybeRequestReview } from "@/lib/appReview";
+import { trackInstallDate, maybeRequestReview, hasReviewPending, consumeReviewPending } from "@/lib/appReview";
 import { SleepLogger } from "@/components/dashboard/SleepLogger";
 import { ProfileSheet } from "@/components/dashboard/ProfileSheet";
 import NewAnnouncementWidget from "@/components/dashboard/NewAnnouncementWidget";
@@ -157,6 +159,8 @@ export default function Dashboard() {
   const [nextCampOpen, setNextCampOpen] = useState(false);
   const [profileSheetOpen, setProfileSheetOpen] = useState(false);
   const [catchUpOpen, setCatchUpOpen] = useState(false);
+  // Win-moment review card: armed by a camp wrap-up, shown after a dashboard load.
+  const [showReviewCard, setShowReviewCard] = useState(false);
   // Active camp drives the post-fight "wrap up + start next camp" banner.
   // Skip the query while userId is unresolved to avoid an extra round trip.
   const activeCamp = useQuery(api.fight_camp.getActiveCamp, userId ? {} : "skip");
@@ -709,7 +713,15 @@ export default function Dashboard() {
     } finally {
       dashboardInflight.delete(inflightKey);
       safeAsync(setLoading)(false);
-      maybeRequestReview();
+      // Win-moment review ask: if a camp wrap-up armed the pending flag, show
+      // the custom aurora card; otherwise fall back to the native dialog only
+      // for long-tenured users who never hit a win (30-day floor).
+      if (hasReviewPending()) {
+        consumeReviewPending();
+        safeAsync(setShowReviewCard)(true);
+      } else {
+        maybeRequestReview(30);
+      }
     }
   };
 
@@ -955,6 +967,12 @@ export default function Dashboard() {
             onAvatarClick={() => navigate('/goals')}
           />
 
+          {/* Trial-status banner (auto-renew aware). Self-renders null unless
+              the user is in a trial / lapse state worth surfacing. */}
+          <ErrorBoundary fallback={null} silent>
+            <TrialBanner />
+          </ErrorBoundary>
+
           {/* Proactive coach surfaces (Fight Camp Coach — Phase 3). Both
               self-fetch and render null when there's nothing to say, so they
               sit high in the page as the first "coach read" without cluttering
@@ -1175,23 +1193,11 @@ export default function Dashboard() {
                 )}
               </div>
 
-              {/* Footer row: date (left) + signed delta (right) */}
+              {/* Footer row: date */}
               <div className="mt-1.5 flex items-center justify-between">
                 <span className="text-micro text-muted-foreground tabular-nums">
                   {chartData.length >= 2 ? chartData[chartData.length - 1].date : ""}
                 </span>
-                {chartData.length >= 2 && (() => {
-                  const last = chartData[chartData.length - 1];
-                  const prev = chartData[chartData.length - 2];
-                  const delta = last.weight - prev.weight; // raw delta in stored units
-                  const displayDelta = convertWeight(last.weight) - convertWeight(prev.weight);
-                  const isDown = delta < 0; // weight loss is good
-                  return (
-                    <span className={`text-micro font-semibold tabular-nums leading-none ${isDown ? "text-func-recovery-green" : "text-func-danger-red"}`}>
-                      {isDown ? "−" : "+"}{Math.abs(displayDelta).toFixed(1)}
-                    </span>
-                  );
-                })()}
               </div>
             </button>
             {userId && <TrainingWeekWidget userId={userId} compact />}
@@ -1261,6 +1267,8 @@ export default function Dashboard() {
           onOpenChange={setNextCampOpen}
           activeCamp={activeCamp ?? null}
         />
+
+        <ReviewPromptCard open={showReviewCard} onClose={() => setShowReviewCard(false)} />
 
         <ErrorBoundary fallback={null} silent>
           <CatchUpSheet

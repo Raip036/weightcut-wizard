@@ -17,14 +17,19 @@
  * is purely decorative (`pointer-events-none`, behind a relative content
  * layer) and freezes to a static glow when reduced-motion is requested.
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, useReducedMotion } from "motion/react";
+import { useMutation } from "convex/react";
 import { Button } from "@/components/ui/button";
 import { TrendingDown, X } from "lucide-react";
 import { triggerHaptic } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
 import { InlinePlanDisplay } from "@/components/onboarding/InlinePlanDisplay";
+import { ProUpsellScreen } from "@/components/subscription/ProUpsellScreen";
+import { useSubscription } from "@/hooks/useSubscription";
+import { useProfile } from "@/contexts/UserContext";
+import { api } from "@/../convex/_generated/api";
 
 // ── Aurora background ──────────────────────────────────────────────────
 // Two large, low-opacity primary-blue radial blobs that drift slowly behind
@@ -81,6 +86,13 @@ function PlanAurora() {
 
 export default function CutPlanReview() {
   const navigate = useNavigate();
+  const { isPremium, isSubscriptionResolved, openPaywall } = useSubscription();
+  const { profile } = useProfile();
+  const markOnboardingPaywallShown = useMutation(api.profiles.markOnboardingPaywallShown);
+  // Post-onboarding soft paywall: shown once when a free user closes this plan
+  // review at the value peak. Server flag (onboarding_paywall_shown_at) makes it
+  // once-per-account; this state just drives the in-session overlay swap.
+  const [showSoftPaywall, setShowSoftPaywall] = useState(false);
 
   const planData = useMemo(() => {
     try {
@@ -108,8 +120,8 @@ export default function CutPlanReview() {
 
   const isWeightLoss = planData?.planType === "weight_loss";
 
-  const handleContinue = () => {
-    triggerHaptic(ImpactStyle.Medium);
+  // Commit the plan-seen flag and route to the dashboard. The single exit.
+  const goToDashboard = () => {
     // Wrap in try/catch: iOS WKWebView (private mode / storage pressure) can
     // throw on setItem, which would abort before navigation and strand the user.
     try {
@@ -132,6 +144,55 @@ export default function CutPlanReview() {
     // guard reads `planClosed` and skips the redirect. This guarantees exit.
     navigate("/dashboard", { replace: true, state: { planClosed: true } });
   };
+
+  // Close action. At the value peak (free user closing their reviewed plan),
+  // show the post-onboarding soft paywall once before leaving; otherwise exit.
+  const handleContinue = () => {
+    triggerHaptic(ImpactStyle.Medium);
+    const eligible =
+      isSubscriptionResolved &&
+      !isPremium &&
+      !!profile &&
+      !profile.onboarding_paywall_shown_at &&
+      !showSoftPaywall;
+    if (eligible) {
+      // Mark seen now so the dashboard "unseen plan" guard won't bounce us back
+      // when we eventually navigate out from the paywall.
+      try {
+        localStorage.setItem("wcw_cut_plan_seen", "true");
+      } catch {
+        /* non-fatal */
+      }
+      markOnboardingPaywallShown({}).catch(() => {
+        /* non-fatal: a missed CAS just means it may show once more later */
+      });
+      setShowSoftPaywall(true);
+      return;
+    }
+    goToDashboard();
+  };
+
+  if (showSoftPaywall) {
+    return (
+      <div className="min-h-screen w-full overflow-y-auto bg-background">
+        <ProUpsellScreen
+          title="Unlock your full fight camp"
+          blurb="Your starter plan is yours to keep. Go Pro for everything that wins fight week."
+          perks={[
+            "Full day-by-day fight-week protocol",
+            "Hour-by-hour rehydration timeline",
+            "AI cornerman chat, anytime",
+            "Unlimited meal and diet analysis",
+            "Weekly training and recovery insights",
+          ]}
+          upgradeLabel="Unlock Pro"
+          dismissLabel="Continue with my free plan"
+          onUpgrade={openPaywall}
+          onDismiss={goToDashboard}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-h-screen bg-background text-foreground safe-area-inset-top safe-area-inset-bottom overflow-hidden">

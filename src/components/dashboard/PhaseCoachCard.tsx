@@ -158,9 +158,9 @@ function computeFuelAdvice(
   const absKg = Math.abs(driftKg).toFixed(1);
 
   if (driftKg > 0) {
-    return `You're ${absKg} kg over plan — trim about ${kcal} kcal a day to ease back on track before weigh-in.`;
+    return `You're ${absKg} kg over plan. Trim about ${kcal} kcal a day to ease back on track before weigh-in.`;
   }
-  return `You're ${absKg} kg ahead of plan — you've got room to add about ${kcal} kcal a day to fuel your training.`;
+  return `You're ${absKg} kg ahead of plan. You've got room to add about ${kcal} kcal a day to fuel your training.`;
 }
 
 export function PhaseCoachCard({

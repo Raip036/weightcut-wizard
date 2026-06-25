@@ -240,8 +240,10 @@ function DisciplineCard({
   return (
     <>
     <div className="relative w-full rounded-2xl card-surface border border-primary/20 overflow-hidden">
-      {/* Aurora wash + motes layer (z-index 0, below content) */}
-      <AuroraBackground accentToken={token} reducedMotion={reducedMotion} />
+      {/* Aurora wash + motes layer (z-index 0, below content). Wizard-blue
+          primary so the whole card reads blue; only the discipline name below
+          carries its discipline colour. */}
+      <AuroraBackground accentToken="--primary" reducedMotion={reducedMotion} />
 
       {/* ── Summary header (always visible) ──────────────────────── */}
       <button
@@ -278,7 +280,7 @@ function DisciplineCard({
             style={{
               color:
                 doneItems > 0
-                  ? `hsl(var(${token}))`
+                  ? "hsl(var(--primary))"
                   : "hsl(var(--muted-foreground))",
             }}
           >
@@ -302,7 +304,7 @@ function DisciplineCard({
       {!minimised && (
         <div className="relative z-10 animate-in fade-in slide-in-from-top-1 duration-200">
           {/* Stage indicator */}
-          <StageIndicator phase={phase} accentToken={token} />
+          <StageIndicator phase={phase} accentToken="--primary" />
 
           {/* Stage 1: Mission cards */}
           {missions.length > 0 && (
@@ -341,12 +343,12 @@ function DisciplineCard({
                   exit={reducedMotion ? { opacity: 0 } : { opacity: 0 }}
                   transition={{ duration: reducedMotion ? 0 : 0.3 }}
                 >
-                  <MasteryGeneratingCard kind="sparring" accentToken={token} />
+                  <MasteryGeneratingCard kind="sparring" accentToken="--primary" />
                 </motion.div>
               </AnimatePresence>
             </div>
           ) : phase === "drill" ? (
-            <SealedStage accentToken={token} remaining={remainingDrills} />
+            <SealedStage accentToken="--primary" remaining={remainingDrills} />
           ) : (
             <div className="px-3 pb-4">
               <AnimatePresence mode="wait" initial={false}>
@@ -477,12 +479,19 @@ export function MasterySpine(_props: MasterySpineProps) {
   // getMasteredTechniques: the mastered shelf (its own subscription inside
   //   MasteredShelf so it stays self-contained).
   const feature = useQuery(api.training_missions.getMissionFeatureStatus);
-  const flow = useQuery(api.mastery_spine.getMasteryFlow) as
-    | MasteryFlowEntry[]
-    | undefined;
-  const generationRaw = useQuery(api.mastery_spine.getGenerationStatus) as
-    | GenerationJob[]
-    | undefined;
+  // Scope the flow to the active camp so missions/sparring reset per camp.
+  // Skip while the active camp resolves to avoid a flash of cross-camp flow.
+  const activeCamp = useQuery(api.fight_camp.getActiveCamp);
+  const flow = useQuery(
+    api.mastery_spine.getMasteryFlow,
+    activeCamp === undefined ? "skip" : { campId: activeCamp?._id },
+  ) as MasteryFlowEntry[] | undefined;
+  // Camp-scope the generation markers too (sibling of getMasteryFlow above) so a
+  // "generating…" marker from another camp can't leak into this camp's flow.
+  const generationRaw = useQuery(
+    api.mastery_spine.getGenerationStatus,
+    activeCamp === undefined ? "skip" : { campId: activeCamp?._id },
+  ) as GenerationJob[] | undefined;
 
   // Optimistic client signals pushed at the moment generation was kicked off
   // (logging a session, ticking the last drill) — see masteryGenerationSignals.

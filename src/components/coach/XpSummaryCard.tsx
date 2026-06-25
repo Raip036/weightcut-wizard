@@ -12,7 +12,15 @@ import { LevelSheet } from "./LevelSheet";
  * user has no XP rows yet, renders a single nudge line.
  */
 export function XpSummaryCard() {
-  const rows = useQuery(api.user_discipline_xp.getAllForUser);
+  // Scope XP to the active camp so the summary resets between camps. While the
+  // active-camp query is still resolving we "skip" the XP read to avoid a flash
+  // of global (cross-camp) data; once resolved (camp row or `null`) we pass its
+  // id (or `undefined` when there is no camp yet).
+  const activeCamp = useQuery(api.fight_camp.getActiveCamp);
+  const rows = useQuery(
+    api.user_discipline_xp.getAllForUser,
+    activeCamp === undefined ? "skip" : { campId: activeCamp?._id },
+  );
   const [levelSheetOpen, setLevelSheetOpen] = useState(false);
 
   // Loading: don't render anything so the page layout stays stable.

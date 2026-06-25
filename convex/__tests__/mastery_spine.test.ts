@@ -333,6 +333,60 @@ describe("Mastery Spine state-machine", () => {
     vi.useRealTimers();
   });
 
+  // ── Case 4b: Cycle-complete is scoped per camp ────────────────────────────
+
+  test("cycle-complete counts only the active camp's graduated set, not other camps", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+    const asUser = t.withIdentity({ subject: userId });
+
+    // Two camps; an identical graduated technique exists in each.
+    const campA = await t.run(async (ctx) =>
+      ctx.db.insert("fight_camps", {
+        userId, name: "A", fightDate: "2026-09-01", updatedAt: Date.now(),
+      } as any),
+    );
+    const campB = await t.run(async (ctx) =>
+      ctx.db.insert("fight_camps", {
+        userId, name: "B", fightDate: "2026-12-01", updatedAt: Date.now(),
+      } as any),
+    );
+
+    const now = Date.now();
+    const seedCampAssignment = (campId: Id<"fight_camps">) =>
+      t.run(async (ctx) =>
+        ctx.db.insert("sparring_assignments", {
+          userId,
+          campId,
+          discipline: "BJJ",
+          technique: "Arm Bar",
+          techniqueNormalized: "bjj::arm_bar",
+          whenToUse: "x",
+          setups: [],
+          counters: [],
+          status: "todo",
+          sourceFingerprint: "fp",
+          createdAt: now,
+          updatedAt: now,
+          source: "graduated",
+          landedCount: 0,
+        } as any),
+      );
+
+    const aId = await seedCampAssignment(campA);
+    await seedCampAssignment(campB); // sibling in another camp — must NOT count
+
+    // Master camp A's single graduated assignment.
+    await asUser.mutation(api.mastery_spine.markLanded, { assignmentId: aId });
+    await asUser.mutation(api.mastery_spine.markLanded, { assignmentId: aId });
+    const r3 = await asUser.mutation(api.mastery_spine.markLanded, { assignmentId: aId });
+
+    expect(r3.mastered).toBe(true);
+    // Camp B's identical technique is non-mastered but in another camp — the
+    // scan is scoped to camp A, so the cycle is complete.
+    expect(r3.cycleComplete).toBe(true);
+  });
+
   // ── Case 5: Frozen cycle guard ─────────────────────────────────────────────
 
   test("generateMissionIfReady returns cycle_in_progress when an active mission exists", async () => {

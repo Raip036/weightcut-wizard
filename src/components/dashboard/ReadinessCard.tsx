@@ -12,14 +12,6 @@ interface ReadinessCardProps {
   userId: string | null | undefined;
 }
 
-// Readiness bands (0-100) mirror the performance-engine action-line
-// thresholds so the dashboard verdict matches the Recovery page copy.
-function verdictFor(score: number): { label: string; color: string } {
-  if (score >= 80) return { label: "Peaked", color: "text-func-recovery-green" };
-  if (score >= 55) return { label: "Ready", color: "text-primary" };
-  if (score >= 35) return { label: "Recovering", color: "text-func-warning-yellow" };
-  return { label: "Rest", color: "text-func-danger-red" };
-}
 
 /**
  * Dashboard "Readiness" metric card. Surfaces the latest daily wellness
@@ -62,7 +54,6 @@ export function ReadinessCard({ userId }: ReadinessCardProps) {
   const displayScore = liveScore != null ? liveScore : latest ? latest.readinessScore : null;
 
   const hasData = series.length >= 2;
-  const verdict = displayScore != null ? verdictFor(displayScore) : null;
 
   return (
     <button
@@ -106,18 +97,11 @@ export function ReadinessCard({ userId }: ReadinessCardProps) {
             )}
           </div>
 
-          {/* Footer row: 7-day avg (left) + verdict band (right). The verdict
-              lives bottom-right so the coloured token lines up with the signed
-              deltas on the Weight/Sleep cards — keeps the stat grid uniform. */}
+          {/* Footer row: 7-day avg. */}
           <div className="mt-1.5 flex items-center justify-between gap-1.5">
             <span className="text-micro text-muted-foreground tabular-nums">
               {series.length >= 2 ? `avg ${Math.round(series.reduce((a, b) => a + b, 0) / series.length)}` : ""}
             </span>
-            {verdict && (
-              <span className={`text-micro font-semibold leading-none ${verdict.color}`}>
-                {verdict.label}
-              </span>
-            )}
           </div>
         </>
       ) : (

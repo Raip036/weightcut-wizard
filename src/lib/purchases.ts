@@ -285,6 +285,25 @@ export function getSubscriptionFromCustomerInfo(customerInfo: any): { tier: stri
   return { tier, expiresAt: entitlement.expirationDate || null };
 }
 
+/**
+ * DISPLAY-ONLY read of the entitlement's renewal context for the trial banner.
+ * `willRenew` tells us whether the App Store will auto-charge at period end
+ * (false = the user cancelled / turned off auto-renew). `periodType` is RC's
+ * billing phase: "trial" / "intro" / "normal". Both are surfaced purely for
+ * UI copy — they NEVER influence entitlement (the Convex profile written by
+ * the server-verified action / webhook stays the only source of truth).
+ * Returns nulls when the configured entitlement isn't active.
+ */
+export function getEntitlementDisplayInfo(
+  customerInfo: any,
+): { willRenew: boolean | null; periodType: string | null } {
+  const entitlement = customerInfo?.entitlements?.active?.[ENTITLEMENT_ID];
+  if (!entitlement) return { willRenew: null, periodType: null };
+  const willRenew = typeof entitlement.willRenew === "boolean" ? entitlement.willRenew : null;
+  const periodType = typeof entitlement.periodType === "string" ? entitlement.periodType.toLowerCase() : null;
+  return { willRenew, periodType };
+}
+
 // ─── RevenueCat Native Paywall ───
 
 /**

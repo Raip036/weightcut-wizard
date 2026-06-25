@@ -26,12 +26,10 @@ export function SleepCard({ userId }: SleepCardProps) {
   const recent = asc.slice(-7);
   const hours = recent.map((r) => r.hours);
   const latest = rows && rows.length > 0 ? rows[0] : null;
-  const prev = rows && rows.length > 1 ? rows[1] : null;
   const avg7 =
     recent.length > 0
       ? recent.reduce((s, r) => s + r.hours, 0) / recent.length
       : null;
-  const delta = latest && prev ? latest.hours - prev.hours : null;
   const hasData = hours.length >= 2;
 
   return (
@@ -68,19 +66,11 @@ export function SleepCard({ userId }: SleepCardProps) {
         )}
       </div>
 
-      {/* Footer, 7-night avg left, last-night delta right. */}
+      {/* Footer, 7-night avg. */}
       <div className="mt-1.5 flex items-center justify-between">
         <span className="text-micro text-muted-foreground tabular-nums">
           {avg7 != null ? `avg ${avg7.toFixed(1)}h` : ""}
         </span>
-        {delta != null && Math.abs(delta) >= 0.05 && (() => {
-          const isUp = delta > 0; // more sleep is better
-          return (
-            <span className={`text-micro font-semibold tabular-nums leading-none ${isUp ? "text-func-recovery-green" : "text-func-danger-red"}`}>
-              {isUp ? "+" : "−"}{Math.abs(delta).toFixed(1)}h
-            </span>
-          );
-        })()}
       </div>
     </button>
   );

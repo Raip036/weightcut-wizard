@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireUserId } from "./lib/auth";
 import { effectiveTier } from "./_shared/tier";
+import { resolveActiveCampId } from "./fight_camp";
 
 /**
  * Training Missions — per-discipline AI-generated linear checklists driven
@@ -189,6 +190,7 @@ export const markItemCompleted = mutation({
           {
             userId,
             sport: mission.sport,
+            campId: mission.campId,
             amount: 20,
             reason: "tick_item",
           },
@@ -200,6 +202,7 @@ export const markItemCompleted = mutation({
             {
               userId,
               sport: mission.sport,
+              campId: mission.campId,
               amount: 100,
               reason: "complete_mission",
             },
@@ -465,8 +468,12 @@ export const insertMissionInternal = internalMutation({
       }
     }
 
+    // Attribute the mission (and the XP it later yields) to the active camp.
+    const campId = await resolveActiveCampId(ctx, userId);
+
     const missionId = await ctx.db.insert("training_missions", {
       userId,
+      campId,
       sport,
       status: "active",
       title,
@@ -606,6 +613,7 @@ export const listCycleMissions = internalQuery({
       .collect();
     return rows.map((m) => ({
       _id: m._id,
+      campId: m.campId ?? null,
       status: m.status,
       graduatedAt: m.graduatedAt ?? null,
       focusTechnique: m.focusTechnique ?? null,

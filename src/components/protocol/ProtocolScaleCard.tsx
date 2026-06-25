@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Droplets, Moon } from "lucide-react";
+import { WizardAuroraBackground } from "@/components/onboarding/WizardAuroraBackground";
 
 /**
  * ProtocolScaleCard: the "Chapter 03 · The Scale" StoryCard from the approved
@@ -8,13 +9,13 @@ import { Droplets, Moon } from "lucide-react";
  * The user logs how many kilos they sweated off after weigh-in, how many hours
  * remain until the fight (prefilled from the camp's weigh-in→fight gap, but
  * editable), and (when that gap spans overnight) their sleep window. Once
- * valid we preview the ORS volume to replace and let them generate an
- * hour-by-hour rehydration + refeed plan that schedules NO intake during sleep.
+ * valid we let them generate an hour-by-hour rehydration + refeed plan that
+ * schedules NO intake during sleep.
  */
 
-// Accent tokens (HSL channels), matching the mockup.
-const AMBER = "35 92% 58%"; // carbs / energy
-const CYAN = "190 90% 55%"; // hydration
+// Accent tokens (HSL channels), matching the blue-aurora theme.
+const BLUE = "217 91% 58%";
+const BLUE_HI = "213 94% 64%";
 
 const hsl = (t: string, a = 1) => `hsl(${t} / ${a})`;
 
@@ -58,7 +59,6 @@ export function ProtocolScaleCard(props: {
 
   const sweatNum = parseFloat(sweatKg);
   const sweatValid = !Number.isNaN(sweatNum) && sweatNum >= 0.1 && sweatNum <= 10;
-  const orsLitres = sweatValid ? (sweatNum * 1.5).toFixed(1) : null;
 
   const hoursNum = parseInt(hoursUntilFight, 10);
   const hoursValid = !Number.isNaN(hoursNum) && hoursNum >= 1 && hoursNum <= 48;
@@ -79,31 +79,20 @@ export function ProtocolScaleCard(props: {
   };
 
   return (
-    <div
-      className="relative rounded-2xl card-surface border overflow-hidden"
-      style={{ borderColor: hsl(AMBER, 0.25) }}
-    >
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{ background: `linear-gradient(135deg, ${hsl(AMBER, 0.06)}, transparent 60%)` }}
-      />
+    <div className="relative rounded-2xl card-surface border border-primary/25 overflow-hidden">
+      <WizardAuroraBackground intensity="subtle" />
       <div className="relative p-4">
         {/* ChapterHead */}
         <header className="mb-4">
           <p
             className="text-[10px] font-bold uppercase tracking-[0.22em] mb-1.5"
-            style={{ color: hsl(AMBER) }}
+            style={{ color: hsl(BLUE) }}
           >
             Chapter 03 · The Scale
           </p>
           <h2 className="text-[22px] font-bold tracking-tight text-foreground leading-tight">
             Step on the scale.
           </h2>
-          <p className="text-[13px] text-muted-foreground leading-snug mt-1.5">
-            Made weight? Log how much you sweated off and how long until you
-            fight, and I'll build an hour-by-hour rehydration plan, scaled to you.
-          </p>
         </header>
 
         {/* Field: Kilos sweated off */}
@@ -115,13 +104,8 @@ export function ProtocolScaleCard(props: {
             suffix="kg"
             inputMode="decimal"
             step={0.1}
-            focusToken={AMBER}
+            focusToken={BLUE}
           />
-          {orsLitres && (
-            <p className="mt-2 text-[12px] leading-none" style={{ color: hsl(CYAN) }}>
-              ≈ {orsLitres} L of ORS to replace it
-            </p>
-          )}
         </Field>
 
         {/* Field: Hours until you fight */}
@@ -135,7 +119,7 @@ export function ProtocolScaleCard(props: {
             step={1}
             min={1}
             max={48}
-            focusToken={CYAN}
+            focusToken={BLUE}
           />
         </Field>
 
@@ -143,10 +127,10 @@ export function ProtocolScaleCard(props: {
         {spansOvernight && (
           <div
             className="mt-4 rounded-xl border surface-inset p-3"
-            style={{ borderColor: hsl(CYAN, 0.2) }}
+            style={{ borderColor: hsl(BLUE, 0.2) }}
           >
             <div className="flex items-center gap-1.5 mb-3">
-              <Moon className="h-3.5 w-3.5 shrink-0" style={{ color: hsl(CYAN) }} />
+              <Moon className="h-3.5 w-3.5 shrink-0" style={{ color: hsl(BLUE) }} />
               <span className="text-[10px] uppercase tracking-wide font-semibold text-muted-foreground/80 leading-none">
                 Sleep window: no intake while you sleep
               </span>
@@ -172,7 +156,7 @@ export function ProtocolScaleCard(props: {
               <span
                 aria-hidden
                 className="text-[14px] font-bold leading-none text-center"
-                style={{ color: hsl(CYAN, 0.7) }}
+                style={{ color: hsl(BLUE, 0.7) }}
               >
                 →
               </span>
@@ -189,11 +173,17 @@ export function ProtocolScaleCard(props: {
         <button
           onClick={handleSubmit}
           disabled={!canSubmit}
-          className="mt-4 w-full flex items-center justify-center gap-2 rounded-2xl px-4 py-3.5 text-[14px] font-bold text-[#0a0a0a] active:scale-[0.98] transition-transform disabled:opacity-60 disabled:active:scale-100"
-          style={{ background: hsl(AMBER), boxShadow: `0 8px 28px ${hsl(AMBER, 0.4)}` }}
+          className="mt-4 w-full flex items-center justify-center gap-2 rounded-2xl px-4 py-3.5 text-[14px] font-bold text-white relative overflow-hidden active:scale-[0.98] transition-transform disabled:opacity-60 disabled:active:scale-100 border border-primary/30"
+          style={{
+            background: `linear-gradient(135deg, ${hsl(BLUE)}, ${hsl(BLUE_HI)})`,
+            boxShadow: `0 8px 28px ${hsl(BLUE, 0.45)}`,
+          }}
         >
-          <Droplets className="h-4 w-4 shrink-0" />
-          <span className="truncate">{isLoading ? "Generating…" : "Start rehydrating"}</span>
+          <WizardAuroraBackground intensity="subtle" motes={false} />
+          <span className="relative flex items-center gap-2">
+            <Droplets className="h-4 w-4 shrink-0" />
+            <span className="truncate">{isLoading ? "Generating…" : "Start rehydrating"}</span>
+          </span>
         </button>
 
         {error && (

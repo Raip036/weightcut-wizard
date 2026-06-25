@@ -21,7 +21,13 @@ import { toast } from "sonner";
 import { ProUpsellScreen } from "@/components/subscription/ProUpsellScreen";
 
 import { ProtocolCountdownAnchor } from "@/components/protocol/ProtocolCountdownAnchor";
-import { ProtocolJourneySpine } from "@/components/protocol/ProtocolJourneySpine";
+import {
+  ProtocolFlowTimeline,
+  ProtocolPlanSwitcher,
+  PROTOCOL_STEPS,
+  type StepKey,
+} from "@/components/protocol/ProtocolFlowTimeline";
+import { WizardAuroraBackground } from "@/components/onboarding/WizardAuroraBackground";
 import { ProtocolPlanIntro } from "@/components/protocol/ProtocolPlanIntro";
 import { ProtocolWalkoutTakeover } from "@/components/protocol/ProtocolWalkoutTakeover";
 import { WeightProtocolProDialog } from "@/components/protocol/WeightProtocolProDialog";
@@ -31,14 +37,11 @@ import {
   ProtocolScaleCard,
   type ProtocolScaleSubmit,
 } from "@/components/protocol/ProtocolScaleCard";
-import { SafetyWarningBanner, friendlyWarningTitle } from "@/components/protocol/SafetyWarningBanner";
-import {
-  MedicalDisclaimerAck,
-  MedicalDisclaimerBanner,
-} from "@/components/protocol/MedicalDisclaimerBanner";
+import { friendlyWarningTitle } from "@/components/protocol/SafetyWarningBanner";
+import { MedicalDisclaimerAck } from "@/components/protocol/MedicalDisclaimerBanner";
 import { OrsRecipeCard } from "@/components/protocol/OrsRecipeCard";
 import { RehydrationTimeline } from "@/components/protocol/RehydrationTimeline";
-import { DoNotCallouts } from "@/components/protocol/DoNotCallouts";
+import { ProtocolSafetyFooter } from "@/components/protocol/ProtocolSafetyFooter";
 import {
   FeelChecksList,
   type FeelCheck,
@@ -46,7 +49,6 @@ import {
 } from "@/components/protocol/FeelChecksList";
 import { ProtocolRegenerateButton } from "@/components/protocol/ProtocolRegenerateButton";
 import { BackToTopFAB } from "@/components/protocol/BackToTopFAB";
-import { ProtocolSectionDivider } from "@/components/protocol/ProtocolSectionDivider";
 import { ProtocolPageSkeleton } from "@/components/protocol/ProtocolPageSkeleton";
 import { NoFightCampEmptyState } from "@/components/protocol/NoFightCampEmptyState";
 import { ProtocolGenerationError } from "@/components/protocol/ProtocolGenerationError";
@@ -120,6 +122,12 @@ export default function WeightProtocol() {
   // button, not a phase flip.
   const [finishPressed, setFinishPressed] = useState(false);
 
+  // Step-flow navigation. `activeStep === null` means "follow the data" — the
+  // page lands on whichever step the live protocol state implies. A user tap on
+  // the timeline / plan switcher pins `activeStep` to an explicit index until
+  // the next data transition resets it back to null.
+  const [activeStep, setActiveStep] = useState<number | null>(null);
+
   // Regenerate now builds ONLY the carb-cut fight plan. Rehydration is
   // generated separately via the sweat-loss entry card so the athlete can
   // scale it to what they actually sweated off at the scale.
@@ -129,6 +137,8 @@ export default function WeightProtocol() {
     setGenError(null);
     try {
       await generateFightPlan({ campId: protocol.campId, approach });
+      // Fresh plan → drop back to data-follow so the flow lands on Cut.
+      setActiveStep(null);
     } catch (e: unknown) {
       const msg =
         e instanceof Error ? e.message : "Generation failed. Please try again.";
@@ -161,6 +171,8 @@ export default function WeightProtocol() {
           ...(sleepEndHour != null ? { sleepEndHour } : {}),
         });
         setEditingSweat(false);
+        // Fresh rehydration plan → data-follow lands the flow on Rehydrate.
+        setActiveStep(null);
       } catch (e: unknown) {
         const msg =
           e instanceof Error
@@ -211,6 +223,7 @@ export default function WeightProtocol() {
     setIsGeneratingRehydration(false);
     setEditingSweat(false);
     setFinishPressed(false);
+    setActiveStep(null);
     window.scrollTo({ top: 0 });
   }, [clearProtocol]);
 
@@ -382,11 +395,6 @@ export default function WeightProtocol() {
     (rhPayload?.orsRecipe?.totalLitresTarget as number | undefined) ??
     null;
 
-  // Finale is driven by the user pressing "I've made weight & refuelled" at the
-  // bottom of the rehydration plan — an intentional success moment, not a phase
-  // flip. Suppresses the countdown while showing.
-  const showFinale = finishPressed;
-
   // Pre-formatted weigh-in date for the countdown anchor, from the D-0
   // skeleton day's ISO when present.
   const weighInDateLabel = (() => {
@@ -401,39 +409,69 @@ export default function WeightProtocol() {
     });
   })();
 
-  // Journey spine progression: Plan → (generate) Cut → (submit sweat) Scale ✓ +
-  // Rehydrate active → (plan generated) Rehydrate ✓ + Walkout active →
-  // (Finish pressed) all done.
-  const rehydrated = !!rhPayload && !editingSweat;
-  const journeyActive = finishPressed
-    ? 5
-    : rehydrated
-      ? 4
-      : isGeneratingRehydration
-        ? 3
+  // Step-flow derivation. `dataStep` is where the live protocol state implies
+  // the user should be (Plan → Cut → Scale → Rehydrate → Walkout); `maxReached`
+  // is the furthest step they can jump to. Cut + Scale are both reachable the
+  // moment a fight plan exists. `step` is the explicit tap if any, else follows
+  // the data.
+  const dataStep = finishPressed
+    ? 4
+    : rhPayload && !editingSweat
+      ? 3
+      : editingSweat
+        ? 2
         : fpPayload
           ? 1
           : 0;
+  const maxReached = finishPressed
+    ? 4
+    : rhPayload && !editingSweat
+      ? 3
+      : fpPayload
+        ? 2
+        : 0;
+  const step = activeStep ?? dataStep;
+
+  // Hop to a living plan via the Cut ⇄ Rehydrate switcher.
+  const switchPlan = (k: StepKey) => {
+    const idx = PROTOCOL_STEPS.findIndex((s) => s.key === k);
+    if (idx >= 0) setActiveStep(idx);
+  };
 
   return (
     <div className="animate-page-in space-y-3 px-5 py-3 sm:p-5 md:p-6 max-w-7xl mx-auto pb-16 md:pb-6">
-      {/* 0. Journey spine — the story map (Plan → Cut → Scale → Rehydrate →
-            Walkout). Shows the athlete where they are in the arc. */}
-      <ProtocolJourneySpine active={journeyActive} />
+      {/* 0. Step-flow timeline — the story map (Plan → Cut → Scale → Rehydrate →
+            Walkout). Sticky so it stays anchored while the active step scrolls.
+            Tapping a reached step pins it; data transitions reset to follow. */}
+      <div className="sticky top-2 z-20">
+        <ProtocolFlowTimeline
+          active={step}
+          maxReached={maxReached}
+          onSelect={setActiveStep}
+        />
+      </div>
 
       {/* Medical disclaimer (App Store Guideline 1.4.1) — persistent, shown for
           EVERY plan. First view gets a one-time "I understand" acknowledgement;
-          afterwards it stays as a passive amber notice. Sits above the cut /
-          rehydration protocol so the disclaimer is visible at the point of use,
-          not buried in Settings. */}
+          afterwards it stays as a passive amber notice. Pinned below the
+          timeline so the disclaimer is visible at the point of use. */}
       <MedicalDisclaimerAck />
 
-      {!fpPayload ? (
-        /* ── Chapter 01 · The Plan — clean intro shown before generation.
-              The athlete's weight, target and profile are already known, so
-              this is just the read + the one Generate action (no crowded
-              taper / inputs / approach until a plan exists). */
-        isGeneratingProtocol ? (
+      {/* Weigh-in countdown anchor — the pivot the whole flow hinges on. Pinned
+          under the timeline for the cut / scale / rehydrate steps; hidden on the
+          Plan step and once the finale is showing. */}
+      {fpPayload && !finishPressed && step !== 0 && (
+        <ProtocolCountdownAnchor
+          daysToWeighIn={daysToWeighIn}
+          dateLabel={weighInDateLabel}
+        />
+      )}
+
+      {/* ── STEP 0 · PLAN ──────────────────────────────────────────────
+            Clean intro shown before generation (or the wizard overlay while a
+            generation the user kicked off is running). */}
+      {step === 0 &&
+        (isGeneratingProtocol ? (
           <ProtocolGeneratingOverlay tone={tier} />
         ) : (
           <ProtocolPlanIntro
@@ -444,57 +482,51 @@ export default function WeightProtocol() {
             onApproachChange={handleApproachChange}
             onGenerate={handleRegenerate}
           />
-        )
-      ) : (
-      <>
-      {/* 0b. Weigh-in countdown anchor — the pivot the whole flow hinges on.
-            Suppressed once the finale is showing. */}
-      {!showFinale && (
-        <ProtocolCountdownAnchor
-          daysToWeighIn={daysToWeighIn}
-          dateLabel={weighInDateLabel}
-        />
+        ))}
+
+      {/* ── STEP 1 · CUT (living plan) ─────────────────────────────────── */}
+      {step === 1 && (
+        <>
+          {/* Both plans live → let the user hop straight to Rehydrate. */}
+          {rhPayload && !editingSweat && (
+            <ProtocolPlanSwitcher active="cut" onSelect={switchPlan} />
+          )}
+
+          {/* The Cut — mockup-exact taper card. While a regeneration is running,
+              show the loader in its place. */}
+          {isGeneratingProtocol ? (
+            <ProtocolGeneratingOverlay tone={tier} />
+          ) : (
+            <ProtocolCutChapter
+              targetKg={targetWeight}
+              sameDay={weighInSameDay}
+              fiberStrategy={fiberStrategy}
+              days={days.map((d: any) => ({
+                daysToWeighIn: d.daysToWeighIn,
+                carbsGrams: d.carbsGrams,
+                waterLitres: d.waterLitres,
+                sodiumMg: d.sodiumMg,
+                fiberGrams: d.fiberGrams,
+                isToday: d.dayIso === today,
+              }))}
+            />
+          )}
+
+          {/* Regenerate button + error — unlimited, no daily cap */}
+          <ProtocolRegenerateButton
+            onRegenerate={handleRegenerate}
+            isLoading={isRegenerating}
+          />
+          {genError && (
+            <ProtocolGenerationError error={genError} onRetry={handleRegenerate} />
+          )}
+        </>
       )}
 
-      {/* Safety — keep the extreme-cut warning regardless of layout. */}
-      {critical && (
-        <SafetyWarningBanner
-          level="red"
-          title={friendlyWarningTitle(critical.code)}
-          body={critical.message}
-        />
-      )}
-
-      {/* The Cut — mockup-exact taper card (countdown sits above it). While a
-          regeneration is running, show the loader in its place. */}
-      {isGeneratingProtocol ? (
-        <ProtocolGeneratingOverlay tone={tier} />
-      ) : (
-        <ProtocolCutChapter
-          targetKg={targetWeight}
-          sameDay={weighInSameDay}
-          fiberStrategy={fiberStrategy}
-          days={days.map((d: any) => ({
-            daysToWeighIn: d.daysToWeighIn,
-            carbsGrams: d.carbsGrams,
-            waterLitres: d.waterLitres,
-            sodiumMg: d.sodiumMg,
-            fiberGrams: d.fiberGrams,
-            isToday: d.dayIso === today,
-          }))}
-        />
-      )}
-
-      {/* Compact stop-immediately notice next to the dehydration / heat phase
-          of the cut. Mirrors the abort triggers (HR spikes, cramping,
-          dizziness, confusion) surfaced by the fight-week analysis. */}
-      {!isGeneratingProtocol && (
-        <MedicalDisclaimerBanner variant="compact" />
-      )}
-
-      {/* The Scale → Rehydrate. Enter kilos sweated off; on submit the
-          rehydration plan generates and its full detail replaces the input. */}
-      {!rhPayload || editingSweat ? (
+      {/* ── STEP 2 · SCALE (form / gate) ────────────────────────────────
+            Enter kilos sweated off; on submit the rehydration plan generates
+            and the flow follows the data onto Rehydrate. */}
+      {step === 2 && (
         <ProtocolScaleCard
           onGenerate={handleGenerateRehydration}
           isLoading={isGeneratingRehydration}
@@ -504,42 +536,55 @@ export default function WeightProtocol() {
             (rhPayload?.gapHours as number | undefined) ?? rawGapHours ?? undefined
           }
         />
-      ) : (
+      )}
+
+      {/* ── STEP 3 · REHYDRATE (living plan) ────────────────────────────── */}
+      {step === 3 && (
         <>
-          <ProtocolSectionDivider label="After the scale · Rehydration" />
-          {/* Litres-to-replace HERO — the headline figure, above the recipe. */}
+          <ProtocolPlanSwitcher active="rehydrate" onSelect={switchPlan} />
+
+          {/* Litres-to-replace HERO — the headline figure, above the recipe.
+              Blue-aurora card matching the page's premium wizard look. */}
           {rehydLitres != null && (
-            <div
-              className="rounded-2xl border text-center p-5"
-              style={{ borderColor: "hsl(190 90% 55% / 0.3)", background: "hsl(190 90% 55% / 0.06)" }}
-            >
-              <p
-                className="display-number font-extrabold tabular-nums leading-none"
-                style={{ fontSize: 56, color: "hsl(190 90% 55%)" }}
-              >
-                {rehydLitres.toFixed(1)} L
-              </p>
-              <p className="text-[12px] text-muted-foreground mt-1.5">
-                to replace · over the first 6 hours
-              </p>
+            <div className="relative rounded-2xl card-surface border border-primary/25 overflow-hidden">
+              <WizardAuroraBackground intensity="subtle" radialGlow />
+              <div className="relative p-6 text-center">
+                <p
+                  className="text-[10px] font-bold uppercase tracking-[0.2em] mb-3"
+                  style={{ color: "hsl(217 91% 58%)" }}
+                >
+                  After the scale · Rehydration
+                </p>
+                <p className="display-number font-extrabold tabular-nums text-foreground leading-none">
+                  <span style={{ fontSize: 52 }}>{rehydLitres.toFixed(1)}</span>
+                  <span
+                    className="text-muted-foreground/70 font-bold ml-1.5"
+                    style={{ fontSize: 24 }}
+                  >
+                    L
+                  </span>
+                </p>
+                <p className="text-[12px] text-muted-foreground mt-2">
+                  to replace · over the first 6 hours
+                </p>
+              </div>
             </div>
           )}
           <OrsRecipeCard
-            perLitre={rhPayload.orsRecipe?.perLitre ?? []}
-            totalLitresTarget={rhPayload.orsRecipe?.totalLitresTarget ?? 0}
-            diyShoppingList={rhPayload.orsRecipe?.diyShoppingList ?? []}
-            commercialEquivalents={rhPayload.orsRecipe?.commercialEquivalents ?? []}
+            perLitre={rhPayload?.orsRecipe?.perLitre ?? []}
+            totalLitresTarget={rhPayload?.orsRecipe?.totalLitresTarget ?? 0}
+            diyShoppingList={rhPayload?.orsRecipe?.diyShoppingList ?? []}
+            commercialEquivalents={rhPayload?.orsRecipe?.commercialEquivalents ?? []}
           />
           <RehydrationTimeline
             anchors={hours}
             gapHours={gapHours ?? 24}
             totalLitresTarget={
-              rhPayload.derivedSnapshot?.totalLitresTarget ??
-              rhPayload.orsRecipe?.totalLitresTarget
+              rhPayload?.derivedSnapshot?.totalLitresTarget ??
+              rhPayload?.orsRecipe?.totalLitresTarget
             }
-            deficitTooLarge={Boolean(rhPayload.deficitTooLarge)}
+            deficitTooLarge={Boolean(rhPayload?.deficitTooLarge)}
           />
-          <DoNotCallouts items={(rhPayload?.doNots as string[] | undefined) ?? []} />
           {showFeelChecks && (
             <FeelChecksList
               campId={campId}
@@ -551,15 +596,23 @@ export default function WeightProtocol() {
             <button
               type="button"
               onClick={() => setFinishPressed(true)}
-              className="w-full flex items-center justify-center rounded-2xl px-4 py-3.5 text-[14px] font-bold text-primary-foreground active:scale-[0.98] transition-transform"
-              style={{ background: "hsl(152 64% 47%)" }}
+              className="w-full flex items-center justify-center rounded-2xl px-4 py-3.5 text-[14px] font-bold text-white relative overflow-hidden border border-primary/30 active:scale-[0.98] transition-transform"
+              style={{
+                background:
+                  "linear-gradient(135deg, hsl(217 91% 58%), hsl(213 94% 64%))",
+                boxShadow: "0 8px 28px hsl(217 91% 58% / 0.45)",
+              }}
             >
-              I've made weight &amp; refuelled
+              <WizardAuroraBackground intensity="subtle" motes={false} />
+              <span className="relative">I've made weight &amp; refuelled</span>
             </button>
           )}
           <button
             type="button"
-            onClick={() => setEditingSweat(true)}
+            onClick={() => {
+              setEditingSweat(true);
+              setActiveStep(2);
+            }}
             className="block w-full text-center text-[12px] text-muted-foreground/80 underline-offset-4 hover:text-foreground hover:underline transition-colors"
           >
             Re-enter sweat-loss &amp; regenerate
@@ -567,19 +620,26 @@ export default function WeightProtocol() {
         </>
       )}
 
-      {/* Regenerate button + error — unlimited, no daily cap */}
-      <ProtocolRegenerateButton
-        onRegenerate={handleRegenerate}
-        isLoading={isRegenerating}
-      />
-      {genError && (
-        <ProtocolGenerationError error={genError} onRetry={handleRegenerate} />
+      {/* STEP 4 · WALKOUT — the finale is the full-page takeover rendered
+          below, so this step renders no inline content. */}
+
+      {/* Consolidated safety footer — all the warnings (critical, do-not, and
+          the stop-immediately disclaimer) collected at the BOTTOM of the page
+          as low-key borderless text (red titles + amber line, no fills) so
+          they stop being a mid-page eyesore. */}
+      {fpPayload && !finishPressed && (
+        <ProtocolSafetyFooter
+          critical={
+            critical
+              ? { title: friendlyWarningTitle(critical.code), message: critical.message }
+              : null
+          }
+          doNots={(rhPayload?.doNots as string[] | undefined) ?? []}
+        />
       )}
 
-      {/* Floating back-to-top */}
-      <BackToTopFAB />
-      </>
-      )}
+      {/* Floating back-to-top — only meaningful on the long living-plan steps. */}
+      {fpPayload && step !== 0 && <BackToTopFAB />}
 
       {/* Walkout finale — full-page takeover after "I've made weight &
           refuelled": celebration → shareable recap poster → Start over (which

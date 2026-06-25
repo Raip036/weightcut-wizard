@@ -262,7 +262,7 @@ export default function TodayStrip({ adherence, mealsLoggedToday, onMarkRestDay 
             onClick={() => setUserExpanded((e) => !e)}
             aria-expanded={tilesOpen}
             aria-label="Today's log complete, tap to view sections"
-            className="w-full flex items-center gap-2.5 rounded-full border border-func-recovery-green/30 bg-func-recovery-green/12 px-3 py-2 text-left"
+            className="w-full flex items-center gap-2.5 rounded-full border border-func-recovery-green/30 bg-func-recovery-green/12 px-3 py-1.5 text-left"
             style={{ boxShadow: DONE_GLOW }}
             initial={prefersReduced ? false : { opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -277,7 +277,7 @@ export default function TodayStrip({ adherence, mealsLoggedToday, onMarkRestDay 
               <Icon name="checkmarkOutline" size={12} className="text-background" />
             </motion.span>
 
-            <span className="text-[13px] font-semibold tracking-wide text-func-recovery-green">
+            <span className="whitespace-nowrap text-[12px] font-semibold tracking-wide text-func-recovery-green">
               Today's log complete
             </span>
 

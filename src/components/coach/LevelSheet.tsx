@@ -87,8 +87,14 @@ export function LevelSheet({ open, onOpenChange }: LevelSheetProps) {
   const { userId, profile } = useUser();
   const [achievementsOpen, setAchievementsOpen] = useState(false);
 
-  // Per-discipline XP rows, drives the top section.
-  const xpRows = useQuery(api.user_discipline_xp.getAllForUser);
+  // Per-discipline XP rows, drives the top section. Scoped to the active camp —
+  // XP is stored one row per (user, camp, sport), so a no-arg read would yield
+  // duplicate rows per sport in the DisciplineList.
+  const activeCamp = useQuery(api.fight_camp.getActiveCamp);
+  const xpRows = useQuery(
+    api.user_discipline_xp.getAllForUser,
+    activeCamp === undefined ? "skip" : { campId: activeCamp?._id },
+  );
 
   // Pull a recent weight-log window so the streak math has real input. We
   // only need date strings; `useGamification` collapses to date sets.

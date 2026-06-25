@@ -650,46 +650,52 @@ const QUICK_SNACKS = [
 /** Static "what to eat" reference. Pure presentational, no inputs. */
 function MealIdeasBox() {
   return (
-    <div className="card-surface mt-5 rounded-2xl p-4">
-      <p className="text-[10px] uppercase tracking-[0.14em] font-semibold text-muted-foreground/70">
-        Meal ideas
-      </p>
-      <p className="mt-0.5 text-[11.5px] text-muted-foreground/75">
-        high-carb · easy to digest · low fat · lean
-      </p>
+    <div className="card-surface mt-5 rounded-2xl p-4 border border-primary/15">
+      {/* Header */}
+      <div className="flex items-baseline justify-between mb-3">
+        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-foreground">
+          Meal ideas
+        </p>
+        <p className="text-[10px] text-muted-foreground/65">
+          high-carb · easy · low-fat
+        </p>
+      </div>
 
-      <div className="mt-3.5 grid gap-4 sm:grid-cols-2">
+      {/* Two-column grid */}
+      <div className="grid grid-cols-2 gap-3">
         <MealIdeaList
-          heading="Refuel meals"
+          heading="Refuel"
           items={REFUEL_MEALS}
-          accent={"var(--func-recovery-green)"}
+          dotColor="hsl(165 38% 56% / 1)"
         />
         <MealIdeaList
-          heading="Quick snacks"
+          heading="Snacks"
           items={QUICK_SNACKS}
-          accent={"var(--func-carbs-orange)"}
+          dotColor="hsl(30 70% 62% / 1)"
         />
       </div>
 
       {/* Foods to avoid */}
-      <div
-        className="mt-4 flex items-start gap-2 rounded-xl border p-2.5"
-        style={{
-          borderColor: `rgb(${AMBER} / 0.3)`,
-          background: `rgb(${AMBER} / 0.07)`,
-        }}
-      >
-        <span className="mt-[1px] shrink-0" style={{ color: `rgb(${AMBER})` }}>
-          <Icon name="warningOutline" size={14} />
-        </span>
-        <p className="text-[11.5px] leading-snug text-muted-foreground/85">
-          <span className="font-semibold" style={{ color: `rgb(${AMBER})` }}>
-            Foods to avoid:{" "}
-          </span>
-          Avoid fried/greasy, high-fat, high-fibre (wholegrains, beans, raw veg,
-          salad), very large meals, spicy or creamy foods, and anything
-          new/untested.
-        </p>
+      <div className="mt-3 surface-inset rounded-xl px-3 py-2.5 relative overflow-hidden">
+        <div
+          className="absolute left-0 top-0 bottom-0 w-[3px]"
+          style={{ background: `rgb(${AMBER} / 0.6)` }}
+        />
+        <div className="flex items-start gap-2">
+          <div
+            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full mt-px"
+            style={{ background: `rgb(${AMBER} / 0.16)`, color: `rgb(${AMBER})` }}
+          >
+            <Icon name="warningOutline" size={12} />
+          </div>
+          <p className="text-[11px] leading-snug text-muted-foreground">
+            <span className="font-semibold" style={{ color: `rgb(${AMBER})` }}>
+              Avoid{" "}
+            </span>
+            fried/greasy, high-fat, high-fibre, very large meals, spicy or
+            creamy foods, and anything new/untested.
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -698,30 +704,26 @@ function MealIdeasBox() {
 function MealIdeaList({
   heading,
   items,
-  accent,
+  dotColor,
 }: {
   heading: string;
   items: string[];
-  accent: string;
+  dotColor: string;
 }) {
   return (
-    <div>
-      <p
-        className="text-[11px] font-bold uppercase tracking-[0.1em]"
-        style={{ color: `rgb(${accent})` }}
-      >
-        {heading}
-      </p>
-      <ul className="mt-2 space-y-1.5">
+    <div className="rounded-xl surface-inset p-3">
+      <div className="flex items-center gap-1.5 mb-2">
+        <span
+          className="h-1.5 w-1.5 rounded-full shrink-0"
+          style={{ background: dotColor }}
+        />
+        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
+          {heading}
+        </p>
+      </div>
+      <ul className="space-y-1">
         {items.map((item) => (
-          <li
-            key={item}
-            className="flex items-start gap-2 text-[12.5px] leading-snug text-foreground/85"
-          >
-            <span
-              className="mt-[7px] h-1 w-1 shrink-0 rounded-full"
-              style={{ background: `rgb(${accent})` }}
-            />
+          <li key={item} className="text-[11.5px] leading-snug text-foreground/80">
             {item}
           </li>
         ))}

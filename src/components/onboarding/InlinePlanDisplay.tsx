@@ -1098,12 +1098,6 @@ export function InlinePlanDisplay({
       transition={{ duration: 0.4, ease: [0.32, 0.72, 0, 1] }}
       className="w-full pb-24"
     >
-      {/* MEDICAL DISCLAIMER (App Store Guideline 1.4.1): persistent amber notice
-          shown for EVERY plan, at the top of the plan view. Renders in both the
-          onboarding plan preview and the standalone CutPlanReview screen (both
-          mount this component). */}
-      <MedicalDisclaimerBanner variant="banner" className="mb-3" />
-
       {/* HERO CARD: camp name + kicker + count-up ring, in a premium
           card-surface card with a top accent stripe and a blue glow halo
           behind the ring (mirrors the Recovery readiness hero). */}
@@ -1235,6 +1229,12 @@ export function InlinePlanDisplay({
           </p>
         </div>
       </div>
+
+      {/* MEDICAL DISCLAIMER (App Store Guideline 1.4.1): persistent amber notice
+          shown for EVERY plan. Lives at the bottom of the plan view so it stays
+          present without dominating the top. Renders in both the onboarding plan
+          preview and the standalone CutPlanReview screen. */}
+      <MedicalDisclaimerBanner variant="banner" className="mt-3" />
 
       {/* STICKY CTA: `bottom-safe-keyboard` rides this above the iOS
           keyboard (inner pb stays for safe-area padding). Hidden on the

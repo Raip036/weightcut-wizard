@@ -51,15 +51,22 @@ function toView(row: Doc<"user_discipline_xp">): DisciplineXpView {
  * during cold start rather than throwing.
  */
 export const getAllForUser = query({
-  args: {},
-  handler: async (ctx): Promise<DisciplineXpView[]> => {
+  args: { campId: v.optional(v.id("fight_camps")) },
+  handler: async (ctx, { campId }): Promise<DisciplineXpView[]> => {
     const userId = await requireUserId(ctx).catch(() => null);
     if (!userId) return [];
 
-    const rows = await ctx.db
-      .query("user_discipline_xp")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
+    const rows = campId
+      ? await ctx.db
+          .query("user_discipline_xp")
+          .withIndex("by_user_camp_sport", (q) =>
+            q.eq("userId", userId).eq("campId", campId),
+          )
+          .collect()
+      : await ctx.db
+          .query("user_discipline_xp")
+          .withIndex("by_user", (q) => q.eq("userId", userId))
+          .collect();
 
     // Rest is not a progression discipline — you can't earn XP for it, so
     // any legacy "Rest" row is hidden from the breakdown. See `awardXp`.
@@ -75,17 +82,24 @@ export const getAllForUser = query({
  * a not-started state.
  */
 export const getForSport = query({
-  args: { sport: v.string() },
-  handler: async (ctx, { sport }): Promise<DisciplineXpView | null> => {
+  args: { sport: v.string(), campId: v.optional(v.id("fight_camps")) },
+  handler: async (ctx, { sport, campId }): Promise<DisciplineXpView | null> => {
     const userId = await requireUserId(ctx).catch(() => null);
     if (!userId) return null;
 
-    const row = await ctx.db
-      .query("user_discipline_xp")
-      .withIndex("by_user_sport", (q) =>
-        q.eq("userId", userId).eq("sport", sport),
-      )
-      .first();
+    const row = campId
+      ? await ctx.db
+          .query("user_discipline_xp")
+          .withIndex("by_user_camp_sport", (q) =>
+            q.eq("userId", userId).eq("campId", campId).eq("sport", sport),
+          )
+          .first()
+      : await ctx.db
+          .query("user_discipline_xp")
+          .withIndex("by_user_sport", (q) =>
+            q.eq("userId", userId).eq("sport", sport),
+          )
+          .first();
     if (!row) return null;
     return toView(row);
   },
@@ -106,12 +120,13 @@ export const awardXp = internalMutation({
   args: {
     userId: v.id("users"),
     sport: v.string(),
+    campId: v.optional(v.id("fight_camps")),
     amount: v.number(),
     reason: v.string(),
   },
   handler: async (
     ctx,
-    { userId, sport, amount },
+    { userId, sport, campId, amount },
   ): Promise<{
     leveledUp: boolean;
     prevLevel: number;
@@ -121,8 +136,8 @@ export const awardXp = internalMutation({
   }> => {
     const existing = await ctx.db
       .query("user_discipline_xp")
-      .withIndex("by_user_sport", (q) =>
-        q.eq("userId", userId).eq("sport", sport),
+      .withIndex("by_user_camp_sport", (q) =>
+        q.eq("userId", userId).eq("campId", campId).eq("sport", sport),
       )
       .first();
 
@@ -153,6 +168,7 @@ export const awardXp = internalMutation({
       await ctx.db.insert("user_discipline_xp", {
         userId,
         sport,
+        campId,
         totalXp: nextXp,
         updatedAt: now,
       });

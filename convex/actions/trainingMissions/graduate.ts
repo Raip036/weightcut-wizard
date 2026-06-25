@@ -135,6 +135,9 @@ export const graduateCycleToSparring = internalAction({
       await ctx.runMutation(internal.sparring_plan.upsertAssignments, {
         userId,
         discipline,
+        // Attribute the assignment to the SAME camp as the mission that earned
+        // it, even if the user has since started a new camp.
+        campId: mission.campId ?? undefined,
         assignments: [
           {
             technique: focusTechnique,
@@ -241,6 +244,8 @@ export const graduateCycleToSparring = internalAction({
         await ctx.runMutation(internal.sparring_plan.upsertAssignments, {
           userId,
           discipline,
+          // Attribute to the mission's own camp (see Path A note above).
+          campId: mission.campId ?? undefined,
           assignments: [
             {
               technique: focusTechnique,

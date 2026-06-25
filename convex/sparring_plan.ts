@@ -10,6 +10,7 @@ import type { Doc } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireUserId } from "./lib/auth";
 import { effectiveTier } from "./_shared/tier";
+import { resolveActiveCampId } from "./fight_camp";
 /**
  * Sparring To-Do List — per-discipline AI-generated checklist of techniques
  * to deliberately work in live rounds. Assignments are now created exclusively
@@ -37,22 +38,42 @@ type SparringAssignment = Doc<"sparring_assignments">;
  * by_user_discipline index; otherwise every assignment is returned.
  */
 export const listSparringAssignments = query({
-  args: { discipline: v.optional(v.string()) },
-  handler: async (ctx, { discipline }): Promise<SparringAssignment[]> => {
+  args: {
+    discipline: v.optional(v.string()),
+    campId: v.optional(v.id("fight_camps")),
+  },
+  handler: async (ctx, { discipline, campId }): Promise<SparringAssignment[]> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
 
-    const rows = discipline
-      ? await ctx.db
-          .query("sparring_assignments")
-          .withIndex("by_user_discipline", (q) =>
-            q.eq("userId", userId).eq("discipline", discipline),
-          )
-          .collect()
-      : await ctx.db
-          .query("sparring_assignments")
-          .withIndex("by_user", (q) => q.eq("userId", userId))
-          .collect();
+    let rows: SparringAssignment[];
+    if (campId) {
+      rows = discipline
+        ? await ctx.db
+            .query("sparring_assignments")
+            .withIndex("by_user_camp_discipline", (q) =>
+              q.eq("userId", userId).eq("campId", campId).eq("discipline", discipline),
+            )
+            .collect()
+        : await ctx.db
+            .query("sparring_assignments")
+            .withIndex("by_user_camp", (q) =>
+              q.eq("userId", userId).eq("campId", campId),
+            )
+            .collect();
+    } else {
+      rows = discipline
+        ? await ctx.db
+            .query("sparring_assignments")
+            .withIndex("by_user_discipline", (q) =>
+              q.eq("userId", userId).eq("discipline", discipline),
+            )
+            .collect()
+        : await ctx.db
+            .query("sparring_assignments")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .collect();
+    }
 
     return rows.sort((a, b) => b.updatedAt - a.updatedAt);
   },
@@ -110,6 +131,7 @@ export const toggleAssignment = mutation({
         await ctx.scheduler.runAfter(0, internal.user_discipline_xp.awardXp, {
           userId,
           sport: row.discipline,
+          campId: row.campId,
           amount: 15,
           reason: "sparring_assignment_done",
         });
@@ -139,6 +161,9 @@ export const upsertAssignments = internalMutation({
   args: {
     userId: v.id("users"),
     discipline: v.string(),
+    // Camp to attribute these assignments to. When omitted we resolve the
+    // user's active camp so graduated assignments are scoped per-camp.
+    campId: v.optional(v.id("fight_camps")),
     assignments: v.array(
       v.object({
         technique: v.string(),
@@ -157,13 +182,19 @@ export const upsertAssignments = internalMutation({
       }),
     ),
   },
-  handler: async (ctx, { userId, discipline, assignments }): Promise<void> => {
+  handler: async (ctx, { userId, discipline, campId: campIdArg, assignments }): Promise<void> => {
     const now = Date.now();
+    // Stamp the active camp when the caller didn't pin one, so dedup + new
+    // rows are scoped to the camp the techniques are being earned in.
+    const campId = campIdArg ?? (await resolveActiveCampId(ctx, userId));
     for (const a of assignments) {
       const existing = await ctx.db
         .query("sparring_assignments")
-        .withIndex("by_user_norm", (q) =>
-          q.eq("userId", userId).eq("techniqueNormalized", a.techniqueNormalized),
+        .withIndex("by_user_camp_norm", (q) =>
+          q
+            .eq("userId", userId)
+            .eq("campId", campId)
+            .eq("techniqueNormalized", a.techniqueNormalized),
         )
         .first();
       if (existing) {
@@ -189,6 +220,7 @@ export const upsertAssignments = internalMutation({
       } else {
         await ctx.db.insert("sparring_assignments", {
           userId,
+          campId,
           discipline,
           technique: a.technique,
           techniqueNormalized: a.techniqueNormalized,
@@ -228,8 +260,20 @@ export const findAssignmentByNorm = internalQuery({
   args: {
     userId: v.id("users"),
     techniqueNormalized: v.string(),
+    campId: v.optional(v.id("fight_camps")),
   },
-  handler: async (ctx, { userId, techniqueNormalized }) => {
+  handler: async (ctx, { userId, techniqueNormalized, campId }) => {
+    if (campId) {
+      return await ctx.db
+        .query("sparring_assignments")
+        .withIndex("by_user_camp_norm", (q) =>
+          q
+            .eq("userId", userId)
+            .eq("campId", campId)
+            .eq("techniqueNormalized", techniqueNormalized),
+        )
+        .first();
+    }
     return await ctx.db
       .query("sparring_assignments")
       .withIndex("by_user_norm", (q) =>

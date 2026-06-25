@@ -69,6 +69,8 @@ const MyGym = lazy(() => import("./pages/MyGym"));
 const Community = lazy(() => import("./pages/Community"));
 const Profile = lazy(() => import("./pages/Profile"));
 const CommunityModeration = lazy(() => import("./pages/community/Moderation"));
+// THROWAWAY mock lab for the Cut redesign — delete after sign-off.
+const CutLab = lazy(() => import("./pages/CutLab"));
 
 // Prioritized idle preloading — critical routes first, rest deferred
 const _idle = window.requestIdleCallback || ((cb: IdleRequestCallback) => setTimeout(cb, 50));
@@ -322,6 +324,8 @@ const App = () => (
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/coach/login" element={<Suspense fallback={<DashboardSkeleton />}><CoachLogin /></Suspense>} />
                 <Route path="/legal" element={<Suspense fallback={null}><Legal /></Suspense>} />
+                {/* THROWAWAY mock lab — Cut redesign comparison. Delete after sign-off. */}
+                <Route path="/cut-lab" element={<Suspense fallback={<DashboardSkeleton />}><CutLab /></Suspense>} />
                 <Route path="/onboarding" element={
                   <ProtectedRoute>
                     <Onboarding />
