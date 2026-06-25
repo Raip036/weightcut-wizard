@@ -518,27 +518,6 @@ function DailyFocusBlock({ bullets }: { bullets: string[] }) {
   );
 }
 
-// ─── Coach note: editorial, hand-written feel ───────────────────────
-function CoachNote({ text }: { text: string }) {
-  const cleaned = cleanText(text);
-  if (!cleaned) return null;
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ ...ENTER_SPRING, delay: 0.1 }}
-      className="relative card-surface rounded-2xl border border-border/50 border-l-2 border-l-secondary/60 pl-4 pr-4 py-3.5 mt-3"
-    >
-      <p className="text-[10px] uppercase tracking-[0.16em] font-semibold text-secondary/80 mb-1.5">
-        From your coach
-      </p>
-      <p className="text-[13.5px] leading-relaxed text-foreground/95">
-        {cleaned}
-      </p>
-    </motion.div>
-  );
-}
-
 // ─── Phase cards: icon badge + phase colour, staggered entrance ─────
 function PhasePills({
   phases,
@@ -1139,9 +1118,6 @@ export function InlinePlanDisplay({
         fats={week1?.fats_g}
         weightKg={currentWeight || undefined}
       />
-
-      {/* COACH NOTE */}
-      {planData.personalNote && <CoachNote text={planData.personalNote} />}
 
       {/* DAILY FOCUS: once, at the top */}
       <DailyFocusBlock bullets={universalFocus} />
