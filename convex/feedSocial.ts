@@ -159,34 +159,55 @@ export const listComments = query({
       .order("asc")
       .paginate({ cursor: paginationOpts.cursor, numItems });
 
-    const rows = await Promise.all(
-      page.page.map(async (c: Doc<"feed_comments">) => {
-        const profile = await ctx.db
+    // Dedupe author lookups: a thread where one member posts several
+    // comments previously caused a redundant `profiles.by_user` read +
+    // `storage.getUrl` per comment (N+1). Collect the unique author
+    // userIds in the page, batch-load each profile + resolve its avatar
+    // URL ONCE into a map, then read per-comment from the map. Mirrors
+    // the `profileCache` approach in `listLatestComments`.
+    const uniqueAuthorIds = [...new Set(page.page.map((c) => c.userId))];
+    const authorProfiles = await Promise.all(
+      uniqueAuthorIds.map((uid) =>
+        ctx.db
           .query("profiles")
-          .withIndex("by_user", (q) => q.eq("userId", c.userId))
-          .unique();
-        const avatarUrl = profile?.avatarStorageId
-          ? await ctx.storage.getUrl(profile.avatarStorageId)
-          : null;
-        return {
-          id: c._id,
-          createdAt: c._creationTime,
-          body: c.body,
-          author: {
-            userId: c.userId,
-            displayName: profile?.displayName ?? "Athlete",
-            avatarUrl,
-          },
-          // Soft-tag — "former_member" when the commenter has left this
-          // gym. Drives a "(former member)" inline label in the comments
-          // sheet without a per-render gym-membership cross-join.
-          authorState: c.authorState ?? "active",
-          // Pre-computed for the client so long-press shows / hides Delete
-          // correctly without a second round-trip.
-          canDelete: c.userId === userId || post.userId === userId,
-        };
-      }),
+          .withIndex("by_user", (q) => q.eq("userId", uid))
+          .unique(),
+      ),
     );
+    const authorAvatarUrls = await Promise.all(
+      authorProfiles.map((p) =>
+        p?.avatarStorageId
+          ? ctx.storage.getUrl(p.avatarStorageId)
+          : Promise.resolve(null),
+      ),
+    );
+    const authorMap = new Map(
+      uniqueAuthorIds.map((uid, i) => [
+        uid,
+        { profile: authorProfiles[i], avatarUrl: authorAvatarUrls[i] },
+      ]),
+    );
+
+    const rows = page.page.map((c: Doc<"feed_comments">) => {
+      const author = authorMap.get(c.userId);
+      return {
+        id: c._id,
+        createdAt: c._creationTime,
+        body: c.body,
+        author: {
+          userId: c.userId,
+          displayName: author?.profile?.displayName ?? "Athlete",
+          avatarUrl: author?.avatarUrl ?? null,
+        },
+        // Soft-tag — "former_member" when the commenter has left this
+        // gym. Drives a "(former member)" inline label in the comments
+        // sheet without a per-render gym-membership cross-join.
+        authorState: c.authorState ?? "active",
+        // Pre-computed for the client so long-press shows / hides Delete
+        // correctly without a second round-trip.
+        canDelete: c.userId === userId || post.userId === userId,
+      };
+    });
 
     return {
       page: rows,
@@ -454,7 +475,12 @@ export const reportPost = mutation({
         .collect();
       const openCount = allReports.filter((r) => r.status === "open").length;
       if (openCount >= AUTO_SOFT_DELETE_REPORT_THRESHOLD) {
-        await ctx.db.patch(postId, { deletedAt: Date.now() });
+        // Keep the denormalized feed flag in lockstep: a soft-deleted post
+        // must never satisfy the `by_gym_feed` predicate.
+        await ctx.db.patch(postId, {
+          deletedAt: Date.now(),
+          feedEligible: false,
+        });
         autoSoftDeleted = true;
       }
     }
@@ -498,7 +524,9 @@ export const softDeletePost = mutation({
     }
     if (!isAuthor && !isGymCoach) throw new Error("Not allowed");
 
-    await ctx.db.patch(postId, { deletedAt: Date.now() });
+    // Soft-delete also clears the denormalized feed flag so the
+    // `by_gym_feed` index can trust it without re-checking `deletedAt`.
+    await ctx.db.patch(postId, { deletedAt: Date.now(), feedEligible: false });
     return { ok: true as const };
   },
 });
@@ -535,7 +563,16 @@ export const restorePost = mutation({
 
     // `patch` with `undefined` clears the field per Convex semantics —
     // the row is visible to feed queries again on the next tick.
-    await ctx.db.patch(postId, { deletedAt: undefined });
+    //
+    // Recompute the denormalized feed flag from the predicate using the
+    // post's current fields (deletedAt is now undefined). `gymId` is
+    // guaranteed set above; the post is feed-eligible only if it still
+    // has a storage blob and isn't private.
+    const feedEligible =
+      post.gymId !== undefined &&
+      post.storageId !== undefined &&
+      post.visibility !== "private";
+    await ctx.db.patch(postId, { deletedAt: undefined, feedEligible });
 
     // Also mark every open report against this post as `dismissed` so
     // the moderation queue doesn't keep flagging a restored post.

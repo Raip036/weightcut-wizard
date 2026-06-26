@@ -17,8 +17,14 @@ export interface ShareInviteResult {
  * Order of preference: Capacitor native share → navigator.share → clipboard.
  * Returns which channel was used so the caller can toast accordingly.
  */
+// Canonical public site for invite links. We deliberately do NOT fall back to
+// `window.location.origin`: on the native app that is `capacitor://localhost`
+// and in a preview build it could be a builder/preview domain, neither of which
+// is a shareable address. Invite links must always point at the public site.
+const PUBLIC_SITE = "https://fightcampwizard.com";
+
 export async function shareGymInvite({ gymName, code, origin }: ShareInviteArgs): Promise<ShareInviteResult> {
-  const baseOrigin = origin || (typeof window !== "undefined" ? window.location.origin : "");
+  const baseOrigin = origin || PUBLIC_SITE;
   const url = `${baseOrigin}/join?code=${encodeURIComponent(code)}`;
   const title = `Join ${gymName} on FightCamp Wizard`;
   const text = `Join my gym ${gymName} on FightCamp Wizard. Code: ${code}`;

@@ -6,6 +6,7 @@
  *                 fight_week_plans, training_summaries.
  */
 import { v } from "convex/values";
+import { paginationOptsValidator } from "convex/server";
 import { query, mutation, internalQuery } from "./_generated/server";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
@@ -819,6 +820,13 @@ export const deleteCalendarEntry = mutation({
           /* storage object already gone — fine */
         }
       }
+      if (a.thumbStorageId) {
+        try {
+          await ctx.storage.delete(a.thumbStorageId);
+        } catch {
+          /* thumb already gone — fine */
+        }
+      }
       try {
         await ctx.db.delete(a._id);
       } catch {
@@ -863,6 +871,14 @@ export const addSessionMedia = mutation({
     kind: v.union(v.literal("photo"), v.literal("video")),
     capturedAt: v.optional(v.string()),
     caption: v.optional(v.string()),
+    // Optional 256px thumbnail + inline LQIP + intrinsic dimensions, generated
+    // client-side at upload so the gallery grid never fetches full-res images.
+    // Absent for video uploads and older clients (the query falls back to the
+    // full image, so nothing breaks).
+    thumbStorageId: v.optional(v.id("_storage")),
+    thumbDataUrl: v.optional(v.string()),
+    width: v.optional(v.number()),
+    height: v.optional(v.number()),
     // Visibility override — defaults to "gym" so existing call sites
     // (legacy QuickLog photo upload, post-workout media picker) are
     // untouched. The photo-first round-card "Log only" CTA passes
@@ -872,7 +888,7 @@ export const addSessionMedia = mutation({
   },
   handler: async (
     ctx,
-    { sessionId, storageId, kind, capturedAt, caption, visibility },
+    { sessionId, storageId, kind, capturedAt, caption, thumbStorageId, thumbDataUrl, width, height, visibility },
   ) => {
     const userId = await requireUserId(ctx);
     const session = await ctx.db.get(sessionId);
@@ -901,6 +917,10 @@ export const addSessionMedia = mutation({
       kind,
       capturedAt: capturedAt ?? session.date,
       caption: caption?.trim() || undefined,
+      thumbStorageId,
+      thumbDataUrl,
+      width,
+      height,
       gymId,
       visibility: visibility ?? "gym",
     });
@@ -924,6 +944,13 @@ export const removeSessionMedia = mutation({
         await ctx.storage.delete(row.storageId);
       } catch {
         /* already gone */
+      }
+    }
+    if (row.thumbStorageId) {
+      try {
+        await ctx.storage.delete(row.thumbStorageId);
+      } catch {
+        /* thumb already gone */
       }
     }
     await ctx.db.delete(mediaId);
@@ -973,18 +1000,16 @@ export const listSessionMedia = query({
  */
 export const listMyMediaLibrary = query({
   args: {
-    limit: v.optional(v.number()),
-    cursor: v.optional(v.union(v.string(), v.null())),
+    paginationOpts: paginationOptsValidator,
     disciplineFilter: v.optional(v.string()),
   },
-  handler: async (ctx, { limit, cursor, disciplineFilter }) => {
+  handler: async (ctx, { paginationOpts, disciplineFilter }) => {
     const userId = await requireUserId(ctx);
-    const cap = Math.min(Math.max(limit ?? 60, 10), 100);
     const page = await ctx.db
       .query("session_media")
       .withIndex("by_user_captured", (q) => q.eq("userId", userId))
       .order("desc")
-      .paginate({ numItems: cap, cursor: cursor ?? null });
+      .paginate(paginationOpts);
     const rows = page.page;
 
     // Batch-load all unique sessions in one parallel pass instead of N awaits.
@@ -1012,13 +1037,29 @@ export const listMyMediaLibrary = query({
         const norm = s
           ? normalizeLegacySession(s.sessionType as string, s.sessionTag as string | undefined)
           : null;
+        // Full-res `url` powers the lightbox; `thumbUrl` (256px, falls back to
+        // full-res when no thumb exists) powers the masonry grid so it never
+        // fetches full-res for off-screen tiles. `thumbDataUrl` is an inline
+        // LQIP for instant first paint; width/height lock the tile aspect box.
+        const fullUrl = r.storageId ? await ctx.storage.getUrl(r.storageId) : null;
+        // `thumbUrl` must always be an IMAGE or null. Photo with no thumb falls
+        // back to the full-res image; a video with no real image thumb returns
+        // null so the grid shows a placeholder + play badge rather than trying
+        // to <img> a video file. Also guards the "thumb id set but object gone"
+        // case (getUrl returns null) by falling back the same way.
+        const thumbResolved = r.thumbStorageId ? await ctx.storage.getUrl(r.thumbStorageId) : null;
+        const thumbUrl = thumbResolved ?? (r.kind === "photo" ? fullUrl : null);
         return {
           id: r._id,
           sessionId: r.sessionId,
           kind: r.kind,
           capturedAt: r.capturedAt,
           caption: r.caption ?? null,
-          url: r.storageId ? await ctx.storage.getUrl(r.storageId) : null,
+          url: fullUrl,
+          thumbUrl,
+          thumbDataUrl: r.thumbDataUrl ?? null,
+          width: r.width ?? null,
+          height: r.height ?? null,
           sessionType: norm?.primary ?? null,
           sessionTag: norm?.tag ?? null,
           sessionDate: (s?.date as string) ?? r.capturedAt,
@@ -1030,11 +1071,10 @@ export const listMyMediaLibrary = query({
       disciplineFilter && disciplineFilter !== "all"
         ? results.filter((r) => r.sessionType === disciplineFilter)
         : results;
-    return {
-      page: filtered,
-      isDone: page.isDone,
-      continueCursor: page.continueCursor,
-    };
+    // Preserve the PaginationResult shape (isDone / continueCursor / splitCursor)
+    // so `usePaginatedQuery` can drive infinite scroll; only the page array is
+    // swapped for the discipline-filtered + thumbnail-enriched rows.
+    return { ...page, page: filtered };
   },
 });
 

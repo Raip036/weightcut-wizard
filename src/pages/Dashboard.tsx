@@ -48,7 +48,9 @@ import { ProfileSheet } from "@/components/dashboard/ProfileSheet";
 import NewAnnouncementWidget from "@/components/dashboard/NewAnnouncementWidget";
 import { GymInvitesBanner } from "@/components/dashboard/GymInvitesBanner";
 import { NextCampFlow } from "@/components/fightcamp/NextCampFlow";
-import { CatchUpSheet } from "@/components/dashboard/CatchUpSheet";
+import { CampLimitProGate } from "@/components/fightcamp/CampLimitProGate";
+import { StartCampAuroraCta } from "@/components/fightcamp/StartCampAuroraCta";
+import { useSubscription } from "@/hooks/useSubscription";
 import { PostFightDebrief } from "@/components/fightcamp/PostFightDebrief";
 import { isFighter } from "@/lib/goalType";
 import { track, EVENTS } from "@/lib/analytics";
@@ -158,8 +160,16 @@ export default function Dashboard() {
   const [frequentMeals, setFrequentMeals] = useState<Array<{ name: string; count: number; avgCalories: number }>>([]);
   const [scoreSheetOpen, setScoreSheetOpen] = useState(false);
   const [nextCampOpen, setNextCampOpen] = useState(false);
+  // Free-tier gate: creating any camp beyond the onboarding one is Pro. We
+  // check upfront so free users see the aurora upsell (the conversion moment)
+  // instead of bouncing off the server's PRO_FEATURE_REQUIRED error.
+  const { checkFeatureAccess } = useSubscription();
+  const [campGateOpen, setCampGateOpen] = useState(false);
+  const guardCreate = (action: () => void) => {
+    if (checkFeatureAccess("MULTIPLE_FIGHT_CAMPS")) action();
+    else setCampGateOpen(true);
+  };
   const [profileSheetOpen, setProfileSheetOpen] = useState(false);
-  const [catchUpOpen, setCatchUpOpen] = useState(false);
   // Win-moment review card: armed by a camp wrap-up, shown after a dashboard load.
   const [showReviewCard, setShowReviewCard] = useState(false);
   // Active camp drives the post-fight "wrap up + start next camp" banner.
@@ -201,34 +211,6 @@ export default function Dashboard() {
       document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, []);
-
-  // Compute yesterday's date string from liveTodayStr (local date math).
-  // Uses the same approach as the app-wide date utilities: parse the local
-  // ISO string, subtract one day, reformat. Declared here so catchUpOpen
-  // effect below can close over it.
-  const yesterday = (() => {
-    const d = new Date(liveTodayStr + "T00:00:00");
-    d.setDate(d.getDate() - 1);
-    // Format from LOCAL parts — `toISOString()` would shift to UTC and yield
-    // two-days-ago for UTC+ users (e.g. BST). Matches the app's local-date convention.
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  })();
-
-  // "Yesterday in 10 seconds" catch-up sheet. Fires once per calendar day
-  // (keyed on liveTodayStr so it re-arms at local midnight), skipped when
-  // the user has already dismissed it for yesterday. Gated on userId so it
-  // only fires after auth resolves.
-  useEffect(() => {
-    if (!userId) return;
-    const today = liveTodayStr;
-    const lastOpen = localStorage.getItem("catchup_last_open");
-    const dismissed = localStorage.getItem("catchup_dismissed_" + yesterday);
-    if (lastOpen !== today && !dismissed) {
-      setCatchUpOpen(true);
-    }
-    localStorage.setItem("catchup_last_open", today);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
 
   // Tutorial bridge: a step in the onboarding flow can request the Fight
   // Form Score sheet open declaratively via `actionEventName`. We listen
@@ -1196,6 +1178,17 @@ export default function Dashboard() {
               />
             </div>
           )}
+
+          {/* No active camp → aurora CTA to line up the next fight. Taps run
+              through the Pro gate: eligible users open the new-camp wizard,
+              free users hit CampLimitProGate (the conversion moment). Gated on
+              a resolved query so it doesn't flash while `activeCamp` loads. */}
+          {activeCamp !== undefined && (!activeCamp || activeCamp.isCompleted) && (
+            <StartCampAuroraCta
+              variant="compact"
+              onStart={() => guardCreate(() => setNextCampOpen(true))}
+            />
+          )}
         </div>
 
         <ProfileSheet open={profileSheetOpen} onOpenChange={setProfileSheetOpen} />
@@ -1244,21 +1237,10 @@ export default function Dashboard() {
           activeCamp={activeCamp ?? null}
         />
 
+        <CampLimitProGate open={campGateOpen} onClose={() => setCampGateOpen(false)} />
+
         <ReviewPromptCard open={showReviewCard} onClose={() => setShowReviewCard(false)} />
 
-        <ErrorBoundary fallback={null} silent>
-          <CatchUpSheet
-            targetDate={yesterday}
-            open={catchUpOpen}
-            onOpenChange={(o) => {
-              if (!o) {
-                localStorage.setItem("catchup_dismissed_" + yesterday, "1");
-              }
-              setCatchUpOpen(o);
-            }}
-            onEmpty={() => setCatchUpOpen(false)}
-          />
-        </ErrorBoundary>
       </ErrorBoundary>
     );
   }
@@ -1695,19 +1677,6 @@ export default function Dashboard() {
         onComplete={() => { sessionStorage.setItem(`wcw_questionnaire_dismissed_${todayStr}`, '1'); setWisdomSheetOpen(true); }}
       />
 
-      <ErrorBoundary fallback={null} silent>
-        <CatchUpSheet
-          targetDate={yesterday}
-          open={catchUpOpen}
-          onOpenChange={(o) => {
-            if (!o) {
-              localStorage.setItem("catchup_dismissed_" + yesterday, "1");
-            }
-            setCatchUpOpen(o);
-          }}
-          onEmpty={() => setCatchUpOpen(false)}
-        />
-      </ErrorBoundary>
 
     </ErrorBoundary>
   );

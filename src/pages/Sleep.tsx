@@ -179,17 +179,17 @@ export default function Sleep() {
         <>
           {/* Hero — last night vs 8h goal */}
           {lastNight && (
-            <div className="card-surface rounded-2xl p-5">
-              <p className={EYEBROW}>Last night</p>
-              <div className="mt-2 flex items-baseline gap-1.5">
+            <div className="px-1 text-center">
+              <p className={`${EYEBROW} text-center`}>Last night</p>
+              <div className="mt-2 flex items-baseline justify-center gap-2">
                 <span
-                  className={`display-number text-[44px] font-bold leading-none tabular-nums ${
+                  className={`display-number text-[72px] font-bold leading-none tabular-nums ${
                     lastGood ? "text-func-recovery-green" : "text-func-warning-yellow"
                   }`}
                 >
                   {lastNight.hours.toFixed(1)}
                 </span>
-                <span className="text-[15px] text-muted-foreground">hrs</span>
+                <span className="text-[20px] text-muted-foreground">hrs</span>
               </div>
               <p className="mt-2 text-[14px] font-semibold leading-snug">
                 <span className={lastGood ? "text-func-recovery-green" : "text-func-warning-yellow"}>
@@ -218,8 +218,10 @@ export default function Sleep() {
           />
 
           {/* Weekly bars + 8h baseline (real data) */}
-          <div className="card-surface rounded-2xl p-4">
-            <p className={`${EYEBROW} mb-2`}>Nightly hours</p>
+          <div className="px-1">
+            <p className="text-[10px] uppercase tracking-[0.14em] font-bold text-primary mb-2">
+              Nightly hours
+            </p>
             <SleepBarChart data={chartData} goal={SLEEP_GOAL} />
           </div>
 

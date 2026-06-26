@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Input } from "@/components/ui/input";
 import { Icon } from "@/components/ui/Icon";
@@ -105,6 +105,9 @@ interface IngredientRowProps {
 }
 
 function IngredientRow({ item, onUpdate, onRemove }: IngredientRowProps) {
+  // Rows start minimised; the edit controls reveal on tap.
+  const [open, setOpen] = useState(false);
+
   const scaleMacros = (newCalories: number) => {
     if (!Number.isFinite(newCalories) || newCalories < 0) return;
     const oldCal = item.calories || 1;
@@ -144,98 +147,127 @@ function IngredientRow({ item, onUpdate, onRemove }: IngredientRowProps) {
   };
 
   return (
-    <div className="rounded-xs bg-muted/30 border border-border/30 px-3 py-2.5 min-w-0">
-      <div className="flex items-center gap-2 min-w-0">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <p className="text-[14px] font-semibold text-foreground truncate leading-tight">
-              {capitalize(item.name)}
-            </p>
-            {item.confidence === "low" && (
-              <span className="shrink-0 rounded-xs bg-[rgb(var(--func-warning-yellow)/0.14)] text-[rgb(var(--func-warning-yellow))] text-[9px] font-bold px-1.5 py-0.5 leading-none">
-                ⚠ check
-              </span>
-            )}
-          </div>
-          <Input
-            value={item.quantity}
-            onChange={(e) => onUpdate({ quantity: e.target.value })}
-            placeholder="Quantity"
-            className="h-6 mt-0.5 px-1 text-[12px] text-muted-foreground/80 bg-transparent border-0 rounded-xs focus-visible:ring-0 focus-visible:bg-muted/40 placeholder:text-muted-foreground/40"
+    <div className="rounded-xs bg-muted/30 border border-border/30 overflow-hidden min-w-0">
+      {/* Collapsed summary (default). Tap to reveal the edit controls so the
+          list stays scannable instead of stacking inputs on every row. */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="w-full px-3 py-2.5 text-left active:bg-muted/40 transition-colors"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <p className="flex-1 min-w-0 text-[14px] font-semibold text-foreground truncate leading-tight">
+            {capitalize(item.name)}
+          </p>
+          {item.confidence === "low" && (
+            <span className="shrink-0 rounded-xs bg-[rgb(var(--func-warning-yellow)/0.14)] text-[rgb(var(--func-warning-yellow))] text-[9px] font-bold px-1.5 py-0.5 leading-none">
+              ⚠ check
+            </span>
+          )}
+          <span className="text-[16px] font-bold tabular-nums leading-none text-foreground shrink-0">
+            {item.calories}
+          </span>
+          <span className="text-[9px] uppercase tracking-wider text-muted-foreground/50 shrink-0">kcal</span>
+          <Icon
+            name={open ? "chevronUpOutline" : "chevronDownOutline"}
+            size={14}
+            className="text-muted-foreground/40 shrink-0"
           />
         </div>
-
-        <div className="flex items-center gap-1 shrink-0">
-          <button
-            type="button"
-            onClick={() => adjustCalories(-10)}
-            disabled={item.calories <= 0}
-            aria-label="Decrease calories"
-            className="h-7 w-7 rounded-full bg-muted/60 flex items-center justify-center text-foreground/80 active:bg-muted/80 transition-colors disabled:opacity-30"
-          >
-            <Icon name="removeOutline" size={12} />
-          </button>
-          <div className="w-14 text-center">
-            <Input
-              type="number"
-              inputMode="numeric"
-              value={item.calories}
-              onChange={(e) => {
-                const n = parseFloat(e.target.value);
-                if (Number.isFinite(n)) scaleMacros(n);
-              }}
-              className="h-8 text-center text-[14px] font-bold tabular-nums bg-background/60 border-border/30 px-1 rounded-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              aria-label={`Calories for ${item.name}`}
-            />
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground/50 mt-0.5">kcal</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => adjustCalories(10)}
-            aria-label="Increase calories"
-            className="h-7 w-7 rounded-full bg-muted/60 flex items-center justify-center text-foreground/80 active:bg-muted/80 transition-colors"
-          >
-            <Icon name="addOutline" size={12} />
-          </button>
+        <div className="mt-0.5 flex items-center gap-2 min-w-0">
+          {item.quantity && (
+            <>
+              <span className="min-w-0 truncate text-[11.5px] text-muted-foreground/70">{item.quantity}</span>
+              <span className="text-muted-foreground/25 shrink-0">·</span>
+            </>
+          )}
+          <span className="shrink-0">
+            <MacroText protein_g={item.protein_g} carbs_g={item.carbs_g} fats_g={item.fats_g} />
+          </span>
+          {item.health && (
+            <span className="ml-auto shrink-0">
+              <FoodHealthRating score={scoreFood(item.health)} />
+            </span>
+          )}
         </div>
+      </button>
 
-        <button
-          type="button"
-          onClick={onRemove}
-          className="h-7 w-7 shrink-0 flex items-center justify-center rounded-full text-muted-foreground/50 active:text-destructive active:bg-destructive/10 transition-colors"
-          aria-label={`Remove ${item.name}`}
-        >
-          <Icon name="closeOutline" size={14} />
-        </button>
-      </div>
-
-      <div className="flex items-center mt-2">
-        <MacroText protein_g={item.protein_g} carbs_g={item.carbs_g} fats_g={item.fats_g} />
-        {item.health && <FoodHealthRating score={scoreFood(item.health)} />}
-      </div>
-
-      {/* Quick portion multiplier — instant rescale, no AI call. */}
-      {base && (
-        <div className="mt-2 flex gap-1">
-          {PORTION_MULTIPLIERS.map((m) => {
-            const on = activeMultiplier === m;
-            return (
+      {/* Expanded editor. */}
+      {open && (
+        <div className="px-3 pb-2.5 pt-0.5 space-y-2">
+          <div className="flex items-center gap-2">
+            <Input
+              value={item.quantity}
+              onChange={(e) => onUpdate({ quantity: e.target.value })}
+              placeholder="Quantity"
+              className="h-8 flex-1 min-w-0 px-2 text-[12px] text-muted-foreground/90 bg-background/60 border-border/30 rounded-xs focus-visible:ring-0 focus-visible:border-primary/40 placeholder:text-muted-foreground/40"
+            />
+            <div className="flex items-center gap-1 shrink-0">
               <button
-                key={m}
                 type="button"
-                onClick={() => applyMultiplier(m)}
-                aria-pressed={on}
-                aria-label={`Set portion to ${formatMultiplier(m)}`}
-                className={`flex-1 h-7 rounded-xs text-[11px] font-bold tabular-nums transition-colors ${
-                  on
-                    ? "bg-primary/15 text-primary ring-1 ring-primary/40"
-                    : "bg-muted/40 text-muted-foreground/70 active:bg-muted/60"
-                }`}
+                onClick={() => adjustCalories(-10)}
+                disabled={item.calories <= 0}
+                aria-label="Decrease calories"
+                className="h-7 w-7 rounded-full bg-muted/60 flex items-center justify-center text-foreground/80 active:bg-muted/80 transition-colors disabled:opacity-30"
               >
-                {formatMultiplier(m)}
+                <Icon name="removeOutline" size={12} />
               </button>
-            );
-          })}
+              <Input
+                type="number"
+                inputMode="numeric"
+                value={item.calories}
+                onChange={(e) => {
+                  const n = parseFloat(e.target.value);
+                  if (Number.isFinite(n)) scaleMacros(n);
+                }}
+                className="h-8 w-14 text-center text-[14px] font-bold tabular-nums bg-background/60 border-border/30 px-1 rounded-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                aria-label={`Calories for ${item.name}`}
+              />
+              <button
+                type="button"
+                onClick={() => adjustCalories(10)}
+                aria-label="Increase calories"
+                className="h-7 w-7 rounded-full bg-muted/60 flex items-center justify-center text-foreground/80 active:bg-muted/80 transition-colors"
+              >
+                <Icon name="addOutline" size={12} />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {base && (
+              <div className="flex gap-1 flex-1">
+                {PORTION_MULTIPLIERS.map((m) => {
+                  const on = activeMultiplier === m;
+                  return (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => applyMultiplier(m)}
+                      aria-pressed={on}
+                      aria-label={`Set portion to ${formatMultiplier(m)}`}
+                      className={`flex-1 h-7 rounded-xs text-[11px] font-bold tabular-nums transition-colors ${
+                        on
+                          ? "bg-primary/15 text-primary ring-1 ring-primary/40"
+                          : "bg-muted/40 text-muted-foreground/70 active:bg-muted/60"
+                      }`}
+                    >
+                      {formatMultiplier(m)}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={onRemove}
+              className="h-7 w-7 shrink-0 flex items-center justify-center rounded-full text-muted-foreground/50 active:text-destructive active:bg-destructive/10 transition-colors"
+              aria-label={`Remove ${item.name}`}
+            >
+              <Icon name="closeOutline" size={14} />
+            </button>
+          </div>
         </div>
       )}
     </div>

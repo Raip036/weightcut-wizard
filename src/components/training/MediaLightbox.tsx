@@ -27,6 +27,7 @@ import { triggerHaptic } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
 import { useToast } from "@/hooks/use-toast";
 import { logger } from "@/lib/logger";
+import { preloadAndDecodeImages } from "@/hooks/useImageReady";
 
 export interface LightboxItem {
   id: string;
@@ -120,6 +121,19 @@ export function MediaLightbox({
       }
     });
   }, [activeIndex]);
+
+  // Decode-ahead: fully decode the full-res neighbours (+/- 2) of the active
+  // slide so swiping lands on an already-painted image instead of a flash +
+  // decode. Reuses the shared decode cache (no duplicate work across opens).
+  useEffect(() => {
+    if (!open) return;
+    const urls: Array<string | null> = [];
+    for (let d = -2; d <= 2; d++) {
+      const it = items[activeIndex + d];
+      if (it && it.kind === "photo") urls.push(it.url);
+    }
+    preloadAndDecodeImages(urls);
+  }, [activeIndex, items, open]);
 
   // ESC dismisses on web (Capacitor traps the back button at the OS level
   // and routes it through the React Router; this is a desktop courtesy).

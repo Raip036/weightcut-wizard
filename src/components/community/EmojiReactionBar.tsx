@@ -16,7 +16,7 @@
  * Lives OUTSIDE the draggable area so taps don't fight the swipe
  * gesture.
  */
-import { useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { triggerHaptic } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
@@ -25,12 +25,12 @@ import { REACTION_EMOJI, REACTION_KEYS_IN_ORDER } from "./reactionEmoji";
 const KEYS_IN_ORDER = REACTION_KEYS_IN_ORDER;
 
 interface EmojiReactionBarProps {
-  /** Server-cached slug → count map. Currently unused in the UI but kept
-   *  on the prop interface so a future "tap to see counts" affordance
-   *  can surface them without re-plumbing. */
+  /** Server-cached slug → count map. Rendered inline on each pill (count
+   *  shown only when > 0). */
   reactionCounts: Record<string, number>;
   /** Slugs the calling viewer has personally placed on this post. Drives
-   *  the persistent "you reacted" ring on each emoji button. */
+   *  the primary-tinted "you reacted" fill on each pill. May already
+   *  include an optimistic overlay (see `useFeedEngagement`). */
   viewerReactions: string[];
   /** Called with the ASCII SLUG (never the emoji character). */
   onReact: (key: string) => void;
@@ -39,16 +39,32 @@ interface EmojiReactionBarProps {
 type Burst = { id: number; emoji: string; x: number };
 
 export function EmojiReactionBar({
-  reactionCounts: _reactionCounts,
+  reactionCounts,
   viewerReactions,
   onReact,
 }: EmojiReactionBarProps) {
   const [bursts, setBursts] = useState<Burst[]>([]);
   const burstIdRef = useRef(0);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  // Cache the container's bounding rect — it doesn't move while the card is
+  // mounted, so reading it on every tap is wasted layout work. Refreshed on
+  // mount and on resize only.
+  const containerRectRef = useRef<DOMRect | null>(null);
+
+  const refreshRect = useCallback(() => {
+    containerRectRef.current =
+      containerRef.current?.getBoundingClientRect() ?? null;
+  }, []);
+
+  useLayoutEffect(() => {
+    refreshRect();
+    window.addEventListener("resize", refreshRect);
+    return () => window.removeEventListener("resize", refreshRect);
+  }, [refreshRect]);
 
   function fireBurst(emoji: string, anchor: HTMLElement) {
-    const containerRect = containerRef.current?.getBoundingClientRect();
+    // Fall back to a fresh read if the cache hasn't populated yet.
+    const containerRect = containerRectRef.current ?? (refreshRect(), containerRectRef.current);
     const buttonRect = anchor.getBoundingClientRect();
     const x = containerRect
       ? buttonRect.left + buttonRect.width / 2 - containerRect.left
@@ -64,11 +80,12 @@ export function EmojiReactionBar({
   return (
     <div
       ref={containerRef}
-      className="relative flex items-center justify-around gap-1 px-2 py-2.5 rounded-2xl card-surface"
+      className="relative flex items-center justify-center gap-2 py-1"
     >
-      {/* Transient burst overlay: each tap spawns an emoji that scales
-          up, drifts upward, and fades out. Overlay is pointer-events-none
-          so it never blocks subsequent taps. */}
+      {/* Transient burst overlay: each tap spawns an emoji that scales up,
+          drifts upward, and fades out. Pointer-events-none so it never
+          blocks subsequent taps. Uses a pure scale/opacity pop (no
+          drop-shadow filter, which iOS strips on `.native-app`). */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-0 overflow-visible">
         <AnimatePresence>
           {bursts.map((b) => (
@@ -89,7 +106,6 @@ export function EmojiReactionBar({
                 transform: "translate(-50%, 0)",
                 fontSize: 36,
                 lineHeight: 1,
-                filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.35))",
               }}
             >
               {b.emoji}
@@ -101,27 +117,39 @@ export function EmojiReactionBar({
       {KEYS_IN_ORDER.map((key) => {
         const emoji = REACTION_EMOJI[key];
         const active = viewerReactions.includes(key);
+        const count = reactionCounts[key] ?? 0;
         return (
           <motion.button
             key={key}
             type="button"
-            whileTap={{ scale: 0.82 }}
+            whileTap={{ scale: 0.88 }}
             onClick={(e) => {
               triggerHaptic(ImpactStyle.Medium);
               fireBurst(emoji, e.currentTarget);
               onReact(key);
             }}
-            className="relative flex items-center justify-center w-10 h-10 rounded-full transition-colors [-webkit-tap-highlight-color:transparent]"
+            className={`relative inline-flex items-center justify-center gap-1 h-9 rounded-full transition-colors [-webkit-tap-highlight-color:transparent] ${
+              count > 0 ? "px-3" : "px-2.5"
+            } ${
+              active
+                ? "bg-primary/15 ring-1 ring-primary/40 text-primary"
+                : "bg-card/60 ring-1 ring-border/40 text-foreground"
+            }`}
             aria-label={`React with ${emoji}`}
             aria-pressed={active}
           >
             <motion.span
-              className="text-[22px] leading-none"
+              className="text-[19px] leading-none"
               animate={active ? { scale: [1, 1.18, 1] } : { scale: 1 }}
               transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
             >
               {emoji}
             </motion.span>
+            {count > 0 && (
+              <span className="text-[12px] font-semibold tabular-nums leading-none">
+                {count}
+              </span>
+            )}
           </motion.button>
         );
       })}

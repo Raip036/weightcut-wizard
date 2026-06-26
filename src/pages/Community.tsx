@@ -25,8 +25,8 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "motion/react";
-import { ArrowRight, ChevronDown, Check, Dumbbell } from "lucide-react";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
+import { ArrowRight, ChevronDown, Check, Sparkles, Trophy } from "lucide-react";
 import wizardMascot from "@/assets/wizard_3D.png";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -220,6 +220,12 @@ export default function Community() {
   // the unread badge.
   const [activityOpen, setActivityOpen] = useState(false);
 
+  // Feed | Leaderboard segmented tab. The leaderboard used to sit below the
+  // feed (an always-mounted `gymLeaderboard.weekly` subscription on every
+  // Corner open); moving it behind a tab declutters the feed AND lazy-mounts
+  // the leaderboard query only when the tab is actually selected.
+  const [communityTab, setCommunityTab] = useState<"feed" | "leaderboard">("feed");
+
   // Gym profile sheet, opens when the user taps the GymHeader cluster
   // (logo + title + counts). Mounted at page root so the sheet keeps its
   // own animation/dismiss lifecycle independent of the feed below.
@@ -351,15 +357,51 @@ export default function Community() {
               </StaggerItem>
             )}
 
+            {/* Feed | Leaderboard segmented tabs. Only shown once the gym
+                resolves (the leaderboard needs a gymId). Sits between the gym
+                header and the content so the page reads as two clean sections. */}
+            {gymId && (
+              <StaggerItem className="px-5 pb-1">
+                <div className="grid grid-cols-2 gap-1 rounded-full bg-card/50 p-1 ring-1 ring-border/40">
+                  {(["feed", "leaderboard"] as const).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setCommunityTab(t)}
+                      className={`relative rounded-full py-2 text-[13px] font-semibold capitalize transition ${
+                        communityTab === t ? "text-primary-foreground" : "text-muted-foreground active:text-foreground"
+                      }`}
+                    >
+                      {communityTab === t && (
+                        <motion.span
+                          layoutId="communityTabPill"
+                          className="absolute inset-0 rounded-full bg-primary"
+                          transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                        />
+                      )}
+                      <span className="relative z-10 inline-flex items-center justify-center gap-1.5">
+                        {t === "feed" ? <Sparkles className="h-3.5 w-3.5" /> : <Trophy className="h-3.5 w-3.5" />}
+                        {t === "feed" ? "Feed" : "Leaderboard"}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </StaggerItem>
+            )}
+
             {/* Content area, branches on member-count threshold + load state.
                 Wrapped in AnimatePresence so the swap between the feed and
                 the "all caught up" empty state cross-fades smoothly when the
                 user swipes the last polaroid (or when posts refill).
 
+                Hidden while the Leaderboard tab is active (gymId present), so
+                the deck + its feed subscription stays mounted but off-screen.
+
                 mode="popLayout" (not "wait") so the outgoing feed and incoming
                 empty state animate CONCURRENTLY, a true cross-fade. "wait" held
                 the new state out until the old one finished its exit, leaving a
                 ~240ms dead gap that read as a flash right before "all caught up". */}
+            {(!gymId || communityTab === "feed") && (
             <StaggerItem>
               <main className={`px-5 pt-2 min-h-[460px] ${gymId ? "" : "pb-20 md:pb-8"}`}>
                 <AnimatePresence mode="popLayout" initial={false}>
@@ -461,16 +503,15 @@ export default function Community() {
                 </AnimatePresence>
               </main>
             </StaggerItem>
+            )}
 
-            {/* Inline weekly leaderboard for the active gym. Sits below
-                the feed deck so the user still gets a podium / ranked-list
-                snapshot without having to navigate over to MyGym. Mounted
-                only once gymId is resolved so we don't fire an empty query
-                during the first paint. Carries the bottom-nav clearance
-                (pb-20) since it's now the last cascade step below main. */}
-            {gymId && (
+            {/* Weekly leaderboard, now behind the Leaderboard tab. Mounted
+                ONLY when the tab is selected (and gymId resolved), so the
+                `gymLeaderboard.weekly` subscription never fires while the user
+                is on the feed. Carries the bottom-nav clearance (pb-20). */}
+            {gymId && communityTab === "leaderboard" && (
               <StaggerItem className="px-5 pb-20 md:pb-8">
-                <section className="mt-8" data-tutorial="community-leaderboard">
+                <section className="mt-3" data-tutorial="community-leaderboard">
                   <LeaderboardSection gymId={gymId} viewer="athlete" />
                 </section>
               </StaggerItem>
@@ -599,65 +640,49 @@ interface EmptyFeedProps {
 }
 
 function EmptyFeed({ onLogSessionClick }: EmptyFeedProps) {
+  const prefersReduced = useReducedMotion();
   return (
     <section className="mt-8 text-center max-w-sm mx-auto">
-      <img
+      {/* The wizard pops in (spring) as the deck hands off, then gently bobs so
+          the caught-up screen feels alive instead of a static dead-end. */}
+      <motion.img
         src={wizardMascot}
         alt=""
-        className="mx-auto h-24 w-24 object-contain"
+        draggable={false}
+        className="mx-auto h-24 w-24 object-contain pointer-events-none select-none"
+        style={{ willChange: "transform" }}
+        initial={prefersReduced ? false : { opacity: 0, scale: 0.6 }}
+        animate={
+          prefersReduced
+            ? { opacity: 1 }
+            : { opacity: 1, scale: 1, y: [0, -6, 0] }
+        }
+        transition={
+          prefersReduced
+            ? { duration: 0 }
+            : {
+                opacity: { duration: 0.35, delay: 0.1 },
+                scale: { duration: 0.5, delay: 0.1, ease: [0.34, 1.56, 0.64, 1] },
+                y: { duration: 3, repeat: Infinity, ease: "easeInOut", delay: 0.6 },
+              }
+        }
       />
       <h2 className="mt-3 text-[22px] font-bold tracking-tight">You're all caught up</h2>
       <p className="text-[13px] text-muted-foreground mt-1.5 max-w-[28ch] mx-auto leading-snug">
-        Nothing new on the mat. Pick one to keep momentum.
+        Nothing new on the mat right now.
       </p>
 
-      <div className="mt-6 space-y-2.5">
-        <EmptyActionChip
-          icon={<Dumbbell className="h-4 w-4" />}
-          label="Log a session"
-          sublabel="Add it to the feed"
+      <div className="mt-6 flex justify-center">
+        <button
+          type="button"
           onClick={onLogSessionClick}
-          primary
-        />
+          className="inline-flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground h-10 px-5 text-[14px] font-semibold active:scale-[0.97] transition-transform"
+        >
+          Log a session
+          <ArrowRight className="h-4 w-4" />
+        </button>
       </div>
     </section>
-  );
-}
-
-function EmptyActionChip({
-  icon, label, sublabel, primary, onClick,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  sublabel: string;
-  primary?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`w-full min-h-[60px] flex items-center gap-3 px-4 py-3 rounded-xs text-left active:scale-[0.98] transition-all ${
-        primary
-          ? "bg-primary text-primary-foreground"
-          : "bg-card/60 border border-border/40 active:bg-muted/40"
-      }`}
-    >
-      <div className={`h-9 w-9 flex items-center justify-center shrink-0 ${
-        primary ? "text-primary-foreground" : "text-primary"
-      }`}>
-        {icon}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className={`text-[15px] font-semibold leading-tight ${primary ? "" : "text-foreground"}`}>{label}</p>
-        <p className={`text-[12px] mt-0.5 leading-snug truncate ${
-          primary ? "text-primary-foreground/80" : "text-muted-foreground"
-        }`}>
-          {sublabel}
-        </p>
-      </div>
-      <ArrowRight className={`h-4 w-4 shrink-0 ${primary ? "text-primary-foreground/80" : "text-muted-foreground/60"}`} />
-    </button>
   );
 }
 

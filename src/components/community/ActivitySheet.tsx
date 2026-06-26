@@ -34,6 +34,7 @@ export function ActivitySheet({
     open && gymId ? { gymId } : "skip",
   );
   const markSeen = useMutation(api.feedActivity.markActivitySeen);
+  const clearActivity = useMutation(api.feedActivity.clearActivity);
 
   // Freeze the unread baseline so the "New" band reflects items since the
   // LAST open, not this one. We capture lastSeenAt BEFORE stamping it to now.
@@ -102,12 +103,23 @@ export function ActivitySheet({
         <SheetHeader className="px-5 pt-5 pb-3 border-b border-border/40">
           <div className="flex flex-row items-center justify-between space-y-0">
             <SheetTitle>Activity</SheetTitle>
-            <SheetClose
-              aria-label="Close"
-              className="-mr-2 inline-flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground active:opacity-70 focus:outline-none [-webkit-tap-highlight-color:transparent]"
-            >
-              <X className="h-5 w-5" />
-            </SheetClose>
+            <div className="flex items-center gap-1">
+              {sections.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => clearActivity().catch(() => {})}
+                  className="px-2.5 py-1 rounded-full text-[13px] font-semibold text-muted-foreground hover:text-foreground active:opacity-70 transition-colors [-webkit-tap-highlight-color:transparent]"
+                >
+                  Clear
+                </button>
+              )}
+              <SheetClose
+                aria-label="Close"
+                className="-mr-2 inline-flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground active:opacity-70 focus:outline-none [-webkit-tap-highlight-color:transparent]"
+              >
+                <X className="h-5 w-5" />
+              </SheetClose>
+            </div>
           </div>
         </SheetHeader>
 

@@ -27,9 +27,14 @@ import { Info, ShieldAlert } from "lucide-react";
 
 export type MedicalDisclaimerVariant = "banner" | "compact";
 
+/** Accent tone for the icon + title. "warning" = amber (default), "blue" = app primary. */
+export type MedicalDisclaimerAccent = "warning" | "blue";
+
 export interface MedicalDisclaimerBannerProps {
   /** "banner" = full notice (default); "compact" = inline one-liner. */
   variant?: MedicalDisclaimerVariant;
+  /** Accent colour for the icon + title. Defaults to "warning" (amber). */
+  accent?: MedicalDisclaimerAccent;
   className?: string;
 }
 
@@ -55,15 +60,20 @@ const AMBER_TEXT = "text-func-warning-yellow";
  */
 export function MedicalDisclaimerBanner({
   variant = "banner",
+  accent = "warning",
   className = "",
 }: MedicalDisclaimerBannerProps) {
+  // Accent class for the icon + title. Default "warning" keeps the existing
+  // amber token byte-for-byte; "blue" swaps to the app's primary.
+  const accentText = accent === "blue" ? "text-primary" : AMBER_TEXT;
+
   if (variant === "compact") {
     return (
       <div
         role="note"
         className={`card-surface flex items-start gap-1.5 rounded-2xl border border-border/50 px-2.5 py-1.5 ${className}`}
       >
-        <span className={`mt-[1px] shrink-0 ${AMBER_TEXT}`}>
+        <span className={`mt-[1px] shrink-0 ${accentText}`}>
           <ShieldAlert className="h-3.5 w-3.5" aria-hidden />
         </span>
         <p className="text-[11px] leading-snug text-muted-foreground">
@@ -82,11 +92,11 @@ export function MedicalDisclaimerBanner({
       className={`card-surface rounded-2xl border border-border/50 p-2.5 ${className}`}
     >
       <div className="flex items-start gap-2">
-        <span className={`mt-[1px] flex shrink-0 ${AMBER_TEXT}`}>
+        <span className={`mt-[1px] flex shrink-0 ${accentText}`}>
           <Info className="h-3.5 w-3.5" aria-hidden />
         </span>
         <div className="min-w-0">
-          <p className={`text-[12px] font-semibold leading-tight ${AMBER_TEXT}`}>
+          <p className={`text-[12px] font-semibold leading-tight ${accentText}`}>
             {TITLE}
           </p>
           <p className="mt-0.5 text-[11px] text-muted-foreground leading-snug">

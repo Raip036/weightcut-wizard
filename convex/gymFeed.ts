@@ -172,25 +172,50 @@ export const listFeed = query({
       .collect();
     const viewedPostIds = new Set(viewedRows.map((r) => r.postId));
 
-    const page = await ctx.db
-      .query("session_media")
-      .withIndex("by_gym_created", (q) => q.eq("gymId", gymId))
-      .order("desc")
-      .filter((q) =>
-        q.and(
-          q.neq(q.field("visibility"), "private"),
-          // Soft-deleted posts (moderation flow / author hide) drop out
-          // of every read surface. Hard-delete still available via the
-          // 90-day archive cron, which clears `gymId` entirely.
-          q.eq(q.field("deletedAt"), undefined),
-          // Exclude dev-seeded "stock photo" posts — those carry only a
-          // `mockUrl` and no real `storageId`. Every genuine upload sets
-          // `storageId` (createPost requires it), so this hides seeds
-          // without touching real posts.
-          q.neq(q.field("storageId"), undefined),
-        ),
-      )
-      .paginate({ cursor: paginationOpts.cursor, numItems });
+    // Self-gating switch: once `feedMaintenance.backfillFeedEligible` has
+    // populated `feedEligible` on every existing row it flips this flag to
+    // true. Until then we keep the original `by_gym_created` + in-memory
+    // filter path byte-for-byte so partially-backfilled data can't drop
+    // legitimate posts. Both branches produce an identical paginated `page`
+    // (same docs, same order, same cursor) — only the read strategy differs.
+    const readyRow = await ctx.db
+      .query("feed_cron_state")
+      .withIndex("by_key", (q) => q.eq("key", "feedEligibleReady"))
+      .unique();
+    const ready = readyRow?.flag === true;
+
+    const page = ready
+      ? // Indexed path: `by_gym_feed` = (gymId, feedEligible). The flag is
+        // precomputed from EXACTLY the same predicate as the in-memory
+        // filter below (non-private, not soft-deleted, real storageId), so
+        // narrowing to feedEligible === true yields the same rows without
+        // the per-row filter scan.
+        await ctx.db
+          .query("session_media")
+          .withIndex("by_gym_feed", (q) =>
+            q.eq("gymId", gymId).eq("feedEligible", true),
+          )
+          .order("desc")
+          .paginate({ cursor: paginationOpts.cursor, numItems })
+      : await ctx.db
+          .query("session_media")
+          .withIndex("by_gym_created", (q) => q.eq("gymId", gymId))
+          .order("desc")
+          .filter((q) =>
+            q.and(
+              q.neq(q.field("visibility"), "private"),
+              // Soft-deleted posts (moderation flow / author hide) drop out
+              // of every read surface. Hard-delete still available via the
+              // 90-day archive cron, which clears `gymId` entirely.
+              q.eq(q.field("deletedAt"), undefined),
+              // Exclude dev-seeded "stock photo" posts — those carry only a
+              // `mockUrl` and no real `storageId`. Every genuine upload sets
+              // `storageId` (createPost requires it), so this hides seeds
+              // without touching real posts.
+              q.neq(q.field("storageId"), undefined),
+            ),
+          )
+          .paginate({ cursor: paginationOpts.cursor, numItems });
 
     // Filter out posts the viewer has already swiped away. Every viewer
     // (including the author) sees each post exactly once.
@@ -216,11 +241,22 @@ export const listFeed = query({
           : Promise.resolve(null),
       ),
     );
-    // Per-author streak — one walk per unique author per page, not per
-    // post. Small gym (4 members) means ~4 lookups per feed page; the
-    // window is capped at 366 days so each lookup is bounded.
+    // Per-author streak — prefer the denormalised value stamped on the
+    // author's profile by `createPost` when it's fresh (computed today),
+    // so we skip the post-history walk entirely. A stale/absent denorm
+    // value (computedAt !== today, or never written) falls back to the
+    // live `computeAuthorStreak` walk so the streak is never wrong. One
+    // walk per unique author per page in the worst case; the window is
+    // capped at 366 days so each fallback lookup is bounded.
+    const todayIso = new Date().toISOString().slice(0, 10);
     const authorStreaks = await Promise.all(
-      uniqueAuthorIds.map((uid) => computeAuthorStreak(ctx, uid)),
+      uniqueAuthorIds.map((uid, i) => {
+        const profile = authorProfiles[i];
+        if (profile?.postStreakComputedAt === todayIso) {
+          return Promise.resolve(profile.postStreakDays ?? 0);
+        }
+        return computeAuthorStreak(ctx, uid);
+      }),
     );
     const authorMap = new Map(
       uniqueAuthorIds.map((uid, i) => [
@@ -255,38 +291,36 @@ export const listFeed = query({
       visiblePage.map(async (m) => {
         const author = authorMap.get(m.userId);
         const session = m.sessionId ? (sessionMap.get(m.sessionId) ?? null) : null;
-        const [viewerLike, mediaUrl, thumbUrl, viewerReactionRows] =
-          await Promise.all([
-            // O(1) point lookup — "did the calling user like this post?".
-            ctx.db
-              .query("feed_likes")
-              .withIndex("by_post_user", (q) =>
-                q.eq("postId", m._id).eq("userId", viewerId),
-              )
-              .unique(),
-            // Real uploads carry a `storageId`; dev-seeded posts fall back
-            // to the inline `mockUrl` (picsum) so the polaroid stack can
-            // render without a Convex Storage round-trip.
-            m.storageId
-              ? ctx.storage.getUrl(m.storageId)
-              : Promise.resolve(m.mockUrl ?? null),
-            // Hydrate the 256-px thumbnail when available so the client
-            // can render stack positions 1/2 from the low-res variant
-            // (~70% bandwidth cut on cold launch). Falls through to the
-            // full image when the thumb hasn't been backfilled.
-            m.thumbStorageId
-              ? ctx.storage.getUrl(m.thumbStorageId)
-              : Promise.resolve(null),
-            // All reactions this viewer has placed on this post.
-            // Bounded by however many distinct reaction keys the user has
-            // tapped — typically 0-2; never grows with total reactions.
-            ctx.db
-              .query("feed_reactions")
-              .withIndex("by_post_user_key", (q) =>
-                q.eq("postId", m._id).eq("userId", viewerId),
-              )
-              .collect(),
-          ]);
+        // Prefer the denormalised storage URLs cached at write time
+        // (`createPost`). Cached rows skip `getUrl` entirely; un-backfilled
+        // rows fall through to a live `getUrl` (real uploads) or the inline
+        // `mockUrl` (dev/seed). Thumb mirrors the same precedence.
+        const mediaUrl =
+          m.mediaUrl ??
+          (m.storageId
+            ? await ctx.storage.getUrl(m.storageId)
+            : (m.mockUrl ?? null));
+        const thumbUrl =
+          m.thumbUrl ??
+          (m.thumbStorageId ? await ctx.storage.getUrl(m.thumbStorageId) : null);
+        const [viewerLike, viewerReactionRows] = await Promise.all([
+          // O(1) point lookup — "did the calling user like this post?".
+          ctx.db
+            .query("feed_likes")
+            .withIndex("by_post_user", (q) =>
+              q.eq("postId", m._id).eq("userId", viewerId),
+            )
+            .unique(),
+          // All reactions this viewer has placed on this post.
+          // Bounded by however many distinct reaction keys the user has
+          // tapped — typically 0-2; never grows with total reactions.
+          ctx.db
+            .query("feed_reactions")
+            .withIndex("by_post_user_key", (q) =>
+              q.eq("postId", m._id).eq("userId", viewerId),
+            )
+            .collect(),
+        ]);
         return {
           id: m._id,
           createdAt: m._creationTime,
@@ -497,6 +531,16 @@ export const createPost = mutation({
     }
 
     const todayIso = new Date().toISOString().slice(0, 10);
+
+    // Resolve + cache the Convex Storage URLs at write time so `listFeed`
+    // can skip the per-post `ctx.storage.getUrl` fan-out on every read.
+    // Dev/seed rows use an inline `mockUrl` and never hit this path, so
+    // `mediaUrl` stays undefined for them (listFeed falls back to mockUrl).
+    const mediaUrl = (await ctx.storage.getUrl(storageId)) ?? undefined;
+    const thumbUrl = thumbStorageId
+      ? ((await ctx.storage.getUrl(thumbStorageId)) ?? undefined)
+      : undefined;
+
     const postId = await ctx.db.insert("session_media", {
       sessionId,
       userId,
@@ -506,6 +550,18 @@ export const createPost = mutation({
       caption: caption?.trim() ? caption.trim() : undefined,
       gymId,
       visibility,
+      // Precomputed feed-eligibility flag, mirroring listFeed's in-memory
+      // filter exactly (gym-scoped, real upload, non-private, not soft-
+      // deleted). Lets listFeed read the `by_gym_feed` index directly once
+      // the backfill has populated every existing row. storageId is always
+      // set on this path and deletedAt is unset at insert, so the flag
+      // reduces to "posted to a gym and not private".
+      feedEligible:
+        gymId !== undefined &&
+        storageId !== undefined &&
+        visibility !== "private" &&
+        // deletedAt is unset at insert time → always undefined here.
+        true,
       // Cached counters initialised so `likeCount ?? 0` reads stay
       // O(1) and patches in `toggleLike` / `addComment` increment a
       // numeric value (vs. patching from undefined).
@@ -515,7 +571,27 @@ export const createPost = mutation({
       thumbDataUrl,
       width,
       height,
+      // Denormalised storage URLs (see above) — read by `listFeed` to
+      // avoid a getUrl per post; absent on dev/seed (mockUrl) rows.
+      mediaUrl,
+      thumbUrl,
     });
+
+    // Denormalise the author's post-streak onto their profile so `listFeed`
+    // can read it directly instead of walking each author's post history
+    // per page. Uses the SAME logic/cap as `computeAuthorStreak`; stamped
+    // with today's YYYY-MM-DD so a stale value is detectable and ignored.
+    const authorProfile = await ctx.db
+      .query("profiles")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique();
+    if (authorProfile) {
+      const postStreakDays = await computeAuthorStreak(ctx, userId);
+      await ctx.db.patch(authorProfile._id, {
+        postStreakDays,
+        postStreakComputedAt: todayIso,
+      });
+    }
 
     return { postId };
   },
@@ -753,7 +829,6 @@ export const toggleReaction = mutation({
       });
       counts[key] = (counts[key] ?? 0) + 1;
     }
-    await ctx.db.patch(postId, { reactionCounts: counts });
 
     // Count auto-like: a user "likes" a post when they have at least one
     // reaction emoji on it. Adding the FIRST reaction implicitly likes.
@@ -775,6 +850,14 @@ export const toggleReaction = mutation({
       )
       .first();
 
+    // Compute the likeCount delta in memory from the data we already read
+    // (the reactionCounts patch above doesn't touch likeCount, so the
+    // post's likeCount is still current). This avoids the two extra
+    // `ctx.db.get(postId)` re-reads and lets us collapse all three writes
+    // to the hot post doc into a SINGLE patch below — cutting OCC
+    // contention on viral posts.
+    const currentLikeCount = post.likeCount ?? 0;
+    let nextLikeCount: number | undefined;
     if (hasAnyReactionNow && !existingLike) {
       // First reaction on this post → auto-like
       await ctx.db.insert("feed_likes", {
@@ -782,21 +865,23 @@ export const toggleReaction = mutation({
         postOwnerId: post.userId,
         userId,
       });
-      const freshPost = await ctx.db.get(postId);
-      if (freshPost) {
-        await ctx.db.patch(postId, { likeCount: (freshPost.likeCount ?? 0) + 1 });
-      }
+      nextLikeCount = currentLikeCount + 1;
     } else if (!hasAnyReactionNow && existingLike) {
       // Removed last reaction → auto-unlike. For simplicity we always
       // remove the like — if a user explicitly hearted AND reacted,
       // they'll keep the heart by re-tapping it. Acceptable tradeoff to
       // avoid storing "like source" metadata.
       await ctx.db.delete(existingLike._id);
-      const freshPost = await ctx.db.get(postId);
-      if (freshPost) {
-        await ctx.db.patch(postId, { likeCount: Math.max(0, (freshPost.likeCount ?? 0) - 1) });
-      }
+      nextLikeCount = Math.max(0, currentLikeCount - 1);
     }
+
+    // Single write to the hot post doc: the reactionCounts map plus the
+    // auto-like delta (only when it actually changed), instead of three
+    // separate patches.
+    await ctx.db.patch(postId, {
+      reactionCounts: counts,
+      ...(nextLikeCount !== undefined ? { likeCount: nextLikeCount } : {}),
+    });
 
     return { added: !existing };
   },

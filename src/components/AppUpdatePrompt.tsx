@@ -17,7 +17,14 @@ export interface AppUpdatePromptProps {
   currentVersion: string;
   latestVersion: string | null;
   onUpdate: () => void;
-  onDismiss: () => void;
+  /** Optional in mandatory mode (there is no way to dismiss). */
+  onDismiss?: () => void;
+  /**
+   * Hard gate: when true the dialog cannot be closed (no "Not now" button,
+   * tapping the backdrop does nothing) and sits above everything. The user
+   * can only proceed by updating. Used for outdated-version lockout.
+   */
+  mandatory?: boolean;
 }
 
 export function AppUpdatePrompt({
@@ -26,6 +33,7 @@ export function AppUpdatePrompt({
   latestVersion,
   onUpdate,
   onDismiss,
+  mandatory = false,
 }: AppUpdatePromptProps): JSX.Element {
   const prefersReduced = useReducedMotion();
 
@@ -34,20 +42,23 @@ export function AppUpdatePrompt({
     onUpdate();
   };
   const handleDismiss = () => {
+    if (mandatory) return; // hard gate: no dismissing
     triggerHapticSelection();
-    onDismiss();
+    onDismiss?.();
   };
 
   return (
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-[120] flex items-center justify-center p-5"
+          // z above the app's other full-screen overlays (max z-[9999]) so a
+          // mandatory update can never be covered or bypassed.
+          className="fixed inset-0 z-[10000] flex items-center justify-center p-5"
           style={{ pointerEvents: "auto", background: "rgba(0,0,0,0.66)" }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          onClick={handleDismiss}
+          onClick={mandatory ? undefined : handleDismiss}
           role="dialog"
           aria-modal="true"
           aria-label="App update available"
@@ -84,9 +95,13 @@ export function AppUpdatePrompt({
               </div>
 
               <div>
-                <h3 className="text-[18px] font-bold text-white">Update available</h3>
+                <h3 className="text-[18px] font-bold text-white">
+                  {mandatory ? "Update required" : "Update available"}
+                </h3>
                 <p className="mt-1 text-[13px] text-white/60">
-                  A newer version of FightCamp Wizard is ready. Update for the latest features and fixes.
+                  {mandatory
+                    ? "You're on an older version of FightCamp Wizard. Please update to keep using the app."
+                    : "A newer version of FightCamp Wizard is ready. Update for the latest features and fixes."}
                 </p>
               </div>
 
@@ -107,13 +122,15 @@ export function AppUpdatePrompt({
                   <ArrowUpCircle size={17} aria-hidden />
                   Update now
                 </button>
-                <button
-                  type="button"
-                  onClick={handleDismiss}
-                  className="w-full rounded-full px-4 py-2 text-[13px] font-semibold text-white/45"
-                >
-                  Not now
-                </button>
+                {!mandatory && (
+                  <button
+                    type="button"
+                    onClick={handleDismiss}
+                    className="w-full rounded-full px-4 py-2 text-[13px] font-semibold text-white/45"
+                  >
+                    Not now
+                  </button>
+                )}
               </div>
             </div>
           </motion.div>

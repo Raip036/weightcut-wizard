@@ -124,7 +124,10 @@ export function PolaroidStack({
     const upcoming = posts
       .slice(topIndex, topIndex + DECODE_AHEAD + 1)
       .filter((p) => p.id !== exitingPost?.id)
-      .map((p) => p.url);
+      // Video posts have no still at `url` (that's the video file). Warm
+      // their POSTER instead, never the video URL — pushing a video URL
+      // into the image decode path would fetch/decode it as an image.
+      .map((p) => (p.kind === "video" ? p.thumbUrl : p.url));
     preloadAndDecodeImages(upcoming);
   }, [posts, topIndex, exitingPost]);
 
@@ -355,6 +358,10 @@ function TopCard({
         rotationDeg={rotationDeg}
         onAuthorLongPress={onAuthorLongPress}
         hideCaption
+        // Only the genuine, settled top card upgrades a video post to a
+        // live <video>. The exit card (exitingNode) and background cards
+        // never set this, so we keep a single decoder alive at a time.
+        enableVideo
       />
 
       {/* Caption: rendered here (not on the gradient) so it never sits
@@ -367,7 +374,7 @@ function TopCard({
 
       {/* Counter pill, top-right. */}
       {counterLabel && (
-        <div className="pointer-events-none absolute top-3 right-3 z-[3] rounded-full border border-white/15 bg-black/40 px-2.5 py-1 text-[11px] font-bold tracking-wide text-white backdrop-blur-md">
+        <div className="pointer-events-none absolute top-3 right-3 z-[3] rounded-full border border-white/15 bg-black/55 px-2.5 py-1 text-[11px] font-bold tracking-wide text-white">
           {counterLabel}
         </div>
       )}
@@ -382,7 +389,7 @@ function TopCard({
           e.stopPropagation();
           onToggleLike();
         }}
-        className="absolute bottom-3 right-3 z-[5] flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-black/35 backdrop-blur-md transition-transform active:scale-90"
+        className="absolute bottom-3 right-3 z-[5] flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-black/50 transition-transform active:scale-90"
       >
         <Heart
           className={`h-6 w-6 transition-colors ${liked ? "fill-func-danger-red text-func-danger-red" : "text-white"}`}

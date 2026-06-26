@@ -140,23 +140,16 @@ const MACRO_COLOR = {
   fat: "#a855f7",
 } as const;
 
-// ─── Phase rail color (rail accent on cards) ─────────────────────────
-const PHASE_RAIL: Record<WeekPhase, string> = {
-  foundation: "bg-sky-500",
-  build: "bg-primary",
-  peak: "bg-secondary",
-  final: "bg-func-warning-yellow",
-  fight_week: "bg-func-warning-yellow",
-};
-
-// Phase dot colour, keyed per phase. The same dot is used on the phase
-// rows and the week-by-week accordion, so the two read as one system.
-const PHASE_DOT: Record<WeekPhase, string> = {
-  foundation: "bg-sky-500",
-  build: "bg-primary",
-  peak: "bg-secondary",
-  final: "bg-func-warning-yellow",
-  fight_week: "bg-func-warning-yellow",
+// ─── Phase color (single blue ladder: light early → deep at fight week) ─
+// One shared hsl ladder drives both the rail accent and the phase dot, on
+// the phase rows AND the week-by-week accordion, so the whole plan reads as
+// one premium blue system. Applied via inline style={{ background: color }}.
+const PHASE_COLOR: Record<WeekPhase, string> = {
+  foundation: "hsl(213 94% 80%)",
+  build: "hsl(214 93% 70%)",
+  peak: "hsl(217 91% 60%)",
+  final: "hsl(221 88% 52%)",
+  fight_week: "hsl(225 84% 46%)",
 };
 
 const PHASE_LABEL: Record<WeekPhase, string> = {
@@ -395,9 +388,8 @@ function DailyFuelCard({
                   />
                 )}
                 <t.Icon
-                  className="h-3.5 w-3.5"
+                  className={`h-3.5 w-3.5 ${activeTab ? "text-primary" : ""}`}
                   strokeWidth={2.4}
-                  style={{ color: activeTab ? MACRO_COLOR.carbs : undefined }}
                 />
                 <span>{t.label}</span>
               </button>
@@ -532,10 +524,15 @@ function PhasePills({
               }}
               className="w-full flex card-surface rounded-2xl border border-border/50 overflow-hidden active:scale-[0.99] transition-transform"
             >
-              <div className={`w-1 shrink-0 ${PHASE_RAIL[p.name]}`} aria-hidden />
+              <div
+                className="w-1 shrink-0"
+                style={{ background: PHASE_COLOR[p.name] }}
+                aria-hidden
+              />
               <div className="flex-1 flex items-center gap-3 p-3.5 text-left min-w-0">
                 <span
-                  className={`h-2.5 w-2.5 shrink-0 rounded-full ${PHASE_DOT[p.name]}`}
+                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={{ background: PHASE_COLOR[p.name] }}
                   aria-hidden
                 />
                 <div className="flex-1 min-w-0">
@@ -576,16 +573,15 @@ function WeekAccordionRow({
   open: boolean;
   onToggle: () => void;
 }) {
-  const rail = PHASE_RAIL[row.phase];
-  const dot = PHASE_DOT[row.phase];
+  const phaseColor = PHASE_COLOR[row.phase];
   return (
     <div
       id={`week-card-${row.week}`}
       className={`relative flex card-surface rounded-2xl border border-border/50 overflow-hidden ${
-        isToughest ? "ring-1 ring-func-warning-yellow/40" : ""
+        isToughest ? "ring-1 ring-primary/40" : ""
       }`}
     >
-      <div className={`w-1 shrink-0 ${rail}`} aria-hidden />
+      <div className="w-1 shrink-0" style={{ background: phaseColor }} aria-hidden />
       <div className="flex-1 min-w-0">
         {/* Collapsed summary row, always visible, tappable. */}
         <button
@@ -595,7 +591,11 @@ function WeekAccordionRow({
           aria-label={`Week ${row.week}, ${PHASE_LABEL[row.phase]}, ${row.targetWeight.toFixed(1)} kg`}
           className="w-full flex items-center gap-3 p-3.5 text-left active:bg-muted/10 transition-colors"
         >
-          <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${dot}`} aria-hidden />
+          <span
+            className="h-2.5 w-2.5 rounded-full shrink-0"
+            style={{ background: phaseColor }}
+            aria-hidden
+          />
           <div className="flex-1 min-w-0">
             <p className="text-[13.5px] font-bold text-foreground truncate">
               Week {row.week}
@@ -705,30 +705,19 @@ function WeekAccordionRow({
 // coach cue. Replaces the prior 4-card carousel whose "Day -7 / Day -3"
 // labels misrepresented multi-day overlapping ranges.
 
+// Every fight-week value reads as plain bold blue text now (no pills, no
+// per-tone color). The cliff/flush states are still signalled by the value
+// copy ("cliff" / "sips"), not by colour.
 function FightWeekChip({
   label,
   value,
-  tone,
 }: {
   label: string;
   value: string;
-  tone: "carbs" | "hydration" | "warn" | "muted";
 }) {
-  const toneClass = {
-    carbs:
-      "text-func-carbs-orange/90 border-func-carbs-orange/20 bg-func-carbs-orange/[0.05]",
-    hydration:
-      "text-func-hydration-cyan/90 border-func-hydration-cyan/20 bg-func-hydration-cyan/[0.05]",
-    warn:
-      "text-amber-200/90 border-amber-500/20 bg-amber-500/[0.06]",
-    muted:
-      "text-foreground/75 border-border/40 bg-foreground/[0.03]",
-  }[tone];
   return (
-    <span
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border ${toneClass} text-[10.5px] font-medium tabular-nums leading-tight`}
-    >
-      <span className="opacity-60">{label}</span>
+    <span className="inline-flex items-center gap-1 text-[12px] font-bold text-primary">
+      <span className="opacity-70">{label}</span>
       <span>{value}</span>
     </span>
   );
@@ -774,12 +763,13 @@ function FightWeekDayStack({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ ...ENTER_SPRING, delay: 0.08 }}
-      className="relative overflow-hidden card-surface rounded-2xl border border-border/50 border-t-2 border-t-func-warning-yellow p-4 mt-4"
+      className="relative overflow-hidden card-surface rounded-2xl border border-border/50 border-t-2 p-4 mt-4"
+      style={{ borderTopColor: "hsl(225 84% 46%)" }}
     >
-      {/* Soft warm glow halo at top. */}
+      {/* Soft deep-blue glow halo at top. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute -top-12 left-1/2 -translate-x-1/2 h-32 w-64 rounded-full opacity-10 blur-2xl text-func-warning-yellow"
+        className="pointer-events-none absolute -top-12 left-1/2 -translate-x-1/2 h-32 w-64 rounded-full opacity-10 blur-2xl text-primary"
         style={{ background: "radial-gradient(circle, currentColor 0%, transparent 70%)" }}
       />
 
@@ -795,8 +785,8 @@ function FightWeekDayStack({
       </div>
 
       {safetyFlag && (
-        <div className="rounded-xs border border-amber-500/20 bg-amber-500/[0.04] p-3 mb-2 flex items-start gap-2">
-          <AlertTriangle className="h-4 w-4 text-amber-400/70 mt-0.5 shrink-0" />
+        <div className="rounded-xs border border-primary/20 bg-primary/[0.05] p-3 mb-2 flex items-start gap-2">
+          <AlertTriangle className="h-4 w-4 text-primary mt-0.5 shrink-0" />
           <p className="text-[12px] text-foreground/80 leading-snug">
             Aggressive cut for this timeline. Train light from day -2 and keep fluids steady until then.
           </p>
@@ -820,7 +810,7 @@ function FightWeekDayStack({
       {/* Legend: the carb bar is the hero, so name it once. The copy adapts
           to whether carbs taper or are held flat for the fight. */}
       <div className="flex items-center gap-1.5 px-1 mb-1.5">
-        <span className="h-2 w-2 rounded-full bg-func-carbs-orange/70" />
+        <span className="h-2 w-2 rounded-full bg-primary/70" />
         <span className="text-[9px] uppercase tracking-wider text-muted-foreground/70">
           {carbsHeld
             ? "Carbs held, fuel for the fight"
@@ -844,7 +834,7 @@ function FightWeekDayStack({
             <li
               key={d.dayOffset}
               className={`px-3 py-2.5 flex items-start gap-3 ${
-                isCliff ? "border-l-2 border-l-amber-500/50" : ""
+                isCliff ? "border-l-2 border-l-primary/50" : ""
               }`}
             >
               {/* Day number */}
@@ -883,8 +873,10 @@ function FightWeekDayStack({
                     <div className="flex items-center gap-2">
                       <div className="relative flex-1 h-[18px] rounded-full bg-muted/20 overflow-hidden">
                         <div
-                          className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-func-carbs-orange/45 to-func-carbs-orange/85"
+                          className="absolute inset-y-0 left-0 rounded-full"
                           style={{
+                            background:
+                              "linear-gradient(90deg, hsl(217 91% 58% / 0.45), hsl(213 94% 68% / 0.9))",
                             width:
                               prefersReduced || mounted ? `${barPct}%` : "0%",
                             transition: prefersReduced
@@ -896,33 +888,26 @@ function FightWeekDayStack({
                           }}
                         />
                       </div>
-                      <span className="shrink-0 w-11 text-right text-[14px] font-bold tabular-nums text-func-carbs-orange/90 leading-none">
+                      <span className="shrink-0 w-11 text-right text-[14px] font-bold tabular-nums text-primary leading-none">
                         {d.carbsGrams}
-                        <span className="text-[10px] font-semibold text-func-carbs-orange/60">g</span>
+                        <span className="text-[10px] font-semibold text-primary/60">g</span>
                       </span>
                     </div>
 
-                    {/* Sodium + water + fibre as secondary chips. */}
-                    <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                    {/* Sodium + water + fibre as plain bold blue values. */}
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5">
                       <FightWeekChip
                         label="Na"
                         value={d.sodiumGrams < 0.5 ? "cliff" : `${d.sodiumGrams}g`}
-                        tone={d.flag === "sodium-cliff" ? "warn" : "muted"}
                       />
                       <FightWeekChip
                         label="H₂O"
                         value={d.fluidLiters < 0.5 ? "sips" : `${d.fluidLiters}L`}
-                        tone={
-                          d.flag === "fluid-cliff" || d.flag === "flush"
-                            ? "warn"
-                            : "hydration"
-                        }
                       />
                       {typeof d.fibreGrams === "number" && (
                         <FightWeekChip
                           label="Fibre"
                           value={d.fibreGrams <= 0 ? "none" : `${d.fibreGrams}g`}
-                          tone={d.flag === "low-residue" ? "warn" : "muted"}
                         />
                       )}
                     </div>
@@ -1138,9 +1123,9 @@ export function InlinePlanDisplay({
 
       {/* SAFETY */}
       {planData.safetyNotes && (
-        <div className="card-surface rounded-2xl border border-func-recovery-green/25 border-l-2 border-l-func-recovery-green/60 p-3.5 mt-3 flex items-start gap-2.5">
-          <ShieldCheck className="h-4 w-4 text-func-recovery-green mt-0.5 shrink-0" />
-          <p className="text-[12.5px] text-emerald-200/90 leading-relaxed">
+        <div className="card-surface rounded-2xl border border-primary/25 border-l-2 border-l-primary/60 p-3.5 mt-3 flex items-start gap-2.5">
+          <ShieldCheck className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+          <p className="text-[12.5px] text-foreground/85 leading-relaxed">
             {cleanText(planData.safetyNotes)}
           </p>
         </div>
@@ -1148,7 +1133,7 @@ export function InlinePlanDisplay({
 
       {/* TOMORROW-MORNING ANCHOR */}
       <div className="card-surface rounded-2xl border border-border/50 p-3.5 mt-3 flex items-start gap-2.5">
-        <Sun className="h-4 w-4 text-func-warning-yellow mt-0.5 shrink-0" />
+        <Sun className="h-4 w-4 text-primary mt-0.5 shrink-0" />
         <div>
           <p className="text-[12.5px] font-semibold text-foreground">
             Tomorrow, 7am, weigh in fasted.
@@ -1159,11 +1144,11 @@ export function InlinePlanDisplay({
         </div>
       </div>
 
-      {/* MEDICAL DISCLAIMER (App Store Guideline 1.4.1): persistent amber notice
+      {/* MEDICAL DISCLAIMER (App Store Guideline 1.4.1): persistent blue notice
           shown for EVERY plan. Lives at the bottom of the plan view so it stays
           present without dominating the top. Renders in both the onboarding plan
           preview and the standalone CutPlanReview screen. */}
-      <MedicalDisclaimerBanner variant="banner" className="mt-3" />
+      <MedicalDisclaimerBanner variant="banner" accent="blue" className="mt-3" />
 
       {/* STICKY CTA: `bottom-safe-keyboard` rides this above the iOS
           keyboard (inner pb stays for safe-area padding). Hidden on the

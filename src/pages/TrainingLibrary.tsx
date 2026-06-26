@@ -1,23 +1,23 @@
 /**
- * Training — the athlete's training hub. Three segmented tabs:
+ * Training — the athlete's training hub. Two segmented tabs:
  *
  *  • Gallery    — a BeReal-style monthly CALENDAR of training media. Each day
  *                 cell shows that day's clip, tinted by discipline. Tapping a
  *                 day opens a detail sheet with the session type, notes, and
  *                 every clip from that day; tapping a clip opens the full-screen
  *                 MediaLightbox. The old Tinder-swipe deck was removed.
- *  • Recaps     — the weekly coach-voice debrief (TrainingSummarySection),
- *                 pulled out of the buried Calendar page into its own home.
  *  • Techniques — the all-time, searchable technique log.
  *
- * Recaps & Techniques are Pro features. Free users see the shared animated
- * ProUpsellScreen (the Recovery-style aurora gate) inside the tab.
+ * Techniques is a Pro feature. Free users see the shared animated
+ * ProUpsellScreen (the Recovery-style aurora gate) inside the tab. The weekly
+ * Recaps tab was removed; Technique Mastery + the weekly summary cover it.
  */
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, parseISO, getDay, getDaysInMonth } from "date-fns";
 import { ChevronLeft, ImageIcon, Play } from "lucide-react";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery, usePaginatedQuery } from "convex/react";
+import { TrainingGalleryMasonry } from "@/components/training/TrainingGalleryMasonry";
 import { api } from "@/../convex/_generated/api";
 import type { Id } from "@/../convex/_generated/dataModel";
 import { useUser } from "@/contexts/UserContext";
@@ -26,7 +26,6 @@ import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 import { triggerHapticSelection } from "@/lib/haptics";
 import { disciplineToken, disciplineLabel } from "@/lib/coachColors";
 import { MediaLightbox, type LightboxItem } from "@/components/training/MediaLightbox";
-import { TrainingSummarySection } from "@/components/fightcamp/TrainingSummarySection";
 import { TechniqueLog } from "@/components/fightcamp/TechniqueLog";
 import { ProUpsellScreen } from "@/components/subscription/ProUpsellScreen";
 import { DashboardSkeleton } from "@/components/ui/skeleton-loader";
@@ -47,6 +46,13 @@ type Tile = {
   id: string;
   sessionId: string | null;
   url: string | null;
+  /** 256px thumbnail (full-res fallback server-side) for the grid. */
+  thumbUrl: string | null;
+  /** Inline LQIP placeholder. */
+  thumbDataUrl: string | null;
+  /** Intrinsic dimensions, for aspect-locking the masonry tile. */
+  width: number | null;
+  height: number | null;
   kind: "photo" | "video";
   caption: string | null;
   capturedAt: string;
@@ -66,12 +72,11 @@ type SessionGroup = {
   items: Tile[];
 };
 
-type TabKey = "gallery" | "recaps" | "techniques";
+type TabKey = "gallery" | "techniques";
 
 const ALL_FILTER = "all";
 const TABS: { key: TabKey; label: string }[] = [
   { key: "gallery", label: "Gallery" },
-  { key: "recaps", label: "Recaps" },
   { key: "techniques", label: "Techniques" },
 ];
 // Monday-first week, matching the rest of the app (weekStartsOn: 1).
@@ -122,22 +127,21 @@ export default function TrainingLibrary() {
   const [tab, setTab] = useState<TabKey>("gallery");
   const [filter, setFilter] = useState<string>(ALL_FILTER);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
-  // Gallery renders ONE month at a time (newest first) so we never mount every
-  // month's media grid at once — navigate with the prev/next controls.
-  const [monthIdx, setMonthIdx] = useState(0);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Stable "this week" anchor for the recap section — `new Date()` inline would
-  // change identity every render and thrash the section's week-fetch effect.
-  const recapDate = useMemo(() => new Date(), []);
-
-  const mediaPage = useQuery(
+  const {
+    results: pagedTiles,
+    status: mediaStatus,
+    loadMore: loadMoreMedia,
+  } = usePaginatedQuery(
     api.fight_camp.listMyMediaLibrary,
     userId ? { disciplineFilter: filter === ALL_FILTER ? undefined : filter } : "skip",
-  ) as { page: Tile[]; isDone: boolean; continueCursor: string | null } | undefined;
-  const tiles: Tile[] | undefined = mediaPage ? mediaPage.page : undefined;
+    { initialNumItems: 60 },
+  );
+  const tiles = pagedTiles as Tile[];
+  const mediaLoadingFirst = mediaStatus === "LoadingFirstPage";
   const disciplines = useQuery(
     api.fight_camp.listMediaDisciplines,
     userId ? {} : "skip",
@@ -272,7 +276,6 @@ export default function TrainingLibrary() {
                     onClick={() => {
                       triggerHapticSelection();
                       setFilter(d);
-                      setMonthIdx(0);
                     }}
                     className={`shrink-0 h-8 px-3 rounded-full text-[12px] font-semibold transition-all active:scale-[0.97] ${
                       active
@@ -288,79 +291,26 @@ export default function TrainingLibrary() {
           )}
         </div>
 
-        {/* ── GALLERY (BeReal-style calendar) ────────────────────────── */}
+        {/* ── GALLERY (Pinterest-style masonry) ─────────────────────── */}
         {tab === "gallery" &&
-          (tiles === undefined ? (
+          (mediaLoadingFirst ? (
             <DashboardSkeleton />
-          ) : months.length === 0 ? (
+          ) : tiles.length === 0 && mediaStatus === "Exhausted" ? (
+            // Only "empty" once pagination is truly done. A discipline filter is
+            // applied AFTER pagination server-side, so the first page can be
+            // empty-but-not-done — in that case we still render the masonry so
+            // its sentinel keeps fetching pages until matches appear or we run out.
             <EmptyGallery onOpenCalendar={() => navigate("/training-calendar")} />
           ) : (
-            (() => {
-              const safeIdx = Math.min(monthIdx, months.length - 1);
-              const ym = months[safeIdx];
-              return (
-                <div className="px-4 pt-4">
-                  {/* Month nav — only this month's grid mounts at a time. */}
-                  <div className="flex items-center justify-between mb-3">
-                    <button
-                      type="button"
-                      disabled={safeIdx >= months.length - 1}
-                      onClick={() => { triggerHapticSelection(); setMonthIdx((i) => Math.min(months.length - 1, i + 1)); }}
-                      className="h-8 w-8 flex items-center justify-center rounded-full bg-muted/40 text-muted-foreground active:scale-95 disabled:opacity-30"
-                      aria-label="Older month"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </button>
-                    <span className="text-[14px] font-bold tracking-tight">
-                      {format(parseISO(`${ym}-01T00:00:00`), "MMMM yyyy")}
-                    </span>
-                    <button
-                      type="button"
-                      disabled={safeIdx <= 0}
-                      onClick={() => { triggerHapticSelection(); setMonthIdx((i) => Math.max(0, i - 1)); }}
-                      className="h-8 w-8 flex items-center justify-center rounded-full bg-muted/40 text-muted-foreground active:scale-95 disabled:opacity-30 rotate-180"
-                      aria-label="Newer month"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </button>
-                  </div>
-                  <MonthCalendar
-                    ym={ym}
-                    dayMap={dayMap}
-                    onOpenDay={(dayKey) => { triggerHapticSelection(); setSelectedDay(dayKey); }}
-                  />
-                </div>
-              );
-            })()
+            <TrainingGalleryMasonry
+              tiles={tiles}
+              onOpen={openClip}
+              onEndReached={() => {
+                if (mediaStatus === "CanLoadMore") loadMoreMedia(30);
+              }}
+              loadingMore={mediaStatus === "LoadingMore"}
+            />
           ))}
-
-        {/* ── RECAPS ─────────────────────────────────────────────────── */}
-        {tab === "recaps" && (
-          <TabGate
-            unlocked={hasRecapAccess}
-            resolved={isSubscriptionResolved}
-            title="Weekly Recaps are a Pro feature"
-            blurb="Your AI corner reads every session note and writes a coach-voice debrief of your training week."
-            perks={[
-              "A coach-voice debrief of your week",
-              "Key techniques you drilled, with cues",
-              "Catches recurring issues early",
-            ]}
-            onUpgrade={openPaywall}
-            onDismiss={() => setTab("gallery")}
-          >
-            <div className="px-4 pt-4">
-              <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70 font-semibold">
-                This week
-              </p>
-              <TrainingSummarySection
-                userId={userId}
-                selectedDate={recapDate}
-                sessionLoggedTrigger={0}
-              />
-            </div>
-          </TabGate>
-        )}
 
         {/* ── TECHNIQUES ─────────────────────────────────────────────── */}
         {tab === "techniques" && (

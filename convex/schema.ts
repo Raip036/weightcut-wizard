@@ -56,6 +56,16 @@ export default defineSchema({
     aiRecommendationsUpdatedAt: v.optional(v.number()),
     manualNutritionOverride: v.optional(v.boolean()),
 
+    // Denormalised author post-streak (consecutive days posted, capped 365),
+    // updated when the user creates a post, so gymFeed.listFeed reads it in
+    // O(1) instead of running computeAuthorStreak (a per-author history scan)
+    // for every distinct author on every feed page. `postStreakComputedAt` is
+    // the YYYY-MM-DD the value was last refreshed; listFeed falls back to the
+    // live computeAuthorStreak when these are stale/absent, so it's an
+    // optimization, never a correctness dependency.
+    postStreakDays: v.optional(v.number()),
+    postStreakComputedAt: v.optional(v.string()),
+
     // Plan storage — JSONB whose shape varies by feature
     cutPlanJson: v.optional(v.any()),
 
@@ -156,6 +166,10 @@ export default defineSchema({
     // user opens the activity sheet. Items with `_creationTime` newer than
     // this are counted as unread in `feedActivity.unreadActivityCount`.
     lastActivitySeenAt: v.optional(v.number()),
+    // "Clear" the activity feed: items with `ts` at/before this are hidden in
+    // feedActivity.listActivity so notifications can't build up forever. New
+    // activity (after this stamp) still appears.
+    activityClearedAt: v.optional(v.number()),
 
     updatedAt: v.optional(v.number()),
   })
@@ -601,6 +615,13 @@ export default defineSchema({
     // payload so the first paint is instant before the real image
     // resolves. No round-trip needed.
     thumbDataUrl: v.optional(v.string()),
+    // Cached Convex Storage serving URLs, resolved once at insert time (and
+    // backfilled for old rows) so gymFeed.listFeed returns them directly
+    // instead of calling ctx.storage.getUrl per post per reactive re-emit.
+    // Convex serving URLs are stable per storageId. Read path falls back to
+    // getUrl when these are absent, so they're a pure optimization.
+    mediaUrl: v.optional(v.string()),
+    thumbUrl: v.optional(v.string()),
     // Captured at upload time so layout can reserve the right aspect
     // ratio in the grid (currently always 1:1 square, but post videos
     // may differ in v2).
@@ -610,6 +631,16 @@ export default defineSchema({
     // owner OR a gym admin via the moderation flow. Hard-delete still
     // available via the existing cron path.
     deletedAt: v.optional(v.number()),
+    // Denormalised feed-eligibility flag, maintained on every write that can
+    // change it (create / soft-delete / restore / archive). True iff the post
+    // belongs in a gym feed: gymId set AND storageId set AND visibility != private
+    // AND not soft-deleted. Lets gymFeed.listFeed scan `by_gym_feed` for only
+    // live rows instead of reading-then-filtering private/deleted rows in
+    // memory. Optional + gated behind a "feedEligibleReady" flag in
+    // feed_cron_state so the indexed read only switches on once the backfill has
+    // populated every row — until then listFeed uses the old by_gym_created path,
+    // so an un-backfilled row is never wrongly hidden.
+    feedEligible: v.optional(v.boolean()),
     // Author membership state at read time. Stamped to "former_member"
     // when the user leaves (or is removed from) the gym this post lives
     // in — preserves the post in the feed for conversation continuity
@@ -629,7 +660,11 @@ export default defineSchema({
     .index("by_gym_created", ["gymId"])
     // Profile grid hot path — descending paginate of one user's posts.
     // `_creationTime` auto-appended; no separate timestamp field needed.
-    .index("by_user_created", ["userId"]),
+    .index("by_user_created", ["userId"])
+    // Feed read once the feedEligible backfill is complete: scans only
+    // feed-eligible rows for a gym (gymId + feedEligible), skipping
+    // private/deleted/seed rows at the index instead of in memory.
+    .index("by_gym_feed", ["gymId", "feedEligible"]),
 
   /**
    * Per-(post, user) like membership row. Indexed for O(1) "did I like
@@ -705,7 +740,53 @@ export default defineSchema({
     viewedAt: v.number(),
   })
     .index("by_user_post", ["userId", "postId"])
-    .index("by_user", ["userId"]),
+    .index("by_user", ["userId"])
+    // Age-ordered scan for the daily prune cron (feedMaintenance.pruneFeedViews):
+    // range-delete rows older than the retention window so the per-user
+    // `by_user` collect in gymFeed.listFeed stays bounded instead of growing
+    // one row per post ever swiped.
+    .index("by_viewed_at", ["viewedAt"]),
+
+  /**
+   * Materialised per-gym weekly leaderboard. One row per gym, recomputed by a
+   * cron (leaderboardCache.recomputeAllGyms) so gymLeaderboard.weekly serves
+   * the cached per-user aggregation instead of range-scanning every calendar
+   * row live on every read + every session write. `rows` holds only users with
+   * >=1 session in the window (bounded by weekly-active members, not roster
+   * size). The query falls back to live computation when the row is missing or
+   * stale, so the cache is an optimization, never a correctness dependency.
+   */
+  gym_leaderboard_cache: defineTable({
+    gymId: v.id("gyms"),
+    computedAt: v.number(),
+    windowStart: v.string(),
+    windowEnd: v.string(),
+    rows: v.array(
+      v.object({
+        userId: v.id("users"),
+        totalMinutes: v.number(),
+        sessionCount: v.number(),
+        topDiscipline: v.string(),
+        minutesByDiscipline: v.record(v.string(), v.number()),
+      }),
+    ),
+  }).index("by_gym", ["gymId"]),
+
+  /**
+   * Small key→cursor store for resumable feed maintenance crons. Lets
+   * feedMaintenance.archiveOldPosts persist a forward-only pagination cursor
+   * so it resumes where it left off instead of re-scanning the whole aged
+   * post history from the oldest row on every daily run.
+   */
+  feed_cron_state: defineTable({
+    key: v.string(),
+    cursor: v.optional(v.union(v.string(), v.null())),
+    // Generic boolean flag slot (e.g. key "feedEligibleReady" → true once the
+    // feedEligible backfill has populated every session_media row, which is the
+    // signal for gymFeed.listFeed to switch to the by_gym_feed indexed read).
+    flag: v.optional(v.boolean()),
+    updatedAt: v.number(),
+  }).index("by_key", ["key"]),
 
   /**
    * Moderation reports on a feed post. Gym admins triage via the

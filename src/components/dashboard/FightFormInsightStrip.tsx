@@ -148,27 +148,11 @@ export function FightFormInsightStrip(p: Props) {
     && !p.adherence.wellnessCheckin;
   if (nothingLoggedToday) return null;
 
-  const headline = headlineFor(p);
-
-  // Calibrating (with something already logged) → present the countdown copy
-  // and the day counter inside translucent pill cards, the same UI family as
-  // the unlocked delta banner, instead of bare text floating under the ring.
+  // Calibrating (with something already logged) → the ring itself already shows
+  // the "Day X of Y" counter + countdown, so render nothing here. (The old
+  // standalone day-counter pill duplicated the ring and has been removed.)
   if (p.state === "calibrating" && p.calibration && !p.calibration.unlocked) {
-    const dayN = Math.min(p.calibration.daysWithAnyLog, p.calibration.daysNeeded);
-    return (
-      <div className="mt-10 flex flex-col items-center gap-2.5">
-        <div className="mx-auto w-fit max-w-sm rounded-2xl border border-border/40 bg-foreground/[0.03] px-3.5 py-2 backdrop-blur-sm">
-          <p className="text-[11px] text-foreground/90 text-center leading-snug whitespace-pre-line">
-            {headline}
-          </p>
-        </div>
-        <div className="mx-auto w-fit flex items-center gap-1.5 rounded-full border border-border/40 bg-foreground/[0.03] px-2.5 py-1 backdrop-blur-sm">
-          <span className="text-[11.5px] font-medium leading-snug text-muted-foreground tabular-nums tracking-tight">
-            Day {dayN} of {p.calibration.daysNeeded}
-          </span>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   // Scored states (ok / stale) used to render the insight headline here

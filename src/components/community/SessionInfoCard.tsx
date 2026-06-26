@@ -83,6 +83,13 @@ export function SessionInfoCard({
   if (post.session) metaParts.push(`${post.session.durationMinutes}m`, `RPE ${post.session.rpe}`);
   const metaTail = metaParts.join(" · ");
 
+  // Effective "you reacted" set = server truth + the hook's optimistic overlay,
+  // so the pill ring flips on tap instead of lagging a feed round-trip. The bar
+  // fires through the hook's optimistic toggle (same mutation the parent's
+  // `onReact` runs), so `onReact` stays in the public API but isn't double-fired.
+  const viewerReactions = engagement.resolveViewerReactions(post.viewerReactions ?? []);
+  void onReact;
+
   return (
     <section className="space-y-2.5">
       {/* Row 1: session type INLINE with the latest comment. */}
@@ -104,12 +111,25 @@ export function SessionInfoCard({
           className="flex-1 min-w-0 text-left rounded-xs px-1 py-1 -mx-1 active:bg-muted/40 transition-colors"
         >
           {latest ? (
-            <span className="block truncate text-[13px] leading-snug">
-              <span className="font-semibold text-foreground">{latest.author.displayName}</span>{" "}
-              <span className="text-foreground/85">{latest.body}</span>
-              {totalCommentCount > 1 && (
-                <span className="text-muted-foreground"> · {totalCommentCount}</span>
+            <span className="flex items-center gap-1.5 min-w-0">
+              {latest.author.avatarUrl ? (
+                <img
+                  src={latest.author.avatarUrl}
+                  alt=""
+                  className="h-5 w-5 shrink-0 rounded-full object-cover"
+                />
+              ) : (
+                <span className="h-5 w-5 shrink-0 rounded-full bg-muted/50 flex items-center justify-center text-[9px] font-bold text-muted-foreground">
+                  {latest.author.displayName.slice(0, 1).toUpperCase()}
+                </span>
               )}
+              <span className="block truncate text-[13px] leading-snug">
+                <span className="font-semibold text-foreground">{latest.author.displayName}</span>{" "}
+                <span className="text-foreground/85">{latest.body}</span>
+                {totalCommentCount > 1 && (
+                  <span className="text-muted-foreground"> · {totalCommentCount}</span>
+                )}
+              </span>
             </span>
           ) : (
             <span className="block truncate text-[13px] text-muted-foreground">
@@ -126,11 +146,11 @@ export function SessionInfoCard({
         </p>
       )}
 
-      {/* Quick reacts. */}
+      {/* Quick reacts. Centered tactile pills; optimistic ring via the hook. */}
       <EmojiReactionBar
         reactionCounts={post.reactionCounts ?? {}}
-        viewerReactions={post.viewerReactions ?? []}
-        onReact={onReact}
+        viewerReactions={viewerReactions}
+        onReact={(key) => engagement.toggleReactionOptimistic(key, viewerReactions.includes(key))}
       />
 
       {/* Comment input. */}

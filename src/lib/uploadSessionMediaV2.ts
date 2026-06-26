@@ -18,6 +18,7 @@ import { convex as defaultConvex } from "@/integrations/convex/client";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { logger } from "@/lib/logger";
+import { generateImageThumb } from "@/lib/imageThumb";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB — videos can be chunky
 const UPLOAD_TIMEOUT_MS = 30_000;
@@ -90,6 +91,56 @@ export async function uploadSessionMediaV2(
     storageId: Id<"_storage">;
   };
 
+  // 2b. BEST-EFFORT: synthesize a 256px thumb + tiny LQIP for photos so the
+  // gallery never fetches full-resolution originals. This must NEVER fail or
+  // block the main upload — any error just drops the thumb fields and we
+  // persist the row exactly as before. Videos skip this entirely.
+  let thumbStorageId: Id<"_storage"> | undefined;
+  let thumbDataUrl: string | undefined;
+  let thumbWidth: number | undefined;
+  let thumbHeight: number | undefined;
+
+  if (kind === "photo") {
+    const thumb = await generateImageThumb(file).catch(() => null);
+    if (thumb) {
+      // Intrinsic dimensions + LQIP are cheap and useful for aspect-locking,
+      // so we keep them even if the thumb-blob upload below fails.
+      thumbWidth = thumb.width;
+      thumbHeight = thumb.height;
+      thumbDataUrl = thumb.thumbDataUrl || undefined;
+
+      // Upload the thumb blob as a SECOND storage object. Wrapped so any
+      // failure leaves thumbStorageId undefined and the main flow continues.
+      try {
+        const thumbUploadUrl = (await withTimeout(
+          client.mutation(api.fight_camp.generateMediaUploadUrl, {}),
+          UPLOAD_TIMEOUT_MS,
+          "Generate thumb upload URL",
+        )) as string;
+
+        const thumbRes = await withTimeout(
+          fetch(thumbUploadUrl, {
+            method: "POST",
+            headers: { "Content-Type": "image/jpeg" },
+            body: thumb.thumbBlob,
+          }),
+          UPLOAD_TIMEOUT_MS,
+          "Upload session media thumb",
+        );
+        if (!thumbRes.ok) {
+          throw new Error(`Thumb upload failed (${thumbRes.status})`);
+        }
+        const parsed = (await thumbRes.json()) as { storageId: Id<"_storage"> };
+        thumbStorageId = parsed.storageId;
+      } catch (err) {
+        thumbStorageId = undefined;
+        logger.warn("uploadSessionMediaV2: thumb upload failed, continuing", {
+          error: String(err),
+        });
+      }
+    }
+  }
+
   // 3. Persist the session_media row. capturedAt defaults to the session
   // date server-side when omitted.
   const mediaId = (await client.mutation(api.fight_camp.addSessionMedia, {
@@ -99,6 +150,10 @@ export async function uploadSessionMediaV2(
     caption: opts?.caption,
     capturedAt: opts?.capturedAt,
     visibility: opts?.visibility,
+    thumbStorageId,
+    thumbDataUrl,
+    width: thumbWidth,
+    height: thumbHeight,
   })) as Id<"session_media">;
 
   return { mediaId, kind };

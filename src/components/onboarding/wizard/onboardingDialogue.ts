@@ -114,6 +114,12 @@ const LINES: Record<string, DialogueLine> = {
     body: "Pads, sparring, gym, runs. Count all of them.",
   },
 
+  // Step 11 (F.REMINDERS): adaptive reminders (Apple Health step removed)
+  "cutting:11": {
+    headline: "Nudges.",
+    body: "I'll ping you at the right moment. Set it once, then forget it.",
+  },
+
   // Step 12: training types (was 13; Apple Health step removed 2026-06-22)
   "cutting:12": {
     headline: "The work.",
@@ -146,84 +152,99 @@ const LINES: Record<string, DialogueLine> = {
   },
 
   // ── Losing branch ──────────────────────────────────────────────────
-  // Step 2: weeks
-  "losing:2": {
-    headline: "How long.",
-    body: "How many weeks do you want? Be realistic, not heroic.",
-  },
+  // Keys are the ACTUAL L.* step numbers from Onboarding.tsx, i.e. the real
+  // screen order: current weight (2) → goal (3) → weeks (4) → age (5) →
+  // height (6) → body fat (7) → experience (8) → training freq (9) →
+  // reminders (10) → training types (11) → sleep (12) → aggressiveness (13)
+  // → name (14) → final (15). Re-aligned 2026-06-26: the early screens were
+  // reordered and age + reminders were inserted, which had left every line
+  // one screen out of sync (e.g. the weeks line showed on the weight screen).
 
-  // Step 3: current weight, slam follows, stay calm
-  "losing:3": {
+  // L.CURRENT_WEIGHT = 2: current weight, slam follows, stay calm
+  "losing:2": {
     headline: "Step on.",
     body: "No judgment, just data. This is where we start.",
     pose: "point",
   },
 
-  // Step 4: goal weight
-  "losing:4": {
+  // L.GOAL_WEIGHT = 3: goal weight
+  "losing:3": {
     headline: "Goal weight.",
     body: "The number you actually want to see. Not the dream one.",
     pose: "point",
   },
 
-  // Step 5: height
+  // L.TIMEFRAME = 4: timeframe / weeks
+  "losing:4": {
+    headline: "How long.",
+    body: "How many weeks do you want? Be realistic, not heroic.",
+  },
+
+  // L.AGE = 5: age + sex
   "losing:5": {
+    headline: "How old.",
+    body: "Age sets your real burn rate. No vanity math here.",
+    pose: "point",
+  },
+
+  // L.HEIGHT = 6: height
+  "losing:6": {
     headline: "Stand tall.",
     body: "Height feeds the math behind your daily burn.",
     pose: "point",
   },
 
-  // Step 6: body fat
-  "losing:6": {
+  // L.BODY_FAT = 7: body fat
+  "losing:7": {
     headline: "Body fat.",
     body: "Estimate is fine. Skip if you don't know and we'll calibrate.",
     pose: "point",
   },
 
-  // Step 7: experience
-  "losing:7": {
+  // L.EXPERIENCE = 8: experience
+  "losing:8": {
     headline: "Experience.",
     body: "Where are you on the curve? No judgment, just context.",
   },
 
-  // Step 8: training frequency
-  "losing:8": {
+  // L.TRAINING_FREQ = 9: training frequency
+  "losing:9": {
     headline: "Sessions a week.",
     body: "All of them count. Walks, lifts, classes: say the number.",
   },
 
-  // Step 9: training types
-  "losing:9": {
+  // L.REMINDERS = 10: adaptive reminders
+  "losing:10": {
+    headline: "Nudges.",
+    body: "I'll ping you at the right moment. Set it once, then forget it.",
+  },
+
+  // L.TRAINING_TYPES = 11: training types
+  "losing:11": {
     headline: "What it looks like.",
     body: "Tell me what training actually means for you. Truth only.",
   },
 
-  // Step 10: sleep
-  "losing:10": {
+  // L.SLEEP = 12: sleep
+  "losing:12": {
     headline: "Sleep hours.",
     body: "The OG performance enhancer. Skipping it taxes everything.",
   },
 
-  // Step 11: struggle
-  "losing:11": {
-    headline: "Your demon.",
-    body: "Stress, energy, bingeing, plateau: pick the loudest one.",
-  },
-
-  // Step 12: plan aggressiveness
-  "losing:12": {
+  // L.AGGRESSIVENESS = 13: plan aggressiveness
+  "losing:13": {
     headline: "How hard.",
     body: "Faster is not better. Faster is just faster, and usually shorter.",
   },
 
-  // Step 13: name
-  "losing:13": {
+  // L.NAME = 14: display name
+  "losing:14": {
     headline: "Your name.",
     body: "Your gym sees this when you post. Pick something you'll answer to.",
   },
 
-  // Step 14: final
-  "losing:14": {
+  // L.FINAL = 15: final
+  "losing:15": {
     headline: "Lock it in.",
     body: "Sign your name. Then we build the plan around it.",
     pose: "celebrate",

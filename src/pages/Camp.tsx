@@ -13,6 +13,9 @@ import { CampActivityFeed } from "@/components/coach/CampActivityFeed";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useSubscription } from "@/hooks/useSubscription";
 import { PostFightDebrief } from "@/components/fightcamp/PostFightDebrief";
+import { NextCampFlow } from "@/components/fightcamp/NextCampFlow";
+import { CampLimitProGate } from "@/components/fightcamp/CampLimitProGate";
+import { StartCampAuroraCta } from "@/components/fightcamp/StartCampAuroraCta";
 import { MasterySpine } from "@/components/mastery/MasterySpine";
 import { MasteredShelf } from "@/components/mastery/MasteredShelf";
 import { WizardAuroraBackground } from "@/components/onboarding/WizardAuroraBackground";
@@ -145,6 +148,16 @@ export default function Camp() {
     api.fight_camp.getActiveCamp,
     userId ? {} : "skip",
   );
+
+  // New-camp flow + free-tier gate. Creating any camp beyond the onboarding
+  // one is Pro, so we check upfront: eligible users open the new-camp wizard,
+  // free users hit the aurora CampLimitProGate (the conversion moment).
+  const [nextCampOpen, setNextCampOpen] = useState(false);
+  const [campGateOpen, setCampGateOpen] = useState(false);
+  const guardCreate = (action: () => void) => {
+    if (checkFeatureAccess("MULTIPLE_FIGHT_CAMPS")) action();
+    else setCampGateOpen(true);
+  };
 
   // Cut/weight-loss plan summary, surfaces a tappable card linking to the
   // canonical plan timeline. Moved here from the Goals (profile) page so the
@@ -299,6 +312,18 @@ export default function Camp() {
         <PostFightDebrief />
       </ErrorBoundary>
 
+      {/* ── No active camp → aurora CTA to start the next fight camp. Sits at
+          the top of the otherwise-empty page (the hero/XP/plan all hide with
+          no camp). Taps run through the Pro gate: eligible users open the
+          new-camp wizard, free users hit CampLimitProGate (the conversion
+          moment). Gated on a resolved query so it doesn't flash on load. ── */}
+      {activeCamp !== undefined && !hasActiveCamp && (
+        <StartCampAuroraCta
+          variant="hero"
+          onStart={() => guardCreate(() => setNextCampOpen(true))}
+        />
+      )}
+
       {/* ── Active camp hero, the headline camp details, first on the page
           for fighters with an active camp (name → days-left → progress ring →
           fight date → day-of-camp). ──────────────────────────────────────── */}
@@ -395,7 +420,7 @@ export default function Camp() {
                   )}
                 </div>
                 {locked ? (
-                  <span className="shrink-0 rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-primary">
+                  <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.08em] text-primary">
                     Pro
                   </span>
                 ) : (
@@ -425,6 +450,14 @@ export default function Camp() {
       <ErrorBoundary silent fallback={<></>}>
         <MasteredShelf />
       </ErrorBoundary>
+
+      <NextCampFlow
+        open={nextCampOpen}
+        onOpenChange={setNextCampOpen}
+        activeCamp={activeCamp ?? null}
+      />
+
+      <CampLimitProGate open={campGateOpen} onClose={() => setCampGateOpen(false)} />
 
     </div>
   );

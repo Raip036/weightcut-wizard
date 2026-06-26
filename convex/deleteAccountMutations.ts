@@ -92,6 +92,13 @@ export const cascadeTraining = internalMutation({
           /* already gone */
         }
       }
+      if (m.thumbStorageId) {
+        try {
+          await ctx.storage.delete(m.thumbStorageId);
+        } catch {
+          /* thumb already gone */
+        }
+      }
       await ctx.db.delete(m._id);
     }
 

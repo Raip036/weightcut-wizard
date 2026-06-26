@@ -46,11 +46,11 @@ export function SleepBarChart({ data, goal = 8 }: SleepBarChartProps) {
         y1={baselineY}
         x2={CW}
         y2={baselineY}
-        stroke="hsl(0 0% 100% / 0.12)"
+        stroke="hsl(217 91% 58% / 0.35)"
         strokeWidth={1}
         strokeDasharray="2 4"
       />
-      <text x={CW - 2} y={baselineY - 4} fontSize={7.5} fill="hsl(0 0% 48%)" textAnchor="end">
+      <text x={CW - 2} y={baselineY - 4} fontSize={8.5} fontWeight={700} fill="hsl(217 91% 58%)" textAnchor="end">
         {goal}H GOAL
       </text>
 

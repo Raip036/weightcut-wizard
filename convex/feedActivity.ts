@@ -116,6 +116,9 @@ export const listActivity = query({
       .withIndex("by_user", (q) => q.eq("userId", viewerId))
       .unique();
     const lastSeenAt = viewerProfile?.lastActivitySeenAt ?? 0;
+    // Items the user has explicitly cleared (ts at/before this) are hidden so
+    // the feed never grows unbounded.
+    const clearedAt = viewerProfile?.activityClearedAt ?? 0;
 
     // 1. Get the viewer's most-recent 50 posts in this gym.
     const myPosts = await ctx.db
@@ -338,10 +341,11 @@ export const listActivity = query({
       });
     }
 
-    // 6. Sort descending by unified timestamp.
-    items.sort((a, b) => b.ts - a.ts);
+    // 6. Drop anything the user has cleared, then sort descending by ts.
+    const visible = clearedAt > 0 ? items.filter((i) => i.ts > clearedAt) : items;
+    visible.sort((a, b) => b.ts - a.ts);
 
-    return { items, lastSeenAt };
+    return { items: visible, lastSeenAt };
   },
 });
 
@@ -357,7 +361,9 @@ export const unreadActivityCount = query({
       .query("profiles")
       .withIndex("by_user", (q) => q.eq("userId", viewerId))
       .unique();
-    const since = profile?.lastActivitySeenAt ?? 0;
+    // Cleared items must not count as unread, so advance the baseline to the
+    // later of "last seen" and "last cleared".
+    const since = Math.max(profile?.lastActivitySeenAt ?? 0, profile?.activityClearedAt ?? 0);
 
     const myPosts = await ctx.db
       .query("session_media")
@@ -431,6 +437,28 @@ export const markActivitySeen = mutation({
       .unique();
     if (!profile) return null;
     await ctx.db.patch(profile._id, { lastActivitySeenAt: Date.now() });
+    return null;
+  },
+});
+
+/**
+ * Clear the activity feed: hide everything up to now so notifications don't
+ * build up. Activity is derived from underlying likes/comments/reactions/joins
+ * (no stored notification rows), so this stamps a cutoff rather than deleting
+ * anything — new activity after this still appears. Also resets the unread
+ * badge.
+ */
+export const clearActivity = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireUserId(ctx);
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique();
+    if (!profile) return null;
+    const now = Date.now();
+    await ctx.db.patch(profile._id, { activityClearedAt: now, lastActivitySeenAt: now });
     return null;
   },
 });

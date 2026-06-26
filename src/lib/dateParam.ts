@@ -2,13 +2,12 @@
  * Shared `?date=YYYY-MM-DD` deep-link convention for the logging pages
  * (Nutrition, Training Calendar, Wellness check-in, …).
  *
- * The dashboard "catch up on previous days" sheet (`CatchUpSheet.tsx`) links
- * to these pages for a PAST date and appends `?date=<targetDate>` so the page
- * opens on the day being caught up on rather than today. Centralised here so
- * every page parses + validates the param identically.
+ * Callers that want a logging page to open on a PAST date append
+ * `?date=<targetDate>` so the page opens on that day rather than today.
+ * Centralised here so every page parses + validates the param identically.
  *
  * Dates are local-calendar `YYYY-MM-DD` strings (matching the app's logging
- * convention everywhere else). Future dates are rejected — catch-up only ever
+ * convention everywhere else). Future dates are rejected: this only ever
  * targets the past or today, and there is no point logging the future.
  */
 

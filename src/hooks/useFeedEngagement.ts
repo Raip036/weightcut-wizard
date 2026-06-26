@@ -45,6 +45,27 @@ export interface UseFeedEngagementResult {
    * for the slug → emoji mapping.
    */
   toggleReaction: (key: string) => void;
+  /**
+   * Optimistic per-reaction override map (slug → isActive). An entry means
+   * "the viewer just toggled this reaction and the server snapshot hasn't
+   * caught up yet"; no entry means "defer to the server's
+   * `viewerReactions`". Reset whenever the server snapshot reconciles.
+   */
+  optimisticReactions: Record<string, boolean>;
+  /**
+   * Optimistic reaction toggle. Flips `key` against the supplied
+   * `currentlyActive` state, paints the override instantly, fires the
+   * Convex mutation, and rolls the override back on failure — mirroring
+   * the `toggleLike` rollback pattern. The caller owns the truth of
+   * `currentlyActive` (it has the server `viewerReactions` + this
+   * overlay), since the hook never receives the server reaction list.
+   */
+  toggleReactionOptimistic: (key: string, currentlyActive: boolean) => void;
+  /**
+   * Merge the server's `viewerReactions` with the optimistic overlay into
+   * the effective set of slugs the viewer is currently reacting with.
+   */
+  resolveViewerReactions: (serverReactions: string[]) => string[];
   /** Called by CommentsSheet after a successful comment add. */
   incrementCommentCount: () => void;
   decrementCommentCount: () => void;
@@ -66,16 +87,31 @@ export function useFeedEngagement(
   const [likeCount, setLikeCount] = useState(server.likeCount);
   const [commentCount, setCommentCount] = useState(server.commentCount);
   const [burstKey, setBurstKey] = useState(0);
+  // Optimistic reaction overlay: slug → isActive override on top of the
+  // server's `viewerReactions`. Lets a tap on the bar flip the "you
+  // reacted" ring instantly instead of waiting a feed round-trip.
+  const [reactionOverrides, setReactionOverrides] = useState<
+    Record<string, boolean>
+  >({});
 
   // Single sync effect — collapses three separate re-renders into one
   // when the upstream server snapshot changes. Caller is expected to
   // memoize the `server` object so this fires only on actual value
-  // changes, not on every parent render.
+  // changes, not on every parent render. A fresh snapshot means the
+  // server has caught up, so we drop the optimistic reaction overlay and
+  // trust the authoritative `viewerReactions` from here on.
   useEffect(() => {
     setLiked(server.viewerLiked);
     setLikeCount(server.likeCount);
     setCommentCount(server.commentCount);
+    setReactionOverrides({});
   }, [server.viewerLiked, server.likeCount, server.commentCount]);
+
+  // When the post under us swaps (deck advance) the overlay must not leak
+  // onto the next post, whose snapshot values may coincidentally match.
+  useEffect(() => {
+    setReactionOverrides({});
+  }, [postId]);
 
   const toggleLike = useCallback(() => {
     // Capture pre-tap state so we can roll back.
@@ -135,6 +171,36 @@ export function useFeedEngagement(
     [postId, toggleReactionMut, toast],
   );
 
+  // Optimistic variant: paints the override before the mutation resolves
+  // and rolls it back on failure (same shape as `toggleLike`). The caller
+  // hands in the current effective active state because the hook never
+  // receives the server `viewerReactions` list.
+  const toggleReactionOptimistic = useCallback(
+    (key: string, currentlyActive: boolean) => {
+      const nextActive = !currentlyActive;
+      setReactionOverrides((prev) => ({ ...prev, [key]: nextActive }));
+      triggerHaptic(ImpactStyle.Light);
+      toggleReactionMut({ postId, key }).catch(() => {
+        // Roll back this key to its pre-tap state and surface a toast.
+        setReactionOverrides((prev) => ({ ...prev, [key]: currentlyActive }));
+        toast({ title: "Couldn't update reaction", variant: "destructive" });
+      });
+    },
+    [postId, toggleReactionMut, toast],
+  );
+
+  const resolveViewerReactions = useCallback(
+    (serverReactions: string[]) => {
+      const set = new Set(serverReactions);
+      for (const key in reactionOverrides) {
+        if (reactionOverrides[key]) set.add(key);
+        else set.delete(key);
+      }
+      return Array.from(set);
+    },
+    [reactionOverrides],
+  );
+
   return {
     liked,
     likeCount,
@@ -143,6 +209,9 @@ export function useFeedEngagement(
     toggleLike,
     doubleTapLike,
     toggleReaction,
+    optimisticReactions: reactionOverrides,
+    toggleReactionOptimistic,
+    resolveViewerReactions,
     incrementCommentCount,
     decrementCommentCount,
   };

@@ -293,8 +293,12 @@ export default function CoachOnboarding() {
             step={step}
           />
 
-          {/* Form region — slides between steps */}
-          <div className="relative mt-5 overflow-hidden">
+          {/* Form region — slides between steps. `overflow-hidden` clips the
+              horizontal step slide, but it also clipped the inputs' focus ring
+              (ring-2 + ring-offset-2). `-mx-2 px-2` pushes the clip boundary
+              ~8px past the inputs so the ring shows in full, while the inputs
+              keep their position/width and the slide stays clipped. */}
+          <div className="relative mt-5 overflow-hidden -mx-2 px-2">
             <AnimatePresence mode="wait" initial={false}>
               {step === "identity" ? (
                 <motion.form
@@ -599,30 +603,17 @@ function GymPreviewCard({
         {/* Name + meta */}
         <div className="min-w-0 flex-1">
           <p
-            className={`text-[15px] font-bold leading-tight truncate transition-colors ${
+            className={`text-[15px] font-bold leading-tight transition-colors ${
               filled ? "text-foreground" : "text-muted-foreground/60"
             }`}
           >
             {displayGym}
           </p>
-          <p className="mt-0.5 text-[12px] text-muted-foreground truncate">
+          <p className="mt-0.5 text-[12px] text-muted-foreground leading-snug">
             {displayLoc || "Add a location"}
             {displayCoach ? ` · ${displayCoach}` : ""}
           </p>
         </div>
-
-        {/* Step-2 ready badge */}
-        {step === "profile" && (
-          <motion.span
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: "spring", stiffness: 420, damping: 18 }}
-            className="shrink-0 inline-flex items-center gap-1 rounded-full bg-primary/15 text-primary px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ring-1 ring-primary/30"
-          >
-            <Check className="h-3 w-3" />
-            Live
-          </motion.span>
-        )}
       </div>
     </motion.div>
   );

@@ -13,7 +13,7 @@
  * LQIP blur-up, top-card-only `layoutId` for shared-element transition.
  * Drag is owned by the parent (PolaroidStack.TopCard).
  */
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { useImageReady } from "@/hooks/useImageReady";
 import {
   motion,
@@ -25,6 +25,7 @@ import {
   type Transition,
 } from "motion/react";
 import { formatDistanceToNowStrict } from "date-fns";
+import { App as CapacitorApp } from "@capacitor/app";
 import type { FeedPost } from "@/hooks/community/useGymFeed";
 
 // Develop timing: mirrored from PolaroidCard for ReviewSheet parity.
@@ -78,6 +79,14 @@ interface RoundedFeedCardProps {
    *  match the exit card's easing/duration so the reveal completes in
    *  lockstep, no stutter. */
   promoting?: boolean;
+  /** When true AND `post.kind === "video"`, render a real looping
+   *  `<video>` instead of the poster image. ONLY the genuinely-live top
+   *  card sets this — background stack cards and the mid-flight exit card
+   *  leave it false so they stay cheap poster images and we never run more
+   *  than one `<video>` decoder at a time (iOS memory). Additive +
+   *  defaults false, so every existing consumer (story templates, exit
+   *  card) keeps rendering an `<img>` exactly as before. */
+  enableVideo?: boolean;
   /** Accepted for parity with PolaroidCard; this variant ignores it so
    *  the PolaroidStack → RoundedFeedCard import swap is zero-touch. */
   gymBrand?: {
@@ -104,13 +113,27 @@ function RoundedFeedCardBase({
   progress,
   hideCaption = false,
   promoting = false,
+  enableVideo = false,
 }: RoundedFeedCardProps) {
-  // Use the SAME source for background and top cards. The stack already
-  // preloads every visible card's full URL, so a background card has already
-  // decoded this exact image, keeping the src stable across promotion means
-  // the newly-promoted top card shows it instantly with no re-decode flash
-  // (the thumb→full swap was the "little refresh flash" after a swipe).
-  const effectiveSrc = post.url ?? post.thumbUrl ?? null;
+  // Video posts: `post.url` is the VIDEO file, never a still, so it must
+  // NOT be fed to an <img>. The poster (thumbUrl, else the LQIP data URL)
+  // is the still. The genuine top card upgrades this poster to a real
+  // <video> below (see `showVideo`); every other slot stays a poster image.
+  const isVideo = post.kind === "video";
+  const posterSrc = post.thumbUrl ?? post.thumbDataUrl ?? null;
+  // Photo posts: top + position-1 use the full-res URL (needed for a
+  // flash-free promotion — the stack has already decode-warmed it). The
+  // DEEPEST card (position 2, ~50% opacity, barely visible) drops to the
+  // 256-px thumb to trim bandwidth/memory; it re-resolves to full-res the
+  // instant it promotes to position 1.
+  const photoSrc =
+    stackPosition === 2
+      ? post.thumbUrl ?? post.url ?? null
+      : post.url ?? post.thumbUrl ?? null;
+  const effectiveSrc = isVideo ? posterSrc : photoSrc;
+  // Real looping <video> ONLY for the live top card of a video post. Caps
+  // concurrent decoders at 1 (the exit card + background cards are posters).
+  const showVideo = enableVideo && isVideo && !!post.url;
   const img = useImageReady(effectiveSrc);
   const offsets = STACK_OFFSETS[stackPosition];
   const prefersReducedMotion = useReducedMotion() ?? false;
@@ -232,7 +255,9 @@ function RoundedFeedCardBase({
           />
         )}
 
-        {effectiveSrc && !img.errored ? (
+        {showVideo ? (
+          <TopCardVideo src={post.url as string} poster={posterSrc ?? undefined} />
+        ) : effectiveSrc && !img.errored ? (
           <motion.img
             ref={img.ref}
             layoutId={isTop ? `post-${post.id}-image` : undefined}
@@ -355,6 +380,76 @@ function RoundedFeedCardBase({
   );
 }
 
+/**
+ * TopCardVideo: the single live `<video>` decoder, mounted only for the
+ * genuine top card of a video post (gated by `showVideo`). Self-contained
+ * so the rest of RoundedFeedCard stays a pure poster-image renderer:
+ *   - Releases the decoder the moment it leaves top (component unmount on
+ *     advance): pause + detach `src` + `load()`, rather than trusting the
+ *     WKWebView to free the decoder on its own.
+ *   - Pauses on app background and resumes on foreground via Capacitor's
+ *     `appStateChange`, cleaning the listener up on unmount.
+ *   - Every programmatic `play()` swallows its rejection — iOS rejects
+ *     `play()` whenever autoplay constraints aren't (yet) met.
+ */
+function TopCardVideo({ src, poster }: { src: string; poster?: string }) {
+  const ref = useRef<HTMLVideoElement | null>(null);
+
+  // Active release on leave-top / unmount. Capture the node at mount so the
+  // cleanup is reliable even after React has begun detaching refs.
+  useEffect(() => {
+    const v = ref.current;
+    return () => {
+      if (!v) return;
+      try {
+        v.pause();
+        v.removeAttribute("src");
+        v.load();
+      } catch {
+        /* element already torn down — nothing to release */
+      }
+    };
+  }, []);
+
+  // Pause when the app backgrounds (frees the decoder while hidden),
+  // resume when it returns to the foreground.
+  useEffect(() => {
+    let handle: { remove: () => void } | undefined;
+    let cancelled = false;
+    CapacitorApp.addListener("appStateChange", ({ isActive }) => {
+      const v = ref.current;
+      if (!v) return;
+      if (isActive) v.play().catch(() => {});
+      else v.pause();
+    }).then((h) => {
+      if (cancelled) h.remove();
+      else handle = h;
+    });
+    return () => {
+      cancelled = true;
+      handle?.remove();
+    };
+  }, []);
+
+  return (
+    <video
+      ref={ref}
+      src={src}
+      poster={poster}
+      autoPlay
+      muted
+      loop
+      playsInline
+      preload="auto"
+      draggable={false}
+      onCanPlay={(e) => {
+        e.currentTarget.play().catch(() => {});
+      }}
+      className="absolute inset-0 h-full w-full object-cover"
+    />
+  );
+}
+
 /** Custom equality: only re-render when the visible bits change. */
 function areEqual(prev: RoundedFeedCardProps, next: RoundedFeedCardProps): boolean {
   return (
@@ -362,6 +457,7 @@ function areEqual(prev: RoundedFeedCardProps, next: RoundedFeedCardProps): boole
     prev.isTop === next.isTop &&
     prev.stackPosition === next.stackPosition &&
     prev.rotationDeg === next.rotationDeg &&
+    prev.post.kind === next.post.kind &&
     prev.post.url === next.post.url &&
     prev.post.thumbUrl === next.post.thumbUrl &&
     prev.post.thumbDataUrl === next.post.thumbDataUrl &&
@@ -374,7 +470,8 @@ function areEqual(prev: RoundedFeedCardProps, next: RoundedFeedCardProps): boole
     prev.developing === next.developing &&
     prev.progress === next.progress &&
     prev.hideCaption === next.hideCaption &&
-    prev.promoting === next.promoting
+    prev.promoting === next.promoting &&
+    prev.enableVideo === next.enableVideo
   );
 }
 

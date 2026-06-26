@@ -639,48 +639,6 @@ export const getSubScoreTrend = query({
   },
 });
 
-export const catchUpSuggestions = query({
-  args: { date: v.optional(v.string()) },
-  handler: async (ctx, { date }) => {
-    const userId = await optionalUserId(ctx);
-    if (!userId) return null;
-    const targetDate = date ?? todayInUtc();
-
-    const firstAt = (table: "weight_logs" | "sleep_logs" | "daily_wellness_checkins" | "meals") =>
-      ctx.db.query(table).withIndex("by_user_date", (q) => q.eq("userId", userId).eq("date", targetDate)).first();
-    const [weight, sleep, wellness, meal] = await Promise.all([
-      firstAt("weight_logs"), firstAt("sleep_logs"), firstAt("daily_wellness_checkins"), firstAt("meals"),
-    ]);
-    const sessions = await ctx.db.query("gym_sessions").withIndex("by_user_date", (q) => q.eq("userId", userId).eq("date", targetDate)).collect();
-    const calendar = await ctx.db.query("fight_camp_calendar").withIndex("by_user_date", (q) => q.eq("userId", userId).eq("date", targetDate)).collect();
-    const training = sessions.some((s) => s.status === "completed") || calendar.length > 0;
-    const skips = await ctx.db.query("marked_skips").withIndex("by_user_date", (q) => q.eq("userId", userId).eq("date", targetDate)).collect();
-    const skipped = new Set<string>(skips.map((s) => s.pillar));
-
-    const logged: Record<string, boolean> = {
-      weight: weight != null, training, sleep: sleep != null, wellness: wellness != null, nutrition: meal != null,
-    };
-    const SKIP_NAME: Record<string, string | undefined> = { weight: "weight", sleep: "sleep", wellness: "wellness", nutrition: "nutrition" };
-    const PILLARS = ["weight", "training", "sleep", "wellness", "nutrition"] as const;
-    const missing = PILLARS.filter((p) => !logged[p] && !(SKIP_NAME[p] && skipped.has(SKIP_NAME[p]!)));
-
-    const sevenStart = new Date(targetDate + "T00:00:00Z"); sevenStart.setUTCDate(sevenStart.getUTCDate() - 6);
-    const recentSleep = await ctx.db.query("sleep_logs")
-      .withIndex("by_user_date", (q) => q.eq("userId", userId).gte("date", sevenStart.toISOString().slice(0, 10)).lte("date", targetDate))
-      .collect();
-    const hrs = recentSleep.map((s) => s.hours).sort((a, b) => a - b);
-    const suggestedSleepHours = hrs.length ? hrs[Math.floor((hrs.length - 1) / 2)] : null;
-
-    const priorWeights = await ctx.db.query("weight_logs")
-      .withIndex("by_user_date", (q) => q.eq("userId", userId).lte("date", targetDate))
-      .collect();
-    const sortedW = [...priorWeights].sort((a, b) => a.date.localeCompare(b.date));
-    const lastWeightKg = sortedW.length ? sortedW[sortedW.length - 1].weightKg : null;
-
-    return { date: targetDate, missing, suggestedSleepHours, lastWeightKg };
-  },
-});
-
 export const getHistory = query({
   args: { campId: v.id("fight_camps"), limit: v.optional(v.number()) },
   handler: async (ctx, { campId, limit }) => {

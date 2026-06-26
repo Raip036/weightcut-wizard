@@ -71,4 +71,43 @@ crons.cron(
   internal.actions.reconcileSubscriptions.runDaily,
 );
 
+// ──────────────────────────────────────────────────────────────────────
+// Community feed maintenance — bound the two tables that otherwise grow
+// without limit as a gym ages (see convex/feedMaintenance.ts). Both run in
+// low-traffic early-UTC hours and self-reschedule to drain in batches.
+//
+//  • prune-feed-views: deletes feed_views older than 30 days so the per-user
+//    collect in gymFeed.listFeed stays bounded (the single biggest feed scale
+//    risk).
+//  • archive-old-posts: nulls gymId on session_media > 90 days so old posts
+//    drop out of the gym feed (kept in the personal library) — the cron the
+//    session_media.gymId schema comment already assumed.
+// ──────────────────────────────────────────────────────────────────────
+crons.cron(
+  "prune-feed-views",
+  "30 3 * * *",
+  internal.feedMaintenance.pruneFeedViews,
+  {},
+);
+
+crons.cron(
+  "archive-old-posts",
+  "45 3 * * *",
+  internal.feedMaintenance.archiveOldPosts,
+  {},
+);
+
+// ──────────────────────────────────────────────────────────────────────
+// Leaderboard cache — recompute the per-gym weekly leaderboard into
+// gym_leaderboard_cache every 15 minutes so gymLeaderboard.weekly serves a
+// cheap cached read (with a live fallback) instead of range-scanning every
+// session live + re-running on every session write. See leaderboardCache.ts.
+// ──────────────────────────────────────────────────────────────────────
+crons.interval(
+  "recompute-gym-leaderboards",
+  { minutes: 15 },
+  internal.leaderboardCache.recomputeAllGyms,
+  {},
+);
+
 export default crons;
