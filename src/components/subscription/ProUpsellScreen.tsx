@@ -1,8 +1,10 @@
+import { useEffect } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { Check } from "lucide-react";
 import wizardImg from "@/assets/wizard_3D.png";
 import { Icon } from "@/components/ui/Icon";
 import { cn } from "@/lib/utils";
+import { track, EVENTS } from "@/lib/analytics";
 
 interface ProUpsellScreenProps {
   title: string;
@@ -11,6 +13,9 @@ interface ProUpsellScreenProps {
   perks?: string[];
   upgradeLabel?: string;
   dismissLabel?: string;
+  /** Short, PII-free key for where this wall was shown (e.g. "recovery",
+   *  "training_library", "cut_plan"). Recorded on the PAYWALL_VIEWED event. */
+  source?: string;
   onUpgrade: () => void;
   onDismiss: () => void;
 }
@@ -46,10 +51,19 @@ export function ProUpsellScreen({
   perks,
   upgradeLabel = "Upgrade to Pro",
   dismissLabel = "Maybe later",
+  source,
   onUpgrade,
   onDismiss,
 }: ProUpsellScreenProps) {
   const prefersReduced = useReducedMotion();
+
+  // This wall renders independently of `openPaywall` (route gates, locked
+  // tabs), so record the impression here. The downstream checkout modal fires
+  // its own PAYWALL_VIEWED with surface:"checkout" when the user taps upgrade.
+  useEffect(() => {
+    track(EVENTS.PAYWALL_VIEWED, { source, surface: "upsell_screen" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const reveal = (delay: number, fromY = 12) =>
     prefersReduced

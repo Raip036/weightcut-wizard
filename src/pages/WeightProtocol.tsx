@@ -17,6 +17,7 @@ import { useUser } from "@/contexts/UserContext";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useSafeDismiss } from "@/hooks/useSafeDismiss";
 import { triggerHapticSelection } from "@/lib/haptics";
+import { track, EVENTS } from "@/lib/analytics";
 import { toast } from "sonner";
 import { ProUpsellScreen } from "@/components/subscription/ProUpsellScreen";
 
@@ -136,6 +137,7 @@ export default function WeightProtocol() {
     setGenError(null);
     try {
       await generateFightPlan({ campId: protocol.campId, approach });
+      track(EVENTS.PLAN_GENERATED, { type: "cut", approach });
       // Fresh plan → drop back to data-follow so the flow lands on Cut.
       setActiveStep(null);
     } catch (e: unknown) {
@@ -169,6 +171,7 @@ export default function WeightProtocol() {
           ...(sleepStartHour != null ? { sleepStartHour } : {}),
           ...(sleepEndHour != null ? { sleepEndHour } : {}),
         });
+        track(EVENTS.PLAN_GENERATED, { type: "rehydration" });
         setEditingSweat(false);
         // Fresh rehydration plan → data-follow lands the flow on Rehydrate.
         setActiveStep(null);

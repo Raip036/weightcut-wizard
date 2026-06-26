@@ -29,10 +29,6 @@ const MOTES: Array<{ left: string; size: number; dur: number; delay: number }> =
   { left: "90%", size: 3, dur: 6.4, delay: 0.9 },
 ];
 
-function isNum(n: unknown): n is number {
-  return typeof n === "number" && Number.isFinite(n);
-}
-
 /**
  * "Welcome to Pro": the Ascension cutscene. Plays exactly once after a
  * genuine upgrade (gated server-side in SubscriptionContext). Beats:
@@ -71,24 +67,11 @@ export function WelcomeProDialog({ open, onClose }: WelcomeProDialogProps) {
     return () => timers.forEach(clearTimeout);
   }, [open, prefersReduced]);
 
-  const { headline, cutLine } = useMemo(() => {
+  const { headline } = useMemo(() => {
     const first = profile?.display_name?.trim().split(/\s+/)[0];
     const name = first ? first.charAt(0).toUpperCase() + first.slice(1) : null;
-    const cw = profile?.current_weight_kg;
-    const gw = profile?.goal_weight_kg;
-    const td = profile?.target_date;
-    let cut: string | null = null;
-    if (isNum(cw) && isNum(gw) && cw > gw) {
-      const delta = (cw - gw).toFixed(1);
-      const datePart =
-        td && Number.isFinite(Date.parse(td))
-          ? ` by ${new Date(td).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
-          : "";
-      cut = `${delta} kg to ${gw.toFixed(1)} kg${datePart}. Let's make it clean.`;
-    }
     return {
       headline: name ? `${name}, your AI corner is open.` : "Your AI corner is open.",
-      cutLine: cut,
     };
   }, [profile]);
 
@@ -296,15 +279,6 @@ export function WelcomeProDialog({ open, onClose }: WelcomeProDialogProps) {
         >
           {headline}
         </motion.p>
-        {cutLine && (
-          <motion.p
-            {...reveal(phase >= 2)}
-            transition={{ duration: 0.5, delay: prefersReduced ? 0 : 0.18, ease: "easeOut" }}
-            className="mt-1 text-[12.5px] text-muted-foreground leading-snug"
-          >
-            {cutLine}
-          </motion.p>
-        )}
 
         {/* Unlock lines. */}
         <div className="mt-5 w-full space-y-2">

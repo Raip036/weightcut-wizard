@@ -16,6 +16,7 @@ import {
   type CreateMealRpcArgs,
   type RpcItemPayload,
 } from "@/lib/buildMealRpcArgs";
+import { track, EVENTS } from "@/lib/analytics";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { Meal, Ingredient, DayPlanMeal } from "@/pages/nutrition/types";
@@ -40,8 +41,9 @@ function buildOptimisticMeal(args: {
   ingredients?: Ingredient[] | null;
   portion_size?: string | null;
   recipe_notes?: string | null;
+  healthScore?: number | null;
 }): Meal {
-  const { id, date, args: rpcArgs, ingredients, portion_size, recipe_notes } = args;
+  const { id, date, args: rpcArgs, ingredients, portion_size, recipe_notes, healthScore } = args;
   const totals = rpcArgs.p_items.reduce(
     (acc, it) => ({
       calories: acc.calories + it.calories,
@@ -66,6 +68,7 @@ function buildOptimisticMeal(args: {
     notes: rpcArgs.p_notes,
     item_count: rpcArgs.p_items.length,
     date,
+    health_score: healthScore ?? null,
   };
 }
 
@@ -153,6 +156,7 @@ export function useMealOperations(params: UseMealOperationsParams) {
     recipe_notes?: string | null;
     photoStorageId?: string | null;
     photoPreviewUrl?: string | null;
+    healthScore?: number | null;
     successToast?: { title: string; description?: string };
   }) => {
     if (!userId) throw new Error("Not authenticated");
@@ -188,6 +192,7 @@ export function useMealOperations(params: UseMealOperationsParams) {
       ingredients: opts.ingredients,
       portion_size: opts.portion_size,
       recipe_notes: opts.recipe_notes,
+      healthScore: opts.healthScore,
     });
     // Render the freshly captured photo instantly via a data URL so the user
     // sees their image in the meal list before the storage URL round-trips.
@@ -213,6 +218,7 @@ export function useMealOperations(params: UseMealOperationsParams) {
         photoStorageId: opts.photoStorageId
           ? (opts.photoStorageId as unknown as Id<"_storage">)
           : undefined,
+        healthScore: opts.healthScore ?? undefined,
         items: rpcItemsToConvexItems(opts.args.p_items),
         idempotencyKey,
       });
@@ -266,6 +272,7 @@ export function useMealOperations(params: UseMealOperationsParams) {
     is_ai_generated: boolean;
     photo_storage_id?: string | null;
     photo_preview_url?: string | null;
+    health_score?: number | null;
   }) => {
     if (!userId) throw new Error("Not authenticated");
 
@@ -299,6 +306,7 @@ export function useMealOperations(params: UseMealOperationsParams) {
       recipe_notes: mealData.recipe_notes,
       photoStorageId: mealData.photo_storage_id ?? null,
       photoPreviewUrl: mealData.photo_preview_url ?? null,
+      healthScore: mealData.health_score ?? null,
     });
   }, [userId, selectedDate, runInsertFlow]);
 
@@ -488,7 +496,7 @@ export function useMealOperations(params: UseMealOperationsParams) {
     portion_size: string;
     food_id?: string | null;
     grams?: number | null;
-  }, foodSearchMealType: string) => {
+  }, foodSearchMealType: string, method: "search" | "barcode" = "search") => {
     if (!userId) return;
     const mealType = resolveMealType(foodSearchMealType);
     const args = buildCreateMealRpcArgs({
@@ -510,11 +518,16 @@ export function useMealOperations(params: UseMealOperationsParams) {
       }],
     });
 
-    await runInsertFlow({
+    const result = await runInsertFlow({
       args,
       portion_size: food.portion_size,
       successToast: { title: "Food logged!", description: `${food.meal_name} · ${food.calories} kcal` },
     });
+    // Analytics: one MEAL_LOGGED per successful insert. `runInsertFlow`
+    // returns null on a swallowed failure, so only fire on a real id. The
+    // food-search dialog and the barcode scanner both land here; `method`
+    // distinguishes them ("search" vs "barcode").
+    if (result) track(EVENTS.MEAL_LOGGED, { method });
   }, [userId, selectedDate, runInsertFlow]);
 
   // ── Insert path 5: log a single day-plan meal ──

@@ -3,6 +3,7 @@ import { Camera, Search, RotateCcw, ScanLine } from "lucide-react";
 import { motion } from "motion/react";
 import { MealCard } from "@/components/nutrition/MealCard";
 import { MealCardSkeleton } from "@/components/ui/skeleton-loader";
+import { DailyFoodQualityBar } from "@/components/nutrition/health/DailyFoodQualityBar";
 import { triggerHapticSelection } from "@/lib/haptics";
 import type { Meal } from "@/pages/nutrition/types";
 
@@ -60,6 +61,14 @@ export function MealSections({
   const totalKcal = visibleMeals.reduce((sum, m) => sum + (m.calories || 0), 0);
   const isEmpty = !mealsLoading && visibleMeals.length === 0;
 
+  // Daily food-quality average: the mean of today's scored meals. Manual meals
+  // carry no grade and are skipped, so the denominator is the number of meals
+  // that generated a score.
+  const scoredMeals = visibleMeals.filter((m) => typeof m.health_score === "number");
+  const dailyQuality = scoredMeals.length
+    ? Math.round(scoredMeals.reduce((s, m) => s + (m.health_score as number), 0) / scoredMeals.length)
+    : null;
+
   return (
     <div className="space-y-3">
       {/* Primary CTA row — Snap dominates, Search/Barcode/Repeat sit alongside */}
@@ -104,6 +113,11 @@ export function MealSections({
           </button>
         )}
       </div>
+
+      {/* Daily food-quality average across today's scored meals. */}
+      {dailyQuality !== null && (
+        <DailyFoodQualityBar score={dailyQuality} mealCount={scoredMeals.length} />
+      )}
 
       {/* Meals heading + count — section label matches the home page
           "Your Stats" style; extra top padding separates it from the CTA row. */}

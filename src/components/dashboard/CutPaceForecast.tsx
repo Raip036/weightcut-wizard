@@ -436,7 +436,7 @@ export function CutPaceForecast({
           }
         }}
         aria-label={`${TIER_LABEL[tier]}, ${heroEyebrow}, target ${focusCheckpoint.targetWeight.toFixed(1)} kg`}
-        className="w-full card-surface rounded-2xl p-4 text-left active:scale-[0.99] transition-transform"
+        className="w-full rounded-2xl p-4 text-left active:scale-[0.99] transition-transform"
       >
         {/* Subtle fade-in on focus change, key forces remount → re-plays anim. */}
         <div key={focusCheckpoint.week} className="animate-in fade-in duration-200">
@@ -501,11 +501,11 @@ export function CutPaceForecast({
               <p className="text-[10px] uppercase tracking-[0.1em] text-muted-foreground/60 font-semibold">
                 This week's target
               </p>
-              <p className="mt-0.5 flex items-baseline gap-1">
-                <span className="display-number font-bold tabular-nums text-foreground text-[26px] leading-none">
+              <p className="mt-1 flex items-baseline gap-1.5">
+                <span className="display-number font-bold tabular-nums text-foreground text-[40px] leading-none">
                   {focusCheckpoint.targetWeight.toFixed(1)}
                 </span>
-                <span className="text-[12px] text-muted-foreground font-light">kg</span>
+                <span className="text-[14px] text-muted-foreground font-light">kg</span>
               </p>
             </div>
           </div>

@@ -50,7 +50,13 @@ export function cleanFoodName(food: string): string {
   return food.replace(/\s*\([^)]*\)\s*$/, "").trim() || food.trim();
 }
 
-/** Defensive: strip dashes the AI sometimes returns despite instructions. */
+/** Defensive: strip em/en dashes the AI sometimes returns despite instructions.
+ *  Numeric ranges (e.g. "2–3 g/kg") collapse to a hyphen; every other dash,
+ *  which the model uses as a clause break, becomes a comma. Never leaves a
+ *  spaced hyphen behind, which still reads as a dash. */
 export function clean(t: string | null | undefined): string {
-  return typeof t === "string" ? t.replace(/\s*—\s*/g, " - ").replace(/–/g, "-") : "";
+  if (typeof t !== "string") return "";
+  return t
+    .replace(/(\d)\s*[—–]\s*(\d)/g, "$1-$2")
+    .replace(/\s*[—–]\s*/g, ", ");
 }

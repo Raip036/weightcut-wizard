@@ -12,6 +12,7 @@ import { useKeyboardAware } from "@/hooks/useKeyboardAware";
 import { localCache } from "@/lib/localCache";
 import { logger } from "@/lib/logger";
 import { triggerHapticSelection } from "@/lib/haptics";
+import { track, EVENTS } from "@/lib/analytics";
 
 import { api } from "../../../../../convex/_generated/api";
 import type { MealTemplate } from "@/pages/nutrition/types";
@@ -276,6 +277,10 @@ export function ManualLogPanel({
       // the optimistic row, so leave the sheet open for a retry without
       // double-toasting or falsely celebrating.
       if (result == null) return;
+
+      // Analytics: one MEAL_LOGGED per successful manual entry (macro grid /
+      // search-prefill / recent / favorite chip all commit through here).
+      track(EVENTS.MEAL_LOGGED, { method: "manual" });
 
       toast({
         title: "Meal logged",

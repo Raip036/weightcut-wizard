@@ -114,7 +114,7 @@ describe("computeDerived", () => {
     expect(d.historicalReboundPct).toBeNull();
   });
 
-  it("missing weighInDate falls back to fightDate − 1 day", () => {
+  it("missing weighInDate falls back to fightDate − 1 day (day_before default)", () => {
     const d = computeDerived(
       baseInputs({
         camp: {
@@ -127,6 +127,59 @@ describe("computeDerived", () => {
     );
     expect(d.weighInIso).toBe("2026-06-14");
     expect(d.fightIso).toBe("2026-06-15");
+  });
+
+  it("same_day timing: missing weighInDate resolves to the FIGHT day (no phantom extra day)", () => {
+    const d = computeDerived(
+      baseInputs({
+        profile: {
+          age: 28,
+          sex: "male",
+          heightCm: 180,
+          currentWeightKg: 75,
+          weighInTiming: "same_day",
+        },
+        camp: {
+          fightDate: "2026-06-15",
+          weighInDate: null,
+          targetWeightKg: 71.25,
+        },
+        today: "2026-06-08",
+      }),
+      "standard",
+    );
+    expect(d.weighInIso).toBe("2026-06-15"); // weigh-in == fight day
+    expect(d.fightIso).toBe("2026-06-15");
+    // Weigh-in and fight are the same calendar day → equal countdowns and a
+    // short same-day rehydration window (11:00 → 18:00 = 7h), not ~31h.
+    expect(d.daysToWeighIn).toBe(d.daysToFight);
+    expect(d.weighInToFightHours).toBe(7);
+  });
+
+  it("day_before timing: weigh-in is one day before the fight with a long rehydration window", () => {
+    const d = computeDerived(
+      baseInputs({
+        profile: {
+          age: 28,
+          sex: "male",
+          heightCm: 180,
+          currentWeightKg: 75,
+          weighInTiming: "day_before",
+        },
+        camp: {
+          fightDate: "2026-06-15",
+          weighInDate: null,
+          targetWeightKg: 71.25,
+        },
+        today: "2026-06-08",
+      }),
+      "standard",
+    );
+    expect(d.weighInIso).toBe("2026-06-14");
+    expect(d.fightIso).toBe("2026-06-15");
+    expect(d.daysToWeighIn).toBe(d.daysToFight - 1);
+    // 11:00 day before → 18:00 fight day = 31h recovery window.
+    expect(d.weighInToFightHours).toBe(31);
   });
 
   it("LBM Boer male spot-check (75kg, 180cm) = 0.407*75 + 0.267*180 − 19.2", () => {

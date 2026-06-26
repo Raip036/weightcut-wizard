@@ -10,6 +10,9 @@ interface ShareCardDialogProps {
   title?: string;
   shareTitle?: string;
   shareText?: string;
+  /** Short, PII-free card identifier for the SHARE_CARD_SHARED analytics event
+   *  (e.g. "fightscore", "gym_session", "weight"). */
+  shareType?: string;
   transparent?: boolean;
   /** When true, render a small "Swipe to switch style" hint with an animated chevron pulse. */
   showSwipeHint?: boolean;
@@ -33,6 +36,7 @@ export function ShareCardDialog({
   title = "Share Card",
   shareTitle,
   shareText,
+  shareType,
   transparent,
   showSwipeHint,
   children,
@@ -130,7 +134,7 @@ export function ShareCardDialog({
         {/* Single slim Share pill. Download removed per design request */}
         <div className="flex justify-center shrink-0">
           <button
-            onClick={() => captureAndShare(shareTitle, shareText, transparent)}
+            onClick={() => captureAndShare(shareTitle, shareText, transparent, shareType)}
             disabled={isCapturing}
             className="inline-flex items-center justify-center gap-2 h-9 px-6 rounded-full bg-primary text-primary-foreground text-[13px] font-semibold transition-opacity active:opacity-80 disabled:opacity-60"
           >

@@ -42,6 +42,7 @@ import { api } from "../../convex/_generated/api";
 import { useMyGyms } from "@/hooks/coach/useMyGyms";
 import { MadeWeightShareSheet } from "@/components/community/MadeWeightShareSheet";
 import type { MadeWeightInput } from "@/lib/madeWeightCard";
+import { track, EVENTS } from "@/lib/analytics";
 
 export default function WeightTracker() {
   const { userId, profile: contextProfile, userName, avatarUrl, refreshProfile } = useUser();
@@ -101,6 +102,12 @@ export default function WeightTracker() {
 
   const handleAddWeight = async (e: React.FormEvent) => {
     const loggedWeight = await rawHandleAddWeight(e);
+    // Fire only after the DB write resolves (rawHandleAddWeight returns the
+    // logged number post-await, not on the optimistic insert), so one event
+    // per successfully persisted entry.
+    if (loggedWeight) {
+      track(EVENTS.WEIGHT_LOGGED, { method: "manual", is_edit: !!editingLogId });
+    }
     if (loggedWeight && profile) {
       setShowWeightSuccess(true);
       setTimeout(() => setShowWeightSuccess(false), 1500);

@@ -44,9 +44,9 @@ export function CoverageHero({ micronutrients, topGap }: CoverageHeroProps) {
         </div>
         <div className="min-w-0">
           <p className="text-[15px] font-bold text-foreground leading-tight">
-            <span style={{ color: "rgb(16 185 129)" }}>{onPoint} on point</span>
+            <span className="text-primary">{onPoint} on point</span>
             <span className="text-muted-foreground/60"> · </span>
-            <span style={{ color: "rgb(245 158 11)" }}>{toImprove} to improve</span>
+            <span className="text-muted-foreground">{toImprove} to improve</span>
           </p>
           {topGap && (
             <p className="mt-1 text-[12.5px] text-foreground/80 leading-snug">

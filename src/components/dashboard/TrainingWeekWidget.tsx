@@ -241,7 +241,7 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
     // Compact skeleton: mimics exact final layout, clipped by overflow-hidden
     if (compact) {
       return (
-        <div className="card-surface rounded-2xl overflow-hidden p-3.5 aspect-square flex flex-col">
+        <div className="rounded-2xl overflow-hidden p-3.5 aspect-square flex flex-col">
           <div className="flex items-center gap-2.5 min-w-0">
             <Skeleton className="w-11 h-11 rounded-full shrink-0" />
             <div className="flex-1 min-w-0 space-y-1.5">
@@ -280,12 +280,12 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
   if (compact) {
     return (
       <div
-        className="card-surface p-3.5 rounded-2xl overflow-hidden cursor-pointer active:scale-[0.98] transition-all duration-200 aspect-square flex flex-col min-w-0 w-full"
+        className="p-3.5 rounded-2xl overflow-hidden cursor-pointer active:scale-[0.98] transition-all duration-200 aspect-square flex flex-col min-w-0 w-full"
         onClick={() => { triggerHapticSelection(); navigate("/training-calendar?openLogSession=true"); }}
       >
         {/* Title top-left, expand chevron top-right, matches the WEIGHT card */}
         <div className="flex items-start justify-between">
-          <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
+          <span className="text-micro font-normal uppercase tracking-[0.08em] text-primary">
             TRAINING
           </span>
           <Icon name="chevronForwardOutline" size={14} className="text-muted-foreground/40" />
@@ -373,7 +373,7 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
     >
       {/* Header row, eyebrow label + chevron, matches Weight/Sleep cards */}
       <div className="flex items-start justify-between mb-3">
-        <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
+        <span className="text-micro font-normal uppercase tracking-[0.08em] text-primary">
           TRAINING
         </span>
         <Icon name="chevronForwardOutline" size={14} className="text-muted-foreground/60 -mr-1 -mt-0.5" />

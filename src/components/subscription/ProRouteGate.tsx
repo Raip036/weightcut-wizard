@@ -70,9 +70,10 @@ export function ProRouteGate({
       <ProUpsellScreen
         title={title ?? DEFAULT_TITLE}
         blurb={blurb ?? DEFAULT_BLURB}
+        source={feature}
         onUpgrade={() => {
           triggerHapticSelection();
-          openPaywall();
+          openPaywall(feature);
         }}
         onDismiss={dismiss}
       />

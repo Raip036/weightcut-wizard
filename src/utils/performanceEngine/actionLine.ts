@@ -25,23 +25,23 @@ export function generateActionLine({
 
   // Recovering — light effort
   if (readinessScore < 55) {
-    if (campPhase === 'peak')  return 'Light skill only — protect peak.';
+    if (campPhase === 'peak')  return 'Light skill only. Protect peak.';
     if (campPhase === 'taper') return 'Walkthroughs and visualisation only.';
     return 'Z2 60 min + mobility. No contact.';
   }
 
   // Ready — moderate to hard
   if (readinessScore < 80) {
-    if (campPhase === 'peak')  return 'Sharp work — short rounds, clean reps.';
+    if (campPhase === 'peak')  return 'Sharp work. Short rounds, clean reps.';
     if (campPhase === 'taper') return 'Pads + light movement. Keep snappy.';
-    if (daysSinceLastHardSession >= 3) return 'Hard session OK — keep RPE ≤ 8.';
+    if (daysSinceLastHardSession >= 3) return 'Hard session OK. Keep RPE ≤ 8.';
     if (sessionsLast7d >= 5)   return 'Moderate session. Cap rounds at 4.';
     return 'Moderate session. Stay sharp.';
   }
 
   // Peaked — full effort
-  if (campPhase === 'taper') return 'Sharp work only — short, fast, clean.';
-  if (campPhase === 'peak')  return 'Full sparring round — peak window is open.';
-  if (sessionsLast7d <= 2)   return 'Big session day — make it count.';
+  if (campPhase === 'taper') return 'Sharp work only. Short, fast, clean.';
+  if (campPhase === 'peak')  return 'Full sparring round. Peak window is open.';
+  if (sessionsLast7d <= 2)   return 'Big session day. Make it count.';
   return 'Full sparring + strength.';
 }

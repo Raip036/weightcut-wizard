@@ -15,6 +15,9 @@ interface ProExplainerOverlayProps {
   perks: string[];
   upgradeLabel?: string;
   dismissLabel?: string;
+  /** Short, PII-free key for where this explainer was opened (e.g.
+   *  "training_missions", "weekly_recap"). Recorded on PAYWALL_VIEWED. */
+  source?: string;
 }
 
 /**
@@ -36,6 +39,7 @@ export function ProExplainerOverlay({
   perks,
   upgradeLabel,
   dismissLabel,
+  source,
 }: ProExplainerOverlayProps) {
   const { openPaywall } = useSubscription();
   // Clear any stuck `body { pointer-events: none }` left by a badly-closed
@@ -74,10 +78,11 @@ export function ProExplainerOverlay({
             perks={perks}
             upgradeLabel={upgradeLabel}
             dismissLabel={dismissLabel}
+            source={source}
             onUpgrade={() => {
               onOpenChange(false);
               triggerHapticSelection();
-              openPaywall();
+              openPaywall(source);
             }}
             onDismiss={() => onOpenChange(false)}
           />

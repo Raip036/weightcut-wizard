@@ -136,40 +136,48 @@ export function CaptionStep({
       </button>
 
       {/* ── Photo preview ───────────────────────────────────────── */}
+      {/* The multi-angle controls live ON the image now (a transparent "+"
+          bottom-right, thumbnails bottom-left) so they don't add a separate
+          cluttered row below. Solid bg-black/45 (no backdrop-blur — it's
+          stripped on native iOS) keeps the chrome legible over any photo. */}
       <div className="relative w-full rounded-2xl overflow-hidden bg-muted/20" style={{ aspectRatio: "1 / 1" }}>
         <img
           src={imagePreviewUrl}
           alt="Captured meal"
           className="absolute inset-0 w-full h-full object-cover"
         />
-        {/* Subtle bottom vignette so any UI we add on top reads cleanly. */}
+        {/* Vignette so the overlaid controls read cleanly on bright photos. */}
         <div
           aria-hidden
-          className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/15 via-transparent to-transparent"
+          className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/35 via-transparent to-transparent"
         />
-      </div>
 
-      {/* ── Extra angles (optional, multi-view accuracy) ────────── */}
-      {onAddAngle && (
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2">
-            {extraPhotos.map((p, i) => (
-              <div key={i} className="relative">
-                <img
-                  src={`data:image/jpeg;base64,${p}`}
-                  alt={`Angle ${i + 2}`}
-                  className="h-12 w-12 rounded-xl object-cover border border-border/40"
-                />
-                <button
-                  type="button"
-                  onClick={() => onRemoveAngle?.(i)}
-                  aria-label={`Remove angle ${i + 2}`}
-                  className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-black/70 flex items-center justify-center backdrop-blur active:scale-95 transition-transform"
-                >
-                  <Icon name="closeOutline" size={11} className="text-white" />
-                </button>
+        {onAddAngle && (
+          <>
+            {/* Added angles — small thumbnails tucked in the bottom-left. */}
+            {extraPhotos.length > 0 && (
+              <div className="absolute bottom-3 left-3 flex items-center gap-2">
+                {extraPhotos.map((p, i) => (
+                  <div key={i} className="relative">
+                    <img
+                      src={`data:image/jpeg;base64,${p}`}
+                      alt={`Angle ${i + 2}`}
+                      className="h-12 w-12 rounded-xl object-cover border border-white/25"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => onRemoveAngle?.(i)}
+                      aria-label={`Remove angle ${i + 2}`}
+                      className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-black/70 flex items-center justify-center active:scale-95 transition-transform"
+                    >
+                      <Icon name="closeOutline" size={11} className="text-white" />
+                    </button>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
+
+            {/* Transparent add-angle control, floated on the photo itself. */}
             {extraPhotos.length < 2 && (
               <button
                 type="button"
@@ -177,27 +185,26 @@ export function CaptionStep({
                   triggerHapticSelection();
                   onAddAngle();
                 }}
-                aria-label="Add another angle"
-                className="h-12 w-12 rounded-xl border border-dashed border-border/60 bg-muted/20 flex items-center justify-center text-muted-foreground active:bg-muted/40 transition-colors"
+                aria-label="Add another angle for sharper portion accuracy"
+                className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 h-9 pl-2.5 pr-3 rounded-full bg-black/45 text-white border border-white/15 active:scale-95 transition-transform"
               >
-                <Icon name="addOutline" size={20} />
+                <Icon name="addOutline" size={17} />
+                <span className="text-[12px] font-semibold leading-none">Angle</span>
               </button>
             )}
-          </div>
-          <p className="text-[11px] text-muted-foreground/70 px-0.5">
-            {extraPhotos.length === 0
-              ? "Add a side angle for sharper portion accuracy"
-              : "Multiple angles help size portions more accurately"}
-          </p>
-        </div>
-      )}
+          </>
+        )}
+      </div>
 
-      {/* ── Hint label + textarea + voice mic ───────────────────── */}
+      {/* ── Hint label + centered textarea with embedded mic ────── */}
+      {/* The textarea is now full-width with centered text; the mic sits inside
+          it (bottom-right) rather than as a separate box beside it, so the
+          field reads as one clean, centered input. */}
       <div className="space-y-2">
-        <p className="text-[10px] font-semibold tracking-[0.08em] uppercase text-muted-foreground/70">
+        <p className="text-center text-[10px] font-semibold tracking-[0.08em] uppercase text-muted-foreground/70">
           Add detail (optional)
         </p>
-        <div className="flex items-start gap-2">
+        <div className="relative">
           <textarea
             ref={textareaRef}
             value={description}
@@ -207,7 +214,7 @@ export function CaptionStep({
               isListening ? "Listening…" : "e.g. 2 scoops rice, grilled chicken, marinade..."
             }
             rows={2}
-            className={`flex-1 min-w-0 min-h-[64px] resize-none rounded-2xl bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-[15px] leading-[1.5] text-foreground placeholder:text-muted-foreground/50 px-4 py-3 outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all ${
+            className={`w-full min-h-[64px] resize-none rounded-2xl bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-[15px] leading-[1.5] text-center text-foreground placeholder:text-muted-foreground/50 px-12 py-3 outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all ${
               isListening ? "ring-2 ring-func-danger-red/40" : ""
             }`}
             aria-label="Add detail about your meal (optional)"
@@ -218,10 +225,10 @@ export function CaptionStep({
               onClick={handleVoiceToggle}
               aria-label={isListening ? "Stop voice input" : "Voice input"}
               aria-pressed={isListening}
-              className={`shrink-0 inline-flex items-center justify-center h-11 w-11 mt-0 rounded-2xl border border-border/40 transition-all active:scale-[0.96] ${
+              className={`absolute bottom-2 right-2 inline-flex items-center justify-center h-9 w-9 rounded-xl transition-all active:scale-[0.96] ${
                 isListening
                   ? "bg-func-danger-red/15 text-func-danger-red animate-pulse"
-                  : "bg-muted/40 text-muted-foreground active:bg-muted/60"
+                  : "bg-black/[0.06] dark:bg-white/[0.08] text-muted-foreground active:bg-muted/60"
               }`}
             >
               <Icon name={isListening ? "micOffOutline" : "micOutline"} size={18} />
@@ -229,9 +236,9 @@ export function CaptionStep({
           )}
         </div>
         {isListening && interimText && (
-          <p className="text-[12px] text-muted-foreground/70 italic px-1">{interimText}</p>
+          <p className="text-center text-[12px] text-muted-foreground/70 italic px-1">{interimText}</p>
         )}
-        <p className="text-[12px] text-muted-foreground/70 px-1">
+        <p className="text-center text-[12px] text-muted-foreground/70 px-1">
           Helps the AI nail portion + ingredients
         </p>
       </div>

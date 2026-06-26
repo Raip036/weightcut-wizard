@@ -11,6 +11,8 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ProfileCompletionGuard } from "@/components/ProfileCompletionGuard";
 import { UserProvider } from "@/contexts/UserContext";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
+import { AnalyticsBridge } from "@/components/AnalyticsBridge";
+import { trackPageview } from "@/lib/analytics";
 import { FightCampCoachProvider } from "@/contexts/FightCampCoachContext";
 import { AITaskProvider } from "@/contexts/AITaskContext";
 import { PaywallOverlay } from "@/components/subscription/PaywallOverlay";
@@ -73,6 +75,12 @@ const Profile = lazy(() => import("./pages/Profile"));
 const CommunityModeration = lazy(() => import("./pages/community/Moderation"));
 // THROWAWAY mock lab for the Cut redesign — delete after sign-off.
 const CutLab = lazy(() => import("./pages/CutLab"));
+const DashboardLab = lazy(() => import("./pages/DashboardLab"));
+const DeleteAccountLab = lazy(() => import("./pages/DeleteAccountLab"));
+const CampMenuLab = lazy(() => import("./pages/CampMenuLab"));
+const CaptionStepLab = lazy(() => import("./pages/CaptionStepLab"));
+const MealGradeLab = lazy(() => import("./pages/MealGradeLab"));
+const WidgetLab = lazy(() => import("./pages/WidgetLab"));
 
 // Prioritized idle preloading — critical routes first, rest deferred
 const _idle = window.requestIdleCallback || ((cb: IdleRequestCallback) => setTimeout(cb, 50));
@@ -124,6 +132,9 @@ function RouteTracker() {
     if (!SKIP_ROUTES.includes(location.pathname)) {
       localStorage.setItem('lastRoute', location.pathname);
     }
+    // Manual SPA pageview — react-router navigations have no full page load,
+    // so PostHog needs this to map "where users go / what they traverse".
+    trackPageview(location.pathname);
   }, [location.pathname]);
 
   // Set light status bar text for dark background
@@ -312,6 +323,7 @@ const App = () => (
               <NavigationDirectionProvider>
               <TutorialProvider>
               <RouteTracker />
+              <AnalyticsBridge />
               <CampCompletionOverlay />
               <Routes>
                 <Route path="/" element={<Index />} />
@@ -330,6 +342,18 @@ const App = () => (
                 <Route path="/legal" element={<Suspense fallback={null}><Legal /></Suspense>} />
                 {/* THROWAWAY mock lab — Cut redesign comparison. Delete after sign-off. */}
                 <Route path="/cut-lab" element={<Suspense fallback={<DashboardSkeleton />}><CutLab /></Suspense>} />
+                {/* THROWAWAY mock lab — Dashboard redesign. Delete after sign-off. */}
+                <Route path="/dashboard-lab" element={<Suspense fallback={<DashboardSkeleton />}><DashboardLab /></Suspense>} />
+                {/* THROWAWAY mock lab - Delete account redesign. Delete after sign-off. */}
+                <Route path="/delete-lab" element={<Suspense fallback={<DashboardSkeleton />}><DeleteAccountLab /></Suspense>} />
+                {/* THROWAWAY mock lab — Camp menu redesign. Delete after sign-off. */}
+                <Route path="/camp-menu-lab" element={<Suspense fallback={<DashboardSkeleton />}><CampMenuLab /></Suspense>} />
+                {/* THROWAWAY mock lab — Add-a-meal caption redesign. Delete after sign-off. */}
+                <Route path="/caption-lab" element={<Suspense fallback={<DashboardSkeleton />}><CaptionStepLab /></Suspense>} />
+                {/* THROWAWAY mock lab - Meal health grade feature. Delete after sign-off. */}
+                <Route path="/meal-grade-lab" element={<Suspense fallback={<DashboardSkeleton />}><MealGradeLab /></Suspense>} />
+                {/* THROWAWAY mock lab — iOS-native stat widgets. Delete after sign-off. */}
+                <Route path="/widget-lab" element={<Suspense fallback={<DashboardSkeleton />}><WidgetLab /></Suspense>} />
                 <Route path="/onboarding" element={
                   <ProtectedRoute>
                     <Onboarding />

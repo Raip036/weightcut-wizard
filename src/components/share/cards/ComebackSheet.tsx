@@ -144,6 +144,8 @@ export function ComebackSheet({
     await captureAndShare(
       "Comeback.",
       `${deltaCopy}, built with FightCamp Wizard`,
+      undefined,
+      "comeback",
     );
     if (!isPremium) bumpMonthlyCount(userId, today);
   }, [
@@ -166,7 +168,7 @@ export function ComebackSheet({
       openPaywall();
       return;
     }
-    await captureAndDownload(`comeback-${format(newDate, "yyyy-MM-dd")}.png`);
+    await captureAndDownload(`comeback-${format(newDate, "yyyy-MM-dd")}.png`, undefined, "comeback");
     if (!isPremium) bumpMonthlyCount(userId, today);
   }, [
     captureAndDownload,

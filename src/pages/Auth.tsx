@@ -16,6 +16,7 @@ import { Capacitor } from "@capacitor/core";
 import { motion, AnimatePresence } from "motion/react";
 import { logger } from "@/lib/logger";
 import { useScrollIntoViewOnFocus } from "@/hooks/useScrollIntoViewOnFocus";
+import { track, EVENTS } from "@/lib/analytics";
 
 // ──────────────────────────────────────────────────────────────────────
 // App Store compliance (Guideline 2.1): the password-reset flow is exposed
@@ -182,6 +183,9 @@ export default function Auth() {
           toast({ variant: "destructive", title: "Sign up failed", description: mapAuthError(error, "signUp") });
           return;
         }
+        // Brand-new account created (signUp flow, not signIn) — activation
+        // funnel entry point. Fired only after the await resolves.
+        track(EVENTS.SIGNED_UP, { method: "password", role: ROLE });
         // Fighters fall through to the post-auth router which lands on
         // /onboarding via ProfileCompletionGuard. Coach sign-up is owned
         // by /coach/login exclusively.

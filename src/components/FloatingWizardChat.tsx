@@ -200,13 +200,18 @@ export function FloatingWizardChat() {
     // The tutorial closes the chat when it advances to the next stop so the
     // open panel never blocks the rest of the tour.
     const onClose = () => setOpen(false);
+    // Stop pulsing once the tour ends — otherwise the orb keeps pulsing until
+    // the app is force-quit.
+    const onEnd = () => setTutorialPulse(false);
     window.addEventListener("tutorial:pulse-wizard-chat", onPulse);
     window.addEventListener("tutorial:open-wizard-chat", onOpen);
     window.addEventListener("tutorial:close-wizard-chat", onClose);
+    window.addEventListener("tutorial:end", onEnd);
     return () => {
       window.removeEventListener("tutorial:pulse-wizard-chat", onPulse);
       window.removeEventListener("tutorial:open-wizard-chat", onOpen);
       window.removeEventListener("tutorial:close-wizard-chat", onClose);
+      window.removeEventListener("tutorial:end", onEnd);
     };
   }, []);
 

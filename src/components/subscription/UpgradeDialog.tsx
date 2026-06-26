@@ -23,7 +23,7 @@ export function UpgradeDialog({ open, onOpenChange, featureName }: UpgradeDialog
 
   const handleUpgrade = () => {
     onOpenChange(false);
-    openPaywall();
+    openPaywall(featureName ?? "upgrade_dialog");
   };
 
   return (

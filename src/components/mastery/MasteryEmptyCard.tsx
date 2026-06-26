@@ -23,7 +23,7 @@ interface MasteryEmptyCardProps {
 
 export function MasteryEmptyCard({
   title = "Technique Mastery",
-  body = "Log a session with a To improve note to get drills.",
+  body = "Log a 'To improve' note to get drills.",
 }: MasteryEmptyCardProps) {
   const reduced = useReducedMotion();
 

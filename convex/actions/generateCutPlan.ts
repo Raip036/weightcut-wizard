@@ -17,6 +17,7 @@ import { mifflinStJeor, requiredDeficit, macroSplit } from "../_shared/math";
 import { normaliseWeeklyPlan } from "../_shared/normalizeWeeklyPlan";
 import { normalisePlanTopLevel } from "../_shared/normalizePlanTopLevel";
 import { enforceFeatureGate } from "../_shared/featureGates";
+import { resolveWeighInIso } from "../_shared/weighInTiming";
 import {
   FIGHT_WEEK_WATER_ML_PER_KG,
   FIGHT_WEEK_SODIUM_MG_PER_KG,
@@ -82,9 +83,17 @@ export const run = action({
       typeof snap.profile?.primaryStruggle === "string"
         ? snap.profile.primaryStruggle
         : undefined;
+    // The plan's end/target day is the WEIGH-IN day, not the fight day. For a
+    // day-before weigh-in that is fight − 1; for same-day it is the fight day.
+    // Anchoring here keeps the whole backward plan (and its final-week day
+    // stack below) ending on the day weight is actually made.
+    const weighInDateISO = resolveWeighInIso(
+      args.targetDate,
+      args.weighInTiming,
+    );
     const days = Math.max(
       1,
-      Math.ceil((new Date(args.targetDate).getTime() - Date.now()) / 86400000),
+      Math.ceil((new Date(weighInDateISO).getTime() - Date.now()) / 86400000),
     );
     const weekCount = Math.max(1, Math.min(20, Math.ceil(days / 7)));
     const bmr = mifflinStJeor({
@@ -314,13 +323,13 @@ ${snap.block}`;
       ? buildHeldCarbFinalWeekBundle({
           currentWeight: args.currentWeight,
           daysRemaining: days,
-          targetDateISO: args.targetDate,
+          targetDateISO: weighInDateISO,
         })
       : buildFightWeekBundle({
           currentWeight: args.currentWeight,
           finalTarget,
           daysRemaining: days,
-          targetDateISO: args.targetDate,
+          targetDateISO: weighInDateISO,
         });
 
     // CARB-HOLD narrative guarantee: the educational messaging (carbs held,

@@ -3,6 +3,9 @@ import { motion, AnimatePresence } from "motion/react";
 import { Input } from "@/components/ui/input";
 import { Icon } from "@/components/ui/Icon";
 import { triggerHapticSelection } from "@/lib/haptics";
+import { scoreFood, type FoodHealthInputs } from "@/lib/foodHealthScore";
+import { MacroText } from "@/components/nutrition/health/MacroText";
+import { FoodHealthRating } from "@/components/nutrition/health/FoodHealthRating";
 
 export interface AiIngredientItem {
   name: string;
@@ -14,6 +17,7 @@ export interface AiIngredientItem {
   bbox?: { x: number; y: number; w: number; h: number };
   confidence?: "high" | "medium" | "low";
   base?: { calories: number; protein_g: number; carbs_g: number; fats_g: number };
+  health?: FoodHealthInputs;
 }
 
 // Portion multipliers for the quick-adjust stepper. Scale relative to the
@@ -205,16 +209,9 @@ function IngredientRow({ item, onUpdate, onRemove }: IngredientRowProps) {
         </button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-1.5 mt-2 text-[10px] tabular-nums">
-        <span className="px-1.5 py-0.5 rounded-xs bg-[rgb(var(--func-protein-blue)/0.12)] text-foreground font-semibold">
-          {Math.round(item.protein_g)}P
-        </span>
-        <span className="px-1.5 py-0.5 rounded-xs bg-[rgb(var(--func-carbs-orange)/0.12)] text-foreground font-semibold">
-          {Math.round(item.carbs_g)}C
-        </span>
-        <span className="px-1.5 py-0.5 rounded-xs bg-[rgb(var(--func-fats-purple)/0.12)] text-foreground font-semibold">
-          {Math.round(item.fats_g)}F
-        </span>
+      <div className="flex items-center mt-2">
+        <MacroText protein_g={item.protein_g} carbs_g={item.carbs_g} fats_g={item.fats_g} />
+        {item.health && <FoodHealthRating score={scoreFood(item.health)} />}
       </div>
 
       {/* Quick portion multiplier — instant rescale, no AI call. */}

@@ -12,6 +12,8 @@ import { AIPersistence } from "@/lib/aiPersistence";
 import { createAIAbortController } from "@/lib/timeoutWrapper";
 import { logger } from "@/lib/logger";
 import { lookupUSDA } from "@/lib/usdaLookup";
+import { coerceHealthInputs, scoreFood, scoreMeal } from "@/lib/foodHealthScore";
+import { track, EVENTS } from "@/lib/analytics";
 import { Capacitor } from "@capacitor/core";
 import { Search, Database, CheckCircle, PieChart, Camera } from "lucide-react";
 import type { AiLineItem, Ingredient, ManualMealForm, ManualNutritionDialogState, BarcodeBaseMacros, INITIAL_MANUAL_MEAL, INITIAL_MANUAL_NUTRITION_DIALOG } from "@/pages/nutrition/types";
@@ -261,6 +263,7 @@ export function useAIMealAnalysis(params: UseAIMealAnalysisParams) {
                 ? item.confidence
                 : undefined,
             base: { calories, protein_g, carbs_g, fats_g },
+            health: coerceHealthInputs(item),
           };
         }));
       } else {
@@ -372,6 +375,7 @@ export function useAIMealAnalysis(params: UseAIMealAnalysisParams) {
           protein_g: item.protein_g || 0,
           carbs_g: item.carbs_g || 0,
           fats_g: item.fats_g || 0,
+          health: coerceHealthInputs(item),
         })));
       } else {
         setAiLineItems([{
@@ -399,6 +403,14 @@ export function useAIMealAnalysis(params: UseAIMealAnalysisParams) {
 
   const handleSaveAiMeal = useCallback(async () => {
     if (aiLineItems.length === 0) return;
+
+    // Whole-food meal grade, computed from the foods the AI classified, so the
+    // saved meal carries a score for the daily food-quality average. Null when
+    // no item was classified (older cached scans).
+    const scoredItems = aiLineItems.filter((i) => i.health);
+    const aiMealHealthScore = scoredItems.length
+      ? scoreMeal(scoredItems.map((i) => ({ calories: i.calories, healthScore: scoreFood(i.health!) }))).score
+      : null;
 
     // User-edited macro values take precedence over the AI-summed line
     // items. Line items still ship in the saved meal as the ingredient
@@ -454,7 +466,7 @@ export function useAIMealAnalysis(params: UseAIMealAnalysisParams) {
     }
 
     try {
-      await saveMealToDb({
+      const savedId = await saveMealToDb({
         meal_name: manualMeal.meal_name || aiMealDescription,
         calories: Math.round(totalCalories),
         protein_g: Math.round(totalProtein * 10) / 10,
@@ -467,7 +479,15 @@ export function useAIMealAnalysis(params: UseAIMealAnalysisParams) {
         is_ai_generated: true,
         photo_storage_id: photoStorageId,
         photo_preview_url: photoPreviewUrl,
+        health_score: aiMealHealthScore,
       });
+
+      // Analytics: fire once per successful AI-assisted log, BEFORE the photo
+      // state is cleared below. A photo present means the analyze-meal photo
+      // flow; otherwise it was an AI text-description analysis.
+      if (savedId) {
+        track(EVENTS.MEAL_LOGGED, { method: photoBase64 ? "photo" : "manual" });
+      }
 
       setIsQuickAddSheetOpen(false);
       setAiLineItems([]);

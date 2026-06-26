@@ -102,7 +102,7 @@ export function CoachProGate({ className }: { className?: string }): JSX.Element
     // Hand off to the EXISTING RevenueCat paywall / purchase flow. The native
     // RevenueCat paywall surfaces its own 7-day free trial; we never build one.
     try {
-      openPaywall();
+      openPaywall("coach");
     } catch {
       toast({
         title: "Couldn't open checkout",

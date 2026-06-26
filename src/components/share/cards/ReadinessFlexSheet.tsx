@@ -145,6 +145,7 @@ export function ReadinessFlexSheet({
       "I'm ready today.",
       `Readiness ${Math.round(readiness)}, built with FightCamp Wizard`,
       transparent,
+      "readiness",
     );
     if (!isPremium) bumpWeeklyCount(userId, today);
   }, [
@@ -168,7 +169,7 @@ export function ReadinessFlexSheet({
       openPaywall();
       return;
     }
-    await captureAndDownload(`readiness-${format(date, "yyyy-MM-dd")}.png`, transparent);
+    await captureAndDownload(`readiness-${format(date, "yyyy-MM-dd")}.png`, transparent, "readiness");
     if (!isPremium) bumpWeeklyCount(userId, today);
   }, [
     captureAndDownload,

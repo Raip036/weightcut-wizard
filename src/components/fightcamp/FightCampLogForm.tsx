@@ -565,75 +565,80 @@ export function FightCampLogForm({
       </div>
 
       {/* ── Techniques covered ────────────────────────────────── */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <Label className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/60">
-            Techniques covered
-          </Label>
+      {/* Cleaner layout: the mic lives inside the field (bottom-right) instead
+          of a separate "Voice" pill in the header, and the helper is a single
+          short line below — same treatment as the meal caption sheet. */}
+      <div className="space-y-1.5">
+        <Label className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/60">
+          Techniques covered
+        </Label>
+        <div className="relative">
+          <Textarea
+            value={techniquesNotes}
+            onChange={(e) => setTechniquesNotes(e.target.value)}
+            placeholder={isListening && voiceTarget === "techniques" ? "Listening…" : "Combos, positions, drills you worked…"}
+            className={`min-h-[88px] resize-none rounded-2xl bg-muted/40 dark:bg-white/[0.06] border-border/30 text-[14px] leading-[1.5] pl-4 pr-12 py-3 placeholder:text-muted-foreground/50 ${isListening && voiceTarget === "techniques" ? "ring-2 ring-func-danger-red/40" : ""}`}
+          />
           {voiceSupported && (
             <button
               type="button"
               onClick={() => toggleVoiceFor("techniques")}
-              className={`flex items-center gap-1 h-7 px-2.5 rounded-full text-[11px] font-semibold transition-all ${
+              aria-label={isListening && voiceTarget === "techniques" ? "Stop voice input" : "Voice input"}
+              aria-pressed={isListening && voiceTarget === "techniques"}
+              className={`absolute bottom-2 right-2 inline-flex items-center justify-center h-9 w-9 rounded-xl transition-all active:scale-[0.96] ${
                 isListening && voiceTarget === "techniques"
                   ? "bg-func-danger-red/15 text-func-danger-red animate-pulse"
-                  : "bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-muted-foreground active:bg-muted/60"
+                  : "bg-black/[0.06] dark:bg-white/[0.08] text-muted-foreground active:bg-muted/60"
               }`}
             >
-              {isListening && voiceTarget === "techniques" ? <MicOff className="h-3 w-3" /> : <Mic className="h-3 w-3" />}
-              {isListening && voiceTarget === "techniques" ? "Stop" : "Voice"}
+              {isListening && voiceTarget === "techniques" ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
             </button>
           )}
         </div>
-        <p className="text-[11px] leading-snug text-muted-foreground/55">
-          The skills you drilled. Shows up in your weekly{" "}
-          <span className="font-medium text-muted-foreground/80">training summaries</span>.
-        </p>
-        <Textarea
-          value={techniquesNotes}
-          onChange={(e) => setTechniquesNotes(e.target.value)}
-          placeholder={isListening && voiceTarget === "techniques" ? "Listening…" : "Combos, positions, drills you worked…"}
-          className={`min-h-[88px] resize-none rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/30 text-[14px] px-4 py-3 placeholder:text-muted-foreground/50 ${isListening && voiceTarget === "techniques" ? "ring-2 ring-func-danger-red/40" : ""}`}
-        />
         {isListening && voiceTarget === "techniques" && interimText && (
           <p className="text-[12px] text-muted-foreground/70 italic px-1">{interimText}</p>
         )}
+        <p className="text-[11px] leading-snug text-muted-foreground/55 px-1">
+          Shows up in your weekly{" "}
+          <span className="font-medium text-muted-foreground/80">training summaries</span>.
+        </p>
       </div>
 
       {/* ── To improve ────────────────────────────────────────── */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <Label className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/60">
-            To improve
-          </Label>
+      <div className="space-y-1.5">
+        <Label className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/60">
+          To improve
+        </Label>
+        <div className="relative">
+          <Textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder={isListening && voiceTarget === "reflection" ? "Listening…" : "What to fix, what’s not working yet…"}
+            className={`min-h-[88px] resize-none rounded-2xl bg-muted/40 dark:bg-white/[0.06] border-border/30 text-[14px] leading-[1.5] pl-4 pr-12 py-3 placeholder:text-muted-foreground/50 ${isListening && voiceTarget === "reflection" ? "ring-2 ring-func-danger-red/40" : ""}`}
+          />
           {voiceSupported && (
             <button
               type="button"
               onClick={() => toggleVoiceFor("reflection")}
-              className={`flex items-center gap-1 h-7 px-2.5 rounded-full text-[11px] font-semibold transition-all ${
+              aria-label={isListening && voiceTarget === "reflection" ? "Stop voice input" : "Voice input"}
+              aria-pressed={isListening && voiceTarget === "reflection"}
+              className={`absolute bottom-2 right-2 inline-flex items-center justify-center h-9 w-9 rounded-xl transition-all active:scale-[0.96] ${
                 isListening && voiceTarget === "reflection"
                   ? "bg-func-danger-red/15 text-func-danger-red animate-pulse"
-                  : "bg-muted/40 dark:bg-white/[0.06] border border-border/30 text-muted-foreground active:bg-muted/60"
+                  : "bg-black/[0.06] dark:bg-white/[0.08] text-muted-foreground active:bg-muted/60"
               }`}
             >
-              {isListening && voiceTarget === "reflection" ? <MicOff className="h-3 w-3" /> : <Mic className="h-3 w-3" />}
-              {isListening && voiceTarget === "reflection" ? "Stop" : "Voice"}
+              {isListening && voiceTarget === "reflection" ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
             </button>
           )}
         </div>
-        <p className="text-[11px] leading-snug text-muted-foreground/55">
-          What didn’t click and what to fix. Feeds your{" "}
-          <span className="font-medium text-muted-foreground/80">Technique Mastery</span> drills on the Camp page.
-        </p>
-        <Textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder={isListening && voiceTarget === "reflection" ? "Listening…" : "What to fix, what’s not working yet…"}
-          className={`min-h-[88px] resize-none rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/30 text-[14px] px-4 py-3 placeholder:text-muted-foreground/50 ${isListening && voiceTarget === "reflection" ? "ring-2 ring-func-danger-red/40" : ""}`}
-        />
         {isListening && voiceTarget === "reflection" && interimText && (
           <p className="text-[12px] text-muted-foreground/70 italic px-1">{interimText}</p>
         )}
+        <p className="text-[11px] leading-snug text-muted-foreground/55 px-1">
+          Feeds your{" "}
+          <span className="font-medium text-muted-foreground/80">Technique Mastery</span> drills.
+        </p>
       </div>
 
       {/* ── Media: horizontal strip with gallery + camera tiles ─

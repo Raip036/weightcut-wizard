@@ -23,6 +23,8 @@ export interface ProtocolGeneratingOverlayProps {
   steps?: ReadonlyArray<string>;
   /** Small footnote at the bottom. Defaults to "This usually takes 5-15 seconds." */
   footnote?: string;
+  /** When provided, a ghost "Cancel" affordance fades in after a short delay. */
+  onCancel?: () => void;
 }
 
 const BLUE = "217 91% 58%";
@@ -41,6 +43,7 @@ export function ProtocolGeneratingOverlay({
   label = "Conjuring your protocol",
   steps = DEFAULT_STEPS,
   footnote = "This usually takes 5-15 seconds.",
+  onCancel,
 }: ProtocolGeneratingOverlayProps) {
   const prefersReduced = useReducedMotion();
 
@@ -50,6 +53,15 @@ export function ProtocolGeneratingOverlay({
     const t = setInterval(() => setStatusIdx((i) => (i + 1) % steps.length), STATUS_INTERVAL_MS);
     return () => clearInterval(t);
   }, [steps]);
+
+  // Ghost cancel fades in after a beat, so it doesn't compete with the
+  // loader on first paint but is there if the wait runs long.
+  const [showCancel, setShowCancel] = useState(false);
+  useEffect(() => {
+    if (!onCancel) return;
+    const t = setTimeout(() => setShowCancel(true), 2500);
+    return () => clearTimeout(t);
+  }, [onCancel]);
 
   // Deterministic drifting motes (index-based so no Math.random in render).
   const motes = useMemo(
@@ -176,6 +188,19 @@ export function ProtocolGeneratingOverlay({
       <p className="relative z-10 mt-5 text-[11px] text-muted-foreground/60">
         {footnote}
       </p>
+
+      {onCancel && showCancel && (
+        <motion.button
+          type="button"
+          onClick={onCancel}
+          initial={prefersReduced ? false : { opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.4 }}
+          className="relative z-10 mt-3 text-[11px] font-medium text-muted-foreground/50 active:text-muted-foreground transition-colors"
+        >
+          Cancel
+        </motion.button>
+      )}
     </motion.section>
   );
 }

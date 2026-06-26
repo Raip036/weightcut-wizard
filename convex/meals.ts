@@ -48,6 +48,7 @@ function mealToClient(
     item_count: items.length,
     created_at: new Date(meal._creationTime).toISOString(),
     photo_url: photoUrl ?? null,
+    health_score: meal.healthScore ?? null,
   };
 }
 
@@ -183,6 +184,9 @@ export const createMealWithItems = mutation({
     isAiGenerated: v.optional(v.boolean()),
     notes: v.optional(v.string()),
     photoStorageId: v.optional(v.id("_storage")),
+    // Whole-food meal grade 0-100, computed client-side from the AI's per-food
+    // classification. Absent for manual meals.
+    healthScore: v.optional(v.number()),
     items: v.array(itemValidator),
     // Client-supplied dedupe token. When present, two calls with the same
     // (userId, idempotencyKey) inside the 24 h window collapse onto the
@@ -243,6 +247,7 @@ export const createMealWithItems = mutation({
       isAiGenerated: args.isAiGenerated ?? false,
       notes: args.notes,
       photoStorageId: args.photoStorageId,
+      healthScore: args.healthScore,
     });
     let i = 0;
     for (const item of args.items) {

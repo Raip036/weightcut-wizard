@@ -60,13 +60,13 @@ export function ProGate({
       aria-label={`${label} feature, tap to upgrade`}
       onClick={() => {
         triggerHapticSelection();
-        openPaywall();
+        openPaywall(feature);
       }}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           triggerHapticSelection();
-          openPaywall();
+          openPaywall(feature);
         }
       }}
       className={`relative cursor-pointer select-none ${className}`}

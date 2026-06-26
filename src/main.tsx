@@ -5,7 +5,13 @@ import { Capacitor } from "@capacitor/core";
 import { Keyboard, KeyboardResize } from "@capacitor/keyboard";
 import App from "./App.tsx";
 import { convex } from "./integrations/convex/client";
+import { initAnalytics } from "./lib/analytics";
 import "./index.css";
+
+// Product analytics (PostHog). No-ops when VITE_POSTHOG_KEY is unset, so dev
+// builds without a key are unaffected. Init at module-eval, before render, so
+// the first $pageview (fired by RouteTracker on mount) is captured.
+initAnalytics();
 
 // ---------------------------------------------------------------------------
 // iOS keyboard behavior

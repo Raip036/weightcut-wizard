@@ -2,6 +2,7 @@ import { memo } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import wizard3D from "@/assets/wizard_3D.png";
 import wizardFood from "@/assets/wizard_food.png";
+import { isNativePlatform } from "@/hooks/useIsNative";
 import type { WizardPose } from "./types";
 
 /**
@@ -57,13 +58,19 @@ function WizardCharacterInner({
     }
   })();
 
+  // On native iOS the continuous `scale` keeps the mascot's raster layer
+  // perpetually dirty (re-rasterized every frame for the whole tutorial), and
+  // `rotate` adds compositor churn. Keep only a transform-only `y` bob there,
+  // which composites cheaply. Web keeps the fuller idle.
   const idleLoop = prefersReduced
     ? {}
-    : {
-        y: [0, -6, 0],
-        scale: [1, 1.015, 1],
-        rotate: [-1.5, 1.5, -1.5],
-      };
+    : isNativePlatform
+      ? { y: [0, -6, 0] }
+      : {
+          y: [0, -6, 0],
+          scale: [1, 1.015, 1],
+          rotate: [-1.5, 1.5, -1.5],
+        };
 
   return (
     <motion.button
@@ -94,7 +101,10 @@ function WizardCharacterInner({
         className="h-full w-full object-contain pointer-events-none select-none"
         draggable={false}
       />
-      {!prefersReduced &&
+      {/* Sparkles use mix-blend-mode: screen, which forces an offscreen
+          composite + re-blend every frame on the iOS WebView (and isn't
+          stripped by the .native-app rules). Drop them entirely on device. */}
+      {!prefersReduced && !isNativePlatform &&
         SPARKLES.map((s, i) => (
           <motion.span
             key={i}

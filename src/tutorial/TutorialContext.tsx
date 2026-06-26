@@ -78,15 +78,24 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
     activeSteps: [],
   });
 
-  // Build user state for condition evaluation
+  // Volatile inputs (profile, route) are read through a ref so the imperative
+  // callbacks below stay referentially stable across navigations. The tour
+  // navigates on almost every step, so closing over `location.pathname`
+  // directly used to mint new callbacks → new context value → a re-render of
+  // every consumer (BottomNav, FloatingWizardChat) on each transition.
+  const liveStateRef = useRef({ profile, hasProfile, pathname: location.pathname });
+  liveStateRef.current = { profile, hasProfile, pathname: location.pathname };
+
+  // Build user state for condition evaluation. Stable identity (empty deps).
   const getUserState = useCallback((): UserTutorialState => {
+    const { profile: p, hasProfile: hp, pathname } = liveStateRef.current;
     return {
-      goalType: deriveGoalType(profile),
-      currentRoute: location.pathname,
-      hasProfile: hasProfile,
-      profileData: profile,
+      goalType: deriveGoalType(p),
+      currentRoute: pathname,
+      hasProfile: hp,
+      profileData: p,
     };
-  }, [profile, hasProfile, location.pathname]);
+  }, []);
 
   // Register flows. The version is a dep so that Vite HMR re-registers the
   // latest flow object when only onboardingFlow.ts changes (avoiding stale
@@ -120,26 +129,57 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
     return unsub;
   }, [userId]);
 
-  // Persist progress on step changes
+  // Persist progress on step changes. Deferred to idle so the synchronous
+  // localStorage read+parse+stringify+write doesn't land on the exact frame
+  // of the step transition the user just tapped (which made tap-to-advance
+  // feel sluggish).
   useEffect(() => {
-    if (state.isActive && state.currentFlow && userId) {
-      tutorialPersistence.saveProgress(
-        userId,
-        state.currentFlow.id,
-        state.currentStepIndex
-      );
-    }
+    if (!(state.isActive && state.currentFlow && userId)) return;
+    const flowId = state.currentFlow.id;
+    const idx = state.currentStepIndex;
+    const ric = window.requestIdleCallback ?? ((cb: IdleRequestCallback) => window.setTimeout(cb, 0));
+    const cancel = window.cancelIdleCallback ?? window.clearTimeout;
+    const handle = ric(() => tutorialPersistence.saveProgress(userId, flowId, idx));
+    return () => cancel(handle as number);
   }, [state.isActive, state.currentFlow, state.currentStepIndex, userId]);
 
-  // Scroll a target element into view once navigation has settled.
-  // Gated on `waitingForNav` so scrollTo fires AFTER the page has rendered
-  // (not mid-transition), giving the spotlight time to measure correctly.
+  // When the tutorial stops (completed, skipped, or paused), tell any
+  // attention-pulse listeners (the wizard orb, the quick-log FAB) to stop.
+  // Those components latch their pulse on a tutorial action event but have no
+  // signal for when the tour ends, so without this they pulse until the app is
+  // killed. Fires only on the active → inactive transition; if the tour
+  // resumes, the relevant step re-dispatches its own pulse event.
+  const wasActiveRef = useRef(false);
   useEffect(() => {
-    if (!state.isActive || !state.currentStep?.scrollTo || waitingForNav) return;
-    const selector = state.currentStep.scrollTo;
+    if (wasActiveRef.current && !state.isActive) {
+      window.dispatchEvent(new CustomEvent("tutorial:end"));
+    }
+    wasActiveRef.current = state.isActive;
+  }, [state.isActive]);
+
+  // Scroll a target element into view once navigation has settled.
+  // Gated on `waitingForNav` so this fires AFTER the page has rendered
+  // (not mid-transition), giving the spotlight time to measure correctly.
+  // An explicit `scrollTo` wins; otherwise we fall back to the `spotlight`
+  // target so ANY spotlighted step brings its element on-screen. We only
+  // scroll when the target isn't already comfortably in view, so visible
+  // targets never jump.
+  useEffect(() => {
+    if (!state.isActive || waitingForNav) return;
+    const selector = state.currentStep?.scrollTo ?? state.currentStep?.spotlight;
+    if (!selector) return;
     const t = setTimeout(() => {
       const el = document.querySelector<HTMLElement>(`[data-tutorial="${selector}"]`);
-      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const vh = window.innerHeight || document.documentElement.clientHeight;
+      // Margin keeps a target tucked under the bubble / wizard from sitting
+      // right at the edge; if it's already within these bounds, leave it.
+      const margin = 80;
+      const fullyVisible = r.top >= margin && r.bottom <= vh - margin;
+      if (!fullyVisible) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
     }, 150);
     return () => clearTimeout(t);
   }, [state.isActive, state.currentStep, waitingForNav]);
@@ -364,7 +404,7 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
       const targetRoute = prevStep.navigateTo ?? prevStep.route;
       if (targetRoute) {
         const targetPath = targetRoute.split("?")[0];
-        if (location.pathname !== targetPath) {
+        if (liveStateRef.current.pathname !== targetPath) {
           // Route navigation needed — suppress the pause mechanism while it resolves.
           navigatingBackRef.current = true;
           setWaitingForNav(true);
@@ -375,7 +415,7 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
     }
 
     mgr.prev(getUserState());
-  }, [getUserState, location.pathname, navigate]);
+  }, [getUserState, navigate]);
 
   const skip = useCallback(() => {
     pausedFlowRef.current = null;
@@ -391,10 +431,10 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
     }
     managerRef.current.skip();
     // Navigate back to dashboard when skipping mid-tour on another page
-    if (location.pathname !== "/dashboard") {
+    if (liveStateRef.current.pathname !== "/dashboard") {
       navigate("/dashboard");
     }
-  }, [state.currentFlow, userId, location.pathname, navigate]);
+  }, [state.currentFlow, userId, navigate]);
 
   const triggerTutorial = useCallback(
     (flowId: string) => {

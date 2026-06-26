@@ -21,6 +21,7 @@ export function mapMealsWithTotalsToMeal(row: MealWithTotals): Meal {
     date: (row.date ?? "") as string,
     created_at: row.created_at,
     photo_url: row.photo_url ?? null,
+    health_score: row.health_score ?? null,
   };
 }
 

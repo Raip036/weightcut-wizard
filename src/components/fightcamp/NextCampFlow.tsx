@@ -673,9 +673,15 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
     {/* Free-tier "one camp" Pro gate. A free user reaches the wizard stage
         (after wrapping up their existing camp, if any) and sees the animated
         upsell instead of the new-camp form. Dismiss closes the whole flow.
-        Full-screen portal so it covers the sheet behind it. */}
+        Full-screen portal so it covers the sheet behind it.
+
+        `!!profile` is a synchronous logged-in guard: on account deletion /
+        sign-out, `profile` goes null in the SAME render that the derived tier
+        falls back to "free", so the gate closes immediately instead of
+        flashing the "Run unlimited fight camps" upsell on the way to /auth.
+        (`isSubscriptionResolved` lags a commit, so it can't carry this alone.) */}
     <CampLimitProGate
-      open={open && stage === "wizard" && isSubscriptionResolved && !canCreateCamp}
+      open={open && stage === "wizard" && isSubscriptionResolved && !canCreateCamp && !!profile}
       onClose={() => onOpenChange(false)}
     />
 

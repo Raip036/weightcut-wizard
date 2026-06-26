@@ -351,6 +351,8 @@ export function ProtocolWalkoutTakeover({
     void captureAndShare(
       "I made weight & refueled.",
       "Made weight and refueled, built with FightCamp Wizard",
+      undefined,
+      "walkout",
     );
   }, [captureAndShare]);
 

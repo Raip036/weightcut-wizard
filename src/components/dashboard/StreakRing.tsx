@@ -3,7 +3,6 @@ import { useQuery } from "convex/react";
 import { motion, useReducedMotion } from "motion/react";
 import { api } from "@/../convex/_generated/api";
 import { Icon } from "@/components/ui/Icon";
-import { cn } from "@/lib/utils";
 import { springs } from "@/lib/motion";
 
 // ---------------------------------------------------------------------------
@@ -57,11 +56,12 @@ function tierFor(streak: number): Tier {
   return { from: "#7CD8FF", to: "#3B6BFF", flame: "#6FC8FF", glow: 1 }; // blue white-hot
 }
 
-// Geometry - small enough to sit in one thin row.
-const RING_SIZE = 36;
-const RING_STROKE = 3.5;
-const RING_R = (RING_SIZE - RING_STROKE) / 2;
-const RING_C = 2 * Math.PI * RING_R;
+// Geometry - two scales: the standalone card row, and a tiny inline chip
+// that tucks beside the date in the dashboard header.
+const RING = {
+  full: { size: 36, stroke: 3.5, flame: 16 },
+  minimal: { size: 22, stroke: 2.5, flame: 11 },
+} as const;
 
 export interface StreakStats {
   current: number;
@@ -72,10 +72,21 @@ export interface StreakStats {
 
 /**
  * Presentational streak card. Pure - takes the already-computed stats so it can
- * be previewed in a lab without a Convex round-trip.
+ * be previewed in a lab without a Convex round-trip. `minimal` renders a tiny
+ * inline chip (ring + label, no card) for the header date row.
  */
-export function StreakRingView({ stats }: { stats: StreakStats }) {
+export function StreakRingView({
+  stats,
+  minimal = false,
+}: {
+  stats: StreakStats;
+  minimal?: boolean;
+}) {
   const prefersReduced = useReducedMotion();
+
+  const geom = minimal ? RING.minimal : RING.full;
+  const ringR = (geom.size - geom.stroke) / 2;
+  const ringC = 2 * Math.PI * ringR;
 
   const view = useMemo(() => {
     const { current, todayComplete } = stats;
@@ -89,101 +100,100 @@ export function StreakRingView({ stats }: { stats: StreakStats }) {
         ? 1
         : Math.max(0, Math.min(1, (current - prev) / (next - prev)));
 
-    // One short line per state: the streak count IS the headline, the sub is a
-    // single nudge - never a stats dump.
-    let headline: string;
-    let sub: string;
-    if (current === 0) {
-      headline = "Start your streak";
-      sub = todayComplete ? "Day 1 done, nice start" : "Log all 5 today to begin";
-    } else {
-      headline = `${current}-day streak`;
-      sub = todayComplete
-        ? next === null
-          ? "Maxed out, legendary"
-          : `${next - current} to your ${next}-day badge`
-        : "Log all 5 today to keep it";
-    }
+    // The streak count IS the headline; the ring conveys progress to the next
+    // badge, so no sub-line is needed.
+    const headline = current === 0 ? "Start your streak" : `${current}-day streak`;
 
-    return { current, progress, headline, sub, tier, todayComplete, active: current > 0 };
+    return { current, progress, headline, tier, todayComplete, active: current > 0 };
   }, [stats]);
 
-  const dashOffset = RING_C * (1 - view.progress);
-  const uid = useMemo(() => `streakGrad-${Math.round(view.progress * 1000)}`, [view.progress]);
+  const dashOffset = ringC * (1 - view.progress);
+  const uid = useMemo(
+    () => `streakGrad-${minimal ? "m" : "f"}-${Math.round(view.progress * 1000)}`,
+    [view.progress, minimal],
+  );
   const t = view.tier;
+
+  // The progress ring with the tier-coloured flame centred — shared by both
+  // the card and the minimal chip; only the geometry differs.
+  const ring = (
+    <div className="relative shrink-0" style={{ width: geom.size, height: geom.size }}>
+      <svg width={geom.size} height={geom.size} className="-rotate-90">
+        <circle
+          cx={geom.size / 2}
+          cy={geom.size / 2}
+          r={ringR}
+          fill="none"
+          stroke="hsl(var(--muted) / 0.5)"
+          strokeWidth={geom.stroke}
+        />
+        <motion.circle
+          cx={geom.size / 2}
+          cy={geom.size / 2}
+          r={ringR}
+          fill="none"
+          stroke={`url(#${uid})`}
+          strokeWidth={geom.stroke}
+          strokeLinecap="round"
+          strokeDasharray={ringC}
+          initial={prefersReduced ? false : { strokeDashoffset: ringC }}
+          animate={{ strokeDashoffset: dashOffset }}
+          transition={springs.gentle}
+        />
+        <defs>
+          <linearGradient id={uid} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor={t.from} />
+            <stop offset="1" stopColor={t.to} />
+          </linearGradient>
+        </defs>
+      </svg>
+      <span
+        className="absolute inset-0 flex items-center justify-center"
+        // colour + glow scale with the tier so the flame visibly "heats up"
+        // (Icon paints with currentColor, so colour cascades from here)
+        style={{
+          color: t.flame,
+          filter: t.glow > 0 ? `drop-shadow(0 0 ${3 + t.glow * 5}px ${t.flame})` : undefined,
+        }}
+      >
+        <Icon name={view.active ? "flame" : "flameOutline"} size={geom.flame} className="leading-none" />
+      </span>
+    </div>
+  );
+
+  // Minimal: a tiny inline chip (ring + label, no card) for the header row.
+  if (minimal) {
+    return (
+      <div className="flex items-center gap-1.5">
+        {ring}
+        <span className="text-micro uppercase tracking-[0.1em] font-semibold text-muted-foreground/80 whitespace-nowrap">
+          {view.headline}
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div className="card-surface rounded-2xl pl-2.5 pr-3.5 py-2 flex items-center gap-3">
-      {/* Progress ring with the tier-coloured flame centred. */}
-      <div className="relative shrink-0" style={{ width: RING_SIZE, height: RING_SIZE }}>
-        <svg width={RING_SIZE} height={RING_SIZE} className="-rotate-90">
-          <circle
-            cx={RING_SIZE / 2}
-            cy={RING_SIZE / 2}
-            r={RING_R}
-            fill="none"
-            stroke="hsl(var(--muted) / 0.5)"
-            strokeWidth={RING_STROKE}
-          />
-          <motion.circle
-            cx={RING_SIZE / 2}
-            cy={RING_SIZE / 2}
-            r={RING_R}
-            fill="none"
-            stroke={`url(#${uid})`}
-            strokeWidth={RING_STROKE}
-            strokeLinecap="round"
-            strokeDasharray={RING_C}
-            initial={prefersReduced ? false : { strokeDashoffset: RING_C }}
-            animate={{ strokeDashoffset: dashOffset }}
-            transition={springs.gentle}
-          />
-          <defs>
-            <linearGradient id={uid} x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stopColor={t.from} />
-              <stop offset="1" stopColor={t.to} />
-            </linearGradient>
-          </defs>
-        </svg>
-        <span
-          className="absolute inset-0 flex items-center justify-center"
-          // colour + glow scale with the tier so the flame visibly "heats up"
-          // (Icon paints with currentColor, so colour cascades from here)
-          style={{
-            color: t.flame,
-            filter: t.glow > 0 ? `drop-shadow(0 0 ${3 + t.glow * 5}px ${t.flame})` : undefined,
-          }}
-        >
-          <Icon name={view.active ? "flame" : "flameOutline"} size={16} className="leading-none" />
-        </span>
-      </div>
+      {ring}
 
-      {/* Headline + single nudge. */}
+      {/* Headline only — the ring conveys progress to the next badge. */}
       <div className="min-w-0 flex-1">
         <p className="text-[13.5px] font-bold leading-tight tracking-tight truncate">
           {view.headline}
         </p>
-        <p
-          className={cn(
-            "text-[11px] leading-tight mt-0.5 truncate",
-            view.active ? "text-muted-foreground" : "text-muted-foreground/80",
-          )}
-        >
-          {view.sub}
-        </p>
       </div>
-
     </div>
   );
 }
 
-export default function StreakRing() {
+export default function StreakRing({ minimal = false }: { minimal?: boolean } = {}) {
   const stats = useQuery(api.fightFormScore.streakStats, {});
 
   // Loading or unauthenticated → render nothing (matches the old meter).
   if (!stats) return null;
 
-  return <StreakRingView stats={stats} />;
+  return <StreakRingView stats={stats} minimal={minimal} />;
 }
 
 export { StreakRing };

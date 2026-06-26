@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useClearStuckPointerEvents } from "@/hooks/useClearStuckPointerEvents";
 import { logger } from "@/lib/logger";
 import { isNativePlatform } from "@/hooks/useIsNative";
+import { track, EVENTS } from "@/lib/analytics";
 
 /**
  * Update the profile subscription tier from RevenueCat customerInfo.
@@ -304,6 +305,10 @@ function WebFallbackPaywall({ activatePro }: { activatePro: (info: any) => Promi
       });
       return;
     }
+
+    // User initiated the purchase (tapped Subscribe). Fire before the RC call
+    // begins so we capture intent even if the StoreKit sheet is then cancelled.
+    track(EVENTS.SUBSCRIBE_STARTED, { plan: selectedPlan, platform: "web" });
 
     setPurchasing(true);
     try {

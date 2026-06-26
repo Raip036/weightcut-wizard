@@ -36,6 +36,7 @@ import { ShareCardDialog } from "@/components/share/ShareCardDialog";
 import { TrainingCalendarCard } from "@/components/share/cards/TrainingCalendarCard";
 import { CoachingLibrarySheet } from "@/components/fightcamp/CoachingLibrarySheet";
 import { logger } from "@/lib/logger";
+import { track, EVENTS } from "@/lib/analytics";
 import { getUserColors, setUserColor } from "@/lib/sessionColors";
 import { encodeRunMeta, decodeRunMeta, formatPace } from "@/lib/runMeta";
 import { Skeleton } from "@/components/ui/skeleton-loader";
@@ -687,6 +688,17 @@ export default function TrainingCalendar() {
             // picker's recent list stays training-focused.
             if (sessionType !== "Rest") {
                 pushMru(uid, sessionType);
+            }
+
+            // Fire SESSION_LOGGED only for newly logged sessions (not edits),
+            // so the metric reflects logging activity rather than corrections.
+            // Properties are categorical only (discipline + optional activity
+            // tag) — no notes / free text.
+            if (!editingSession) {
+                track(EVENTS.SESSION_LOGGED, {
+                    discipline: sessionType,
+                    activity: tagToSave ?? undefined,
+                });
             }
 
             // Multi-attachment upload pass. Run in parallel because each

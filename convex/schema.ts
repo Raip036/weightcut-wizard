@@ -256,6 +256,10 @@ export default defineSchema({
     // When present, `listWithTotals` resolves it to a URL (`photo_url`) so the
     // MealCard renders the photo where the macro donut normally lives.
     photoStorageId: v.optional(v.id("_storage")),
+    // Whole-food meal grade 0-100 (NOVA-based, computed at save from the AI's
+    // per-food classification). Optional: manual meals and older rows have none,
+    // so the daily food-quality average skips them.
+    healthScore: v.optional(v.number()),
   })
     .index("by_user_date", ["userId", "date"])
     // by_user_created — _creationTime is appended automatically to every index

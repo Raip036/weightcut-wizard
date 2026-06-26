@@ -40,7 +40,7 @@ import { FavoritesSheet } from "./dialogs/FavoritesSheet";
 
 const FoodSearchDialog = lazy(() => import("@/components/nutrition/FoodSearchDialog").then((m) => ({ default: m.FoodSearchDialog })));
 const DietAnalysisCard = lazy(() => import("@/components/nutrition/DietAnalysisCard").then((m) => ({ default: m.DietAnalysisCard })));
-const WizardDietScrollOverlay = lazy(() => import("@/components/nutrition/WizardDietScrollOverlay").then((m) => ({ default: m.WizardDietScrollOverlay })));
+const ProtocolGeneratingOverlay = lazy(() => import("@/components/protocol/ProtocolGeneratingOverlay").then((m) => ({ default: m.ProtocolGeneratingOverlay })));
 
 export default function NutritionPage() {
   const { toast } = useToast();
@@ -380,6 +380,9 @@ export default function NutritionPage() {
         grams: Number.isFinite(grams) ? grams : null,
       },
       mealType,
+      // Tag the analytics MEAL_LOGGED event as a barcode scan rather than a
+      // food-search pick (both share the handleFoodSearchSelected insert path).
+      "barcode",
     );
   }, [mealOps.handleFoodSearchSelected]);
 
@@ -494,10 +497,18 @@ export default function NutritionPage() {
               />
             </Suspense>
           ) : nutritionData.dietAnalysisLoading ? (
-            // First-run analysis: the wizard pores over a glowing recipe
-            // scroll right here in the card slot, then becomes the result.
+            // First-run analysis: the premium aurora wizard loader fills the
+            // card slot, then becomes the result.
             <Suspense fallback={null}>
-              <WizardDietScrollOverlay
+              <ProtocolGeneratingOverlay
+                label="Analysing your diet"
+                steps={[
+                  "Reviewing your meals",
+                  "Reading the micronutrients",
+                  "Hunting for gaps",
+                  "Conjuring recommendations",
+                ]}
+                footnote="This usually takes a few seconds."
                 onCancel={() => {
                   cancelAI();
                   if (aiTask) dismissTask(aiTask.id);

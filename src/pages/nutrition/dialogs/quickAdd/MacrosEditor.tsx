@@ -6,6 +6,8 @@ import { useScrollIntoViewOnFocus } from "@/hooks/useScrollIntoViewOnFocus";
 import { AiIngredientList, type AiIngredientItem } from "../AiIngredientList";
 import type { ManualMealForm, AiLineItem } from "@/pages/nutrition/types";
 import { MEAL_TYPES } from "./MealTypeSelector";
+import { scoreFood, scoreMeal } from "@/lib/foodHealthScore";
+import { MealHealthGrade } from "@/components/nutrition/health/MealHealthGrade";
 
 interface MacroOverrides {
   calories?: number;
@@ -72,6 +74,18 @@ export function MacrosEditor({
   const summedAiProtein = aiLineItems.reduce((s, i) => s + i.protein_g, 0);
   const summedAiCarbs = aiLineItems.reduce((s, i) => s + i.carbs_g, 0);
   const summedAiFats = aiLineItems.reduce((s, i) => s + i.fats_g, 0);
+
+  // Whole-food meal grade from the foods the AI classified. Only items that
+  // carry health signals contribute; older cached scans simply show no grade.
+  const healthItems = aiLineItems.filter((i) => i.health);
+  const mealHealth =
+    healthItems.length > 0
+      ? scoreMeal(healthItems.map((i) => ({ calories: i.calories, healthScore: scoreFood(i.health!) })))
+      : null;
+  const mealHealthWorst =
+    mealHealth && mealHealth.worstIndex != null
+      ? healthItems[mealHealth.worstIndex]?.name ?? null
+      : null;
   const totalAiLineItemCalories = overrideTotals.calories ?? summedAiCalories;
   const totalAiProtein = overrideTotals.protein_g ?? summedAiProtein;
   const totalAiCarbs = overrideTotals.carbs_g ?? summedAiCarbs;
@@ -174,6 +188,11 @@ export function MacrosEditor({
             );
           })}
         </div>
+        {mealHealth && (
+          <div className="pt-1">
+            <MealHealthGrade score={mealHealth.score} worstItem={mealHealthWorst} />
+          </div>
+        )}
         <Input
           value={manualMeal.meal_name}
           onChange={(e) => setManualMeal((prev) => ({ ...prev, meal_name: e.target.value }))}

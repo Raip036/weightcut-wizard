@@ -88,11 +88,11 @@ export function FightWeekFormSheet({
       : `${daysOut} days out. Form locked in, built with FightCamp Wizard`;
 
   const handleShare = useCallback(async () => {
-    await captureAndShare(shareTitle, shareText);
+    await captureAndShare(shareTitle, shareText, undefined, "fightweek");
   }, [captureAndShare, shareText]);
 
   const handleDownload = useCallback(async () => {
-    await captureAndDownload(`fight-week-${format(fightDate, "yyyy-MM-dd")}.png`);
+    await captureAndDownload(`fight-week-${format(fightDate, "yyyy-MM-dd")}.png`, undefined, "fightweek");
   }, [captureAndDownload, fightDate]);
 
   return (

@@ -304,7 +304,7 @@ export function PhaseCoachCard({
         triggerHapticSelection();
         navigate("/fight-camps");
       }}
-      className="w-full card-surface rounded-2xl p-4 text-left active:scale-[0.99] transition-transform"
+      className="w-full rounded-2xl p-4 text-left active:scale-[0.99] transition-transform"
     >
       {/* Header row: phase eyebrow ↔ weigh-in countdown on one line. The single
           accent on this card stays the drift verdict (chart + pill). */}

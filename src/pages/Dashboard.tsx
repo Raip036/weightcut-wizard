@@ -51,6 +51,7 @@ import { NextCampFlow } from "@/components/fightcamp/NextCampFlow";
 import { CatchUpSheet } from "@/components/dashboard/CatchUpSheet";
 import { PostFightDebrief } from "@/components/fightcamp/PostFightDebrief";
 import { isFighter } from "@/lib/goalType";
+import { track, EVENTS } from "@/lib/analytics";
 
 // Module-level dedupe so re-mounts within the session don't re-fire identical
 // queries while one is still in flight. Mirrors the pattern in
@@ -965,6 +966,11 @@ export default function Dashboard() {
                 : null
             }
             onAvatarClick={() => navigate('/goals')}
+            streakSlot={
+              <ErrorBoundary fallback={null} silent>
+                <StreakRing minimal />
+              </ErrorBoundary>
+            }
           />
 
           {/* Trial-status banner (auto-renew aware). Self-renders null unless
@@ -1125,14 +1131,6 @@ export default function Dashboard() {
           {userId && <GymInvitesBanner />}
           {userId && <NewAnnouncementWidget userId={userId} />}
 
-          {/* Streak ring — gamified replacement for the old "Last 7 days"
-              completeness strip. Self-fetches `streakStats`; wrapped so a
-              missing server function (pre `npx convex dev`) can't crash the
-              page, mirroring the other dashboard probes. */}
-          <ErrorBoundary fallback={null} silent>
-            <StreakRing />
-          </ErrorBoundary>
-
           <TodayStrip
             adherence={adherence}
             mealsLoggedToday={todayCalories > 0}
@@ -1148,11 +1146,7 @@ export default function Dashboard() {
             }}
           />
 
-          <div className="pt-3 flex items-baseline justify-between">
-            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/80">Your Stats</p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 items-stretch -mt-2">
+          <div className="grid grid-cols-2 gap-3 items-stretch pt-3">
             {/* Weight metric card — Design System v1 Metric Card layout
                 (Figma node 67:725). Eyebrow → big bold value → smaller
                 chart → date + trend at the bottom. The kg/lb toggle
@@ -1163,11 +1157,11 @@ export default function Dashboard() {
                 a visual affordance for that tap). */}
             <button
               type="button"
-              onClick={() => { triggerHapticSelection(); navigate('/weight'); }}
-              className="relative card-surface rounded-2xl p-3 aspect-square flex flex-col text-left card-press min-w-0 w-full overflow-hidden"
+              onClick={() => { triggerHapticSelection(); track(EVENTS.FEATURE_OPENED, { feature: "weight", source: "dashboard" }); navigate('/weight'); }}
+              className="relative rounded-2xl p-3 aspect-square flex flex-col text-left card-press min-w-0 w-full overflow-hidden"
             >
               <div className="flex items-start justify-between w-full">
-                <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
+                <span className="text-micro font-normal uppercase tracking-[0.08em] text-primary">
                   WEIGHT
                 </span>
                 <Icon name="chevronForwardOutline" size={14} className="text-muted-foreground/40" />
@@ -1332,7 +1326,7 @@ export default function Dashboard() {
         </ErrorBoundary>
 
         {weightLogs.length === 0 && (
-          <button onClick={() => navigate('/weight')} className="w-full card-surface rounded-2xl p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all">
+          <button onClick={() => { track(EVENTS.FEATURE_OPENED, { feature: "weight", source: "dashboard" }); navigate('/weight'); }} className="w-full card-surface rounded-2xl p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all">
             <div className="h-9 w-9 rounded-xs bg-primary/10 flex items-center justify-center flex-shrink-0">
               <Icon name="speedometerOutline" size={16} className="text-primary" />
             </div>
@@ -1358,7 +1352,7 @@ export default function Dashboard() {
         {/* Wizard's Daily Wisdom card — conditional states */}
         <div data-tutorial="daily-wisdom-card">
         {!hasTodayLog ? (
-          <button onClick={() => navigate('/weight')} className="w-full card-surface rounded-2xl p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all">
+          <button onClick={() => { track(EVENTS.FEATURE_OPENED, { feature: "weight", source: "dashboard" }); navigate('/weight'); }} className="w-full card-surface rounded-2xl p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all">
             <div className="h-8 w-8 rounded-xs bg-muted/40 flex items-center justify-center flex-shrink-0">
               <Icon name="lockClosedOutline" size={14} className="text-muted-foreground" />
             </div>
@@ -1422,7 +1416,7 @@ export default function Dashboard() {
           {/* Weight History Chart */}
           <div className="card-surface rounded-2xl p-2.5 aspect-square flex flex-col">
             <div className="flex items-center justify-between mb-1">
-              <span className="section-header text-foreground font-bold">Weight</span>
+              <span className="section-header text-primary font-bold">Weight</span>
               <div className="flex gap-0.5 bg-muted rounded-full p-0.5">
                 <Button
                   variant={weightUnit === 'kg' ? 'default' : 'ghost'}
@@ -1482,6 +1476,7 @@ export default function Dashboard() {
                     if (parsed?.planType === "weight_loss") route = "/weight-plan";
                   }
                 } catch { /* malformed — default route stands */ }
+                track(EVENTS.FEATURE_OPENED, { feature: "cut_plan", source: "dashboard" });
                 navigate(route);
               }}
               className="card-surface rounded-2xl p-3 flex items-center gap-2.5 active:scale-[0.98] transition-all text-left"

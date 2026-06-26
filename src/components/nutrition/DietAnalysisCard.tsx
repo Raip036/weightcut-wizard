@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { X, RefreshCw, ChevronDown, Drumstick, CalendarDays, AlertTriangle } from "lucide-react";
 import type { DietAnalysisResult, NutrientGap } from "@/types/dietAnalysis";
 import { groupByCategory, clean } from "@/lib/dietAnalysis";
@@ -17,6 +17,10 @@ const SEVERITY_RANK: Record<NutrientGap["severity"], number> = {
   moderate: 1,
   low: 2,
 };
+
+// Persist the minimise/expand choice so the card stays how the user left it
+// across reloads and revisits, until they change it.
+const MINIMISED_KEY = "diet_analysis_minimised";
 
 interface DietAnalysisCardProps {
   analysis: DietAnalysisResult;
@@ -36,6 +40,26 @@ export function DietAnalysisCard({
 }: DietAnalysisCardProps) {
   const prefersReduced = useReducedMotion();
   const [expanded, setExpanded] = useState(false);
+
+  // Whole-card minimise. Initialised from localStorage so the card opens in the
+  // state the user last chose, and persists on every toggle.
+  const [minimised, setMinimised] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(MINIMISED_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const toggleMinimised = () =>
+    setMinimised((m) => {
+      const next = !m;
+      try {
+        localStorage.setItem(MINIMISED_KEY, next ? "1" : "0");
+      } catch {
+        /* ignore storage failures */
+      }
+      return next;
+    });
 
   const pv = analysis.proteinVerdict;
   const wt = analysis.weeklyTrend;
@@ -72,18 +96,34 @@ export function DietAnalysisCard({
       transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
       className="card-surface p-4 space-y-4"
     >
-      {/* Header */}
+      {/* Header — tap title/chevron to minimise or expand the whole card. */}
       <div className="flex items-center justify-between">
-        <p className="text-[13px] font-semibold text-foreground">Diet Analysis</p>
+        <button
+          type="button"
+          onClick={toggleMinimised}
+          aria-expanded={!minimised}
+          aria-label={minimised ? "Expand diet analysis" : "Minimise diet analysis"}
+          className="flex items-center gap-1.5 -ml-1 rounded-xs px-1 py-0.5 active:bg-muted/40 transition-colors"
+        >
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 text-muted-foreground/70 transition-transform",
+              minimised && "-rotate-90",
+            )}
+          />
+          <p className="text-[13px] font-semibold text-foreground">Diet Analysis</p>
+        </button>
         <div className="flex items-center gap-0.5">
-          <button
-            onClick={onRefresh}
-            disabled={refreshing}
-            aria-label="Re-analyse"
-            className="h-8 w-8 flex items-center justify-center rounded-xs text-muted-foreground/60 active:text-foreground active:bg-muted/40 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
-          </button>
+          {!minimised && (
+            <button
+              onClick={onRefresh}
+              disabled={refreshing}
+              aria-label="Re-analyse"
+              className="h-8 w-8 flex items-center justify-center rounded-xs text-muted-foreground/60 active:text-foreground active:bg-muted/40 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+            </button>
+          )}
           <button
             onClick={onDismiss}
             aria-label="Dismiss"
@@ -94,6 +134,16 @@ export function DietAnalysisCard({
         </div>
       </div>
 
+      <AnimatePresence initial={false}>
+        {!minimised && (
+          <motion.div
+            key="da-body"
+            initial={prefersReduced ? false : { height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
+            className="space-y-4 overflow-hidden"
+          >
       {/* Coverage hero */}
       {hasMicros && (
         <CoverageHero micronutrients={analysis.micronutrients} topGap={sortedGaps[0]} />
@@ -119,10 +169,7 @@ export function DietAnalysisCard({
                 {pv.gPerKg}
                 <span className="text-[11px] font-bold text-muted-foreground/70"> g/kg</span>
               </p>
-              <p
-                className="mt-1 text-[11px] leading-tight"
-                style={{ color: pv.verdict === "low" ? "rgb(245 158 11)" : "rgb(16 185 129)" }}
-              >
+              <p className="mt-1 text-[11px] leading-tight text-muted-foreground/80">
                 {pv.verdict === "low"
                   ? `${pv.shortfallG}g short of ${pv.targetG}g`
                   : pv.verdict === "high"
@@ -157,7 +204,7 @@ export function DietAnalysisCard({
                   </>
                 )}
               </p>
-              <p className="mt-1 text-[11px] text-muted-foreground/80 leading-tight line-clamp-2">
+              <p className="mt-1 text-[11px] text-muted-foreground/80 leading-snug">
                 {clean(wt.note)}
               </p>
             </div>
@@ -224,6 +271,9 @@ export function DietAnalysisCard({
           Couldn't read enough to analyse, log a couple more meals and try again.
         </div>
       )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

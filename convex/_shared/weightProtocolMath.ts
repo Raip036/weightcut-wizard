@@ -19,6 +19,8 @@
  * helper that both contexts can re-export.
  */
 
+import { resolveWeighInIso } from "./weighInTiming";
+
 // ────────────────────────────────────────────────────────────────────────────
 // Public types
 // ────────────────────────────────────────────────────────────────────────────
@@ -280,11 +282,15 @@ export function computeDerived(
 
   // Dates.
   const fightIso = (camp.fightDate || "").slice(0, 10);
+  // When no explicit weigh-in date is supplied, derive it from the fight date
+  // and the athlete's weigh-in timing (day_before → fight − 1, same_day →
+  // fight). Single source of truth in `resolveWeighInIso` — same-day athletes
+  // must NOT get a phantom extra day.
   const weighInIso =
     camp.weighInDate && camp.weighInDate.length >= 10
       ? camp.weighInDate.slice(0, 10)
       : fightIso
-        ? isoOffsetDays(fightIso, -1)
+        ? resolveWeighInIso(fightIso, profile.weighInTiming)
         : "";
 
   const weighInHourLocal = parseTimeToHours(camp.weighInTime, 11);

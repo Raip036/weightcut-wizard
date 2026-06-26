@@ -125,8 +125,10 @@ export const getRecent = query({
         const sport = w.sessionType?.trim() || "Training";
         return {
           kind: "workout",
-          title: `${sport} — ${duration} min`,
-          value: typeof w.rpe === "number" ? `RPE ${w.rpe}` : null,
+          title: sport,
+          // Right-side metric is the session duration (not RPE), keeping the
+          // feed's value column consistent with kg / h / Hooper elsewhere.
+          value: `${duration} min`,
           timestamp: w._creationTime,
           route: "/training-calendar",
         };

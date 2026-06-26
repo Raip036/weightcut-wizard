@@ -9,6 +9,7 @@ import { useAITask } from "@/contexts/AITaskContext";
 import { AIPersistence } from "@/lib/aiPersistence";
 import { createAIAbortController } from "@/lib/timeoutWrapper";
 import { logger } from "@/lib/logger";
+import { track, EVENTS } from "@/lib/analytics";
 import { clampMealCount, computePlanTotals, isOnTarget } from "@/lib/mealPlan";
 import { Activity, Utensils, CheckCircle } from "lucide-react";
 import type { Meal, DayPlan, DayPlanMeal, MealTargets } from "@/pages/nutrition/types";
@@ -218,6 +219,8 @@ export function useMealPlanGeneration(params: UseMealPlanGenerationParams) {
       setIsAiDialogOpen(false);
       setAiPrompt("");
       completeTask(taskId, data);
+      // Analytics: a meal-plan-ideas artifact was successfully generated.
+      track(EVENTS.PLAN_GENERATED, { type: "meal_plan" });
     } catch (error: any) {
       if (error?.name === 'AbortError' || controller.signal.aborted) return;
       logger.error("Error generating meal plan", error);
@@ -285,6 +288,8 @@ export function useMealPlanGeneration(params: UseMealPlanGenerationParams) {
         generatedAt: Date.now(), dateIso: selectedDate, targetsSnapshot: targets,
         prompt: aiPrompt, mealCount, plan,
       }, 24);
+      // Analytics: a day-planner artifact was successfully generated.
+      track(EVENTS.PLAN_GENERATED, { type: "meal_plan" });
     } catch (error: any) {
       logger.error("Error generating day plan", error);
       toast({ title: "Error generating meal plan", description: error?.message || "Failed to generate meal plan", variant: "destructive" });

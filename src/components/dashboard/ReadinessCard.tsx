@@ -62,10 +62,10 @@ export function ReadinessCard({ userId }: ReadinessCardProps) {
         triggerHapticSelection();
         navigate("/recovery");
       }}
-      className="relative card-surface rounded-2xl p-3 aspect-square flex flex-col text-left card-press min-w-0 w-full overflow-hidden"
+      className="relative rounded-2xl p-3 aspect-square flex flex-col text-left card-press min-w-0 w-full overflow-hidden"
     >
       <div className="flex items-start justify-between w-full">
-        <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
+        <span className="text-micro font-normal uppercase tracking-[0.08em] text-primary">
           RECOVERY
         </span>
         {/* Locked users get no Pro pill here, the shimmering crown badge in
@@ -85,13 +85,7 @@ export function ReadinessCard({ userId }: ReadinessCardProps) {
           </div>
 
           <div className="flex-1 min-h-0 mt-2">
-            {hasData ? (
-              <Sparkline data={series} className="h-full w-full" />
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-center">
-                <Icon name="pulseOutline" size={14} className="text-muted-foreground/40" />
-              </div>
-            )}
+            {hasData && <Sparkline data={series} className="h-full w-full" />}
           </div>
 
           {/* Footer row: 7-day avg. */}

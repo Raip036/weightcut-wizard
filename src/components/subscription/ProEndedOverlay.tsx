@@ -18,7 +18,7 @@ export function ProEndedOverlay() {
   const onReactivate = () => {
     setDevOpen(false);
     dismissProEnded();
-    openPaywall();
+    openPaywall("pro_ended");
   };
   return (
     <ProEndedDialog

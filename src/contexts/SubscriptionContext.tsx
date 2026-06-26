@@ -11,6 +11,7 @@ import {
 import { useAction, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { logger } from "@/lib/logger";
+import { track, EVENTS } from "@/lib/analytics";
 import type { Tier } from "@/lib/featureGates";
 
 // ─── localStorage scope ───────────────────────────────────────────────────
@@ -79,7 +80,12 @@ interface SubscriptionContextType {
   isTrialActive: boolean;
   isPaywallOpen: boolean;
   isSubscriptionResolved: boolean;
-  openPaywall: () => void;
+  /** Opens the purchase paywall. Pass a short, PII-free `source` string (e.g.
+   *  "recovery", "cut_plan") so the PAYWALL_VIEWED analytics event records
+   *  where the upsell was triggered. Typed `unknown` (not `string`) so the
+   *  callback can still be handed straight to an onClick/onUpgrade handler
+   *  without a type error; non-string args are ignored for analytics. */
+  openPaywall: (source?: unknown) => void;
   closePaywall: () => void;
   // `forcePremium` is intentionally removed. The Convex `profile.subscription_tier`
   // (written only by the server-verified `activatePremium` action or the RC
@@ -248,6 +254,10 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     const wasPremium = wasPremiumRef.current;
     wasPremiumRef.current = isPremium;
     if (!isPremium || wasPremium || !userId) return;
+    // Genuine free→pro transition this session = premium just activated
+    // client-side (RC purchase verified or webhook landed). Fire once per
+    // upgrade; the wasPremium guard above prevents duplicates on re-render.
+    track(EVENTS.SUBSCRIBED, { tier: profileRef.current?.subscription_tier ?? "premium" });
     if (profileRef.current?.welcome_pro_shown_at != null) return;
     let cancelled = false;
     (async () => {
@@ -374,8 +384,15 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [userId, reconcileEntitlement]);
 
-  const openPaywall = useCallback(() => {
+  const openPaywall = useCallback((source?: unknown) => {
     if (isPremium) return;
+    // `source` is typed `unknown` so passing the callback straight to an
+    // onClick/onUpgrade handler (which would call it with a DOM event) can't
+    // leak an event object into analytics — only string sources are recorded.
+    track(EVENTS.PAYWALL_VIEWED, {
+      source: typeof source === "string" ? source : undefined,
+      surface: "checkout",
+    });
     setIsPaywallOpen(true);
   }, [isPremium]);
   const closePaywall = useCallback(() => setIsPaywallOpen(false), []);

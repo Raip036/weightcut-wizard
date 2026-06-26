@@ -10,6 +10,7 @@ import { AIPersistence } from "@/lib/aiPersistence";
 import { createAIAbortController, extractEdgeFunctionError } from "@/lib/timeoutWrapper";
 import { triggerHapticSuccess } from "@/lib/haptics";
 import { logger } from "@/lib/logger";
+import { track, EVENTS } from "@/lib/analytics";
 import { Utensils, PieChart, Search, CheckCircle } from "lucide-react";
 import type { Meal, MacroGoals } from "@/pages/nutrition/types";
 import type { DietAnalysisResult } from "@/types/dietAnalysis";
@@ -116,6 +117,9 @@ export function useDietAnalysis(params: UseDietAnalysisParams) {
       AIPersistence.save(userId, cacheKey, result, 6);
       completeTask(taskId, result);
       triggerHapticSuccess();
+      // Analytics: a fresh diet-analysis artifact was generated (cached early
+      // returns above never reach here, so this only fires on real generation).
+      track(EVENTS.PLAN_GENERATED, { type: "diet_analysis" });
     } catch (error: any) {
       if (error?.name === 'AbortError' || dietController.signal.aborted) return;
       logger.error("Error analysing diet", error);

@@ -15,7 +15,7 @@ export function InsightsRow({ insights }: { insights: KeyInsight[] }) {
         {rows.map((insight, i) => {
           const perf = insight.focus === "performance";
           const Icon = perf ? Zap : Heart;
-          const tint = perf ? "rgb(245 158 11)" : "rgb(16 185 129)";
+          const tint = "hsl(217 91% 58%)"; // wizard blue; this card uses only plain/blue text
           return (
             <div key={i} className="flex items-start gap-2 rounded-xl bg-muted/15 px-3 py-2.5">
               <div

@@ -206,8 +206,13 @@ Rules:
 - Copy each item's "bbox" verbatim from the vision observation. If absent, omit it — do not invent coordinates.
 - Copy each item's "confidence" ("high"|"medium"|"low") verbatim from the vision observation. If absent, omit it — do not invent one.
 - "meal_name": copy verbatim from the vision observation's meal_name. If missing/empty, generate a short (<=40 chars), specific descriptive name based on the visible items (e.g. "Grilled chicken & rice bowl"). Never use "Meal" or "Logged meal".
+- For each item, classify how processed it is (this grades whole food vs ultra-processed):
+  - "novaClass": 1 to 4. 1 = unprocessed or minimally processed whole foods (meat, fish, eggs, vegetables, fruit, plain grains, nuts). 2 = processed culinary ingredients (oil, butter, sugar, salt). 3 = processed foods (cheese, fresh bread, canned fish, cured meat). 4 = ultra-processed (fast food, soda, candy, packaged snacks, crisps, most protein bars, instant noodles).
+  - "ingredientCount": number of distinct ingredients in the food, 1 for a single whole ingredient.
+  - "additivesCount": count of artificial additives (preservatives, sweeteners, colors, flavors, emulsifiers, thickeners), 0 for whole foods.
+  - "isWholeFood": true ONLY for a single recognizable whole ingredient (a steak, an egg, an apple, plain oats). Use standard knowledge of the named food.
 
-{ "meal_name": "...", "calories": n, "protein_g": n, "carbs_g": n, "fats_g": n, "items": [{ "name": "...", "quantity": "...", "calories": n, "protein_g": n, "carbs_g": n, "fats_g": n, "confidence": "high|medium|low", "bbox": { "x": n, "y": n, "w": n, "h": n } }] }`;
+{ "meal_name": "...", "calories": n, "protein_g": n, "carbs_g": n, "fats_g": n, "items": [{ "name": "...", "quantity": "...", "calories": n, "protein_g": n, "carbs_g": n, "fats_g": n, "confidence": "high|medium|low", "novaClass": 1, "ingredientCount": n, "additivesCount": n, "isWholeFood": true, "bbox": { "x": n, "y": n, "w": n, "h": n } }] }`;
       const reasoningUser = cleanDesc
         ? `Vision observation:
 ${JSON.stringify(visionObservation, null, 2)}
@@ -243,7 +248,9 @@ ${PROMPT_INJECTION_GUARD_INSTRUCTION}
 
 Parse quantities precisely (e.g. "4 chicken breasts" = 4x). Per-item totals reflect the ACTUAL quantity.
 
-{ "meal_name": "...", "calories": n, "protein_g": n, "carbs_g": n, "fats_g": n, "items": [{ "name": "...", "quantity": "...", "calories": n, "protein_g": n, "carbs_g": n, "fats_g": n }] }`;
+For each item also classify how processed it is: "novaClass" 1 to 4 (1 unprocessed/minimally processed whole foods, 2 culinary ingredients like oil/butter/sugar, 3 processed foods like cheese/bread/canned, 4 ultra-processed like fast food/soda/candy/snacks/most protein bars), "ingredientCount" (distinct ingredients, 1 for a whole food), "additivesCount" (artificial additives, 0 for whole foods), "isWholeFood" (true only for a single recognizable whole ingredient). Use standard knowledge of the named food.
+
+{ "meal_name": "...", "calories": n, "protein_g": n, "carbs_g": n, "fats_g": n, "items": [{ "name": "...", "quantity": "...", "calories": n, "protein_g": n, "carbs_g": n, "fats_g": n, "novaClass": 1, "ingredientCount": n, "additivesCount": n, "isWholeFood": true }] }`;
       const content = await callGroqText({
         model: "openai/gpt-oss-120b",
         messages: [

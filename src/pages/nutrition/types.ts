@@ -1,3 +1,5 @@
+import type { FoodHealthInputs } from "@/lib/foodHealthScore";
+
 export interface Ingredient {
   name: string;
   grams: number;
@@ -32,6 +34,10 @@ export interface AiLineItem {
   // multiplier (½×/1×/1½×/2×) scale relative to the original instead of
   // compounding off prior edits. UI-only — never persisted.
   base?: { calories: number; protein_g: number; carbs_g: number; fats_g: number };
+  // Processing-based health signals from the AI (NOVA class, ingredient/additive
+  // counts, whole-food flag). Drives the meal grade + per-food rating. Absent on
+  // older cached results, in which case the UI hides the health rating.
+  health?: FoodHealthInputs;
 }
 
 // ── DB-backed type aliases. Hand-written snake_case shape that the
@@ -87,6 +93,7 @@ export interface MealWithTotalsRow {
   item_count: number;
   created_at?: string;
   photo_url?: string | null;
+  health_score?: number | null;
 }
 
 /** Foods catalog row (USDA / OFF / user / AI sourced). */
@@ -129,6 +136,9 @@ export interface Meal {
   item_count?: number | null;
   created_at?: string;
   photo_url?: string | null;
+  // Whole-food meal grade 0-100. Present on AI-scanned, DB-sourced rows; absent
+  // on manual meals and older rows. Drives the daily food-quality average.
+  health_score?: number | null;
 }
 
 export interface MacroGoals {

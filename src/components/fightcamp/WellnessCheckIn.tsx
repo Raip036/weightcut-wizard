@@ -7,6 +7,7 @@ import { api } from "@/../convex/_generated/api";
 import { triggerHapticSelection, celebrateSuccess } from "@/lib/haptics";
 import type { WellnessCheckIn as WellnessCheckInData } from "@/utils/performanceEngine";
 import { logger } from "@/lib/logger";
+import { track, EVENTS } from "@/lib/analytics";
 import { WizardCharacter } from "@/tutorial/WizardCharacter";
 import type { WizardPose } from "@/tutorial/types";
 import { WellnessResult } from "./WellnessResult";
@@ -319,6 +320,13 @@ export function WellnessCheckIn({ userId, onSubmit, isSubmitting, streak, date }
         hooperIndex,
       });
       celebrateSuccess();
+      // Wellness/Hooper check-in is the single recovery+wellness survey in this
+      // app, so this is the only check-in event we emit. Numeric Hooper index
+      // only (no free-text), categorical band label — both PII-free.
+      track(EVENTS.WELLNESS_CHECKIN, {
+        hooper_index: hooperIndex,
+        band: hooperLabel,
+      });
     } catch (err) {
       logger.error("Failed to persist wellness check-in", err);
     }

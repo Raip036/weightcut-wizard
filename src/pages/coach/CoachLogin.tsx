@@ -16,6 +16,7 @@ import { ImpactStyle } from "@capacitor/haptics";
 import { routeAfterAuth } from "@/lib/roleRouter";
 import { mapAuthError } from "@/lib/authErrors";
 import { logger } from "@/lib/logger";
+import { track, EVENTS } from "@/lib/analytics";
 import wizardLogo from "@/assets/wizard-logo-3d.png";
 
 const inputClass =
@@ -96,6 +97,9 @@ export default function CoachLogin() {
           setErrorMsg(mapAuthError(err, "signUp"));
           return;
         }
+        // Brand-new coach account created (signUp flow, not signIn) —
+        // activation funnel entry point. Fired only after the await resolves.
+        track(EVENTS.SIGNED_UP, { method: "password", role: "coach" });
         // Belt-and-braces: convex/auth.ts now persists `role: "coach"` on
         // the bootstrap row directly from the signUp params, so this is a
         // no-op for fresh accounts. We keep the call to cover the edge

@@ -1,4 +1,4 @@
-import { status, clean } from "@/lib/dietAnalysis";
+import { clean } from "@/lib/dietAnalysis";
 import type { NutrientGap } from "@/types/dietAnalysis";
 
 const SECTION_LABEL =
@@ -11,21 +11,17 @@ export function GapsList({ gaps }: { gaps: NutrientGap[] }) {
       <p className={`${SECTION_LABEL} mb-2`}>Gaps to close</p>
       <div className="space-y-1.5">
         {gaps.map((gap) => {
-          const c = status(gap.percentRDA).color;
           return (
             <div
               key={gap.nutrient}
-              className="rounded-xl bg-amber-500/[0.06] ring-1 ring-amber-500/15 px-3 py-2.5"
+              className="rounded-xl bg-muted/15 ring-1 ring-border/40 px-3 py-2.5"
             >
               <div className="flex items-center gap-2">
-                <span
-                  className="h-2 w-2 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: c }}
-                />
+                <span className="h-2 w-2 rounded-full flex-shrink-0 bg-primary" />
                 <span className="text-[13px] font-semibold text-foreground flex-1">
                   {gap.nutrient}
                 </span>
-                <span className="text-[11px] tabular-nums font-semibold" style={{ color: c }}>
+                <span className="text-[11px] tabular-nums font-semibold text-primary">
                   {gap.percentRDA}%
                 </span>
               </div>

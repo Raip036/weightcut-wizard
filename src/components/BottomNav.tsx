@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
+import IOSAlert from "@/components/ui/IOSAlert";
 import { SettingsPanel } from "@/components/nav/SettingsPanel";
 import { ReviewSheet } from "@/components/community/ReviewSheet";
 import {
@@ -81,7 +82,9 @@ export const BottomNav = memo(function BottomNav() {
   const goalType = (profile?.goal_type as 'cutting' | 'losing') ?? 'cutting';
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
-  const [deleteAccountDialogOpen, setDeleteAccountDialogOpen] = useState(false);
+  // Two-step delete confirmation: "warn" (data-loss warning) -> "confirm"
+  // (last chance, runs the deletion). "idle" = no prompt showing.
+  const [deleteStep, setDeleteStep] = useState<"idle" | "warn" | "confirm">("idle");
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [editedName, setEditedName] = useState(userName);
@@ -223,7 +226,7 @@ export const BottomNav = memo(function BottomNav() {
     try {
       await deleteAccount({});
       await signOut();
-      setDeleteAccountDialogOpen(false);
+      setDeleteStep("idle");
       setSettingsDialogOpen(false);
       navigate("/auth");
       toast({ title: "Account deleted", description: "Your account and all data have been permanently deleted." });
@@ -474,7 +477,7 @@ export const BottomNav = memo(function BottomNav() {
         }}
         onSave={handleUpdateProfile}
         onReplayTutorial={handleReplayTutorial}
-        onDeleteAccount={() => { setSettingsDialogOpen(false); setDeleteAccountDialogOpen(true); }}
+        onDeleteAccount={() => { setSettingsDialogOpen(false); setDeleteStep("warn"); }}
         goalType={goalType}
         onToggleGoalType={handleToggleGoalType}
       />
@@ -503,37 +506,30 @@ export const BottomNav = memo(function BottomNav() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete Account Confirmation Dialog */}
-      <AlertDialog open={deleteAccountDialogOpen} onOpenChange={(open) => { if (!deleteLoading) setDeleteAccountDialogOpen(open); }}>
-        <AlertDialogContent className="max-w-[240px] rounded-xs p-0 border-0 bg-card/90 backdrop-blur-xl overflow-hidden gap-0">
-          <VisuallyHidden><AlertDialogTitle>Delete Account</AlertDialogTitle></VisuallyHidden>
-          <AlertDialogDescription asChild>
-            <div className="pt-4 pb-3 px-4 text-center">
-              <p className="text-[15px] font-semibold text-foreground">Delete Account</p>
-              <p className="text-[13px] text-muted-foreground mt-0.5 leading-snug">
-                This will permanently delete your account and all data. This cannot be undone.
-              </p>
-            </div>
-          </AlertDialogDescription>
-          <div className="border-t border-border/40">
-            <button
-              onClick={handleDeleteAccount}
-              disabled={deleteLoading}
-              className="w-full py-2.5 text-[14px] font-semibold text-destructive active:bg-muted/50 transition-colors disabled:opacity-40"
-            >
-              {deleteLoading ? "Deleting..." : "Delete Account"}
-            </button>
-            <div className="border-t border-border/40" />
-            <button
-              onClick={() => setDeleteAccountDialogOpen(false)}
-              disabled={deleteLoading}
-              className="w-full py-2.5 text-[14px] font-normal text-primary active:bg-muted/50 transition-colors disabled:opacity-40"
-            >
-              Cancel
-            </button>
-          </div>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Delete Account: two-step iOS-native confirmation. */}
+      {/* Step 1 - data-loss warning. */}
+      <IOSAlert
+        open={deleteStep === "warn"}
+        title="Delete Account?"
+        message="This permanently deletes your account and all of your data. Your fight camps, logs, weight history, and progress will be gone. This cannot be undone."
+        onBackdrop={() => setDeleteStep("idle")}
+        actions={[
+          { label: "Delete Account", style: "destructive", onPress: () => setDeleteStep("confirm") },
+          { label: "Cancel", style: "cancel", onPress: () => setDeleteStep("idle") },
+        ]}
+      />
+      {/* Step 2 - last chance, actually deletes. */}
+      <IOSAlert
+        open={deleteStep === "confirm"}
+        loading={deleteLoading}
+        title="Are you absolutely sure?"
+        message="This is your last chance. Your account and everything in it will be permanently erased."
+        onBackdrop={() => { if (!deleteLoading) setDeleteStep("idle"); }}
+        actions={[
+          { label: "Confirm Delete", style: "destructive", loadingLabel: "Deleting...", onPress: handleDeleteAccount },
+          { label: "Cancel", style: "cancel", onPress: () => setDeleteStep("idle") },
+        ]}
+      />
     </>
   );
 });
@@ -742,8 +738,15 @@ function RoundCardFab({ options, onTap, onSelect, tooltip }: RoundCardFabProps) 
   const [quickLogPulse, setQuickLogPulse] = useState(false);
   useEffect(() => {
     const onPulse = () => setQuickLogPulse(true);
+    // Stop pulsing when the tour ends, otherwise the FAB keeps pulsing until
+    // the app is force-quit.
+    const onEnd = () => setQuickLogPulse(false);
     window.addEventListener("tutorial:pulse-quick-log", onPulse);
-    return () => window.removeEventListener("tutorial:pulse-quick-log", onPulse);
+    window.addEventListener("tutorial:end", onEnd);
+    return () => {
+      window.removeEventListener("tutorial:pulse-quick-log", onPulse);
+      window.removeEventListener("tutorial:end", onEnd);
+    };
   }, []);
 
   return (

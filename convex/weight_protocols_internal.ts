@@ -28,6 +28,7 @@
  */
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
+import { resolveWeighInIso } from "./_shared/weighInTiming";
 // NOTE: `internal` (from ./_generated/api) was previously used to schedule
 // the drift-triggered fight-plan auto-regen from `maybeRegen`. That path is
 // now disabled (fight plan is manual-only — see `maybeRegen` step 6), so the
@@ -163,12 +164,15 @@ export const gatherInputs = internalQuery({
       },
       camp: {
         fightDate: camp.fightDate,
-        // `fight_camps` only stores `weighInTiming` (a free-form strategy
-        // string like "morning_of" / "day_before"); the actual weigh-in
-        // date is derived from the fight_week_plan row when present, else
-        // we treat the fight date as the weigh-in date (worst-case
-        // morning-of).
-        weighInDate: matchedPlan?.fightDate ?? camp.fightDate,
+        // The weigh-in date is the true make-weight day and the plan's end
+        // day. Derive it from the fight date + weigh-in timing: day_before →
+        // fight − 1, same_day → fight. `fight_week_plans.fightDate` is itself
+        // the FIGHT date, so resolve from it (or the camp's) the same way —
+        // never let the fight date silently stand in as the weigh-in date.
+        weighInDate: resolveWeighInIso(
+          matchedPlan?.fightDate ?? camp.fightDate,
+          profile.weighInTiming ?? camp.weighInTiming,
+        ),
         weighInTime: camp.weighInTiming ?? null,
         targetWeightKg:
           matchedPlan?.targetWeightKg ?? profile.goalWeightKg,

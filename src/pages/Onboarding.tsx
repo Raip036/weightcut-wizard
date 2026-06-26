@@ -21,6 +21,7 @@ import { profileSchema } from "@/lib/validation";
 import { celebrateSuccess, triggerHaptic, triggerHapticSelection } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
 import { logger } from "@/lib/logger";
+import { track, EVENTS } from "@/lib/analytics";
 import { seedDemoData } from "@/lib/demoData";
 import { Capacitor } from "@capacitor/core";
 import { AnimatePresence, motion } from "motion/react";
@@ -400,6 +401,19 @@ export default function Onboarding() {
     // bounce straight back to /dashboard the moment the page mounted.
     if (hasProfile && !stayOnOnboarding && !isRestartingCamp) navigate("/dashboard", { replace: true });
   }, [authLoading, hasProfile, isCoach, navigate, stayOnOnboarding, isRestartingCamp]);
+
+  // Analytics: fire ONBOARDING_STEP_COMPLETED once per FORWARD advance,
+  // tagged with the step the user just finished. Watching the committed
+  // `step` value (rather than a click handler) captures every advance path
+  // — direct, slam-deferred, and name-continue — and only after the state
+  // actually settles. Back navigation (step decreases) is ignored.
+  const lastTrackedStepRef = useRef(1);
+  useEffect(() => {
+    if (step > lastTrackedStepRef.current) {
+      track(EVENTS.ONBOARDING_STEP_COMPLETED, { step: lastTrackedStepRef.current });
+    }
+    lastTrackedStepRef.current = step;
+  }, [step]);
 
   // Step 13 (plan_aggressiveness, "how aggressive / how fast") only applies
   // to non-fighters. Fighters' pace is determined by the fight date alone, so
@@ -989,6 +1003,12 @@ export default function Onboarding() {
       if (planPayload) {
         localStorage.removeItem("wcw_cut_plan_seen"); // Force user to see plan first
         celebrateSuccess();
+        // Onboarding fully finished: profile saved, camp created (fighter
+        // flow), and the AI plan resolved. Categorical props only, no PII.
+        track(EVENTS.ONBOARDING_COMPLETED, {
+          goal_type: formData.goal_type || "losing",
+          weigh_in_timing: formData.weigh_in_timing || "day_before",
+        });
         // Render the plan in-place below the chart. The Continue button on
         // InlinePlanDisplay sets `wcw_onboarding_just_completed` and routes
         // to /dashboard, which auto-triggers the tutorial flow.

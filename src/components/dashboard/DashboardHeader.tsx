@@ -13,6 +13,8 @@ interface DashboardHeaderProps {
   campStartISO?: string | null;
   /** Pace verdict; tints the ring. Defaults to neutral. */
   paceState?: "ok" | "behind" | "ahead" | null;
+  /** Minimal streak chip rendered inline beside the date. */
+  streakSlot?: React.ReactNode;
   onAvatarClick: () => void;
 }
 
@@ -44,6 +46,7 @@ export const DashboardHeader = memo(function DashboardHeader({
   targetDateISO,
   campStartISO,
   paceState,
+  streakSlot,
   onAvatarClick,
 }: DashboardHeaderProps) {
   // Ring fill = % of camp elapsed. Falls back to 0 (empty ring) when we
@@ -163,7 +166,7 @@ export const DashboardHeader = memo(function DashboardHeader({
       {/* Date, small caps Inter Light. Hugs the avatar row above (tight
           mt) so it reads as a unit; the wrapper's pb-1.5 + the parent
           space-y gap give it breathing room from the ring below. */}
-      <div className="mt-2.5 pl-0.5">
+      <div className="mt-2.5 pl-0.5 flex items-center justify-between gap-3">
         <p className="text-micro uppercase tracking-[0.15em] font-light text-muted-foreground/70">
           {new Date().toLocaleDateString("en-US", {
             weekday: "long",
@@ -171,6 +174,7 @@ export const DashboardHeader = memo(function DashboardHeader({
             day: "numeric",
           })}
         </p>
+        {streakSlot}
       </div>
     </div>
   );

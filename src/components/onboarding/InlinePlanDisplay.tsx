@@ -12,7 +12,7 @@
  *      bar (carbs-leading) and the maintain/deficit/target math
  *   3. Coach note (one-line plan intent, no em-dashes)
  *   4. Daily Focus block ONCE at the top (no per-week repetition)
- *   5. Phase cards: icon badge + phase colour, staggered spring entrance
+ *   5. Phase rows: colour-coded phase dot, staggered spring entrance
  *   6. Week-by-week accordion: collapsed summary row, expand for macros
  *   7. Fight Week protocol: carb bars, taper- or hold-aware header
  *   8. Plan rules + safety + tomorrow anchor (no plan-ID footer)
@@ -30,11 +30,6 @@ import {
   ChevronDown,
   Flame,
   Moon,
-  Sprout,
-  Hammer,
-  Mountain,
-  Flag,
-  Swords,
 } from "lucide-react";
 import { AnimatedNumber } from "@/components/motion";
 import { triggerHaptic } from "@/lib/haptics";
@@ -154,31 +149,14 @@ const PHASE_RAIL: Record<WeekPhase, string> = {
   fight_week: "bg-func-warning-yellow",
 };
 
-// Dot + soft icon-badge tints, keyed per phase. The badge `bg` is the
-// translucent wash, `text` is the icon colour (mirrors Recovery pillar
-// `iconTone` styling: a 10x10 rounded-xl badge with a tinted glyph).
+// Phase dot colour, keyed per phase. The same dot is used on the phase
+// rows and the week-by-week accordion, so the two read as one system.
 const PHASE_DOT: Record<WeekPhase, string> = {
   foundation: "bg-sky-500",
   build: "bg-primary",
   peak: "bg-secondary",
   final: "bg-func-warning-yellow",
   fight_week: "bg-func-warning-yellow",
-};
-
-const PHASE_BADGE: Record<WeekPhase, string> = {
-  foundation: "text-sky-400",
-  build: "text-primary",
-  peak: "text-secondary",
-  final: "text-func-warning-yellow",
-  fight_week: "text-func-warning-yellow",
-};
-
-const PHASE_ICON: Record<WeekPhase, typeof Sprout> = {
-  foundation: Sprout,
-  build: Hammer,
-  peak: Mountain,
-  final: Flag,
-  fight_week: Swords,
 };
 
 const PHASE_LABEL: Record<WeekPhase, string> = {
@@ -192,9 +170,15 @@ const PHASE_LABEL: Record<WeekPhase, string> = {
 // Recovery-matched spring entrance, reused across the main sections.
 const ENTER_SPRING = { type: "spring", damping: 22, stiffness: 260 } as const;
 
-// ─── Util: clean em-dashes from any AI string ─────────────────────────
+// ─── Util: strip every dash the AI uses as a clause break ─────────────
+// Em / en dashes and the spaced hyphen ("grind - tighten") all become a
+// comma, so no copy in the plan ever reads as a dash.
 const cleanText = (s: string | undefined | null): string =>
-  (s ?? "").replace(/—/g, ",").replace(/–/g, ",").replace(/\s*,\s*,\s*/g, ", ").trim();
+  (s ?? "")
+    .replace(/\s*[—–]\s*/g, ", ")
+    .replace(/\s+-\s+/g, ", ")
+    .replace(/\s*,\s*,\s*/g, ", ")
+    .trim();
 
 // ─── Hero ring ───────────────────────────────────────────────────────
 // The big −X.X kg counts up on mount (AnimatedNumber), the progress arc
@@ -535,7 +519,6 @@ function PhasePills({
       </p>
       <div className="space-y-2">
         {phases.map((p, index) => {
-          const PhaseIcon = PHASE_ICON[p.name];
           return (
             <motion.button
               key={`${p.name}-${p.weekStart}`}
@@ -551,11 +534,10 @@ function PhasePills({
             >
               <div className={`w-1 shrink-0 ${PHASE_RAIL[p.name]}`} aria-hidden />
               <div className="flex-1 flex items-center gap-3 p-3.5 text-left min-w-0">
-                <div
-                  className={`h-10 w-10 shrink-0 rounded-xl flex items-center justify-center ${PHASE_BADGE[p.name]}`}
-                >
-                  <PhaseIcon className="h-5 w-5" strokeWidth={2.2} />
-                </div>
+                <span
+                  className={`h-2.5 w-2.5 shrink-0 rounded-full ${PHASE_DOT[p.name]}`}
+                  aria-hidden
+                />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline justify-between gap-2 mb-1">
                     <p className="text-[14px] font-bold text-foreground">
@@ -581,19 +563,16 @@ function PhasePills({
 
 // ─── Week accordion row ──────────────────────────────────────────────
 // Collapsed: phase dot + "Week N · Phase" + target weight + calories +
-// chevron. Expanded (Recovery height/opacity transition): the 4 macro
-// tiles + any risk / recovery / tough chips. The phase rail accent stays
-// down the left edge.
+// chevron. Expanded (Recovery height/opacity transition): the hero line +
+// 4 macro tiles. The phase rail accent stays down the left edge.
 function WeekAccordionRow({
   row,
   isToughest,
-  toughReason,
   open,
   onToggle,
 }: {
   row: WeekRow;
   isToughest?: boolean;
-  toughReason?: string;
   open: boolean;
   onToggle: () => void;
 }) {
@@ -711,30 +690,6 @@ function WeekAccordionRow({
                   </div>
                 </div>
 
-                {/* Risk / recovery notes: plain text lines in the body font,
-                    normal colours, no tinted pill boxes. */}
-                {(row.risk || row.recovery || toughReason) && (
-                  <div className="flex flex-col gap-1.5 mt-2.5">
-                    {toughReason && (
-                      <p className="flex items-start gap-1.5 text-[12px] text-muted-foreground leading-snug">
-                        <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5 text-muted-foreground/70" />
-                        {cleanText(toughReason)}
-                      </p>
-                    )}
-                    {row.risk && (
-                      <p className="flex items-start gap-1.5 text-[12px] text-muted-foreground leading-snug">
-                        <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5 text-muted-foreground/70" />
-                        {cleanText(row.risk)}
-                      </p>
-                    )}
-                    {row.recovery && (
-                      <p className="flex items-start gap-1.5 text-[12px] text-muted-foreground leading-snug">
-                        <ShieldCheck className="h-3 w-3 shrink-0 mt-0.5 text-muted-foreground/70" />
-                        {cleanText(row.recovery)}
-                      </p>
-                    )}
-                  </div>
-                )}
               </div>
             </motion.div>
           )}
@@ -1050,7 +1005,6 @@ export function InlinePlanDisplay({
   }, [planData.weeklyPlan]);
 
   const toughestWeek = planData.toughestWeek?.week;
-  const toughReason = planData.toughestWeek?.reason;
 
   const week1 = planData.weeklyPlan[0];
 
@@ -1137,7 +1091,6 @@ export function InlinePlanDisplay({
             key={row.week}
             row={row}
             isToughest={toughestWeek === row.week}
-            toughReason={toughestWeek === row.week ? toughReason : undefined}
             open={openWeek === row.week}
             onToggle={() =>
               setOpenWeek((cur) => (cur === row.week ? null : row.week))

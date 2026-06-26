@@ -63,9 +63,13 @@ describe("cleanFoodName", () => {
 });
 
 describe("clean", () => {
-  it("replaces em and en dashes", () => {
-    expect(clean("a — b")).toBe("a - b");
-    expect(clean("a–b")).toBe("a-b");
+  it("turns clause dashes into commas, never a spaced hyphen", () => {
+    expect(clean("a — b")).toBe("a, b");
+    expect(clean("a–b")).toBe("a, b");
     expect(clean(undefined)).toBe("");
+  });
+  it("keeps numeric ranges as a hyphen", () => {
+    expect(clean("2–3 g/kg")).toBe("2-3 g/kg");
+    expect(clean("160 — 170g")).toBe("160-170g");
   });
 });

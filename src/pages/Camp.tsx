@@ -12,10 +12,11 @@ import { CampHeroCard } from "@/components/coach/CampHeroCard";
 import { CampActivityFeed } from "@/components/coach/CampActivityFeed";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useSubscription } from "@/hooks/useSubscription";
-import { ProGateCard } from "@/components/subscription/ProGateCard";
 import { PostFightDebrief } from "@/components/fightcamp/PostFightDebrief";
 import { MasterySpine } from "@/components/mastery/MasterySpine";
 import { MasteredShelf } from "@/components/mastery/MasteredShelf";
+import { WizardAuroraBackground } from "@/components/onboarding/WizardAuroraBackground";
+import { track, EVENTS } from "@/lib/analytics";
 
 interface CampSection {
   title: string;
@@ -30,14 +31,14 @@ interface CampSection {
 const sections: CampSection[] = [
   {
     title: "Training Calendar",
-    description: "",
+    description: "Plan and log your sessions",
     url: "/training-calendar",
     icon: "calendarOutline",
     primary: true,
   },
   {
     title: "Fight Camps",
-    description: "Manage camps and plan your preparation phases",
+    description: "Manage camps and phases",
     url: "/fight-camps",
     icon: "trophyOutline",
     fighterOnly: true,
@@ -45,14 +46,14 @@ const sections: CampSection[] = [
   },
   {
     title: "Gym Tracker",
-    description: "Log gym sessions, track exercises and monitor volume",
+    description: "Exercises, volume and sets",
     url: "/gym",
     icon: "barbellOutline",
     primary: true,
   },
   {
     title: "Weight Protocol",
-    description: "Fight-week cut plan and hour-by-hour rehydration timeline",
+    description: "Cut plan and rehydration",
     url: "/weight-protocol",
     icon: "scaleOutline",
     fighterOnly: true,
@@ -60,25 +61,37 @@ const sections: CampSection[] = [
   },
   {
     title: "Training Library",
-    description: "Browse drills, techniques and training resources",
+    description: "Drills and techniques",
     url: "/training-library",
     icon: "bookOutline",
     utility: true,
   },
   {
     title: "Recovery",
-    description: "",
+    description: "Readiness and check-ins",
     url: "/recovery",
     icon: "pulseOutline",
     primary: true,
   },
 ];
 
-// Tile size class, controls layout span + icon/typography scale per bento slot.
-type TileSize = "hero" | "medium" | "small" | "wide";
+// Per-row tutorial anchors. The onboarding spotlight finds these elements by
+// `data-tutorial` selector, so the keys must stay on their matching rows.
+const tileTutorialAttr: Record<string, string> = {
+  "/gym": "camp-gym-tracker",
+  "/training-calendar": "camp-training-calendar",
+  "/weight-protocol": "camp-weight-protocol",
+};
 
-interface BentoTile extends CampSection {
-  size: TileSize;
+// Signature element of the iOS-native menu: a quiet "app-icon" squircle that
+// seats a monochrome glyph. Replaces the loud blue floating icons so the menu
+// reads calm and premium. No gradients, no colored borders.
+function MenuIconChip({ icon }: { icon: IonIconName }) {
+  return (
+    <div className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[11px] bg-white/[0.05] border border-white/[0.07]">
+      <Icon name={icon} size={20} className="text-foreground/80" />
+    </div>
+  );
 }
 
 // Phase chip mapping derived purely from days-left.
@@ -238,36 +251,6 @@ export default function Camp() {
     return null;
   })();
 
-  // ── Bento layout selection ────────────────────────────────────────────
-  // The Training Calendar is always the headline action and anchors the grid
-  // as the full-width hero tile, regardless of whether a camp is scheduled,
-  // so the bento layout stays consistent across camp / no-camp states.
-  const tiles = useMemo<BentoTile[]>(() => {
-    const heroUrl = "/training-calendar";
-    const hero = visible.find((s) => s.url === heroUrl) ?? visible[0];
-    const rest = visible.filter((s) => s.url !== hero?.url);
-
-    const result: BentoTile[] = [];
-    if (hero) result.push({ ...hero, size: "hero" });
-    // Up to two medium tiles, remainder small. If fewer than 3 rest tiles
-    // we still produce a coherent grid, the hero spans 2x2 and the rest
-    // fill the right column / row below.
-    rest.forEach((s, idx) => {
-      result.push({ ...s, size: idx < 2 ? "medium" : "small" });
-    });
-    // Keep the grid a clean rectangle. The full-width hero consumes two cells,
-    // so an ODD number of non-hero tiles would leave one dangling empty cell.
-    // When that happens, promote the final tile to a full-width banner
-    // ("wide") so the bottom row always fills. Recovery is appended last in
-    // `sections` and is never the hero, so this is usually the Recovery CTA.
-    const nonHeroCount = hero ? result.length - 1 : result.length;
-    if (result.length > 0 && nonHeroCount % 2 === 1) {
-      const last = result[result.length - 1];
-      result[result.length - 1] = { ...last, size: "wide" };
-    }
-    return result;
-  }, [visible, activeCamp]);
-
   // Phase drives both the hero card and the progression panel; derive it from
   // the broader progressSource so the panel still gets a phase when the user
   // has a weigh-in date but no formal camp record.
@@ -287,6 +270,9 @@ export default function Camp() {
   // tiles share the same interaction language.
   const goTo = (url: string) => {
     triggerHaptic(ImpactStyle.Light);
+    // High-signal "feature surface opened" event for the camp menu. The URL is
+    // a stable, categorical identifier (no PII), so it's safe as a property.
+    track(EVENTS.FEATURE_OPENED, { feature: url, source: "camp_menu" });
     navigate(url);
   };
 
@@ -365,72 +351,21 @@ export default function Camp() {
           per-discipline drill→spar flow. */}
       {userId && <MasterySpine userId={userId} />}
 
-      {/* ── Bento grid of navigation tiles ─────────────────────────────── */}
-      {/* auto-rows-min lets the full-width banners (Training Calendar /
-          Recovery) be slimmer than the square medium tiles. */}
-      <div className="grid grid-cols-2 gap-3 auto-rows-min">
-        {tiles.map((tile) => {
-          const isHero = tile.size === "hero";
-          const isMedium = tile.size === "medium";
-          // A "wide" tile is the parity filler, a full-width banner that
-          // shares the hero's horizontal layout so the bottom row fills
-          // cleanly when there's an odd number of non-hero tiles.
-          const isWide = tile.size === "wide";
-          const isBanner = isHero || isWide;
-
-          // Layout spans. Hero/wide are full-width single-row banners (icon
-          // beside title, like the "View full plan" card) so they stay
-          // compact; medium and small tiles are a single cell each.
-          const spanClass = isBanner
-            ? "col-span-2 row-span-1"
-            : "col-span-1 row-span-1";
-
-          // Banners (Training Calendar / Recovery) are slim single-line rows;
-          // medium/small tiles keep their square 6rem footprint.
-          const heightClass = isBanner ? "h-[4.25rem]" : "h-24";
-
-          // Per-size surface styling. Every tile carries the primary-tinted
-          // border + gradient wash so the Camp grid reads as a single
-          // unified set; the hero still pops via its 2x2 span + larger icon
-          // and subtitle rather than via a stronger surface treatment.
-          const surfaceClass =
-            "relative card-surface border border-primary/20 overflow-hidden";
-
-          // Uniform leading-icon size across every tile, matches the
-          // "View full plan" card's icon (26) so the Camp page reads as a
-          // single consistent icon set rather than three tiers of scale.
-          const iconSize = 26;
-          const titleClass = isHero
-            ? "text-[17px] leading-tight tracking-tight"
-            : isWide || isMedium
-              ? "text-[16px] leading-tight tracking-tight"
-              : "text-[14px] leading-tight tracking-tight";
-
-          // Recovery is Pro-gated for free users. When locked, render the
-          // crown upsell row (mirrors the Training Missions / Sparring rows)
-          // instead of the normal tile, see the early return below.
-          const isLockedTile = tile.url === "/recovery" && recoveryLocked;
-
-          if (isLockedTile) {
-            // Shared Pro-gate card (same look as the meal-plan / Training
-            // Missions gates). Tapping navigates to /recovery, whose
-            // ProRouteGate shows the shared animated ProUpsellScreen.
-            return (
-              <ProGateCard
-                key={tile.url}
-                title="Recovery"
-                subtitle="Readiness, wellness check-ins and your AI recovery coach"
-                onUnlock={() => goTo("/recovery")}
-                className={spanClass}
-              />
-            );
-          }
-
-          const tileTutorialAttr: Record<string, string> = {
-            "/gym": "camp-gym-tracker",
-            "/training-calendar": "camp-training-calendar",
-            "/weight-protocol": "camp-weight-protocol",
-          };
+      {/* ── Navigation menu ─────────────────────────────────────────────── */}
+      {/* iOS-native grouped list: one inset surface, hairline-separated rows,
+          each with a quiet app-icon chip. Calm and premium, no gradients or
+          colored borders. The per-row `data-tutorial` anchors are preserved so
+          the onboarding spotlight still frames the correct rows. */}
+      <div className="card-surface rounded-2xl overflow-hidden">
+        {visible.map((tile, i) => {
+          // Recovery is Pro-gated for free users. The row still navigates to
+          // /recovery (whose ProRouteGate shows the animated ProUpsellScreen);
+          // only the trailing affordance changes to a "Pro" marker.
+          const locked = tile.url === "/recovery" && recoveryLocked;
+          // Recovery is the premium Pro feature, so it carries the blue wizard
+          // aurora (same wash as the Pro walls) to visibly stand apart from the
+          // calm neutral rows.
+          const isRecovery = tile.url === "/recovery";
 
           return (
             <button
@@ -438,64 +373,35 @@ export default function Camp() {
               type="button"
               data-tutorial={tileTutorialAttr[tile.url]}
               onClick={() => goTo(tile.url)}
-              className={`${spanClass} ${heightClass} ${surfaceClass} rounded-2xl p-4 text-left card-press flex ${
-                isBanner ? "flex-row items-center gap-3.5" : "flex-col"
-              }`}
+              className={`relative w-full overflow-hidden text-left transition-colors active:bg-white/[0.03] ${
+                i > 0 ? "border-t border-white/[0.05]" : ""
+              } ${isRecovery ? "bg-primary/[0.05]" : ""}`}
             >
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.04] to-transparent"
-              />
-
-              {isBanner ? (
-                /* Horizontal banner, icon beside title, like "View full plan",
-                   so the hero/wide tile stays a compact single-row tile. */
-                <>
-                  <Icon
-                    name={tile.icon}
-                    size={iconSize}
-                    className="relative text-primary/90 flex-shrink-0"
-                  />
-                  <div className="relative flex-1 min-w-0">
-                    <p className={`font-semibold text-foreground ${titleClass}`}>
-                      {tile.title}
+              {isRecovery && <WizardAuroraBackground intensity="full" />}
+              <div className="relative z-10 flex items-center gap-3.5 px-3.5 py-3">
+                <MenuIconChip icon={tile.icon} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[15px] font-semibold text-foreground leading-tight tracking-tight">
+                    {tile.title}
+                  </p>
+                  {tile.description && (
+                    <p className="text-[12px] text-muted-foreground/70 leading-tight mt-0.5 truncate">
+                      {tile.description}
                     </p>
-                    {tile.description && (
-                      <p className="text-[11px] text-muted-foreground leading-snug mt-0.5 line-clamp-2">
-                        {tile.description}
-                      </p>
-                    )}
-                  </div>
+                  )}
+                </div>
+                {locked ? (
+                  <span className="shrink-0 rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-primary">
+                    Pro
+                  </span>
+                ) : (
                   <Icon
                     name="chevronForwardOutline"
-                    size={16}
-                    className="relative text-muted-foreground/40 flex-shrink-0"
+                    size={15}
+                    className="text-muted-foreground/35 shrink-0"
                   />
-                </>
-              ) : (
-                <>
-                  <div className="relative flex-1 flex flex-col">
-                    <div className="flex-1">
-                      <Icon
-                        name={tile.icon}
-                        size={iconSize}
-                        className="text-primary/90"
-                      />
-                    </div>
-                    <div className="mt-2">
-                      <p className={`font-semibold text-foreground ${titleClass}`}>
-                        {tile.title}
-                      </p>
-                    </div>
-                  </div>
-
-                  <Icon
-                    name="chevronForwardOutline"
-                    size={14}
-                    className="absolute bottom-3 right-3 text-muted-foreground/40"
-                  />
-                </>
-              )}
+                )}
+              </div>
             </button>
           );
         })}

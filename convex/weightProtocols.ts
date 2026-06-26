@@ -39,6 +39,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { resolveWeighInIso } from "./_shared/weighInTiming";
 
 // ───────────────────────────────────────────────────────────────────────
 // Constants
@@ -167,14 +168,12 @@ export const getCurrentForUser = query({
     const fightPlan = latestByCreatedAt(fightPlanRows);
     const rehydration = latestByCreatedAt(rehydrationRows);
 
-    // 3. Resolve weigh-in date.
-    //    Priority order:
-    //      a. matching fight_week_plans row (joined by fightCampId)
-    //      b. fight_week_plans row whose `fightDate` matches camp.fightDate
-    //         (covers plans created before the camp-linkage existed)
-    //      c. `fight_camps.fightDate − 24h` (standard day-before fallback;
-    //         worst-case morning-of when the user weighs in the same day,
-    //         a tolerable error for cosmetic countdown copy)
+    // 3. Resolve weigh-in date — the true make-weight day the countdown
+    //    anchors on. Derive it from the fight date + weigh-in timing
+    //    (day_before → fight − 1, same_day → fight) via the single source of
+    //    truth `resolveWeighInIso`. `fight_week_plans.fightDate` is itself the
+    //    FIGHT date, so resolve from it (or the camp's) the same way — never
+    //    treat the fight date as the weigh-in date.
     const matchedPlan =
       fightWeekPlans.find((p) => p.fightCampId === activeCamp._id) ??
       fightWeekPlans.find((p) => p.fightDate === activeCamp.fightDate) ??
@@ -183,11 +182,11 @@ export const getCurrentForUser = query({
     const now = new Date();
     const today = now.toISOString().slice(0, 10);
     const fightDateMs = Date.parse(activeCamp.fightDate);
-    const weighInDateMs = matchedPlan?.fightDate
-      ? Date.parse(matchedPlan.fightDate)
-      : Number.isFinite(fightDateMs)
-        ? fightDateMs - DAY_MS
-        : NaN;
+    const weighInIso = resolveWeighInIso(
+      matchedPlan?.fightDate ?? activeCamp.fightDate,
+      profile?.weighInTiming ?? activeCamp.weighInTiming,
+    );
+    const weighInDateMs = Date.parse(weighInIso);
 
     // Countdown numbers — clamped to 0 so the page never shows negatives.
     // `Number.isFinite` guards keep us safe if either date string failed

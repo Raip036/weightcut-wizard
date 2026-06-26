@@ -102,7 +102,7 @@ function SpeechBubbleInner({
       key={revealKey}
       /* Smaller padding (px-4 py-3 vs px-5 py-4) + tighter max-width keeps
          the bubble compact so it doesn't crowd the Back/Next row below. */
-      className={`relative w-fit rounded-[20px] px-4 py-3 text-foreground shadow-[0_20px_60px_rgba(0,0,0,0.45)] ${
+      className={`relative w-fit rounded-[20px] px-4 py-3 text-foreground ${
         compact ? "max-w-[min(82vw,320px)]" : "max-w-[min(80vw,320px)]"
       }`}
       style={{
@@ -111,6 +111,12 @@ function SpeechBubbleInner({
         // near-opaque solid there (visually almost identical) and keep the
         // translucent glass on web.
         background: isNativePlatform ? "rgba(24, 24, 27, 0.97)" : "rgba(28, 28, 30, 0.72)",
+        // A 60px-blur soft shadow has to repaint on every frame of the bubble's
+        // scale-in spring; .native-app doesn't strip box-shadow, so use a small
+        // cheap shadow on device and keep the lush one on web.
+        boxShadow: isNativePlatform
+          ? "0 8px 24px rgba(0,0,0,0.5)"
+          : "0 20px 60px rgba(0,0,0,0.45)",
         backdropFilter: isNativePlatform ? undefined : "blur(20px) saturate(180%)",
         WebkitBackdropFilter: isNativePlatform ? undefined : "blur(20px) saturate(180%)",
         border: "1px solid rgba(255,255,255,0.08)",
@@ -156,7 +162,9 @@ function SpeechBubbleInner({
             forceComplete={forceComplete}
             onComplete={onTypingComplete}
             onTick={(revealedSoFar) => {
-              if (!prefersReduced && endsAtSentence(revealedSoFar)) {
+              // Skip the per-sentence pulse on native: it kicks a fresh motion
+              // animation mid-type while the main thread is busiest.
+              if (!prefersReduced && !isNativePlatform && endsAtSentence(revealedSoFar)) {
                 pulseControls.start({ scale: [1, 1.02, 1], transition: { duration: 0.12 } });
               }
             }}
