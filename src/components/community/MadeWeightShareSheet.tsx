@@ -25,6 +25,7 @@ import {
 } from "@/lib/madeWeightCard";
 import { useToast } from "@/hooks/use-toast";
 import { Capacitor } from "@capacitor/core";
+import { isIOS, isAndroid } from "@/lib/platform";
 import { logger } from "@/lib/logger";
 
 interface MadeWeightShareSheetProps {
@@ -136,13 +137,31 @@ export function MadeWeightShareSheet({
     setSaving(true);
     try {
       const result = await saveBlobToPhotos(previewBlob);
-      toast({
-        title: result === "native" ? "Saved to Files" : "Downloaded",
-        description:
-          result === "native"
-            ? "Find it under On My iPhone › WeightCut."
-            : "Check your downloads folder.",
-      });
+      if (result === "native") {
+        // The save target (Directory.Documents) is cross-platform, but the
+        // user-facing location differs per store, so the copy is too.
+        if (isAndroid()) {
+          toast({
+            title: "Saved",
+            description: "Saved to your Files. Check your Downloads or Files app.",
+          });
+        } else if (isIOS()) {
+          toast({
+            title: "Saved to Files",
+            description: "Find it under On My iPhone › WeightCut.",
+          });
+        } else {
+          toast({
+            title: "Saved to Files",
+            description: "Find it in your Files app.",
+          });
+        }
+      } else {
+        toast({
+          title: "Downloaded",
+          description: "Check your downloads folder.",
+        });
+      }
     } catch (err) {
       logger.error("Save failed", { error: err });
       toast({

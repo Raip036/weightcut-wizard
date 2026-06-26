@@ -33,6 +33,7 @@
     "@capacitor/push-notifications": "^8.0.3",
     "@capacitor/share": "^8.0.1",
     "@capacitor/status-bar": "^8.0.1",
+    "@capgo/capacitor-social-login": "^8.3.30",
     "@convex-dev/auth": "^0.0.92",
     "@dagrejs/dagre": "^2.0.4",
     "@hookform/resolvers": "^3.10.0",

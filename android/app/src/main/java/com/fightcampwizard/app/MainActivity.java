@@ -1,4 +1,4 @@
-package com.weightcutwizard.app;
+package com.fightcampwizard.app;
 
 import com.getcapacitor.BridgeActivity;
 

@@ -36,6 +36,7 @@ import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion, type PanInfo } from "motion/react";
 import { X } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
+import { isIOS, isAndroid, googleWebClientId } from "@/lib/platform";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { WizardCharacter } from "@/tutorial/WizardCharacter";
 import { SpeechBubble } from "@/tutorial/SpeechBubble";
@@ -58,6 +59,18 @@ function AppleLogo({ className }: { className?: string }): JSX.Element {
       aria-hidden
     >
       <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
+    </svg>
+  );
+}
+
+/** Google "G" brand mark for the "Sign in with Google" button. */
+function GoogleLogo({ className }: { className?: string }): JSX.Element {
+  return (
+    <svg className={className} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09z" />
+      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.76c-.98.66-2.23 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z" />
+      <path fill="#FBBC05" d="M5.84 14.11a6.6 6.6 0 0 1 0-4.22V7.05H2.18a11 11 0 0 0 0 9.9l3.66-2.84z" />
+      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.05l3.66 2.84c.87-2.6 3.3-4.51 6.16-4.51z" />
     </svg>
   );
 }
@@ -88,6 +101,8 @@ const VARIANTS: Record<
     skipPath: string;
     /** Final-act CTA button labels. */
     appleLabel: string;
+    /** Android Google CTA label (mirrors appleLabel for the Android port). */
+    googleLabel: string;
     existingAccountLabel: string;
   }
 > = {
@@ -99,6 +114,7 @@ const VARIANTS: Record<
     existingAccountPath: "/auth",
     skipPath: "/auth?mode=signup",
     appleLabel: "Continue with Apple",
+    googleLabel: "Continue with Google",
     existingAccountLabel: "I already have an account",
   },
   coach: {
@@ -109,6 +125,7 @@ const VARIANTS: Record<
     existingAccountPath: "/coach/login",
     skipPath: "/coach/login",
     appleLabel: "Continue with Apple",
+    googleLabel: "Continue with Google",
     existingAccountLabel: "I already have a coach account",
   },
 };
@@ -835,6 +852,7 @@ export function WizardIntroCutscene({
   const [typingDone, setTypingDone] = useState(false);
   const [forceComplete, setForceComplete] = useState(false);
   const [appleLoading, setAppleLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [reactionAnim, setReactionAnim] = useState<WizardReaction | null>(null);
   // Crossfade exit when handing off to /auth: the stage opacity drops
   // before navigation so the auth page fade-in lands on a clean dark
@@ -1008,6 +1026,66 @@ export function WizardIntroCutscene({
       setAppleLoading(false);
     }
   }, [appleLoading, navigate, signIn, toast, config]);
+
+  const handleContinueWithGoogle = useCallback(async (): Promise<void> => {
+    if (googleLoading) return;
+    void lightHaptic();
+    setGoogleLoading(true);
+    try {
+      // Android-only native path, mirrors handleContinueWithApple. The
+      // Capgo plugin is dynamically imported so it stays out of the iOS
+      // bundle. There is deliberately NO web-origin redirect fallback here:
+      // Android always takes this native id_token path, so the web-origin
+      // redirect (correct only for the web Apple flow) can never cause an
+      // origin-mismatch bug on native. (See E3 note.)
+      const webClientId = googleWebClientId();
+      if (!webClientId) {
+        // Placeholder-safe: Web OAuth client id not pasted into platform.ts
+        // yet. Don't crash — soft toast and stay on the cutscene.
+        toast({ title: "Google Sign-In isn't configured yet", description: "Please use email sign-in for now." });
+        setGoogleLoading(false);
+        return;
+      }
+      const { SocialLogin } = await import("@capgo/capacitor-social-login");
+      await SocialLogin.initialize({ google: { webClientId } });
+      // Google echoes the RAW nonce in the id_token's `nonce` claim (unlike
+      // Apple, which expects SHA-256(nonce)); the server compares it raw.
+      const nonce = crypto.randomUUID();
+      // No `scopes`: online flow returns an id_token (email + profile) via
+      // Credential Manager; scopes would require extra MainActivity wiring.
+      const res = await SocialLogin.login({
+        provider: "google",
+        options: { nonce },
+      });
+      const idToken =
+        res.provider === "google" && "idToken" in res.result ? res.result.idToken : null;
+      if (!idToken) {
+        throw new Error("Google did not return an id_token");
+      }
+      // Variant-aware role mirrors the Apple cutscene flow.
+      await signIn("google-native", { idToken, nonce, role: config.role });
+      navigate(config.appleSuccessPath);
+    } catch (error: any) {
+      const code = error?.code;
+      const msg = String(error?.message ?? "").toLowerCase();
+      if (code === "USER_CANCELLED" || msg.includes("cancel")) {
+        setGoogleLoading(false);
+        return;
+      }
+      logger.error("[cutscene-google-signin] failed", error, {
+        message: error?.message,
+        code,
+      });
+      toast({
+        variant: "destructive",
+        title: "Google Sign-In Failed",
+        description: mapAuthError(error, "oauth"),
+      });
+      navigate(config.existingAccountPath);
+    } finally {
+      setGoogleLoading(false);
+    }
+  }, [googleLoading, navigate, signIn, toast, config]);
 
   const handleHaveAccount = useCallback((): void => {
     setExiting(true);
@@ -1265,17 +1343,34 @@ export function WizardIntroCutscene({
             transition={prefersReduced ? { duration: 0.18 } : { type: "spring", stiffness: 260, damping: 26 }}
           >
             <div className="mx-auto w-full max-w-[420px] space-y-2.5">
-              <button
-                type="button"
-                onClick={() => { void handleContinueWithApple(); }}
-                disabled={appleLoading}
-                aria-label={config.appleLabel}
-                className={`no-tap-select w-full h-[54px] rounded-xs bg-white text-black font-bold text-[16px] flex items-center justify-center gap-2 active:scale-[0.97] transition-transform ${appleLoading ? "opacity-50" : ""}`}
-                style={{ WebkitTapHighlightColor: "transparent" }}
-              >
-                <AppleLogo className="h-[18px] w-[18px]" />
-                {config.appleLabel}
-              </button>
+              {/* Apple primary CTA, iOS ONLY. Android shows Google instead. */}
+              {isIOS() && (
+                <button
+                  type="button"
+                  onClick={() => { void handleContinueWithApple(); }}
+                  disabled={appleLoading}
+                  aria-label={config.appleLabel}
+                  className={`no-tap-select w-full h-[54px] rounded-xs bg-white text-black font-bold text-[16px] flex items-center justify-center gap-2 active:scale-[0.97] transition-transform ${appleLoading ? "opacity-50" : ""}`}
+                  style={{ WebkitTapHighlightColor: "transparent" }}
+                >
+                  <AppleLogo className="h-[18px] w-[18px]" />
+                  {config.appleLabel}
+                </button>
+              )}
+              {/* Google primary CTA, ANDROID ONLY. Native id_token flow. */}
+              {isAndroid() && (
+                <button
+                  type="button"
+                  onClick={() => { void handleContinueWithGoogle(); }}
+                  disabled={googleLoading}
+                  aria-label={config.googleLabel}
+                  className={`no-tap-select w-full h-[54px] rounded-xs bg-white text-[#1f1f1f] font-bold text-[16px] flex items-center justify-center gap-2 active:scale-[0.97] transition-transform ${googleLoading ? "opacity-50" : ""}`}
+                  style={{ WebkitTapHighlightColor: "transparent" }}
+                >
+                  <GoogleLogo className="h-[18px] w-[18px]" />
+                  {config.googleLabel}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={handleHaveAccount}
@@ -1285,7 +1380,7 @@ export function WizardIntroCutscene({
                 {config.existingAccountLabel}
               </button>
               <p className="text-center text-[11px] text-white/45 pt-1">
-                No credit card. No emails. Just Apple.
+                No credit card. No emails. Just {isAndroid() ? "Google" : "Apple"}.
               </p>
             </div>
           </motion.div>

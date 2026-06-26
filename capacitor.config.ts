@@ -21,6 +21,12 @@ const config: CapacitorConfig = {
     preferredContentMode: 'mobile',
     allowsLinkPreview: false,
   },
+  // No `android: {}` block is needed: Android uses the shared config below.
+  // `server.androidScheme: 'https'` and the `Keyboard` plugin config are
+  // cross-platform, and the `ios` keys above are iOS-only (Capacitor ignores
+  // them on Android), so there are no iOS-only keys to strip out for Android.
+  // Native Android capabilities (camera, push, media, deep links) are declared
+  // in android/app/src/main/AndroidManifest.xml, not here.
   server: {
     ...(devUrl ? { url: devUrl, cleartext: true } : {}),
     androidScheme: 'https',

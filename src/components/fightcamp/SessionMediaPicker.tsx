@@ -41,7 +41,11 @@ export function SessionMediaPicker({
         });
 
         if (photo.webPath) {
-          const response = await fetch(photo.webPath);
+          // Route the webPath through `Capacitor.convertFileSrc` so the
+          // WebView can read it on BOTH platforms — the raw `file://` URI
+          // is sandboxed and silently unreadable by fetch() on Android
+          // (no-op-equivalent on iOS WKWebView).
+          const response = await fetch(Capacitor.convertFileSrc(photo.webPath));
           const blob = await response.blob();
           const file = new File([blob], `photo-${Date.now()}.jpg`, { type: "image/jpeg" });
           onMediaSelected(file, photo.webPath);

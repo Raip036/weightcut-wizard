@@ -1,5 +1,6 @@
 import { App } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
+import { storeListingUrl } from "@/lib/platform";
 import { logger } from "@/lib/logger";
 
 const BUNDLE_ID = "com.weightcutwizard.app";
@@ -42,13 +43,17 @@ function compareVersions(a: string, b: string): number {
  * finally a generic App Store URL when nothing else is available.
  */
 function buildStoreUrl(trackId: number | null, trackViewUrl: string | null): string {
+  // The `itms-apps://` deep link and the lookup's trackViewUrl are iOS-specific
+  // and only ever reached inside the iOS-only path of checkForAppUpdate.
   if (trackId != null) {
     return `itms-apps://apps.apple.com/app/id${trackId}`;
   }
   if (trackViewUrl) {
     return trackViewUrl;
   }
-  return "https://apps.apple.com/";
+  // Generic "open the store" fallback: route through the centralized helper
+  // (returns the iOS listing on this iOS-only path) rather than hardcoding.
+  return storeListingUrl();
 }
 
 /**

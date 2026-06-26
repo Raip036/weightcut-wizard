@@ -13,6 +13,7 @@ import wizardLogo from "@/assets/wizard-logo-3d.png";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ChevronLeft, Mail, Lock, Eye, EyeOff, Swords } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
+import { isIOS, isAndroid, googleWebClientId } from "@/lib/platform";
 import { motion, AnimatePresence } from "motion/react";
 import { logger } from "@/lib/logger";
 import { useScrollIntoViewOnFocus } from "@/hooks/useScrollIntoViewOnFocus";
@@ -326,6 +327,59 @@ export default function Auth() {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    try {
+      // Android-only native path. The Capgo plugin is dynamically imported
+      // so it never lands in the iOS bundle. There is deliberately NO
+      // web-origin redirect fallback here (unlike Apple): Android always
+      // takes this native id_token path, so the web-origin redirect — which
+      // is correct ONLY for the web Apple flow — can never cause an
+      // origin-mismatch bug on native. (See E3 note.)
+      const webClientId = googleWebClientId();
+      if (!webClientId) {
+        // Placeholder-safe: the Web OAuth client id hasn't been pasted into
+        // platform.ts yet. Don't crash — surface a soft toast and bail.
+        toast({ title: "Google Sign-In isn't configured yet", description: "Please use email sign-in for now." });
+        return;
+      }
+      const { SocialLogin } = await import("@capgo/capacitor-social-login");
+      await SocialLogin.initialize({ google: { webClientId } });
+      // Google echoes the RAW nonce back in the id_token's `nonce` claim
+      // (Apple, by contrast, expects SHA-256(nonce)); the server compares
+      // this raw value directly.
+      const nonce = crypto.randomUUID();
+      // No `scopes`: the basic online flow returns an id_token (with email +
+      // profile claims) via Credential Manager. Passing scopes would switch to
+      // the authorization flow, which Capgo requires extra MainActivity wiring
+      // for, and we only need the id_token for server verification.
+      const res = await SocialLogin.login({
+        provider: "google",
+        options: { nonce },
+      });
+      // Capgo google online-mode result shape: res.result.idToken.
+      const idToken =
+        res.provider === "google" && "idToken" in res.result ? res.result.idToken : null;
+      if (!idToken) {
+        throw new Error("Google did not return an id_token");
+      }
+      // Mirror the apple-native call: server verifies id_token + raw nonce.
+      await signIn("google-native", { idToken, nonce, role: ROLE });
+    } catch (error: any) {
+      // User dismissed the Google sheet (USER_CANCELLED) — never toast.
+      const code = error?.code;
+      const msg = String(error?.message ?? "").toLowerCase();
+      if (code === "USER_CANCELLED" || msg.includes("cancel")) {
+        setLoading(false);
+        return;
+      }
+      logger.error("[google-signin] failed", error, { message: error?.message, code });
+      toast({ variant: "destructive", title: "Google Sign-In Failed", description: error?.message || "Please try again." });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Refs used to chain the keyboard's "Next" / "Go" affordance across
   // the email/password fields without forcing the user to tap into
   // each one. enterKeyHint paints the right key label; the onKeyDown
@@ -458,18 +512,41 @@ export default function Auth() {
               <>
                 {/* Apple Sign-In, primary CTA, sits above the email form
                     so the lowest-friction path is the first thing the
-                    user sees. iOS-native black-pill styling. */}
-                <button
-                  type="button"
-                  onClick={handleAppleSignIn}
-                  disabled={loading}
-                  className="no-tap-select w-full h-[54px] rounded-xs bg-foreground text-background font-semibold text-[16px] flex items-center justify-center gap-2 active:scale-[0.98] transition-transform touch-manipulation disabled:opacity-50 shadow-foreground/10"
-                >
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.52-3.23 0-1.44.62-2.2.44-3.06-.4C3.79 16.17 4.36 9.51 8.82 9.28c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.3 4.11zM12.03 9.2C11.88 7.16 13.5 5.5 15.42 5.35c.28 2.35-2.14 4.1-3.39 3.85z" />
-                  </svg>
-                  {isLogin ? "Sign in with Apple" : "Sign up with Apple"}
-                </button>
+                    user sees. iOS-native black-pill styling. iOS ONLY —
+                    Android gets the Google button below instead. */}
+                {isIOS() && (
+                  <button
+                    type="button"
+                    onClick={handleAppleSignIn}
+                    disabled={loading}
+                    className="no-tap-select w-full h-[54px] rounded-xs bg-foreground text-background font-semibold text-[16px] flex items-center justify-center gap-2 active:scale-[0.98] transition-transform touch-manipulation disabled:opacity-50 shadow-foreground/10"
+                  >
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.52-3.23 0-1.44.62-2.2.44-3.06-.4C3.79 16.17 4.36 9.51 8.82 9.28c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.3 4.11zM12.03 9.2C11.88 7.16 13.5 5.5 15.42 5.35c.28 2.35-2.14 4.1-3.39 3.85z" />
+                    </svg>
+                    {isLogin ? "Sign in with Apple" : "Sign up with Apple"}
+                  </button>
+                )}
+
+                {/* Google Sign-In, ANDROID ONLY. Native id_token flow via
+                    @capgo/capacitor-social-login (dynamically imported in
+                    the handler so it stays out of the iOS bundle). */}
+                {isAndroid() && (
+                  <button
+                    type="button"
+                    onClick={handleGoogleSignIn}
+                    disabled={loading}
+                    className="no-tap-select w-full h-[54px] rounded-xs bg-white text-[#1f1f1f] border border-black/10 font-semibold text-[16px] flex items-center justify-center gap-2 active:scale-[0.98] transition-transform touch-manipulation disabled:opacity-50"
+                  >
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden>
+                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.76c-.98.66-2.23 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z" />
+                      <path fill="#FBBC05" d="M5.84 14.11a6.6 6.6 0 0 1 0-4.22V7.05H2.18a11 11 0 0 0 0 9.9l3.66-2.84z" />
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.05l3.66 2.84c.87-2.6 3.3-4.51 6.16-4.51z" />
+                    </svg>
+                    {isLogin ? "Sign in with Google" : "Sign up with Google"}
+                  </button>
+                )}
 
                 {/* Collapsed email path, until the user opts in we hide
                     the full form behind a single link. The form uses

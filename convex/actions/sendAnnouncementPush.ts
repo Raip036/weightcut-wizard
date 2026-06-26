@@ -9,12 +9,13 @@
  *
  * Env required for delivery:
  *   APNS_KEY_ID, APNS_TEAM_ID, APNS_BUNDLE_ID, APNS_KEY_P8 (iOS)
- *   FCM_SERVER_KEY (Android, legacy HTTP API)
+ *   FCM_PROJECT_ID, FCM_CLIENT_EMAIL, FCM_PRIVATE_KEY (Android, FCM HTTP v1)
  */
 import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { getApnsJwt, apnsHost } from "../_shared/apnsJwt";
+import { getFcmAccessToken, fcmProjectId } from "../_shared/fcmAccessToken";
 
 interface Target {
   userId: string;
@@ -60,24 +61,36 @@ async function sendFcm(
   body: string,
   title: string,
 ): Promise<{ ok: boolean; status?: number; reason?: string }> {
-  const fcmKey = process.env.FCM_SERVER_KEY;
-  if (!fcmKey) return { ok: false, reason: "fcm-not-configured" };
+  // FCM HTTP v1: OAuth2 bearer token (minted + cached from the service account)
+  // POSTed to the project-scoped messages:send endpoint. Replaces the legacy
+  // `/fcm/send` + `key=` API that Google decommissioned in 2024.
+  const projectId = fcmProjectId();
+  const accessToken = await getFcmAccessToken();
+  if (!projectId || !accessToken) return { ok: false, reason: "fcm-not-configured" };
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 5000);
   try {
-    const res = await fetch("https://fcm.googleapis.com/fcm/send", {
-      method: "POST",
-      headers: {
-        authorization: `key=${fcmKey}`,
-        "content-type": "application/json",
+    const res = await fetch(
+      `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          message: {
+            token,
+            notification: { title, body },
+            android: {
+              priority: "high",
+              notification: { sound: "default" },
+            },
+          },
+        }),
+        signal: controller.signal,
       },
-      body: JSON.stringify({
-        to: token,
-        notification: { title, body, sound: "default" },
-        priority: "high",
-      }),
-      signal: controller.signal,
-    });
+    );
     return { ok: res.ok, status: res.status };
   } catch (err: any) {
     if (err?.name === "AbortError") {

@@ -227,6 +227,23 @@ export function PaywallOverlay() {
     let cancelled = false;
     (async () => {
       try {
+        // Guard: never present RevenueCat's native paywall when there are no
+        // offerings to show. Without Google Play products configured (or on any
+        // RevenueCat ConfigurationError, e.g. "Error 23"), presentPaywall()
+        // renders RC's raw error screen that the user can get stuck on. Fail
+        // gracefully with a dismissable message instead.
+        const offering = await getOfferings();
+        if (cancelled) return;
+        if (!offering || !offering.availablePackages?.length) {
+          logger.warn("Paywall: no offerings available; skipping native paywall");
+          toast({
+            title: "Subscriptions aren't available yet",
+            description: "Pro plans are coming soon. Please check back later.",
+          });
+          closePaywall();
+          return;
+        }
+
         const result = await presentPaywall();
         logger.info("Native paywall closed", { result: JSON.stringify(result) });
         if (cancelled) return;
@@ -257,7 +274,7 @@ export function PaywallOverlay() {
       }
     })();
     return () => { cancelled = true; };
-  }, [isPaywallOpen, closePaywall, activatePro]);
+  }, [isPaywallOpen, closePaywall, activatePro, toast]);
 
   // Show activating screen (full-screen, above everything)
   if (activating) return <ActivatingProScreen />;

@@ -47,10 +47,14 @@ export async function captureCameraPhoto(): Promise<File | null> {
 
     if (!photo.webPath) return null; // cancelled / no path
 
-    // The webview hands back a `file://` / `capacitor://` URL that fetch()
-    // can read directly on iOS — turn it into a real File so the upload
-    // helper's MIME sniffing and size guard behave the same as a picked file.
-    const res = await fetch(photo.webPath);
+    // The webview hands back a `file://` / `capacitor://` URL. On iOS
+    // WKWebView fetch() can read it directly, but on Android the raw
+    // `file://` URI is sandboxed and fetch() silently fails. Route it
+    // through `Capacitor.convertFileSrc` so the WebView can read it on
+    // BOTH platforms (no-op-equivalent on iOS) — then turn it into a real
+    // File so the upload helper's MIME sniffing and size guard behave the
+    // same as a picked file.
+    const res = await fetch(Capacitor.convertFileSrc(photo.webPath));
     const blob = await res.blob();
     return new File([blob], `photo-${Date.now()}.jpg`, { type: "image/jpeg" });
   } catch {

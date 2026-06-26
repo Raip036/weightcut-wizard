@@ -31,6 +31,7 @@
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation } from "convex/react";
+import { Capacitor } from "@capacitor/core";
 import { ImpactStyle } from "@capacitor/haptics";
 import { format } from "date-fns";
 
@@ -184,8 +185,11 @@ export function useRoundCardCapture(
         }
 
         // Fetch the webPath → Blob. The webview returns a `file://`
-        // or `capacitor://` URL that fetch() can read directly on iOS.
-        const res = await fetch(photo.webPath);
+        // or `capacitor://` URL. fetch() can read it directly on iOS but
+        // the raw `file://` URI is sandboxed (and silently unreadable) on
+        // Android — `Capacitor.convertFileSrc` yields a URL the WebView
+        // can read on BOTH platforms (equivalent behaviour on iOS).
+        const res = await fetch(Capacitor.convertFileSrc(photo.webPath));
         const blob = await res.blob();
 
         setPhotoBlob(blob);

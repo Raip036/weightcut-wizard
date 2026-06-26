@@ -1102,11 +1102,14 @@ All colors MUST be HSL.
     touch-action: pan-y;
   }
 
-  /* Page transition container — clips horizontal slide animations */
+  /* Page transition container — clips horizontal slide animations only.
+     overflow-y MUST stay visible: the parent <main> is the vertical scroller,
+     and a vertical clip here created a second non-scrolling layer that helped
+     trap page content on Android. */
   .page-transition-container {
     position: relative;
     overflow-x: hidden;
-    overflow-y: hidden;
+    overflow-y: visible;
     min-height: 100%;
     width: 100%;
   }

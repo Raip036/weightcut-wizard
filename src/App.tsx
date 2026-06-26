@@ -122,9 +122,15 @@ const queryClient = new QueryClient();
 // the cut plan (a second way into the old "stuck on the plan" trap).
 const SKIP_ROUTES = ['/', '/welcome', '/auth', '/onboarding', '/legal', '/cut-plan', '/weight-plan'];
 
+// Android hardware-back "root" screens — pressing back here exits the app
+// instead of popping browser history (there's nothing meaningful to pop back
+// to). The main dashboard is home; `/` is the cold-launch landing route.
+const ROOT_ROUTES = ['/dashboard', '/'];
+
 import { App as CapacitorApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
+import { isAndroid } from "@/lib/platform";
 import { logger } from "@/lib/logger";
 
 function RouteTracker() {
@@ -158,49 +164,91 @@ function RouteTracker() {
   // URL — it arrives via `appUrlOpen`. We push the URL onto the JS-side
   // location so the provider picks it up, then strip the code param.
   useEffect(() => {
-    CapacitorApp.addListener('appUrlOpen', async ({ url }) => {
-      logger.info('App opened with URL', { url });
+    // Native listener handles to tear down on unmount. `addListener()` returns
+    // a Promise<PluginListenerHandle>; we await each before calling `.remove()`.
+    const listeners: Promise<{ remove: () => void }>[] = [];
 
-      // 1. Convex Auth OAuth callback (e.g. weightcutwizard://callback?code=...)
-      //    Surface the code to the ConvexAuthProvider by setting
-      //    window.location's query string. The provider listens to it and
-      //    exchanges the code automatically.
-      if (url.includes('code=')) {
+    // --- Deep links (Convex Auth callback + generic in-app routing) ---
+    listeners.push(
+      CapacitorApp.addListener('appUrlOpen', async ({ url }) => {
+        logger.info('App opened with URL', { url });
+
+        let parsed: URL;
         try {
-          const u = new URL(url);
-          const code = u.searchParams.get('code');
-          if (code) {
+          parsed = new URL(url);
+        } catch (e) {
+          logger.error('Unparseable deep link URL', e);
+          return;
+        }
+
+        // Two shapes reach us:
+        //  - custom scheme:  weightcutwizard://<route>?<query>  (iOS + Android)
+        //  - Android App Link: https://fightcampwizard.com/<route>?<query>
+        // Both map to the SAME in-app routes; we branch on scheme/host below.
+        const isCustomScheme = parsed.protocol === 'weightcutwizard:';
+        const isAppLink =
+          parsed.protocol === 'https:' && parsed.hostname === 'fightcampwizard.com';
+        if (!isCustomScheme && !isAppLink) return;
+
+        // Resolve the route segment for each form:
+        //  - custom scheme: the host IS the route (weightcutwizard://join?code=)
+        //  - app link:      the pathname is the route (https://.../join?code=)
+        const routePath = (isCustomScheme ? parsed.hostname : parsed.pathname).replace(/^\/+/, '');
+
+        // 1. Convex Auth OAuth callback. The contract is the custom scheme
+        //    `weightcutwizard://callback?code=...` (App Links are never used for
+        //    the OAuth round-trip). Surface the code to <ConvexAuthProvider> by
+        //    writing it onto window.location's query string; the provider
+        //    listens for it and exchanges the code automatically.
+        if (isCustomScheme && routePath === 'callback' && parsed.searchParams.get('code')) {
+          try {
             // Replace the current history entry so the provider sees the code
             // on its next URL read, without leaving a junk entry in history.
-            const newUrl = `${window.location.pathname}?${u.search.replace(/^\?/, '')}`;
+            const newUrl = `${window.location.pathname}?${parsed.search.replace(/^\?/, '')}`;
             window.history.replaceState({}, '', newUrl);
             // Give the provider a tick to pick up the code, then route.
             setTimeout(() => navigate('/dashboard'), 100);
+          } catch (e) {
+            logger.error('Error handling Convex Auth callback', e);
           }
-        } catch (e) {
-          logger.error("Error handling Convex Auth callback", e);
+          return;
         }
-        return;
-      }
 
-      // 2. Generic Deep Linking (weightcutwizard://page)
-      //    e.g. weightcutwizard://nutrition -> /nutrition
-      if (url.includes('weightcutwizard://')) {
-        const slug = url.split("weightcutwizard://")[1];
-        if (slug) {
-          const [path, queryString] = slug.split('?');
-          // Preserve ?reset=true for password reset deep links
-          const params = new URLSearchParams(queryString || '');
-          const suffix = params.get('reset') === 'true' ? '?reset=true' : '';
+        // 2. Generic in-app routing (e.g. join?code=..., nutrition,
+        //    auth?reset=true). Forward the original query string so the target
+        //    route keeps its params (?code= for /join, ?reset=true for /auth).
+        if (routePath && routePath !== 'callback') {
+          navigate(`/${routePath}${parsed.search}`);
+        } else if (routePath === 'callback') {
+          // Custom-scheme callback without a usable code (defensive).
+          navigate('/dashboard');
+        }
+      }),
+    );
 
-          if (path !== 'callback') {
-            navigate(`/${path}${suffix}`);
+    // --- Android hardware/gesture back button ---
+    // iOS has no hardware back button, so this is Android-only. Capacitor's
+    // default would abruptly exit the app on every back press; instead we pop
+    // browser history (in-app navigation) and only exit when at a root screen.
+    // We let history/in-app navigation handle modals rather than special-casing
+    // overlays here, to keep the behavior simple and predictable.
+    if (isAndroid()) {
+      listeners.push(
+        CapacitorApp.addListener('backButton', () => {
+          const atRoot = ROOT_ROUTES.includes(window.location.pathname);
+          if (!atRoot && window.history.length > 1) {
+            window.history.back();
           } else {
-            navigate('/dashboard');
+            CapacitorApp.exitApp();
           }
-        }
-      }
-    });
+        }),
+      );
+    }
+
+    return () => {
+      // Remove every native listener we registered on unmount.
+      listeners.forEach((p) => p.then((h) => h.remove()).catch(() => {}));
+    };
   }, [navigate]);
 
   return null;
@@ -251,12 +299,21 @@ const AppLayoutContent = () => {
   return (
     <>
       {/* Mobile-first layout: sidebar hidden on mobile, shown on desktop */}
-      <div className="min-h-screen-safe flex w-full no-horizontal-scroll">
+      {/* Bind the app shell to the dynamic viewport via an INLINE style (the
+          `.h-screen-safe` utility class was being dropped by the CSS build, so
+          the container grew to content height and <main> never became a real
+          scroll viewport — page bottoms were unreachable on Android Chromium,
+          while iOS WKWebView happened to tolerate it). overflow:hidden makes
+          the inner <main> the single scroller; PullToRefresh reads main.scrollTop. */}
+      <div
+        className="flex w-full no-horizontal-scroll"
+        style={{ height: "100dvh", overflow: "hidden" }}
+      >
         <div className="hidden md:block">
           <AppSidebar />
         </div>
         {/* Main content area - responsive padding for mobile */}
-        <div className="flex-1 flex flex-col min-w-0 w-full">
+        <div className="flex-1 flex flex-col min-h-0 min-w-0 w-full">
           {/* Desktop-only header with sidebar trigger and theme toggle */}
           <header className="hidden md:flex sticky top-0 z-50 h-14 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 items-center justify-between px-4 md:static md:z-auto">
             <SidebarTrigger className="touch-target" />

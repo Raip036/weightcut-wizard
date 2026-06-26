@@ -22,6 +22,22 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- Custom URL scheme: weightcutwizard:// (OAuth callback + in-app routes) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="weightcutwizard" />
+            </intent-filter>
+
+            <!-- App Links: https://fightcampwizard.com (requires hosted assetlinks.json) -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="fightcampwizard.com" />
+            </intent-filter>
+
         </activity>
 
         <provider
@@ -38,4 +54,21 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Camera: meal/training photos + barcode scanning -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- Push (FCM) + local notification posting on Android 13+ -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Haptics / vibrate -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- Media read: photo/video picking (Android 13+ granular media perms) -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <!-- Older devices (Android 12L and below) fall back to legacy storage read -->
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
 </manifest>

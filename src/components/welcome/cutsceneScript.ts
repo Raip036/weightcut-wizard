@@ -30,6 +30,14 @@
  * scene rather than a stacked effect.
  */
 import type { WizardPose } from "@/tutorial/types";
+import { isAndroid } from "@/lib/platform";
+
+/**
+ * Headline social sign-in provider per platform. Android shows the native
+ * Google sheet; iOS (and web) show Apple. Keep the speech-bubble copy in sync
+ * with the actual auth button so the wizard never promises the wrong provider.
+ */
+const SIGN_IN_PROVIDER = isAndroid() ? "Google" : "Apple";
 
 export type TailSide = "bottom-left" | "bottom-right" | "left";
 export type StageEffect =
@@ -137,7 +145,7 @@ export const CUTSCENE_ACTS: CutsceneAct[] = [
   {
     id: "speed",
     headline: "Sign up in seconds.",
-    body: "One tap with Apple. No forms, no passwords. You're in.",
+    body: `One tap with ${SIGN_IN_PROVIDER}. No forms, no passwords. You're in.`,
     pose: "point",
     position: { x: 0.5, y: 0.48 },
     scale: 1.1,
@@ -234,7 +242,7 @@ export const COACH_CUTSCENE_ACTS: CutsceneAct[] = [
   {
     id: "coach-speed",
     headline: "Open in seconds.",
-    body: "One tap with Apple. Invite your fighters with a code right after.",
+    body: `One tap with ${SIGN_IN_PROVIDER}. Invite your fighters with a code right after.`,
     pose: "point",
     position: { x: 0.5, y: 0.48 },
     scale: 1.1,

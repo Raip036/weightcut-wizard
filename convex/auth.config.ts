@@ -27,6 +27,14 @@
  *   AUTH_APPLE_KEY_ID                Sign-in-with-Apple Key ID (10 chars)
  *   AUTH_APPLE_PRIVATE_KEY           Contents of the .p8 file (PEM)
  *
+ *  Google Sign-In (https://console.cloud.google.com → Credentials):
+ *   GOOGLE_CLIENT_ID                 Web OAuth 2.0 client id. Used BOTH by
+ *                                    the web `Google` provider AND as the
+ *                                    audience the `google-native` provider
+ *                                    verifies the Android id_token against.
+ *   GOOGLE_CLIENT_SECRET             Web OAuth 2.0 client secret (web
+ *                                    redirect flow only).
+ *
  *  Password reset email (Resend or similar — Phase-3 TODO):
  *   AUTH_RESEND_KEY                  Resend API key (optional for now —
  *                                    the Password provider's `reset` flow

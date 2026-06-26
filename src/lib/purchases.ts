@@ -1,12 +1,12 @@
 import { Capacitor } from "@capacitor/core";
 import { logger } from "@/lib/logger";
+import { revenueCatApiKey, subscriptionManagementUrl } from "@/lib/platform";
 
 // RevenueCat modules — dynamically imported only on native
 let Purchases: any = null;
 let LOG_LEVEL: any = null;
 let RevenueCatUI: any = null;
 
-const RC_API_KEY_IOS = "appl_KEgVHMBYZuygdbadkzJDGNdIuTL";
 const ENTITLEMENT_ID = "FightCamp Wizard Pro";
 
 export const PRODUCT_IDS = {
@@ -61,11 +61,20 @@ export async function initializePurchases(userId: string): Promise<void> {
   await loadRC();
   if (!Purchases) return;
 
+  // Resolve the store-specific public SDK key. On Android this is null until
+  // the RevenueCat Android app + `goog_…` key exist — skip configure rather
+  // than crash with an invalid-key error.
+  const apiKey = revenueCatApiKey();
+  if (!apiKey) {
+    logger.warn("RevenueCat API key unavailable for this platform; skipping configure");
+    return;
+  }
+
   try {
     if (!rcConfigured) {
       // First configure in this process.
       await Purchases.configure({
-        apiKey: RC_API_KEY_IOS,
+        apiKey,
         appUserID: userId,
       });
       rcConfigured = true;
@@ -366,8 +375,8 @@ export async function presentCustomerCenter(): Promise<void> {
   await loadRC();
   await loadRCUI();
   if (!RevenueCatUI) {
-    // Fallback: open Apple subscription management
-    window.open("https://apps.apple.com/account/subscriptions", "_blank");
+    // Fallback: open the store's subscription management page
+    window.open(subscriptionManagementUrl(), "_blank");
     return;
   }
 
@@ -376,7 +385,7 @@ export async function presentCustomerCenter(): Promise<void> {
   } catch (err) {
     logger.error("Failed to present customer center", err);
     // Fallback
-    window.open("https://apps.apple.com/account/subscriptions", "_blank");
+    window.open(subscriptionManagementUrl(), "_blank");
   }
 }
 
@@ -385,14 +394,14 @@ export async function presentCustomerCenter(): Promise<void> {
 export async function showManageSubscriptions(): Promise<void> {
   await loadRC();
   if (!Purchases) {
-    window.open("https://apps.apple.com/account/subscriptions", "_blank");
+    window.open(subscriptionManagementUrl(), "_blank");
     return;
   }
 
   try {
     await Purchases.showManageSubscriptions();
   } catch {
-    window.open("https://apps.apple.com/account/subscriptions", "_blank");
+    window.open(subscriptionManagementUrl(), "_blank");
   }
 }
 

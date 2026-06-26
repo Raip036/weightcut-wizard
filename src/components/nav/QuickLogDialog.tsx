@@ -146,7 +146,11 @@ export function QuickLogDialog({ open, onOpenChange, onLogFood, onLogWeight, onL
           promptLabelPhoto: "Take Photo",
         });
         if (photo.webPath) {
-          const res = await fetch(photo.webPath);
+          // Route the webPath through `Capacitor.convertFileSrc` so the
+          // WebView can read it on BOTH platforms — the raw `file://` URI
+          // is sandboxed and silently unreadable by fetch() on Android
+          // (no-op-equivalent on iOS WKWebView).
+          const res = await fetch(Capacitor.convertFileSrc(photo.webPath));
           const blob = await res.blob();
           const file = new File([blob], `quicklog-${Date.now()}.jpg`, { type: blob.type || "image/jpeg" });
           if (trainingPhoto?.previewUrl) URL.revokeObjectURL(trainingPhoto.previewUrl);

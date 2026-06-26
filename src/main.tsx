@@ -45,21 +45,47 @@ if (Capacitor.isNativePlatform()) {
 
   Keyboard.setResizeMode({ mode: KeyboardResize.None }).catch(() => {});
 
-  Keyboard.addListener("keyboardWillShow", (info) => {
+  // Mirror the keyboard height into `--keyboard-inset` (+ a boolean flag on
+  // <html>) so `.keyboard-aware-bottom` and `[data-keyboard-open]` CSS can
+  // reserve room / hide the bottom-nav while the keyboard is visible. Factored
+  // into helpers because we register them against BOTH the iOS-only `will*`
+  // events and the Android `did*` events below.
+  const setKeyboardInset = (keyboardHeight: number) => {
     document.documentElement.style.setProperty(
       "--keyboard-inset",
-      `${info.keyboardHeight}px`,
+      `${keyboardHeight}px`,
     );
     // Surface a boolean flag on <html> so CSS can hide the bottom-nav (and
     // any other tagged element) without needing the inset value itself.
     // Pairs with `[data-keyboard-open="true"] [data-hide-when-keyboard]`
     // in index.css.
     document.documentElement.dataset.keyboardOpen = "true";
+  };
+
+  const clearKeyboardInset = () => {
+    document.documentElement.style.setProperty("--keyboard-inset", "0px");
+    delete document.documentElement.dataset.keyboardOpen;
+  };
+
+  // iOS fires `keyboardWillShow` / `keyboardWillHide` (ahead of the animation).
+  Keyboard.addListener("keyboardWillShow", (info) => {
+    setKeyboardInset(info.keyboardHeight);
   }).catch(() => {});
 
   Keyboard.addListener("keyboardWillHide", () => {
-    document.documentElement.style.setProperty("--keyboard-inset", "0px");
-    delete document.documentElement.dataset.keyboardOpen;
+    clearKeyboardInset();
+  }).catch(() => {});
+
+  // Android only emits `keyboardDidShow` / `keyboardDidHide` (the `will*`
+  // events are iOS-only), so without these the inset never updated on Android
+  // and the keyboard overlapped inputs / the bottom nav. These fire on Android,
+  // and harmlessly late on iOS (idempotent re-set of the same value).
+  Keyboard.addListener("keyboardDidShow", (info) => {
+    setKeyboardInset(info.keyboardHeight);
+  }).catch(() => {});
+
+  Keyboard.addListener("keyboardDidHide", () => {
+    clearKeyboardInset();
   }).catch(() => {});
 }
 

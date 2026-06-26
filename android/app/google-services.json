@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "307294042101",
+    "project_id": "fightcampwizard",
+    "storage_bucket": "fightcampwizard.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:307294042101:android:0dc04002b3f2d29f8c52bc",
+        "android_client_info": {
+          "package_name": "com.fightcampwizard.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCexLT6EoI69LYX-yNCJ7SgvkMWnnbciSk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

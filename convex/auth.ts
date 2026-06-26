@@ -11,6 +11,18 @@
  *  - Apple (OAuth — Services ID / Team ID / Key ID / p8 key are read
  *    from environment variables on the Convex deployment; see
  *    `auth.config.ts` for the env var contract.)
+ *  - Google (OAuth — `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` are read
+ *    from environment variables on the Convex deployment; see
+ *    `auth.config.ts` for the env var contract.) Plus a `google-native`
+ *    ConvexCredentials provider that verifies an Android-issued id_token
+ *    server-side, mirroring `apple-native`.
+ *
+ * Required Convex env vars (set with `npx convex env set <NAME> <value>`):
+ *   AUTH_APPLE_ID / AUTH_APPLE_* …  (Apple — see auth.config.ts)
+ *   GOOGLE_CLIENT_ID                Web OAuth client id (also the audience
+ *                                   the `google-native` provider verifies
+ *                                   the Android id_token against).
+ *   GOOGLE_CLIENT_SECRET            Web OAuth client secret (web redirect flow).
  *
  * Bootstrap:
  *  - `createOrUpdateUser` is invoked by Convex Auth after a successful
@@ -20,6 +32,7 @@
  */
 import { convexAuth, createAccount } from "@convex-dev/auth/server";
 import Apple from "@auth/core/providers/apple";
+import Google from "@auth/core/providers/google";
 import { Password } from "@convex-dev/auth/providers/Password";
 import { ConvexCredentials } from "@convex-dev/auth/providers/ConvexCredentials";
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
@@ -53,6 +66,39 @@ async function sha256Hex(input: string): Promise<string> {
   return Array.from(new Uint8Array(buf))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
+}
+
+// ─── Google native id_token verification helpers ──────────────────────
+// Same shape as the Apple block above: `@convex-dev/auth` has no native
+// id_token short-circuit for OAuth providers, so native Android Sign In
+// with Google goes through a separate `ConvexCredentials` provider with id
+// `google-native` that:
+//   1. Verifies the Android-issued id_token against Google's JWKS.
+//   2. Verifies the nonce. IMPORTANT DIFFERENCE FROM APPLE: Google echoes
+//      the `nonce` claim equal to the RAW value the client passed, whereas
+//      Apple stores SHA-256(rawNonce). So here we compare the token's
+//      `nonce` claim directly to the raw nonce (no hashing).
+//   3. Upserts the user via `createAccount` keyed by Google `sub` under
+//      providerId "google" so the web OAuth Google provider and this
+//      native provider link to the SAME `authAccounts` record.
+// Google accepts the issuer with or without the https scheme.
+const GOOGLE_ISSUERS = ["https://accounts.google.com", "accounts.google.com"];
+// GOOGLE_NATIVE_AUDIENCE: the audience the id_token must be minted for.
+// Sourced from the Convex env var GOOGLE_CLIENT_ID (the Web OAuth client id
+// the Android plugin is initialized with via `serverClientId`/`webClientId`).
+const GOOGLE_NATIVE_AUDIENCE = process.env.GOOGLE_CLIENT_ID;
+const googleJWKS = createRemoteJWKSet(
+  new URL("https://www.googleapis.com/oauth2/v3/certs"),
+);
+
+interface GoogleIdTokenClaims extends JWTPayload {
+  sub: string;
+  email?: string;
+  email_verified?: string | boolean;
+  given_name?: string;
+  family_name?: string;
+  name?: string;
+  nonce?: string;
 }
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
@@ -229,6 +275,128 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         const { user } = await createAccount(ctx, {
           provider: "apple",
           account: { id: appleSub },
+          profile: profilePayload,
+          shouldLinkViaEmail: true,
+        });
+
+        return { userId: user._id };
+      },
+    }),
+
+    // Google Sign-In (OAuth, web redirect flow). Provider config
+    // (clientId / clientSecret) is read from env vars at runtime — see
+    // `auth.config.ts`. The redirect URI on the Google Cloud console must
+    // be set to:
+    //   https://<your-convex-site-url>/api/auth/callback/google
+    //
+    // Mirrors the Apple web provider above: stable identifier is Google's
+    // `sub` and `emailVerified` is normalized from Google's "true"/true.
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      profile(profile) {
+        return {
+          id: profile.sub,
+          email: profile.email,
+          name: profile.name,
+          emailVerified:
+            profile.email_verified === "true" ||
+            profile.email_verified === true,
+        };
+      },
+    }),
+
+    // Native Android Google Sign-In via id_token. Client (Capacitor +
+    // @capgo/capacitor-social-login) calls:
+    //   signIn("google-native", { idToken, nonce, role? })
+    // We verify the id_token + nonce server-side and upsert the user.
+    // Mirrors the `apple-native` provider above; the one behavioural
+    // difference is the nonce check (see step 2).
+    ConvexCredentials({
+      id: "google-native",
+      authorize: async (credentials, ctx) => {
+        const idToken = credentials.idToken;
+        const rawNonce = credentials.nonce;
+        if (typeof idToken !== "string" || idToken.length === 0) {
+          throw new Error("GOOGLE_NATIVE_MISSING_ID_TOKEN");
+        }
+        if (typeof rawNonce !== "string" || rawNonce.length === 0) {
+          throw new Error("GOOGLE_NATIVE_MISSING_NONCE");
+        }
+        if (!GOOGLE_NATIVE_AUDIENCE) {
+          // Convex env var GOOGLE_CLIENT_ID is unset — refuse rather than
+          // verify against an undefined audience.
+          throw new Error("GOOGLE_NATIVE_AUDIENCE_NOT_CONFIGURED");
+        }
+
+        // ─ 1. Verify signature + standard claims against Google's JWKS.
+        let payload: GoogleIdTokenClaims;
+        try {
+          const verified = await jwtVerify<GoogleIdTokenClaims>(idToken, googleJWKS, {
+            issuer: GOOGLE_ISSUERS,
+            audience: GOOGLE_NATIVE_AUDIENCE,
+            clockTolerance: "5s",
+          });
+          payload = verified.payload;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          throw new Error(`GOOGLE_NATIVE_IDTOKEN_INVALID: ${msg}`);
+        }
+
+        // ─ 2. Nonce binding. UNLIKE APPLE (which stores SHA-256(rawNonce)),
+        //   Google echoes the `nonce` claim equal to the RAW value the
+        //   client passed, so we compare against the raw nonce directly —
+        //   no hashing.
+        if (typeof payload.nonce !== "string" || payload.nonce.length === 0) {
+          throw new Error("GOOGLE_NATIVE_NONCE_MISSING_FROM_TOKEN");
+        }
+        if (payload.nonce !== rawNonce) {
+          throw new Error("GOOGLE_NATIVE_NONCE_MISMATCH");
+        }
+
+        // ─ 3. Pull stable identifier and optional profile fields.
+        const googleSub = payload.sub;
+        if (!googleSub) throw new Error("GOOGLE_NATIVE_MISSING_SUB");
+
+        const email =
+          typeof payload.email === "string" && payload.email.length > 0
+            ? payload.email
+            : typeof credentials.email === "string"
+              ? credentials.email
+              : undefined;
+        const emailVerified =
+          payload.email_verified === true || payload.email_verified === "true";
+
+        const givenName =
+          typeof payload.given_name === "string" ? payload.given_name : undefined;
+        const familyName =
+          typeof payload.family_name === "string" ? payload.family_name : undefined;
+        const name =
+          (typeof payload.name === "string" && payload.name.length > 0
+            ? payload.name
+            : [givenName, familyName]
+                .filter((s): s is string => typeof s === "string" && s.length > 0)
+                .join(" ")
+                .trim()) || undefined;
+
+        // Role for the bootstrap `profiles` row. Defaults to fighter;
+        // a coach signup needs to pass `role: "coach"` on the client.
+        const role: "fighter" | "coach" =
+          credentials.role === "coach" ? "coach" : "fighter";
+
+        // ─ 4. Find-or-create the user under provider="google" so the
+        //   record is interchangeable with the web OAuth flow.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const profilePayload: any = {
+          ...(email !== undefined ? { email } : {}),
+          ...(name !== undefined ? { name } : {}),
+          emailVerified: emailVerified || email !== undefined,
+          role,
+        };
+
+        const { user } = await createAccount(ctx, {
+          provider: "google",
+          account: { id: googleSub },
           profile: profilePayload,
           shouldLinkViaEmail: true,
         });
