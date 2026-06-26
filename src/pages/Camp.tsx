@@ -260,6 +260,10 @@ export default function Camp() {
   // plan" link, so the standalone plan card below is only rendered when the
   // hero is absent (avoids showing the same link twice).
   const heroShown = !!(activeCamp && !activeCamp.isCompleted && campProgress && phase);
+  // Whether the user currently has an active (non-completed) fight camp. With
+  // no active camp there's nothing to earn XP against and the "View full plan"
+  // card would point at a stale/old plan, so both are hidden in that state.
+  const hasActiveCamp = !!(activeCamp && !activeCamp.isCompleted);
   const planUrl = cutPlanSummary
     ? cutPlanSummary.planType === "weight_loss"
       ? "/weight-plan"
@@ -312,7 +316,7 @@ export default function Camp() {
           hero. When the hero IS shown, the discipline level rings flank its
           main fight-progress ring instead, so this standalone card would be
           redundant. ──────────────────────────────────────────────────────── */}
-      {userId && !(activeCamp && !activeCamp.isCompleted && campProgress && phase) && (
+      {userId && hasActiveCamp && !heroShown && (
         <XpSummaryCard />
       )}
 
@@ -322,7 +326,7 @@ export default function Camp() {
         {/* Quick link to the canonical plan timeline. When the active-camp
             hero is shown it already hosts this link, so only render the
             standalone card in the no-hero state. */}
-        {cutPlanSummary && !heroShown && (
+        {cutPlanSummary && hasActiveCamp && !heroShown && (
         <button
           type="button"
           data-tutorial="camp-full-plan"

@@ -70,7 +70,16 @@ type SessionRow = {
     session_type: string;
     duration_minutes: number;
     notes: string | null;
+    // Techniques-covered box. A session counts toward the recap if EITHER this
+    // OR `notes` (reflection) has content — the server action already treats
+    // technique-only logs as valid, so the client must too.
+    techniques_notes: string | null;
 };
+
+/** A session has recap-worthy content if either notes field is non-empty. */
+function hasRecapNotes(s: SessionRow): boolean {
+    return !!(s.notes?.trim() || s.techniques_notes?.trim());
+}
 
 type ButtonState = "hidden" | "generate" | "update" | "up_to_date";
 
@@ -83,9 +92,9 @@ interface TrainingSummarySectionProps {
 
 function computeFingerprint(sessions: SessionRow[]): string {
     return sessions
-        .filter(s => s.notes)
+        .filter(hasRecapNotes)
         .sort((a, b) => a.id.localeCompare(b.id))
-        .map(s => `${s.id}:${s.notes}`)
+        .map(s => `${s.id}:${s.notes ?? ""}:${s.techniques_notes ?? ""}`)
         .join("|");
 }
 
@@ -173,6 +182,7 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
                 session_type: r.sessionType,
                 duration_minutes: r.durationMinutes,
                 notes: r.notes ?? null,
+                techniques_notes: r.techniquesNotes ?? null,
             }));
             setWeekSessions(rows);
             localCache.set(userId, weekKey, rows);
@@ -201,9 +211,9 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
         [savedSummaries, selectedWeekStart]
     );
 
-    // Sessions with notes for the current calendar week
+    // Sessions with recap-worthy content (reflection OR techniques) this week.
     const sessionsWithNotes = useMemo(
-        () => weekSessions.filter(s => s.notes),
+        () => weekSessions.filter(hasRecapNotes),
         [weekSessions]
     );
 

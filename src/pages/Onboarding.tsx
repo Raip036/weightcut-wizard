@@ -30,6 +30,8 @@ import { XPProgressBar, DaysToFightSlam, WeightLossSlam, LossFrameCard, Declarat
 import { WizardAuroraBackground } from "@/components/onboarding/WizardAuroraBackground";
 import { OnboardingWizardMascot } from "@/components/onboarding/wizard/OnboardingWizardMascot";
 import { ReminderStep } from "@/components/onboarding/wizard/ReminderStep";
+import { assessCutFeasibility, weeksToWeighIn, type CutFeasibilityResult } from "@/../convex/_shared/cutFeasibility";
+import { FightTooSoonScreen } from "@/components/fightcamp/FightTooSoonScreen";
 
 // App Store compliance: hard age floor (17+). Weight-cut guidance involves
 // dehydration and calorie restriction unsafe to coach for minors. Mirrors the
@@ -732,6 +734,10 @@ export default function Onboarding() {
   // blocked until the user actively ticks this.
   const [safetyAcknowledged, setSafetyAcknowledged] = useState(false);
 
+  // Set when the requested cut is physically impossible (needs >2.5% bodyweight
+  // of fat loss per week before any water cut). Renders a full-screen block.
+  const [fightTooSoon, setFightTooSoon] = useState<(CutFeasibilityResult & { weeksAvailable: number }) | null>(null);
+
   // Derived age classification for the age step's inline error + Continue gate.
   const ageStatus = classifyAge(formData.age);
 
@@ -798,6 +804,44 @@ export default function Onboarding() {
     if (!validationResult.success) {
       toast({ variant: "destructive", title: "Check your inputs", description: validationResult.error.errors[0].message });
       return;
+    }
+
+    // ── Feasibility gate ──────────────────────────────────────────────────
+    // Refuse physically-impossible cuts: needing more than 2.5% of bodyweight in
+    // FAT loss per week (before any water cut / carb reduction) cannot be done
+    // safely. Block BEFORE saving the profile or creating a camp; show the
+    // premium "too soon" screen and let the user adjust the date/target.
+    {
+      const isFighter = formData.goal_type === "cutting";
+      const currentW = parseFloat(formData.current_weight_kg);
+      const preDehydrationTargetKg = isFighter
+        ? (parseFloat(formData.fight_week_target_kg) || parseFloat(formData.goal_weight_kg))
+        : parseFloat(formData.goal_weight_kg);
+      // Mirror the target-date derivation used lower in handleSubmit for losing.
+      const feasTargetDate = formData.target_date || (() => {
+        if (formData.target_weeks) {
+          const weeks = parseInt(formData.target_weeks) || 12;
+          return new Date(Date.now() + weeks * 7 * 86400000).toISOString().slice(0, 10);
+        }
+        const diff = Math.abs(parseFloat(formData.current_weight_kg) - parseFloat(formData.goal_weight_kg));
+        const weeks = Math.max(4, Math.ceil(diff / 0.5));
+        return new Date(Date.now() + weeks * 7 * 86400000).toISOString().slice(0, 10);
+      })();
+      if (Number.isFinite(currentW) && Number.isFinite(preDehydrationTargetKg) && feasTargetDate) {
+        const weeksAvailable = weeksToWeighIn(
+          feasTargetDate,
+          isFighter ? (formData.weigh_in_timing || "day_before") : undefined,
+        );
+        const feas = assessCutFeasibility({
+          currentWeightKg: currentW,
+          preDehydrationTargetKg,
+          weeksAvailable,
+        });
+        if (!feas.feasible) {
+          setFightTooSoon({ ...feas, weeksAvailable });
+          return;
+        }
+      }
     }
 
     setLoading(true);
@@ -1170,6 +1214,32 @@ export default function Onboarding() {
     );
   }
 
+  // Physically-impossible cut: full-screen premium block, no path into plan
+  // generation. The CTA sends the user back to the date/timeline step to adjust.
+  if (fightTooSoon) {
+    const isFighter = formData.goal_type === "cutting";
+    return (
+      <FightTooSoonScreen
+        fatLossKg={fightTooSoon.fatLossKg}
+        weeksAvailable={fightTooSoon.weeksAvailable}
+        minWeeksNeeded={fightTooSoon.minWeeksNeeded}
+        maxPerWeekKg={fightTooSoon.maxPerWeekKg}
+        perWeekKg={fightTooSoon.perWeekKg}
+        ctaLabel={isFighter ? "Adjust fight date" : "Adjust timeline"}
+        onAction={() => {
+          setFightTooSoon(null);
+          setDirection(-1);
+          if (isFighter) {
+            setStep(F.FIGHT_DETAILS);
+            setFightSubStep(1);
+          } else {
+            setStep(L.TIMEFRAME);
+          }
+        }}
+      />
+    );
+  }
+
   // ── Render screens ──
   return (
     <div className="h-[100dvh] flex flex-col bg-background dark:bg-[#020204] overflow-hidden">
@@ -1531,7 +1601,7 @@ export default function Onboarding() {
                       {/* Live arithmetic + loss-frame: only show when current
                           weight is also on file (user revisited via back nav). */}
                       {weeksToFight && weightDiff && (
-                        <div className="w-full max-w-[300px] space-y-2">
+                        <div className="w-full max-w-[360px] space-y-2">
                           <MathWhisper>
                             That's {(parseFloat(weightDiff) / weeksToFight).toFixed(1)} kg/week, {(parseFloat(weightDiff) / weeksToFight) < 1.0 ? "safe and steady." : "aggressive but doable."}
                           </MathWhisper>
@@ -1869,24 +1939,24 @@ export default function Onboarding() {
                   const isDangerous = weeklyLoss > 1.5 || bodyPct > 10;
 
                   return (
-                    <div className="w-full max-w-[300px] space-y-2">
+                    <div className="w-full max-w-[360px] space-y-2">
                       <p className="text-sm text-muted-foreground text-center">
                         You need to drop <strong className="text-foreground">{diff.toFixed(1)} kg</strong>
                         {" "}in <strong className="text-foreground">{weeksToFight} weeks</strong>
                         <span className="text-xs text-muted-foreground/60"> ({weeklyLoss.toFixed(1)} kg/wk)</span>
                       </p>
                       {isDangerous && (
-                        <Alert className="border-func-danger-red/30 bg-func-danger-red/5 rounded-xs">
+                        <Alert className="border-func-danger-red/30 rounded-xs">
                           <AlertTriangle className="h-4 w-4 text-func-danger-red" />
-                          <AlertDescription className="text-xs text-func-danger-red">
+                          <AlertDescription className="text-[13px] leading-relaxed text-func-danger-red">
                             <strong className="text-func-danger-red">High risk cut.</strong> Losing {weeklyLoss.toFixed(1)} kg/week ({bodyPct.toFixed(0)}% bodyweight) can sap your strength, reaction time, and endurance, and may cost you muscle. Consider working with a sports nutritionist alongside the app to dial in your fuelling. We'll still build your plan and keep you on track.
                           </AlertDescription>
                         </Alert>
                       )}
                       {isAggressivePace && !isDangerous && (
-                        <Alert className="border-func-warning-yellow/30 bg-func-warning-yellow/5 rounded-xs">
+                        <Alert className="border-func-warning-yellow/30 rounded-xs">
                           <AlertTriangle className="h-4 w-4 text-func-warning-yellow" />
-                          <AlertDescription className="text-xs text-func-warning-yellow">
+                          <AlertDescription className="text-[13px] leading-relaxed text-func-warning-yellow">
                             <strong className="text-func-warning-yellow">Aggressive pace.</strong> Losing {weeklyLoss.toFixed(1)} kg/week requires strict adherence. We'll plan for this.
                           </AlertDescription>
                         </Alert>
@@ -1901,16 +1971,16 @@ export default function Onboarding() {
                   if (targetWeeks > 0 && formData.goal_type === "losing") {
                     const kgPerWeek = diff / targetWeeks;
                     return (
-                      <div className="w-full max-w-[300px] space-y-2">
+                      <div className="w-full max-w-[360px] space-y-2">
                         <p className="text-sm text-muted-foreground text-center">
                           <strong className="text-foreground">{diff.toFixed(1)} kg</strong> to lose in{" "}
                           <strong className="text-foreground">{targetWeeks} weeks</strong>
                           , that's <strong className="text-foreground">{kgPerWeek.toFixed(1)} kg/week</strong>
                         </p>
                         {kgPerWeek > 1.0 && (
-                          <Alert className="border-func-warning-yellow/30 bg-func-warning-yellow/5 rounded-xs">
+                          <Alert className="border-func-warning-yellow/30 rounded-xs">
                             <AlertTriangle className="h-4 w-4 text-func-warning-yellow" />
-                            <AlertDescription className="text-xs text-func-warning-yellow">
+                            <AlertDescription className="text-[13px] leading-relaxed text-func-warning-yellow">
                               Losing more than 1 kg/week increases muscle loss risk. Consider extending your timeframe for safer results.
                             </AlertDescription>
                           </Alert>

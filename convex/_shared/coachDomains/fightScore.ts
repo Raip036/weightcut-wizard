@@ -44,6 +44,40 @@ function clamp(text: string, max: number): string {
   return text.length <= max ? text : text.slice(0, max - 1).trimEnd() + "…";
 }
 
+// The coach must NEVER surface raw keys to the athlete. `topLimiter` arrives as
+// a sub-score key (e.g. "nutritionAdherence") and `status` as a raw label
+// (e.g. "at_risk"); map both to natural language.
+const LIMITER_LABEL: Record<string, string> = {
+  trainingLoad: "Training load",
+  sleep: "Sleep",
+  weightCut: "Weight cut",
+  wellness: "Recovery",
+  recovery: "Recovery",
+  nutritionAdherence: "Nutrition",
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  sharp: "Sharp",
+  sharpening: "Sharpening",
+  off_pace: "Off pace",
+  at_risk: "At risk",
+  calibrating: "Calibrating",
+};
+
+/** Fallback: snake_case / camelCase to sentence case, so an unmapped key still
+ *  reads as plain language instead of a raw identifier. */
+function humanizeKey(raw: string): string {
+  const spaced = raw
+    .replace(/_/g, " ")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .trim();
+  if (!spaced) return raw;
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase();
+}
+
+const limiterLabel = (raw: string): string => LIMITER_LABEL[raw] ?? humanizeKey(raw);
+const statusLabel = (raw: string): string => STATUS_LABEL[raw] ?? humanizeKey(raw);
+
 /**
  * Build the visual cards for the fight-form-score domain.
  *
@@ -82,7 +116,7 @@ export function buildFightScoreCards(slice: FightScoreSlice): CoachBlock[] {
     type: "score_ring",
     label,
     score: slice.score,
-    status: clamp(slice.status, 32),
+    status: clamp(statusLabel(slice.status), 32),
     ...(sublabels.length > 0 ? { sublabels } : {}),
   });
 
@@ -91,7 +125,7 @@ export function buildFightScoreCards(slice: FightScoreSlice): CoachBlock[] {
     blocks.push({
       type: "callout",
       tone: "warn",
-      text: clamp(`Biggest limiter: ${limiter} — fix this first.`, 200),
+      text: clamp(`Biggest limiter: ${limiterLabel(limiter)}. Fix this first.`, 200),
     });
   }
 
@@ -117,13 +151,13 @@ export function summarizeFightScore(slice: FightScoreSlice): string {
 
   const phase = slice.phase?.trim();
   const head =
-    `Fight Form ${formatValue(slice.score)}/100 (${slice.status})` +
+    `Fight Form ${formatValue(slice.score)}/100 (${statusLabel(slice.status)})` +
     (phase ? `, phase ${phase}` : "") +
     ".";
   parts.push(head);
 
   const limiter = slice.topLimiter?.trim();
-  if (limiter) parts.push(`Top limiter: ${limiter}.`);
+  if (limiter) parts.push(`Top limiter: ${limiterLabel(limiter)}.`);
 
   if (slice.subScores.length > 0) {
     const subs = slice.subScores

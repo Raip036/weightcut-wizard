@@ -58,6 +58,48 @@ export default function FightCampDetail() {
   const updateCamp = useMutation(api.fight_camp.updateCamp);
   const generateMediaUploadUrl = useMutation(api.fight_camp.generateMediaUploadUrl);
 
+  // ── Share-card stats (camp-scoped) ──────────────────────────────────
+  // Surfaced on the social share card: top discipline level, mastered count,
+  // and session/hours totals over the camp window. All defensive — the card
+  // shows an em dash for anything missing.
+  const disciplineXp = useQuery(
+    api.user_discipline_xp.getAllForUser,
+    id ? { campId: id as Id<"fight_camps"> } : "skip",
+  );
+  const masteredTechs = useQuery(
+    api.mastery_spine.getMasteredTechniques,
+    id ? { campId: id as Id<"fight_camps"> } : "skip",
+  );
+  const campStartIso = campRow
+    ? new Date((campRow as { _creationTime: number })._creationTime).toISOString().slice(0, 10)
+    : null;
+  const campFightIso = campRow ? ((campRow as { fightDate: string }).fightDate ?? null) : null;
+  const campCalendar = useQuery(
+    api.fight_camp.listCalendar,
+    campStartIso && campFightIso ? { from: campStartIso, to: campFightIso } : "skip",
+  );
+  const shareStats = useMemo(() => {
+    const topRow = disciplineXp && disciplineXp.length > 0 ? disciplineXp[0] : null;
+    const sessionRows = (campCalendar ?? []).filter(
+      (r: { sessionType?: string }) => r.sessionType !== "Rest",
+    );
+    const minutes = sessionRows.reduce(
+      (sum: number, r: { durationMinutes?: number }) => sum + (r.durationMinutes ?? 0),
+      0,
+    );
+    return {
+      topDiscipline: topRow ? { sport: topRow.sport, level: topRow.level } : null,
+      masteredCount: masteredTechs?.length ?? 0,
+      sessions: sessionRows.length,
+      hours: Math.round(minutes / 60),
+    };
+  }, [disciplineXp, masteredTechs, campCalendar]);
+  const campWeeks = useMemo(() => {
+    if (!campStartIso || !campFightIso) return undefined;
+    const days = Math.round((Date.parse(campFightIso) - Date.parse(campStartIso)) / 86_400_000);
+    return days > 0 ? Math.max(1, Math.round(days / 7)) : undefined;
+  }, [campStartIso, campFightIso]);
+
   const [camp, setCamp] = useState<FightCamp | null>(null);
   const [uploading, setUploading] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -391,7 +433,7 @@ export default function FightCampDetail() {
         shareText={`Check out my fight camp: ${camp.name}`}
       >
         {({ cardRef, aspect }) => (
-          <FightCampSummaryCard ref={cardRef} camp={camp} aspect={aspect} />
+          <FightCampSummaryCard ref={cardRef} camp={camp} aspect={aspect} stats={shareStats} weeks={campWeeks} />
         )}
       </ShareCardDialog>
     </div>

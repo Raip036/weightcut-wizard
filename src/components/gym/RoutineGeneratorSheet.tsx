@@ -166,12 +166,12 @@ export function ExerciseListGrouped({ exercises }: { exercises: RoutineExercise[
 
 function ExerciseRow({ ex, index }: { ex: RoutineExercise; index: number }) {
   return (
-    <div className="flex items-center gap-3 px-3.5 py-2.5">
-      <div className="h-7 w-7 rounded-xs bg-primary/10 flex items-center justify-center shrink-0 text-[11px] font-bold text-primary/70">
+    <div className="flex items-start gap-3 px-3.5 py-2.5">
+      <span className="w-5 shrink-0 text-center text-[12px] font-bold tabular-nums text-primary/70 mt-px">
         {index + 1}
-      </div>
+      </span>
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium truncate">{ex.name}</div>
+        <div className="text-sm font-medium leading-snug">{ex.name}</div>
         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
           <span className="text-xs text-muted-foreground tabular-nums">{ex.sets}&times;{ex.reps}</span>
           <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${MUSCLE_COLORS[ex.muscle_group] || "bg-muted/50 text-muted-foreground"}`}>
@@ -182,7 +182,7 @@ function ExerciseRow({ ex, index }: { ex: RoutineExercise; index: number }) {
           )}
         </div>
         {ex.notes && (
-          <p className="text-[10px] text-muted-foreground/50 mt-0.5 truncate">{ex.notes}</p>
+          <p className="text-[11px] text-muted-foreground/60 mt-1 leading-snug">{ex.notes}</p>
         )}
       </div>
     </div>
@@ -430,105 +430,112 @@ export function RoutineGeneratorSheet({ open, onOpenChange, onGenerate, onSave, 
 
             {/* STEP 2: SPORT + SPORT TRAINING DAYS */}
             {step === "sport" && (
-              <motion.div key="sport" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }} className="space-y-6">
-                <div>
-                  <p className="text-xs text-muted-foreground mb-3">What combat sport do you train?</p>
-                  <div className="flex flex-wrap gap-2">
-                    {SPORTS.map(s => {
-                      const selected = sport === s.value;
-                      return (
-                        <button
-                          key={s.value}
-                          onClick={() => setSport(s.value)}
-                          className={`px-5 py-3 rounded-xs text-sm font-semibold transition-all active:scale-[0.97] ${
-                            selected
-                              ? "bg-primary text-primary-foreground"
-                              : "card-surface border border-border/50 text-muted-foreground hover:text-foreground"
-                          }`}
-                        >
-                          {s.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-primary/70" />
-                      <span className="text-sm font-medium">Sport Training Days</span>
+              <motion.div key="sport" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }} className="space-y-7">
+                {/* ── Required: the two things we actually need ───────────── */}
+                <div className="space-y-5">
+                  <div>
+                    <p className="section-header mb-3">Your sport</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {SPORTS.map(s => {
+                        const selected = sport === s.value;
+                        return (
+                          <button
+                            key={s.value}
+                            onClick={() => setSport(s.value)}
+                            className={`h-12 rounded-xs text-sm font-semibold transition-all active:scale-[0.97] ${
+                              selected
+                                ? "bg-primary text-primary-foreground"
+                                : "card-surface border border-border/50 text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            {s.label}
+                          </button>
+                        );
+                      })}
                     </div>
-                    <span className="text-sm font-bold tabular-nums text-primary">{sportTrainingDays} days/week</span>
                   </div>
-                  <Slider
-                    value={[sportTrainingDays]}
-                    onValueChange={([v]) => setSportTrainingDays(v)}
-                    min={2}
-                    max={7}
-                    step={1}
-                    className="w-full"
-                  />
-                  <p className="text-[10px] text-muted-foreground/60 mt-2 text-center">
-                    How many days you train {sport ? SPORTS.find(s => s.value === sport)?.label : "your sport"} per week (not gym)
+
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="section-header">Sport training days</p>
+                      <span className="text-sm font-bold tabular-nums text-primary">{sportTrainingDays} days/week</span>
+                    </div>
+                    <Slider
+                      value={[sportTrainingDays]}
+                      onValueChange={([v]) => setSportTrainingDays(v)}
+                      min={2}
+                      max={7}
+                      step={1}
+                      className="w-full"
+                    />
+                    <p className="text-[11px] text-muted-foreground/60 mt-2">
+                      Days you train {sport ? SPORTS.find(s => s.value === sport)?.label : "your sport"} per week, not the gym.
+                    </p>
+                  </div>
+                </div>
+
+                {/* ── Optional: refinements that sharpen the plan ─────────── */}
+                <div className="space-y-5 pt-5 border-t border-border/40">
+                  <p className="text-[11px] text-muted-foreground/70 leading-snug">
+                    Optional. The more you add, the better the coach tailors your plan.
                   </p>
-                </div>
 
-                {/* Hard sparring days */}
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Hard sparring days <span className="font-normal normal-case">(optional)</span></p>
-                  <div className="flex flex-wrap gap-2">
-                    {WEEKDAYS.map((d) => {
-                      const selected = hardSparringDays.includes(d);
-                      return (
-                        <button
-                          key={d}
-                          onClick={() => setHardSparringDays((p) => p.includes(d) ? p.filter((x) => x !== d) : [...p, d])}
-                          className={`px-3.5 py-2 rounded-full text-xs font-semibold transition-all active:scale-[0.97] ${selected ? "bg-primary/15 text-primary border border-primary/30" : "bg-muted/30 text-muted-foreground border border-border/30 hover:text-foreground"}`}
-                        >
-                          {d}
-                        </button>
-                      );
-                    })}
+                  {/* Hard sparring days */}
+                  <div>
+                    <p className="section-header mb-2.5">Hard sparring days</p>
+                    <div className="flex flex-wrap gap-2">
+                      {WEEKDAYS.map((d) => {
+                        const selected = hardSparringDays.includes(d);
+                        return (
+                          <button
+                            key={d}
+                            onClick={() => setHardSparringDays((p) => p.includes(d) ? p.filter((x) => x !== d) : [...p, d])}
+                            className={`px-3.5 py-2 rounded-full text-xs font-semibold transition-all active:scale-[0.97] ${selected ? "bg-primary/15 text-primary border border-primary/30" : "bg-muted/30 text-muted-foreground border border-border/30 hover:text-foreground"}`}
+                          >
+                            {d}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground/60 mt-2">We'll keep heavy-leg days away from these.</p>
                   </div>
-                  <p className="text-[10px] text-muted-foreground/60 mt-2">We'll keep heavy-leg days away from these.</p>
-                </div>
 
-                {/* Camp phase */}
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Camp phase <span className="font-normal normal-case">(optional)</span></p>
-                  <div className="flex gap-2">
-                    {CAMP_PHASES.map((p) => {
-                      const selected = campPhase === p.value;
-                      return (
-                        <button
-                          key={p.value}
-                          onClick={() => setCampPhase(selected ? null : p.value)}
-                          className={`flex-1 px-3 py-2.5 rounded-full text-xs font-semibold transition-all active:scale-[0.97] ${selected ? "bg-primary text-primary-foreground" : "bg-muted/30 text-muted-foreground border border-border/30 hover:text-foreground"}`}
-                        >
-                          {p.label}
-                        </button>
-                      );
-                    })}
+                  {/* Camp phase */}
+                  <div>
+                    <p className="section-header mb-2.5">Camp phase</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {CAMP_PHASES.map((p) => {
+                        const selected = campPhase === p.value;
+                        return (
+                          <button
+                            key={p.value}
+                            onClick={() => setCampPhase(selected ? null : p.value)}
+                            className={`px-3 py-2.5 rounded-full text-xs font-semibold transition-all active:scale-[0.97] ${selected ? "bg-primary text-primary-foreground" : "bg-muted/30 text-muted-foreground border border-border/30 hover:text-foreground"}`}
+                          >
+                            {p.label}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
 
-                {/* Lifting experience */}
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Lifting experience <span className="font-normal normal-case">(optional)</span></p>
-                  <div className="flex gap-2">
-                    {EXPERIENCE_LEVELS.map((e) => {
-                      const selected = experience === e.value;
-                      return (
-                        <button
-                          key={e.value}
-                          onClick={() => setExperience(selected ? null : e.value)}
-                          className={`flex-1 px-3 py-2.5 rounded-full text-xs font-semibold transition-all active:scale-[0.97] ${selected ? "bg-primary text-primary-foreground" : "bg-muted/30 text-muted-foreground border border-border/30 hover:text-foreground"}`}
-                        >
-                          {e.label}
-                        </button>
-                      );
-                    })}
+                  {/* Lifting experience */}
+                  <div>
+                    <p className="section-header mb-2.5">Lifting experience</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {EXPERIENCE_LEVELS.map((e) => {
+                        const selected = experience === e.value;
+                        return (
+                          <button
+                            key={e.value}
+                            onClick={() => setExperience(selected ? null : e.value)}
+                            className={`px-3 py-2.5 rounded-full text-xs font-semibold transition-all active:scale-[0.97] ${selected ? "bg-primary text-primary-foreground" : "bg-muted/30 text-muted-foreground border border-border/30 hover:text-foreground"}`}
+                          >
+                            {e.label}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
 

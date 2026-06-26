@@ -55,7 +55,6 @@ interface Checkpoint {
   weekEndDate: string;
 }
 
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
 // Tolerance bands. ≤ target+HIT counts as a hit; (HIT, CLOSE] is "slightly
 // over" (orange); > CLOSE is missed (red). Drives the per-week dot color.
 const HIT_TOLERANCE_KG = 0.2;
@@ -111,13 +110,6 @@ function fmtWeekDate(iso: string): string {
     day: "numeric",
     timeZone: "UTC",
   });
-}
-
-// Days between today and the week's end date (positive = in the future).
-function daysUntil(iso: string): number {
-  const target = new Date(iso + "T00:00:00Z").getTime();
-  const today = new Date(new Date().toISOString().slice(0, 10) + "T00:00:00Z").getTime();
-  return Math.round((target - today) / MS_PER_DAY);
 }
 
 // Per-week segment fill, the colour IS the status, so the row reads as one
@@ -352,13 +344,11 @@ export function CutPaceForecast({
     ? `FINAL WEEK · ${fmtWeekDate(focusCheckpoint.weekEndDate)}`
     : `WEEK ${focusCheckpoint.week} · ${fmtWeekDate(focusCheckpoint.weekEndDate)}`;
 
-  // Top-right chip: days-left for current/future, "Week N of M" for past.
+  // Top-right chip: the days-left countdown is omitted for the current/future
+  // week since it's inferable from the week + end-date eyebrow; past weeks keep
+  // a "Week N of M" positional chip so the focused week stays oriented.
   const chip = (() => {
-    if (isCurrentWeek || isFutureWeek) {
-      const d = daysUntil(focusCheckpoint.weekEndDate);
-      if (d <= 0) return null;
-      return { icon: "timeOutline" as const, label: `${d} ${d === 1 ? "day" : "days"} left` };
-    }
+    if (isCurrentWeek || isFutureWeek) return null;
     return { icon: "calendarOutline" as const, label: `Week ${focusCheckpoint.week} of ${totalWeeks}` };
   })();
 

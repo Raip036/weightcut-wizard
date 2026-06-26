@@ -18,6 +18,7 @@ import { normaliseWeeklyPlan } from "../_shared/normalizeWeeklyPlan";
 import { normalisePlanTopLevel } from "../_shared/normalizePlanTopLevel";
 import { enforceFeatureGate } from "../_shared/featureGates";
 import { resolveWeighInIso } from "../_shared/weighInTiming";
+import { assessCutFeasibility } from "../_shared/cutFeasibility";
 import {
   FIGHT_WEEK_WATER_ML_PER_KG,
   FIGHT_WEEK_SODIUM_MG_PER_KG,
@@ -104,6 +105,22 @@ export const run = action({
     });
     const maintenanceCal = Math.round(bmr * 1.55);
     const finalTarget = args.fightWeekTargetKg ?? args.goalWeight;
+
+    // Feasibility backstop: refuse to build a physically-impossible plan. The
+    // required FAT loss (current -> pre-dehydration walk-around target, before
+    // any carb/water cut) cannot safely exceed 2.5% of bodyweight per week. If
+    // it does, RETURN a structured sentinel (NOT a throw — callers wrap this
+    // action in try/catch and treat a throw as a silent failure). The extra
+    // `infeasible` field is additive and harmless to existing callers.
+    const feasibility = assessCutFeasibility({
+      currentWeightKg: args.currentWeight,
+      preDehydrationTargetKg: finalTarget,
+      weeksAvailable: weekCount,
+    });
+    if (!feasibility.feasible) {
+      return { infeasible: true as const, feasibility };
+    }
+
     const deficit = requiredDeficit({
       currentKg: args.currentWeight,
       targetKg: finalTarget,

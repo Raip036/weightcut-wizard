@@ -950,21 +950,6 @@ export default function Dashboard() {
           <DashboardHeader
             avatarUrl={avatarUrl}
             userName={userName}
-            daysUntilTarget={daysUntilTarget}
-            kgRemaining={
-              profile
-                ? currentWeightValue - (profile.fight_week_target_kg || profile.goal_weight_kg || 0)
-                : null
-            }
-            targetDateISO={profile?.target_date ?? null}
-            campStartISO={
-              weightLogs.length > 0
-                ? weightLogs.reduce(
-                    (min: string, l: { date: string }) => (l.date < min ? l.date : min),
-                    weightLogs[0].date,
-                  )
-                : null
-            }
             onAvatarClick={() => navigate('/goals')}
             streakSlot={
               <ErrorBoundary fallback={null} silent>

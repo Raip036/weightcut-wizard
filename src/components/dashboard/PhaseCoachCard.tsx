@@ -306,17 +306,13 @@ export function PhaseCoachCard({
       }}
       className="w-full rounded-2xl p-4 text-left active:scale-[0.99] transition-transform"
     >
-      {/* Header row: phase eyebrow ↔ weigh-in countdown on one line. The single
-          accent on this card stays the drift verdict (chart + pill). */}
-      <div className="flex items-baseline justify-between gap-2">
+      {/* Phase eyebrow. The weigh-in countdown is inferable from the weekly
+          card above, so it's intentionally omitted here; the single accent on
+          this card stays the drift verdict (chart + pill). */}
+      <div className="flex items-baseline gap-2">
         <p className="min-w-0 truncate text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
           {meta.label}
         </p>
-        {daysUntilFight != null && daysUntilFight > 0 && (
-          <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
-            {daysUntilFight} {daysUntilFight === 1 ? "day" : "days"} to weigh-in
-          </span>
-        )}
       </div>
 
       {chart && verdict ? (

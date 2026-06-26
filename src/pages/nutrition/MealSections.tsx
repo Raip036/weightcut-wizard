@@ -1,9 +1,10 @@
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useState } from "react";
 import { Camera, Search, RotateCcw, ScanLine } from "lucide-react";
 import { motion } from "motion/react";
 import { MealCard } from "@/components/nutrition/MealCard";
 import { MealCardSkeleton } from "@/components/ui/skeleton-loader";
 import { DailyFoodQualityBar } from "@/components/nutrition/health/DailyFoodQualityBar";
+import { FoodQualityExplainerSheet } from "@/components/nutrition/health/FoodQualityExplainerSheet";
 import { triggerHapticSelection } from "@/lib/haptics";
 import type { Meal } from "@/pages/nutrition/types";
 
@@ -68,6 +69,7 @@ export function MealSections({
   const dailyQuality = scoredMeals.length
     ? Math.round(scoredMeals.reduce((s, m) => s + (m.health_score as number), 0) / scoredMeals.length)
     : null;
+  const [qualityInfoOpen, setQualityInfoOpen] = useState(false);
 
   return (
     <div className="space-y-3">
@@ -114,10 +116,16 @@ export function MealSections({
         )}
       </div>
 
-      {/* Daily food-quality average across today's scored meals. */}
+      {/* Daily food-quality average across today's scored meals. Tap to open
+          the grading explainer. */}
       {dailyQuality !== null && (
-        <DailyFoodQualityBar score={dailyQuality} mealCount={scoredMeals.length} />
+        <DailyFoodQualityBar
+          score={dailyQuality}
+          mealCount={scoredMeals.length}
+          onPress={() => setQualityInfoOpen(true)}
+        />
       )}
+      <FoodQualityExplainerSheet open={qualityInfoOpen} onOpenChange={setQualityInfoOpen} />
 
       {/* Meals heading + count — section label matches the home page
           "Your Stats" style; extra top padding separates it from the CTA row. */}

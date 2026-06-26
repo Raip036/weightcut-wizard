@@ -1,18 +1,29 @@
 import { useState, useRef, type ChangeEvent, type KeyboardEvent } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
-import { ChevronLeft, Droplets, Utensils, Scale, Trophy, PenLine, Loader2, type LucideIcon } from "lucide-react";
+import { ChevronLeft, X, Droplets, Utensils, Scale, Trophy, PenLine, Loader2, type LucideIcon } from "lucide-react";
 import { triggerHapticSelection } from "@/lib/haptics";
-import { SheetTitle } from "@/components/ui/sheet";
+import { WizardAuroraBackground } from "@/components/onboarding/WizardAuroraBackground";
+import { WizardCharacter } from "@/tutorial/WizardCharacter";
 
 /**
- * Wrap-up reflection as a focused, one-field-per-screen stepper. Replaces the
- * old single-sheet form that stacked four text inputs — when the iOS keyboard
- * opened it pushed the active field off-screen. Showing one short field at a
- * time keeps content compact enough that the sheet (which already lifts above
- * the keyboard via `--keyboard-inset`) never hides the active input.
+ * Wrap-up reflection as a focused, one-field-per-screen stepper rendered as a
+ * FULL-SCREEN overlay (own portal), not a bottom sheet.
+ *
+ * Why full-screen: as a bottom sheet the iOS keyboard "morphed" the panel —
+ * the sheet's bottom is pinned to the keyboard inset, so opening the keyboard
+ * yanked the whole card up and squashed the layout. A full-screen overlay
+ * keeps the active input naturally in the upper-middle of the viewport (well
+ * above the keyboard), so the keyboard can never reshape the panel. The footer
+ * is lifted by `--keyboard-inset` so the primary CTA stays reachable.
+ *
+ * Theme: the premium wizard blue aurora (shared WizardAuroraBackground +
+ * mascot), animated, matching the Pro gate / welcome cutscene look.
  *
  * The component owns the field values locally and hands them back via
- * `onComplete` on the last step; `onSkip` bails out of the whole reflection.
+ * `onComplete` on the last step; `onSkip` finishes the camp without a
+ * reflection; `onCancel` (the top-right X) abandons the wrap-up entirely so
+ * the camp is NOT completed and the user returns to where they were.
  */
 export interface WrapUpValues {
   endWeight: string;
@@ -26,20 +37,9 @@ interface WrapUpStepperProps {
   saving: boolean;
   onComplete: (values: WrapUpValues) => void;
   onSkip: () => void;
+  /** Top-right X — cancels the whole wrap-up; camp stays as-is. */
+  onCancel: () => void;
 }
-
-// Drifting blue motes — same recipe as the Pro gate (ProUpsellScreen), scaled
-// to the compact sheet. Fixed positions so they don't re-randomize on render.
-const MOTES: Array<{ left: string; size: number; dur: number; delay: number }> = [
-  { left: "8%", size: 4, dur: 7.5, delay: 0.0 },
-  { left: "20%", size: 3, dur: 9.0, delay: 1.6 },
-  { left: "32%", size: 5, dur: 8.0, delay: 0.7 },
-  { left: "44%", size: 3, dur: 9.5, delay: 2.4 },
-  { left: "56%", size: 4, dur: 8.3, delay: 1.1 },
-  { left: "68%", size: 3, dur: 9.1, delay: 0.4 },
-  { left: "80%", size: 5, dur: 7.8, delay: 2.0 },
-  { left: "91%", size: 3, dur: 9.3, delay: 1.0 },
-];
 
 // Outcome ids mirror the camp schema's `performanceFeeling` values exactly.
 const OUTCOMES: { id: string; label: string }[] = [
@@ -59,11 +59,11 @@ const STEPS: StepDef[] = [
   { kind: "num", icon: Droplets, q: "How much came off via water cut?", help: "Sauna, sweat, dehydration.", field: "dehydrationKg", ph: "2.4" },
   { kind: "num", icon: Utensils, q: "And how much via diet?", help: "Carbs, fibre, sodium.", field: "dietKg", ph: "1.8" },
   { kind: "chip", icon: Trophy, q: "How did it go?", help: "Pick the one that fits best." },
-  { kind: "text", icon: PenLine, q: "Anything to remember for next time?", help: "Optional - totally fine to skip.", field: "notes", ph: "What worked? What to change?" },
+  { kind: "text", icon: PenLine, q: "Anything to remember for next time?", help: "Optional, totally fine to skip.", field: "notes", ph: "What worked? What to change?" },
 ];
 const TOTAL = STEPS.length;
 
-export function WrapUpStepper({ saving, onComplete, onSkip }: WrapUpStepperProps) {
+export function WrapUpStepper({ saving, onComplete, onSkip, onCancel }: WrapUpStepperProps) {
   const prefersReduced = useReducedMotion();
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState(1);
@@ -90,6 +90,7 @@ export function WrapUpStepper({ saving, onComplete, onSkip }: WrapUpStepperProps
     }
   };
   const back = () => {
+    if (step === 0) return;
     setDir(-1);
     setStep((s) => Math.max(0, s - 1));
   };
@@ -100,49 +101,35 @@ export function WrapUpStepper({ saving, onComplete, onSkip }: WrapUpStepperProps
     }
   };
 
-  return (
-    <div className="relative flex flex-col overflow-hidden max-h-[calc(100dvh-var(--keyboard-inset,0px))] transition-[max-height] duration-300 ease-out">
-      <SheetTitle className="sr-only">Wrap up your camp</SheetTitle>
+  // Mascot leans in to point on the final (optional notes) beat, otherwise idle.
+  const pose = isLast ? "point" : "idle";
 
-      {/* Blue animated backdrop — matches the Pro gate (ProUpsellScreen) */}
-      <motion.div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "linear-gradient(180deg, transparent 0%, hsl(var(--primary) / 0.08) 55%, hsl(217 91% 58% / 0.16) 82%, hsl(213 94% 68% / 0.22) 100%)",
-        }}
-        initial={prefersReduced ? false : { opacity: 0 }}
-        animate={prefersReduced ? { opacity: 1 } : { opacity: 1, scale: [1, 1.05, 1] }}
-        transition={
-          prefersReduced
-            ? { duration: 0 }
-            : {
-                opacity: { duration: 1, ease: "easeOut" },
-                scale: { duration: 8, ease: "easeInOut", repeat: Infinity },
-              }
-        }
-      />
-      {!prefersReduced && (
-        <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-          {MOTES.map((m, i) => (
-            <motion.span
-              key={i}
-              className="absolute bottom-0 rounded-full bg-blue-300/70"
-              style={{ left: m.left, width: m.size, height: m.size, filter: "blur(0.5px)", boxShadow: "0 0 7px hsl(213 94% 70% / 0.7)" }}
-              initial={{ opacity: 0, y: 0 }}
-              animate={{ opacity: [0, 0.7, 0], y: [-12, -440] }}
-              transition={{ duration: m.dur, delay: m.delay, repeat: Infinity, ease: "easeOut" }}
-            />
-          ))}
-        </div>
-      )}
+  const overlay = (
+    <div
+      className="fixed inset-0 z-[9999] flex flex-col overflow-hidden text-white"
+      style={{
+        // Cosmic blue vignette — matches the welcome cutscene / Pro gate shell.
+        background:
+          "radial-gradient(ellipse at 50% 22%, rgba(30, 42, 78, 0.82) 0%, rgba(10, 12, 22, 0.96) 56%, #020207 100%)",
+        // Lift the whole stack above the keyboard so the footer CTA stays
+        // reachable; the body absorbs the squeeze via overflow-y-auto.
+        paddingBottom: "var(--keyboard-inset, 0px)",
+        transition: "padding-bottom 300ms ease-out",
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Wrap up your camp"
+    >
+      <WizardAuroraBackground radialGlow />
 
-      {/* Header — back + progress dots */}
-      <div className="relative z-10 flex items-center gap-3 px-5 pt-6 pb-2">
+      {/* Top bar — back (left) · progress dots (center) · cancel X (right) */}
+      <div
+        className="relative z-20 flex items-center gap-3 px-5"
+        style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 16px)" }}
+      >
         <button
           onClick={back}
-          className={`grid h-9 w-9 shrink-0 place-items-center rounded-full bg-muted/40 text-muted-foreground transition ${step === 0 ? "invisible" : "active:scale-95"}`}
+          className={`grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/[0.06] text-white/80 transition ${step === 0 ? "invisible" : "active:scale-95"}`}
           aria-label="Back"
         >
           <ChevronLeft className="h-5 w-5" />
@@ -152,22 +139,34 @@ export function WrapUpStepper({ saving, onComplete, onSkip }: WrapUpStepperProps
             <motion.span
               key={i}
               animate={{ width: i === step ? 22 : 7, opacity: i <= step ? 1 : 0.3 }}
-              className={`h-[7px] rounded-full ${i <= step ? "bg-primary" : "bg-muted-foreground/40"}`}
+              className={`h-[7px] rounded-full ${i <= step ? "bg-primary" : "bg-white/30"}`}
             />
           ))}
         </div>
-        <span className="h-9 w-9 shrink-0" aria-hidden />
+        <button
+          onClick={onCancel}
+          disabled={saving}
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/[0.06] text-white/80 transition active:scale-95 disabled:opacity-40"
+          aria-label="Cancel"
+        >
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+
+      {/* Mascot — small, sits above the question. Hidden when the keyboard is
+          open on short screens via the body's scroll absorbing the squeeze. */}
+      <div className="relative z-10 mt-1 flex shrink-0 justify-center">
+        <div className="relative flex items-center justify-center" style={{ width: 104, height: 104 }}>
+          <div className="absolute inset-0 flex items-center justify-center scale-[0.74] origin-center">
+            <WizardCharacter pose={pose} />
+          </div>
+        </div>
       </div>
 
       {/* Body — one centered field per step. `min-h-0 overflow-y-auto` lets the
-          body (not the footer) absorb any squeeze when the keyboard is open on
-          small screens. `pb-6` guarantees a gap above the opaque footer so the
-          active input is never flush with — or hidden behind — the Continue
-          button when the keyboard shortens the sheet. `m-auto` (instead of
-          `justify-center`) centres the field while staying scroll-safe: when
-          content is taller than the squeezed body it scrolls instead of
-          clipping the top out of reach. */}
-      <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pt-7 pb-6 text-center">
+          body absorb any squeeze when the keyboard is open; `m-auto` centres
+          the field while staying scroll-safe. */}
+      <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pb-6 text-center">
         <AnimatePresence mode="wait" custom={dir}>
           <motion.div
             key={step}
@@ -178,19 +177,16 @@ export function WrapUpStepper({ saving, onComplete, onSkip }: WrapUpStepperProps
             transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
             className="m-auto flex w-full flex-col items-center"
           >
-            <div className="mb-5 grid h-11 w-11 place-items-center rounded-2xl bg-muted/40 text-primary">
-              <cur.icon className="h-[22px] w-[22px]" />
-            </div>
-            <h2 className="text-[22px] font-semibold leading-snug tracking-tight text-foreground">{cur.q}</h2>
-            <p className="mt-2 max-w-[17rem] text-sm text-muted-foreground">{cur.help}</p>
+            <h2 className="text-[24px] font-bold leading-snug tracking-tight text-white">{cur.q}</h2>
+            <p className="mt-2 max-w-[18rem] text-sm text-white/55">{cur.help}</p>
 
             {cur.kind === "num" && (
-              <div className="mt-7 w-full">
+              <div className="mt-8 w-full">
                 <div className="flex items-end justify-center gap-1.5" onClick={() => inputRef.current?.focus()}>
-                  <span className={`text-5xl font-bold tabular-nums tracking-tight ${values[cur.field] ? "text-foreground" : "text-muted-foreground/40"}`}>
+                  <span className={`display-number text-6xl font-bold tabular-nums tracking-tight ${values[cur.field] ? "text-white" : "text-white/25"}`}>
                     {values[cur.field] || cur.ph}
                   </span>
-                  <span className="pb-1.5 text-xl font-semibold text-muted-foreground">kg</span>
+                  <span className="pb-2 text-xl font-semibold text-white/45">kg</span>
                 </div>
                 <input
                   ref={inputRef}
@@ -199,7 +195,7 @@ export function WrapUpStepper({ saving, onComplete, onSkip }: WrapUpStepperProps
                   onKeyDown={onEnter}
                   inputMode="decimal"
                   placeholder={cur.ph}
-                  className="mt-4 w-full rounded-xl border border-border/50 bg-muted/40 px-4 py-3 text-center text-base text-foreground outline-none transition focus:border-primary/60"
+                  className="mt-5 w-full rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3.5 text-center text-base text-white outline-none transition placeholder:text-white/30 focus:border-primary/70"
                 />
               </div>
             )}
@@ -211,12 +207,12 @@ export function WrapUpStepper({ saving, onComplete, onSkip }: WrapUpStepperProps
                 onChange={(e: ChangeEvent<HTMLInputElement>) => setField(cur.field, e.target.value)}
                 onKeyDown={onEnter}
                 placeholder={cur.ph}
-                className="mt-7 w-full rounded-xl border border-border/50 bg-muted/40 px-4 py-3.5 text-center text-base text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary/60"
+                className="mt-8 w-full rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3.5 text-center text-base text-white outline-none transition placeholder:text-white/30 focus:border-primary/70"
               />
             )}
 
             {cur.kind === "chip" && (
-              <div className="mt-7 grid w-full grid-cols-2 gap-2.5">
+              <div className="mt-8 grid w-full grid-cols-2 gap-2.5">
                 {OUTCOMES.map((o) => {
                   const active = values.performance === o.id;
                   const wide = o.id === "no_show";
@@ -228,7 +224,7 @@ export function WrapUpStepper({ saving, onComplete, onSkip }: WrapUpStepperProps
                         setField("performance", o.id);
                         window.setTimeout(() => { setDir(1); setStep((s) => s + 1); }, 240);
                       }}
-                      className={`rounded-xl px-3 py-3.5 text-sm font-medium transition active:scale-[0.97] ${wide ? "col-span-2" : ""} ${active ? "bg-primary text-primary-foreground" : "bg-muted/40 text-muted-foreground"}`}
+                      className={`rounded-xl px-3 py-3.5 text-sm font-medium transition active:scale-[0.97] ${wide ? "col-span-2" : ""} ${active ? "bg-primary text-primary-foreground" : "bg-white/[0.06] text-white/75"}`}
                     >
                       {o.label}
                     </button>
@@ -240,27 +236,29 @@ export function WrapUpStepper({ saving, onComplete, onSkip }: WrapUpStepperProps
         </AnimatePresence>
       </div>
 
-      {/* Footer — primary action + subtle skip. Opaque `bg-card` with a hairline
-          top divider (survives the native box-shadow stripping) so it reads as a
-          distinct bottom bar: the active input always sits clearly above it and
-          can never be overlapped by the Continue button, even when the keyboard
-          shortens the sheet. */}
-      <div className="relative z-20 border-t border-white/[0.06] bg-card/90 px-6 pb-[max(20px,env(safe-area-inset-bottom))] pt-5">
+      {/* Footer — primary action + subtle skip, pinned above the safe area. */}
+      <div className="relative z-20 shrink-0 px-6 pb-[max(20px,env(safe-area-inset-bottom))] pt-3">
         <button
           onClick={advance}
           disabled={saving}
-          className="flex w-full items-center justify-center rounded-2xl bg-primary py-4 text-base font-semibold text-primary-foreground transition active:scale-[0.98] disabled:opacity-70"
+          className="flex w-full items-center justify-center rounded-2xl py-4 text-base font-bold text-white transition active:scale-[0.98] disabled:opacity-70"
+          style={{
+            background: "linear-gradient(90deg, #4068EF 0%, #2A5BDD 50%, #4AB4ED 100%)",
+            boxShadow: "0 8px 32px rgba(64,104,239,0.35)",
+          }}
         >
           {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : isLast ? "Save & continue" : "Continue"}
         </button>
         <button
           onClick={onSkip}
           disabled={saving}
-          className="mt-2 w-full py-2 text-sm font-medium text-muted-foreground transition active:opacity-60 disabled:opacity-40"
+          className="mt-2 w-full py-2 text-sm font-medium text-white/55 transition active:opacity-60 disabled:opacity-40"
         >
           Skip for now
         </button>
       </div>
     </div>
   );
+
+  return createPortal(overlay, document.body);
 }

@@ -12,6 +12,7 @@ import { action } from "../_generated/server";
 import { callGroqWithRetry } from "../_shared/groq";
 import { CutPlanAiSchema, type WeekPhase } from "../_shared/aiSchemas";
 import { mifflinStJeor, requiredDeficit, macroSplit } from "../_shared/math";
+import { assessCutFeasibility } from "../_shared/cutFeasibility";
 import { normaliseWeeklyPlan } from "../_shared/normalizeWeeklyPlan";
 import { normalisePlanTopLevel } from "../_shared/normalizePlanTopLevel";
 import { enforceFeatureGate } from "../_shared/featureGates";
@@ -58,6 +59,19 @@ export const run = action({
       Math.ceil((new Date(args.targetDate).getTime() - Date.now()) / 86400000),
     );
     const weekCount = Math.max(1, Math.min(20, Math.ceil(days / 7)));
+    // Backstop: refuse physically-impossible weight loss (needs >2.5% of
+    // bodyweight per week). For a loss goal the target IS the goal weight (no
+    // water cut). assessCutFeasibility returns feasible for gain/maintain
+    // (fatLoss <= 0), so this only ever blocks impossible cuts. Returns a
+    // sentinel (not a throw) so callers' catch/null-plan paths are untouched.
+    const feasibility = assessCutFeasibility({
+      currentWeightKg: args.currentWeight,
+      preDehydrationTargetKg: args.goalWeight,
+      weeksAvailable: weekCount,
+    });
+    if (!feasibility.feasible) {
+      return { infeasible: true as const, feasibility };
+    }
     const bmr = mifflinStJeor({
       weightKg: args.currentWeight,
       heightCm: args.heightCm,

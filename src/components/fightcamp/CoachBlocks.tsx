@@ -568,10 +568,11 @@ const CALLOUT_TONE: Record<
     bg: "",
   },
   warn: {
-    border: "border-func-warning-yellow/35",
+    // Plain card like the rest; only the icon carries the warning color.
+    border: "border-border/40",
     icon: "alertCircleOutline",
     iconClass: "text-func-warning-yellow",
-    bg: "bg-func-warning-yellow/[0.04]",
+    bg: "",
   },
   danger: {
     border: "border-func-danger-red/60",

@@ -135,7 +135,15 @@ export function FightFormScoreSheet(p: Props) {
       ? null
       : caps.reduce((min, c) => (c.cap < min.cap ? c : min), caps[0]).ruleId;
 
-  const isCalibrating = !p.subScores || Object.keys(p.subScores).length === 0;
+  // Calibrating until the score itself reports otherwise. `state` is the
+  // authoritative signal: while calibrating, `compose.ts` still returns a full
+  // `subScores` object (all pillars zeroed via `emptySubScores`), so checking
+  // for an empty/absent map alone lets the unlocked content — and the Coach's
+  // read card — leak in before the user actually has a Fight Form Score.
+  const isCalibrating =
+    p.state === "calibrating" ||
+    !p.subScores ||
+    Object.keys(p.subScores).length === 0;
 
   // Per-pillar contribution decomposition, primary unlocked view.
   const phase = (p.phase as ScoringPhase | null) ?? null;

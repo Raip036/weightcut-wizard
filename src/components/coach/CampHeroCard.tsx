@@ -7,6 +7,10 @@ import { disciplineLabel, disciplineToken } from "@/lib/coachColors";
 import { LevelRing } from "./LevelRing";
 import { LevelSheet } from "./LevelSheet";
 
+// Persist the Discipline XP collapse choice so it stays how the user left it
+// across reloads and revisits, until they change it.
+const DISCIPLINE_XP_COLLAPSED_KEY = "camp_discipline_xp_collapsed";
+
 /**
  * Camp progress info. Matches CampActiveCampHero's existing shape so the
  * caller (Camp.tsx) can swap the import with no other edits. `elapsed` is
@@ -108,6 +112,25 @@ export const CampHeroCard = memo(function CampHeroCard({
     ) ?? [];
   const [levelSheetOpen, setLevelSheetOpen] = useState(false);
 
+  // Collapsible Discipline XP, initialised from (and persisted to) localStorage.
+  const [xpCollapsed, setXpCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(DISCIPLINE_XP_COLLAPSED_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const toggleXp = () =>
+    setXpCollapsed((c) => {
+      const next = !c;
+      try {
+        localStorage.setItem(DISCIPLINE_XP_COLLAPSED_KEY, next ? "1" : "0");
+      } catch {
+        /* ignore storage failures */
+      }
+      return next;
+    });
+
   const ariaLabel =
     `${campName}, Day ${elapsed} of ${totalDays}, ` +
     `${daysLeft} days remaining, ${phase.label} phase`;
@@ -154,7 +177,7 @@ export const CampHeroCard = memo(function CampHeroCard({
         type="button"
         onClick={onTap}
         aria-label={ariaLabel}
-        className="relative mt-3 flex items-baseline gap-3 active:scale-[0.99] transition"
+        className="relative mt-3 flex w-full items-baseline justify-center gap-3 active:scale-[0.99] transition"
       >
         <AnimatedNumber
           value={daysLeft}
@@ -175,48 +198,6 @@ export const CampHeroCard = memo(function CampHeroCard({
           </span>
         </span>
       </button>
-
-      {/* Discipline XP — horizontal-scrolling strip, scales to any count. The
-          right edge is masked to a soft fade so overflow reads as scrollable. */}
-      {disciplines.length > 0 && (
-        <>
-          <p className="relative mt-5 mb-3 text-[10.5px] font-bold uppercase tracking-[0.14em] text-muted-foreground/60">
-            Discipline XP
-          </p>
-          <div
-            className="relative flex gap-5 overflow-x-auto scrollbar-hide pb-1"
-            style={{
-              WebkitMaskImage:
-                "linear-gradient(90deg, #000 92%, transparent)",
-              maskImage: "linear-gradient(90deg, #000 92%, transparent)",
-            }}
-          >
-            {disciplines.map((row) => (
-              <button
-                key={row.sport}
-                type="button"
-                onClick={() => setLevelSheetOpen(true)}
-                aria-label={`${disciplineLabel(row.sport)} level ${row.level}`}
-                className="flex flex-shrink-0 flex-col items-center gap-1.5 active:scale-95 transition"
-              >
-                <LevelRing
-                  token={disciplineToken(row.sport)}
-                  level={row.level}
-                  progress={mounted ? row.progress : 0}
-                  size={DISC_RING_SIZE}
-                  strokeWidth={4}
-                />
-                <span
-                  className="text-[10px] font-bold uppercase tracking-[0.04em] leading-none whitespace-nowrap"
-                  style={{ color: `hsl(var(${disciplineToken(row.sport)}))` }}
-                >
-                  {disciplineLabel(row.sport)}
-                </span>
-              </button>
-            ))}
-          </div>
-        </>
-      )}
 
       {/* Trajectory (signature) — Build → Peak → Fight week, with a node at
           today's position that slides in on mount and tracks elapsed/total. */}
@@ -286,6 +267,61 @@ export const CampHeroCard = memo(function CampHeroCard({
           )}
         </div>
       </div>
+
+      {/* Discipline XP — horizontal-scrolling strip, scales to any count. The
+          right edge is masked to a soft fade so overflow reads as scrollable. */}
+      {disciplines.length > 0 && (
+        <div className="mt-5 border-t border-white/[0.07] pt-5">
+          <button
+            type="button"
+            onClick={toggleXp}
+            aria-expanded={!xpCollapsed}
+            aria-label={xpCollapsed ? "Expand Discipline XP" : "Collapse Discipline XP"}
+            className="relative flex w-full items-center justify-between text-[10.5px] font-bold uppercase tracking-[0.14em] text-muted-foreground/60 active:opacity-70 transition"
+          >
+            <span>Discipline XP</span>
+            <Icon
+              name="chevronDownOutline"
+              size={14}
+              className={`text-muted-foreground/50 transition-transform ${xpCollapsed ? "-rotate-90" : ""}`}
+            />
+          </button>
+          {!xpCollapsed && (
+          <div
+            className="relative mt-3 flex gap-5 overflow-x-auto scrollbar-hide pb-1"
+            style={{
+              WebkitMaskImage:
+                "linear-gradient(90deg, #000 92%, transparent)",
+              maskImage: "linear-gradient(90deg, #000 92%, transparent)",
+            }}
+          >
+            {disciplines.map((row) => (
+              <button
+                key={row.sport}
+                type="button"
+                onClick={() => setLevelSheetOpen(true)}
+                aria-label={`${disciplineLabel(row.sport)} level ${row.level}`}
+                className="flex flex-shrink-0 flex-col items-center gap-1.5 active:scale-95 transition"
+              >
+                <LevelRing
+                  token={disciplineToken(row.sport)}
+                  level={row.level}
+                  progress={mounted ? row.progress : 0}
+                  size={DISC_RING_SIZE}
+                  strokeWidth={4}
+                />
+                <span
+                  className="text-[10px] font-bold uppercase tracking-[0.04em] leading-none whitespace-nowrap"
+                  style={{ color: `hsl(var(${disciplineToken(row.sport)}))` }}
+                >
+                  {disciplineLabel(row.sport)}
+                </span>
+              </button>
+            ))}
+          </div>
+          )}
+        </div>
+      )}
 
       <LevelSheet open={levelSheetOpen} onOpenChange={setLevelSheetOpen} />
     </div>

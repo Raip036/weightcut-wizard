@@ -86,7 +86,7 @@ export function ExerciseStatsSheet({ exercise, pr, open, onOpenChange }: Exercis
                 {/* Hero PR card */}
                 <motion.div
                   variants={staggerItem}
-                  className="relative rounded-xs border border-primary/25 bg-primary/[0.06] p-5 text-center overflow-hidden"
+                  className="card-surface card-glow relative p-5 text-center"
                 >
                   <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary/80">
                     Heaviest set

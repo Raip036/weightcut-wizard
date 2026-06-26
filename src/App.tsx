@@ -80,6 +80,7 @@ const DeleteAccountLab = lazy(() => import("./pages/DeleteAccountLab"));
 const CampMenuLab = lazy(() => import("./pages/CampMenuLab"));
 const CaptionStepLab = lazy(() => import("./pages/CaptionStepLab"));
 const MealGradeLab = lazy(() => import("./pages/MealGradeLab"));
+const FoodGradeInfoLab = lazy(() => import("./pages/FoodGradeInfoLab"));
 const WidgetLab = lazy(() => import("./pages/WidgetLab"));
 
 // Prioritized idle preloading — critical routes first, rest deferred
@@ -352,6 +353,8 @@ const App = () => (
                 <Route path="/caption-lab" element={<Suspense fallback={<DashboardSkeleton />}><CaptionStepLab /></Suspense>} />
                 {/* THROWAWAY mock lab - Meal health grade feature. Delete after sign-off. */}
                 <Route path="/meal-grade-lab" element={<Suspense fallback={<DashboardSkeleton />}><MealGradeLab /></Suspense>} />
+                {/* THROWAWAY mock lab - Food grade explainer sheet. Delete after sign-off. */}
+                <Route path="/food-grade-lab" element={<Suspense fallback={<DashboardSkeleton />}><FoodGradeInfoLab /></Suspense>} />
                 {/* THROWAWAY mock lab — iOS-native stat widgets. Delete after sign-off. */}
                 <Route path="/widget-lab" element={<Suspense fallback={<DashboardSkeleton />}><WidgetLab /></Suspense>} />
                 <Route path="/onboarding" element={

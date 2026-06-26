@@ -23,6 +23,7 @@ import type * as _shared_coachDomains_scorer from "../_shared/coachDomains/score
 import type * as _shared_coachDomains_trainingLoad from "../_shared/coachDomains/trainingLoad.js";
 import type * as _shared_coachDomains_types from "../_shared/coachDomains/types.js";
 import type * as _shared_coachSafety from "../_shared/coachSafety.js";
+import type * as _shared_cutFeasibility from "../_shared/cutFeasibility.js";
 import type * as _shared_errorReporter from "../_shared/errorReporter.js";
 import type * as _shared_featureGates from "../_shared/featureGates.js";
 import type * as _shared_fightWeekMath from "../_shared/fightWeekMath.js";
@@ -182,6 +183,7 @@ declare const fullApi: ApiFromModules<{
   "_shared/coachDomains/trainingLoad": typeof _shared_coachDomains_trainingLoad;
   "_shared/coachDomains/types": typeof _shared_coachDomains_types;
   "_shared/coachSafety": typeof _shared_coachSafety;
+  "_shared/cutFeasibility": typeof _shared_cutFeasibility;
   "_shared/errorReporter": typeof _shared_errorReporter;
   "_shared/featureGates": typeof _shared_featureGates;
   "_shared/fightWeekMath": typeof _shared_fightWeekMath;

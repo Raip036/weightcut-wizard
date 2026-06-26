@@ -57,7 +57,7 @@ Return JSON in EXACTLY this shape (camelCase keys, do NOT rename or omit):
       "nutrient": "Vitamin D",
       "percentRDA": 28,
       "severity": "critical",
-      "reason": "Only fortified milk and no oily fish today."
+      "reason": "Only a little dairy and no oily fish today."
     }
   ],
   "suggestions": [
@@ -78,9 +78,9 @@ Return JSON in EXACTLY this shape (camelCase keys, do NOT rename or omit):
           "nutrients": ["Omega-3", "Fiber"]
         },
         {
-          "item": "Swap the milk for fortified soy milk",
-          "benefit": "Adds vitamin D and B12 that your breakfast is missing.",
-          "nutrients": ["Vitamin D", "B12"]
+          "item": "Stir in whole milk",
+          "benefit": "Adds B12 and calcium that your breakfast is missing.",
+          "nutrients": ["B12", "Calcium"]
         }
       ]
     }
@@ -114,6 +114,7 @@ Rules:
 - micronutrients: 6-10 of the most important micronutrients for combat sport athletes.
 - gaps: ONLY include nutrients where percentRDA < 70. Severity: critical < 30, moderate 30-50, low 50-70.
 - suggestions: 3-5 whole foods that close the biggest gaps. Each must list which "nutrients" it provides.
+- WHOLE FOODS ONLY: across suggestions, mealAdditions, vitaminRounders and every food you recommend, ALWAYS pick whole, minimally-processed foods (e.g. whole milk, eggs, oily fish, liver, leafy greens, nuts, beans). NEVER recommend fortified or processed substitutes (no fortified soy/almond/oat milk, no fortified cereals, no protein powders or supplements). If a plant milk would help, suggest whole milk or full-fat dairy instead.
 - mealAdditions: ONE entry for EACH meal the user logged, in the same order. Each entry has 2-3 specific items the user could ADD or SWAP into THAT meal to raise its nutrient density — keep additions realistic for the meal's flavour profile (don't suggest salmon on porridge). Use imperative phrasing ("Add ...", "Top with ...", "Swap ... for ..."). Each addition must list the nutrients it boosts.
 - vitaminRounders: 2-4 "all-rounder" foods or simple pairings that cover MULTIPLE vitamins/minerals at once, with priority on closing the user's gaps. List every vitamin/mineral each food rounds out.
 - foodContributions: ONE entry per notable food you can identify from the logged meals' ingredients, listing the top 1-3 micronutrients that food supplied. This shows the user where their nutrients came from.

@@ -18,7 +18,7 @@ export const onboardingFlow: TutorialFlow = {
       id: "home-overview",
       title: "This is home",
       description:
-        "Your score, your progress, your next move — all here. Come back every morning and this page tells you where you stand.",
+        "Your score, your progress, your next move, all here. Come back every morning and this page tells you where you stand.",
       position: "center",
       route: "/dashboard",
     },
@@ -62,7 +62,7 @@ export const onboardingFlow: TutorialFlow = {
       id: "today-sleep",
       title: "Log your sleep",
       description:
-        "Hours and quality. Sleep moves your score more than most people expect — it's the cheapest performance gain you've got.",
+        "Hours and quality. Sleep moves your score more than most people expect. It's the cheapest performance gain you've got.",
       position: "center",
       navigateTo: "/dashboard",
       spotlight: "today-sleep",
@@ -88,7 +88,7 @@ export const onboardingFlow: TutorialFlow = {
       id: "home-stats",
       title: "Your progress below",
       description:
-        "Weight trend, cut pace, training week — the cards below the ring show where you stand. The camp status section tracks your cut trajectory.",
+        "Weight trend, cut pace, training week. The cards below the ring show where you stand. The camp status section tracks your cut trajectory.",
       position: "center",
       navigateTo: "/dashboard",
       spotlight: "camp-status",
@@ -104,7 +104,7 @@ export const onboardingFlow: TutorialFlow = {
       id: "camp-intro",
       title: "Your camp hub",
       description:
-        "Everything for your preparation is in the Camp tab. Your plan, your sessions, your fight week protocol — one place, all of it.",
+        "Everything for your preparation is in the Camp tab. Your plan, your sessions, your fight week protocol. One place, all of it.",
       position: "center",
       navigateTo: "/camp",
     },
@@ -124,7 +124,7 @@ export const onboardingFlow: TutorialFlow = {
       id: "camp-gym-tracker",
       title: "Gym Tracker",
       description:
-        "Log your strength sessions here — sets, reps, exercises, routines. Progress is tracked automatically so you can see where you're improving.",
+        "Log your strength sessions here: sets, reps, exercises, routines. Progress is tracked automatically so you can see where you're improving.",
       position: "center",
       navigateTo: "/camp",
       spotlight: "camp-gym-tracker",
@@ -136,7 +136,7 @@ export const onboardingFlow: TutorialFlow = {
       id: "camp-gym-page",
       title: "Gym Tracker",
       description:
-        "Log your strength sessions here — sets, reps, exercises, routines. Progress is tracked automatically so you can see where you're improving.",
+        "Log your strength sessions here: sets, reps, exercises, routines. Progress is tracked automatically so you can see where you're improving.",
       position: "center",
       navigateTo: "/gym",
     },
@@ -144,7 +144,7 @@ export const onboardingFlow: TutorialFlow = {
       id: "camp-training-calendar",
       title: "Training Calendar",
       description:
-        "Log every session here — BJJ, Muay Thai, wrestling, S&C, rest days. Each one feeds your training load and your Fight Form Score.",
+        "Log every session here: BJJ, Muay Thai, wrestling, S&C, rest days. Each one feeds your training load and your Fight Form Score.",
       position: "center",
       navigateTo: "/camp",
       spotlight: "camp-training-calendar",
@@ -156,7 +156,7 @@ export const onboardingFlow: TutorialFlow = {
       id: "camp-training-calendar-page",
       title: "Training Calendar",
       description:
-        "Log every session here — BJJ, Muay Thai, wrestling, S&C, rest days. Each one feeds your training load and your Fight Form Score.",
+        "Log every session here: BJJ, Muay Thai, wrestling, S&C, rest days. Each one feeds your training load and your Fight Form Score.",
       position: "center",
       navigateTo: "/training-calendar",
     },
@@ -176,7 +176,7 @@ export const onboardingFlow: TutorialFlow = {
       id: "camp-weight-protocol-tile",
       title: "Fight Week Protocol",
       description:
-        "This is where the final cut lives. Carb reduction, water loading, sodium taper — laid out day by day.",
+        "This is where the final cut lives. Carb reduction, water loading, sodium taper, laid out day by day.",
       position: "center",
       navigateTo: "/camp",
       spotlight: "camp-weight-protocol",
@@ -190,7 +190,7 @@ export const onboardingFlow: TutorialFlow = {
       id: "camp-fight-protocol",
       title: "Fight Week Protocol",
       description:
-        "After the scales, the rehydration plan runs hour by hour — fluid, salt, and carbs in order. Don't freelance here.",
+        "After the scales, the rehydration plan runs hour by hour: fluid, salt, and carbs in order. Don't freelance here.",
       position: "center",
       navigateTo: "/weight-protocol",
       condition: (state) => state.goalType === "cutting",
@@ -242,7 +242,7 @@ export const onboardingFlow: TutorialFlow = {
       id: "nutrition-snap-meal",
       title: "Snap a meal",
       description:
-        "Take a photo and I'll break it down — calories, protein, carbs, fats. Or search manually if you already know the numbers.",
+        "Take a photo and I'll break it down: calories, protein, carbs, fats. Or search manually if you already know the numbers.",
       position: "center",
       navigateTo: "/nutrition",
       spotlight: "nutrition-quick-add",
@@ -307,7 +307,7 @@ export const onboardingFlow: TutorialFlow = {
       id: "profile-intro",
       title: "Your profile and settings",
       description:
-        "Update your stats here — weight, target, activity level — whenever your situation changes. Your plan recalculates automatically.",
+        "Update your stats here (weight, target, activity level) whenever your situation changes. Your plan recalculates automatically.",
       position: "center",
       navigateTo: "/goals",
     },
@@ -317,7 +317,7 @@ export const onboardingFlow: TutorialFlow = {
       id: "camera-intro",
       title: "Your quick-log button",
       description:
-        "The camera in the nav is the fastest way in. Tap to snap a meal. Long press to pick — log a training session or scan food.",
+        "The camera in the nav is the fastest way in. Tap to snap a meal. Long press to pick: log a training session or scan food.",
       position: "center",
       navigateTo: "/dashboard",
       spotlight: "nav-quick-log",
@@ -331,7 +331,7 @@ export const onboardingFlow: TutorialFlow = {
       id: "camera-log",
       title: "Go log something now",
       description:
-        "That's everything you need to know. The rest you'll learn by doing. Start with a quick log — snap what you had for your last meal.",
+        "That's everything you need to know. The rest you'll learn by doing. Start with a quick log: snap what you had for your last meal.",
       position: "center",
       navigateTo: "/dashboard",
       navBottomOffset: "calc(env(safe-area-inset-bottom) + 90px)",

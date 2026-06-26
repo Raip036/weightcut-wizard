@@ -33,15 +33,15 @@ export function MealHealthGrade({ score, worstItem }: MealHealthGradeProps) {
           Meal grade
         </p>
         <p className="text-[15px] font-bold tabular-nums">
-          <span style={{ color: meta.color }}>{score}</span>
+          <span className="text-primary">{score}</span>
           <span className="ml-0.5 text-[12px] font-medium text-muted-foreground/45">/100</span>
         </p>
       </div>
 
       <div className="flex items-center gap-2.5">
         <span
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[14px] font-bold"
-          style={{ backgroundColor: meta.color, color: meta.grade === "E" ? "#fff" : "hsl(0 0% 8%)" }}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[14px] font-bold text-white"
+          style={{ backgroundColor: "hsl(var(--primary))" }}
         >
           {meta.grade}
         </span>
@@ -52,13 +52,16 @@ export function MealHealthGrade({ score, worstItem }: MealHealthGradeProps) {
         >
           <div
             className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-700 ease-[cubic-bezier(0.32,0.72,0,1)]"
-            style={{ width: `${fill}%`, background: `linear-gradient(90deg, ${meta.color}d9, ${meta.color})` }}
+            style={{
+              width: `${fill}%`,
+              background: "linear-gradient(90deg, hsl(var(--primary) / 0.85), hsl(var(--primary)))",
+            }}
           />
         </div>
       </div>
 
       <p className="pl-0.5 text-[12px] leading-snug text-muted-foreground/85">
-        <span style={{ color: meta.color }}>&bull;</span> {caption}
+        <span className="text-primary">&bull;</span> {caption}
       </p>
     </div>
   );

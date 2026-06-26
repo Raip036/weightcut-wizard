@@ -19,6 +19,8 @@ import { WizardCharacter } from "@/tutorial/WizardCharacter";
 import { NewCampWelcomeCutscene } from "./NewCampWelcomeCutscene";
 import { WrapUpStepper, type WrapUpValues } from "./WrapUpStepper";
 import { CampLimitProGate } from "./CampLimitProGate";
+import { assessCutFeasibility, weeksToWeighIn, type CutFeasibilityResult } from "@/../convex/_shared/cutFeasibility";
+import { FightTooSoonScreen } from "./FightTooSoonScreen";
 
 /**
  * Two-stage flow used everywhere the user starts a new fight camp without
@@ -136,6 +138,9 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
   });
   const [walkAroundAuto, setWalkAroundAuto] = useState(true);
   const [creating, setCreating] = useState(false);
+  // Set when the requested cut is physically impossible (needs >2.5% bodyweight
+  // of fat loss per week before any water cut). Blocks camp creation entirely.
+  const [tooSoon, setTooSoon] = useState<(CutFeasibilityResult & { weeksAvailable: number }) | null>(null);
 
   // Full-screen welcome cutscene state. Once `welcome` is set, the sheet is
   // closed and the cutscene overlay takes over while the cut plan generates
@@ -276,6 +281,25 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
 
     const campName = wizardData.name.trim();
 
+    // ── Feasibility gate ──────────────────────────────────────────────────
+    // Refuse physically-impossible cuts: needing more than 2.5% of bodyweight in
+    // FAT loss per week (before any water cut) cannot be done safely. Block BEFORE
+    // creating the camp or generating a plan; send the user back to the camp page.
+    const weeksAvailable = weeksToWeighIn(
+      wizardData.fightDate,
+      wizardData.weighInTiming || "day_before",
+    );
+    const feasibility = assessCutFeasibility({
+      currentWeightKg: currentWeight,
+      preDehydrationTargetKg: safeWalkAround,
+      weeksAvailable,
+    });
+    if (!feasibility.feasible) {
+      triggerHapticSelection();
+      setTooSoon({ ...feasibility, weeksAvailable });
+      return;
+    }
+
     setCreating(true);
     try {
       // (a) Create the camp first: cheap, transactional.
@@ -412,7 +436,21 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
 
   return (
     <>
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    {/* Stage A — wrap-up reflection. Full-screen aurora overlay (own portal),
+        NOT inside the sheet: as a bottom sheet the iOS keyboard morphed the
+        panel. The X cancels the whole flow, leaving the camp untouched. */}
+    {open && stage === "wrapup" && activeCamp && (
+      <WrapUpStepper
+        saving={wrappingUp}
+        onComplete={(v) => submitWrapUp(false, v)}
+        onSkip={() => submitWrapUp(true)}
+        onCancel={() => onOpenChange(false)}
+      />
+    )}
+
+    {/* Stage B — the new-camp wizard sheet. Hidden while wrapping up so the
+        full-screen overlay above owns the screen. */}
+    <Sheet open={open && stage !== "wrapup"} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
         // Animate the keyboard lift: the sheet's `bottom` is pinned to
@@ -425,35 +463,16 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
         style={{ transition: "bottom 300ms ease-out" }}
         className="max-h-[92vh] p-0 border-t border-border/50 bg-card/95 backdrop-blur-xl gap-0"
       >
-        {/* Shared title, wizard only; the wrap-up stepper brings its own
-            progress chrome (and a visually-hidden SheetTitle for a11y). */}
-        {stage !== "wrapup" && (
-          <div className="px-5 pt-5 pb-2">
-            <SheetHeader>
-              <SheetTitle className="text-[17px] font-semibold tracking-tight text-center">
-                Start your next camp
-              </SheetTitle>
-            </SheetHeader>
-          </div>
-        )}
+        {/* Shared title for the wizard sheet. */}
+        <div className="px-5 pt-5 pb-2">
+          <SheetHeader>
+            <SheetTitle className="text-[17px] font-semibold tracking-tight text-center">
+              Start your next camp
+            </SheetTitle>
+          </SheetHeader>
+        </div>
 
         <AnimatePresence mode="wait" initial={false}>
-          {stage === "wrapup" && activeCamp && (
-            <motion.div
-              key="wrapup"
-              initial={{ opacity: 0, x: 24 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -24 }}
-              transition={{ type: "spring", damping: 26, stiffness: 320 }}
-            >
-              <WrapUpStepper
-                saving={wrappingUp}
-                onComplete={(v) => submitWrapUp(false, v)}
-                onSkip={() => submitWrapUp(true)}
-              />
-            </motion.div>
-          )}
-
           {/* Subscription state not resolved yet: show a brief spinner rather
               than an empty sheet (and so a Pro user never flashes the upsell
               before `canCreateCamp` settles). */}
@@ -693,6 +712,23 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
         targets={welcome.targets}
         planReady={planReady}
         onSeePlan={handleSeePlan}
+      />
+    )}
+
+    {/* Physically-impossible cut: full-screen premium block. No camp was
+        created. The CTA closes the whole flow, returning to the camp page. */}
+    {tooSoon && (
+      <FightTooSoonScreen
+        fatLossKg={tooSoon.fatLossKg}
+        weeksAvailable={tooSoon.weeksAvailable}
+        minWeeksNeeded={tooSoon.minWeeksNeeded}
+        maxPerWeekKg={tooSoon.maxPerWeekKg}
+        perWeekKg={tooSoon.perWeekKg}
+        ctaLabel="Back to my camp"
+        onAction={() => {
+          setTooSoon(null);
+          onOpenChange(false);
+        }}
       />
     )}
     </>

@@ -276,36 +276,42 @@ export default function FightCamps() {
           </div>
         )}
           <div className="flex items-start gap-3">
-            {camp.profile_pic_url ? (
-              <img
-                src={camp.profile_pic_url}
-                alt={camp.name}
-                className="w-9 h-9 rounded-full object-cover border border-border shrink-0"
-              />
-            ) : (
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center border border-border shrink-0 ${
-                isActive ? "bg-primary/10" : completed ? "bg-func-recovery-green/10" : "bg-muted"
-              }`}>
-                <Trophy className={`w-4 h-4 ${
-                  isActive ? "text-primary" : completed ? "text-func-recovery-green" : "text-muted-foreground"
-                }`} />
-              </div>
-            )}
+            {/* Trophy avatar carries the camp status on its edge: a blue dot
+                for the current camp, a green tick for a finished one. */}
+            <div className="relative shrink-0">
+              {camp.profile_pic_url ? (
+                <img
+                  src={camp.profile_pic_url}
+                  alt={camp.name}
+                  className="w-9 h-9 rounded-full object-cover border border-border"
+                />
+              ) : (
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center border border-border ${
+                  isActive ? "bg-primary/10" : completed ? "bg-func-recovery-green/10" : "bg-muted"
+                }`}>
+                  <Trophy className={`w-4 h-4 ${
+                    isActive ? "text-primary" : completed ? "text-func-recovery-green" : "text-muted-foreground"
+                  }`} />
+                </div>
+              )}
+              {isActive && (
+                <span
+                  className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-primary border-2 border-background"
+                  aria-label="Current camp"
+                />
+              )}
+              {completed && (
+                <span
+                  className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full bg-func-recovery-green border-2 border-background flex items-center justify-center"
+                  aria-label="Completed"
+                >
+                  <Check className="h-2.5 w-2.5 text-white" strokeWidth={3.5} />
+                </span>
+              )}
+            </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 min-w-0">
                 <h3 className="font-bold text-sm leading-tight truncate">{camp.name}</h3>
-                {isActive && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary shrink-0">
-                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                    Current
-                  </span>
-                )}
-                {completed && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-func-recovery-green/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-func-recovery-green shrink-0">
-                    <Check className="h-3 w-3" strokeWidth={3} />
-                    Done
-                  </span>
-                )}
               </div>
               {camp.event_name && (
                 <p className="text-xs text-primary font-medium truncate">{camp.event_name}</p>

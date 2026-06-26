@@ -14,16 +14,15 @@ interface RoutineDetailCardProps {
   onStartWorkout: (routine: SavedRoutine, dayFilter?: string) => void;
 }
 
-// App-themed tints, one per goal, kept within the brand/functional palette.
-const GOAL_BADGE: Record<string, string> = {
-  hypertrophy: "bg-primary/15 text-primary",
-  strength: "bg-func-danger-red/15 text-func-danger-red",
-  explosiveness: "bg-func-warning-yellow/15 text-func-warning-yellow",
-  conditioning: "bg-func-recovery-green/15 text-func-recovery-green",
-};
-
-// Shared chip style so the goal / AI / sport tags read as one consistent family.
-const CHIP = "inline-flex items-center text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full leading-none";
+// Title stays on a single line; the font scales down for longer routine names
+// so it fits without wrapping (very long names ellipsis as a safety net).
+function nameSizeClass(name: string): string {
+  const n = name.trim().length;
+  if (n <= 18) return "text-[15px]";
+  if (n <= 26) return "text-[13.5px]";
+  if (n <= 34) return "text-[12px]";
+  return "text-[11px]";
+}
 
 // Solid dot colours for the muscle marker on the two-line exercise rows.
 const MUSCLE_DOT: Record<string, string> = {
@@ -206,11 +205,11 @@ export function RoutineDetailCard({ routine, onDelete, onRename, onStartWorkout 
                   </button>
                 </div>
               ) : (
-                <div className="flex items-start gap-1.5">
-                  <h3 className="flex-1 text-[15px] font-bold leading-snug text-foreground break-words">{routine.name}</h3>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <h3 className={`flex-1 min-w-0 ${nameSizeClass(routine.name)} font-bold leading-tight text-foreground truncate`}>{routine.name}</h3>
                   <button
                     onClick={(e) => { e.stopPropagation(); setEditing(true); }}
-                    className="p-1 -mr-1 mt-0.5 rounded hover:bg-muted/40 shrink-0 opacity-40 hover:opacity-100 transition-opacity"
+                    className="p-1 -mr-1 rounded hover:bg-muted/40 shrink-0 opacity-40 hover:opacity-100 transition-opacity"
                     aria-label="Rename routine"
                   >
                     <Pencil className="h-3 w-3 text-muted-foreground" />
@@ -218,21 +217,6 @@ export function RoutineDetailCard({ routine, onDelete, onRename, onStartWorkout 
                 </div>
               )}
 
-              <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                <span className={`${CHIP} ${GOAL_BADGE[routine.goal] || "bg-muted/50 text-muted-foreground"}`}>
-                  {routine.goal}
-                </span>
-                {routine.is_ai_generated && (
-                  <span className={`${CHIP} bg-func-fats-purple/15 text-func-fats-purple`}>
-                    AI
-                  </span>
-                )}
-                {routine.sport && (
-                  <span className={`${CHIP} bg-muted/40 text-muted-foreground/90`}>
-                    {routine.sport.replace(/_/g, " ")}
-                  </span>
-                )}
-              </div>
               <p className="text-[11px] text-muted-foreground/60 mt-1.5 tabular-nums">
                 {routine.exercises.length} {routine.exercises.length === 1 ? "exercise" : "exercises"} · {formattedDate}
               </p>
