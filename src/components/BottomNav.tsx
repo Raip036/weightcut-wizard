@@ -86,10 +86,6 @@ export const BottomNav = memo(function BottomNav() {
   const [loggingOut, setLoggingOut] = useState(false);
   const [editedName, setEditedName] = useState(userName);
   const [userEmail, setUserEmail] = useState("");
-  const [theme, setTheme] = useState<"light" | "dark">(() => {
-    const saved = localStorage.getItem("theme") as "light" | "dark" | null;
-    return saved || "dark";
-  });
 
   // ─── Round-card photo-first capture wiring (spec §3.1 / §3.5) ────────
   //
@@ -165,14 +161,6 @@ export const BottomNav = memo(function BottomNav() {
     window.addEventListener('wcw:open-settings', openSettings);
     return () => window.removeEventListener('wcw:open-settings', openSettings);
   }, [userName, authUser?.email]);
-
-  const toggleTheme = () => {
-    const newTheme = theme === "light" ? "dark" : "light";
-    setTheme(newTheme);
-    localStorage.setItem("theme", newTheme);
-    document.documentElement.classList.toggle("dark", newTheme === "dark");
-    triggerHapticSelection();
-  };
 
   const handleSettings = async () => {
     setEditedName(userName);
@@ -481,8 +469,6 @@ export const BottomNav = memo(function BottomNav() {
         avatarUrl={avatarUrl}
         editedName={editedName}
         setEditedName={setEditedName}
-        theme={theme}
-        onToggleTheme={toggleTheme}
         onAvatarChange={(url) => {
           setAvatarUrl(url);
         }}

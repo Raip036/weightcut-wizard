@@ -60,8 +60,7 @@ export function SleepCard({ userId }: SleepCardProps) {
           <Sparkline data={hours} className="h-full w-full" />
         ) : (
           <div className="flex flex-col items-center justify-end h-full text-center pb-0.5">
-            <Icon name="moonOutline" size={20} className="text-muted-foreground/40 mb-1" />
-            <p className="text-note text-muted-foreground">No data yet</p>
+            <Icon name="moonOutline" size={20} className="text-muted-foreground/40" />
           </div>
         )}
       </div>

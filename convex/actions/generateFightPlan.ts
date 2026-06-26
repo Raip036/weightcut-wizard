@@ -2,8 +2,8 @@
  * Fight-week protocol generator (WP-T6).
  *
  * Flagship AI action for the weight-protocol redesign. Produces a fight-week
- * plan of AT MOST the final 7 days up to weigh-in (T-7 .. weigh-in; shorter if
- * the athlete is already inside 7 days). Covers carb taper, water load +
+ * plan covering STRICTLY the final 7 days up to weigh-in (D-7 .. weigh-in =
+ * 8 days, always the full window). Covers carb taper, water load +
  * restriction, sodium curve, fibre reduction, training taper, and sleep
  * targets — grounded in the
  * deterministic skeleton from `weightProtocolMath.ts` and the research

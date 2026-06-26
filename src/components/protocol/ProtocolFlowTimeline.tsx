@@ -1,6 +1,6 @@
 import { Fragment } from "react";
 import {
-  Scale, Droplets, Trophy, TrendingDown, ClipboardList, Check, ArrowLeftRight, Lock,
+  Scale, Droplets, Trophy, TrendingDown, ClipboardList, Check, Lock,
 } from "lucide-react";
 import { WizardAuroraBackground } from "@/components/onboarding/WizardAuroraBackground";
 
@@ -113,14 +113,6 @@ export function ProtocolFlowTimeline({
               </Fragment>
             );
           })}
-        </div>
-
-        {/* relationship hint pill */}
-        <div className="mt-3 flex items-center justify-center gap-1.5 rounded-full surface-inset px-3 py-1.5 mx-auto w-fit">
-          <ArrowLeftRight className="h-3 w-3" style={{ color: hsl(BLUE) }} />
-          <span className="text-[10px] text-muted-foreground">
-            Tap <b className="text-foreground/80">Cut</b> or <b className="text-foreground/80">Rehydrate</b> anytime to switch plans
-          </span>
         </div>
       </div>
     </div>

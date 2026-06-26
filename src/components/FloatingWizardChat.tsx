@@ -197,11 +197,16 @@ export function FloatingWizardChat() {
   useEffect(() => {
     const onPulse = () => setTutorialPulse(true);
     const onOpen = () => setOpen(true);
+    // The tutorial closes the chat when it advances to the next stop so the
+    // open panel never blocks the rest of the tour.
+    const onClose = () => setOpen(false);
     window.addEventListener("tutorial:pulse-wizard-chat", onPulse);
     window.addEventListener("tutorial:open-wizard-chat", onOpen);
+    window.addEventListener("tutorial:close-wizard-chat", onClose);
     return () => {
       window.removeEventListener("tutorial:pulse-wizard-chat", onPulse);
       window.removeEventListener("tutorial:open-wizard-chat", onOpen);
+      window.removeEventListener("tutorial:close-wizard-chat", onClose);
     };
   }, []);
 

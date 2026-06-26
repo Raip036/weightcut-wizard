@@ -170,22 +170,12 @@ export function computeFightFormScore(inputs: ScoringInputs, cfg: ScoringConfig)
     };
   }
 
-  // Post-fight: once the fight date passes, the camp is over. Surface as
-  // "paused" so the dashboard stops asking the user to log against a dead
-  // schedule. Without this, `resolvePhase` keeps returning `fightWeek`
-  // weights forever and the score drifts on stale data.
-  const daysToFight = (new Date(inputs.fightDate + "T00:00:00Z").getTime()
-    - new Date(inputs.date + "T00:00:00Z").getTime()) / (1000 * 60 * 60 * 24);
-  if (daysToFight < 0) {
-    return {
-      score: 0, rawScore: 0, label: "off_pace", state: "paused", phase: null,
-      campAge: null, subScores: emptySubScores(), topDriver: "weightCut",
-      topLimiter: "weightCut", appliedCeiling: null, algorithmVersion: cfg.version,
-      dataConfidence: 0, dataAgeDays: 0, activePillars: 0, totalPillars: 0,
-      formMomentum: 0,
-    };
-  }
-
+  // Post-fight, the camp keeps running rather than pausing. `resolvePhase`
+  // pins to `fightWeek` once the date passes, the weekly-target index clamps
+  // to the final week, and staleness decays old pillars toward neutral, so the
+  // score stays meaningful without nagging the user to log against a finished
+  // schedule. Starting the next camp is handled separately by the post-fight
+  // debrief / wrap-up prompts (both calendar-driven, not score-state driven).
   const daysOfData = countDistinctDaysOfData(inputs);
   if (daysOfData < cfg.coldStart.minDaysOfDataIn7d) {
     return {

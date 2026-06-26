@@ -208,8 +208,14 @@ export const run = action({
     const spineSelected = selected.some((d) => SPINE_DOMAINS.has(d));
     const spineBlocks: CoachBlock[] = spineSelected ? bundle.blocks : [];
 
+    // Anchor the model to the current date so it treats the data as fresh and
+    // never assumes the numbers are stale. The data fetch already windows on
+    // today via gte, so this is purely a prompt-level anchor.
+    const today = new Date().toISOString().slice(0, 10);
+
     const systemPrompt = buildSystemPrompt({
       athleteName,
+      today,
       facts: bundle.facts,
       snapshotBlock: snap.block,
       intent,
@@ -342,6 +348,7 @@ If unsure, return the single best-fit domain. Never invent ids outside the list.
 
 function buildSystemPrompt(opts: {
   athleteName: string | null;
+  today: string;
   facts: string;
   snapshotBlock: string;
   intent: "planny" | "casual";
@@ -354,6 +361,7 @@ function buildSystemPrompt(opts: {
 }): string {
   const {
     athleteName,
+    today,
     facts,
     snapshotBlock,
     intent,
@@ -411,9 +419,11 @@ RULES (non-negotiable):
 - NEVER recompute or emit any metric numbers in blocks. The server computes and merges all data cards (weight_target, chart, metric_row, stat_card, list, score_ring) from the facts and DOMAIN DATA below. Do NOT output those block types - emitting them will be discarded.
 - ${blockGuidance}
 - "followups": 0-3 short suggested questions, each ≤40 chars (e.g. "Plan my water load").
+- When the Fight Form Score is calibrating or unavailable, NEVER tell the athlete they are behind because of it. Frame it as "still building your baseline, keep logging to unlock your score." A 0 or missing score is NOT a low score.
 - BANNED: paragraphs, motivational fluff, repeating the deterministic numbers inside blocks, em-dashes (—) or en-dashes (–) anywhere. Use commas or periods.
 
 DETERMINISTIC FACTS (use verbatim, never recompute):
+TODAY: ${today}
 ${facts}
 ${safetyBlock}${cornermanBlock}${architectBlock}${domainBlock}${campHistoryBlock}
 ${snapshotBlock}`;

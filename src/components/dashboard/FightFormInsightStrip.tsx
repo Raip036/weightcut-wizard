@@ -72,16 +72,6 @@ function nextMissingSource(adherence: Adherence): SourceKey | null {
 
 function headlineFor(p: Props): string {
   if (p.state === "no_camp") return "Set a target date and goal weight to start scoring your camp.";
-  if (p.state === "paused")  return "Camp is paused. Log when ready to resume.";
-
-  // Cold-start override, when nothing is logged today yet, replace the
-  // numeric / calibration copy with a single welcoming sentence.
-  const nothingLoggedToday =
-    !p.adherence.sleep
-    && !p.adherence.weight
-    && !p.adherence.training
-    && !p.adherence.wellnessCheckin;
-  if (nothingLoggedToday) return "Fresh start. Log anything to begin";
 
   if (p.state === "calibrating") {
     if (!p.calibration) return "Logging your first days to calibrate your score.";
@@ -137,7 +127,11 @@ function headlineFor(p: Props): string {
 }
 
 export function FightFormInsightStrip(p: Props) {
-  if (p.state === "no_camp" || p.state === "paused") {
+  // Paused renders nothing (no "Camp is paused" copy) — post-fight the camp
+  // keeps running, and an explicit pause is surfaced elsewhere.
+  if (p.state === "paused") return null;
+
+  if (p.state === "no_camp") {
     return (
       <p className="text-[12px] text-muted-foreground text-center mt-10 px-6 max-w-xs mx-auto leading-snug">
         {headlineFor(p)}
@@ -145,21 +139,21 @@ export function FightFormInsightStrip(p: Props) {
     );
   }
 
-  const headline = headlineFor(p);
-
-  // Cold-start "Fresh start" copy when nothing is logged yet — suppresses the
-  // carded calibration treatment and the day counter so the welcome message
-  // isn't immediately contradicted by a countdown.
+  // Cold-start: nothing logged today yet. Render nothing rather than a
+  // welcome/countdown line under the ring.
   const nothingLoggedToday =
     !p.adherence.sleep
     && !p.adherence.weight
     && !p.adherence.training
     && !p.adherence.wellnessCheckin;
+  if (nothingLoggedToday) return null;
+
+  const headline = headlineFor(p);
 
   // Calibrating (with something already logged) → present the countdown copy
   // and the day counter inside translucent pill cards, the same UI family as
   // the unlocked delta banner, instead of bare text floating under the ring.
-  if (p.state === "calibrating" && p.calibration && !p.calibration.unlocked && !nothingLoggedToday) {
+  if (p.state === "calibrating" && p.calibration && !p.calibration.unlocked) {
     const dayN = Math.min(p.calibration.daysWithAnyLog, p.calibration.daysNeeded);
     return (
       <div className="mt-10 flex flex-col items-center gap-2.5">
@@ -177,33 +171,10 @@ export function FightFormInsightStrip(p: Props) {
     );
   }
 
-  // When the strip carries diagnostic info (an applied cap, or a driver/
-  // limiter once the score is unlocked) we surface a "Why?" tap target so
-  // the user can pull up the full explanation sheet instead of guessing
-  // what "Score capped, training load is spiking" actually means.
-  const isTappable =
-    !!p.onHeadlineTap &&
-    (p.appliedCeiling != null || ((p.state === "ok" || p.state === "stale") && (p.topDriver != null || p.topLimiter != null)));
-
-  return (
-    <div className="mt-10 flex flex-col items-center gap-2.5">
-      {isTappable ? (
-        <button
-          type="button"
-          onClick={p.onHeadlineTap}
-          className="block text-[11px] text-foreground/90 text-center px-6 max-w-sm leading-snug whitespace-pre-line active:opacity-70 transition-opacity"
-          aria-label="Show explanation"
-        >
-          <span>{headline}</span>{" "}
-          <span className="text-[11px] font-semibold text-primary underline underline-offset-2 decoration-primary/40 whitespace-nowrap">
-            Why?
-          </span>
-        </button>
-      ) : (
-        <p className="text-[11px] text-foreground/90 text-center px-6 max-w-sm leading-snug whitespace-pre-line">
-          {headline}
-        </p>
-      )}
-    </div>
-  );
+  // Scored states (ok / stale) used to render the insight headline here
+  // ("You're peaking…", "At risk. Nutrition needs attention now. Why?", "Score
+  // capped…", etc.). That headline is intentionally removed — the ring's own
+  // label and the delta pill below already carry the read, so no text sits
+  // under the ring for a scored camp.
+  return null;
 }

@@ -21,6 +21,12 @@ type Props = {
   mealsLoggedToday: boolean;
   /** Marks today as a rest day (writes a Rest calendar entry). Absent → control hidden. */
   onMarkRestDay?: () => void | Promise<void>;
+  /** True once today's adherence has actually loaded. The rest-day prompt is
+   *  withheld until then, so it doesn't flash in (and collapse back out) on
+   *  every dashboard mount while `adherence.training` is still defaulting to
+   *  false during the query's load window. Defaults to true (show immediately)
+   *  for callers that don't pass it. */
+  restDayReady?: boolean;
 };
 
 type PillKey = "weight" | "training" | "sleep" | "wellness" | "meals";
@@ -41,11 +47,9 @@ const PILLS: Array<{
   { key: "meals",    label: "Meals",    href: "/nutrition",         icon: "restaurantOutline",   iconDone: "restaurant"  },
 ];
 
-// Completed sections read in the app's recovery-green, the established
-// "done / success" hue (the same green used by the 5/5 counter), so
-// finishing a section feels like a reward rather than just another blue
-// highlight identical to everything else.
-const DONE_GLOW = "0 0 14px -4px rgba(35,197,153,0.55)";
+// Completed sections read in the WeightCut Wizard aurora blue (the app's
+// primary brand hue), so finishing a section glows in the signature blue.
+const DONE_GLOW = "0 0 14px -4px hsl(var(--primary) / 0.55)";
 
 /**
  * One-shot completion celebration, anchored over the strip. Mirrors the
@@ -139,7 +143,7 @@ function PillsRow({
             className={cn(
               "card-press relative flex-1 min-h-[52px] rounded-md flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 transition-colors",
               isLogged
-                ? "border border-func-recovery-green/40 bg-func-recovery-green/12 text-func-recovery-green"
+                ? "border border-primary/40 bg-primary/12 text-primary"
                 : "border border-border/60 text-muted-foreground active:bg-muted/40",
             )}
             style={{ boxShadow: isLogged ? DONE_GLOW : undefined }}
@@ -153,7 +157,7 @@ function PillsRow({
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0, opacity: 0 }}
                   transition={springs.bouncy}
-                  className="absolute -top-1.5 -right-1.5 flex h-[16px] w-[16px] items-center justify-center rounded-full bg-func-recovery-green ring-2 ring-background"
+                  className="absolute -top-1.5 -right-1.5 flex h-[16px] w-[16px] items-center justify-center rounded-full bg-primary ring-2 ring-background"
                 >
                   <Icon name="checkmarkOutline" size={10} className="text-background" />
                 </motion.span>
@@ -170,14 +174,14 @@ function PillsRow({
               <Icon
                 name={isLogged ? iconDone : icon}
                 size={17}
-                className={isLogged ? "text-func-recovery-green" : "text-muted-foreground"}
+                className={isLogged ? "text-primary" : "text-muted-foreground"}
               />
             </motion.span>
 
             <span
               className={cn(
                 "text-[10px] font-semibold leading-none tracking-tight",
-                isLogged ? "text-func-recovery-green" : "text-muted-foreground",
+                isLogged ? "text-primary" : "text-muted-foreground",
               )}
             >
               {label}
@@ -189,7 +193,7 @@ function PillsRow({
   );
 }
 
-export default function TodayStrip({ adherence, mealsLoggedToday, onMarkRestDay }: Props) {
+export default function TodayStrip({ adherence, mealsLoggedToday, onMarkRestDay, restDayReady = true }: Props) {
   const prefersReduced = useReducedMotion();
   const { checkFeatureAccess, isSubscriptionResolved } = useSubscription();
   const [restPending, setRestPending] = useState(false);
@@ -213,7 +217,6 @@ export default function TodayStrip({ adherence, mealsLoggedToday, onMarkRestDay 
   const doneCount = PILLS.filter((p) => logged[p.key]).length;
   const total = PILLS.length;
   const allSet = doneCount === total;
-  const pct = (doneCount / total) * 100;
 
   // ── Complete-state collapse + once-per-day celebration ─────────────
   // When complete, the strip collapses to a slim bar. The FIRST time the
@@ -262,14 +265,14 @@ export default function TodayStrip({ adherence, mealsLoggedToday, onMarkRestDay 
             onClick={() => setUserExpanded((e) => !e)}
             aria-expanded={tilesOpen}
             aria-label="Today's log complete, tap to view sections"
-            className="w-full flex items-center gap-2.5 rounded-full border border-func-recovery-green/30 bg-func-recovery-green/12 px-3 py-1.5 text-left"
+            className="w-full flex items-center gap-2.5 rounded-full border border-primary/30 bg-primary/12 px-3 py-1.5 text-left"
             style={{ boxShadow: DONE_GLOW }}
             initial={prefersReduced ? false : { opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={springs.gentle}
           >
             <motion.span
-              className="flex h-5 w-5 items-center justify-center rounded-full bg-func-recovery-green shrink-0"
+              className="flex h-5 w-5 items-center justify-center rounded-full bg-primary shrink-0"
               initial={celebrating && !prefersReduced ? { scale: 0 } : false}
               animate={{ scale: 1 }}
               transition={springs.bouncy}
@@ -277,7 +280,7 @@ export default function TodayStrip({ adherence, mealsLoggedToday, onMarkRestDay 
               <Icon name="checkmarkOutline" size={12} className="text-background" />
             </motion.span>
 
-            <span className="whitespace-nowrap text-[12px] font-semibold tracking-wide text-func-recovery-green">
+            <span className="whitespace-nowrap text-[12px] font-semibold tracking-wide text-primary">
               Today's log complete
             </span>
 
@@ -293,7 +296,7 @@ export default function TodayStrip({ adherence, mealsLoggedToday, onMarkRestDay 
                     transition={{ ...springs.bouncy, delay: celebrating ? 0.18 + i * 0.06 : 0 }}
                     className="leading-none"
                   >
-                    <Icon name={p.iconDone} size={14} className="text-func-recovery-green" />
+                    <Icon name={p.iconDone} size={14} className="text-primary" />
                   </motion.span>
                 ))}
               </span>
@@ -317,7 +320,11 @@ export default function TodayStrip({ adherence, mealsLoggedToday, onMarkRestDay 
                 transition={springs.gentle}
                 className="overflow-hidden"
               >
-                <div className="pt-1.5">
+                {/* px/pt inset so the pills' top-right check badges (which sit at
+                    -top-1.5 -right-1.5) aren't clipped by the overflow-hidden
+                    needed for the collapse animation — the rightmost badge was
+                    getting cut off at the container edge. */}
+                <div className="px-2 pt-2.5">
                   <PillsRow logged={logged} wellnessIsFree={wellnessIsFree} prefersReduced={prefersReduced} />
                 </div>
               </motion.div>
@@ -327,37 +334,14 @@ export default function TodayStrip({ adherence, mealsLoggedToday, onMarkRestDay 
       ) : (
         /* ── IN PROGRESS, header + progress bar + rest-day + tiles ── */
         <>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center">
             <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/80">Today's log</p>
-            <p className="text-note font-semibold tabular-nums text-muted-foreground">
-              {doneCount} / {total}
-            </p>
-          </div>
-
-          <div className="h-2 w-full rounded-full bg-muted/50 overflow-hidden">
-            <motion.div
-              className="relative h-full rounded-full bg-primary overflow-hidden"
-              initial={prefersReduced ? false : { width: 0 }}
-              animate={{ width: `${pct}%` }}
-              transition={springs.gentle}
-              style={{ boxShadow: pct > 0 ? "0 0 10px -1px hsl(var(--primary) / 0.65)" : undefined }}
-            >
-              {/* Shimmer sweep, gives the fill an "earned" sheen. */}
-              {!prefersReduced && pct > 0 && (
-                <motion.span
-                  className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/45 to-transparent"
-                  initial={{ x: "-130%" }}
-                  animate={{ x: "330%" }}
-                  transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 1.6, ease: "easeInOut" }}
-                />
-              )}
-            </motion.div>
           </div>
 
           {/* Rest-day shortcut, visible only when training is not yet logged
               and the parent has wired the mutation handler. */}
           <AnimatePresence initial={false}>
-            {onMarkRestDay && !logged.training && (
+            {restDayReady && onMarkRestDay && !logged.training && (
               <motion.div
                 key="rest-day-row"
                 initial={prefersReduced ? false : { opacity: 0, y: -4 }}

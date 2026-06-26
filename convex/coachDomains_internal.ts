@@ -311,12 +311,18 @@ async function buildFightScore(
     subScores.push({ label: SUB_LABELS[key], value: round0(entry.value * 100) });
   }
 
+  // Calibrating: not enough logged data yet, so displayedScore is 0 and `label`
+  // is just a default placeholder ("off_pace"). Flag it so downstream reframes
+  // this as "still building a baseline" instead of reporting a low score.
+  const calibrating = latest.state === "calibrating";
+
   return {
     score: round0(latest.displayedScore),
     status: latest.label,
     ...(latest.phase ? { phase: latest.phase } : {}),
     ...(latest.topLimiter ? { topLimiter: latest.topLimiter } : {}),
     subScores,
+    ...(calibrating ? { calibrating: true } : {}),
   };
 }
 

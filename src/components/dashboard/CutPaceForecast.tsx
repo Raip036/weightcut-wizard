@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Icon } from "@/components/ui/Icon";
 import { triggerHapticSelection } from "@/lib/haptics";
 import { planStartIso, isoShift, resolveTotalWeeks } from "@/scoring/planWeek";
-import { DeltaPill } from "./DeltaPill";
+import { deltaVerdict } from "./DeltaPill";
 
 interface WeightLog {
   date: string;
@@ -85,18 +85,12 @@ const TIER_LABEL: Record<HeroTier, string> = {
   no_data: "NO LOG",
 };
 
-// Card left-edge accent, colour-codes the focused week's status in place of
-// the old textual status badge. The tier label still rides the card's
-// aria-label so the status stays available to screen readers.
-const TIER_ACCENT: Record<HeroTier, string> = {
-  on_track: "border-l-emerald-500",
-  slightly_off: "border-l-amber-500",
-  behind: "border-l-orange-500",
-  critical: "border-l-rose-500",
-  no_data: "border-l-border",
-};
+// Closeness-ring geometry for the weekly gap gauge (radius 42 in a 100x100
+// viewBox). The tier label still rides the card's aria-label so status stays
+// available to screen readers.
+const RING_C = 2 * Math.PI * 42;
 
-function loadPlan(): PlanData | null {
+export function loadPlan(): PlanData | null {
   try {
     const raw = localStorage.getItem("wcw_cut_plan");
     if (!raw) return null;
@@ -317,7 +311,7 @@ export function CutPaceForecast({
 
   if (!data) return null;
 
-  const { checkpoints, finalTarget, naturalFocus, currentIdx, totalWeeks, startWeight } = data;
+  const { checkpoints, finalTarget, naturalFocus, currentIdx, totalWeeks } = data;
 
   // Resolve the focused checkpoint, explicit override first, falling back
   // to the natural focus (current or next-future week).
@@ -375,16 +369,19 @@ export function CutPaceForecast({
   // now lives in <DeltaPill> (unified ramp), so no local tone needed.
   const delta = displayActual != null ? displayActual - focusCheckpoint.targetWeight : null;
 
-  // Progress toward the pre-dehydration target, from camp-start weight.
-  // Self-hides when the denominator is non-positive (sparse logs / bad data).
-  const totalToLose =
-    startWeight != null ? startWeight - finalTarget.targetWeight : null;
-  const lost =
-    startWeight != null && displayActual != null ? startWeight - displayActual : null;
-  const progressPct =
-    totalToLose != null && totalToLose > 0 && lost != null
-      ? Math.max(0, Math.min(1, lost / totalToLose))
-      : null;
+  // Closeness ring inputs. The ring fills toward "on target": being OVER the
+  // week target eats into the fill; being under is free until ~1 kg (past that,
+  // cutting-too-fast caution kicks in through the verdict colour). The signed
+  // delta still drives the colour ramp via deltaVerdict, so ring, number, and
+  // verdict word all agree.
+  const ringVerdict = delta != null ? deltaVerdict(delta) : null;
+  const ringFill =
+    delta == null
+      ? 0
+      : Math.max(
+          0.06,
+          Math.min(0.98, 1 - (delta > 0 ? delta : Math.max(0, -delta - 1.0)) / 2.5),
+        );
 
   // Dot tap: toggle override. Tapping the natural-focus week clears it.
   const handleDotSelect = (week: number) => {
@@ -439,7 +436,7 @@ export function CutPaceForecast({
           }
         }}
         aria-label={`${TIER_LABEL[tier]}, ${heroEyebrow}, target ${focusCheckpoint.targetWeight.toFixed(1)} kg`}
-        className={`w-full card-surface rounded-2xl border-l-[3px] ${TIER_ACCENT[tier]} p-4 text-left active:scale-[0.99] transition-transform`}
+        className="w-full card-surface rounded-2xl p-4 text-left active:scale-[0.99] transition-transform"
       >
         {/* Subtle fade-in on focus change, key forces remount → re-plays anim. */}
         <div key={focusCheckpoint.week} className="animate-in fade-in duration-200">
@@ -456,40 +453,71 @@ export function CutPaceForecast({
             )}
           </div>
 
-          {/* Hero row: target weight (left) + drift pill (right, above the
-              bar) so the card stays slim. The pill replaces the old "You: X kg"
-              line — its value (over/under target) carries the same fact. */}
-          <div className="mt-2 flex items-end justify-between gap-2">
-            <div className="flex min-w-0 items-baseline gap-2">
-              <span className="display-number font-bold tabular-nums text-foreground text-[34px] leading-none">
-                {focusCheckpoint.targetWeight.toFixed(1)}
-              </span>
-              <span className="text-[13px] text-muted-foreground font-light">kg</span>
-              <span className="ml-0.5 text-[10px] uppercase tracking-[0.1em] text-muted-foreground/60 font-semibold">
-                target
-              </span>
+          {/* Body: closeness ring (how far you are from THIS week's target,
+              the card's whole job) on the left, with the target weight + a
+              one-word verdict + your current weight on the right. The ring
+              centre carries the gap number; its fill + colour carry status. */}
+          <div className="mt-3 flex items-center gap-4">
+            <div className="relative h-24 w-24 shrink-0">
+              <svg
+                viewBox="0 0 100 100"
+                className={`h-full w-full -rotate-90 ${ringVerdict ? ringVerdict.text : "text-muted-foreground/40"}`}
+              >
+                <circle cx="50" cy="50" r="43" fill="none" className="stroke-muted-foreground/15" strokeWidth="8" />
+                {delta != null && (
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="43"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="8"
+                    strokeLinecap="round"
+                    strokeDasharray={RING_C}
+                    strokeDashoffset={RING_C * (1 - ringFill)}
+                    className="transition-[stroke-dashoffset] duration-700 ease-out"
+                  />
+                )}
+              </svg>
+              {/* Centre label sits inside an inset box (px room from the stroke)
+                  so the number + "kg under/over" never touch the ring. */}
+              <div className="absolute inset-[14px] flex flex-col items-center justify-center text-center leading-none">
+                {delta == null ? (
+                  <span className="text-[15px] font-semibold text-muted-foreground">--</span>
+                ) : (
+                  <>
+                    <span className={`display-number font-bold tabular-nums text-[22px] leading-none ${ringVerdict!.text}`}>
+                      {Math.abs(delta).toFixed(1)}
+                    </span>
+                    <span className="mt-1 whitespace-nowrap text-[8px] uppercase tracking-wide text-muted-foreground">
+                      kg {delta < 0 ? "under" : "over"}
+                    </span>
+                  </>
+                )}
+              </div>
             </div>
-            {delta != null && <DeltaPill value={delta} noun="target" />}
+
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] uppercase tracking-[0.1em] text-muted-foreground/60 font-semibold">
+                This week's target
+              </p>
+              <p className="mt-0.5 flex items-baseline gap-1">
+                <span className="display-number font-bold tabular-nums text-foreground text-[26px] leading-none">
+                  {focusCheckpoint.targetWeight.toFixed(1)}
+                </span>
+                <span className="text-[12px] text-muted-foreground font-light">kg</span>
+              </p>
+            </div>
           </div>
 
-          {/* Contextual bottom slot: progress bar (current) / target-by-date
-              (future) / no-log note (past with no weight). The bar is the
-              card's slim bottom edge. */}
-          {isCurrentWeek ? (
-            progressPct != null && (
-              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted-foreground/15">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-primary to-cyan-400 transition-[width] duration-700 ease-out"
-                  style={{ width: `${progressPct * 100}%` }}
-                />
-              </div>
-            )
-          ) : isFutureWeek ? (
-            <p className="mt-2.5 text-[11.5px] text-muted-foreground">
+          {/* Contextual note for future / past-with-no-log focus. Current week
+              needs none — the ring already says where you stand. */}
+          {isFutureWeek ? (
+            <p className="mt-3 text-[11.5px] text-muted-foreground">
               Target by {fmtWeekDate(focusCheckpoint.weekEndDate)}
             </p>
           ) : isPastWeek && displayActual == null ? (
-            <p className="mt-2.5 text-[12px] italic text-muted-foreground">
+            <p className="mt-3 text-[12px] italic text-muted-foreground">
               No log this week
             </p>
           ) : null}

@@ -49,6 +49,7 @@ export const DashboardCampStatusSection = memo(function DashboardCampStatusSecti
           currentWeight={currentWeight ?? null}
           targetWeight={goalWeight}
           targetDateISO={targetDate}
+          plan={plan}
         />
       </div>
     </div>

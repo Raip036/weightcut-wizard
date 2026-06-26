@@ -78,7 +78,7 @@ export function MealIdeasSection({ onOpen, lastPlanSummary }: {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <h3 className="text-[14px] font-semibold">Meal plan ideas</h3>
-              <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-primary ring-1 ring-primary/25">
+              <span className="text-[9px] font-bold uppercase tracking-wide text-primary">
                 Pro
               </span>
             </div>

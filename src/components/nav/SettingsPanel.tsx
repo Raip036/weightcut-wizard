@@ -218,8 +218,6 @@ interface SettingsPanelProps {
   avatarUrl: string | null;
   editedName: string;
   setEditedName: (name: string) => void;
-  theme: "light" | "dark";
-  onToggleTheme: () => void;
   onAvatarChange: (url: string) => void;
   onSave: () => void;
   onReplayTutorial: () => void;
@@ -232,7 +230,6 @@ export function SettingsPanel({
   open, onClose,
   userName, userEmail, avatarUrl,
   editedName, setEditedName,
-  theme, onToggleTheme,
   onAvatarChange, onSave,
   onReplayTutorial,
   onDeleteAccount,
@@ -338,15 +335,6 @@ export function SettingsPanel({
 
           {/* Preferences */}
           <Section header="Preferences">
-            <Row
-              icon={
-                theme === "dark"
-                  ? { name: "moonOutline", color: "indigo" }
-                  : { name: "sunnyOutline", color: "orange" }
-              }
-              label={theme === "dark" ? "Dark Mode" : "Light Mode"}
-              onClick={onToggleTheme}
-            />
             {onToggleGoalType && (
               <Row
                 icon={{ name: "trophyOutline", color: "brand" }}

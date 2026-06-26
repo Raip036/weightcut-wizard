@@ -153,25 +153,34 @@ describe("computeFightFormScore", () => {
     });
   });
 
-  describe("Fix #6 — post-fight returns paused", () => {
-    it("returns state:'paused' when daysToFight < 0", () => {
+  describe("post-fight keeps the camp running (no auto-pause)", () => {
+    it("does NOT pause once the fight date has passed (daysToFight < 0)", () => {
+      // The camp keeps computing post-fight instead of going "paused" — the
+      // user starts the next camp manually (the debrief / wrap-up prompts,
+      // which are calendar-driven, handle that). The score should flow through
+      // to the normal scored/stale states, never "paused".
       const r = computeFightFormScore(
         baseInputs({ date: "2026-07-01", fightDate: "2026-06-15" }),
         ScoringConfigV1,
       );
-      expect(r.state).toBe("paused");
-      expect(r.score).toBe(0);
+      expect(r.state).not.toBe("paused");
+      expect(["ok", "stale", "calibrating"]).toContain(r.state);
     });
 
     it("does not return state:'paused' on the day of the fight (daysToFight = 0)", () => {
-      // The base fixture's data is 45 days old when date = fight day, so
-      // dataConfidence will be low → state is 'stale', not 'ok'. The key
-      // guard here is that fight-day is still active (not 'paused').
       const r = computeFightFormScore(
         baseInputs({ date: "2026-06-15", fightDate: "2026-06-15" }),
         ScoringConfigV1,
       );
       expect(r.state).not.toBe("paused");
+    });
+
+    it("still pauses when the camp is explicitly paused (isCampPaused)", () => {
+      const r = computeFightFormScore(
+        baseInputs({ date: "2026-07-01", fightDate: "2026-06-15", isCampPaused: true }),
+        ScoringConfigV1,
+      );
+      expect(r.state).toBe("paused");
     });
   });
 

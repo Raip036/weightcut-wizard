@@ -176,8 +176,8 @@ export function WellnessResult({
       transition={spring}
       className="flex flex-col items-center gap-4 px-1 text-center"
     >
-      {/* Celebrating / empathising mascot */}
-      <div className="h-[120px] w-[120px] -mb-2">
+      {/* Celebrating / empathising mascot, centred in its box */}
+      <div className="h-[120px] w-[120px] -mb-2 flex items-center justify-center">
         <WizardCharacter pose={readiness >= 66 ? "celebrate" : "idle"} />
       </div>
 
@@ -225,10 +225,10 @@ export function WellnessResult({
         initial={prefersReduced ? false : { opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3, ...spring }}
-        className="w-full rounded-2xl border border-primary/25 bg-primary/5 px-4 py-3 flex items-start gap-2.5 text-left"
+        className="w-full px-1 flex items-start gap-2.5 text-left"
       >
-        <div className="rounded-full bg-primary/15 p-1.5 shrink-0">
-          <Icon name={tip.icon} size={16} className="text-primary" />
+        <div className="shrink-0">
+          <Icon name={tip.icon} size={18} className="text-primary mt-0.5" />
         </div>
         <div>
           <div className="text-[10px] uppercase tracking-wide text-primary/80 font-semibold mb-0.5">

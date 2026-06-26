@@ -24,6 +24,8 @@ import { NavigationDirectionProvider } from "@/hooks/useNavigationDirection";
 import { TutorialProvider } from "@/tutorial/TutorialContext";
 import { BottomNav } from "@/components/BottomNav";
 import { FloatingWizardChat } from "@/components/FloatingWizardChat";
+import { AppUpdateGate } from "@/components/AppUpdateGate";
+import { MaintenanceGate } from "@/components/MaintenanceGate";
 const FloatingWorkoutIndicator = lazy(() => import("@/components/gym/FloatingWorkoutIndicator").then(m => ({ default: m.FloatingWorkoutIndicator })));
 const AIFloatingIndicator = lazy(() => import("@/components/AIFloatingIndicator").then(m => ({ default: m.AIFloatingIndicator })));
 import * as Sentry from "@sentry/react";
@@ -263,6 +265,7 @@ const AppLayoutContent = () => {
       <Suspense fallback={null}><FloatingWorkoutIndicator /></Suspense>
       <Suspense fallback={null}><AIFloatingIndicator /></Suspense>
       <FloatingWizardChat />
+      <AppUpdateGate />
     </>
   );
 };
@@ -282,6 +285,7 @@ const ProtectedAppLayout = () => (
 );
 
 const App = () => (
+  <MaintenanceGate>
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <ErrorBoundary onError={(error, errorInfo) => {
@@ -420,6 +424,7 @@ const App = () => (
       </ErrorBoundary>
     </TooltipProvider>
   </QueryClientProvider>
+  </MaintenanceGate>
 );
 
 export default App;

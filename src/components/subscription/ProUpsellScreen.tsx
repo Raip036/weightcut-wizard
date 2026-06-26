@@ -179,10 +179,10 @@ export function ProUpsellScreen({
           />
         </div>
 
-        {/* Lock chip. */}
+        {/* Lock label — plain text + icon, no pill background. */}
         <motion.span
           {...reveal(0.15)}
-          className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-primary/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-primary ring-1 ring-primary/20"
+          className="mt-4 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-primary"
         >
           <Icon name="lockClosedOutline" size={13} />
           Pro

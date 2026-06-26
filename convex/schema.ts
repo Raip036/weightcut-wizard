@@ -1548,6 +1548,17 @@ export default defineSchema({
     ),
   }).index("by_user_date", ["userId", "date"])
     .index("by_user_date_pillar", ["userId", "date", "pillar"]),
+
+  // Singleton app-wide config (key always "global"). Currently drives the
+  // maintenance-mode screen. Read via the public `appConfig.getMaintenance`
+  // query; toggled only from the CLI via the internal `setMaintenance`
+  // mutation — never client-callable.
+  app_config: defineTable({
+    key: v.string(), // singleton key, always "global"
+    maintenanceEnabled: v.boolean(),
+    message: v.optional(v.string()),
+    updatedAt: v.number(),
+  }).index("by_key", ["key"]),
 });
 
 /*

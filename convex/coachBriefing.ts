@@ -134,7 +134,7 @@ function buildGreeting(
     } else {
       bits.push(
         onTrack === false
-          ? `${round1(delta)}kg over, behind plan`
+          ? `${round1(delta)}kg to go, a bit behind, let's tighten it`
           : `${round1(delta)}kg to go, on plan`,
       );
     }
@@ -145,14 +145,14 @@ function buildGreeting(
 }
 
 /**
- * The ONE thing to do today (≤80 chars), derived deterministically from the
- * read. Priority order:
- *   1. Fight week → the day's key cut step (water-load / cut / rehydrate by
- *      day-out), or a generic "log your weight + start water load".
- *   2. Stale logs → "Log today's weight" (we can't coach blind).
- *   3. Over plan → "Cut ~X kcal" when modestly over, else "You're Xkg over —
- *      tighten the plan".
- *   4. On track → a positive nudge.
+ * A gentle CHECK-IN for today (≤80 chars), derived deterministically from the
+ * read. This is a soft status read plus a nudge to LOG something, never a
+ * prescription (no calorie targets, no "eat less / train harder"). Priority:
+ *   1. Fight week → the day's protocol step framed as a calm check-in.
+ *   2. Stale logs → a soft weigh-in nudge (we can't coach blind).
+ *   3. On track → always a POSITIVE check-in, never a cut suggestion.
+ *   4. Over plan AND off the trajectory → a gentle awareness check-in that
+ *      nudges logging meals, never a kcal prescription.
  */
 function derivePriorityAction(opts: {
   phase: CoachBriefing["phase"];
@@ -163,40 +163,38 @@ function derivePriorityAction(opts: {
 }): { text: string; action: CoachAction } | null {
   const { phase, days, delta, onTrack, hasRecentWeightLog } = opts;
 
-  // 1. Fight week — the day's key step keyed off days-to-weigh-in.
+  // 1. Fight week — the day's protocol step, framed as a calm check-in.
   if (phase === "fightWeek") {
     if (days != null) {
       if (days <= 0)
-        return { text: "Weigh-in today. One last check, then it's rehydrate time", action: ACTIONS.weighIn };
+        return { text: "Weigh-in day. One last check when you're ready, then rehydrate", action: ACTIONS.weighIn };
       if (days === 1)
-        return { text: "Last sweat-out tonight if needed. Sip only, go easy on meals", action: ACTIONS.hydration };
+        return { text: "Last sweat-out tonight if needed. Sip only, keep meals light", action: ACTIONS.hydration };
       if (days === 2)
-        return { text: "Water-load day. Could start with 1L now, then keep it steady", action: ACTIONS.hydration };
+        return { text: "Water-load day. Maybe start with 1L now, then keep it steady", action: ACTIONS.hydration };
       if (days === 3)
-        return { text: "Good day to start water-loading. ~6-8L, ease off the salt", action: ACTIONS.hydration };
+        return { text: "Good day to ease into water-loading. ~6-8L, lighter on salt", action: ACTIONS.hydration };
     }
     return { text: "Want to log your weight? Then water-loading can begin", action: ACTIONS.weighIn };
   }
 
-  // 2. Coaching blind — get a weight in first.
+  // 2. Coaching blind — a soft weigh-in nudge first.
   if (!hasRecentWeightLog)
     return { text: "A quick weigh-in helps me keep you on plan, whenever suits", action: ACTIONS.weighIn };
 
-  // 3. Over plan → tighten via nutrition.
-  if (delta != null && delta > 0.2) {
-    // ~7700 kcal per kg; a 1-day nudge ≈ a fraction of the gap. Keep the
-    // ask small and actionable when only modestly over.
-    if (delta <= 2) {
-      const kcal = Math.max(100, Math.round((delta * 200) / 50) * 50);
-      return { text: `Trimming ~${kcal} kcal today would keep you on the glide path`, action: ACTIONS.nutrition };
-    }
-    return { text: `${round1(delta)}kg over. Worth tightening the plan a bit, your call`, action: ACTIONS.nutrition };
+  // 3. On track / at target — always a positive check-in, never a cut nudge.
+  if (onTrack === true || (delta != null && delta <= 0.2)) {
+    return { text: "Looking on plan. A quick weigh-in keeps it locked in", action: ACTIONS.weighIn };
   }
 
-  // 4. On track / positive nudge.
-  if (onTrack === true || (delta != null && delta <= 0.2)) {
-    return { text: "Right on plan. Hold the line, a weight + meals log keeps it tight", action: ACTIONS.weighIn };
+  // 4. Over plan AND behind the trajectory — a gentle awareness check-in.
+  if (delta != null && delta > 0.2 && onTrack === false) {
+    return {
+      text: `${round1(delta)}kg over with ${days ?? "a few"} days. Log today's meals to keep it tight?`,
+      action: ACTIONS.nutrition,
+    };
   }
+
   return { text: "A quick weigh-in helps me keep you on plan, whenever suits", action: ACTIONS.weighIn };
 }
 

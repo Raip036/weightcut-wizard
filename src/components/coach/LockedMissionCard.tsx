@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { triggerHapticSelection } from "@/lib/haptics";
-import { ShimmerCrownBadge } from "@/components/subscription/ShimmerCrownBadge";
+import { ProGateCard } from "@/components/subscription/ProGateCard";
 import { MissionsProDialog } from "./MissionsProDialog";
 
 /**
@@ -23,30 +23,11 @@ export function LockedMissionCard() {
 
   return (
     <>
-      <div className="relative w-full rounded-2xl border border-primary/20 bg-primary/10 p-4 flex flex-col items-start gap-3 overflow-hidden">
-        <div className="flex items-center gap-3">
-          {/* Shimmering crown crest: shared premium marker. */}
-          <ShimmerCrownBadge size={40} />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5">
-              <p className="text-body-sm font-semibold text-foreground leading-tight">
-                Training Missions
-              </p>
-              <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-primary">
-                Pro
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={handlePress}
-          className="w-full min-h-[44px] rounded-xs bg-gradient-to-r from-primary to-secondary text-primary-foreground px-4 py-2.5 text-[13px] font-semibold card-press"
-        >
-          Unlock Training Missions
-        </button>
-      </div>
+      <ProGateCard
+        title="Training Missions"
+        subtitle="Guided drills and sparring focus tuned to your camp"
+        onUnlock={handlePress}
+      />
 
       <MissionsProDialog open={explainerOpen} onOpenChange={setExplainerOpen} />
     </>

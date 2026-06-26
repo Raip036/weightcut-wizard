@@ -41,9 +41,9 @@ const COMPACT_COPY =
   "Stop immediately if you feel dizzy, faint, confused, nauseous, or unwell.";
 
 // Amber/info tone — calm and persistent, visually separate from the red
-// critical banner. `func-warning-yellow` is the project's amber token.
-const AMBER_BORDER = "border-func-warning-yellow/35";
-const AMBER_TINT = "bg-func-warning-yellow/[0.04]";
+// critical banner. `func-warning-yellow` is the project's amber token. Only
+// the title/icon text carries the tone now; the card + button stay on the
+// neutral surface (no yellow fill or border).
 const AMBER_TEXT = "text-func-warning-yellow";
 
 /**
@@ -158,7 +158,7 @@ export function MedicalDisclaimerAck({ className = "" }: MedicalDisclaimerAckPro
     <div
       role="note"
       aria-label="Medical disclaimer, please acknowledge"
-      className={`card-surface rounded-2xl border ${AMBER_BORDER} ${AMBER_TINT} p-2.5 ${className}`}
+      className={`card-surface rounded-2xl border border-border/50 p-2.5 ${className}`}
     >
       <div className="flex items-start gap-2">
         <span className={`mt-[1px] flex shrink-0 ${AMBER_TEXT}`}>
@@ -176,7 +176,7 @@ export function MedicalDisclaimerAck({ className = "" }: MedicalDisclaimerAckPro
       <button
         type="button"
         onClick={handleAcknowledge}
-        className={`mt-2.5 w-full rounded-2xl border ${AMBER_BORDER} bg-func-warning-yellow/10 px-4 py-2 text-[12px] font-semibold ${AMBER_TEXT} active:scale-[0.98] transition-transform`}
+        className={`mt-2.5 w-full rounded-2xl border border-border/50 px-4 py-2 text-[12px] font-semibold ${AMBER_TEXT} active:scale-[0.98] transition-transform`}
       >
         I understand
       </button>

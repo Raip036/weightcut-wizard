@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Droplets, Moon } from "lucide-react";
+import { Droplets } from "lucide-react";
 import { WizardAuroraBackground } from "@/components/onboarding/WizardAuroraBackground";
 
 /**
@@ -97,11 +97,10 @@ export function ProtocolScaleCard(props: {
 
         {/* Field: Kilos sweated off */}
         <Field label="Kilos sweated off">
-          <SuffixInput
+          <CenteredNumberInput
             value={sweatKg}
             onChange={setSweatKg}
             placeholder="2.0"
-            suffix="kg"
             inputMode="decimal"
             step={0.1}
             focusToken={BLUE}
@@ -110,11 +109,10 @@ export function ProtocolScaleCard(props: {
 
         {/* Field: Hours until you fight */}
         <Field label="Hours until you fight" className="mt-4">
-          <SuffixInput
+          <CenteredNumberInput
             value={hoursUntilFight}
             onChange={setHoursUntilFight}
             placeholder="24"
-            suffix="h"
             inputMode="numeric"
             step={1}
             min={1}
@@ -129,25 +127,13 @@ export function ProtocolScaleCard(props: {
             className="mt-4 rounded-xl border surface-inset p-3"
             style={{ borderColor: hsl(BLUE, 0.2) }}
           >
-            <div className="flex items-center gap-1.5 mb-3">
-              <Moon className="h-3.5 w-3.5 shrink-0" style={{ color: hsl(BLUE) }} />
-              <span className="text-[10px] uppercase tracking-wide font-semibold text-muted-foreground/80 leading-none">
-                Sleep window: no intake while you sleep
-              </span>
-            </div>
+            <p className="mb-3 text-center text-[10px] uppercase tracking-wide font-semibold text-muted-foreground/80 leading-none">
+              Sleep window
+            </p>
 
-            {/* 3-column grid: stepper · arrow · stepper.
-                Labels sit in row 1, controls in row 2; the arrow lives in
-                row 2 only, so it is centered to the CONTROLS, not the labels. */}
-            <div className="grid grid-cols-[1fr_auto_1fr] gap-x-3 gap-y-1.5 items-center">
-              <span className="text-[9px] uppercase tracking-wide font-semibold text-muted-foreground/60 leading-none">
-                Sleep
-              </span>
-              <span aria-hidden />
-              <span className="text-[9px] uppercase tracking-wide font-semibold text-muted-foreground/60 leading-none">
-                Wake
-              </span>
-
+            {/* Sleep → wake steppers. Sides are clear from the order, so the
+                Sleep/Wake column labels are dropped. */}
+            <div className="grid grid-cols-[1fr_auto_1fr] gap-x-3 items-center">
               <SleepHourStepper
                 label="Sleep"
                 value={sleepStartHour}
@@ -215,15 +201,14 @@ function Field({
 }
 
 /**
- * A numeric input with a fixed-width suffix column so units ("kg"/"h") align
- * on a consistent right edge across all fields. Uses a grid (not flex) so the
- * suffix column width is identical regardless of suffix length.
+ * A full-width numeric input with the value centered. Units aren't shown
+ * inline — the field label above ("Kilos sweated off" / "Hours until you
+ * fight") already carries them.
  */
-function SuffixInput({
+function CenteredNumberInput({
   value,
   onChange,
   placeholder,
-  suffix,
   inputMode,
   step,
   min,
@@ -233,7 +218,6 @@ function SuffixInput({
   value: string;
   onChange: (next: string) => void;
   placeholder: string;
-  suffix: string;
   inputMode: "decimal" | "numeric";
   step: number;
   min?: number;
@@ -241,25 +225,20 @@ function SuffixInput({
   focusToken: string;
 }): JSX.Element {
   return (
-    <div className="grid grid-cols-[1fr_2rem] items-center gap-2">
-      <input
-        type="number"
-        inputMode={inputMode}
-        step={step}
-        min={min}
-        max={max}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full min-w-0 rounded-xl surface-inset border border-border/60 px-3 py-2.5 text-[18px] font-bold tabular-nums text-foreground outline-none transition-colors"
-        style={{ caretColor: hsl(focusToken) }}
-        onFocus={(e) => (e.currentTarget.style.borderColor = hsl(focusToken))}
-        onBlur={(e) => (e.currentTarget.style.borderColor = "")}
-      />
-      <span className="text-[14px] text-muted-foreground font-semibold text-right tabular-nums">
-        {suffix}
-      </span>
-    </div>
+    <input
+      type="number"
+      inputMode={inputMode}
+      step={step}
+      min={min}
+      max={max}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="w-full min-w-0 rounded-xl surface-inset border border-border/60 px-3 py-2.5 text-center text-[18px] font-bold tabular-nums text-foreground outline-none transition-colors"
+      style={{ caretColor: hsl(focusToken) }}
+      onFocus={(e) => (e.currentTarget.style.borderColor = hsl(focusToken))}
+      onBlur={(e) => (e.currentTarget.style.borderColor = "")}
+    />
   );
 }
 

@@ -1136,6 +1136,7 @@ export default function Dashboard() {
           <TodayStrip
             adherence={adherence}
             mealsLoggedToday={todayCalories > 0}
+            restDayReady={ffAdherence !== undefined}
             onMarkRestDay={async () => {
               await markRestDayMutation({
                 date: liveTodayStr,
@@ -1184,12 +1185,8 @@ export default function Dashboard() {
               </div>
 
               <div className="flex-1 min-h-0 mt-2">
-                {chartData.length >= 2 ? (
+                {chartData.length >= 2 && (
                   <Sparkline data={chartData.map((d) => d.weight)} className="h-full w-full" />
-                ) : (
-                  <div className="flex flex-col items-center justify-end h-full text-center pb-0.5">
-                    <p className="text-note text-muted-foreground">No data yet</p>
-                  </div>
                 )}
               </div>
 

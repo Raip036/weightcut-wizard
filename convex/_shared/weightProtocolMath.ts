@@ -632,12 +632,12 @@ export function buildFightPlanSkeleton(
   // callers and tests keep the original behaviour.
   weighInSameDay: boolean = false,
 ): FightPlanSkeleton {
-  // The water-loading / cut window is ALWAYS the final 7 days up to weigh-in,
-  // regardless of how far out the athlete currently is — most fighters only
-  // start manipulating ~7 days out, and anything earlier is overkill. So we
-  // cap the horizon at 7 (T-7 .. weigh-in = 8 cards). If the athlete is already
-  // inside 7 days, daysToWeighIn naturally produces a shorter window.
-  const horizon = Math.min(7, Math.max(1, d.daysToWeighIn));
+  // The cut taper window is STRICTLY the final 7 days up to weigh-in:
+  // T-7 .. weigh-in = 8 cards (D-7 through D-0), ALWAYS the full window,
+  // regardless of how far out the athlete currently is. We do NOT shorten
+  // it when the athlete starts inside 7 days — the plan is a fixed-length
+  // fight-week taper by design.
+  const horizon = 7;
   const scale = d.currentWeightKg > 0 ? d.currentWeightKg / 75 : 1;
   const days: FightPlanDaySkeleton[] = [];
 

@@ -167,10 +167,19 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
       return;
     }
     const step = state.currentStep;
-    if (!step?.actionEventName) return;
+    if (!step) return;
     if (lastDispatchedStepIdRef.current === step.id) return;
     lastDispatchedStepIdRef.current = step.id;
-    window.dispatchEvent(new CustomEvent(step.actionEventName));
+    // On every step transition, close the tutorial-opened wizard chat unless the
+    // step we just entered is the one that opens it. A step earlier in the tour
+    // opens the chat (actionEventName "tutorial:open-wizard-chat"); without this
+    // it would stay open over the following steps and block the rest of the tour.
+    if (step.actionEventName !== "tutorial:open-wizard-chat") {
+      window.dispatchEvent(new CustomEvent("tutorial:close-wizard-chat"));
+    }
+    if (step.actionEventName) {
+      window.dispatchEvent(new CustomEvent(step.actionEventName));
+    }
   }, [state.isActive, state.currentStep]);
 
   // --- Navigation handling ---

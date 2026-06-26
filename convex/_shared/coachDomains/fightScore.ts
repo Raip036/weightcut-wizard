@@ -54,6 +54,21 @@ function clamp(text: string, max: number): string {
 export function buildFightScoreCards(slice: FightScoreSlice): CoachBlock[] {
   const blocks: CoachBlock[] = [];
 
+  // Calibrating: there is no real score yet, so do NOT render a 0/100 ring or a
+  // "biggest limiter" warning (both would imply the athlete is failing). Show a
+  // single neutral info note instead.
+  if (slice.calibrating) {
+    blocks.push({
+      type: "callout",
+      tone: "info",
+      text: clamp(
+        "Fight Form Score is still calibrating. Keep logging your training, sleep, weight, and check-ins to unlock it.",
+        200,
+      ),
+    });
+    return blocks;
+  }
+
   const phase = slice.phase?.trim();
   const label = clamp(phase ? `Fight Form · ${phase}` : "Fight Form", 40);
 
@@ -89,6 +104,15 @@ export function buildFightScoreCards(slice: FightScoreSlice): CoachBlock[] {
  * reference specifics without re-deriving the numbers.
  */
 export function summarizeFightScore(slice: FightScoreSlice): string {
+  // Calibrating: there is no real score yet. Tell the model explicitly so it
+  // never reads 0 as a low score or tells the athlete they are behind.
+  if (slice.calibrating) {
+    return (
+      "Fight Form Score is still calibrating (not enough logged data yet), so there is no score to report. " +
+      "Do not treat this as a low score and do not tell the athlete they are behind, encourage them to keep logging to unlock it."
+    );
+  }
+
   const parts: string[] = [];
 
   const phase = slice.phase?.trim();

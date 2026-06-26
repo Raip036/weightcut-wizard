@@ -12,7 +12,7 @@ import { CampHeroCard } from "@/components/coach/CampHeroCard";
 import { CampActivityFeed } from "@/components/coach/CampActivityFeed";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useSubscription } from "@/hooks/useSubscription";
-import { ShimmerCrownBadge } from "@/components/subscription/ShimmerCrownBadge";
+import { ProGateCard } from "@/components/subscription/ProGateCard";
 import { PostFightDebrief } from "@/components/fightcamp/PostFightDebrief";
 import { MasterySpine } from "@/components/mastery/MasterySpine";
 import { MasteredShelf } from "@/components/mastery/MasteredShelf";
@@ -412,26 +412,17 @@ export default function Camp() {
           const isLockedTile = tile.url === "/recovery" && recoveryLocked;
 
           if (isLockedTile) {
-            // Shimmering crown + "Unlock recovery" + a plain "Pro" chip (no
-            // lock icon, no subtext). Tapping navigates to /recovery, whose
+            // Shared Pro-gate card (same look as the meal-plan / Training
+            // Missions gates). Tapping navigates to /recovery, whose
             // ProRouteGate shows the shared animated ProUpsellScreen.
             return (
-              <button
+              <ProGateCard
                 key={tile.url}
-                type="button"
-                onClick={() => goTo("/recovery")}
-                className={`${spanClass} ${heightClass} flex items-center justify-between gap-3 rounded-2xl border border-primary/30 bg-primary/10 px-4 active:brightness-110 transition-[filter]`}
-              >
-                <span className="flex items-center gap-2.5 min-w-0">
-                  <ShimmerCrownBadge size={26} />
-                  <span className="text-body-sm font-semibold text-foreground truncate">
-                    Unlock recovery
-                  </span>
-                </span>
-                <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-[0.08em] text-primary shrink-0">
-                  Pro
-                </span>
-              </button>
+                title="Recovery"
+                subtitle="Readiness, wellness check-ins and your AI recovery coach"
+                onUnlock={() => goTo("/recovery")}
+                className={spanClass}
+              />
             );
           }
 

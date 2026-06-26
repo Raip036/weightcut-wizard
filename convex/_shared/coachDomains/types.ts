@@ -46,6 +46,13 @@ export interface FightScoreSlice {
   phase?: string;
   topLimiter?: string;
   subScores: { label: string; value: number }[];
+  /**
+   * True when the Fight Form Score is still calibrating: the athlete has not
+   * logged enough data yet, so `score` is 0 and `status` is a placeholder
+   * label. Downstream MUST reframe this as "still building a baseline" and
+   * never present it as a low / failing score.
+   */
+  calibrating?: boolean;
 }
 
 export interface RecoverySlice {

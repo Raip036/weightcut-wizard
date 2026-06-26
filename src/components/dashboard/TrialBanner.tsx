@@ -24,7 +24,6 @@ import wizard from "@/assets/wizard_3D.png";
 const BLUE = "217 91% 58%";
 const hsl = (a = 1) => `hsl(${BLUE} / ${a})`;
 const CTA_CLASS = "bg-primary text-primary-foreground shadow-[0_0_16px_hsl(217_91%_58%/0.5)]";
-const TRIAL_DAYS = 7;
 
 type Variant = "renewing" | "wontRenew" | "lapsed";
 
@@ -87,26 +86,23 @@ export function TrialBanner() {
   const days = daysLeftFrom(endDate);
   const dateStr = formatDate(endDate);
 
-  const CFG: Record<Variant, { title: string; sub: string; cta: string; pct: number; intensity: "subtle" | "full" }> = {
+  const CFG: Record<Variant, { title: string; sub: string; cta: string; intensity: "subtle" | "full" }> = {
     renewing: {
       title: `Pro trial · ${days} ${days === 1 ? "day" : "days"} left`,
       sub: `Renews automatically on ${dateStr}`,
       cta: "Go Annual",
-      pct: Math.min(100, Math.round((days / TRIAL_DAYS) * 100)),
       intensity: "subtle",
     },
     wontRenew: {
       title: "Trial won't renew",
       sub: `Pro ends ${dateStr}. Keep your cut plan`,
       cta: "Keep Pro",
-      pct: Math.min(100, Math.round((days / TRIAL_DAYS) * 100)),
       intensity: "full",
     },
     lapsed: {
       title: "Pro trial ended",
       sub: "You're on the free tier now",
       cta: "Reactivate",
-      pct: 0,
       intensity: "full",
     },
   };
@@ -129,13 +125,13 @@ export function TrialBanner() {
       initial={{ opacity: 0, y: 16, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ type: "spring", damping: 22, stiffness: 280 }}
-      className="relative flex w-full items-center gap-3 overflow-hidden rounded-2xl border border-primary/20 card-surface px-3.5 py-3 text-left active:scale-[0.99]"
+      className="relative flex w-full items-center gap-2.5 overflow-hidden rounded-2xl border border-primary/20 card-surface px-3 py-2 text-left active:scale-[0.99]"
       aria-label={`${cfg.title}. ${cfg.sub}. ${cfg.cta}.`}
     >
       <WizardAuroraBackground intensity={cfg.intensity} radialGlow />
 
       {/* Haloed, bobbing wizard mascot. */}
-      <div className="relative z-10 grid h-11 w-11 shrink-0 place-items-center">
+      <div className="relative z-10 grid h-9 w-9 shrink-0 place-items-center">
         <span
           aria-hidden
           className="absolute inset-0 rounded-full"
@@ -145,7 +141,7 @@ export function TrialBanner() {
           src={wizard}
           alt=""
           draggable={false}
-          className="relative h-9 w-9 object-contain"
+          className="relative h-7 w-7 object-contain"
           style={{ filter: `drop-shadow(0 0 8px ${hsl(0.5)})` }}
           animate={{ y: [0, -3, 0] }}
           transition={{ duration: 3.4, repeat: Infinity, ease: "easeInOut" }}
@@ -153,17 +149,11 @@ export function TrialBanner() {
       </div>
 
       <div className="relative z-10 min-w-0 flex-1">
-        <p className="truncate text-[14px] font-semibold text-white">{cfg.title}</p>
-        <p className="truncate text-[12px] text-white/60">{cfg.sub}</p>
-        <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full" style={{ background: hsl(0.15) }}>
-          <div
-            className="h-full rounded-full"
-            style={{ width: `${cfg.pct}%`, background: `linear-gradient(90deg, ${hsl(0.7)}, ${hsl(1)})` }}
-          />
-        </div>
+        <p className="text-[13.5px] font-semibold text-white leading-tight">{cfg.title}</p>
+        <p className="text-[11.5px] text-white/60 leading-snug">{cfg.sub}</p>
       </div>
 
-      <span className={`relative z-10 shrink-0 rounded-full px-3.5 py-1.5 text-[12.5px] font-bold ${CTA_CLASS}`}>
+      <span className={`relative z-10 shrink-0 rounded-full px-3 py-1.5 text-[12px] font-bold ${CTA_CLASS}`}>
         {cfg.cta}
       </span>
 

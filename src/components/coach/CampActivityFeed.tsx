@@ -10,7 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { Icon, type IonIconName } from "@/components/ui/Icon";
+import { Icon } from "@/components/ui/Icon";
 import { triggerHapticSelection } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 
@@ -26,21 +26,10 @@ export type CampActivityFeedProps = {
 
 type EventKind = "workout" | "weight" | "sleep" | "wellness" | "mission" | "meal" | "reaction";
 
-// Icon per event kind. Weight uses `speedometerOutline` to match the rest
-// of the dashboard chrome (TodayStrip, MilestoneBadges, FightFormScoreSheet
-// all use it for the weight/scale surface; `scaleOutline` would read as
-// inconsistent next to those). Reactions use `happyOutline` to keep a
-// distinct glyph from wellness (which already owns `heartOutline`).
-const ICONS: Record<EventKind, IonIconName> = {
-  workout:  "barbellOutline",
-  weight:   "speedometerOutline",
-  sleep:    "moonOutline",
-  wellness: "heartOutline",
-  mission:  "trophyOutline",
-  meal:     "restaurantOutline",
-  reaction: "happyOutline",
-};
-
+// Per-kind accent colour. Rendered as a small status dot rather than a
+// glyph: the dot keeps the at-a-glance type cue while letting typography
+// carry the row, which reads cleaner and more premium than a row of
+// saturated icons.
 const COLORS: Record<EventKind, string> = {
   workout:  "text-blue-400",
   weight:   "text-amber-400",
@@ -175,7 +164,13 @@ export function CampActivityFeed({ userId, limit = 7 }: CampActivityFeedProps) {
                   "active:opacity-70 transition-opacity text-left",
                 )}
               >
-                <Icon name={ICONS[kind]} size={16} className={COLORS[kind]} />
+                <span
+                  className={cn(
+                    "h-1.5 w-1.5 rounded-full bg-current shrink-0",
+                    COLORS[kind],
+                  )}
+                  aria-hidden="true"
+                />
                 <div className="flex-1 min-w-0">
                   {/* Wrap to at most 2 lines instead of single-line truncate,
                       so long titles (e.g. mission names) stay readable without

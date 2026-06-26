@@ -47,7 +47,6 @@ import {
   type FeelCheck,
   type FeelCheckMetric,
 } from "@/components/protocol/FeelChecksList";
-import { ProtocolRegenerateButton } from "@/components/protocol/ProtocolRegenerateButton";
 import { BackToTopFAB } from "@/components/protocol/BackToTopFAB";
 import { ProtocolPageSkeleton } from "@/components/protocol/ProtocolPageSkeleton";
 import { NoFightCampEmptyState } from "@/components/protocol/NoFightCampEmptyState";
@@ -512,11 +511,7 @@ export default function WeightProtocol() {
             />
           )}
 
-          {/* Regenerate button + error — unlimited, no daily cap */}
-          <ProtocolRegenerateButton
-            onRegenerate={handleRegenerate}
-            isLoading={isRegenerating}
-          />
+          {/* Generation error (with retry) — unlimited, no daily cap */}
           {genError && (
             <ProtocolGenerationError error={genError} onRetry={handleRegenerate} />
           )}

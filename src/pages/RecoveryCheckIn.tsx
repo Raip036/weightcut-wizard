@@ -9,6 +9,7 @@ import { Icon } from "@/components/ui/Icon";
 import { celebrateSuccess } from "@/lib/haptics";
 import { readDateParam } from "@/lib/dateParam";
 import { useSafeDismiss } from "@/hooks/useSafeDismiss";
+import { WizardAuroraBackground } from "@/components/onboarding/WizardAuroraBackground";
 
 /**
  * Distraction-free full-screen wellness check-in. Reached from the
@@ -65,8 +66,10 @@ export default function RecoveryCheckIn() {
   };
 
   return (
-    <div className="min-h-screen-safe bg-background flex flex-col safe-area-inset-top safe-area-inset-left safe-area-inset-right">
-      <div className="w-full max-w-md mx-auto flex flex-col flex-1 px-5 pt-3 pb-8">
+    <div className="relative overflow-hidden min-h-screen-safe bg-background flex flex-col safe-area-inset-top safe-area-inset-left safe-area-inset-right">
+      {/* Ambient WeightCut Wizard aurora behind the whole check-in. */}
+      <WizardAuroraBackground radialGlow />
+      <div className="relative z-10 w-full max-w-md mx-auto flex flex-col flex-1 px-5 pt-3 pb-8">
         <div className="flex items-center mb-4">
           <button
             type="button"

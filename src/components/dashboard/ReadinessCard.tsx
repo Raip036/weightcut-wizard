@@ -68,13 +68,11 @@ export function ReadinessCard({ userId }: ReadinessCardProps) {
         <span className="text-micro font-normal uppercase tracking-[0.08em] text-muted-foreground">
           RECOVERY
         </span>
-        {hasAccess ? (
+        {/* Locked users get no Pro pill here, the shimmering crown badge in
+            the card body already signals it's Pro, so a second lock badge
+            reads as redundant chrome. */}
+        {hasAccess && (
           <Icon name="chevronForwardOutline" size={14} className="text-muted-foreground/40" />
-        ) : (
-          <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-1.5 py-0.5">
-            <Icon name="lockClosedOutline" size={10} className="text-primary" />
-            <span className="text-[9px] font-bold uppercase tracking-wide text-primary">Pro</span>
-          </span>
         )}
       </div>
 
@@ -91,8 +89,7 @@ export function ReadinessCard({ userId }: ReadinessCardProps) {
               <Sparkline data={series} className="h-full w-full" />
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center">
-                <Icon name="pulseOutline" size={14} className="text-muted-foreground/40 mb-0.5" />
-                <p className="text-micro text-muted-foreground">No data yet</p>
+                <Icon name="pulseOutline" size={14} className="text-muted-foreground/40" />
               </div>
             )}
           </div>
