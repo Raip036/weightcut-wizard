@@ -54,10 +54,14 @@ async function getProfile(
   t: ReturnType<typeof convexTest>,
   userId: Id<"users">,
 ) {
+  // `profiles` is a very large table, so convex-test's `t.run` ctx collapses its
+  // index types to SystemIndexes and `.withIndex("by_user")` won't type-check
+  // here (it's fine in app code). A `.filter` scan over the tiny seeded test DB
+  // reads the same row without depending on the index typing.
   return await t.run(async (ctx) =>
     ctx.db
       .query("profiles")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .filter((q) => q.eq(q.field("userId"), userId))
       .unique(),
   );
 }
