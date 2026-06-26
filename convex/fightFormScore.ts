@@ -245,7 +245,9 @@ export const weeklyCompleteness = query({
         calendar.some((c) => c.date === d && (c.sessionType ?? "").toLowerCase() !== "rest");
       const logged = {
         weight: has(weights, d),
-        training: realSession,
+        // A logged rest day satisfies the training pillar — resting is part of
+        // the plan, so a rest day with everything else logged can reach "full".
+        training: realSession || restEntry,
         sleep: has(sleep, d),
         wellness: has(wellness, d),
         meals: has(meals, d),
@@ -254,9 +256,11 @@ export const weeklyCompleteness = query({
       const skipped = has(skips, d);
 
       let status: "full" | "partial" | "none" | "rest";
+      // A rest/skip day reads as "rest" unless it's a fully-logged ritual day:
+      // the whole day is rest, so it shouldn't show as a "partial" training day.
       if (count === 5) status = "full";
-      else if (count > 0) status = "partial";
       else if (restEntry || skipped) status = "rest";
+      else if (count > 0) status = "partial";
       else status = "none";
 
       days.push({ date: d, weekday: WEEKDAYS[dd.getUTCDay()], logged, count, total: 5, status });

@@ -133,6 +133,9 @@ async function buildTrainingLoad(
   for (const r of rows) {
     if (sessions.length >= 7) break;
     const { primary } = normalizeLegacySession(r.sessionType, r.sessionTag);
+    // Rest days carry 0 load and would otherwise inflate the session count and
+    // surface a "0m Rest" line as the athlete's latest training to the coach.
+    if (primary === "Rest") continue;
     const entry: TrainingLoadSlice["sessions"][number] = {
       date: r.date,
       type: r.sessionTag ?? primary,

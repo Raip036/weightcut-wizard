@@ -915,10 +915,14 @@ export const gatherGreenLightInputs = internalQuery({
         .take(30),
     ]);
 
-    const sessions = sessions7d.map((s) => ({
-      rpe: s.rpe ?? 0,
-      sorenessLevel: s.sorenessLevel ?? 0,
-    }));
+    const sessions = sessions7d.map((s) => {
+      const { primary } = normalizeLegacySession(s.sessionType, s.sessionTag);
+      return {
+        rpe: s.rpe ?? 0,
+        sorenessLevel: s.sorenessLevel ?? 0,
+        isRest: primary === "Rest",
+      };
+    });
 
     return {
       wellness: todayWellness
@@ -939,11 +943,16 @@ export const gatherGreenLightInputs = internalQuery({
 });
 
 function summarize7dLoad(
-  sessions: Array<{ rpe: number; sorenessLevel: number }>,
+  sessions: Array<{ rpe: number; sorenessLevel: number; isRest: boolean }>,
 ): { sessions: number; avgRPE: number; sorenessAvg: number } {
-  const n = sessions.length;
-  if (n === 0) return { sessions: 0, avgRPE: 0, sorenessAvg: 0 };
-  const avgRPE = sessions.reduce((s, r) => s + (r.rpe ?? 0), 0) / n;
+  // Rest days carry 0 load: they must not inflate the training-session count
+  // or drag down the average RPE that feeds the coach's green-light verdict.
+  const trained = sessions.filter((s) => !s.isRest);
+  const n = trained.length;
+  const rpeVals = trained.map((s) => s.rpe ?? 0).filter((v) => v > 0);
+  const avgRPE = rpeVals.length
+    ? rpeVals.reduce((a, b) => a + b, 0) / rpeVals.length
+    : 0;
   const sorenessVals = sessions
     .map((s) => s.sorenessLevel ?? 0)
     .filter((val) => val > 0);

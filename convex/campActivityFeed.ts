@@ -121,14 +121,16 @@ export const getRecent = query({
 
     const events: ActivityEvent[] = [
       ...workouts.map((w): ActivityEvent => {
-        const duration = w.durationMinutes ?? 0;
         const sport = w.sessionType?.trim() || "Training";
+        const isRest = sport === "Rest";
+        const duration = w.durationMinutes ?? 0;
         return {
           kind: "workout",
-          title: sport,
-          // Right-side metric is the session duration (not RPE), keeping the
-          // feed's value column consistent with kg / h / Hooper elsewhere.
-          value: `${duration} min`,
+          // A Rest day is a whole-day recovery state, not a 0-minute session,
+          // so it reads as a rest day with no duration metric. Otherwise the
+          // right-side metric is the session duration (consistent with kg / h).
+          title: isRest ? "Rest day" : sport,
+          value: isRest ? "Recovery" : `${duration} min`,
           timestamp: w._creationTime,
           route: "/training-calendar",
         };

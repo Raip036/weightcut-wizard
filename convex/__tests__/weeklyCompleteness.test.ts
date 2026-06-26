@@ -54,10 +54,12 @@ describe("weeklyCompleteness", () => {
     expect(d14.count).toBe(1);
     expect(d14.status).toBe("partial");
 
+    // A logged rest day satisfies the training pillar (resting is part of the
+    // plan) and still reads as a "rest" day unless every pillar is logged.
     const d13 = days[4];
     expect(d13.status).toBe("rest");
-    expect(d13.count).toBe(0);
-    expect(d13.logged.training).toBe(false);
+    expect(d13.count).toBe(1);
+    expect(d13.logged.training).toBe(true);
 
     const d12 = days[3];
     expect(d12.status).toBe("none");

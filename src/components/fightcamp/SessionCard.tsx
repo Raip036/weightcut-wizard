@@ -1,5 +1,5 @@
 import { memo, useMemo, useState } from "react";
-import { Moon, Check, Image as ImageIcon, ChevronDown, Edit2, Trash2, Eye } from "lucide-react";
+import { Check, Image as ImageIcon, ChevronDown, Edit2, Trash2, Eye } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { getSessionColor, COLOR_PALETTE } from "@/lib/sessionColors";
@@ -97,6 +97,20 @@ export const SessionCard = memo(function SessionCard({
           ? { label: "Rounds", value: session.rounds!, sub: "" }
           : { label: "Intensity", value: intensityDisplay, sub: "/5" },
       ];
+
+  // Expanded view shows the same stats as cards, plus soreness (and sleep when
+  // present) as their OWN cards rather than separate coloured pills.
+  const expandedStats: Array<{ label: string; value: string | number; sub: string }> = [
+    ...primaryStats,
+    ...(!isRest && hasSoreness
+      ? [{ label: "Soreness", value: session.soreness_level ?? 0, sub: "/10" }]
+      : []),
+    ...(!isRest && hasSleep
+      ? [{ label: "Sleep", value: session.sleep_hours ?? 0, sub: "hrs" }]
+      : []),
+  ];
+  // 3 stats → a clean row of 3; 4 → a balanced 2×2; 5+ → back to rows of 3.
+  const expandedGridCols = expandedStats.length === 4 ? "grid-cols-2" : "grid-cols-3";
 
   const handleToggle = () => {
     triggerHapticSelection();
@@ -216,22 +230,6 @@ export const SessionCard = memo(function SessionCard({
               </div>
             ))}
           </div>
-          {/* Secondary pills */}
-          {!isRest && (hasSoreness || hasSleep) && (
-            <div className="mt-1 flex items-center gap-2">
-              {hasSoreness && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-func-danger-red/10 ring-1 ring-func-danger-red/25 px-1.5 py-0.5 text-[10px] font-bold text-func-danger-red">
-                  Sore {session.soreness_level}/10
-                </span>
-              )}
-              {hasSleep && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 ring-1 ring-indigo-500/25 px-1.5 py-0.5 text-[10px] font-bold text-indigo-300">
-                  <Moon className="h-2.5 w-2.5" />
-                  {session.sleep_hours}h
-                </span>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Chevron */}
@@ -255,9 +253,9 @@ export const SessionCard = memo(function SessionCard({
             className="overflow-hidden border-t border-border/30"
           >
             <div className="px-3 py-3 space-y-3">
-              {/* Big stat grid */}
-              <div className="grid grid-cols-3 gap-2">
-                {primaryStats.map((s, idx) => (
+              {/* Big stat grid — soreness/sleep are now cards here too. */}
+              <div className={`grid ${expandedGridCols} gap-2`}>
+                {expandedStats.map((s, idx) => (
                   <div
                     key={idx}
                     className="rounded-xs bg-muted/20 px-2 py-2.5 text-center"
@@ -274,23 +272,6 @@ export const SessionCard = memo(function SessionCard({
                   </div>
                 ))}
               </div>
-
-              {/* Soreness + sleep row */}
-              {!isRest && (hasSoreness || hasSleep) && (
-                <div className="flex items-center gap-2">
-                  {hasSoreness && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-func-danger-red/10 ring-1 ring-func-danger-red/25 px-2 py-0.5 text-[11px] font-semibold text-func-danger-red">
-                      Soreness {session.soreness_level}/10
-                    </span>
-                  )}
-                  {hasSleep && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 ring-1 ring-indigo-500/25 px-2 py-0.5 text-[11px] font-semibold text-indigo-300">
-                      <Moon className="h-3 w-3" />
-                      {session.sleep_hours}h sleep
-                    </span>
-                  )}
-                </div>
-              )}
 
               {/* Media (preview only; full gallery in the detail drawer) */}
               {hasMedia && (
