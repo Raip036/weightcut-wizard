@@ -1031,7 +1031,7 @@ export default function Dashboard() {
                 const remaining = Math.max(0, ffCalibration.daysNeeded - ffCalibration.daysWithAnyLog);
                 const pct = Math.min(100, Math.round((ffCalibration.daysWithAnyLog / Math.max(1, ffCalibration.daysNeeded)) * 100));
                 return (
-                  <div className="mt-3 w-full max-w-sm rounded-2xl border border-sky-400/20 bg-sky-400/[0.05] px-4 py-3">
+                  <div className="mt-3 w-full max-w-sm rounded-2xl border border-sky-400/20 bg-sky-400/[0.05] px-4 py-3 flex flex-col justify-center">
                     <div className="flex items-center gap-3">
                       <div className="flex flex-col items-center justify-center min-w-[42px]">
                         <span className="text-2xl font-bold text-sky-300 leading-none tabular-nums">

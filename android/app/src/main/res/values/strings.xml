@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">FightCamp Wizard</string>
+    <string name="title_activity_main">FightCamp Wizard</string>
+    <string name="package_name">com.weightcutwizard.app</string>
+    <string name="custom_url_scheme">com.weightcutwizard.app</string>
+</resources>

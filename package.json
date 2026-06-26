@@ -20,6 +20,7 @@
     "@auth/core": "^0.37.4",
     "@capacitor-community/apple-sign-in": "^7.1.0",
     "@capacitor-community/in-app-review": "^7.0.0",
+    "@capacitor/android": "^8.4.1",
     "@capacitor/app": "^8.0.1",
     "@capacitor/camera": "^8.0.1",
     "@capacitor/cli": "^8.1.0",
