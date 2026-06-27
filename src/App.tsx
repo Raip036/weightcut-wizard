@@ -323,11 +323,18 @@ const AppLayoutContent = () => {
           {/* Main content with mobile-first responsive padding - bottom padding for bottom nav */}
           <main className="flex-1 overflow-auto overflow-x-hidden overscroll-y-contain relative min-h-0 w-full pt-2 md:pb-0 safe-area-inset-top safe-area-inset-left safe-area-inset-right animate-app-content-in" style={{ paddingBottom: "calc(4.5rem + env(safe-area-inset-bottom, 0px))", WebkitOverflowScrolling: "touch" }}>
             <PullToRefresh />
-            <PageTransition>
-              <Suspense fallback={<DashboardSkeleton />}>
-                <Outlet />
-              </Suspense>
-            </PageTransition>
+            {/* Center the routed content into a max-width column on desktop only.
+                Base (mobile) classes are `w-full` with no max-width/padding, so
+                the md:* utilities never apply below 768px and mobile layout is
+                byte-for-byte unchanged. The sidebar stays on the left; this
+                column centers within the remaining <main> space. */}
+            <div className="mx-auto w-full md:max-w-[680px] md:px-6">
+              <PageTransition>
+                <Suspense fallback={<DashboardSkeleton />}>
+                  <Outlet />
+                </Suspense>
+              </PageTransition>
+            </div>
           </main>
         </div>
       </div>

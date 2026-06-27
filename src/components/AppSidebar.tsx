@@ -1,25 +1,23 @@
-import { Home, Utensils, Flag, Users, RotateCcw } from "lucide-react";
+import { Home, Utensils, Flag, Users, Camera, Dumbbell } from "lucide-react";
 import { NavLink } from "react-router-dom";
-import { useState } from "react";
 import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarHeader,
-  SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { Button } from "@/components/ui/button";
-import wizardLogo from "@/assets/wizard-logo.webp";
-import { ProfileDropdown } from "@/components/ProfileDropdown";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { DataResetDialog } from "@/components/DataResetDialog";
-
 
 const menuItems = [
   { title: "Home", url: "/dashboard", icon: Home },
@@ -31,7 +29,6 @@ const menuItems = [
 export function AppSidebar() {
   const { setOpenMobile } = useSidebar();
   const isMobile = useIsMobile();
-  const [resetDialogOpen, setResetDialogOpen] = useState(false);
 
   const handleNavClick = () => {
     if (isMobile) {
@@ -39,43 +36,54 @@ export function AppSidebar() {
     }
   };
 
+  // Desktop equivalent of the mobile camera FAB. Dispatches a synchronous
+  // custom event so BottomNav (which owns the capture flow) fires
+  // Camera.getPhoto within the user gesture. Training is the default action;
+  // Nutrition logs a meal photo.
+  const quickCapture = (mode: "training" | "nutrition") => {
+    window.dispatchEvent(new CustomEvent("wcw:quick-capture", { detail: { mode } }));
+  };
+
   return (
-    <Sidebar>
-      {/* Mobile-optimized header with responsive sizing */}
-      <SidebarHeader className="p-3 sm:p-4">
-        <div className="flex items-center gap-2 sm:gap-3">
-          <img
-            src={wizardLogo}
-            alt="Wizard"
-            className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0"
-          />
-          <h1 className="text-base sm:text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent truncate">
-            Weightcut Wizard
-          </h1>
-        </div>
-      </SidebarHeader>
-      <SidebarContent className="px-2 sm:px-4">
-        <SidebarGroup>
-          <SidebarGroupLabel className="px-2 sm:px-0 text-xs sm:text-sm">
-            Navigation
-          </SidebarGroupLabel>
+    <Sidebar className="border-r border-sidebar-border bg-sidebar">
+      {/* Brand header */}
+      <SidebarHeader className="px-4 pt-5 pb-2" />
+
+      <SidebarContent className="px-3 py-2">
+        <SidebarGroup className="p-0">
           <SidebarGroupContent>
-            <SidebarMenu className="space-y-1">
+            <SidebarMenu className="gap-1.5">
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild className="touch-target min-h-[44px]">
+                  <SidebarMenuButton
+                    asChild
+                    className="touch-target h-auto min-h-[44px] p-0"
+                  >
                     <NavLink
                       to={item.url}
                       onClick={handleNavClick}
                       className={({ isActive }) =>
-                        `transition-all duration-200 ease-in-out px-3 sm:px-4 py-2.5 sm:py-2 rounded-md ${isActive
-                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                          : "hover:bg-sidebar-accent/50 active:bg-sidebar-accent/70"
+                        `group flex w-full items-center gap-3 rounded-2xl px-3.5 py-2.5 text-[15px] font-medium transition-all duration-200 ease-out ${
+                          isActive
+                            ? "bg-primary/15 text-primary"
+                            : "text-sidebar-foreground/65 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground active:bg-sidebar-accent/70"
                         }`
                       }
                     >
-                      <item.icon className="h-5 w-5 sm:h-4 sm:w-4 flex-shrink-0" />
-                      <span className="text-sm sm:text-base">{item.title}</span>
+                      {({ isActive }) => (
+                        <>
+                          <span
+                            className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl transition-colors duration-200 ${
+                              isActive
+                                ? "bg-primary/20 text-primary"
+                                : "text-sidebar-foreground/55 group-hover:text-sidebar-foreground"
+                            }`}
+                          >
+                            <item.icon className="h-5 w-5" />
+                          </span>
+                          <span className="truncate">{item.title}</span>
+                        </>
+                      )}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -83,25 +91,36 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-      </SidebarContent>
-      {/* Mobile-optimized footer with touch-friendly buttons */}
-      <SidebarFooter className="p-3 sm:p-4 border-t safe-area-inset-bottom">
-        <div className="space-y-2 sm:space-y-3">
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 touch-target min-h-[44px] text-sm sm:text-base"
-            onClick={() => setResetDialogOpen(true)}
-          >
-            <RotateCcw className="h-4 w-4 sm:h-4 sm:w-4 mr-2 flex-shrink-0" />
-            <span className="truncate">Reset All Data</span>
-          </Button>
-          <div className="touch-target">
-            <ProfileDropdown />
-          </div>
+
+        {/* Quick log: desktop equivalent of the mobile camera FAB,
+            placed below the nav items. */}
+        <div className="px-0 pt-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label="Quick log"
+                className="group flex w-full items-center gap-3 rounded-2xl bg-primary px-3.5 py-2.5 text-[15px] font-semibold text-primary-foreground shadow-sm transition-all duration-200 ease-out hover:bg-primary/90 active:scale-[0.99]"
+              >
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-white/15">
+                  <Camera className="h-5 w-5" />
+                </span>
+                <span className="truncate">Quick Log</span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" side="top" sideOffset={8} className="w-52">
+              <DropdownMenuItem onClick={() => quickCapture("training")}>
+                <Dumbbell className="mr-2 h-4 w-4" />
+                Log Training
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => quickCapture("nutrition")}>
+                <Utensils className="mr-2 h-4 w-4" />
+                Log Nutrition
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-      </SidebarFooter>
-      <DataResetDialog open={resetDialogOpen} onOpenChange={setResetDialogOpen} />
+      </SidebarContent>
     </Sidebar>
   );
 }

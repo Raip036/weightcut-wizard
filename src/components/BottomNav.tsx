@@ -165,6 +165,24 @@ export const BottomNav = memo(function BottomNav() {
     return () => window.removeEventListener('wcw:open-settings', openSettings);
   }, [userName, authUser?.email]);
 
+  // Quick-capture from the desktop left sidebar. On large screens the
+  // camera FAB is hidden (the sidebar carries the camera button instead),
+  // so the sidebar dispatches `wcw:quick-capture` with a mode. dispatchEvent
+  // runs listeners synchronously, so the user-gesture token survives into
+  // Camera.getPhoto (required by iOS WKWebView) exactly as a direct FAB tap.
+  useEffect(() => {
+    const onQuickCapture = (e: Event) => {
+      const mode = (e as CustomEvent<{ mode?: "training" | "nutrition" }>).detail?.mode;
+      if (mode === "nutrition") {
+        void handleNutritionCapture();
+      } else {
+        handleTrainingCapture();
+      }
+    };
+    window.addEventListener("wcw:quick-capture", onQuickCapture);
+    return () => window.removeEventListener("wcw:quick-capture", onQuickCapture);
+  }, [handleNutritionCapture, handleTrainingCapture]);
+
   const handleSettings = async () => {
     setEditedName(userName);
     setSettingsDialogOpen(true);
@@ -310,8 +328,6 @@ export const BottomNav = memo(function BottomNav() {
     return () => window.removeEventListener("resize", measure);
   }, [activeIndex, isMobile]);
 
-  if (!isMobile) return null;
-
   return (
     <>
       {/* CRITICAL: the .glass-nav element MUST be a static element with
@@ -330,7 +346,7 @@ export const BottomNav = memo(function BottomNav() {
       <div
         data-bottom-nav
         data-hide-when-keyboard
-        className="fixed inset-x-0 z-[9999] md:hidden flex items-center justify-center gap-2 pointer-events-none"
+        className="fixed inset-x-0 z-[9999] flex items-center justify-center gap-2 pointer-events-none"
         /* iOS reports `safe-area-inset-bottom` ≈ 34px on home-indicator
            devices, but the indicator BAR itself only occupies the
            bottom ~10-13px of the screen; the remaining ~20px is just
@@ -354,7 +370,7 @@ export const BottomNav = memo(function BottomNav() {
              between the bubble (which overhangs each tab by 6px) and
              the nav's outer edge, matching the 4px top/bottom gap
              (top-1 bottom-1) for symmetric breathing room. */
-          className="pointer-events-auto relative flex items-stretch gap-2 px-2.5 py-1.5 w-[74vw] max-w-[20rem] rounded-pill glass-nav"
+          className="pointer-events-auto relative md:hidden flex items-stretch gap-2 px-2.5 py-1.5 w-[74vw] max-w-[20rem] rounded-pill glass-nav"
         >
           {/* Internal darkening overlay: kept LIGHT (0.18 → 0.32) so
               the nav still reads as glass rather than solid plastic.
@@ -441,7 +457,7 @@ export const BottomNav = memo(function BottomNav() {
             detection: we hand it the trigger as children and wire
             `onTap` / `onSelect` to the same handlers a direct tap or a
             dial-option select would call. */}
-        <div className="pointer-events-auto">
+        <div className="pointer-events-auto md:hidden">
           <RoundCardFab
             options={dialOptions}
             onTap={handleCameraTap}
