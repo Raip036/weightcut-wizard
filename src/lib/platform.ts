@@ -82,6 +82,45 @@ export function storeListingUrl(): string {
 const GOOGLE_WEB_CLIENT_ID =
   "307294042101-95kpqocn2p1l4tq0iiluphk0sg04tegf.apps.googleusercontent.com";
 
+// iOS OAuth client id (TYPE: iOS) from Google Cloud Console, keyed to the iOS
+// bundle id com.weightcutwizard.app. Required for native Google Sign-In on iOS
+// (the GoogleSignIn SDK needs an iOS-type client id; the web client id won't
+// work as the iOS `clientID`). Its reversed form must also be added to
+// ios/App/App/Info.plist as a CFBundleURLScheme.
+//
+// TODO(ios-auth): paste the real iOS OAuth client id. Until then Google
+// Sign-In is inert on iOS (googleInitOptions() returns null on iOS → the
+// button no-ops with a "not configured yet" toast). Android is unaffected.
+const GOOGLE_IOS_CLIENT_ID =
+  "307294042101-qjgei4j50kjm8v76k7rkm0s75k59i2ik.apps.googleusercontent.com";
+
 export function googleWebClientId(): string | null {
   return GOOGLE_WEB_CLIENT_ID || null;
+}
+
+export function googleIOSClientId(): string | null {
+  return GOOGLE_IOS_CLIENT_ID || null;
+}
+
+/**
+ * Google Sign-In init options for `@capgo/capacitor-social-login`, or null if
+ * the current platform isn't configured for Google yet (caller shows a soft
+ * "not configured" toast and returns).
+ *
+ * iOS needs the iOS client id as `iOSClientId`; setting `iOSServerClientId` to
+ * the web client id makes the iOS id_token's `aud` equal the web client id, so
+ * the server's audience check is uniform across platforms. Android only needs
+ * the web client id.
+ */
+export function googleInitOptions():
+  | { webClientId: string; iOSClientId?: string; iOSServerClientId?: string }
+  | null {
+  const web = googleWebClientId();
+  if (!web) return null;
+  if (isIOS()) {
+    const ios = googleIOSClientId();
+    if (!ios) return null; // iOS OAuth client id not pasted yet
+    return { webClientId: web, iOSClientId: ios, iOSServerClientId: web };
+  }
+  return { webClientId: web };
 }

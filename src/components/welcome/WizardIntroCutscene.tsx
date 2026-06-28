@@ -36,7 +36,7 @@ import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion, type PanInfo } from "motion/react";
 import { X } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
-import { isIOS, isAndroid, googleWebClientId } from "@/lib/platform";
+import { isIOS, isNative, googleInitOptions } from "@/lib/platform";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { WizardCharacter } from "@/tutorial/WizardCharacter";
 import { SpeechBubble } from "@/tutorial/SpeechBubble";
@@ -1038,16 +1038,16 @@ export function WizardIntroCutscene({
       // Android always takes this native id_token path, so the web-origin
       // redirect (correct only for the web Apple flow) can never cause an
       // origin-mismatch bug on native. (See E3 note.)
-      const webClientId = googleWebClientId();
-      if (!webClientId) {
-        // Placeholder-safe: Web OAuth client id not pasted into platform.ts
-        // yet. Don't crash — soft toast and stay on the cutscene.
+      const googleOpts = googleInitOptions();
+      if (!googleOpts) {
+        // Placeholder-safe: OAuth client id for this platform not pasted into
+        // platform.ts yet. Don't crash — soft toast and stay on the cutscene.
         toast({ title: "Google Sign-In isn't configured yet", description: "Please use email sign-in for now." });
         setGoogleLoading(false);
         return;
       }
       const { SocialLogin } = await import("@capgo/capacitor-social-login");
-      await SocialLogin.initialize({ google: { webClientId } });
+      await SocialLogin.initialize({ google: googleOpts });
       // Google echoes the RAW nonce in the id_token's `nonce` claim (unlike
       // Apple, which expects SHA-256(nonce)); the server compares it raw.
       const nonce = crypto.randomUUID();
@@ -1357,8 +1357,9 @@ export function WizardIntroCutscene({
                   {config.appleLabel}
                 </button>
               )}
-              {/* Google primary CTA, ANDROID ONLY. Native id_token flow. */}
-              {isAndroid() && (
+              {/* Google CTA, on BOTH native platforms (iOS + Android). On iOS
+                  it sits below the Apple button. Native id_token flow. */}
+              {isNative() && (
                 <button
                   type="button"
                   onClick={() => { void handleContinueWithGoogle(); }}
@@ -1380,7 +1381,7 @@ export function WizardIntroCutscene({
                 {config.existingAccountLabel}
               </button>
               <p className="text-center text-[11px] text-white/45 pt-1">
-                No credit card. No emails. Just {isAndroid() ? "Google" : "Apple"}.
+                No credit card. No emails. Just one tap.
               </p>
             </div>
           </motion.div>

@@ -9,12 +9,12 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/UserContext";
 import { routeAfterAuth } from "@/lib/roleRouter";
 import { mapAuthError, isAppleCancelError } from "@/lib/authErrors";
-import wizardLogo from "@/assets/wizard-logo-3d.png";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { ChevronLeft, Mail, Lock, Eye, EyeOff, Swords } from "lucide-react";
+import { ChevronLeft, Mail, Lock, Eye, EyeOff } from "lucide-react";
+import AuthWizardHero from "@/components/auth/AuthWizardHero";
 import { Capacitor } from "@capacitor/core";
-import { isIOS, isAndroid, isNative, googleWebClientId } from "@/lib/platform";
-import { motion, AnimatePresence } from "motion/react";
+import { isIOS, isNative, googleInitOptions } from "@/lib/platform";
+import { motion } from "motion/react";
 import { logger } from "@/lib/logger";
 import { useScrollIntoViewOnFocus } from "@/hooks/useScrollIntoViewOnFocus";
 import { track, EVENTS } from "@/lib/analytics";
@@ -336,15 +336,16 @@ export default function Auth() {
       // takes this native id_token path, so the web-origin redirect — which
       // is correct ONLY for the web Apple flow — can never cause an
       // origin-mismatch bug on native. (See E3 note.)
-      const webClientId = googleWebClientId();
-      if (!webClientId) {
-        // Placeholder-safe: the Web OAuth client id hasn't been pasted into
-        // platform.ts yet. Don't crash — surface a soft toast and bail.
+      const googleOpts = googleInitOptions();
+      if (!googleOpts) {
+        // Placeholder-safe: the OAuth client id for this platform isn't pasted
+        // into platform.ts yet (web client id for Android, iOS client id for
+        // iOS). Don't crash — surface a soft toast and bail.
         toast({ title: "Google Sign-In isn't configured yet", description: "Please use email sign-in for now." });
         return;
       }
       const { SocialLogin } = await import("@capgo/capacitor-social-login");
-      await SocialLogin.initialize({ google: { webClientId } });
+      await SocialLogin.initialize({ google: googleOpts });
       // Google echoes the RAW nonce back in the id_token's `nonce` claim
       // (Apple, by contrast, expects SHA-256(nonce)); the server compares
       // this raw value directly.
@@ -410,14 +411,14 @@ export default function Auth() {
       transition={{ duration: 0.28, ease: "easeOut" }}
       className="relative min-h-screen bg-background text-foreground flex flex-col overflow-hidden"
     >
-      {/* Subtle red→amber radial wash in the upper third so the fighter
-          door reads visually distinct from the coach door at a glance. */}
+      {/* Subtle blue→teal radial wash in the upper third, matching the coach
+          door so both sign-in screens share the premium blue gradient. */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-0 h-[60vh] opacity-60"
         style={{
           background:
-            "radial-gradient(ellipse at 50% 0%, rgba(244, 63, 94, 0.18) 0%, rgba(245, 158, 11, 0.08) 35%, transparent 70%)",
+            "radial-gradient(ellipse at 50% 0%, rgba(56, 189, 248, 0.18) 0%, rgba(20, 184, 166, 0.08) 35%, transparent 70%)",
         }}
       />
 
@@ -439,55 +440,9 @@ export default function Auth() {
       </div>
 
       {/* Content */}
-      <div className="relative flex-1 flex flex-col items-center px-6 overflow-y-auto" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)" }}>
+      <div className="relative flex-1 flex flex-col items-center px-6 overflow-y-auto" style={{ paddingBottom: "calc(max(env(safe-area-inset-bottom, 0px), var(--keyboard-inset, 0px)) + 24px)" }}>
         <div className="w-full max-w-[360px] pt-4">
-          {/* Fighter brand badge, red/amber gradient ring + swords icon
-              over the existing logo so the door reads "fighter" the
-              instant someone lands. */}
-          <div className="flex flex-col items-center text-center mb-8">
-            <div className="relative mb-4">
-              <img
-                src={wizardLogo}
-                alt="FightCamp Wizard"
-                className="relative h-16 w-16 object-cover rounded-2xl ring-2 ring-primary/60"
-              />
-              <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-primary ring-2 ring-background">
-                <Swords className="h-3.5 w-3.5 text-primary-foreground" strokeWidth={2.5} />
-              </span>
-            </div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary/90">
-              Fighter sign-in
-            </p>
-            <h1 className="mt-1.5 text-2xl font-bold tracking-tight text-foreground">
-              {isPasswordReset ? "New Password" : showForgotPassword ? "Reset Password" : isLogin ? "Welcome back, fighter" : "Start your cut"}
-            </h1>
-            <div className="text-sm text-muted-foreground mt-1 h-5 relative w-full">
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.p
-                  key={
-                    isPasswordReset
-                      ? "reset"
-                      : showForgotPassword
-                      ? "forgot"
-                      : isLogin ? "in" : "up"
-                  }
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.18, ease: "easeOut" }}
-                  className="absolute inset-0"
-                >
-                  {isPasswordReset
-                    ? "Choose a strong password"
-                    : showForgotPassword
-                    ? "We'll send you a reset link"
-                    : isLogin
-                    ? "Pick up where you left off"
-                    : "Make weight. Stay safe."}
-                </motion.p>
-              </AnimatePresence>
-            </div>
-          </div>
+          <AuthWizardHero title="Welcome" subtitle="Sign in or create your account" />
 
           {/* Forms */}
           <div className="space-y-4">
@@ -531,10 +486,11 @@ export default function Auth() {
                   </button>
                 )}
 
-                {/* Google Sign-In, ANDROID ONLY. Native id_token flow via
-                    @capgo/capacitor-social-login (dynamically imported in
-                    the handler so it stays out of the iOS bundle). */}
-                {isAndroid() && (
+                {/* Google Sign-In, on BOTH native platforms (iOS + Android).
+                    Native id_token flow via @capgo/capacitor-social-login
+                    (dynamically imported in the handler). On iOS it sits
+                    alongside the Apple button. */}
+                {isNative() && (
                   <button
                     type="button"
                     onClick={handleGoogleSignIn}
@@ -662,12 +618,9 @@ export default function Auth() {
                   onClick={() => { setIsLogin(!isLogin); setConfirmPassword(""); setPasswordError(""); setShowForgotPassword(false); }}
                   className="text-sm text-primary font-medium"
                 >
-                  {isLogin ? "Don't have an account? Sign Up" : "Already have an account? Sign In"}
+                  {isLogin ? "New here? Create account" : "Already have an account? Sign in"}
                 </button>
               </div>
-              {/* Wrong door? Route through the coach cutscene so they
-                  see what they're signing up for before landing on the
-                  coach login page. */}
               <div className="pt-2">
                 <button
                   type="button"

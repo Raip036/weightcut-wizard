@@ -33,6 +33,7 @@ const AIFloatingIndicator = lazy(() => import("@/components/AIFloatingIndicator"
 import * as Sentry from "@sentry/react";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { DashboardSkeleton, NutritionPageSkeleton, WeightTrackerSkeleton, GoalsSkeleton } from "@/components/ui/skeleton-loader";
+import WizardSpinnerLoader from "@/components/ui/WizardSpinnerLoader";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import Index from "./pages/Index";
@@ -396,12 +397,12 @@ const App = () => (
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/welcome" element={
-                  <Suspense fallback={<DashboardSkeleton />}>
+                  <Suspense fallback={<WizardSpinnerLoader />}>
                     <WizardIntroCutscene />
                   </Suspense>
                 } />
                 <Route path="/coach/welcome" element={
-                  <Suspense fallback={<DashboardSkeleton />}>
+                  <Suspense fallback={<WizardSpinnerLoader />}>
                     <WizardIntroCutscene variant="coach" />
                   </Suspense>
                 } />

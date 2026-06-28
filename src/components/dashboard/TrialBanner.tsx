@@ -101,7 +101,7 @@ export function TrialBanner() {
     },
     lapsed: {
       title: "Pro trial ended",
-      sub: "You're on the free tier",
+      sub: "On the free tier",
       cta: "Reactivate",
       intensity: "full",
     },

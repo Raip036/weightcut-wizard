@@ -87,6 +87,16 @@ const GOOGLE_ISSUERS = ["https://accounts.google.com", "accounts.google.com"];
 // Sourced from the Convex env var GOOGLE_CLIENT_ID (the Web OAuth client id
 // the Android plugin is initialized with via `serverClientId`/`webClientId`).
 const GOOGLE_NATIVE_AUDIENCE = process.env.GOOGLE_CLIENT_ID;
+// iOS Google Sign-In is initialized with the iOS OAuth client id. When an
+// iOSServerClientId (= the web client id) is set, the iOS id_token's `aud` is
+// the web client id and matches GOOGLE_NATIVE_AUDIENCE. We ALSO accept the iOS
+// client id directly as a valid audience (belt-and-braces, in case a token is
+// minted for the iOS client). Unset on Android-only deployments → harmless.
+const GOOGLE_IOS_CLIENT_ID = process.env.GOOGLE_IOS_CLIENT_ID;
+const GOOGLE_NATIVE_AUDIENCES = [
+  GOOGLE_NATIVE_AUDIENCE,
+  GOOGLE_IOS_CLIENT_ID,
+].filter((id): id is string => typeof id === "string" && id.length > 0);
 const googleJWKS = createRemoteJWKSet(
   new URL("https://www.googleapis.com/oauth2/v3/certs"),
 );
@@ -323,18 +333,21 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         if (typeof rawNonce !== "string" || rawNonce.length === 0) {
           throw new Error("GOOGLE_NATIVE_MISSING_NONCE");
         }
-        if (!GOOGLE_NATIVE_AUDIENCE) {
-          // Convex env var GOOGLE_CLIENT_ID is unset — refuse rather than
-          // verify against an undefined audience.
+        if (GOOGLE_NATIVE_AUDIENCES.length === 0) {
+          // Neither GOOGLE_CLIENT_ID nor GOOGLE_IOS_CLIENT_ID is set — refuse
+          // rather than verify against an undefined audience.
           throw new Error("GOOGLE_NATIVE_AUDIENCE_NOT_CONFIGURED");
         }
 
         // ─ 1. Verify signature + standard claims against Google's JWKS.
+        //   `audience` accepts an array (jose checks the token's `aud` matches
+        //   ANY entry), so both the web client id (Android, and iOS via
+        //   iOSServerClientId) and the iOS client id are accepted.
         let payload: GoogleIdTokenClaims;
         try {
           const verified = await jwtVerify<GoogleIdTokenClaims>(idToken, googleJWKS, {
             issuer: GOOGLE_ISSUERS,
-            audience: GOOGLE_NATIVE_AUDIENCE,
+            audience: GOOGLE_NATIVE_AUDIENCES,
             clockTolerance: "5s",
           });
           payload = verified.payload;

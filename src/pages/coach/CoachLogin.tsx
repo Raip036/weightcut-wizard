@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { ChevronLeft, ClipboardList, Loader2 } from "lucide-react";
+import { ChevronLeft, Loader2 } from "lucide-react";
+import AuthWizardHero from "@/components/auth/AuthWizardHero";
 import { motion } from "motion/react";
 import { Capacitor } from "@capacitor/core";
-import { isIOS, isAndroid, isNative, googleWebClientId } from "@/lib/platform";
+import { isIOS, isNative, googleInitOptions } from "@/lib/platform";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation } from "convex/react";
 import { api } from "@/../convex/_generated/api";
@@ -11,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useToast } from "@/hooks/use-toast";
+import { useScrollIntoViewOnFocus } from "@/hooks/useScrollIntoViewOnFocus";
 import { useAuth } from "@/contexts/UserContext";
 import { triggerHaptic } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
@@ -18,7 +20,6 @@ import { routeAfterAuth } from "@/lib/roleRouter";
 import { mapAuthError } from "@/lib/authErrors";
 import { logger } from "@/lib/logger";
 import { track, EVENTS } from "@/lib/analytics";
-import wizardLogo from "@/assets/wizard-logo-3d.png";
 
 const inputClass =
   "h-[50px] rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/40 text-foreground placeholder:text-muted-foreground/50 px-4 text-[16px] focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all";
@@ -37,6 +38,7 @@ export default function CoachLogin() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showForgot, setShowForgot] = useState(false);
+  const [showEmailForm, setShowEmailForm] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const [exiting, setExiting] = useState(false);
@@ -46,6 +48,8 @@ export default function CoachLogin() {
   const { signIn } = useAuthActions();
   const setRoleMut = useMutation(api.profiles.setRole);
   const purgeOrphanedAccount = useMutation(api.authCleanup.purgeOrphanedAccount);
+  // Keep the focused field above the software keyboard (iOS + Android).
+  const handleInputFocus = useScrollIntoViewOnFocus();
 
   // Already-authed user — route them to the right surface
   useEffect(() => {
@@ -184,15 +188,15 @@ export default function CoachLogin() {
       // dynamically imported so it never lands in the iOS bundle. No
       // web-origin redirect fallback here: Android always takes the native
       // id_token path, so there's no origin-mismatch bug on native. (E3.)
-      const webClientId = googleWebClientId();
-      if (!webClientId) {
-        // Placeholder-safe: Web OAuth client id not pasted into platform.ts
-        // yet. Don't crash — soft toast and bail.
+      const googleOpts = googleInitOptions();
+      if (!googleOpts) {
+        // Placeholder-safe: OAuth client id for this platform not pasted into
+        // platform.ts yet. Don't crash — soft toast and bail.
         toast({ title: "Google Sign-In isn't configured yet", description: "Please use email sign-in for now." });
         return;
       }
       const { SocialLogin } = await import("@capgo/capacitor-social-login");
-      await SocialLogin.initialize({ google: { webClientId } });
+      await SocialLogin.initialize({ google: googleOpts });
       // Google echoes the RAW nonce in the id_token's `nonce` claim (unlike
       // Apple, which expects SHA-256(nonce)); the server compares it raw.
       const nonce = crypto.randomUUID();
@@ -265,61 +269,19 @@ export default function CoachLogin() {
       <div
         className="relative flex-1 flex flex-col items-center px-6 overflow-y-auto"
         style={{
-          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)",
+          paddingBottom: "calc(max(env(safe-area-inset-bottom, 0px), var(--keyboard-inset, 0px)) + 24px)",
           opacity: exiting ? 0 : 1,
           transform: exiting ? "scale(0.97)" : "scale(1)",
           transition: "all 250ms ease-out",
         }}
       >
         <div className="w-full max-w-[360px] pt-4 animate-page-in">
-          {/* Coach brand mark — blue/teal gradient + clipboard icon makes
-              this door instantly recognizable as "for coaches" so fighters
-              don't accidentally complete signup here. */}
-          <div className="flex flex-col items-center text-center mb-8">
-            <div className="relative mb-4">
-              <img
-                src={wizardLogo}
-                alt="FightCamp Wizard"
-                className="relative h-16 w-16 object-cover rounded-2xl ring-2 ring-primary/60"
-              />
-              <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-primary ring-2 ring-background">
-                <ClipboardList className="h-3.5 w-3.5 text-primary-foreground" strokeWidth={2.5} />
-              </span>
-            </div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary/90">
-              Coach sign-in
-            </p>
-            <h1 className="mt-1.5 text-2xl font-bold tracking-tight">
-              {showForgot ? "Reset Password" : isLogin ? "Welcome back, coach" : "Open your gym"}
-            </h1>
-            <p className="text-[13px] text-muted-foreground mt-1">
-              {showForgot ? "We'll email you a reset link" : "Manage your gym + athletes"}
-            </p>
-          </div>
+          <AuthWizardHero title="Welcome" subtitle="Manage your gym and athletes" />
 
-          {/* Tabs */}
-          {!showForgot && (
-            <div className="flex bg-muted/40 dark:bg-white/[0.06] rounded-xs p-1 border border-border/40 mb-4">
-              <button
-                type="button"
-                onClick={() => switchTab(true)}
-                className={`flex-1 h-[42px] rounded-xs text-[14px] font-medium transition-all duration-200 ${isLogin ? "bg-background text-foreground" : "text-muted-foreground"}`}
-              >
-                Sign In
-              </button>
-              <button
-                type="button"
-                onClick={() => switchTab(false)}
-                className={`flex-1 h-[42px] rounded-xs text-[14px] font-medium transition-all duration-200 ${!isLogin ? "bg-background text-foreground" : "text-muted-foreground"}`}
-              >
-                Sign Up
-              </button>
-            </div>
-          )}
-
-          {/* Forms */}
+          {/* Forms — social-first layout */}
           <div className="space-y-4">
             {PASSWORD_RESET_ENABLED && showForgot ? (
+              /* Forgot password form */
               <form onSubmit={handleForgot} className="space-y-3">
                 <Input type="email" placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} required className={inputClass} autoFocus />
                 <Button type="submit" disabled={loading} className="w-full h-[50px] rounded-xs bg-primary text-primary-foreground font-semibold text-[16px] active:scale-[0.98] transition-transform disabled:opacity-50">
@@ -329,33 +291,13 @@ export default function CoachLogin() {
               </form>
             ) : (
               <>
-                <form onSubmit={handleAuth} className="space-y-3">
-                  <Input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required className={inputClass} autoFocus />
-                  <Input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={isLogin ? 1 : 8} className={inputClass} />
-                  {!isLogin && (
-                    <Input type="password" placeholder="Confirm password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={8} className={inputClass} />
-                  )}
-                  {errorMsg && <p className="text-xs text-func-danger-red text-center">{errorMsg}</p>}
-                  <Button type="submit" disabled={loading} className="w-full h-[50px] rounded-xs bg-primary text-primary-foreground font-semibold text-[16px] active:scale-[0.98] transition-transform disabled:opacity-50">
-                    {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : isLogin ? "Sign In" : "Create Account"}
-                  </Button>
-                </form>
-
-                <div className="flex items-center gap-3 py-1">
-                  <div className="flex-1 h-px bg-border/50" />
-                  <span className="text-xs text-muted-foreground">or</span>
-                  <div className="flex-1 h-px bg-border/50" />
-                </div>
-
-                {/* Apple Sign-In, shown on iOS (native plugin flow) AND on
-                    web/dev (handleApple falls back to the redirect flow) so it
-                    stays visible in the browser/simulator. Android gets Google below. */}
+                {/* Apple Sign-In — primary CTA, shown on iOS + web */}
                 {(isIOS() || !isNative()) && (
                   <button
                     type="button"
                     onClick={handleApple}
                     disabled={loading}
-                    className="w-full h-[50px] rounded-xs bg-foreground text-background font-semibold text-[16px] flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-50"
+                    className="no-tap-select w-full h-[54px] rounded-xs bg-foreground text-background font-semibold text-[16px] flex items-center justify-center gap-2 active:scale-[0.98] transition-transform touch-manipulation disabled:opacity-50"
                   >
                     <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.52-3.23 0-1.44.62-2.2.44-3.06-.4C3.79 16.17 4.36 9.51 8.82 9.28c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.3 4.11zM12.03 9.2C11.88 7.16 13.5 5.5 15.42 5.35c.28 2.35-2.14 4.1-3.39 3.85z" />
@@ -364,13 +306,13 @@ export default function CoachLogin() {
                   </button>
                 )}
 
-                {/* Google Sign-In, ANDROID ONLY. Native id_token flow. */}
-                {isAndroid() && (
+                {/* Google Sign-In — native platforms */}
+                {isNative() && (
                   <button
                     type="button"
                     onClick={handleGoogle}
                     disabled={loading}
-                    className="w-full h-[50px] rounded-xs bg-white text-[#1f1f1f] border border-black/10 font-semibold text-[16px] flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-50"
+                    className="no-tap-select w-full h-[54px] rounded-xs bg-white text-[#1f1f1f] border border-black/10 font-semibold text-[16px] flex items-center justify-center gap-2 active:scale-[0.98] transition-transform touch-manipulation disabled:opacity-50"
                   >
                     <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden>
                       <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -381,6 +323,68 @@ export default function CoachLogin() {
                     {isLogin ? "Sign in with Google" : "Sign up with Google"}
                   </button>
                 )}
+
+                {/* Email form — collapsed behind a quiet link until the user opts in */}
+                {!showEmailForm ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowEmailForm(true)}
+                    className="no-tap-select w-full text-center text-[13px] text-muted-foreground hover:text-foreground transition-colors py-2"
+                  >
+                    Continue with email →
+                  </button>
+                ) : (
+                  <motion.div
+                    key="coach-email-form"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                    style={{ willChange: "transform, opacity" }}
+                    className="space-y-3"
+                  >
+                    <div className="flex items-center gap-3 pt-1">
+                      <div className="flex-1 h-px bg-border/50" />
+                      <span className="text-[11px] uppercase tracking-wider text-muted-foreground/70">or with email</span>
+                      <div className="flex-1 h-px bg-border/50" />
+                    </div>
+
+                    {/* Sign In / Sign Up tabs */}
+                    <div className="flex bg-muted/40 dark:bg-white/[0.06] rounded-xs p-1 border border-border/40">
+                      <button
+                        type="button"
+                        onClick={() => switchTab(true)}
+                        className={`flex-1 h-[42px] rounded-xs text-[14px] font-medium transition-all duration-200 ${isLogin ? "bg-background text-foreground" : "text-muted-foreground"}`}
+                      >
+                        Sign In
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => switchTab(false)}
+                        className={`flex-1 h-[42px] rounded-xs text-[14px] font-medium transition-all duration-200 ${!isLogin ? "bg-background text-foreground" : "text-muted-foreground"}`}
+                      >
+                        Sign Up
+                      </button>
+                    </div>
+
+                    <form onSubmit={handleAuth} className="space-y-3">
+                      <Input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} onFocus={handleInputFocus} required className={inputClass} autoFocus />
+                      <Input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} onFocus={handleInputFocus} required minLength={isLogin ? 1 : 8} className={inputClass} />
+                      {!isLogin && (
+                        <Input type="password" placeholder="Confirm password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} onFocus={handleInputFocus} required minLength={8} className={inputClass} />
+                      )}
+                      {errorMsg && <p className="text-xs text-func-danger-red text-center">{errorMsg}</p>}
+                      <Button type="submit" disabled={loading} className="w-full h-[50px] rounded-xs bg-primary text-primary-foreground font-semibold text-[16px] active:scale-[0.98] transition-transform disabled:opacity-50">
+                        {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : isLogin ? "Sign In" : "Create Account"}
+                      </Button>
+                    </form>
+
+                    {PASSWORD_RESET_ENABLED && isLogin && (
+                      <button type="button" onClick={() => setShowForgot(true)} className="w-full text-center text-sm text-muted-foreground py-1">
+                        Forgot password?
+                      </button>
+                    )}
+                  </motion.div>
+                )}
               </>
             )}
           </div>
@@ -388,16 +392,22 @@ export default function CoachLogin() {
           {/* Footer */}
           {!showForgot && (
             <div className="mt-8 space-y-3 text-center">
-              {PASSWORD_RESET_ENABLED && isLogin && (
-                <button type="button" onClick={() => setShowForgot(true)} className="text-sm text-muted-foreground">Forgot password?</button>
-              )}
               <div>
                 <button
                   type="button"
-                  onClick={() => navWithExit("/auth")}
-                  className="text-[12px] text-muted-foreground/70 hover:text-muted-foreground transition-colors"
+                  onClick={() => { setIsLogin(false); setShowEmailForm(true); setErrorMsg(""); setConfirmPassword(""); }}
+                  className="text-sm text-primary font-medium"
                 >
-                  Are you a fighter? Athlete sign in →
+                  New coach? Create account
+                </button>
+              </div>
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => navWithExit("/auth")}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-card/40 px-3 py-1.5 text-[12px] text-muted-foreground hover:text-foreground hover:border-border transition-colors"
+                >
+                  Are you a fighter? <span className="text-foreground/90 font-semibold">Athlete sign-in →</span>
                 </button>
               </div>
             </div>

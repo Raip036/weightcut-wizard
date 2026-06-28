@@ -95,6 +95,13 @@ export const getCampCompletionPrompt = query({
       .unique();
     if (!profile || profile.role !== "fighter") return null;
 
+    // Only true fight-camp users get the "start your next camp" takeover. Users
+    // who onboarded to maintain weight, lose weight, or gain (goalType !==
+    // "cutting") never signed up for fight camps, so nudging them to start one
+    // is wrong. Gating on goalType (not just camp count) keeps this airtight
+    // even for accounts that carry a leftover/test camp.
+    if (profile.goalType !== "cutting") return null;
+
     // A brand-new user has never had a camp, so there is no "next" one to start.
     // The dashboard and camp-page CTAs handle first-camp creation; don't greet
     // them with the "start your next camp" takeover right after they join.
