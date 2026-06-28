@@ -123,8 +123,8 @@ export function StartCampAuroraCta({
               <p className="text-[15px] font-bold leading-tight text-foreground">
                 Line up your next fight
               </p>
-              <p className="mt-1 text-[12.5px] leading-snug text-muted-foreground">
-                A fresh AI cut + weigh-in plan, tuned to your next bout.
+              <p className="mt-1 truncate text-[12.5px] leading-snug text-muted-foreground">
+                A fresh AI cut + weigh-in plan
               </p>
             </div>
           </div>

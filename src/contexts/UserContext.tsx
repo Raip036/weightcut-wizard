@@ -7,6 +7,7 @@ import { localCache } from "@/lib/localCache";
 import { nutritionCache, startCacheCleanup, stopCacheCleanup } from "@/lib/nutritionCache";
 import { AIPersistence } from "@/lib/aiPersistence";
 import { logger } from "@/lib/logger";
+import { isProfileComplete } from "@/lib/profileComplete";
 import { usePushRegistration } from "@/hooks/usePushRegistration";
 import { clearLocalSubscriptionState } from "@/contexts/SubscriptionContext";
 import { logOutPurchases } from "@/lib/purchases";
@@ -36,7 +37,7 @@ export interface ProfileData {
   normal_daily_carbs_g?: number;
   manual_nutrition_override?: boolean;
   avatar_url?: string;
-  goal_type?: 'cutting' | 'losing';
+  goal_type?: 'cutting' | 'losing' | 'maintaining';
   /** When the user weighs in relative to competition. Drives same-day vs
    *  day-before cut planning. "" | "day_before" | "same_day". */
   weigh_in_timing?: string;
@@ -168,8 +169,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
   // returns fresh data, we diff against the cache and update if changed.
   // A profile row is auto-created at signup with empty/zero defaults; we
   // only consider it "complete" once onboarding has populated key fields.
-  const isProfileComplete = (p: ProfileData | null | undefined): boolean =>
-    !!p && !!p.target_date && (p.age ?? 0) > 0 && (p.current_weight_kg ?? 0) > 0;
   useEffect(() => {
     if (profileFromConvex === undefined) {
       // Still loading — try to serve from cache for instant render.

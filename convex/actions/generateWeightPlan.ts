@@ -42,6 +42,7 @@ export const run = action({
     ),
   },
   handler: async (ctx, args) => {
+    if (!args.targetDate) throw new Error("targetDate required for plan generation");
     const userId = await requireUserIdFromAction(ctx);
     // Gate: explicit onboarding → free; anything else → Pro. Fail-closed.
     await enforceFeatureGate(

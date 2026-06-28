@@ -3,7 +3,6 @@ import { motion, useReducedMotion } from "motion/react";
 import {
   X,
   MessageCircle,
-  AlertTriangle,
   Scale,
   Utensils,
   Dumbbell,
@@ -15,20 +14,19 @@ import {
 /**
  * Proactive coach speech bubble that pops out of the floating FightCamp Coach
  * orb when the chat is closed. It "speaks" the coach's current read (priority
- * action / red flag / greeting) with an animated typewriter reveal and a gentle
- * attention bob.
+ * action / safety nudge / greeting) with an animated typewriter reveal.
  *
- * Refined card layout: a coloured tier dot + "COACH" label, the message, and a
- * CONTEXT-AWARE primary action (the CTA + route match what the coach is nudging
- * about — weigh-in → Log weigh-in, nutrition → Log a meal, etc.) plus a Chat
- * fallback. A greeting (no action) collapses to a single "Chat with coach".
+ * Calm message bubble with a small tail pointing back to the orb — the orb
+ * itself is the coach's avatar, so the bubble carries no avatar of its own.
+ * One calm style for EVERY state, no red / urgency accents. A single primary
+ * action: the context CTA when the coach is nudging about something specific
+ * (weigh-in, meals, hydration...), otherwise a quiet "Tap to chat". Tapping the
+ * message always opens the full chat.
  *
  * Presentational only: positioning + visibility + data + navigation are owned by
  * FloatingWizardChat. `side` points the tail horizontally toward the orb;
  * `placement` flips the bubble above vs below the orb so it stays on-screen.
  */
-
-type Tier = "redFlag" | "priority" | "greeting";
 
 export type BubbleAction = { kind: string; label: string; route: string };
 
@@ -40,16 +38,22 @@ const ACTION_ICONS: Record<string, LucideIcon> = {
   recovery: HeartPulse,
 };
 
-/** Bold any number / figure (digits, optional decimal, optional unit). */
-function renderWithBoldNumbers(text: string) {
-  const parts = text.split(
-    /(\d[\d.,]*\s?(?:kg|lbs?|%|ml|L|g|hrs?|h|min|days?|wk|d)?)/gi,
-  );
+// A number (optional ~ prefix, decimals, simple range) plus an optional trailing
+// unit word, captured as ONE token so it never wraps mid-figure.
+const NUM_RE =
+  /(~?\d[\d.,]*(?:\s?[-–]\s?\d[\d.,]*)?\s?(?:kg|lbs?|%\s?\/\s?wk|%|ml|L|g|hrs?|h|mins?|min|days?|day|weeks?|wk|d)?)/gi;
+
+/** Render numbers / percentages as restrained, non-breaking semibold tokens. */
+function renderWithNumbers(text: string) {
+  const parts = text.split(NUM_RE);
   return parts.map((part, i) =>
-    part && /^\d/.test(part) ? (
-      <strong key={i} className="font-bold text-foreground">
-        {part}
-      </strong>
+    part && /^[~\d]/.test(part) ? (
+      <span
+        key={i}
+        className="whitespace-nowrap font-semibold tabular-nums text-foreground"
+      >
+        {part.trim()}
+      </span>
     ) : (
       <span key={i}>{part}</span>
     ),
@@ -58,7 +62,6 @@ function renderWithBoldNumbers(text: string) {
 
 export function CoachSpeechBubble({
   text,
-  tier = "priority",
   action,
   side,
   placement = "above",
@@ -67,7 +70,6 @@ export function CoachSpeechBubble({
   onDismiss,
 }: {
   text: string;
-  tier?: Tier;
   action?: BubbleAction | null;
   side: "left" | "right";
   placement?: "above" | "below";
@@ -100,24 +102,6 @@ export function CoachSpeechBubble({
   const originY = placement === "below" ? "top" : "bottom";
   const originX = side === "right" ? "right" : "left";
 
-  // Tier accents — red flags read urgent, greetings read quiet.
-  const isRed = tier === "redFlag";
-  const ring = isRed
-    ? "border-func-danger-red/40"
-    : tier === "greeting"
-      ? "border-border/60"
-      : "border-primary/35";
-  const dot = isRed
-    ? "bg-func-danger-red"
-    : tier === "greeting"
-      ? "bg-muted-foreground"
-      : "bg-primary";
-  const labelColor = isRed
-    ? "text-func-danger-red"
-    : tier === "greeting"
-      ? "text-muted-foreground"
-      : "text-primary";
-
   const ActionIcon = action ? ACTION_ICONS[action.kind] ?? MessageCircle : null;
 
   return (
@@ -137,76 +121,54 @@ export function CoachSpeechBubble({
             }
       }
       style={{ transformOrigin: `${originX} ${originY}` }}
-      className="relative max-w-[244px] pointer-events-auto"
+      className="relative max-w-[260px] pointer-events-auto"
     >
-      <div
-        className={`rounded-2xl border ${ring} bg-card/90 backdrop-blur-xl px-3.5 py-3 shadow-[0_8px_24px_rgba(0,0,0,0.45)]`}
-      >
-        {/* Header + message — tapping anywhere here opens the chat. */}
+      <div className="rounded-2xl border border-border/45 bg-card/90 backdrop-blur-xl px-3.5 py-2.5 shadow-[0_8px_24px_rgba(0,0,0,0.4)]">
+        {/* Tapping the message opens the full chat. */}
         <button
           type="button"
           onClick={onChat}
           className="block w-full text-left"
           aria-label="Open FightCamp Coach"
         >
-          <span className="flex items-center gap-1.5 mb-1">
-            <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
-            <span
-              className={`text-[10px] font-bold uppercase tracking-[0.12em] ${labelColor}`}
-            >
-              Coach
-            </span>
-            {isRed && (
-              <AlertTriangle className="h-3 w-3 text-func-danger-red ml-auto" />
-            )}
-          </span>
-          <p className="text-[13px] leading-snug text-foreground">
-            {renderWithBoldNumbers(visible)}
+          <p className="text-[13px] leading-relaxed text-foreground/90">
+            {renderWithNumbers(visible)}
             {typing && (
-              <span className="inline-block w-[2px] h-[1em] align-middle bg-primary/80 ml-0.5 animate-pulse" />
+              <span className="ml-0.5 inline-block h-[1em] w-[2px] animate-pulse align-middle bg-primary/70" />
             )}
           </p>
         </button>
 
-        {/* Action row — context-aware primary + Chat fallback. */}
-        <div className="mt-2.5 flex items-center gap-2">
+        {/* Single action: context CTA, or a quiet tap-to-chat fallback. */}
+        <div className="mt-2">
           {action && ActionIcon ? (
-            <>
-              <button
-                type="button"
-                onClick={onAct}
-                className="flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-[11px] font-semibold text-primary-foreground active:scale-95 transition-transform"
-              >
-                <ActionIcon className="h-3 w-3" /> {action.label}
-              </button>
-              <button
-                type="button"
-                onClick={onChat}
-                className="flex items-center gap-1 rounded-full border border-border/60 px-3 py-1.5 text-[11px] font-medium text-muted-foreground active:scale-95 transition-transform"
-              >
-                <MessageCircle className="h-3 w-3" /> Chat
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={onAct}
+              className="flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-[11.5px] font-semibold text-primary-foreground active:scale-95 transition-transform"
+            >
+              <ActionIcon className="h-3.5 w-3.5" /> {action.label}
+            </button>
           ) : (
             <button
               type="button"
               onClick={onChat}
-              className="flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-[11px] font-semibold text-primary-foreground active:scale-95 transition-transform"
+              className="flex items-center gap-1 text-[11.5px] font-medium text-primary active:scale-95 transition-transform"
             >
-              <MessageCircle className="h-3 w-3" /> Chat with coach
+              Tap to chat <MessageCircle className="h-3.5 w-3.5" />
             </button>
           )}
         </div>
       </div>
 
-      {/* Dismiss — enlarged touch target (28px) so it's easy to close on phones. */}
+      {/* Dismiss — enlarged touch target so it's easy to close on phones. */}
       <button
         type="button"
         onClick={(e) => {
           e.stopPropagation();
           onDismiss();
         }}
-        className="absolute -top-2.5 -right-2.5 h-7 w-7 rounded-full bg-muted/95 border border-border/60 flex items-center justify-center text-muted-foreground active:scale-90 transition-transform shadow-[0_2px_8px_rgba(0,0,0,0.4)]"
+        className="absolute -top-2.5 -right-2.5 flex h-7 w-7 items-center justify-center rounded-full border border-border/60 bg-muted/95 text-muted-foreground shadow-[0_2px_8px_rgba(0,0,0,0.4)] active:scale-90 transition-transform"
         aria-label="Dismiss coach message"
       >
         <X className="h-4 w-4" />
@@ -215,7 +177,7 @@ export function CoachSpeechBubble({
       {/* Tail — points toward the orb. Bottom edge when the bubble sits above
           the orb, top edge when it sits below (orb dragged near the top). */}
       <div
-        className={`absolute h-3 w-3 rotate-45 bg-card/90 ${ring} ${
+        className={`absolute h-3 w-3 rotate-45 border-border/45 bg-card/90 ${
           side === "right" ? "right-5" : "left-5"
         } ${
           placement === "below"

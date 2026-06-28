@@ -101,7 +101,7 @@ export function TrialBanner() {
     },
     lapsed: {
       title: "Pro trial ended",
-      sub: "You're on the free tier now",
+      sub: "You're on the free tier",
       cta: "Reactivate",
       intensity: "full",
     },
@@ -150,7 +150,7 @@ export function TrialBanner() {
 
       <div className="relative z-10 min-w-0 flex-1">
         <p className="text-[13.5px] font-semibold text-white leading-tight">{cfg.title}</p>
-        <p className="text-[11.5px] text-white/60 leading-snug">{cfg.sub}</p>
+        <p className="text-[11.5px] text-white/60 leading-snug truncate">{cfg.sub}</p>
       </div>
 
       <span className={`relative z-10 shrink-0 rounded-full px-3 py-1.5 text-[12px] font-bold ${CTA_CLASS}`}>

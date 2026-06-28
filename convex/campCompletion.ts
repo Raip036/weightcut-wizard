@@ -95,6 +95,11 @@ export const getCampCompletionPrompt = query({
       .unique();
     if (!profile || profile.role !== "fighter") return null;
 
+    // A brand-new user has never had a camp, so there is no "next" one to start.
+    // The dashboard and camp-page CTAs handle first-camp creation; don't greet
+    // them with the "start your next camp" takeover right after they join.
+    if (camps.length === 0) return null;
+
     const hasUpcoming = camps.some(
       (c) => !c.isCompleted && c.fightDate >= todayIso,
     );

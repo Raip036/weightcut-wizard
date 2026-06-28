@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useId, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon, type IonIconName } from "@/components/ui/Icon";
 import { triggerHapticSelection } from "@/lib/haptics";
@@ -94,6 +94,110 @@ export function interpolatePlan(points: { ts: number; kg: number }[], t: number)
   return last.kg;
 }
 
+/**
+ * Calm trend series: a centered, triangular-weighted moving average over the raw
+ * weigh-ins. Daily weight is dominated by water / glycogen swing; the camp story
+ * is the TREND, so smoothing the DATA (not just the path) is what turns the
+ * jagged, compressed-looking spark into a clean descending curve. Endpoints are
+ * anchored to the real first/last reading so the "start" label and the line
+ * start stay truthful.
+ */
+function smoothSeries(pts: { ts: number; kg: number }[], radius = 2): { ts: number; kg: number }[] {
+  if (pts.length <= 2) return pts;
+  const weights = [1, 2, 3, 2, 1]; // centered, triangular (radius 2)
+  const out = pts.map((p, i) => {
+    let sum = 0;
+    let wsum = 0;
+    for (let k = -radius; k <= radius; k++) {
+      const j = i + k;
+      if (j < 0 || j >= pts.length) continue;
+      const w = weights[k + radius];
+      sum += pts[j].kg * w;
+      wsum += w;
+    }
+    return { ts: p.ts, kg: sum / wsum };
+  });
+  out[0] = { ts: pts[0].ts, kg: pts[0].kg }; // anchor the start reading
+  return out;
+}
+
+/**
+ * Monotone cubic (Fritsch–Carlson) smooth path through pixel points. Never
+ * overshoots the data, so a noisy weight series reads as a calm curve without
+ * inventing dips. Used for the actual line only; the plan line stays a straight
+ * polyline between weekly targets (it IS piecewise-linear and the tests assert
+ * its M/L command shape).
+ */
+export function smoothPath(pts: { x: number; y: number }[]): string {
+  const n = pts.length;
+  if (n === 0) return "";
+  if (n === 1) return `M${pts[0].x.toFixed(2)},${pts[0].y.toFixed(2)}`;
+  if (n === 2) return `M${pts[0].x.toFixed(2)},${pts[0].y.toFixed(2)} L${pts[1].x.toFixed(2)},${pts[1].y.toFixed(2)}`;
+
+  const dx: number[] = [];
+  const dy: number[] = [];
+  const slope: number[] = [];
+  for (let i = 0; i < n - 1; i++) {
+    dx[i] = pts[i + 1].x - pts[i].x;
+    dy[i] = pts[i + 1].y - pts[i].y;
+    slope[i] = dx[i] === 0 ? 0 : dy[i] / dx[i];
+  }
+  const m: number[] = new Array(n);
+  m[0] = slope[0];
+  m[n - 1] = slope[n - 2];
+  for (let i = 1; i < n - 1; i++) {
+    m[i] = slope[i - 1] * slope[i] <= 0 ? 0 : (slope[i - 1] + slope[i]) / 2;
+  }
+  for (let i = 0; i < n - 1; i++) {
+    if (slope[i] === 0) {
+      m[i] = 0;
+      m[i + 1] = 0;
+    } else {
+      const a = m[i] / slope[i];
+      const b = m[i + 1] / slope[i];
+      const hyp = a * a + b * b;
+      if (hyp > 9) {
+        const tau = 3 / Math.sqrt(hyp);
+        m[i] = tau * a * slope[i];
+        m[i + 1] = tau * b * slope[i];
+      }
+    }
+  }
+  let d = `M${pts[0].x.toFixed(2)},${pts[0].y.toFixed(2)}`;
+  for (let i = 0; i < n - 1; i++) {
+    const x1 = pts[i].x + dx[i] / 3;
+    const y1 = pts[i].y + (m[i] * dx[i]) / 3;
+    const x2 = pts[i + 1].x - dx[i] / 3;
+    const y2 = pts[i + 1].y - (m[i + 1] * dx[i]) / 3;
+    d += ` C${x1.toFixed(2)},${y1.toFixed(2)} ${x2.toFixed(2)},${y2.toFixed(2)} ${pts[i + 1].x.toFixed(2)},${pts[i + 1].y.toFixed(2)}`;
+  }
+  return d;
+}
+
+// ── Gradient-glow palette, one two-tone ramp per drift verdict ───────────────
+// Mirrors `deltaVerdict`'s thresholds so the chart hue stays in lockstep with
+// the pill: on-plan emerald→teal, warming through amber / orange to rose as the
+// athlete drifts over plan. Every state keeps the same premium glow.
+type GlowKey = "on" | "amber" | "orange" | "rose";
+
+const GLOW_PALETTE: Record<GlowKey, { from: string; to: string; core: string }> = {
+  on: { from: "hsl(152 69% 55%)", to: "hsl(173 70% 52%)", core: "hsl(152 69% 55%)" },
+  amber: { from: "hsl(43 96% 58%)", to: "hsl(33 95% 54%)", core: "hsl(43 96% 56%)" },
+  orange: { from: "hsl(28 96% 60%)", to: "hsl(16 92% 56%)", core: "hsl(25 95% 58%)" },
+  rose: { from: "hsl(350 90% 64%)", to: "hsl(2 84% 58%)", core: "hsl(350 89% 60%)" },
+};
+
+/** Map a signed drift (kg, + = over plan) to a glow ramp key. Thresholds match
+ *  `deltaVerdict` exactly so the chart and the pill never disagree. */
+function glowKey(kg: number): GlowKey {
+  const abs = Math.abs(kg);
+  if (abs <= 0.5) return "on";
+  if (kg < 0) return "amber"; // under plan (cutting too fast) is its own caution
+  if (abs <= 1.5) return "amber";
+  if (abs <= 2.5) return "orange";
+  return "rose";
+}
+
 export function buildChart(
   weightLogs: WeightPoint[] | undefined,
   currentWeight: number | null | undefined,
@@ -169,24 +273,45 @@ export function buildChart(
   const xHi = Math.max(targetTs, todayTs, points[points.length - 1].ts);
   if (!(xHi > xLo)) return null;
 
+  // Taller viewBox with an aspect ratio close to the rendered box: the old
+  // 320×64 box stretched into a ~2.3× taller element (preserveAspectRatio
+  // "none"), which vertically squashed every wiggle and made the line look
+  // cramped. A 320×140 box renders ~1:1 vertically, so the curve breathes.
   const w = 320;
-  const h = 64;
-  const padX = 4;
-  const padY = 6;
+  const h = 140;
+  const padX = 6;
+  const padY = 14;
   const sx = (t: number) => padX + ((t - xLo) / (xHi - xLo)) * (w - padX * 2);
   const sy = (kg: number) => padY + ((yHi - kg) / (yHi - yLo)) * (h - padY * 2);
 
-  const actualPath = points
-    .map((p, i) => `${i === 0 ? "M" : "L"}${sx(p.ts).toFixed(1)},${sy(p.kg).toFixed(1)}`)
-    .join("");
+  // Actual line: smooth the DATA (calm trend), then draw a monotone spline so
+  // the line reads premium rather than jagged. The authoritative current weight
+  // is folded into the series BEFORE smoothing (so the curve approaches the
+  // today dot gradually rather than spiking to it), then both endpoints are
+  // anchored to the real first reading / today's weight so the curve starts and
+  // ends exactly where the "start" / "now" labels say.
+  const rawSeries = points.map((p) => ({ ts: p.ts, kg: p.kg }));
+  const lastRaw = rawSeries[rawSeries.length - 1];
+  if (todayTs > lastRaw.ts) {
+    rawSeries.push({ ts: todayTs, kg: actualToday });
+  } else {
+    rawSeries[rawSeries.length - 1] = { ts: lastRaw.ts, kg: actualToday };
+  }
+  const actualLine = smoothSeries(rawSeries);
+  const endTs = rawSeries[rawSeries.length - 1].ts;
+  actualLine[actualLine.length - 1] = { ts: endTs, kg: actualToday }; // anchor "now"
+  const actualPxPts = actualLine.map((p) => ({ x: sx(p.ts), y: sy(p.kg) }));
+  const actualPath = smoothPath(actualPxPts);
+
+  // Plan / projection: straight polyline between weekly targets (it IS
+  // piecewise-linear; tests assert this M/L shape).
   const planPath = planPoints
     .map((p, i) => `${i === 0 ? "M" : "L"}${sx(p.ts).toFixed(1)},${sy(p.kg).toFixed(1)}`)
     .join(" ");
 
-  // Close the actual line down to the baseline so it can carry a soft
-  // area-fill gradient (the single biggest "premium" upgrade for the spark).
-  const firstX = sx(points[0].ts);
-  const lastX = sx(points[points.length - 1].ts);
+  // Close the smooth actual line down to the baseline for the area-fill gradient.
+  const firstX = actualPxPts[0].x;
+  const lastX = actualPxPts[actualPxPts.length - 1].x;
   const areaPath = `${actualPath} L${lastX.toFixed(1)},${h} L${firstX.toFixed(1)},${h} Z`;
 
   return {
@@ -244,6 +369,9 @@ export function PhaseCoachCard({
 }: PhaseCoachCardProps) {
   const navigate = useNavigate();
   const meta = phase ? PHASE_META[phase] : PHASE_META.build;
+  // Stable, unique id base for the chart's gradient/filter defs so multiple
+  // cards on a page never collide on `url(#...)` references.
+  const gid = useId().replace(/:/g, "");
 
   // Resolve the cut plan once and share it between the chart polyline and the
   // weekly-target drift number (DRY — both read the same authoritative plan).
@@ -296,6 +424,9 @@ export function PhaseCoachCard({
   // One verdict drives every drift-colored element (line, area fill, today
   // dot, pill) via the unified ramp, so the whole chart speaks one language.
   const verdict = effectiveDrift != null ? deltaVerdict(effectiveDrift) : null;
+  // The matching two-tone gradient-glow ramp for the chart (emerald → amber →
+  // orange → rose as you drift over plan), kept in lockstep with `verdict`.
+  const glow = GLOW_PALETTE[glowKey(effectiveDrift ?? chart?.driftKg ?? 0)];
 
   return (
     <button
@@ -319,42 +450,70 @@ export function PhaseCoachCard({
         <>
           {/* Big chart hero. This card's whole job is the camp-long trajectory,
               so the chart IS the centerpiece (no large current-weight number
-              competing with the weekly card above). `color` on the <svg> = the
-              drift verdict, so the actual line, area fill and today dot share
-              one hue; the dashed plan line and target marker stay muted. */}
+              competing with the weekly card above). The smooth actual line
+              carries a two-tone gradient-glow keyed to the drift verdict
+              (emerald on plan → amber/orange/rose over plan); the dashed plan
+              line + hollow target marker stay muted as the projection. */}
           <div className="mt-3">
             <svg
               viewBox={`0 0 ${chart.w} ${chart.h}`}
               preserveAspectRatio="none"
-              className={`w-full h-24 ${verdict.text}`}
+              className="w-full h-[140px]"
             >
               <defs>
-                <linearGradient id="phaseActualFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="currentColor" stopOpacity={0.18} />
-                  <stop offset="100%" stopColor="currentColor" stopOpacity={0} />
+                <linearGradient id={`${gid}-stroke`} x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor={glow.from} />
+                  <stop offset="100%" stopColor={glow.to} />
                 </linearGradient>
+                <linearGradient id={`${gid}-fill`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={glow.core} stopOpacity={0.28} />
+                  <stop offset="100%" stopColor={glow.core} stopOpacity={0} />
+                </linearGradient>
+                <filter id={`${gid}-blur`} x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="3.5" />
+                </filter>
               </defs>
-              <path d={chart.areaPath} fill="url(#phaseActualFill)" stroke="none" />
+
+              {/* Soft area fill under the actual line */}
+              <path d={chart.areaPath} fill={`url(#${gid}-fill)`} stroke="none" />
+
+              {/* Plan / projection: muted dashed guide to the weigh-in target */}
               <path
                 d={chart.planPath}
-                className="stroke-foreground/30"
+                className="stroke-foreground/25"
                 strokeWidth={1.25}
                 strokeDasharray="3 3"
+                strokeLinecap="round"
                 fill="none"
               />
+
+              {/* Actual line — blurred glow underlay */}
               <path
                 d={chart.actualPath}
-                stroke="currentColor"
-                strokeWidth={2.25}
+                fill="none"
+                stroke={`url(#${gid}-stroke)`}
+                strokeWidth={5}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                fill="none"
+                filter={`url(#${gid}-blur)`}
+                opacity={0.5}
               />
-              {/* Weigh-in target marker at the plan line's right endpoint. */}
-              <circle cx={chart.targetPx.x} cy={chart.targetPx.y} r={3} className="fill-foreground/40" />
-              {/* Card-colored halo so the "you are here" dot punches off the line. */}
-              <circle cx={chart.todayPx.x} cy={chart.todayPx.y} r={5.5} className="fill-[hsl(var(--card))]" />
-              <circle cx={chart.todayPx.x} cy={chart.todayPx.y} r={3.5} fill="currentColor" />
+              {/* Actual line — crisp on top */}
+              <path
+                d={chart.actualPath}
+                fill="none"
+                stroke={`url(#${gid}-stroke)`}
+                strokeWidth={2.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+
+              {/* Weigh-in target marker (hollow) at the plan line's endpoint. */}
+              <circle cx={chart.targetPx.x} cy={chart.targetPx.y} r={4} fill="none" stroke={glow.to} strokeWidth={1.5} />
+              {/* "You are here" dot: soft glow + card-colored halo + bright core. */}
+              <circle cx={chart.todayPx.x} cy={chart.todayPx.y} r={10} fill={glow.core} opacity={0.25} />
+              <circle cx={chart.todayPx.x} cy={chart.todayPx.y} r={6} className="fill-[hsl(var(--card))]" />
+              <circle cx={chart.todayPx.x} cy={chart.todayPx.y} r={4} fill={glow.core} />
             </svg>
             {/* Endpoint labels anchor the chart: where the camp started ↔ the
                 weigh-in target it's converging on. */}

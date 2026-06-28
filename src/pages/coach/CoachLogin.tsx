@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { ChevronLeft, ClipboardList, Loader2 } from "lucide-react";
 import { motion } from "motion/react";
 import { Capacitor } from "@capacitor/core";
-import { isIOS, isAndroid, googleWebClientId } from "@/lib/platform";
+import { isIOS, isAndroid, isNative, googleWebClientId } from "@/lib/platform";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation } from "convex/react";
 import { api } from "@/../convex/_generated/api";
@@ -347,8 +347,10 @@ export default function CoachLogin() {
                   <div className="flex-1 h-px bg-border/50" />
                 </div>
 
-                {/* Apple Sign-In, iOS ONLY. Android gets Google below. */}
-                {isIOS() && (
+                {/* Apple Sign-In, shown on iOS (native plugin flow) AND on
+                    web/dev (handleApple falls back to the redirect flow) so it
+                    stays visible in the browser/simulator. Android gets Google below. */}
+                {(isIOS() || !isNative()) && (
                   <button
                     type="button"
                     onClick={handleApple}

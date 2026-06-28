@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAction, useMutation } from "convex/react";
 import { api } from "@/../convex/_generated/api";
@@ -32,6 +32,10 @@ import { OnboardingWizardMascot } from "@/components/onboarding/wizard/Onboardin
 import { ReminderStep } from "@/components/onboarding/wizard/ReminderStep";
 import { assessCutFeasibility, weeksToWeighIn, type CutFeasibilityResult } from "@/../convex/_shared/cutFeasibility";
 import { FightTooSoonScreen } from "@/components/fightcamp/FightTooSoonScreen";
+import { useSubscription } from "@/hooks/useSubscription";
+import { ProUpsellScreen } from "@/components/subscription/ProUpsellScreen";
+import { maintenanceMacros } from "@/../convex/_shared/math";
+import { MaintenanceFuelSummary } from "@/components/onboarding/MaintenanceFuelSummary";
 
 // App Store compliance: hard age floor (17+). Weight-cut guidance involves
 // dehydration and calorie restriction unsafe to coach for minors. Mirrors the
@@ -119,9 +123,28 @@ const L = {
   FINAL: 15,       // declaration + projection + generate
 } as const;
 
+// Maintain (Train & track) flow: no fight date, no target weight, just
+// discipline + personal data + maintenance fuel summary.
+const M = {
+  SPLIT: 1,          // shared goal-type split
+  DISCIPLINES: 2,    // athlete_types
+  AGE: 3,            // age + sex
+  HEIGHT: 4,         // height
+  WEIGHT: 5,         // current weight
+  BODY_FAT: 6,       // body fat slider (skippable)
+  EXPERIENCE: 7,     // experience level
+  TRAINING_FREQ: 8,  // training frequency -> activity level
+  REMINDERS: 9,      // adaptive reminders
+  TRAINING_TYPES: 10,// training types
+  SLEEP: 11,         // sleep hours
+  NAME: 12,          // display name
+  FINAL: 13,         // maintenance fuel summary
+} as const;
+
 // Total step count per flow. Displayed as "Round X of N".
 const FIGHTER_TOTAL_STEPS = F.FINAL;  // 16
 const LOSING_TOTAL_STEPS = L.FINAL;   // 15
+const MAINTAIN_TOTAL_STEPS = M.FINAL; // 13
 
 // ── Display-name validation ──
 // Trimmed length must be 2–30 characters. Used by the step-13 name screen
@@ -313,6 +336,10 @@ export default function Onboarding() {
   const [stayOnOnboarding, setStayOnOnboarding] = useState(false);
   const stayOnOnboardingRef = useRef(false);
   useEffect(() => { stayOnOnboardingRef.current = stayOnOnboarding; }, [stayOnOnboarding]);
+  // Maintain flow: soft-paywall overlay state (mirrors CutPlanReview)
+  const [showMaintainPaywall, setShowMaintainPaywall] = useState(false);
+  // Ensures the maintain-branch handleSubmit only fires once per M.FINAL entry.
+  const [maintainSubmitFired, setMaintainSubmitFired] = useState(false);
   const navigate = useNavigate();
   // `?startCamp=1` is passed by the FightCamps page when the user is
   // re-running onboarding to start a brand-new camp (e.g. after deleting
@@ -321,7 +348,8 @@ export default function Onboarding() {
   // on completion so the user lands on the page they started from.
   const [searchParams] = useSearchParams();
   const isRestartingCamp = searchParams.get("startCamp") === "1";
-  const { refreshProfile, setUserName } = useProfile();
+  const { refreshProfile, setUserName, profile } = useProfile();
+  const { isPremium, isSubscriptionResolved, openPaywall } = useSubscription();
   const { hasProfile, isLoading: authLoading, isCoach, signOut } = useAuth();
   const { userId, userName } = useUser();
   const { toast } = useToast();
@@ -332,6 +360,7 @@ export default function Onboarding() {
   // has a real camp record to reuse for future "Start next camp" flows
   // without needing to re-enter their fight info anywhere else.
   const createCampFromOnboardingMut = useMutation(api.fight_camp.createCampFromOnboarding);
+  const markOnboardingPaywallShown = useMutation(api.profiles.markOnboardingPaywallShown);
 
   const [formData, setFormData] = useState({
     // Screen 1: flow split
@@ -417,10 +446,23 @@ export default function Onboarding() {
     lastTrackedStepRef.current = step;
   }, [step]);
 
+  // When the maintaining flow enters its final step (M.FINAL), kick off
+  // the profile save automatically (no "Generate plan" button for this flow).
+  // `maintainSubmitFired` is a one-shot guard so it only fires once per entry.
+  useEffect(() => {
+    if (formData.goal_type === "maintaining" && step === M.FINAL && !maintainSubmitFired) {
+      setMaintainSubmitFired(true);
+      submitRef.current();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, formData.goal_type, maintainSubmitFired]);
+
   // Step 13 (plan_aggressiveness, "how aggressive / how fast") only applies
   // to non-fighters. Fighters' pace is determined by the fight date alone, so
   // we skip the screen for them in both directions.
   const isFighterFlow = formData.goal_type === "cutting";
+  // Maintaining flow: no fight date, no cut plan, just track training + fuel.
+  const isMaintainFlow = formData.goal_type === "maintaining";
 
   // Step 3 in the cutting flow is split into 4 sub-pages (competition level,
   // fight date, weight class, pre-dehydration target) animated like the rest
@@ -461,8 +503,8 @@ export default function Onboarding() {
 
   const goNext = useCallback(() => {
     triggerHapticSelection();
-    // Per-flow step ceiling: fighter flow is one longer than losing.
-    const stepCeiling = isFighterFlow ? F.FINAL : L.FINAL;
+    // Per-flow step ceiling: each flow has a different total step count.
+    const stepCeiling = isFighterFlow ? F.FINAL : isMaintainFlow ? M.FINAL : L.FINAL;
     // Sub-step navigation within the fight-details step (cutting only).
     // 5 sub-steps: 0 competition level, 1 fight date, 2 weight class,
     // 3 pre-cut target, 4 optional camp name. The camp-name page is
@@ -496,10 +538,11 @@ export default function Onboarding() {
       return;
     }
 
-    // End-of-flow: cutting ends at F.FINAL (preview chart + generate);
-    // losing ends at L.FINAL. Submit instead of advancing.
+    // End-of-flow: cutting/losing tap "Generate plan" on the FINAL step →
+    // goNext → handleSubmit. Maintaining profile save is triggered by a
+    // useEffect when step === M.FINAL, not by a button on that step.
     const isLastCutting = isFighterFlow && step === F.FINAL;
-    const isLastLosing = !isFighterFlow && step === L.FINAL;
+    const isLastLosing = !isFighterFlow && !isMaintainFlow && step === L.FINAL;
     if (isLastCutting || isLastLosing) {
       submitRef.current();
       return;
@@ -545,9 +588,9 @@ export default function Onboarding() {
     if (pendingWeightAdvance) {
       setPendingWeightAdvance(false);
       setDirection(1);
-      setStep(prev => Math.min(prev + 1, isFighterFlow ? F.FINAL : L.FINAL));
+      setStep(prev => Math.min(prev + 1, isFighterFlow ? F.FINAL : isMaintainFlow ? M.FINAL : L.FINAL));
     }
-  }, [pendingWeightAdvance, isFighterFlow]);
+  }, [pendingWeightAdvance, isFighterFlow, isMaintainFlow]);
 
   const goBack = useCallback(() => {
     triggerHapticSelection();
@@ -613,6 +656,18 @@ export default function Onboarding() {
     if (formData.sex === "male") return 10 * weight + 6.25 * height - 5 * age + 5;
     return 10 * weight + 6.25 * height - 5 * age - 161;
   };
+
+  // Maintenance fuel: pre-compute TDEE-based macros for the summary screen.
+  // Recomputes whenever the inputs it depends on change. Only used when
+  // isMaintainFlow, but computed unconditionally to satisfy hooks rules.
+  const maintenanceFuel = useMemo(() => {
+    const weightKg = Number(formData.current_weight_kg) || 0;
+    const bmr = calculateBMR();
+    const actLevel = deriveActivityLevel(formData.training_frequency);
+    const tdeeKcal = bmr * (ACTIVITY_MULTIPLIERS[actLevel] || 1.55);
+    return maintenanceMacros(tdeeKcal, weightKg);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.current_weight_kg, formData.training_frequency, formData.age, formData.sex, formData.height_cm]);
 
   // Fight week target calculations: water cut % scales with competition level
   // Hobbyist: 3% (safe, minimal water cut)
@@ -704,22 +759,25 @@ export default function Onboarding() {
     // Milestone pulses fire on the SAME conceptual screens (goal locked /
     // discipline declared / camp sealed). Named per-flow constants keep
     // them honest as steps shift (e.g. the 2026-06-22 Apple Health removal
-    // moved each FINAL down by one).
-    if (isFighterFlow) {
-      if (step === F.AGE) label = "Goal Locked";
-      else if (step === F.EXPERIENCE) label = "Discipline Declared";
-      else if (step === F.FINAL) label = "Camp Sealed";
-    } else {
-      if (step === L.TIMEFRAME) label = "Goal Locked";
-      else if (step === L.EXPERIENCE) label = "Discipline Declared";
-      else if (step === L.FINAL) label = "Camp Sealed";
+    // moved each FINAL down by one). Suppress for maintain flow: the
+    // fight-camp milestone names don't apply.
+    if (!isMaintainFlow) {
+      if (isFighterFlow) {
+        if (step === F.AGE) label = "Goal Locked";
+        else if (step === F.EXPERIENCE) label = "Discipline Declared";
+        else if (step === F.FINAL) label = "Camp Sealed";
+      } else {
+        if (step === L.TIMEFRAME) label = "Goal Locked";
+        else if (step === L.EXPERIENCE) label = "Discipline Declared";
+        else if (step === L.FINAL) label = "Camp Sealed";
+      }
     }
     if (!label) return;
     setAchievementLabel(label);
     triggerHaptic(ImpactStyle.Medium);
     const t = setTimeout(() => setAchievementLabel(null), 2400);
     return () => clearTimeout(t);
-  }, [step, isFighterFlow]);
+  }, [step, isFighterFlow, isMaintainFlow]);
 
   // Final-step declaration gate: before showing chart + Generate, ask the
   // user to hold-to-commit. Once declared, normal final-step content renders.
@@ -790,6 +848,56 @@ export default function Onboarding() {
 
     const ageNum = parseInt(formData.age, 10);
     const activityLevel = deriveActivityLevel(formData.training_frequency);
+
+    // ── Maintaining (Train & track) early branch ─────────────────────────
+    // Save profile + maintenance macros, fire analytics, then return. No
+    // plan/camp/feasibility code runs for this flow. The FINAL step renders
+    // MaintenanceFuelSummary; its "Enter the app" button fires
+    // handleMaintainContinue which handles the soft paywall / dashboard nav.
+    if (isMaintainFlow) {
+      setLoading(true);
+      try {
+        const bmr = calculateBMR();
+        const tdeeKcal = Math.round(bmr * (ACTIVITY_MULTIPLIERS[activityLevel] || 1.55));
+        const fuel = maintenanceMacros(tdeeKcal, Number(formData.current_weight_kg));
+        const trainingFreq = parseInt(formData.training_frequency) || 3;
+
+        await updateGoalsMut({
+          age: ageNum,
+          sex: formData.sex || "male",
+          heightCm: Number(formData.height_cm),
+          currentWeightKg: Number(formData.current_weight_kg),
+          goalWeightKg: Number(formData.current_weight_kg), // maintain: goal = current
+          activityLevel,
+          trainingFrequency: trainingFreq,
+          goalType: "maintaining",
+          athleteType: formData.athlete_types.length > 0
+            ? formData.athlete_types.join(",")
+            : (formData.athlete_type || undefined),
+          experienceLevel: formData.experience_level || undefined,
+          trainingTypes: formData.training_types.length > 0 ? formData.training_types : undefined,
+          sleepHours: formData.sleep_hours || undefined,
+          bodyFatPct: formData.body_fat_pct ? Number(formData.body_fat_pct) : undefined,
+          bmr,
+          tdee: tdeeKcal,
+          aiRecommendedCalories: fuel.calories,
+          aiRecommendedProteinG: fuel.protein_g,
+          aiRecommendedCarbsG: fuel.carbs_g,
+          aiRecommendedFatsG: fuel.fats_g,
+          aiRecommendationsUpdatedAt: Date.now(),
+        });
+
+        await refreshProfile();
+        if (userId) seedDemoData(userId);
+        track(EVENTS.ONBOARDING_COMPLETED, { goal_type: "maintaining" });
+      } catch (err: any) {
+        logger.error("Maintaining onboarding failed", err);
+        toast({ variant: "destructive", title: "Error", description: err.message });
+      } finally {
+        setLoading(false);
+      }
+      return; // skip plan generation, camp creation, feasibility entirely
+    }
 
     const validationResult = profileSchema.safeParse({
       age: ageNum,
@@ -1104,6 +1212,41 @@ export default function Onboarding() {
     navigate(isRestartingCamp ? "/fight-camps" : "/dashboard");
   }, [navigate, isRestartingCamp]);
 
+  // Continue handler for the maintenance flow's fuel-summary screen.
+  // Mirrors the CutPlanReview soft-paywall wiring: show ProUpsellScreen
+  // once for free users at the value peak, then route to dashboard.
+  const handleMaintainContinue = useCallback(async () => {
+    if (loading) return; // profile save still in flight
+    localStorage.setItem("wcw_onboarding_just_completed", "1");
+
+    const eligible =
+      isSubscriptionResolved &&
+      !isPremium &&
+      !!profile &&
+      !profile.onboarding_paywall_shown_at;
+
+    if (eligible) {
+      markOnboardingPaywallShown({}).catch(() => {
+        /* non-fatal: a missed write just means the paywall may show once more */
+      });
+      // Keep stayOnOnboarding=true so the hasProfile guard doesn't eject
+      // us before the paywall overlay can mount. The overlay handlers
+      // release the pin when the user acts.
+      setShowMaintainPaywall(true);
+      return;
+    }
+    // Non-eligible path: release the pin then route.
+    setStayOnOnboarding(false);
+    navigate("/dashboard");
+  }, [
+    loading,
+    isSubscriptionResolved,
+    isPremium,
+    profile,
+    markOnboardingPaywallShown,
+    navigate,
+  ]);
+
   // Retry handler when plan generation failed inline. Resets the
   // failure flag and re-runs handleSubmit so the user doesn't have to
   // re-enter any data; they stay on the final step throughout.
@@ -1205,7 +1348,7 @@ export default function Onboarding() {
         onGoBack={() => {
           setAgeGateBlocked(false);
           setFormData(prev => ({ ...prev, age: "" }));
-          const ageStep = isFighterFlow ? F.AGE : L.AGE;
+          const ageStep = isFighterFlow ? F.AGE : isMaintainFlow ? M.AGE : L.AGE;
           setDirection(-1);
           setStep(ageStep);
         }}
@@ -1272,7 +1415,7 @@ export default function Onboarding() {
             <div className="h-7 w-7" />
           )}
         </div>
-        <XPProgressBar step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS} />
+        <XPProgressBar step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : isMaintainFlow ? MAINTAIN_TOTAL_STEPS : LOSING_TOTAL_STEPS} />
       </div>
 
       <AnimatePresence mode="wait" initial={false}>
@@ -1287,7 +1430,7 @@ export default function Onboarding() {
 
         {/* ── Screen 1: Flow Split: "What brings you here?" ── */}
         {step === 1 && (
-          <StepLayout step={1} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="What brings you here?" subtitle="We'll build your plan around this."
+          <StepLayout step={1} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : isMaintainFlow ? MAINTAIN_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="What brings you here?" subtitle="We'll build your plan around this."
             footer={<Button onClick={goNext} disabled={!formData.goal_type}
               className="no-tap-select w-full h-12 rounded-2xl cta-premium disabled:opacity-50">Continue</Button>}
           >
@@ -1295,6 +1438,7 @@ export default function Onboarding() {
               {[
                 { value: "cutting", label: "I have a fight coming up", description: "Structured weight cut with a deadline", icon: <Swords className="h-5 w-5 text-func-danger-red" /> },
                 { value: "losing", label: "I want to lose weight", description: "Steady, sustainable fat loss", icon: <Flame className="h-5 w-5 text-func-carbs-orange" /> },
+                { value: "maintaining", label: "Train & track", description: "Maintain weight and log my training", icon: <Gauge className="h-5 w-5 text-primary" /> },
               ].map(opt => (
                 <OptionCard key={opt.value} selected={formData.goal_type === opt.value} icon={opt.icon}
                   label={opt.label} description={opt.description} onClick={() => selectAndAdvance("goal_type", opt.value)} />
@@ -1327,9 +1471,9 @@ export default function Onboarding() {
           </StepLayout>
         )}
 
-        {/* ── Screen 3 (cutting): Discipline ── */}
-        {step === F.DISCIPLINES && formData.goal_type === "cutting" && (
-          <StepLayout step={F.DISCIPLINES} totalSteps={FIGHTER_TOTAL_STEPS} title="What's your discipline?" subtitle={`Pick your sport${userName ? `, ${userName}` : ""}, and we'll tailor everything to it.`}
+        {/* ── Screen 3 (cutting) / Screen 2 (maintaining): Discipline ── */}
+        {((step === F.DISCIPLINES && formData.goal_type === "cutting") || (step === M.DISCIPLINES && isMaintainFlow)) && (
+          <StepLayout step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : MAINTAIN_TOTAL_STEPS} title="What's your discipline?" subtitle={`Pick your sport${userName ? `, ${userName}` : ""}, and we'll tailor everything to it.`}
             footer={<Button onClick={goNext} disabled={formData.athlete_types.length === 0}
               className="no-tap-select w-full h-12 rounded-2xl cta-premium disabled:opacity-50">Continue</Button>}
           >
@@ -1351,9 +1495,9 @@ export default function Onboarding() {
             </div>
           </StepLayout>
         )}
-        {/* ── Lose weight flow: Screen 2: Current Weight ── */}
-        {step === 2 && formData.goal_type === "losing" && (
-          <StepLayout step={2} title="What's your current weight?" subtitle="Step on the scale. This is your starting line."
+        {/* ── Lose weight: Screen 2: Current Weight / Maintain: Screen 5 ── */}
+        {((step === 2 && formData.goal_type === "losing") || (step === M.WEIGHT && isMaintainFlow)) && (
+          <StepLayout step={step} totalSteps={formData.goal_type === "losing" ? LOSING_TOTAL_STEPS : MAINTAIN_TOTAL_STEPS} title="What's your current weight?" subtitle="Step on the scale. This is your starting line."
             footer={<Button onClick={goNext} disabled={!formData.current_weight_kg}
               className="no-tap-select w-full h-12 rounded-2xl cta-premium disabled:opacity-50">Continue</Button>}
           >
@@ -1813,9 +1957,9 @@ export default function Onboarding() {
           );
         })()}
 
-        {/* ── Age + Sex (cutting F.AGE=5 / losing L.AGE=5) ── */}
-        {((step === F.AGE && formData.goal_type === "cutting") || (step === L.AGE && formData.goal_type === "losing")) && (
-          <StepLayout step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="How old are you?" subtitle="We'll use this to dial in your metabolic rate."
+        {/* ── Age + Sex (cutting F.AGE=5 / losing L.AGE=5 / maintain M.AGE=3) ── */}
+        {((step === F.AGE && formData.goal_type === "cutting") || (step === L.AGE && formData.goal_type === "losing") || (step === M.AGE && isMaintainFlow)) && (
+          <StepLayout step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : isMaintainFlow ? MAINTAIN_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="How old are you?" subtitle="We'll use this to dial in your metabolic rate."
             footer={<Button onClick={handleAgeContinue} disabled={ageStatus === "empty"}
               className="no-tap-select w-full h-12 rounded-2xl cta-premium disabled:opacity-50">Continue</Button>}
           >
@@ -1867,9 +2011,9 @@ export default function Onboarding() {
           </StepLayout>
         )}
 
-        {/* ── Height (cutting F.HEIGHT=6 / losing L.HEIGHT=6) ── */}
-        {((step === F.HEIGHT && formData.goal_type === "cutting") || (step === L.HEIGHT && formData.goal_type === "losing")) && (
-          <StepLayout step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="What's your height?" subtitle="Used to calculate your metabolic rate."
+        {/* ── Height (cutting F.HEIGHT=6 / losing L.HEIGHT=6 / maintain M.HEIGHT=4) ── */}
+        {((step === F.HEIGHT && formData.goal_type === "cutting") || (step === L.HEIGHT && formData.goal_type === "losing") || (step === M.HEIGHT && isMaintainFlow)) && (
+          <StepLayout step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : isMaintainFlow ? MAINTAIN_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="What's your height?" subtitle="Used to calculate your metabolic rate."
             footer={<Button onClick={goNext} disabled={!formData.height_cm}
               className="no-tap-select w-full h-12 rounded-2xl cta-premium disabled:opacity-50">Continue</Button>}
           >
@@ -2022,9 +2166,9 @@ export default function Onboarding() {
           </StepLayout>
         )}
 
-        {/* ── Body Fat (shared; cutting F.BODY_FAT=8 / losing L.BODY_FAT=7) ── */}
-        {((step === F.BODY_FAT && isFighterFlow) || (step === L.BODY_FAT && !isFighterFlow)) && (
-          <StepLayout step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="Estimate your body fat" subtitle="Drag the slider. Skip if you're not sure."
+        {/* ── Body Fat (cutting F.BODY_FAT=8 / losing L.BODY_FAT=7 / maintain M.BODY_FAT=6) ── */}
+        {((step === F.BODY_FAT && isFighterFlow) || (step === L.BODY_FAT && !isFighterFlow && !isMaintainFlow) || (step === M.BODY_FAT && isMaintainFlow)) && (
+          <StepLayout step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : isMaintainFlow ? MAINTAIN_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="Estimate your body fat" subtitle="Drag the slider. Skip if you're not sure."
             footer={
               <div className="space-y-2">
                 <Button onClick={goNext} className="no-tap-select w-full h-12 rounded-2xl cta-premium">Continue</Button>
@@ -2091,9 +2235,9 @@ export default function Onboarding() {
           </StepLayout>
         )}
 
-        {/* ── Experience Level (shared; cutting F.EXPERIENCE=9 / losing L.EXPERIENCE=8) ── */}
-        {((step === F.EXPERIENCE && isFighterFlow) || (step === L.EXPERIENCE && !isFighterFlow)) && (
-          <StepLayout step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="What's your experience level?" subtitle="No judgment. We just need to know where you're at."
+        {/* ── Experience Level (cutting F.EXPERIENCE=9 / losing L.EXPERIENCE=8 / maintain M.EXPERIENCE=7) ── */}
+        {((step === F.EXPERIENCE && isFighterFlow) || (step === L.EXPERIENCE && !isFighterFlow && !isMaintainFlow) || (step === M.EXPERIENCE && isMaintainFlow)) && (
+          <StepLayout step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : isMaintainFlow ? MAINTAIN_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="What's your experience level?" subtitle="No judgment. We just need to know where you're at."
             footer={<Button onClick={goNext} disabled={!formData.experience_level}
               className="no-tap-select w-full h-12 rounded-2xl cta-premium disabled:opacity-50">Continue</Button>}
           >
@@ -2110,9 +2254,9 @@ export default function Onboarding() {
           </StepLayout>
         )}
 
-        {/* ── Training Frequency (shared; cutting F.TRAINING_FREQ=10 / losing L.TRAINING_FREQ=9) ── */}
-        {((step === F.TRAINING_FREQ && isFighterFlow) || (step === L.TRAINING_FREQ && !isFighterFlow)) && (
-          <StepLayout step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="How often do you train?" subtitle="All sessions: pads, sparring, gym, running."
+        {/* ── Training Frequency (cutting F.TRAINING_FREQ=10 / losing L.TRAINING_FREQ=9 / maintain M.TRAINING_FREQ=8) ── */}
+        {((step === F.TRAINING_FREQ && isFighterFlow) || (step === L.TRAINING_FREQ && !isFighterFlow && !isMaintainFlow) || (step === M.TRAINING_FREQ && isMaintainFlow)) && (
+          <StepLayout step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : isMaintainFlow ? MAINTAIN_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="How often do you train?" subtitle="All sessions: pads, sparring, gym, running."
             footer={<Button onClick={goNext} disabled={!formData.training_frequency}
               className="no-tap-select w-full h-12 rounded-2xl cta-premium disabled:opacity-50">Continue</Button>}
           >
@@ -2130,13 +2274,13 @@ export default function Onboarding() {
           </StepLayout>
         )}
 
-        {/* ── Adaptive Reminders (cutting F.REMINDERS / losing L.REMINDERS) ──
+        {/* ── Adaptive Reminders (cutting F.REMINDERS / losing L.REMINDERS / maintain M.REMINDERS) ──
             The step body owns its own action buttons (primary + secondary)
             so no StepLayout footer is needed. */}
-        {((step === F.REMINDERS && isFighterFlow) || (step === L.REMINDERS && !isFighterFlow)) && (
+        {((step === F.REMINDERS && isFighterFlow) || (step === L.REMINDERS && !isFighterFlow && !isMaintainFlow) || (step === M.REMINDERS && isMaintainFlow)) && (
           <StepLayout
             step={step}
-            totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS}
+            totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : isMaintainFlow ? MAINTAIN_TOTAL_STEPS : LOSING_TOTAL_STEPS}
             title="Stay on track"
             subtitle="We'll remind you at the times you already log."
           >
@@ -2144,9 +2288,9 @@ export default function Onboarding() {
           </StepLayout>
         )}
 
-        {/* ── Training Types (shared; cutting F.TRAINING_TYPES=13 / losing L.TRAINING_TYPES=12) ── */}
-        {((step === F.TRAINING_TYPES && isFighterFlow) || (step === L.TRAINING_TYPES && !isFighterFlow)) && (
-          <StepLayout step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="What does your training include?" subtitle="Select all that apply."
+        {/* ── Training Types (cutting F.TRAINING_TYPES=12 / losing L.TRAINING_TYPES=11 / maintain M.TRAINING_TYPES=10) ── */}
+        {((step === F.TRAINING_TYPES && isFighterFlow) || (step === L.TRAINING_TYPES && !isFighterFlow && !isMaintainFlow) || (step === M.TRAINING_TYPES && isMaintainFlow)) && (
+          <StepLayout step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : isMaintainFlow ? MAINTAIN_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="What does your training include?" subtitle="Select all that apply."
             footer={<Button onClick={goNext} disabled={formData.training_types.length === 0}
               className="no-tap-select w-full h-12 rounded-2xl cta-premium disabled:opacity-50">Continue</Button>}
           >
@@ -2159,9 +2303,9 @@ export default function Onboarding() {
           </StepLayout>
         )}
 
-        {/* ── Sleep (shared; cutting F.SLEEP=14 / losing L.SLEEP=13) ── */}
-        {((step === F.SLEEP && isFighterFlow) || (step === L.SLEEP && !isFighterFlow)) && (
-          <StepLayout step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="How many hours do you sleep?" subtitle="Recovery is half the game."
+        {/* ── Sleep (cutting F.SLEEP=13 / losing L.SLEEP=12 / maintain M.SLEEP=11) ── */}
+        {((step === F.SLEEP && isFighterFlow) || (step === L.SLEEP && !isFighterFlow && !isMaintainFlow) || (step === M.SLEEP && isMaintainFlow)) && (
+          <StepLayout step={step} totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : isMaintainFlow ? MAINTAIN_TOTAL_STEPS : LOSING_TOTAL_STEPS} title="How many hours do you sleep?" subtitle="Recovery is half the game."
             footer={<Button onClick={goNext} disabled={!formData.sleep_hours}
               className="no-tap-select w-full h-12 rounded-2xl cta-premium disabled:opacity-50">Continue</Button>}
           >
@@ -2229,16 +2373,16 @@ export default function Onboarding() {
           </StepLayout>
         )}
 
-        {/* ── Screen 15: Display name ──
+        {/* ── Display name (cutting F.NAME=15 / losing L.NAME=14 / maintain M.NAME=12) ──
             Captures the public-facing name the gym sees. Trimmed length
             2–30. Persists via UserContext.setUserName (Convex
             `profiles.setUserName` mutation) so the dashboard, coach view,
             and camp roster all see a real name from day one. Skipping is
             blocked (Continue disabled until valid). */}
-        {((step === F.NAME && isFighterFlow) || (step === L.NAME && !isFighterFlow)) && (
+        {((step === F.NAME && isFighterFlow) || (step === L.NAME && !isFighterFlow && !isMaintainFlow) || (step === M.NAME && isMaintainFlow)) && (
           <StepLayout
             step={step}
-            totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : LOSING_TOTAL_STEPS}
+            totalSteps={isFighterFlow ? FIGHTER_TOTAL_STEPS : isMaintainFlow ? MAINTAIN_TOTAL_STEPS : LOSING_TOTAL_STEPS}
             title="What should we call you?"
             subtitle="Your gym sees this name. Real name, nickname, fight name: your call."
             footer={
@@ -2276,6 +2420,23 @@ export default function Onboarding() {
                 {formData.display_name.trim().length}/30
               </p>
             </div>
+          </StepLayout>
+        )}
+
+        {/* ── M.FINAL=13: Maintenance fuel summary (maintain flow only) ── */}
+        {step === M.FINAL && isMaintainFlow && (
+          <StepLayout
+            step={step}
+            totalSteps={MAINTAIN_TOTAL_STEPS}
+            title="Your daily fuel"
+            subtitle="Here's what your body needs to hold your weight."
+          >
+            <MaintenanceFuelSummary
+              displayName={formData.display_name || userName || ""}
+              calories={maintenanceFuel.calories}
+              weightKg={Number(formData.current_weight_kg)}
+              onContinue={handleMaintainContinue}
+            />
           </StepLayout>
         )}
 
@@ -2587,6 +2748,27 @@ export default function Onboarding() {
         fightSubStep={fightSubStep}
         hidden={daysSlamArmed || weightSlamArmed}
       />
+
+      {/* ── Maintain flow: post-onboarding soft paywall ── */}
+      {showMaintainPaywall && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-background">
+          <ProUpsellScreen
+            source="maintenance_fuel"
+            title="Unlock the full app"
+            blurb="Your fuel target is set. Go Pro to unlock diet analysis, AI coaching, and weekly insights."
+            perks={[
+              "Unlimited meal and diet analysis",
+              "AI cornerman chat, anytime",
+              "Weekly training and recovery insights",
+              "Full performance tracking",
+            ]}
+            upgradeLabel="Unlock Pro"
+            dismissLabel="Continue with free"
+            onUpgrade={() => { setStayOnOnboarding(false); openPaywall(); }}
+            onDismiss={() => { setStayOnOnboarding(false); navigate("/dashboard"); }}
+          />
+        </div>
+      )}
     </div>
   );
 }

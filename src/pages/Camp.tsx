@@ -137,8 +137,8 @@ export default function Camp() {
   // subscription state has resolved, so paid users never flash the lock.
   const recoveryLocked =
     isSubscriptionResolved && !checkFeatureAccess("RECOVERY");
-  const goalType = (profile?.goal_type as "cutting" | "losing") ?? "cutting";
-  const fighter = isFighter(goalType);
+  const goalType = (profile?.goal_type as "cutting" | "losing" | "maintaining") ?? "cutting";
+  const fighter = isFighter(goalType) && goalType !== "maintaining";
 
   // Goal weight still gates the camp progress source (days-left / pace math).
   const goalWeightKg =

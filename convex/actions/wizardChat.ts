@@ -18,14 +18,14 @@ function buildDataContext(r: any): string {
   const today = new Date().toISOString().slice(0, 10);
   const p = r.profile;
   if (p) {
-    const daysLeft = Math.ceil(
-      (new Date(p.target_date).getTime() - Date.now()) / 86400000,
-    );
+    const daysLeft = p.target_date
+      ? Math.ceil((new Date(p.target_date).getTime() - Date.now()) / 86400000)
+      : null;
     const macros = p.ai_recommended_protein_g
       ? `P${p.ai_recommended_protein_g}/C${p.ai_recommended_carbs_g}/F${p.ai_recommended_fats_g}`
       : "not set";
     sections.push(
-      `PROFILE: ${p.current_weight_kg}kg -> ${p.goal_weight_kg}kg, target ${p.target_date} (${daysLeft} days), ${p.sex}, age ${p.age}, ${p.height_cm}cm, activity ${p.activity_level}, TDEE ${p.tdee ?? "unknown"}, macros ${macros}`,
+      `PROFILE: ${p.current_weight_kg}kg -> ${p.goal_weight_kg}kg, target ${p.target_date || "none"}${daysLeft != null ? ` (${daysLeft} days)` : ""}, ${p.sex}, age ${p.age}, ${p.height_cm}cm, activity ${p.activity_level}, TDEE ${p.tdee ?? "unknown"}, macros ${macros}`,
     );
   }
   if (r.weightLogs?.length) {

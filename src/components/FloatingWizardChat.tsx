@@ -146,9 +146,15 @@ export function FloatingWizardChat() {
   const cockpitData = cockpit ?? null;
 
   // Proactive speech bubble off the orb (chat closed) — surfaces the coach's
-  // current read (red flag / priority action / greeting) as a tutorial-style
-  // nudge to tap the orb. Position follows the orb's snapped edge via `fabPos`.
-  const briefing = useQuery(api.coachBriefing.getBriefing, userId ? {} : "skip");
+  // current read (safety nudge / priority action / greeting) to entice a tap.
+  // Position follows the orb's snapped edge via `fabPos`. PRO ONLY: the coach
+  // never speaks to free users, so we skip the query entirely for them (their
+  // device never fetches a briefing). Free users still see a tappable orb that
+  // opens the Pro gate.
+  const briefing = useQuery(
+    api.coachBriefing.getBriefing,
+    userId && hasAccess ? {} : "skip",
+  );
   const bubbleText = useMemo(() => {
     const raw = briefing ? briefing.redFlag || briefing.priorityAction || briefing.greeting : null;
     if (!raw) return null;
@@ -156,13 +162,10 @@ export function FloatingWizardChat() {
     const cleaned = raw.replace(/\s*[—–]\s*/g, ", ").trim();
     return cleaned.length > 130 ? `${cleaned.slice(0, 127)}...` : cleaned;
   }, [briefing]);
-  // Tier drives the bubble's accent; action is the context-aware CTA (or null
-  // for a bare greeting → "Chat").
-  const bubbleTier: "redFlag" | "priority" | "greeting" = briefing?.redFlag
-    ? "redFlag"
-    : briefing?.priorityAction
-      ? "priority"
-      : "greeting";
+  // The bubble looks identical for every state (calm, no red). We still flag a
+  // safety read so the anti-annoyance engine surfaces it more readily — but it
+  // is styled exactly like any other nudge.
+  const bubbleIsUrgent = briefing?.redFlag != null;
   const bubbleAction = briefing?.action ?? null;
   const [fabPos, setFabPos] = useState<{ x: number; y: number } | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -250,7 +253,7 @@ export function FloatingWizardChat() {
     bubbleDecidedRef.current = true;
     const hash = hashText(bubbleText);
     bubbleHashRef.current = hash;
-    if (canShowBubble(hash, bubbleTier === "redFlag")) {
+    if (canShowBubble(hash, bubbleIsUrgent)) {
       setBubbleVisible(true);
       recordBubbleShown();
       autoCollapseRef.current = window.setTimeout(() => {
@@ -258,7 +261,7 @@ export function FloatingWizardChat() {
         recordBubbleOutcome(hash, "ignore");
       }, BUBBLE_AUTO_COLLAPSE_MS);
     }
-  }, [bubbleReady, bubbleText, bubbleTier]);
+  }, [bubbleReady, bubbleText, bubbleIsUrgent]);
 
   // Keep the bubble anchored to the orb across viewport changes (rotate/resize).
   useEffect(() => {
@@ -518,7 +521,7 @@ export function FloatingWizardChat() {
           "speaks" the coach's current read to entice a tap. Positioned above
           the orb, tail pointing to whichever edge it snapped to. Suppressed
           while the onboarding tour prompt is showing. */}
-      {!open && !onboardingPromptVisible && bubbleVisible && !dragging && bubbleText && fabPos && (() => {
+      {!open && hasAccess && !onboardingPromptVisible && bubbleVisible && !dragging && bubbleText && fabPos && (() => {
         const side: "left" | "right" =
           fabPos.x + FAB_SIZE / 2 > window.innerWidth / 2 ? "right" : "left";
         // Horizontal: anchor to the orb's edge so the bubble grows INTO the
@@ -540,7 +543,6 @@ export function FloatingWizardChat() {
           >
             <CoachSpeechBubble
               text={bubbleText}
-              tier={bubbleTier}
               action={bubbleAction}
               side={side}
               placement={placeBelow ? "below" : "above"}

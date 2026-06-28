@@ -208,7 +208,7 @@ export default function WeightTracker() {
     }));
 
     const planWeeklyLoss = getPlanWeeklyLoss();
-    if (analysisPlan && planWeeklyLoss > 0 && filteredLogs.length > 0) {
+    if (analysisPlan && planWeeklyLoss > 0 && filteredLogs.length > 0 && profile.target_date) {
       const lastLog = filteredLogs[filteredLogs.length - 1];
       const lastWeight = lastLog.weight_kg;
       const lastDate = new Date(lastLog.date);
@@ -271,6 +271,9 @@ export default function WeightTracker() {
     const target = profile.fight_week_target_kg || profile.goal_weight_kg;
     if (!target) {
       return { message: "Please set a target weight in Goals to see insights.", icon: Target, color: "text-muted-foreground" };
+    }
+    if (!profile.target_date) {
+      return { message: "Set a target date in Goals to see deadline insights.", icon: Target, color: "text-muted-foreground" };
     }
     const targetDate = new Date(profile.target_date);
     const today = new Date();
@@ -618,7 +621,7 @@ export default function WeightTracker() {
             currentWeight={getCurrentWeight()}
             targetWeight={profile.fight_week_target_kg || profile.goal_weight_kg}
             targetDate={profile.target_date}
-            isCutting={isFighter(profile.goal_type) || (profile.goal_weight_kg ?? Infinity) < getCurrentWeight()}
+            isCutting={(isFighter(profile.goal_type) && profile.goal_type !== "maintaining") || (profile.goal_weight_kg ?? Infinity) < getCurrentWeight()}
           />
         )}
 

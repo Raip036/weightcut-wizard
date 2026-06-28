@@ -35,7 +35,7 @@ export default defineSchema({
     heightCm: v.number(),
     currentWeightKg: v.number(),
     goalWeightKg: v.number(),
-    targetDate: v.string(), // ISO YYYY-MM-DD
+    targetDate: v.optional(v.string()), // ISO YYYY-MM-DD; absent for maintenance users
     activityLevel: v.string(),
     goalType: v.string(),
     // CHECK ('fighter','coach'); kept as union for safety

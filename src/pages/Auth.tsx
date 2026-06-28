@@ -13,7 +13,7 @@ import wizardLogo from "@/assets/wizard-logo-3d.png";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ChevronLeft, Mail, Lock, Eye, EyeOff, Swords } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
-import { isIOS, isAndroid, googleWebClientId } from "@/lib/platform";
+import { isIOS, isAndroid, isNative, googleWebClientId } from "@/lib/platform";
 import { motion, AnimatePresence } from "motion/react";
 import { logger } from "@/lib/logger";
 import { useScrollIntoViewOnFocus } from "@/hooks/useScrollIntoViewOnFocus";
@@ -512,9 +512,12 @@ export default function Auth() {
               <>
                 {/* Apple Sign-In, primary CTA, sits above the email form
                     so the lowest-friction path is the first thing the
-                    user sees. iOS-native black-pill styling. iOS ONLY —
-                    Android gets the Google button below instead. */}
-                {isIOS() && (
+                    user sees. iOS-native black-pill styling. Shown on iOS
+                    (native plugin flow) AND on web/dev (handleAppleSignIn
+                    falls back to the redirect flow), so it stays visible in
+                    the browser/simulator. Android gets the Google button
+                    below instead. */}
+                {(isIOS() || !isNative()) && (
                   <button
                     type="button"
                     onClick={handleAppleSignIn}

@@ -84,6 +84,7 @@ const FoodGradeInfoLab = lazy(() => import("./pages/FoodGradeInfoLab"));
 const GalleryLab = lazy(() => import("./pages/GalleryLab"));
 const WidgetLab = lazy(() => import("./pages/WidgetLab"));
 const MealAnalysisLab = lazy(() => import("./pages/MealAnalysisLab"));
+const ChartLab = lazy(() => import("./pages/ChartLab"));
 
 // Prioritized idle preloading — critical routes first, rest deferred
 const _idle = window.requestIdleCallback || ((cb: IdleRequestCallback) => setTimeout(cb, 50));
@@ -427,6 +428,8 @@ const App = () => (
                 <Route path="/widget-lab" element={<Suspense fallback={<DashboardSkeleton />}><WidgetLab /></Suspense>} />
                 {/* THROWAWAY mock lab — Detected-foods list condense. Delete after sign-off. */}
                 <Route path="/meal-analysis-lab" element={<Suspense fallback={<DashboardSkeleton />}><MealAnalysisLab /></Suspense>} />
+                {/* THROWAWAY mock lab — BUILD-widget line chart redesign. Delete after sign-off. */}
+                <Route path="/chart-lab" element={<Suspense fallback={<DashboardSkeleton />}><ChartLab /></Suspense>} />
                 <Route path="/onboarding" element={
                   <ProtectedRoute>
                     <Onboarding />

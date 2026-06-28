@@ -51,6 +51,7 @@ import { NextCampFlow } from "@/components/fightcamp/NextCampFlow";
 import { CampLimitProGate } from "@/components/fightcamp/CampLimitProGate";
 import { StartCampAuroraCta } from "@/components/fightcamp/StartCampAuroraCta";
 import { useSubscription } from "@/hooks/useSubscription";
+import { ProUpsellScreen } from "@/components/subscription/ProUpsellScreen";
 import { PostFightDebrief } from "@/components/fightcamp/PostFightDebrief";
 import { isFighter } from "@/lib/goalType";
 import { track, EVENTS } from "@/lib/analytics";
@@ -163,8 +164,12 @@ export default function Dashboard() {
   // Free-tier gate: creating any camp beyond the onboarding one is Pro. We
   // check upfront so free users see the aurora upsell (the conversion moment)
   // instead of bouncing off the server's PRO_FEATURE_REQUIRED error.
-  const { checkFeatureAccess } = useSubscription();
+  const { checkFeatureAccess, isPremium, isSubscriptionResolved, openPaywall } = useSubscription();
   const [campGateOpen, setCampGateOpen] = useState(false);
+  // Dashboard-mount fallback soft-paywall for maintenance users whose
+  // subscription state was not yet resolved when they exited the fuel summary.
+  const [showFallbackPaywall, setShowFallbackPaywall] = useState(false);
+  const markOnboardingPaywallShown = useMutation(api.profiles.markOnboardingPaywallShown);
   const guardCreate = (action: () => void) => {
     if (checkFeatureAccess("MULTIPLE_FIGHT_CAMPS")) action();
     else setCampGateOpen(true);
@@ -172,6 +177,29 @@ export default function Dashboard() {
   const [profileSheetOpen, setProfileSheetOpen] = useState(false);
   // Win-moment review card: armed by a camp wrap-up, shown after a dashboard load.
   const [showReviewCard, setShowReviewCard] = useState(false);
+
+  // Fallback soft-paywall for maintenance users who reached the dashboard
+  // without having seen the paywall (subscription state was unresolved at
+  // fuel-summary exit). markOnboardingPaywallShown is compare-and-set and
+  // returns { firstTime } so this never double-shows when the summary-exit
+  // path already stamped the flag.
+  const paywallFiredRef = useRef(false);
+  useEffect(() => {
+    if (!isSubscriptionResolved || !profile) return;
+    const eligible =
+      profile.goal_type === "maintaining" &&
+      !isPremium &&
+      !profile.onboarding_paywall_shown_at;
+    if (!eligible) return;
+    if (paywallFiredRef.current) return;
+    paywallFiredRef.current = true;
+    let cancelled = false;
+    markOnboardingPaywallShown({}).then((res) => {
+      if (!cancelled && res?.firstTime) setShowFallbackPaywall(true);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [isSubscriptionResolved, isPremium, profile, markOnboardingPaywallShown]);
+
   // Active camp drives the post-fight "wrap up + start next camp" banner.
   // Skip the query while userId is unresolved to avoid an extra round trip.
   const activeCamp = useQuery(api.fight_camp.getActiveCamp, userId ? {} : "skip");
@@ -1020,49 +1048,9 @@ export default function Dashboard() {
               calibration={ffCalibration ?? null}
               onHeadlineTap={() => setScoreSheetOpen(true)}
             />
-            {/* Calibration countdown — slim cyan card sitting under the ring
-                while the score is still being calibrated. Pairs the day
-                countdown with what unlocks at completion so the wait feels
-                purposeful. Hidden once the engine flips state to "ok". */}
-            {ffScore.state === "calibrating"
-              && ffCalibration
-              && !ffCalibration.unlocked
-              && (() => {
-                const remaining = Math.max(0, ffCalibration.daysNeeded - ffCalibration.daysWithAnyLog);
-                const pct = Math.min(100, Math.round((ffCalibration.daysWithAnyLog / Math.max(1, ffCalibration.daysNeeded)) * 100));
-                return (
-                  <div className="mt-3 w-full max-w-sm rounded-2xl border border-sky-400/20 bg-sky-400/[0.05] px-4 py-3 flex flex-col justify-center">
-                    <div className="flex items-center gap-3">
-                      <div className="flex flex-col items-center justify-center min-w-[42px]">
-                        <span className="text-2xl font-bold text-sky-300 leading-none tabular-nums">
-                          {remaining === 0 ? "-" : remaining}
-                        </span>
-                        <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-sky-300/70 mt-1">
-                          {remaining === 1 ? "day" : "days"}
-                        </span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[12px] font-semibold text-foreground leading-tight">
-                          {remaining === 0
-                            ? "Computing your first score…"
-                            : remaining === 1
-                              ? "One more day until your score"
-                              : "Until your Fight Form Score"}
-                        </p>
-                        <p className="text-[9.5px] text-muted-foreground leading-snug mt-1 whitespace-nowrap">
-                          Unlocks score, top driver &amp; weight-cut pacing
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mt-2.5 h-1 rounded-full bg-sky-400/10 overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-sky-400/70 transition-all duration-700"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })()}
+            {/* Calibration countdown card removed: the hero ring already
+                surfaces the day count while the score is calibrating, so a
+                separate countdown card was redundant. */}
             {(ffScore.state === "ok" || ffScore.state === "stale") && (() => {
               const SUBSCORE_HUMAN_DASH: Record<string, string> = {
                 trainingLoad: "training load",
@@ -1677,6 +1665,25 @@ export default function Dashboard() {
         onComplete={() => { sessionStorage.setItem(`wcw_questionnaire_dismissed_${todayStr}`, '1'); setWisdomSheetOpen(true); }}
       />
 
+      {showFallbackPaywall && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-background">
+          <ProUpsellScreen
+            source="maintenance_fuel_fallback"
+            title="Unlock the full app"
+            blurb="Your fuel target is set. Go Pro to unlock diet analysis, AI coaching, and weekly insights."
+            perks={[
+              "Unlimited meal and diet analysis",
+              "AI cornerman chat, anytime",
+              "Weekly training and recovery insights",
+              "Full performance tracking",
+            ]}
+            upgradeLabel="Unlock Pro"
+            dismissLabel="Continue with free"
+            onUpgrade={() => { openPaywall(); setShowFallbackPaywall(false); }}
+            onDismiss={() => setShowFallbackPaywall(false)}
+          />
+        </div>
+      )}
 
     </ErrorBoundary>
   );

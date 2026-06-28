@@ -91,6 +91,26 @@ export function macroCycle(
   };
 }
 
+/**
+ * Canonical maintenance daily target for the "Train & track" onboarding path.
+ * Calories = rounded TDEE (no deficit). Macros = the medium training day from
+ * macroCycle, used as the single stored ai_recommended_* target. DailyFuelCard
+ * recomputes the Hard/Medium/Rest cycle live from calories + weight.
+ */
+export function maintenanceMacros(
+  tdeeKcal: number,
+  weightKg: number,
+): { calories: number; protein_g: number; carbs_g: number; fats_g: number } {
+  const calories = Math.round(tdeeKcal);
+  const m = macroCycle(calories, weightKg).medium;
+  return {
+    calories,
+    protein_g: m.protein_g,
+    carbs_g: m.carb_g,
+    fats_g: m.fat_g,
+  };
+}
+
 export function macroSplit(
   kcal: number,
   weightKg: number,

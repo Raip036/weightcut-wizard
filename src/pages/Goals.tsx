@@ -9,6 +9,7 @@ import { AlertTriangle, Check, ChevronRight, Settings as SettingsIcon, LogOut } 
 import { ImpactStyle } from "@capacitor/haptics";
 import { motion, AnimatePresence } from "motion/react";
 import { profileSchema } from "@/lib/validation";
+import { maintenanceMacros } from "@/../convex/_shared/math";
 import { useUser, useAuth } from "@/contexts/UserContext";
 import { celebrateSuccess, triggerHaptic, triggerHapticSelection } from "@/lib/haptics";
 import { GoalsSkeleton } from "@/components/ui/skeleton-loader";
@@ -222,12 +223,38 @@ export default function Goals() {
     try {
       const bmr = calculateBMR(next);
       const tdee = bmr * (ACTIVITY_MULTIPLIERS[next.activity_level as keyof typeof ACTIVITY_MULTIPLIERS] ?? 1.55);
+
+      // Recompute maintenance macros when the user is in "maintaining" mode and
+      // has not manually overridden their nutrition targets. For maintainers the
+      // goal weight equals the current weight (no phantom deficit).
+      const isMaintaining = next.goal_type === "maintaining";
+      const currentWeightNum = parseFloat(next.current_weight_kg);
+      let maintenanceFuelPayload: {
+        aiRecommendedCalories: number;
+        aiRecommendedProteinG: number;
+        aiRecommendedCarbsG: number;
+        aiRecommendedFatsG: number;
+        aiRecommendationsUpdatedAt: number;
+      } | undefined;
+      if (isMaintaining && !contextProfile?.manual_nutrition_override) {
+        const fuel = maintenanceMacros(Math.round(tdee), currentWeightNum);
+        maintenanceFuelPayload = {
+          aiRecommendedCalories: fuel.calories,
+          aiRecommendedProteinG: fuel.protein_g,
+          aiRecommendedCarbsG: fuel.carbs_g,
+          aiRecommendedFatsG: fuel.fats_g,
+          aiRecommendationsUpdatedAt: Date.now(),
+        };
+      }
+
       await updateGoals({
         age: parseInt(next.age),
         sex: next.sex,
         heightCm: parseFloat(next.height_cm),
-        currentWeightKg: parseFloat(next.current_weight_kg),
-        goalWeightKg: parseFloat(next.goal_weight_kg),
+        currentWeightKg: currentWeightNum,
+        // For maintaining users force goal weight = current weight so no
+        // phantom calorie deficit creeps into downstream calculations.
+        goalWeightKg: isMaintaining ? currentWeightNum : parseFloat(next.goal_weight_kg),
         fightWeekTargetKg: next.goal_type === "cutting" ? parseFloat(next.fight_week_target_kg) : undefined,
         targetDate: next.target_date,
         activityLevel: next.activity_level,
@@ -242,6 +269,7 @@ export default function Goals() {
         primaryStruggle: next.primary_struggle || undefined,
         planAggressiveness: next.plan_aggressiveness || undefined,
         bodyFatPct: next.body_fat_pct ? parseFloat(next.body_fat_pct) : undefined,
+        ...maintenanceFuelPayload,
       });
 
       // Mirror target_date → active camp.fightDate so the dashboard / camp
@@ -260,7 +288,7 @@ export default function Goals() {
     } catch (error: any) {
       toast({ variant: "destructive", title: "Save failed", description: error.message });
     }
-  }, [formData, userId, updateGoals, updateCampMut, activeCamp, refreshProfile, toast]);
+  }, [formData, userId, contextProfile, updateGoals, updateCampMut, activeCamp, refreshProfile, toast]);
 
   if (loading) return <GoalsSkeleton />;
 

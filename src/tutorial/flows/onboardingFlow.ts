@@ -97,6 +97,7 @@ export const onboardingFlow: TutorialFlow = {
       wizardAnchor: "top",
       bubbleFirst: true,
       wizardSide: "right",
+      condition: (state) => state.goalType !== "maintaining",
     },
 
     // ─── Section 2: Camp ───────────────────────────────────────────────
@@ -119,6 +120,7 @@ export const onboardingFlow: TutorialFlow = {
       spotlightShape: "rect",
       wizardAnchor: "top",
       wizardPose: "point",
+      condition: (state) => state.goalType !== "maintaining",
     },
     {
       id: "camp-gym-tracker",

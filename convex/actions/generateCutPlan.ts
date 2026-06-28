@@ -59,6 +59,7 @@ export const run = action({
     ),
   },
   handler: async (ctx, args) => {
+    if (!args.targetDate) throw new Error("targetDate required for plan generation");
     const userId = await requireUserIdFromAction(ctx);
     // Gate: explicit onboarding → free (AI_ONBOARDING_PLAN); anything else →
     // Pro (AI_CUT_PLAN). Fail-closed so a new call site can't accidentally

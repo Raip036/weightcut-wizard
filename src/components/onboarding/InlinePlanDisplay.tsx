@@ -277,7 +277,7 @@ const DAY_TABS: {
   { key: "rest", label: "Rest", Icon: Moon },
 ];
 
-function DailyFuelCard({
+export function DailyFuelCard({
   maintenance,
   deficit,
   target,
