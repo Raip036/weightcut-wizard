@@ -6,10 +6,11 @@ import { triggerHapticSelection } from "@/lib/haptics";
  * Onboarding speech bubble that pops out of the floating AI coach orb to ask a
  * brand-new user whether they want a quick guided tour of the app.
  *
- * Visually mirrors {@link CoachSpeechBubble}: same card shell, tier dot +
- * "COACH" header, animated spring entry with a gentle attention bob, a tail that
- * points toward the orb (driven by `side` + `placement`), and reduced-motion
- * fallback to a simple opacity fade.
+ * Visually mirrors {@link CoachSpeechBubble}: same card shell, animated spring
+ * entry with a gentle attention bob, a tail that points toward the orb (driven
+ * by `side` + `placement`), and reduced-motion fallback to a simple opacity
+ * fade. The dot + "COACH" eyebrow was removed (the orb already signals it's the
+ * coach).
  *
  * Presentational only: positioning + visibility are owned by the caller.
  * `side` points the tail horizontally toward the orb; `placement` flips the
@@ -73,14 +74,6 @@ export function TutorialPromptBubble({
       <div
         className={`rounded-2xl border ${ring} bg-card/90 backdrop-blur-xl px-3.5 py-3 shadow-[0_8px_24px_rgba(0,0,0,0.45)]`}
       >
-        {/* Header — greeting-tier dot + COACH label. */}
-        <span className="flex items-center gap-1.5 mb-1">
-          <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
-          <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-            Coach
-          </span>
-        </span>
-
         <p className="text-[13px] leading-snug text-foreground">
           New here? Want a quick tour?
         </p>
