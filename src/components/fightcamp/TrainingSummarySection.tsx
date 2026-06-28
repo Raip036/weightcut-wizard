@@ -312,16 +312,10 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
         });
 
         try {
-            // Only send sessions not already summarized (new entries since last summary)
-            const alreadySummarized = new Set(selectedSummary?.session_ids || []);
-            const sessionsToSend = sessionsWithNotes.filter(s => !alreadySummarized.has(s.id));
-            // If no new sessions, nothing to do (shouldn't happen since fingerprint would match)
-            if (sessionsToSend.length === 0) { setIsLoading(false); return; }
-
-            // The trainingSummary action only takes a weekStart. The session
-            // payload is server-side; we keep `sessionsToSend` to guard the
-            // fingerprint logic above.
-            void sessionsToSend;
+            // Incrementality is fully server-side now: the action reuses cached
+            // takeaways for unchanged sessions and only calls the LLM for new or
+            // edited ones (convex/actions/trainingSummary.ts). The client just
+            // triggers it for the current week.
             let data: any;
             try {
                 data = await trainingSummaryAction({ weekStart: calendarWeekStart });

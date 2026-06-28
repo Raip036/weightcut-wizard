@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, subMonths, addMonths, subDays, startOfWeek, isToday as isDateToday, isYesterday as isDateYesterday, getISOWeek } from "date-fns";
-import { ChevronLeft, ChevronRight, Plus, BookOpen, Images, CalendarDays } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Images, CalendarDays } from "lucide-react";
 import { motion } from "motion/react";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger, SheetHeader } from "@/components/ui/sheet";
 import { useKeyboardAware } from "@/hooks/useKeyboardAware";
@@ -34,7 +34,6 @@ import { triggerHapticSelection, confirmDelete } from "@/lib/haptics";
 import { ShareButton } from "@/components/share/ShareButton";
 import { ShareCardDialog } from "@/components/share/ShareCardDialog";
 import { TrainingCalendarCard } from "@/components/share/cards/TrainingCalendarCard";
-import { CoachingLibrarySheet } from "@/components/fightcamp/CoachingLibrarySheet";
 import { logger } from "@/lib/logger";
 import { track, EVENTS } from "@/lib/analytics";
 import { getUserColors, setUserColor } from "@/lib/sessionColors";
@@ -202,7 +201,6 @@ export default function TrainingCalendar() {
     const [viewingSession, setViewingSession] = useState<TrainingCalendarRow | null>(null);
     const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
     // Coaching library state
-    const [libraryOpen, setLibraryOpen] = useState(false);
     const [monthSheetOpen, setMonthSheetOpen] = useState(false);
 
     const DISPLAY_TTL = 24 * 60 * 60 * 1000; // 24h — show stale cache instantly, refresh in background
@@ -1092,15 +1090,6 @@ export default function TrainingCalendar() {
                         >
                             <Images className="h-4 w-4" />
                         </Button>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => { triggerHapticSelection(); setLibraryOpen(true); }}
-                            aria-label="Open coaching library"
-                            className="rounded-full h-9 w-9"
-                        >
-                            <BookOpen className="h-4 w-4" />
-                        </Button>
                         {sessions.length > 0 && <ShareButton onClick={() => setShareOpen(true)} />}
                     </div>
                 </div>
@@ -1356,13 +1345,6 @@ export default function TrainingCalendar() {
                             </div>
                         </SheetContent>
                     </Sheet>
-
-            {/* Coaching Library Sheet */}
-            <CoachingLibrarySheet
-                userId={userId}
-                open={libraryOpen}
-                onOpenChange={setLibraryOpen}
-            />
 
             {/* Session Detail Drawer */}
             <SessionDetailDrawer

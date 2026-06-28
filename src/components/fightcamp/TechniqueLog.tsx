@@ -11,6 +11,7 @@ type TechniqueRow = {
     technique: string;
     cue?: string;
     detail: string;
+    steps?: string[];
     timesLogged: number;
 };
 
@@ -117,6 +118,21 @@ export function TechniqueLog() {
                                     <p className="relative mt-1 text-note text-muted-foreground leading-relaxed">
                                         {t.detail}
                                     </p>
+                                    {t.steps && t.steps.length > 0 && (
+                                        <ol className="relative mt-2 space-y-1">
+                                            {t.steps.map((step, si) => (
+                                                <li
+                                                    key={si}
+                                                    className="flex gap-2 text-note text-muted-foreground leading-snug"
+                                                >
+                                                    <span className="shrink-0 tabular-nums font-semibold text-foreground/70">
+                                                        {si + 1}.
+                                                    </span>
+                                                    <span>{step}</span>
+                                                </li>
+                                            ))}
+                                        </ol>
+                                    )}
                                 </li>
                             ))}
                         </ul>

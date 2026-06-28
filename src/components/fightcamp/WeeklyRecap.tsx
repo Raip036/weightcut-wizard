@@ -5,6 +5,7 @@ export type RecapTakeaway = {
     technique: string;
     cue?: string;
     detail: string;
+    steps?: string[];
     sourceSessionDate?: string;
 };
 
@@ -91,9 +92,26 @@ export function WeeklyRecap({
                                 </p>
 
                                 {/* Detail — quiet supporting note */}
-                                <p className="mt-1 text-note text-muted-foreground leading-relaxed line-clamp-3">
+                                <p className="mt-1 text-note text-muted-foreground leading-relaxed">
                                     {cleanText(t.detail)}
                                 </p>
+
+                                {/* Steps — always-visible numbered list */}
+                                {t.steps && t.steps.length > 0 && (
+                                    <ol className="mt-2 space-y-1">
+                                        {t.steps.map((step, si) => (
+                                            <li
+                                                key={si}
+                                                className="flex gap-2 text-note text-muted-foreground leading-snug"
+                                            >
+                                                <span className="shrink-0 tabular-nums font-semibold text-foreground/70">
+                                                    {si + 1}.
+                                                </span>
+                                                <span>{cleanText(step)}</span>
+                                            </li>
+                                        ))}
+                                    </ol>
+                                )}
                             </li>
                         );
                     })}

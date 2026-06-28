@@ -43,6 +43,17 @@ import type { QuickAddDialogProps } from "./quickAdd/types";
 
 type SheetMode = "ai-input" | "caption" | "scanning" | "thinking" | "confirm" | "macros" | "manual";
 
+// Rotating placeholder examples that teach the natural-language affordance:
+// just describe a meal in plain words and the AI returns the macros.
+const MEAL_EXAMPLES = [
+  "2 eggs, sourdough toast & black coffee",
+  "Chicken burrito bowl with rice",
+  "Protein shake and a banana",
+  "Grilled salmon, sweet potato, broccoli",
+  "2 slices of pepperoni pizza",
+  "Greek yogurt with berries and honey",
+];
+
 export function QuickAddDialog({
   open,
   onOpenChange,
@@ -375,6 +386,20 @@ export function QuickAddDialog({
                   />
                 )}
 
+                {/* Parallel micro-caption — frames the text field as the second
+                    AI path (mirrors the photo card's "Our AI reads the plate").
+                    Hidden once a photo is staged, where the field is just for
+                    optional extra detail. */}
+                {!aiMeal.photoBase64 && (
+                  <div className="flex items-center gap-3" aria-hidden>
+                    <span className="h-px flex-1 bg-border/40" />
+                    <span className="text-[10px] uppercase tracking-[0.14em] font-semibold text-muted-foreground/55">
+                      or describe it
+                    </span>
+                    <span className="h-px flex-1 bg-border/40" />
+                  </div>
+                )}
+
                 <DescribeRow
                   ref={inputRef}
                   value={aiMeal.aiMealDescription}
@@ -386,6 +411,7 @@ export function QuickAddDialog({
                   interimText={interimText}
                   onMicTap={handleVoiceToggle}
                   onFocus={handleInputFocus}
+                  examples={aiMeal.photoBase64 ? undefined : MEAL_EXAMPLES}
                   placeholder={
                     aiMeal.photoBase64
                       ? "Add details (optional) - e.g. 1 cup brown rice"
@@ -449,16 +475,17 @@ export function QuickAddDialog({
                   </button>
                 )}
 
-                {/* Small "Or log manually →" link. Mid-bottom, low-emphasis
-                    so it doesn't compete with Analyze. */}
+                {/* Manual fallback — a comfortable, tappable pill that stays
+                    low-emphasis (muted, no primary fill) so it doesn't compete
+                    with Analyze, but is far easier to hit than a tiny link. */}
                 <div className="flex justify-center pt-1">
                   <button
                     type="button"
                     onClick={handleManualSwap}
-                    className="inline-flex items-center gap-1 text-[12px] font-semibold text-primary/80 active:text-primary px-2 py-1 rounded-md transition-colors"
+                    className="inline-flex items-center gap-1.5 h-10 px-4 rounded-full text-[13px] font-semibold text-muted-foreground/90 bg-muted/30 active:bg-muted/50 transition-colors"
                   >
-                    Or log manually
-                    <Icon name="arrowForwardOutline" size={11} />
+                    <Icon name="createOutline" size={15} />
+                    Enter macros manually
                   </button>
                 </div>
               </motion.div>

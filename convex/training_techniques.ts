@@ -20,6 +20,7 @@ const takeawayValidator = v.object({
   technique: v.string(),
   cue: v.optional(v.string()),
   detail: v.string(),
+  steps: v.optional(v.array(v.string())),
   sourceSessionDate: v.optional(v.string()),
 });
 
@@ -96,6 +97,7 @@ export const upsertFromDebrief = internalMutation({
           firstSeenWeek: sorted[0],
           lastSeenWeek: sorted[sorted.length - 1],
           detail: tk.detail,
+          steps: tk.steps ?? existing.steps,
           cue: tk.cue ?? existing.cue,
           sourceSessionDate: tk.sourceSessionDate ?? existing.sourceSessionDate,
           updatedAt: now,
@@ -108,6 +110,7 @@ export const upsertFromDebrief = internalMutation({
           techniqueNormalized: key,
           cue: tk.cue,
           detail: tk.detail,
+          steps: tk.steps,
           sourceSessionDate: tk.sourceSessionDate,
           timesLogged: 1,
           firstSeenWeek: weekStart,

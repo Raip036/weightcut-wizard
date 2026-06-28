@@ -843,6 +843,12 @@ export default defineSchema({
     notesFingerprint: v.string(),
     summaryData: v.any(),
     extractedTechniques: v.optional(v.array(v.string())),
+    // Server-only per-session takeaway cache for incremental generation. Array
+    // of { sessionId, fingerprint, takeaways[] }; lets a re-run reuse unchanged
+    // sessions and only call the LLM for new/edited ones. Stripped from the
+    // client query so it never ships to the device. See
+    // convex/actions/trainingSummary.ts.
+    sessionCache: v.optional(v.any()),
     updatedAt: v.optional(v.number()),
   }).index("by_user_week", ["userId", "weekStart"]),
 
@@ -1055,6 +1061,8 @@ export default defineSchema({
     techniqueNormalized: v.string(),
     cue: v.optional(v.string()),
     detail: v.string(),
+    // Ordered execution breakdown for the technique (numbered how-to list).
+    steps: v.optional(v.array(v.string())),
     sourceSessionDate: v.optional(v.string()),
     timesLogged: v.number(),
     firstSeenWeek: v.string(),

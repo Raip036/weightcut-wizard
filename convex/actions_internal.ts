@@ -783,6 +783,7 @@ export const fetchTrainingWeek = internalQuery({
       sessions: calendarSessions.map((s) => {
         const { primary, tag } = normalizeLegacySession(s.sessionType, s.sessionTag);
         return {
+          id: s._id,
           date: s.date,
           session_type: primary,
           session_tag: tag,
@@ -798,6 +799,26 @@ export const fetchTrainingWeek = internalQuery({
           techniques_notes: s.techniquesNotes ?? null,
         };
       }),
+    };
+  },
+});
+
+// Prior recap state for a week: the server-only per-session cache + the last
+// summary snapshot (for headline/watch-out carry-over). Used by the incremental
+// training-summary action to reuse unchanged sessions.
+export const fetchWeekRecapCache = internalQuery({
+  args: { userId: v.id("users"), weekStart: v.string() },
+  handler: async (ctx, { userId, weekStart }) => {
+    const row = await ctx.db
+      .query("training_summaries")
+      .withIndex("by_user_week", (q) =>
+        q.eq("userId", userId).eq("weekStart", weekStart),
+      )
+      .first();
+    if (!row) return null;
+    return {
+      sessionCache: row.sessionCache ?? [],
+      summaryData: row.summaryData ?? null,
     };
   },
 });

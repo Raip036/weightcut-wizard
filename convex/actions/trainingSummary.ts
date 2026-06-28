@@ -1,20 +1,33 @@
 /**
- * Weekly Training Recap — coach-voice debrief + all-time technique log.
+ * Weekly Training Recap — INCREMENTAL, per-session generation.
  *
- * Pulls the user's `fight_camp_calendar` rows for the requested week,
- * computes a small stats strip server-side (LLMs are unreliable at
- * counting), and asks Groq's gpt-oss-120b for a weekly debrief: a
- * one-line headline plus up to 4 concrete takeaways (and an optional
- * "watchOut") distilled from the session notes. Persists into:
- *   - `training_summaries` (existing, schema-agnostic) for the
- *     headline + stats + debrief snapshot that drives the UI.
- *   - `training_techniques` (via upsertFromDebrief) for the all-time
- *     technique log accumulated from every week's takeaways.
+ * The recap used to regenerate the WHOLE week on every run: it re-read every
+ * session's notes and re-wrote every technique's detail + steps with
+ * gpt-oss-120b, even for sessions already summarised on a prior run. That
+ * burned tokens re-creating work the `training_techniques` log only dedupes
+ * AFTER the model has already paid for it.
+ *
+ * Now generation is per-session and cached:
+ *   - Each session's takeaways are cached on the `training_summaries` row
+ *     (server-only `sessionCache`), keyed by session id + a content fingerprint.
+ *   - On run we diff the week: sessions whose content is unchanged are reused
+ *     for free; only NEW or EDITED sessions get an LLM call.
+ *   - Each dirty-session call also returns a cheap, refreshed week headline +
+ *     watch-out (fed the already-captured technique names + the prior watch-out),
+ *     so the week-level summary stays fresh at near-zero extra cost.
+ *   - The week recap = the union of all sessions' cached takeaways, deduped.
+ *
+ * Persists into:
+ *   - `training_summaries` for the headline + stats + debrief snapshot + the
+ *     per-session cache.
+ *   - `training_techniques` (via upsertFromDebrief) for the all-time technique
+ *     log, which keeps its own per-technique dedup as a safety net.
  */
 "use node";
 
 import { v } from "convex/values";
 import { z } from "zod";
+import { createHash } from "node:crypto";
 import { action, type ActionCtx } from "../_generated/server";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -30,8 +43,10 @@ import {
   PROMPT_INJECTION_GUARD_INSTRUCTION,
 } from "../_shared/sanitizeUserText";
 
+const MODEL = "openai/gpt-oss-120b";
+
 // ───────────────────────────────────────────────────────────────────────
-// LLM output schema (debrief + headline only — stats are server-computed)
+// LLM output schema (one session at a time). Stats are server-computed.
 // ───────────────────────────────────────────────────────────────────────
 
 const TakeawaySchema = z.object({
@@ -39,21 +54,36 @@ const TakeawaySchema = z.object({
   technique: z.string().min(2).max(120),
   cue: z.string().max(60).optional(),
   detail: z.string().min(4).max(200),
+  // Cap is a sanity backstop, not a style gate — keep it generous so a slightly
+  // long but valid step never hard-fails generation (the prompt asks for tight
+  // steps for the UI; the model occasionally runs over a tight cap).
+  steps: z.array(z.string().min(1).max(160)).min(2).max(6),
   sourceSessionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
-const LLMOutSchema = z.object({
+
+// One LLM call processes ONE session: 1-2 takeaways for that session plus a
+// refreshed whole-week headline and optional watch-out.
+const SessionLLMOutSchema = z.object({
   weekHeadline: z.string().min(8).max(160),
-  debrief: z.object({
-    takeaways: z.array(TakeawaySchema).min(1).max(4),
-    watchOut: z.string().max(200).optional(),
-  }),
+  takeaways: z.array(TakeawaySchema).min(1).max(2),
+  watchOut: z.string().max(200).optional(),
 });
+
+type Takeaway = z.infer<typeof TakeawaySchema>;
+
+// Server-only per-session cache entry stored on the training_summaries row.
+interface SessionCacheEntry {
+  sessionId: string;
+  fingerprint: string;
+  takeaways: Takeaway[];
+}
 
 // ───────────────────────────────────────────────────────────────────────
 // Stats math (server-side; LLM is not asked for these)
 // ───────────────────────────────────────────────────────────────────────
 
 interface WeekSession {
+  id: string;
   date: string;
   session_type: string;
   session_tag: string | null;
@@ -85,9 +115,8 @@ function computeStats(sessions: WeekSession[]): WeekStats {
     0,
   );
 
-  // Top discipline = mode of session_type (by count). Ties broken by
-  // total minutes spent in that discipline — a coach who logs 2x 90-min
-  // BJJ sessions beats 3x 20-min conditioning.
+  // Top discipline = mode of session_type (by count). Ties broken by total
+  // minutes spent in that discipline.
   const byType = new Map<string, { count: number; minutes: number }>();
   for (const s of sessions) {
     if (!s.session_type) continue;
@@ -96,7 +125,7 @@ function computeStats(sessions: WeekSession[]): WeekStats {
     cur.minutes += s.duration_minutes ?? 0;
     byType.set(s.session_type, cur);
   }
-  let topDiscipline = "—";
+  let topDiscipline = "·";
   let bestCount = -1;
   let bestMinutes = -1;
   for (const [type, agg] of byType.entries()) {
@@ -110,9 +139,8 @@ function computeStats(sessions: WeekSession[]): WeekStats {
     }
   }
 
-  // RPE / sleep averages — filter out 0 / null / NaN so an unfilled
-  // field doesn't drag the average toward zero. Round to 1 decimal so
-  // the strip renders cleanly with tabular-nums.
+  // RPE / sleep averages — filter out 0 / null / NaN so an unfilled field
+  // doesn't drag the average toward zero. Round to 1 decimal.
   const rpes = sessions
     .map((s) => s.rpe)
     .filter((v): v is number => typeof v === "number" && v > 0);
@@ -140,6 +168,151 @@ function computeStats(sessions: WeekSession[]): WeekStats {
 }
 
 // ───────────────────────────────────────────────────────────────────────
+// Fingerprints
+// ───────────────────────────────────────────────────────────────────────
+
+/** Per-session content fingerprint — the cache key. Changes when (and only
+ *  when) the session's notes/techniques content changes. */
+function sessionContentFingerprint(
+  notes: string | null | undefined,
+  techniques: string | null | undefined,
+): string {
+  const basis = `${(notes ?? "").trim()}␟${(techniques ?? "").trim()}`;
+  return createHash("sha1").update(basis).digest("hex");
+}
+
+/** Week-level fingerprint that drives the client's "Update / Up to date"
+ *  button. MUST stay byte-identical to `computeFingerprint` in
+ *  src/components/fightcamp/TrainingSummarySection.tsx. */
+function weekNotesFingerprint(sessionsWithNotes: WeekSession[]): string {
+  return [...sessionsWithNotes]
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map((s) => `${s.id}:${s.notes ?? ""}:${s.techniques_notes ?? ""}`)
+    .join("|");
+}
+
+/** Dedup key mirroring training_techniques.normalizeTechniqueKey. */
+function normalizeKey(discipline: string, technique: string): string {
+  const norm = (s: string) =>
+    s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim().replace(/\s+/g, " ");
+  return `${norm(discipline)}::${norm(technique)}`;
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Per-session generation
+// ───────────────────────────────────────────────────────────────────────
+
+function buildSessionBlock(s: WeekSession): string {
+  const cleanTechniques = sanitizeUserText(s.techniques_notes ?? "", {
+    maxLength: 800,
+    raw: true,
+  });
+  const cleanReflection = sanitizeUserText(s.notes ?? "", {
+    maxLength: 800,
+    raw: true,
+  });
+  const discipline = `${s.session_type}${s.session_tag ? ` (${s.session_tag})` : ""}`;
+  const lines = [`${s.date} | ${discipline} | ${s.duration_minutes}min`];
+  if (cleanTechniques.trim().length > 0) {
+    lines.push(`Techniques: <user_input>${cleanTechniques}</user_input>`);
+  }
+  if (cleanReflection.trim().length > 0) {
+    lines.push(`Reflection: <user_input>${cleanReflection}</user_input>`);
+  }
+  return lines.join("\n");
+}
+
+const SESSION_SYSTEM_PROMPT = `You write ONE entry of a weekly training debrief for a combat-sports athlete, from a SINGLE training session's notes. Return a refreshed one-line weekHeadline for the whole week, 1 to 2 "takeaways" distilled from THIS session, and an optional "watchOut".
+
+TERMINOLOGY. You are a coach writing for a serious athlete. Use precise, professional terminology for the EXACT sport of this session; never vague layman wording.
+- Name techniques by their real names. Boxing: slip, roll/weave, parry, pull counter, check hook, jab, cross, lead/rear hook, uppercut. Muay Thai: teep, switch kick, checking, clinch, sweep, dump, spinning elbow, horizontal/uppercut elbow. BJJ/grappling: scissor sweep, hip-bump sweep, guard retention, single/double leg, back take, armbar, triangle, kimura. Wrestling: underhook, snap down, sprawl, level change, high crotch. MMA blends these.
+- Describe execution mechanically and CORRECTLY. Never write an imprecise cue like "tilt your head" for a slip; a slip is a small rotation of the torso and hips that moves the head just off the centre line. Use the language a coach holding pads would actually use.
+- Respect SIDES and STANCE when the note states them. If the athlete wrote "caught the left kick" or "left-leg catch", reflect that exact side throughout the technique and steps (e.g. "Catch the opponent's left kick with your right arm"). Never invent a side that was not stated.
+
+The session may provide a "Techniques" block (the combos/positions/drills they drilled, the primary source for takeaways) and a "Reflection" block (what went well / to improve, the primary source for watchOut). Either block may be absent. If there is no Techniques block, still mine techniques from the Reflection block.
+
+Each takeaway distils ONE concrete technique drilled in THIS session:
+- "discipline": the session_type EXACTLY as given. Do not rename it.
+- "technique": the precise, correctly-named move (e.g. "Spinning elbow off a caught kick", "Scissor sweep").
+- "cue": OPTIONAL single mnemonic of at most 4 words ("Catch-Switch-Spin"). Omit if there is no clean one.
+- "detail": ONE short line (<=140 chars, second person) saying what the technique is and when to use it. A summary, NOT the steps; do not repeat the steps here.
+- "steps": an ORDERED array of 2 to 6 short imperative steps that EXECUTE the technique. Each step is one tight line (aim for under ~110 chars), verb-led, second person, concrete and mechanically correct, so they read cleanly as a numbered list.
+- "sourceSessionDate": the YYYY-MM-DD date of this session.
+
+"weekHeadline": one sentence (<=140 chars, second person) summarising the week's training focus. Use the list of already-captured techniques you are given PLUS this session so it reflects the whole week, not just this one session.
+
+"watchOut" (optional): a single recurring issue the notes reveal (a habit that keeps costing them). Omit entirely if none is clear. Do NOT invent one.
+
+Pull ONLY from the notes provided. DO NOT write generic motivation. DO NOT prescribe forward-looking training plans in detail/watchOut (the Training Coach feature owns prescriptions); the "steps" array describes how to EXECUTE a technique the athlete already drilled, which is required and allowed. NEVER include calendar dates, day names, or week references inside technique/detail/cue/steps/watchOut; dates live only in sourceSessionDate.
+
+${SECOND_PERSON_DIRECTIVE}
+
+${PROMPT_INJECTION_GUARD_INSTRUCTION}
+
+Return ONLY valid JSON in this EXACT shape:
+{
+  "weekHeadline": "one sentence summarising the week's training focus (<= 140 chars, second person)",
+  "takeaways": [
+    { "discipline": "Muay Thai", "technique": "Spinning elbow off a caught kick", "cue": "Catch-Switch-Spin", "detail": "A counter that turns a caught low kick into a fight-ending elbow.", "steps": ["Catch the left kick with your right arm", "Trap it against your hip and switch your hands", "Step across with your lead foot", "Spin, turning your eyes to the target first", "Drive the point of the elbow up and through"], "sourceSessionDate": "2026-05-19" }
+  ],
+  "watchOut": "Your left hook keeps dropping when you reset your stance."
+}`;
+
+async function generateForSession(
+  session: WeekSession,
+  knownTechniqueNames: string[],
+  priorWatchOut: string | undefined,
+): Promise<z.infer<typeof SessionLLMOutSchema>> {
+  const known =
+    knownTechniqueNames.length > 0
+      ? `Techniques already captured this week (do NOT repeat these unless this session genuinely adds a new variation): ${knownTechniqueNames.join(", ")}.`
+      : "No techniques have been captured yet this week.";
+  const prior = priorWatchOut
+    ? `Previously noted watch-out: "${priorWatchOut}". Keep it if it still holds, or replace it if this session reveals a clearer recurring issue.`
+    : "No prior watch-out.";
+
+  const userPrompt = `${known}\n${prior}\n\nHere is the training session to debrief:\n\n${buildSessionBlock(session)}`;
+
+  return await callGroqWithRetry({
+    model: MODEL,
+    messages: [
+      { role: "system", content: SESSION_SYSTEM_PROMPT },
+      { role: "user", content: userPrompt },
+    ],
+    temperature: 0.4,
+    max_tokens: 1400,
+    response_format: { type: "json_object" },
+    schema: SessionLLMOutSchema,
+    timeoutMs: 15_000,
+  });
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Persistence
+// ───────────────────────────────────────────────────────────────────────
+
+async function persistSummary(
+  ctx: ActionCtx,
+  weekStart: string,
+  sessionsWithNotes: WeekSession[],
+  sessionCache: SessionCacheEntry[],
+  summaryData: unknown,
+) {
+  try {
+    await ctx.runMutation(api.fight_camp.upsertSummary, {
+      weekStart,
+      sessionIds: sessionsWithNotes.map((s) => s.id),
+      notesFingerprint: weekNotesFingerprint(sessionsWithNotes),
+      summaryData,
+      sessionCache,
+    });
+  } catch (err) {
+    // Best-effort: surface the recap to the caller even if persistence fails.
+    console.warn("[trainingSummary] upsertSummary failed", err);
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────
 // Action
 // ───────────────────────────────────────────────────────────────────────
 
@@ -164,10 +337,8 @@ async function runTrainingSummary(
   });
   const allSessions = (data.sessions ?? []) as WeekSession[];
 
-  // Only sessions with non-empty notes are useful for debrief mining.
-  // A session counts if EITHER the reflection (`notes`) OR the techniques
-  // log (`techniques_notes`) has content — technique-only logs must not be
-  // dropped, since they're the primary source for `takeaways`.
+  // A session is recap-worthy if EITHER its reflection or its techniques log
+  // has content (technique-only logs are the primary source for takeaways).
   const sessionsWithNotes = allSessions.filter(
     (s) =>
       (typeof s?.notes === "string" && s.notes.trim().length > 0) ||
@@ -175,164 +346,115 @@ async function runTrainingSummary(
         s.techniques_notes.trim().length > 0),
   );
 
-  // Compute stats from ALL sessions (with or without notes) — a session
-  // logged with no notes still counts toward the week's volume.
+  // Stats come from ALL sessions — a note-less session still counts as volume.
   const stats = computeStats(allSessions);
 
+  // Prior recap state: the server-only per-session cache + last headline/watch-out.
+  const prior = await ctx.runQuery(
+    internal.actions_internal.fetchWeekRecapCache,
+    { userId, weekStart },
+  );
+  const priorCache = (prior?.sessionCache ?? []) as SessionCacheEntry[];
+  const priorSummary = (prior?.summaryData ?? null) as
+    | { weekHeadline?: string; debrief?: { watchOut?: string } }
+    | null;
+  const cacheBySession = new Map(priorCache.map((e) => [e.sessionId, e]));
+
   if (sessionsWithNotes.length === 0) {
-    // No notes → no debrief to generate, but we still return the stats
-    // strip + a calm placeholder headline so the UI doesn't render a
-    // jarring empty state when a user has just been logging sessions
-    // without notes.
-    return {
+    // No notes → no debrief. Return stats + a calm placeholder and clear any
+    // stale per-session cache so deleted content doesn't linger.
+    const empty = {
       weekHeadline:
         allSessions.length === 0
           ? "No training logged this week."
           : "Add session notes to unlock your weekly debrief.",
       stats,
       debrief: {
-        takeaways: [] as Array<{
-          discipline: string; technique: string; cue?: string;
-          detail: string; sourceSessionDate?: string;
-        }>,
+        takeaways: [] as Takeaway[],
         watchOut: undefined as string | undefined,
       },
     };
+    await persistSummary(ctx, weekStart, sessionsWithNotes, [], empty);
+    return empty;
   }
 
-  // Build the sessions block the LLM sees. Sanitize every notes blob
-  // so a prompt-injection payload inside a fighter's free-text can't
-  // hijack the system prompt.
-  const disciplinesTrained = Array.from(
-    new Set(sessionsWithNotes.map((s) => s.session_type).filter(Boolean)),
-  );
-  const sessionsText = sessionsWithNotes
-    .map((s) => {
-      const cleanTechniques = sanitizeUserText(s.techniques_notes ?? "", {
-        maxLength: 800,
-        raw: true,
-      });
-      const cleanReflection = sanitizeUserText(s.notes ?? "", {
-        maxLength: 800,
-        raw: true,
-      });
-      const discipline = `${s.session_type}${s.session_tag ? ` (${s.session_tag})` : ""}`;
-      const lines = [
-        `${s.date} | ${discipline} | ${s.duration_minutes}min`,
-      ];
-      if (cleanTechniques.trim().length > 0) {
-        lines.push(`Techniques: <user_input>${cleanTechniques}</user_input>`);
-      }
-      if (cleanReflection.trim().length > 0) {
-        lines.push(`Reflection: <user_input>${cleanReflection}</user_input>`);
-      }
-      return lines.join("\n");
-    })
-    .join("\n");
-
-    const systemPrompt = `You write a WEEKLY TRAINING DEBRIEF for a combat-sports athlete from their own session notes. Output two things: a one-sentence weekHeadline summarising the week's focus, and a "debrief" with up to 4 "takeaways" plus an optional "watchOut".
-
-Each session below may provide up to two blocks: a "Techniques" block (the combos/positions/drills they drilled or learned — the primary source for "takeaways") and a "Reflection" block (what went well / what to improve — the primary source for "watchOut"). Either block may be absent for a given session. For legacy entries the Reflection block may be empty or may itself mix technique mentions in with the reflection, so when a session has no Techniques block still mine techniques from its Reflection block.
-
-Each takeaway distils ONE concrete thing the athlete drilled or learned this week, pulled from their notes:
-- "discipline": the session_type EXACTLY as given (Boxing is not Muay Thai). Do not merge or rename disciplines.
-- "technique": the specific move/skill (e.g. "Scissor sweep", "Check hook").
-- "cue": OPTIONAL single mnemonic of at most 4 words ("Hook-Push-Tilt"). Omit if there isn't a clean one.
-- "detail": one line, second person, that captures the actual lesson/cue from the notes (<=200 chars).
-- "sourceSessionDate": YYYY-MM-DD of the session it came from, when one note clearly seeded it. Metadata only.
-
-"watchOut" (optional): a single recurring issue the notes reveal (e.g. a habit that keeps costing them). Omit it entirely if the notes show no clear recurring problem. Do NOT invent one.
-
-Pull ONLY from the notes below. DO NOT write generic motivation. DO NOT prescribe next steps or step-by-step instructions (the Training Coach feature owns forward-looking prescriptions). NEVER include calendar dates, day names, or week references inside technique/detail/cue/watchOut — dates live only in sourceSessionDate.
-
-${SECOND_PERSON_DIRECTIVE}
-
-${PROMPT_INJECTION_GUARD_INSTRUCTION}
-
-Return ONLY valid JSON in this EXACT shape:
-{
-  "weekHeadline": "one sentence summarising the week's training focus (<= 140 chars, second person)",
-  "debrief": {
-    "takeaways": [
-      { "discipline": "BJJ", "technique": "Scissor sweep", "cue": "Hook-Push-Tilt", "detail": "Hook the far ankle, push the near knee through, tilt them onto the open side.", "sourceSessionDate": "2026-05-19" }
-    ],
-    "watchOut": "Your left hook keeps dropping when you reset your stance."
+  // Partition: reuse cache hits for free, regenerate only new/changed sessions.
+  const newCache: SessionCacheEntry[] = [];
+  const dirty: WeekSession[] = [];
+  for (const s of sessionsWithNotes) {
+    const fp = sessionContentFingerprint(s.notes, s.techniques_notes);
+    const hit = cacheBySession.get(s.id);
+    if (hit && hit.fingerprint === fp) {
+      newCache.push({ sessionId: s.id, fingerprint: fp, takeaways: hit.takeaways });
+    } else {
+      dirty.push(s);
+    }
   }
-}`;
 
-  const userPrompt = `Here are my training sessions from this week. Give me a debrief of what I worked on:\n\n${sessionsText}`;
+  // Headline + watch-out carry over from the last run; each dirty session
+  // refreshes them cheaply (it is handed the known names + prior watch-out).
+  let headline = priorSummary?.weekHeadline ?? "";
+  let watchOut = priorSummary?.debrief?.watchOut;
+  let knownNames = newCache.flatMap((e) => e.takeaways.map((t) => t.technique));
 
-  // Heavy reasoning model — debrief quality (distilling messy notes into a
-  // crisp headline + concrete takeaways with mnemonic cues) was poor on
-  // llama-3.1-8b-instant in spec testing. gpt-oss-120b handles the
-  // notes-to-takeaway distillation cleanly.
-  const MODEL = "openai/gpt-oss-120b";
-  let llmOut: z.infer<typeof LLMOutSchema>;
-  try {
-    llmOut = await callGroqWithRetry({
-      model: MODEL,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.4,
-      max_tokens: 1800,
-      response_format: { type: "json_object" },
-      schema: LLMOutSchema,
-      timeoutMs: 15_000,
+  for (const s of dirty) {
+    let out: z.infer<typeof SessionLLMOutSchema>;
+    try {
+      out = await generateForSession(s, knownNames, watchOut);
+    } catch (err) {
+      if (err instanceof GroqError) throw err;
+      throw new Error(
+        err instanceof Error ? err.message : "AI returned malformed summary",
+      );
+    }
+    headline = out.weekHeadline;
+    if (out.watchOut) watchOut = out.watchOut;
+    newCache.push({
+      sessionId: s.id,
+      fingerprint: sessionContentFingerprint(s.notes, s.techniques_notes),
+      takeaways: out.takeaways,
     });
-  } catch (err) {
-    // GroqError already carries a stable code for the client; rethrow.
-    if (err instanceof GroqError) throw err;
-    throw new Error(
-      err instanceof Error ? err.message : "AI returned malformed summary",
-    );
+    knownNames = knownNames.concat(out.takeaways.map((t) => t.technique));
   }
+
+  // Assemble the week pool: order by session date, dedupe by technique so two
+  // sessions drilling the same move show once.
+  const dateById = new Map(sessionsWithNotes.map((s) => [s.id, s.date]));
+  const orderedCache = [...newCache].sort((a, b) =>
+    (dateById.get(a.sessionId) ?? "").localeCompare(dateById.get(b.sessionId) ?? ""),
+  );
+  const seen = new Set<string>();
+  const pool: Takeaway[] = [];
+  for (const entry of orderedCache) {
+    for (const t of entry.takeaways) {
+      const key = normalizeKey(t.discipline, t.technique);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      pool.push(t);
+    }
+  }
+
+  if (!headline) headline = "Your training week in review.";
 
   const summaryData = {
-    weekHeadline: llmOut.weekHeadline,
+    weekHeadline: headline,
     stats,
-    debrief: llmOut.debrief,
+    debrief: { takeaways: pool, watchOut },
   };
 
-  // Persist (a) the recap snapshot in `training_summaries` and (b) each
-  // takeaway into the all-time `training_techniques` log (below). The
-  // existing `notesFingerprint` / `sessionIds` columns are populated from
-  // the server-known rows so the frontend's change-detection (which keys
-  // on `notesFingerprint`) keeps working unchanged.
-  const sessionIds = sessionsWithNotes.map((s) => s.date);
-  const notesFingerprint = sessionsWithNotes
-    .map((s) => `${s.date}|${(s.notes ?? "").trim().length}`)
-    .sort()
-    .join(";");
+  await persistSummary(ctx, weekStart, sessionsWithNotes, newCache, summaryData);
 
-  try {
-    await ctx.runMutation(api.fight_camp.upsertSummary, {
-      weekStart,
-      sessionIds,
-      notesFingerprint,
-      summaryData,
-    });
-  } catch (err) {
-    // Saving is best-effort from the action's perspective — surface
-    // the LLM result to the caller even if persistence fails so the
-    // user sees their cards. The auto-summary cron will retry on the
-    // next session save.
-    console.warn("[trainingSummary] upsertSummary failed", err);
-  }
-
+  // All-time technique log (idempotent per technique; its own dedup is a net).
   try {
     await ctx.runMutation(internal.training_techniques.upsertFromDebrief, {
       userId,
       weekStart,
-      takeaways: llmOut.debrief.takeaways,
+      takeaways: pool,
     });
   } catch (err) {
     console.warn("[trainingSummary] upsertFromDebrief failed", err);
   }
 
-  // Audit trail — feature name stays "training_summary" so existing
-  // `ai_decisions` analytics filters still work.
   await logDecision(ctx, {
     userId,
     feature: "training_summary",
@@ -340,7 +462,8 @@ Return ONLY valid JSON in this EXACT shape:
       weekStart,
       sessionCount: allSessions.length,
       notesCount: sessionsWithNotes.length,
-      disciplinesTrained,
+      dirtyCount: dirty.length,
+      reusedCount: sessionsWithNotes.length - dirty.length,
     },
     outputJson: summaryData,
     model: MODEL,

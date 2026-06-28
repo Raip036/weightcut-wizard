@@ -1243,6 +1243,9 @@ export const upsertSummary = mutation({
     sessionIds: v.array(v.string()),
     notesFingerprint: v.string(),
     summaryData: v.any(),
+    // Server-only per-session cache (written by the incremental action). Omitted
+    // by the client re-upsert; when absent we must NOT clear the stored cache.
+    sessionCache: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
@@ -1253,12 +1256,16 @@ export const upsertSummary = mutation({
       )
       .first();
     if (existing) {
-      await ctx.db.patch(existing._id, {
+      const patch: Record<string, unknown> = {
         sessionIds: args.sessionIds,
         notesFingerprint: args.notesFingerprint,
         summaryData: args.summaryData,
         updatedAt: Date.now(),
-      });
+      };
+      // Only touch sessionCache when the caller actually provides it, so a
+      // client upsert (which omits it) preserves the server-written cache.
+      if (args.sessionCache !== undefined) patch.sessionCache = args.sessionCache;
+      await ctx.db.patch(existing._id, patch);
       return existing._id;
     }
     return await ctx.db.insert("training_summaries", {
@@ -1280,7 +1287,8 @@ export const listAllSummaries = query({
       .withIndex("by_user_week", (q) => q.eq("userId", userId))
       .order("desc")
       .take(cap);
-    return rows;
+    // Strip the server-only per-session cache so it never ships to the device.
+    return rows.map(({ sessionCache, ...rest }) => rest);
   },
 });
 
