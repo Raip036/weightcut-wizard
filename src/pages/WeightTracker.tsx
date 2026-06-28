@@ -208,7 +208,7 @@ export default function WeightTracker() {
     }));
 
     const planWeeklyLoss = getPlanWeeklyLoss();
-    if (analysisPlan && planWeeklyLoss > 0 && filteredLogs.length > 0 && profile.target_date) {
+    if (analysisPlan && planWeeklyLoss > 0 && filteredLogs.length > 0 && profile.target_date && fightWeekTarget != null) {
       const lastLog = filteredLogs[filteredLogs.length - 1];
       const lastWeight = lastLog.weight_kg;
       const lastDate = new Date(lastLog.date);
@@ -258,6 +258,7 @@ export default function WeightTracker() {
     const target = profile.fight_week_target_kg || profile.goal_weight_kg;
     if (!target) return 0;
     const total = start - target;
+    if (total <= 0) return 0;
     const progress = start - current;
     return Math.min(100, Math.max(0, (progress / total) * 100));
   };
@@ -591,13 +592,14 @@ export default function WeightTracker() {
             </div>
             <div className="card-surface rounded-none aspect-square p-2 flex flex-col items-center justify-center gap-1 text-center">
               <p className="text-[9px] uppercase tracking-wider text-muted-foreground/60 font-semibold leading-tight">Target</p>
-              <p className="text-[17px] font-bold tabular-nums text-foreground leading-none">{(profile.fight_week_target_kg || profile.goal_weight_kg).toFixed(1)}</p>
+              <p className="text-[17px] font-bold tabular-nums text-foreground leading-none">{(profile.fight_week_target_kg || profile.goal_weight_kg) != null ? (profile.fight_week_target_kg || profile.goal_weight_kg)!.toFixed(1) : "—"}</p>
               <p className="text-[9px] text-muted-foreground/60 leading-none">kg</p>
             </div>
             <div className="card-surface rounded-none aspect-square p-2 flex flex-col items-center justify-center gap-1 text-center">
               {(() => {
                 const current = getCurrentWeight();
                 const target = profile.fight_week_target_kg || profile.goal_weight_kg;
+                if (target == null) return (<><p className="text-[9px] uppercase tracking-wider text-muted-foreground/60 font-semibold leading-tight">To go</p><p className="text-[17px] font-bold tabular-nums text-foreground leading-none">—</p><p className="text-[9px] text-muted-foreground/60 leading-none">kg</p></>);
                 const diff = target - current;
                 if (diff > 0) return (<><p className="text-[9px] uppercase tracking-wider text-muted-foreground/60 font-semibold leading-tight">To gain</p><p className="text-[17px] font-bold tabular-nums text-emerald-500 leading-none">+{diff.toFixed(1)}</p><p className="text-[9px] text-muted-foreground/60 leading-none">kg</p></>);
                 if (diff < 0) return (<><p className="text-[9px] uppercase tracking-wider text-muted-foreground/60 font-semibold leading-tight">To lose</p><p className="text-[17px] font-bold tabular-nums text-primary leading-none">{Math.abs(diff).toFixed(1)}</p><p className="text-[9px] text-muted-foreground/60 leading-none">kg</p></>);
@@ -606,8 +608,14 @@ export default function WeightTracker() {
             </div>
             <div className="card-surface rounded-none aspect-square p-2 flex flex-col items-center justify-center gap-1 text-center">
               <p className="text-[9px] uppercase tracking-wider text-muted-foreground/60 font-semibold leading-tight">Deadline</p>
-              <p className="text-[13px] font-bold text-foreground leading-none">{format(new Date(profile.target_date), "MMM dd")}</p>
-              <p className="text-[9px] text-muted-foreground/60 leading-none">{format(new Date(profile.target_date), "yyyy")}</p>
+              {profile.target_date ? (
+                <>
+                  <p className="text-[13px] font-bold text-foreground leading-none">{format(new Date(profile.target_date), "MMM dd")}</p>
+                  <p className="text-[9px] text-muted-foreground/60 leading-none">{format(new Date(profile.target_date), "yyyy")}</p>
+                </>
+              ) : (
+                <p className="text-[17px] font-bold tabular-nums text-foreground leading-none">—</p>
+              )}
             </div>
           </div>
         )}

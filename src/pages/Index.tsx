@@ -27,6 +27,20 @@ const Index = () => {
     return () => clearTimeout(t);
   }, []);
 
+  // Escape hatch: a returning user can be authenticated (`isSessionValid`)
+  // yet have their profile resolve to null (orphaned/missing profile row),
+  // leaving `userId` null forever — the loader below would spin indefinitely
+  // and the navigation effect would never fire. After a grace window in that
+  // exact stuck state, fall back to /auth so the user is never dead-ended.
+  useEffect(() => {
+    if (isLoading || userId) return;
+    if (!isSessionValid) return;
+    const t = setTimeout(() => {
+      navigate("/auth", { replace: true });
+    }, 8000);
+    return () => clearTimeout(t);
+  }, [isLoading, userId, isSessionValid, navigate]);
+
   useEffect(() => {
     if (isLoading) return;
     const params = new URLSearchParams(window.location.search);

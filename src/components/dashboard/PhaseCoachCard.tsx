@@ -190,6 +190,7 @@ const GLOW_PALETTE: Record<GlowKey, { from: string; to: string; core: string }> 
 /** Map a signed drift (kg, + = over plan) to a glow ramp key. Thresholds match
  *  `deltaVerdict` exactly so the chart and the pill never disagree. */
 function glowKey(kg: number): GlowKey {
+  if (!Number.isFinite(kg)) return "on";
   const abs = Math.abs(kg);
   if (abs <= 0.5) return "on";
   if (kg < 0) return "amber"; // under plan (cutting too fast) is its own caution
@@ -385,11 +386,13 @@ export function PhaseCoachCard({
   );
 
   // Current weight hero, today's authoritative weight, else the last log.
+  const lastLogWeight =
+    weightLogs && weightLogs.length > 0
+      ? parseFloat(String(weightLogs[weightLogs.length - 1].weight_kg))
+      : null;
   const currentDisplay =
     currentWeight ??
-    (weightLogs && weightLogs.length > 0
-      ? parseFloat(String(weightLogs[weightLogs.length - 1].weight_kg))
-      : null);
+    (lastLogWeight != null && Number.isFinite(lastLogWeight) ? lastLogWeight : null);
 
   // THIS WEEK's plan target — resolved from the cut plan via the shared
   // `resolvePlanWeek` (the SAME source the Camp Status "This week's target"

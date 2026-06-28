@@ -1115,7 +1115,18 @@ export default function TrainingCalendar() {
                             <motion.button
                                 key={ds}
                                 whileTap={{ scale: 0.94 }}
-                                onClick={() => { triggerHapticSelection(); setSelectedDate(d); }}
+                                onClick={() => {
+                                    triggerHapticSelection();
+                                    setSelectedDate(d);
+                                    // If this strip day belongs to an adjacent
+                                    // month, advance currentDate too so that
+                                    // month's sessions load and any optimistic
+                                    // log keys to the correct month cache
+                                    // (queryMonth + memMonthKey both follow
+                                    // currentDate). The visible week is driven
+                                    // by selectedDate, so no visual jump.
+                                    if (format(d, "yyyy-MM") !== format(currentDate, "yyyy-MM")) setCurrentDate(d);
+                                }}
                                 className={`relative flex flex-col items-center justify-center h-[68px] rounded-xs border transition-colors ${
                                     active
                                         ? "bg-primary text-primary-foreground border-primary"

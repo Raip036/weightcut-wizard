@@ -626,7 +626,7 @@ export function FightFormRing({
             </span>
             {(dataAgeDays ?? 0) >= 2 && (
               <span className="text-[10px] text-muted-foreground mt-0.5">
-                as of {dataAgeDays}d ago
+                as of {Math.round(dataAgeDays ?? 0)}d ago
               </span>
             )}
           </>

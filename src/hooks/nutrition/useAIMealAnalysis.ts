@@ -244,6 +244,7 @@ export function useAIMealAnalysis(params: UseAIMealAnalysisParams) {
       if (data?.error) throw new Error(data.error);
 
       const nutritionData = data.nutritionData;
+      if (!nutritionData) throw new Error("No analysis returned");
       if (nutritionData.items && Array.isArray(nutritionData.items) && nutritionData.items.length > 0) {
         setAiLineItems(nutritionData.items.map((item: any) => {
           const calories = item.calories || 0;

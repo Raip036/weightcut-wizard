@@ -445,9 +445,7 @@ export default function FightCampDetail() {
 // ─────────────────────────────────────────────────────────────────────
 
 function StatTile({ label, value, unit, accent }: { label: string; value: number | null; unit: string; accent?: boolean }) {
-  const display = value == null
-    ? "-"
-    : value < 0 ? `${value}` : `${value}`;
+  const display = value == null ? "-" : String(value);
   return (
     <div className="py-3 px-2 text-center">
       <p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-muted-foreground/70">{label}</p>

@@ -103,8 +103,8 @@ function timeAgo(ts: number): string {
 
 /* ─── Avatar primitives ─── */
 
-function AvatarCircle({ actor, size = 36 }: { actor: ActorBrief; size?: number }) {
-  const initial = actor.displayName.charAt(0).toUpperCase();
+function AvatarCircle({ actor, size = 36 }: { actor?: ActorBrief; size?: number }) {
+  const initial = actor?.displayName?.charAt(0)?.toUpperCase() ?? "?";
   return (
     <div
       className="rounded-full flex-shrink-0 bg-muted flex items-center justify-center overflow-hidden border border-border/30"

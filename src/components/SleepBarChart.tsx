@@ -27,7 +27,7 @@ export function SleepBarChart({ data, goal = 8 }: SleepBarChartProps) {
   // Bars get wider when there are fewer of them; cap so a long 3M range stays
   // readable as thin columns rather than overflowing.
   const n = data.length;
-  const slot = CW / n;
+  const slot = n > 0 ? CW / n : CW;
   const bw = Math.max(2, Math.min(22, slot * 0.62));
   // Thin many-bar ranges drop their per-bar day label to avoid a crowded axis.
   const showLabels = n <= 14;

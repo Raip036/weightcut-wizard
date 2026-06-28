@@ -201,7 +201,7 @@ export const TrainingWeekWidget = memo(function TrainingWeekWidget({ userId, com
   const ws = startOfWeek(new Date(), { weekStartsOn: 1 });
   for (const s of sessions) {
     const d = new Date(s.date + "T12:00:00");
-    const dayIdx = Math.round((d.getTime() - ws.getTime()) / (24 * 60 * 60 * 1000));
+    const dayIdx = Math.floor((d.getTime() - ws.getTime()) / (24 * 60 * 60 * 1000));
     if (dayIdx >= 0 && dayIdx < 7) {
       if (!dayMap.has(dayIdx)) dayMap.set(dayIdx, []);
       dayMap.get(dayIdx)!.push(s);

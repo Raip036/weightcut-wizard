@@ -14,8 +14,12 @@ import { useCallback, type FocusEvent } from "react";
 export function useScrollIntoViewOnFocus(delayMs = 320) {
   return useCallback(
     (event: FocusEvent<HTMLElement>) => {
-      const el = event.currentTarget;
-      if (!el) return;
+      // Use `target` (the actual focused element), not `currentTarget`, so
+      // this works both when attached directly to an input AND when attached
+      // once to a scroll container that delegates focus from child inputs.
+      // For the direct-attach case the two are identical.
+      const el = event.target as HTMLElement | null;
+      if (!el || typeof el.scrollIntoView !== "function") return;
       window.setTimeout(() => {
         if (document.activeElement === el) {
           el.scrollIntoView({ behavior: "smooth", block: "center" });

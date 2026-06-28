@@ -324,17 +324,17 @@ export default function FightCamps() {
           {(camp.starting_weight_kg || camp.total_weight_cut) ? (
             <div className="mt-3 bg-muted/50 rounded-xs p-2.5 flex items-center justify-around border border-border">
               <div className="text-center">
-                <p className="text-[13px] uppercase tracking-widest text-muted-foreground mb-0.5">Start</p>
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Start</p>
                 <p className="text-sm font-bold">{camp.starting_weight_kg ? `${camp.starting_weight_kg}kg` : '-'}</p>
               </div>
               <div className="h-5 w-px bg-border" />
               <div className="text-center">
-                <p className="text-[13px] uppercase tracking-widest text-muted-foreground mb-0.5">Cut</p>
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Cut</p>
                 <p className="text-sm font-bold text-primary">{camp.total_weight_cut ? `-${camp.total_weight_cut.toFixed(1)}kg` : '-'}</p>
               </div>
               <div className="h-5 w-px bg-border" />
               <div className="text-center">
-                <p className="text-[13px] uppercase tracking-widest text-muted-foreground mb-0.5">End</p>
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">End</p>
                 <p className="text-sm font-bold">{camp.end_weight_kg ? `${camp.end_weight_kg}kg` : '-'}</p>
               </div>
             </div>

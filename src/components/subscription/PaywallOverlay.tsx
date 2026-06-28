@@ -189,10 +189,21 @@ export function PaywallOverlay() {
       return;
     }
     setActivating(true);
+    // Guard the server-verify call with a client-side timeout so a hung
+    // network never strands the user on the no-dismiss ActivatingProScreen.
+    // On timeout we fall into the catch (toast) and finally (close); if the
+    // call actually succeeded server-side, refreshProfile's reactive query
+    // still flips them to Pro.
+    let activationTimer: ReturnType<typeof setTimeout> | undefined;
     try {
       // Server-side RC REST verification + profile patch. Throws on
       // RC_NOT_ENTITLED / RC_VERIFY_NETWORK_FAILED / CONFIG_MISSING_*.
-      await activatePremium({});
+      await Promise.race([
+        activatePremium({}),
+        new Promise<never>((_, reject) => {
+          activationTimer = setTimeout(() => reject(new Error("ACTIVATION_TIMEOUT")), 20000);
+        }),
+      ]);
       await refreshProfile();
       logger.info("activatePro: RC-verified premium activated");
     } catch (err) {
@@ -217,6 +228,7 @@ export function PaywallOverlay() {
         variant: "destructive",
       });
     } finally {
+      if (activationTimer) clearTimeout(activationTimer);
       setActivating(false);
       closePaywall();
     }
@@ -331,9 +343,12 @@ function WebFallbackPaywall({ activatePro }: { activatePro: (info: any) => Promi
     try {
       const { customerInfo, cancelled } = await purchasePackage(pkg);
       if (cancelled) return;
-      if (customerInfo && isPremiumFromCustomerInfo(customerInfo)) {
-        await activatePro(customerInfo);
-      }
+      // Call activatePro unconditionally after a non-cancelled purchase
+      // (matching the native flow). activatePro already handles the
+      // StoreKit-propagation race where customerInfo isn't premium yet by
+      // waiting for the RC webhook — gating on isPremiumFromCustomerInfo
+      // here meant a paying user could be silently left on Free.
+      await activatePro(customerInfo);
     } catch (err: any) {
       logger.error("Purchase failed", err);
       toast({ title: "Purchase failed", description: "Please try again or contact support.", variant: "destructive" });

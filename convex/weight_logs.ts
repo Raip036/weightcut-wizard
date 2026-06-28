@@ -24,12 +24,17 @@ export const listForUser = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, { limit }) => {
     const userId = await requireUserId(ctx);
+    // Take the NEWEST `limit` rows (order desc), then reverse back to
+    // ascending (oldest→newest) for consumers that rely on
+    // weightLogs[0] = start and weightLogs[last] = current. Ordering asc
+    // before take() would drop the user's most recent logs once they
+    // exceed the limit.
     const rows = await ctx.db
       .query("weight_logs")
       .withIndex("by_user_date", (q) => q.eq("userId", userId))
-      .order("asc")
+      .order("desc")
       .take(limit ?? 365);
-    return rows.map(toClient);
+    return rows.reverse().map(toClient);
   },
 });
 

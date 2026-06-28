@@ -158,7 +158,10 @@ export default function CoachLogin() {
           scopes: "email",
           nonce: hashedNonce,
         });
-        await signIn("apple", {
+        // Must be "apple-native" (not "apple") so Convex verifies the
+        // id_token + nonce server-side; bare "apple" has no native handler
+        // and falls into a redirect. Mirrors Auth.tsx:291.
+        await signIn("apple-native", {
           idToken: result.response.identityToken,
           nonce: rawNonce,
         });

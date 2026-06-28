@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
+import { useScrollIntoViewOnFocus } from "@/hooks/useScrollIntoViewOnFocus";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   AlertTriangle, CheckCircle, Zap, Shield,
@@ -294,6 +295,10 @@ function StepLayout({ step, totalSteps = LOSING_TOTAL_STEPS, title, subtitle, ch
   // bottom so the CTA never gets pushed offscreen.
   // `isolate` scopes a stacking context so the absolute `background` layer
   // (z-0) sits behind the z-10 content without escaping the step.
+  // Scroll a focused input above the iOS keyboard. React's onFocus bubbles
+  // (focusin semantics), so attaching it once on the scroll container covers
+  // every input/Input child without wiring each one individually.
+  const handleInputFocus = useScrollIntoViewOnFocus();
   return (
     <div className="relative isolate flex flex-col h-full min-h-0 px-5 pb-2">
       {/* Ambient blue aurora behind every step (steps that pass their own
@@ -306,8 +311,18 @@ function StepLayout({ step, totalSteps = LOSING_TOTAL_STEPS, title, subtitle, ch
         <h1 className="text-[22px] font-bold leading-tight text-foreground">{title}</h1>
         <p className="text-[13px] text-muted-foreground mt-1 leading-snug">{subtitle}</p>
       </div>
-      <div className="relative z-10 flex-1 min-h-0 overflow-y-auto -mx-1 px-1">{children}</div>
-      {footer && <div className="relative z-10 pt-2 pb-[env(safe-area-inset-bottom,0px)]">{footer}</div>}
+      <div className="relative z-10 flex-1 min-h-0 overflow-y-auto -mx-1 px-1" onFocus={handleInputFocus}>{children}</div>
+      {/* pb honors both the home-indicator safe area AND the live keyboard
+          inset (--keyboard-inset, maintained in main.tsx) so the footer CTA
+          rises above the iOS keyboard instead of being hidden behind it. */}
+      {footer && (
+        <div
+          className="relative z-10 pt-2"
+          style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), var(--keyboard-inset, 0px))" }}
+        >
+          {footer}
+        </div>
+      )}
     </div>
   );
 }

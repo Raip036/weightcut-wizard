@@ -1191,7 +1191,7 @@ export default function Dashboard() {
                 goalWeight={profile.fight_week_target_kg ?? profile.goal_weight_kg ?? 0}
                 targetDate={profile.target_date}
                 phase={ffScore.phase}
-                daysUntilFight={daysUntilTarget || null}
+                daysUntilFight={(daysUntilTarget && daysUntilTarget > 0 ? daysUntilTarget : null)}
                 plan={profile?.cut_plan_json as PlanData | null | undefined}
               />
             </div>
@@ -1217,7 +1217,7 @@ export default function Dashboard() {
           score={ffScore.displayedScore}
           label={ffScore.label}
           phase={ffScore.phase}
-          daysToFight={daysUntilTarget || null}
+          daysToFight={(daysUntilTarget && daysUntilTarget > 0 ? daysUntilTarget : null)}
           campAge={ffScore.campAge}
           subScores={ffScore.subScores}
           topDriver={ffScore.topDriver}
@@ -1495,7 +1495,7 @@ export default function Dashboard() {
               />
               <PhaseCoachCard
                 phase={null}
-                daysUntilFight={daysUntilTarget || null}
+                daysUntilFight={(daysUntilTarget && daysUntilTarget > 0 ? daysUntilTarget : null)}
                 weightLogs={weightLogs}
                 currentWeight={currentWeightValue}
                 targetWeight={profile.fight_week_target_kg ?? profile.goal_weight_kg ?? null}

@@ -575,7 +575,13 @@ export default function NutritionPage() {
           generateDayPlan={mealPlan.generateDayPlan}
           swapMeal={mealPlan.swapMeal}
           targetsChanged={mealPlan.targetsChanged}
-          onLogMeal={(m) => mealOps.logSingleMeal(m, selectedDate)}
+          onLogMeal={async (m) => {
+            try {
+              await mealOps.logSingleMeal(m, selectedDate);
+            } catch {
+              toast({ title: "Couldn't log meal", description: "Please check your connection and try again.", variant: "destructive" });
+            }
+          }}
           onLogDay={(meals) => mealOps.logWholeDay(meals, selectedDate)}
         />
 

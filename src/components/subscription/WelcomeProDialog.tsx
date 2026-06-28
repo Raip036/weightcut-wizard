@@ -87,7 +87,7 @@ export function WelcomeProDialog({ open, onClose }: WelcomeProDialogProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[10005] flex flex-col items-center justify-center px-7 text-center overflow-hidden bg-background pointer-events-auto"
+      className="fixed inset-0 z-[10005] flex flex-col items-center justify-center px-7 py-8 text-center overflow-y-auto bg-background pointer-events-auto"
       style={{ pointerEvents: "auto" }}
     >
       {/* Aurora rising from black. */}
