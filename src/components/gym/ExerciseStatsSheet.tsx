@@ -25,7 +25,6 @@ export function ExerciseStatsSheet({ exercise, pr, open, onOpenChange }: Exercis
   // (over-photo, no background fill). Mirrors the swipe-to-toggle pattern in
   // GymTracker's session share dialog and the dashboard's fight-form sheet.
   const [shareOpen, setShareOpen] = useState(false);
-  const [shareVariant, setShareVariant] = useState<"dark" | "transparent">("dark");
   // Reactive Convex query: chart and PRs auto-refresh as the user logs more
   // sets in any active session, including this one. No manual cache layer.
   const rows = useQuery(
@@ -57,7 +56,7 @@ export function ExerciseStatsSheet({ exercise, pr, open, onOpenChange }: Exercis
           </p>
           {hasShareableData && (
             <div className="absolute left-0 top-0">
-              <ShareButton onClick={() => { setShareVariant("dark"); setShareOpen(true); }} />
+              <ShareButton onClick={() => setShareOpen(true)} />
             </div>
           )}
         </SheetHeader>
@@ -184,43 +183,22 @@ export function ExerciseStatsSheet({ exercise, pr, open, onOpenChange }: Exercis
           existing share dialogs in GymTracker and FightFormScoreSheet. */}
       <ShareCardDialog
         open={shareOpen}
-        onOpenChange={(v) => { setShareOpen(v); if (v) setShareVariant("dark"); }}
-        transparent={shareVariant === "transparent"}
-        showSwipeHint
+        onOpenChange={setShareOpen}
+        supportsTransparent
         title="Share Progress"
         shareTitle={`${exercise.name} progress`}
         shareText={`My ${exercise.name} progress on FightCamp Wizard`}
       >
-        {({ cardRef, aspect, transparent }) => {
-          let touchStartX = 0;
-          const flashCardWrapper = (el: HTMLElement | null) => {
-            if (!el) return;
-            el.classList.remove("share-variant-flash");
-            void el.offsetWidth;
-            el.classList.add("share-variant-flash");
-          };
-          return (
-            <div
-              onTouchStart={(e) => { touchStartX = e.touches[0].clientX; }}
-              onTouchEnd={(e) => {
-                const delta = e.changedTouches[0].clientX - touchStartX;
-                if (Math.abs(delta) > 40) {
-                  setShareVariant((v) => (v === "dark" ? "transparent" : "dark"));
-                  flashCardWrapper(e.currentTarget as HTMLElement);
-                }
-              }}
-            >
-              <ExerciseProgressCard
-                ref={cardRef}
-                exerciseName={exercise.name}
-                muscleGroup={exercise.muscle_group}
-                sets={sets}
-                aspect={aspect}
-                transparent={transparent}
-              />
-            </div>
-          );
-        }}
+        {({ cardRef, aspect, transparent }) => (
+          <ExerciseProgressCard
+            ref={cardRef}
+            exerciseName={exercise.name}
+            muscleGroup={exercise.muscle_group}
+            sets={sets}
+            aspect={aspect}
+            transparent={transparent}
+          />
+        )}
       </ShareCardDialog>
     </Sheet>
   );

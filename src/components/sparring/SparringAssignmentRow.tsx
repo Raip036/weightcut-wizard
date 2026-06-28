@@ -85,7 +85,6 @@ export function SparringAssignmentRow({
   const [floatKey, setFloatKey] = useState(0);
   // Optimistic landedCount — starts at the DB value and advances on each tap.
   const [optimisticLanded, setOptimisticLanded] = useState<number | null>(null);
-  const [mastering, setMastering] = useState(false);
 
   // Tracks whether this row is still mounted. Internal setState (mastery flash,
   // optimistic revert) is guarded by this to avoid setState-after-unmount
@@ -161,12 +160,11 @@ export function SparringAssignmentRow({
         onCycleCompleteRef.current?.(assignment.discipline);
       }
 
-      // Starting the exit animation (which unmounts the row) happens AFTER the
-      // callback above, and is guarded by mountedRef so it never warns. Even if
-      // setMastering triggers an unmount, the callback already ran.
-      if (result.mastered && mountedRef.current) {
-        setMastering(true);
-      }
+      // On mastery we do NOT self-remove the row. The server drops the mastered
+      // assignment from the list on the next query tick; the parent's
+      // <AnimatePresence> then plays this row's `exit` (a smooth scale+fade) as
+      // it leaves the keyed list. Self-removing here raced that server drop and
+      // made the row vanish instantly without the exit ever playing.
     } catch (err) {
       // Revert optimistic update on failure (mounted-guarded).
       if (mountedRef.current) setOptimisticLanded(null);
@@ -177,26 +175,27 @@ export function SparringAssignmentRow({
   };
 
   // ── Graduated row — lands meter layout ──────────────────────────────────
+  // The root is a keyed motion element whose EXIT is owned by the parent's
+  // <AnimatePresence> around the assignment list (MasterySpine). When the server
+  // drops the mastered assignment, the parent removes this key and the exit
+  // (scale + fade) plays smoothly instead of the row blinking out.
   if (isGraduated) {
     return (
-      <AnimatePresence>
-        {!mastering && (
-          <motion.div
-            layout
-            key={assignment._id}
-            className="relative rounded-lg overflow-hidden border border-primary/15"
-            exit={
-              reduced
-                ? { opacity: 0 }
-                : { opacity: 0, scale: 0.96, transition: { duration: 0.35 } }
-            }
-          >
-            {/* Wizard-blue ambient backdrop (subtle) — replaces the old red
-                discipline wash. Absolutely positioned behind content; the
-                content sits above via relative + z-10. iOS-safe: the aurora
-                component animates transform/opacity only and self-gates on
-                reduced motion. */}
-            <WizardAuroraBackground intensity="subtle" />
+      <motion.div
+        layout
+        className="relative rounded-lg overflow-hidden border border-primary/15"
+        exit={
+          reduced
+            ? { opacity: 0 }
+            : { opacity: 0, scale: 0.96, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] } }
+        }
+      >
+        {/* Wizard-blue ambient backdrop (subtle) — replaces the old red
+            discipline wash. Absolutely positioned behind content; the
+            content sits above via relative + z-10. iOS-safe: the aurora
+            component animates transform/opacity only and self-gates on
+            reduced motion. */}
+        <WizardAuroraBackground intensity="subtle" />
 
             {/* Mastery flash: brief accent burst when the final land lands. */}
             <AnimatePresence>
@@ -257,7 +256,7 @@ export function SparringAssignmentRow({
                 </p>
 
                 {assignment.whenToUse && (
-                  <p className="text-[11px] text-muted-foreground leading-snug mt-0.5 italic">
+                  <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
                     {stripDashes(assignment.whenToUse)}
                   </p>
                 )}
@@ -301,9 +300,7 @@ export function SparringAssignmentRow({
                 )}
               </div>
             )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      </motion.div>
     );
   }
 
@@ -312,6 +309,7 @@ export function SparringAssignmentRow({
     <motion.div
       layout
       className="relative rounded-lg overflow-hidden"
+      exit={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.96, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] } }}
       animate={{
         // Neutral surface (no red discipline wash) so the legacy row matches
         // the graduated card and the drill card's checkbox-row system.
@@ -373,9 +371,9 @@ export function SparringAssignmentRow({
             />
           </span>
 
-          {/* When to use: permanent italic subtitle — always visible, no clamp. */}
+          {/* When to use: permanent subtitle — always visible, no clamp. */}
           {assignment.whenToUse && (
-            <p className="text-[11px] text-muted-foreground leading-snug mt-0.5 italic">
+            <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
               {stripDashes(assignment.whenToUse)}
             </p>
           )}

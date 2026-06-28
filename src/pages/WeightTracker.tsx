@@ -883,20 +883,42 @@ export default function WeightTracker() {
         </SheetContent>
       </Sheet>
 
-      <ShareCardDialog open={shareOpen} onOpenChange={setShareOpen} title="Share Weight Progress" shareTitle="Weight Journey" shareText="Check out my weight progress on FightCamp Wizard">
-        {({ cardRef, aspect }) => (
-          <WeightTrackerCard ref={cardRef} weightLogs={weightLogs} goalWeight={profile?.fight_week_target_kg ?? profile?.goal_weight_kg} timeFilter={timeFilter} aspect={aspect} />
+      <ShareCardDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        supportsTransparent
+        title="Share Weight Progress"
+        shareTitle="Weight Journey"
+        shareText="Check out my weight progress on FightCamp Wizard"
+      >
+        {({ cardRef, aspect, transparent }) => (
+          <WeightTrackerCard
+            ref={cardRef}
+            weightLogs={weightLogs}
+            goalWeight={profile?.fight_week_target_kg ?? profile?.goal_weight_kg}
+            timeFilter={timeFilter}
+            aspect={aspect}
+            transparent={transparent}
+          />
         )}
       </ShareCardDialog>
 
-      <ShareCardDialog open={weighInShareOpen} onOpenChange={setWeighInShareOpen} title="Share Weigh-In Result" shareTitle="Made Weight!" shareText="I made weight on FightCamp Wizard">
-        {({ cardRef, aspect }) => (
+      <ShareCardDialog
+        open={weighInShareOpen}
+        onOpenChange={setWeighInShareOpen}
+        supportsTransparent
+        title="Share Weigh-In Result"
+        shareTitle="Made Weight!"
+        shareText="I made weight on FightCamp Wizard"
+      >
+        {({ cardRef, aspect, transparent }) => (
           <WeighInResultCard
             ref={cardRef}
             startWeight={weightLogs.length > 0 ? weightLogs[0].weight_kg : profile?.current_weight_kg ?? 0}
             endWeight={weightLogs.length > 0 ? weightLogs[weightLogs.length - 1].weight_kg : 0}
             targetWeight={profile?.fight_week_target_kg ?? profile?.goal_weight_kg ?? 0}
             aspect={aspect}
+            transparent={transparent}
           />
         )}
       </ShareCardDialog>

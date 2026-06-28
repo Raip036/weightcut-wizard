@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
@@ -114,7 +114,6 @@ const CALIBRATION_PILLARS: string[] = [
 
 export function FightFormScoreSheet(p: Props) {
   const [shareOpen, setShareOpen] = useState(false);
-  const [shareVariant, setShareVariant] = useState<"dark" | "transparent">("dark");
   const [selectedPillar, setSelectedPillar] = useState<SubScoreKey | null>(null);
   const navigate = useNavigate();
   const { userId } = useUser();
@@ -199,6 +198,10 @@ export function FightFormScoreSheet(p: Props) {
     limiterKey && limiterSub
       ? pillarAdvice(limiterKey, limiterSub as SubScoreType, phase).headline
       : null;
+  // Split the one-line advice into a bold status line + a softer detail line, so
+  // the focus reads as a clean two-tier statement instead of one run-on.
+  const [focusStatus, ...focusRest] = (limiterHeadline ?? "").split(/\.\s+/);
+  const focusDetail = focusRest.join(". ");
 
   // Coach context, built from the deterministic numbers the sheet already has.
   const coachContext: FightFormCoachContext = {
@@ -234,7 +237,7 @@ export function FightFormScoreSheet(p: Props) {
           <SheetTitle className="text-2xl text-center">Fight Form Score</SheetTitle>
           <div className="absolute -left-1.5 top-1/2 -translate-y-1/2">
             <ShareButton
-              onClick={() => { setShareVariant("dark"); setShareOpen(true); }}
+              onClick={() => setShareOpen(true)}
               className="focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none"
             />
           </div>
@@ -255,25 +258,25 @@ export function FightFormScoreSheet(p: Props) {
           <button
             type="button"
             onClick={() => openPillar(limiterKey)}
-            className="mt-5 w-full flex items-center gap-2.5 rounded-xs border border-primary/20 bg-primary/5 px-3 py-3 text-left active:bg-primary/10 transition-colors"
+            className="mt-6 w-full flex items-center justify-between gap-4 border-t border-border/40 pt-5 text-left active:opacity-60 transition-opacity focus:outline-none focus-visible:outline-none"
           >
-            <Icon
-              name={SUBSCORE_ICON[limiterKey] ?? "ellipseOutline"}
-              size={18}
-              className="text-primary shrink-0"
-            />
             <span className="min-w-0 flex-1">
-              <span className="block text-[10px] uppercase tracking-wide font-semibold text-primary/80">
+              <span className="block text-[10px] uppercase tracking-[0.18em] font-semibold text-primary/70">
                 Focus · {SUBSCORE_LABEL[limiterKey] ?? limiterKey}
               </span>
-              <span className="block text-body-sm font-medium text-foreground/90 leading-snug">
-                {limiterHeadline}
+              <span className="mt-2 block text-[16px] font-semibold text-foreground leading-snug">
+                {focusStatus}
               </span>
+              {focusDetail && (
+                <span className="mt-1 block text-[13px] text-muted-foreground leading-snug">
+                  {focusDetail}
+                </span>
+              )}
             </span>
             <Icon
               name="chevronForwardOutline"
-              size={14}
-              className="text-muted-foreground/60 shrink-0"
+              size={16}
+              className="text-muted-foreground/40 shrink-0"
             />
           </button>
         )}
@@ -418,76 +421,26 @@ export function FightFormScoreSheet(p: Props) {
 
       <ShareCardDialog
         open={shareOpen}
-        onOpenChange={(v) => { setShareOpen(v); if (v) setShareVariant("dark"); }}
-        transparent={shareVariant === "transparent"}
-        showSwipeHint
+        onOpenChange={setShareOpen}
+        supportsTransparent
         title="Share Fight Form Score"
         shareTitle="Fight Form Score"
         shareText={`My Fight Form Score is ${p.score}: ${LABEL_DISPLAY[p.label] ?? p.label}`}
       >
-        {({ cardRef, aspect, transparent }) => {
-          let touchStartX = 0;
-          const flash = (el: HTMLElement | null) => {
-            if (!el) return;
-            el.classList.remove("share-variant-flash");
-            void el.offsetWidth;
-            el.classList.add("share-variant-flash");
-          };
-          const labelBtnStyle = (v: "dark" | "transparent"): CSSProperties => ({
-            background: "none", border: "none", padding: 0, cursor: "pointer",
-            fontSize: 12, fontWeight: 600,
-            color: shareVariant === v ? "#ffffff" : "rgba(255,255,255,0.35)",
-            transition: "color 0.2s",
-          });
-          return (
-            <div
-              onTouchStart={(e) => { touchStartX = e.touches[0].clientX; }}
-              onTouchEnd={(e) => {
-                const delta = e.changedTouches[0].clientX - touchStartX;
-                if (Math.abs(delta) > 40) {
-                  setShareVariant((v) => v === "dark" ? "transparent" : "dark");
-                  flash(e.currentTarget as HTMLElement);
-                }
-              }}
-            >
-              <FightFormScoreCard
-                ref={cardRef}
-                score={p.score}
-                label={(p.label as FightFormLabel) ?? "off_pace"}
-                phase={(p.phase as ScoringPhase | null) ?? null}
-                daysToFight={p.daysToFight}
-                campAge={p.campAge}
-                subScores={p.subScores as Record<SubScoreKey, SubScoreType> | null}
-                campName={activeCamp?.name ?? null}
-                aspect={aspect}
-                transparent={transparent}
-              />
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginTop: 10 }}>
-                <button onClick={() => setShareVariant("dark")} style={labelBtnStyle("dark")}>
-                  Dark
-                </button>
-                <div style={{ display: "flex", gap: 6 }}>
-                  {(["dark", "transparent"] as const).map((v) => (
-                    <button
-                      key={v}
-                      onClick={() => setShareVariant(v)}
-                      aria-label={`${v} style`}
-                      style={{
-                        width: 8, height: 8, borderRadius: 4, border: "none", padding: 0,
-                        cursor: "pointer",
-                        background: shareVariant === v ? "#ffffff" : "rgba(255,255,255,0.3)",
-                        transition: "background 0.2s",
-                      }}
-                    />
-                  ))}
-                </div>
-                <button onClick={() => setShareVariant("transparent")} style={labelBtnStyle("transparent")}>
-                  Transparent
-                </button>
-              </div>
-            </div>
-          );
-        }}
+        {({ cardRef, aspect, transparent }) => (
+          <FightFormScoreCard
+            ref={cardRef}
+            score={p.score}
+            label={(p.label as FightFormLabel) ?? "off_pace"}
+            phase={(p.phase as ScoringPhase | null) ?? null}
+            daysToFight={p.daysToFight}
+            campAge={p.campAge}
+            subScores={p.subScores as Record<SubScoreKey, SubScoreType> | null}
+            campName={activeCamp?.name ?? undefined}
+            aspect={aspect}
+            transparent={transparent}
+          />
+        )}
       </ShareCardDialog>
 
       {/* Per-pillar drill-down dialog, opened from the contribution

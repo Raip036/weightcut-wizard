@@ -334,7 +334,20 @@ export function MissionCard({ mission, expanded, onToggle, onAllMissionsComplete
 
   return (
     <>
-      <div className="relative w-full rounded-2xl card-surface border border-primary/20 overflow-hidden">
+      {/* Root is a keyed motion element; its EXIT is owned by the parent's
+          <AnimatePresence> in MasterySpine. When all drills are ticked the
+          mission auto-archives server-side and leaves the flow, so this card
+          plays a smooth scale+fade out instead of blinking away. `layout` lets
+          the remaining drill cards slide up to fill the gap. */}
+      <motion.div
+        layout
+        exit={
+          prefersReduced
+            ? { opacity: 0 }
+            : { opacity: 0, scale: 0.96, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] } }
+        }
+        className="relative w-full rounded-2xl card-surface border border-primary/20 overflow-hidden"
+      >
         {/* Premium animated wizard-blue ambient backdrop (replaces the old
             discipline-tinted gradient wash). Sits behind all card content;
             handles reduced-motion internally. */}
@@ -457,7 +470,7 @@ export function MissionCard({ mission, expanded, onToggle, onAllMissionsComplete
             )}
           </div>
         )}
-      </div>
+      </motion.div>
 
       {/* Full-screen completion celebration: replaces the old modal. */}
       <AnimatePresence>

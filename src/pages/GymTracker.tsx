@@ -118,9 +118,6 @@ export default function GymTracker() {
   // the dialog keeps a stable snapshot even if the user closes the sheet.
   const [shareSession, setShareSession] = useState<SessionWithSets | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
-  // Swipe-to-toggle dark ↔ transparent card variant, mirroring the
-  // training calendar share flow so the gesture is consistent across cards.
-  const [shareCardVariant, setShareCardVariant] = useState<"dark" | "transparent">("dark");
   const [statsExercise, setStatsExercise] = useState<Exercise | null>(null);
   const [statsOpen, setStatsOpen] = useState(false);
   const [sessionType, setSessionType] = useState<SessionType>("Strength");
@@ -605,45 +602,25 @@ export default function GymTracker() {
 
       <ShareCardDialog
         open={shareOpen}
-        onOpenChange={(v) => { setShareOpen(v); if (v) setShareCardVariant("dark"); }}
-        transparent={shareCardVariant === "transparent"}
-        showSwipeHint
+        onOpenChange={(v) => { setShareOpen(v); }}
+        supportsTransparent
         title="Share Workout"
         shareTitle={shareSession ? `${shareSession.session_type} workout` : "Workout"}
         shareText="Check out my workout on FightCamp Wizard"
       >
         {({ cardRef, aspect, transparent }) => {
           if (!shareSession) return null;
-          let touchStartX = 0;
-          const flashCardWrapper = (el: HTMLElement | null) => {
-            if (!el) return;
-            el.classList.remove("share-variant-flash");
-            // Force reflow so the animation re-triggers on rapid swipes.
-            void el.offsetWidth;
-            el.classList.add("share-variant-flash");
-          };
           return (
-            <div
-              onTouchStart={(e) => { touchStartX = e.touches[0].clientX; }}
-              onTouchEnd={(e) => {
-                const delta = e.changedTouches[0].clientX - touchStartX;
-                if (Math.abs(delta) > 40) {
-                  setShareCardVariant((v) => (v === "dark" ? "transparent" : "dark"));
-                  flashCardWrapper(e.currentTarget as HTMLElement);
-                }
-              }}
-            >
-              <GymSessionCard
-                ref={cardRef}
-                sessionType={shareSession.session_type}
-                date={shareSession.date}
-                durationMinutes={shareSession.duration_minutes}
-                exerciseGroups={shareSession.exerciseGroups}
-                totalVolume={shareSession.totalVolume}
-                aspect={aspect}
-                transparent={transparent}
-              />
-            </div>
+            <GymSessionCard
+              ref={cardRef}
+              sessionType={shareSession.session_type}
+              date={shareSession.date}
+              durationMinutes={shareSession.duration_minutes}
+              exerciseGroups={shareSession.exerciseGroups}
+              totalVolume={shareSession.totalVolume}
+              aspect={aspect}
+              transparent={transparent}
+            />
           );
         }}
       </ShareCardDialog>

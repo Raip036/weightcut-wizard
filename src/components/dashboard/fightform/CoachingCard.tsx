@@ -13,6 +13,9 @@ import wizard from "@/assets/wizard_3D.png";
 const BLUE = "217 91% 58%";
 const blue = (a = 1) => `hsl(${BLUE} / ${a})`;
 
+/** Capitalise the first letter so AI prose never starts lower-case. */
+const capFirst = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+
 /**
  * Premium "Aurora Wizard" idle teaser for the Fight Form coach.
  *
@@ -233,10 +236,14 @@ export function CoachingCard({ context, onNavigate }: Props) {
 
   return (
     <div className="mt-6 glass-card rounded-2xl border border-border/50 px-4 py-4">
-      <div className="flex items-center gap-2">
-        <span className="h-8 w-8 rounded-xl bg-primary/15 flex items-center justify-center shrink-0 overflow-hidden">
-          <img src={wizard} alt="" draggable={false} className="h-6 w-6 object-contain" />
-        </span>
+      <div className="flex items-center gap-2.5">
+        {/* Wizard mascot, no tinted circle behind it. */}
+        <img
+          src={wizard}
+          alt=""
+          draggable={false}
+          className="h-8 w-8 object-contain shrink-0"
+        />
         <div className="flex items-center gap-1.5 min-w-0">
           <span className="text-body-sm font-semibold truncate">Coach's read</span>
           {!isPro && (
@@ -266,69 +273,56 @@ export function CoachingCard({ context, onNavigate }: Props) {
               </p>
             ) : null}
 
-            {/* What's working vs what's limiting. */}
+            {/* What's working vs what's limiting. No leading icons; the colored
+                label carries the meaning. */}
             {(coaching.working || coaching.limiting) && (
               <div className="space-y-1.5">
                 {coaching.working && (
-                  <div className="flex items-start gap-2">
-                    <Icon
-                      name="checkmarkOutline"
-                      size={15}
-                      className="text-func-recovery-green shrink-0 mt-px"
-                    />
-                    <p className="text-[12px] text-foreground/90 leading-snug">
-                      <span className="font-semibold text-func-recovery-green">
-                        Working.{" "}
-                      </span>
-                      {coaching.working}
-                    </p>
-                  </div>
+                  <p className="text-[12px] text-foreground/90 leading-snug">
+                    <span className="font-semibold text-func-recovery-green">
+                      Working.{" "}
+                    </span>
+                    {coaching.working}
+                  </p>
                 )}
                 {coaching.limiting && (
-                  <div className="flex items-start gap-2">
-                    <Icon
-                      name="trendingDownOutline"
-                      size={15}
-                      className="text-func-danger-red shrink-0 mt-px"
-                    />
-                    <p className="text-[12px] text-foreground/90 leading-snug">
-                      <span className="font-semibold text-func-danger-red">
-                        Limiting.{" "}
-                      </span>
-                      {coaching.limiting}
-                    </p>
-                  </div>
+                  <p className="text-[12px] text-foreground/90 leading-snug">
+                    <span className="font-semibold text-func-danger-red">
+                      Limiting.{" "}
+                    </span>
+                    {coaching.limiting}
+                  </p>
                 )}
               </div>
             )}
 
             {/* Ranked fixes, biggest point gain first, each with its payoff. */}
             {coaching.actions.length > 0 && (
-              <ul className="space-y-1.5">
+              <ul className="space-y-2">
                 {coaching.actions.map((a, i) => {
                   const pillarLabel = SUBSCORE_LABEL[a.pillar] ?? a.pillar;
                   return (
                     <li
                       key={`${a.pillar}-${i}`}
-                      className="rounded-xs border border-border/40 bg-muted/15 px-3 py-2.5"
+                      className="rounded-2xl border border-border/40 bg-white/[0.02] px-4 py-3"
                     >
-                      <div className="flex items-center gap-1.5 mb-0.5">
+                      <div className="flex items-center gap-2 mb-1">
                         {i === 0 && (
-                          <span className="text-[9px] font-bold uppercase tracking-wide text-primary bg-primary/15 rounded px-1 py-px">
-                            Fix first
+                          <span className="text-[10px] font-bold tracking-wide text-primary bg-primary/15 rounded-md px-1.5 py-0.5">
+                            Fix First
                           </span>
                         )}
-                        <span className="text-[10px] uppercase tracking-wide font-semibold text-muted-foreground/80">
+                        <span className="text-[12px] font-semibold text-foreground/70">
                           {pillarLabel}
                         </span>
                         {typeof a.pointsToGain === "number" && a.pointsToGain > 0 && (
-                          <span className="ml-auto text-[10px] font-bold tabular-nums text-primary shrink-0">
+                          <span className="ml-auto text-[12px] font-bold tabular-nums text-primary shrink-0">
                             +{a.pointsToGain} pts
                           </span>
                         )}
                       </div>
-                      <span className="block text-body-sm text-foreground/90 leading-snug">
-                        {a.action}
+                      <span className="block text-[14px] text-foreground/90 leading-snug">
+                        {capFirst(a.action)}
                       </span>
                     </li>
                   );
@@ -338,7 +332,7 @@ export function CoachingCard({ context, onNavigate }: Props) {
 
             {/* Active ceiling, a rule is capping the score. */}
             {coaching.ceiling && (
-              <div className="flex items-start gap-2 rounded-xs border border-func-warning-yellow/30 bg-func-warning-yellow/10 px-3 py-2">
+              <div className="flex items-start gap-2 rounded-2xl border border-func-warning-yellow/30 bg-func-warning-yellow/10 px-4 py-3">
                 <Icon
                   name="alertCircleOutline"
                   size={15}

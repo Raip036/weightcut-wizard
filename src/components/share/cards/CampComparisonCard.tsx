@@ -1,9 +1,11 @@
-import { forwardRef, useMemo } from "react";
+import { forwardRef } from "react";
 import { CardShell, type AspectRatio } from "../templates/CardShell";
 import { usePremium } from "@/hooks/usePremium";
 
-const GREEN = "#22c55e";
-const ORANGE = "#f97316";
+// House share-card tokens. GREEN = the win (bigger cut); BLUE = supporting
+// accent (sweat segment + labels).
+const BLUE = "#4AB4ED";
+const GREEN = "#34D399";
 
 interface FightCamp {
   id: string;
@@ -21,347 +23,149 @@ interface CampComparisonCardProps {
   campA: FightCamp;
   campB: FightCamp;
   aspect?: AspectRatio;
+  transparent?: boolean;
 }
 
-function ComparisonRow({
-  label,
-  valueA,
-  valueB,
-  unit,
-  higherIsBetter = false,
-  large = false,
+const num = (v: number | null | undefined) => (v != null ? v.toFixed(1) : "-");
+
+/** "#RRGGBB" + alpha (0..1) → "rgba(r,g,b,a)". */
+function hexA(hex: string, a: number): string {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
+}
+
+/** A floating vertical cut-composition bar: diet (green) over sweat (blue). */
+function CutBar({
+  carb,
+  dehydration,
+  width,
+  height,
+  winner,
 }: {
-  label: string;
-  valueA: string | number | null;
-  valueB: string | number | null;
-  unit?: string;
-  higherIsBetter?: boolean;
-  large?: boolean;
+  carb: number;
+  dehydration: number;
+  width: number;
+  height: number;
+  winner: boolean;
 }) {
-  const numA = typeof valueA === "number" ? valueA : null;
-  const numB = typeof valueB === "number" ? valueB : null;
-  const dispA = valueA !== null && valueA !== undefined ? `${valueA}${unit ?? ""}` : "-";
-  const dispB = valueB !== null && valueB !== undefined ? `${valueB}${unit ?? ""}` : "-";
-
-  let colorA = "#ffffff";
-  let colorB = "#ffffff";
-  if (numA !== null && numB !== null && numA !== numB) {
-    const aWins = higherIsBetter ? numA > numB : numA < numB;
-    colorA = aWins ? "#22c55e" : "#ef4444";
-    colorB = aWins ? "#ef4444" : "#22c55e";
-  }
-
+  const total = carb + dehydration || 1;
+  const carbH = (carb / total) * height;
+  const dehydH = height - carbH;
   return (
     <div
       style={{
-        display: "grid",
-        gridTemplateColumns: "1fr auto 1fr",
-        gap: large ? 24 : 16,
-        alignItems: "center",
-        padding: large ? "24px 0" : "14px 0",
-        borderBottom: "1px solid rgba(255,255,255,0.06)",
+        width,
+        height,
+        borderRadius: width * 0.22,
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        opacity: winner ? 1 : 0.5,
+        boxShadow: winner ? `0 0 60px ${hexA(GREEN, 0.25)}` : "none",
       }}
     >
-      <div style={{ textAlign: "right", fontSize: large ? 32 : 22, fontWeight: 700, color: colorA, fontVariantNumeric: "tabular-nums" }}>
-        {dispA}
-      </div>
-      <div
-        style={{
-          fontSize: large ? 14 : 11,
-          fontWeight: 600,
-          textTransform: "uppercase",
-          letterSpacing: "0.08em",
-          color: "rgba(255,255,255,0.4)",
-          textAlign: "center",
-          minWidth: large ? 100 : 80,
-        }}
-      >
-        {label}
-      </div>
-      <div style={{ textAlign: "left", fontSize: large ? 32 : 22, fontWeight: 700, color: colorB, fontVariantNumeric: "tabular-nums" }}>
-        {dispB}
-      </div>
+      <div style={{ height: carbH, background: `linear-gradient(180deg, ${hexA(GREEN, 0.85)} 0%, ${GREEN} 100%)` }} />
+      <div style={{ height: dehydH, background: `linear-gradient(180deg, ${hexA(BLUE, 0.85)} 0%, ${BLUE} 100%)` }} />
     </div>
   );
 }
 
-function CampWaterfall({
-  camp,
-  large,
-  width,
-  height,
-}: {
-  camp: FightCamp;
-  large: boolean;
-  width: number;
-  height: number;
-}) {
-  const start = camp.starting_weight_kg;
-  const end = camp.end_weight_kg;
-  const carb = camp.weight_via_carb_reduction ?? 0;
-  const dehydration = camp.weight_via_dehydration ?? 0;
-
-  if (!start || !end || start <= end) return null;
-
-  const totalCut = start - end;
-  const hasBreakdown = carb + dehydration > 0;
-
-  // Normalise breakdown to match actual cut (in case they don't add up perfectly)
-  const breakdownSum = carb + dehydration;
-  const carbNorm = hasBreakdown ? (carb / breakdownSum) * totalCut : 0;
-  const dehydNorm = hasBreakdown ? (dehydration / breakdownSum) * totalCut : 0;
-
-  // Layout
-  const padTop = large ? 50 : 36;
-  const padBot = large ? 36 : 28;
-  const barAreaH = height - padTop - padBot;
-  const barW = large ? 100 : 72;
-  const barX = (width - barW) / 2;
-  const labelFs = large ? 22 : 16;
-  const kgFs = large ? 28 : 20;
-  const tagFs = large ? 16 : 12;
-  const tagH = large ? 28 : 22;
-  const tagR = large ? 8 : 6;
-
-  // Y scale: top = start, bottom = end
-  const toY = (kg: number) => padTop + ((start - kg) / totalCut) * barAreaH;
-
-  if (hasBreakdown) {
-    const carbY1 = toY(start);
-    const carbY2 = toY(start - carbNorm);
-    const dehydY1 = carbY2;
-    const dehydY2 = toY(end);
-
-    return (
-      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-        {/* Start weight label */}
-        <text x={width / 2} y={padTop - (large ? 16 : 12)} textAnchor="middle" fill="#ffffff" fontSize={kgFs} fontWeight={800} fontFamily="Satoshi, system-ui, sans-serif" style={{ fontVariantNumeric: "tabular-nums" } as any}>
-          {start.toFixed(1)}
-          <tspan fill="rgba(255,255,255,0.4)" fontSize={labelFs} fontWeight={600}> kg</tspan>
-        </text>
-
-        {/* Carb cut bar (green) */}
-        {carbNorm > 0 && (
-          <>
-            <rect x={barX} y={carbY1} width={barW} height={Math.max(1, carbY2 - carbY1)} rx={carbY2 === dehydY2 ? tagR : 0} fill={GREEN} />
-            {/* Label inside if tall enough */}
-            {(carbY2 - carbY1) > (large ? 40 : 30) && (
-              <g>
-                <rect x={width / 2 - (large ? 52 : 40)} y={(carbY1 + carbY2) / 2 - tagH / 2} width={large ? 104 : 80} height={tagH} rx={tagR} fill="rgba(0,0,0,0.5)" />
-                <text x={width / 2} y={(carbY1 + carbY2) / 2 + tagFs / 3} textAnchor="middle" fill={GREEN} fontSize={tagFs} fontWeight={700} fontFamily="Satoshi, system-ui, sans-serif">
-                  -{carbNorm.toFixed(1)} diet
-                </text>
-              </g>
-            )}
-          </>
-        )}
-
-        {/* Dehydration bar (orange) */}
-        {dehydNorm > 0 && (
-          <>
-            <rect x={barX} y={dehydY1} width={barW} height={Math.max(1, dehydY2 - dehydY1)} rx={carbNorm === 0 ? tagR : 0} fill={ORANGE} />
-            {(dehydY2 - dehydY1) > (large ? 40 : 30) && (
-              <g>
-                <rect x={width / 2 - (large ? 56 : 44)} y={(dehydY1 + dehydY2) / 2 - tagH / 2} width={large ? 112 : 88} height={tagH} rx={tagR} fill="rgba(0,0,0,0.5)" />
-                <text x={width / 2} y={(dehydY1 + dehydY2) / 2 + tagFs / 3} textAnchor="middle" fill={ORANGE} fontSize={tagFs} fontWeight={700} fontFamily="Satoshi, system-ui, sans-serif">
-                  -{dehydNorm.toFixed(1)} sweat
-                </text>
-              </g>
-            )}
-          </>
-        )}
-
-        {/* End weight label */}
-        <text x={width / 2} y={toY(end) + (large ? 32 : 24)} textAnchor="middle" fill="#ffffff" fontSize={kgFs} fontWeight={800} fontFamily="Satoshi, system-ui, sans-serif" style={{ fontVariantNumeric: "tabular-nums" } as any}>
-          {end.toFixed(1)}
-          <tspan fill="rgba(255,255,255,0.4)" fontSize={labelFs} fontWeight={600}> kg</tspan>
-        </text>
-      </svg>
-    );
-  }
-
-  // No breakdown: single bar showing total cut
-  return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-      <text x={width / 2} y={padTop - (large ? 16 : 12)} textAnchor="middle" fill="#ffffff" fontSize={kgFs} fontWeight={800} fontFamily="Satoshi, system-ui, sans-serif" style={{ fontVariantNumeric: "tabular-nums" } as any}>
-        {start.toFixed(1)}
-        <tspan fill="rgba(255,255,255,0.4)" fontSize={labelFs} fontWeight={600}> kg</tspan>
-      </text>
-      <rect x={barX} y={toY(start)} width={barW} height={barAreaH} rx={tagR} fill={GREEN} />
-      <g>
-        <rect x={width / 2 - (large ? 44 : 34)} y={padTop + barAreaH / 2 - tagH / 2} width={large ? 88 : 68} height={tagH} rx={tagR} fill="rgba(0,0,0,0.5)" />
-        <text x={width / 2} y={padTop + barAreaH / 2 + tagFs / 3} textAnchor="middle" fill="#ffffff" fontSize={tagFs} fontWeight={700} fontFamily="Satoshi, system-ui, sans-serif">
-          -{totalCut.toFixed(1)} kg
-        </text>
-      </g>
-      <text x={width / 2} y={toY(end) + (large ? 32 : 24)} textAnchor="middle" fill="#ffffff" fontSize={kgFs} fontWeight={800} fontFamily="Satoshi, system-ui, sans-serif" style={{ fontVariantNumeric: "tabular-nums" } as any}>
-        {end.toFixed(1)}
-        <tspan fill="rgba(255,255,255,0.4)" fontSize={labelFs} fontWeight={600}> kg</tspan>
-      </text>
-    </svg>
-  );
-}
-
 export const CampComparisonCard = forwardRef<HTMLDivElement, CampComparisonCardProps>(
-  ({ campA, campB, aspect = "square" }, ref) => {
+  ({ campA, campB, aspect = "story", transparent }, ref) => {
     const { isPremium } = usePremium();
     const s = aspect === "story";
+    const cutA = campA.total_weight_cut ?? 0;
+    const cutB = campB.total_weight_cut ?? 0;
+    const aWins = cutA > cutB;
+    const bWins = cutB > cutA;
+    const colA = aWins ? GREEN : "#ffffff";
+    const colB = bWins ? GREEN : "#ffffff";
+
+    const barW = s ? 150 : 82;
+    const barH = s ? 620 : 340;
+
+    const Row = ({ label, a, b }: { label: string; a: string; b: string }) => (
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "baseline", gap: s ? 20 : 12 }}>
+        <span style={{ textAlign: "right", fontSize: s ? 62 : 38, fontWeight: 900, color: "#fff", fontVariantNumeric: "tabular-nums", letterSpacing: "-0.02em" }}>
+          {a}<span style={{ fontSize: s ? 26 : 16, fontWeight: 800, color: "rgba(255,255,255,0.4)", marginLeft: 3 }}>kg</span>
+        </span>
+        <span style={{ textAlign: "center", minWidth: s ? 200 : 120, fontSize: s ? 24 : 14, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: hexA(BLUE, 0.85) }}>{label}</span>
+        <span style={{ textAlign: "left", fontSize: s ? 62 : 38, fontWeight: 900, color: "#fff", fontVariantNumeric: "tabular-nums", letterSpacing: "-0.02em" }}>
+          {b}<span style={{ fontSize: s ? 26 : 16, fontWeight: 800, color: "rgba(255,255,255,0.4)", marginLeft: 3 }}>kg</span>
+        </span>
+      </div>
+    );
+
+    const Name = ({ camp, color, align }: { camp: FightCamp; color: string; align: "right" | "left" }) => (
+      <div style={{ flex: 1, minWidth: 0, textAlign: align }}>
+        <div style={{ fontSize: s ? 58 : 36, fontWeight: 900, color, letterSpacing: "-0.02em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{camp.name}</div>
+      </div>
+    );
+
+    const BarStack = ({ camp, win, col }: { camp: FightCamp; win: boolean; col: string }) => (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: s ? 18 : 10 }}>
+        <span style={{ fontSize: s ? 28 : 17, fontWeight: 700, color: "rgba(255,255,255,0.4)", fontVariantNumeric: "tabular-nums" }}>
+          {num(camp.starting_weight_kg)}
+        </span>
+        <CutBar
+          carb={camp.weight_via_carb_reduction ?? 0}
+          dehydration={camp.weight_via_dehydration ?? 0}
+          width={barW}
+          height={barH}
+          winner={win}
+        />
+        <span style={{ fontSize: s ? 28 : 17, fontWeight: 700, color: "rgba(255,255,255,0.4)", fontVariantNumeric: "tabular-nums" }}>
+          {num(camp.end_weight_kg)}
+        </span>
+        <span style={{ fontSize: s ? 96 : 56, fontWeight: 900, color: col, lineHeight: 0.9, letterSpacing: "-0.04em", fontVariantNumeric: "tabular-nums", textShadow: win ? `0 0 ${s ? 56 : 32}px ${hexA(GREEN, 0.4)}` : "none" }}>
+          {num(camp.total_weight_cut)}
+          <span style={{ fontSize: s ? 38 : 22, fontWeight: 800, color: "rgba(255,255,255,0.4)", marginLeft: 4 }}>kg</span>
+        </span>
+      </div>
+    );
+
+    const Swatch = ({ color, label }: { color: string; label: string }) => (
+      <div style={{ display: "flex", alignItems: "center", gap: s ? 12 : 7 }}>
+        <span style={{ width: s ? 24 : 14, height: s ? 24 : 14, borderRadius: s ? 7 : 4, background: hexA(color, 0.9), flexShrink: 0 }} />
+        <span style={{ fontSize: s ? 22 : 13, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.6)" }}>{label}</span>
+      </div>
+    );
 
     return (
-      <CardShell ref={ref} aspect={aspect} isPremium={isPremium}>
-        {/* Header */}
-        <div style={{ textAlign: "center", marginBottom: s ? 56 : 32 }}>
-          <div
-            style={{
-              fontSize: s ? 18 : 14,
-              fontWeight: 700,
-              letterSpacing: "0.15em",
-              textTransform: "uppercase",
-              color: "#2563eb",
-              marginBottom: s ? 24 : 12,
-            }}
-          >
-            CAMP vs CAMP
+      <CardShell ref={ref} aspect={aspect} isPremium={isPremium} transparent={transparent}>
+        <div style={{ display: "flex", flexDirection: "column", height: "100%", justifyContent: "center", gap: s ? 48 : 28 }}>
+          {/* Camp names + VS */}
+          <div style={{ display: "flex", alignItems: "center", gap: s ? 16 : 10 }}>
+            <Name camp={campA} color={colA} align="right" />
+            <span style={{ flexShrink: 0, fontSize: s ? 32 : 20, fontWeight: 900, color: "rgba(255,255,255,0.25)", letterSpacing: "0.08em" }}>VS</span>
+            <Name camp={campB} color={colB} align="left" />
           </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              fontSize: s ? 32 : 24,
-              fontWeight: 700,
-            }}
-          >
-            <div style={{ flex: 1, textAlign: "center", minWidth: 0 }}>
-              <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{campA.name}</div>
-              {campA.event_name && (
-                <div style={{ fontSize: s ? 17 : 13, color: "#60a5fa", fontWeight: 500, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{campA.event_name}</div>
-              )}
+
+          {/* Hero: bars + legend + comparison rows grouped tight. */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: s ? 26 : 15 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: s ? 64 : 34 }}>
+              <BarStack camp={campA} win={aWins} col={colA} />
+              <span style={{ flexShrink: 0, fontSize: s ? 40 : 24, fontWeight: 800, color: "rgba(255,255,255,0.3)", letterSpacing: "0.08em", alignSelf: "center" }}>VS</span>
+              <BarStack camp={campB} win={bWins} col={colB} />
             </div>
-            <div style={{ color: "rgba(255,255,255,0.2)", fontSize: s ? 24 : 18, fontWeight: 700, flexShrink: 0, width: s ? 80 : 56, textAlign: "center" }}>VS</div>
-            <div style={{ flex: 1, textAlign: "center", minWidth: 0 }}>
-              <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{campB.name}</div>
-              {campB.event_name && (
-                <div style={{ fontSize: s ? 17 : 13, color: "#60a5fa", fontWeight: 500, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{campB.event_name}</div>
-              )}
+
+            {/* Floating legend (no box). */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: s ? 40 : 22 }}>
+              <Swatch color={GREEN} label="Diet" />
+              <Swatch color={BLUE} label="Sweat" />
+            </div>
+
+            {/* Floating comparison rows — close under the bars. */}
+            <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: s ? 22 : 13, marginTop: s ? 10 : 6 }}>
+              <Row label="Sweat" a={num(campA.weight_via_dehydration)} b={num(campB.weight_via_dehydration)} />
+              <Row label="Diet" a={num(campA.weight_via_carb_reduction)} b={num(campB.weight_via_carb_reduction)} />
+              <Row label="Start" a={num(campA.starting_weight_kg)} b={num(campB.starting_weight_kg)} />
             </div>
           </div>
         </div>
-
-        {/* Comparison rows */}
-        <div
-          style={{
-            background: "rgba(255,255,255,0.03)",
-            borderRadius: s ? 28 : 20,
-            padding: s ? "8px 36px" : "4px 24px",
-            border: "1px solid rgba(255,255,255,0.06)",
-          }}
-        >
-          <ComparisonRow
-            label="Start"
-            valueA={campA.starting_weight_kg?.toFixed(1) ?? null}
-            valueB={campB.starting_weight_kg?.toFixed(1) ?? null}
-            unit=" kg"
-            large={s}
-          />
-          <ComparisonRow
-            label="End"
-            valueA={campA.end_weight_kg?.toFixed(1) ?? null}
-            valueB={campB.end_weight_kg?.toFixed(1) ?? null}
-            unit=" kg"
-            large={s}
-          />
-          <ComparisonRow
-            label="Total Cut"
-            valueA={campA.total_weight_cut?.toFixed(1) ?? null}
-            valueB={campB.total_weight_cut?.toFixed(1) ?? null}
-            unit=" kg"
-            large={s}
-          />
-          <ComparisonRow
-            label="Dehydration"
-            valueA={campA.weight_via_dehydration?.toFixed(1) ?? null}
-            valueB={campB.weight_via_dehydration?.toFixed(1) ?? null}
-            unit=" kg"
-            large={s}
-          />
-          <ComparisonRow
-            label="Carb Cut"
-            valueA={campA.weight_via_carb_reduction?.toFixed(1) ?? null}
-            valueB={campB.weight_via_carb_reduction?.toFixed(1) ?? null}
-            unit=" kg"
-            large={s}
-          />
-        </div>
-
-        {/* Weight cut waterfall charts: one per camp */}
-        {(campA.starting_weight_kg && campA.end_weight_kg && campA.starting_weight_kg > campA.end_weight_kg) ||
-         (campB.starting_weight_kg && campB.end_weight_kg && campB.starting_weight_kg > campB.end_weight_kg) ? (
-          <div style={{ marginTop: s ? 40 : 20 }}>
-            <div
-              style={{
-                display: "flex",
-                gap: s ? 24 : 12,
-              }}
-            >
-              {/* Camp A chart */}
-              <div
-                style={{
-                  flex: 1,
-                  background: "rgba(255,255,255,0.03)",
-                  borderRadius: s ? 24 : 16,
-                  border: "1px solid rgba(255,255,255,0.06)",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  padding: s ? "16px 8px 12px" : "10px 4px 8px",
-                }}
-              >
-                <div style={{ fontSize: s ? 16 : 11, fontWeight: 700, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: s ? 8 : 4, textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>
-                  {campA.name}
-                </div>
-                <CampWaterfall camp={campA} large={s} width={s ? 400 : 300} height={s ? 360 : 220} />
-              </div>
-
-              {/* Camp B chart */}
-              <div
-                style={{
-                  flex: 1,
-                  background: "rgba(255,255,255,0.03)",
-                  borderRadius: s ? 24 : 16,
-                  border: "1px solid rgba(255,255,255,0.06)",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  padding: s ? "16px 8px 12px" : "10px 4px 8px",
-                }}
-              >
-                <div style={{ fontSize: s ? 16 : 11, fontWeight: 700, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: s ? 8 : 4, textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>
-                  {campB.name}
-                </div>
-                <CampWaterfall camp={campB} large={s} width={s ? 400 : 300} height={s ? 360 : 220} />
-              </div>
-            </div>
-
-            {/* Legend */}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                gap: s ? 40 : 20,
-                marginTop: s ? 20 : 10,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: s ? 10 : 6 }}>
-                <div style={{ width: s ? 14 : 10, height: s ? 14 : 10, borderRadius: s ? 4 : 3, background: GREEN }} />
-                <span style={{ fontSize: s ? 16 : 11, fontWeight: 600, color: "rgba(255,255,255,0.5)" }}>Diet</span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: s ? 10 : 6 }}>
-                <div style={{ width: s ? 14 : 10, height: s ? 14 : 10, borderRadius: s ? 4 : 3, background: ORANGE }} />
-                <span style={{ fontSize: s ? 16 : 11, fontWeight: 600, color: "rgba(255,255,255,0.5)" }}>Sweat</span>
-              </div>
-            </div>
-          </div>
-        ) : null}
       </CardShell>
     );
   }

@@ -7,8 +7,11 @@ type Props = {
   topLimiter: SubScoreKey | null;
   onTap?: () => void;
   /** When set and there's no meaningful movement, show a neutral "holding on
-   *  stale data" chip instead of rendering nothing. */
-  held?: { pillarLabel: string; score: number; sinceLabel?: string } | null;
+   *  stale data" chip instead of rendering nothing. `reason` is a pre-composed,
+   *  fact-checked tail (e.g. "log weight cut to refresh", "running on 3d-old
+   *  data") derived from real per-pillar freshness — never a guess about what
+   *  was or wasn't logged. */
+  held?: { score: number; reason: string } | null;
 };
 
 const SUBSCORE_HUMAN: Record<SubScoreKey, string> = {
@@ -32,9 +35,7 @@ export function FightFormDeltaBanner(p: Props) {
   // neutral holding chip instead of rendering nothing.
   if (!hasRealMovement) {
     if (!p.held) return null;
-    const heldText = p.held.sinceLabel
-      ? `Holding at ${p.held.score} · ${p.held.pillarLabel} not logged since ${p.held.sinceLabel}`
-      : `Holding at ${p.held.score} · ${p.held.pillarLabel} not logged`;
+    const heldText = `Holding at ${p.held.score} · ${p.held.reason}`;
     return (
       <button
         type="button"

@@ -188,7 +188,6 @@ export default function TrainingCalendar() {
     // Share state
     const [shareOpen, setShareOpen] = useState(false);
     const [shareTimeRange, setShareTimeRange] = useState<"day" | "week" | "month">("week");
-    const [cardVariant, setCardVariant] = useState<"dark" | "transparent">("dark");
     // Custom session colors
     const [customColors, setCustomColors] = useState<Record<string, string>>({});
     // Multi-attach pending media — uploaded after the session is inserted
@@ -1378,9 +1377,8 @@ export default function TrainingCalendar() {
             {/* Share dialog with time range */}
             <ShareCardDialog
                 open={shareOpen}
-                onOpenChange={(v) => { setShareOpen(v); if (v) setCardVariant("dark"); }}
-                transparent={cardVariant === "transparent"}
-                showSwipeHint
+                onOpenChange={(v) => { setShareOpen(v); }}
+                supportsTransparent
                 title="Share Training Log"
                 shareTitle="Training Log"
                 shareText="Check out my training log on FightCamp Wizard"
@@ -1409,26 +1407,8 @@ export default function TrainingCalendar() {
                         filtered = filtered.filter((s) => s.date >= cutoffStr);
                     }
 
-                    let touchStartX = 0;
-                    const flashCardWrapper = (el: HTMLElement | null) => {
-                        if (!el) return;
-                        el.classList.remove("share-variant-flash");
-                        // Force reflow so the animation re-triggers on rapid swipes.
-                        void el.offsetWidth;
-                        el.classList.add("share-variant-flash");
-                    };
-
                     return (
-                        <div
-                            onTouchStart={(e) => { touchStartX = e.touches[0].clientX; }}
-                            onTouchEnd={(e) => {
-                                const delta = e.changedTouches[0].clientX - touchStartX;
-                                if (Math.abs(delta) > 40) {
-                                    setCardVariant((v) => v === "dark" ? "transparent" : "dark");
-                                    flashCardWrapper(e.currentTarget as HTMLElement);
-                                }
-                            }}
-                        >
+                        <div>
                             {/* Time range pills */}
                             <div style={{
                                 position: "absolute",
@@ -1466,64 +1446,6 @@ export default function TrainingCalendar() {
                                 customColors={customColors}
                                 transparent={transparent}
                             />
-                            {/* Variant mode toggle */}
-                            <div style={{
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                gap: 10,
-                                marginTop: 10,
-                            }}>
-                                <button
-                                    onClick={() => setCardVariant("dark")}
-                                    style={{
-                                        background: "none",
-                                        border: "none",
-                                        padding: 0,
-                                        cursor: "pointer",
-                                        fontSize: 12,
-                                        fontWeight: 600,
-                                        color: cardVariant === "dark" ? "#ffffff" : "rgba(255,255,255,0.35)",
-                                        transition: "color 0.2s",
-                                    }}
-                                >
-                                    Dark
-                                </button>
-                                <div style={{ display: "flex", gap: 6 }}>
-                                    {(["dark", "transparent"] as const).map((v) => (
-                                        <button
-                                            key={v}
-                                            onClick={() => setCardVariant(v)}
-                                            aria-label={`${v} style`}
-                                            style={{
-                                                width: 8,
-                                                height: 8,
-                                                borderRadius: 4,
-                                                border: "none",
-                                                padding: 0,
-                                                cursor: "pointer",
-                                                background: cardVariant === v ? "#ffffff" : "rgba(255,255,255,0.3)",
-                                                transition: "background 0.2s",
-                                            }}
-                                        />
-                                    ))}
-                                </div>
-                                <button
-                                    onClick={() => setCardVariant("transparent")}
-                                    style={{
-                                        background: "none",
-                                        border: "none",
-                                        padding: 0,
-                                        cursor: "pointer",
-                                        fontSize: 12,
-                                        fontWeight: 600,
-                                        color: cardVariant === "transparent" ? "#ffffff" : "rgba(255,255,255,0.35)",
-                                        transition: "color 0.2s",
-                                    }}
-                                >
-                                    Transparent
-                                </button>
-                            </div>
                         </div>
                     );
                 }}

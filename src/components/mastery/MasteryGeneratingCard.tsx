@@ -183,19 +183,26 @@ export function MasteryGeneratingCard({
         </motion.p>
       </div>
 
-      {/* Indeterminate shimmer bar. */}
+      {/* Indeterminate shimmer bar — a seamless, constant-speed sweep. The old
+          single band used `easeInOut` over x:-100%→200%, so it slowed to a near
+          stop at both off-screen extremes and read as "stuck halfway". This is a
+          double-band gradient twice the track width, translated by exactly one
+          band period (-50%) on a LINEAR loop: a bright band is always crossing
+          the track, with no easing dwell and no seam, so it animates the whole
+          time the card is up. */}
       <div
         className="relative z-10 mt-3 h-1 w-36 rounded-full overflow-hidden"
         style={{ background: tint(0.12) }}
       >
         {!prefersReduced && (
           <motion.div
-            className="h-full w-1/2 rounded-full"
+            className="absolute inset-y-0 left-0 h-full"
             style={{
-              background: `linear-gradient(90deg, transparent, ${tint(1)}, transparent)`,
+              width: "200%",
+              background: `linear-gradient(90deg, transparent, ${tint(1)}, transparent, ${tint(1)}, transparent)`,
             }}
-            animate={{ x: ["-100%", "200%"] }}
-            transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+            animate={{ x: ["0%", "-50%"] }}
+            transition={{ duration: 1.4, repeat: Infinity, ease: "linear" }}
           />
         )}
       </div>

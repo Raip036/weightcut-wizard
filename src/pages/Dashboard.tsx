@@ -1059,16 +1059,46 @@ export default function Dashboard() {
                 wellness: "recovery",
                 nutritionAdherence: "nutrition",
               };
-              const ffHeld =
-                ffScoreData &&
-                (ffScoreData.state === "stale" || (ffScoreData.dataAgeDays ?? 0) >= 2) &&
-                ffScoreData.topLimiter
-                  ? {
-                      pillarLabel: SUBSCORE_HUMAN_DASH[ffScoreData.topLimiter] ?? ffScoreData.topLimiter,
-                      score: ffScoreData.displayedScore,
-                      sinceLabel: undefined,
+              // Truthful "held" chip. The score coasts on EMA-smoothed data, so
+              // when a contributing pillar's input has gone stale we say so
+              // honestly and point at the freshest fix. We DON'T reuse
+              // `topLimiter` here: that's the lowest-SCORING pillar, which may be
+              // logged daily yet simply behind plan — calling it "not logged"
+              // was a lie. Instead we name the stalest contributing pillar (the
+              // lowest `completeness`, i.e. least-fresh data) and phrase it as
+              // "to refresh", which is true whether it was logged days ago or
+              // never. Driven entirely off the same reactive `getToday` row as
+              // the ring's "as of Nd ago", so the two can never disagree.
+              const heldActive =
+                !!ffScoreData &&
+                (ffScoreData.state === "stale" || (ffScoreData.dataAgeDays ?? 0) >= 2);
+              let ffHeld: { score: number; reason: string } | null = null;
+              if (heldActive && ffScoreData) {
+                const subs = ffScoreData.subScores as
+                  | Record<string, { weight: number; completeness?: number }>
+                  | null;
+                let laggard: string | null = null;
+                let lowest = Infinity;
+                if (subs) {
+                  for (const [k, s] of Object.entries(subs)) {
+                    if (!s || s.weight <= 0) continue;
+                    const c = s.completeness ?? 1;
+                    if (c < lowest) {
+                      lowest = c;
+                      laggard = k;
                     }
-                  : null;
+                  }
+                }
+                const age = ffScoreData.dataAgeDays ?? 0;
+                const label = laggard ? SUBSCORE_HUMAN_DASH[laggard] ?? laggard : null;
+                const reason =
+                  label && lowest < 1
+                    ? `log ${label} to refresh`
+                    : age >= 2
+                      ? `running on ${age}d-old data`
+                      : "running on older data";
+                ffHeld = { score: ffScoreData.displayedScore, reason };
+              }
               return (
                 <FightFormDeltaBanner
                   delta={ffDelta?.delta ?? null}

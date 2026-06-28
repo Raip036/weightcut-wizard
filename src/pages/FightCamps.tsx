@@ -654,12 +654,13 @@ export default function FightCamps() {
                 setCompareMode(false);
               }
             }}
+            supportsTransparent
             title="Compare Camps"
             shareTitle="Camp Comparison"
             shareText="Check out my camp comparison on FightCamp Wizard"
           >
-            {({ cardRef, aspect }) => (
-              <CampComparisonCard ref={cardRef} campA={campA} campB={campB} aspect={aspect} />
+            {({ cardRef, aspect, transparent }) => (
+              <CampComparisonCard ref={cardRef} campA={campA} campB={campB} aspect={aspect} transparent={transparent} />
             )}
           </ShareCardDialog>
         );

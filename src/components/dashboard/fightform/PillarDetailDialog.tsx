@@ -10,7 +10,7 @@ import type { FightFormState, SubScore, SubScoreKey } from "@/scoring/types";
 import type { PillarContribution } from "@/scoring/contributions";
 import { type TrendPoint } from "../FightFormSubScoreTile";
 import { FightFormTrendSparkline } from "../FightFormTrendSparkline";
-import { SUBSCORE_LABEL, SUBSCORE_ICON, SUBSCORE_EXPLAINER } from "./constants";
+import { SUBSCORE_LABEL, SUBSCORE_EXPLAINER } from "./constants";
 import { pillarAdvice } from "./pillarAdvice";
 
 interface Props {
@@ -43,6 +43,14 @@ const TIER_BAR: Record<Tier, string> = {
   silver: "bg-slate-200",
   bronze: "bg-orange-300",
   building: "bg-muted-foreground/60",
+};
+
+// Text colour mirror of TIER_BAR, so the hero score reads its own tier at a glance.
+const TIER_TEXT: Record<Tier, string> = {
+  gold: "text-amber-300",
+  silver: "text-slate-200",
+  bronze: "text-orange-300",
+  building: "text-muted-foreground",
 };
 
 /**
@@ -101,59 +109,56 @@ function PillarDetailBody({
 
   return (
     <>
-      {/* 1, header: icon + label + value */}
-      <DialogTitle className="flex items-center gap-2 text-base">
-        <Icon
-          name={SUBSCORE_ICON[pillarKey] ?? "ellipseOutline"}
-          size={16}
-          className="text-foreground shrink-0"
-        />
-        <span className="truncate">{SUBSCORE_LABEL[pillarKey] ?? pillarKey}</span>
-        <span className="ml-auto display-number text-2xl tabular-nums">
-          {sub.value}
-          <span className="text-base text-muted-foreground/70">/100</span>
-        </span>
-      </DialogTitle>
+      {/* Header: label eyebrow + big tier-coloured score. No leading icon, and
+          the score sits on its OWN line (left-aligned) so it can never tuck
+          under the dialog's top-right close X. `pr-10` reserves the X's space. */}
+      <div className="pr-10">
+        <DialogTitle className="text-[11px] uppercase tracking-[0.18em] font-semibold text-muted-foreground">
+          {SUBSCORE_LABEL[pillarKey] ?? pillarKey}
+        </DialogTitle>
+        <div className="mt-1.5 flex items-baseline gap-1.5">
+          <span className={cn("display-number text-[40px] leading-none tabular-nums", TIER_TEXT[tier])}>
+            {sub.value}
+          </span>
+          <span className="text-[15px] text-muted-foreground/50 tabular-nums">/100</span>
+        </div>
+      </div>
 
-      {/* 2, primary explanation (engine reason) */}
-      <DialogDescription className="text-foreground/85 leading-snug">
+      {/* Primary explanation (engine reason). */}
+      <DialogDescription className="text-[14px] text-foreground/85 leading-snug">
         {sub.reason}
       </DialogDescription>
 
-      {/* 3, contribution bar (active pillars only) */}
+      {/* Contribution bar (active pillars only). */}
       {contribution && (
-        <div className="space-y-1">
-          <div
-            className="h-1.5 rounded-full bg-muted/40 overflow-hidden"
-            aria-hidden
-          >
+        <div className="space-y-1.5">
+          <div className="h-1.5 rounded-full bg-muted/30 overflow-hidden" aria-hidden>
             <div
               className={cn("h-full rounded-full", TIER_BAR[tier])}
               style={{ width: `${fillPct}%` }}
             />
           </div>
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground/70 font-medium tabular-nums">
-            Contributing +{contribution.contributionPts} pts (
-            {contribution.effectiveWeightPct}% weight this phase)
+          <div className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground/60 font-semibold tabular-nums">
+            Contributing +{contribution.contributionPts} pts · {contribution.effectiveWeightPct}% weight this phase
           </div>
         </div>
       )}
 
-      {/* 4, "How this is measured" explainer */}
+      {/* "How this is measured" explainer — refined premium card. */}
       {SUBSCORE_EXPLAINER[pillarKey] && (
-        <div className="rounded-xs bg-muted/15 border border-border/40 px-3 py-2.5">
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground/70 font-medium mb-1">
+        <div className="rounded-2xl border border-border/40 bg-white/[0.02] px-4 py-3.5">
+          <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/60 font-semibold mb-1.5">
             How this is measured
           </div>
-          <p className="text-[12px] leading-snug text-foreground/80">
+          <p className="text-[13px] leading-relaxed text-foreground/75">
             {SUBSCORE_EXPLAINER[pillarKey]}
           </p>
         </div>
       )}
 
-      {/* 5, per-pillar sparkline */}
+      {/* Per-pillar sparkline. */}
       {trend && trend.length >= 2 && (
-        <div className="h-16 rounded-xs bg-background/40 p-2">
+        <div className="h-16 rounded-2xl border border-border/40 bg-white/[0.02] p-2.5">
           <FightFormTrendSparkline
             points={trend.map((pt) => ({
               date: pt.date,
@@ -164,14 +169,17 @@ function PillarDetailBody({
         </div>
       )}
 
-      {/* 6, "What you can do" */}
-      <div className="space-y-2">
-        <div className="section-header">What you can do</div>
-        <p className="text-body-sm text-foreground/85 leading-snug">
+      {/* "What you can do" — headline + premium tappable action cards (no
+          leading arrow icon; a single trailing chevron signals tappability). */}
+      <div className="space-y-2.5">
+        <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/60 font-semibold">
+          What you can do
+        </div>
+        <p className="text-[14px] text-foreground/85 leading-snug">
           {advice.headline}
         </p>
         {advice.actions.length > 0 && (
-          <ul className="space-y-1">
+          <ul className="space-y-2">
             {advice.actions.map((action) => {
               const tappable = !!action.route;
               return (
@@ -183,25 +191,20 @@ function PillarDetailBody({
                       tappable ? () => onNavigate(action.route!) : undefined
                     }
                     className={cn(
-                      "w-full flex items-center justify-between gap-2 rounded-xs px-2 py-2 text-left text-body-sm text-foreground/90 transition-colors",
+                      "w-full flex items-center justify-between gap-3 rounded-2xl border border-border/40 bg-white/[0.02] px-4 py-3 text-left transition-colors focus:outline-none focus-visible:outline-none",
                       tappable
                         ? "active:bg-primary/10"
-                        : "opacity-70 cursor-default",
+                        : "opacity-60 cursor-default",
                     )}
                   >
-                    <span className="flex items-center gap-2 min-w-0">
-                      <Icon
-                        name="arrowForwardOutline"
-                        size={14}
-                        className="text-primary shrink-0"
-                      />
-                      <span className="truncate">{action.label}</span>
+                    <span className="min-w-0 text-[14px] font-medium text-foreground/90 leading-snug">
+                      {action.label}
                     </span>
                     {tappable && (
                       <Icon
                         name="chevronForwardOutline"
-                        size={12}
-                        className="text-muted-foreground/60 shrink-0"
+                        size={15}
+                        className="text-muted-foreground/40 shrink-0"
                       />
                     )}
                   </button>

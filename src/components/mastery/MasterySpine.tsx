@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "convex/react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { api } from "@/../convex/_generated/api";
@@ -306,23 +306,27 @@ function DisciplineCard({
           {/* Stage indicator */}
           <StageIndicator phase={phase} accentToken="--primary" />
 
-          {/* Stage 1: Mission cards */}
+          {/* Stage 1: Mission cards. AnimatePresence owns each card's exit so a
+              completed drill card (auto-archived server-side → dropped from the
+              flow) plays a smooth scale+fade instead of vanishing instantly. */}
           {missions.length > 0 && (
             <div className="px-3 pb-3 space-y-2">
-              {missions.map((mission) => {
-                const isOpen = mission._id === expandedMissionId;
-                return (
-                  <MissionCard
-                    key={mission._id}
-                    mission={mission}
-                    expanded={isOpen}
-                    onToggle={() =>
-                      setExpandedMissionId(isOpen ? null : mission._id)
-                    }
-                    onAllMissionsComplete={handleAllMissionsComplete}
-                  />
-                );
-              })}
+              <AnimatePresence initial={false}>
+                {missions.map((mission) => {
+                  const isOpen = mission._id === expandedMissionId;
+                  return (
+                    <MissionCard
+                      key={mission._id}
+                      mission={mission}
+                      expanded={isOpen}
+                      onToggle={() =>
+                        setExpandedMissionId(isOpen ? null : mission._id)
+                      }
+                      onAllMissionsComplete={handleAllMissionsComplete}
+                    />
+                  );
+                })}
+              </AnimatePresence>
             </div>
           )}
 
@@ -364,14 +368,20 @@ function DisciplineCard({
                     </p>
                   ) : (
                     <div className="space-y-1.5">
-                      {assignments.map((row) => (
-                        <SparringAssignmentRow
-                          key={row._id}
-                          assignment={row}
-                          token={token}
-                          onCycleComplete={handleCycleComplete}
-                        />
-                      ))}
+                      {/* AnimatePresence owns each row's exit: when a mastered
+                          assignment drops from the list on the next query tick,
+                          the row plays its scale+fade `exit` instead of blinking
+                          out. `layout` lets the remaining rows slide up smoothly. */}
+                      <AnimatePresence initial={false}>
+                        {assignments.map((row) => (
+                          <SparringAssignmentRow
+                            key={row._id}
+                            assignment={row}
+                            token={token}
+                            onCycleComplete={handleCycleComplete}
+                          />
+                        ))}
+                      </AnimatePresence>
                     </div>
                   )}
                 </motion.div>
@@ -562,6 +572,11 @@ export function MasterySpine(_props: MasterySpineProps) {
     setCutscene({ discipline, xp });
   };
 
+  // Stable dismiss so the cutscene's auto-dismiss timer effect doesn't re-run
+  // (and reset / re-fire) on every MasterySpine re-render. An inline arrow here
+  // gets a new identity each render, which thrashed that timer.
+  const handleDismissCutscene = useCallback(() => setCutscene(null), []);
+
   // Deterministic path: fire the cutscene for any discipline the detector
   // flagged as newly-complete this render (and not already celebrated).
   useEffect(() => {
@@ -601,13 +616,20 @@ export function MasterySpine(_props: MasterySpineProps) {
 
   // ── Guards (after all hooks) ──────────────────────────────────────────────
 
-  // Wait for queries to resolve before rendering.
-  if (feature === undefined || flow === undefined) return null;
+  // ── Null-safe derivations (NO early returns) ─────────────────────────────
+  // CRITICAL: the <MasteryCutscene> at the bottom must NEVER unmount while it's
+  // open, or the camp page flashes through and it re-enters (the reported
+  // flicker). So instead of early-returning for loading / not-Pro / empty, we
+  // compute a `body` that varies while the return STRUCTURE stays constant
+  // (<style>, then {body}, then <MasteryCutscene> — the cutscene always at the
+  // same child slot). The camp-scoped `flow` (`{ campId: activeCamp?._id }`) can
+  // briefly resolve to `undefined` when the active camp re-resolves; treating it
+  // as [] here keeps the cutscene mounted straight through that blip.
+  const isReady = feature !== undefined && flow !== undefined;
+  const isPro = feature?.isPro === true;
+  const flowList = flow ?? [];
 
-  // Single Pro wall for the entire widget.
-  if (!feature.isPro) return <LockedMissionCard />;
-
-  const flowDisciplines = new Set(flow.map((e) => e.discipline.toLowerCase()));
+  const flowDisciplines = new Set(flowList.map((e) => e.discipline.toLowerCase()));
 
   // All disciplines currently held in the "drills" generating set (active OR
   // within the min-display window). Standalone loader cards render for those
@@ -623,31 +645,26 @@ export function MasterySpine(_props: MasterySpineProps) {
   );
 
   // Standalone loader cards (top of list) for disciplines generating their
-  // FIRST drills — no card in the flow yet. Keep showing until the latch
-  // releases even after the first mission appears (the flow check is only used
-  // to decide standalone-vs-in-card placement, not to hide mid-window).
+  // FIRST drills — no card in the flow yet.
   const generatingDrills = heldDrillsDisciplines.filter(
     (disc) => !flowDisciplines.has(disc.toLowerCase()),
   );
 
-  // Nothing in flight and nothing in the flow → first-run empty state.
-  // Premium wizard-mascot card (Pro users): the only instruction is to log a
-  // session and fill in "What went well" to get the first drills.
-  //
-  // BUT do NOT bail while a cycle-complete cutscene is pending: mastering the
-  // LAST graduated assignment empties `flow` on the same render the cutscene is
-  // set, so returning the empty card here would unmount the <MasteryCutscene>
-  // before it ever plays. Keep rendering (the main return mounts the cutscene
-  // over an empty body); the empty card shows once the cutscene is dismissed.
-  if (flow.length === 0 && generatingDrills.length === 0 && !cutscene) {
-    return <MasteryEmptyCard />;
-  }
+  // First-run empty state — rendered as the BODY (never an early return).
+  const showEmpty =
+    isReady && isPro && flowList.length === 0 && generatingDrills.length === 0 && !cutscene;
 
-  return (
-    <>
-      {/* Keyframe definitions injected once alongside the component tree. */}
-      <style>{KEYFRAMES}</style>
-
+  // The varying part of the tree. Computed as a single child so the return
+  // structure (and the cutscene's slot) never changes.
+  let body: ReactNode = null;
+  if (!isReady) {
+    body = null; // queries resolving — hold the slot, keep the cutscene mounted
+  } else if (!isPro) {
+    body = cutscene ? null : <LockedMissionCard />;
+  } else if (showEmpty) {
+    body = <MasteryEmptyCard />;
+  } else {
+    body = (
       <div className="space-y-3">
         {/* Loader cards for disciplines generating their first drills. */}
         {generatingDrills.map((disc) => (
@@ -658,7 +675,7 @@ export function MasterySpine(_props: MasterySpineProps) {
           />
         ))}
 
-        {flow.map((entry) => {
+        {flowList.map((entry) => {
           // Regenerating drills for a discipline that already has a card: show
           // the drills loader OVER the card for the held min-window, then it
           // cross-fades back into the real card once the latch releases.
@@ -684,6 +701,19 @@ export function MasterySpine(_props: MasterySpineProps) {
           );
         })}
       </div>
+    );
+  }
+
+  // Stable structure: <style>, {body}, <MasteryCutscene> — the cutscene is
+  // ALWAYS the third child at the same slot, so swapping `body` (loading /
+  // locked / empty / cards) can never unmount it. THIS is what kills the
+  // "camp page flashes then the cutscene comes back" flicker for good.
+  return (
+    <>
+      {/* Keyframe definitions injected once alongside the component tree. */}
+      <style>{KEYFRAMES}</style>
+
+      {body}
 
       {/* Mastered "trophy" shelf moved to the bottom of the Camp page (below
           Recent activity) and made collapsible — see <MasteredShelf> in Camp.tsx. */}
@@ -696,10 +726,10 @@ export function MasterySpine(_props: MasterySpineProps) {
         disciplineLabel={cutscene ? disciplineLabel(cutscene.discipline) : ""}
         techniqueCount={
           cutscene
-            ? (flow.find((e) => e.discipline === cutscene.discipline)?.assignments.length ?? 3)
+            ? (flowList.find((e) => e.discipline === cutscene.discipline)?.assignments.length ?? 3)
             : 0
         }
-        onDismiss={() => setCutscene(null)}
+        onDismiss={handleDismissCutscene}
       />
     </>
   );
