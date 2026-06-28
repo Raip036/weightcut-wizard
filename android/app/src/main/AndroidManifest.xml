@@ -57,6 +57,29 @@
 
     <!-- Camera: meal/training photos + barcode scanning -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- The CAMERA permission implicitly marks the camera hardware (and
+         autofocus) as a REQUIRED feature, which makes Google Play filter the
+         app off any device that doesn't report a rear autofocus camera
+         ("device not compatible"). Declare them as NOT required so the app is
+         available to all devices; the app checks for a camera at runtime. -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+
+    <!-- Hardware features that other permissions / the Credential Manager
+         dependency (Google Sign-In) implicitly mark as REQUIRED, which silently
+         filters the app off large numbers of devices on Google Play. Declare
+         them all NOT required so the app reaches the maximum device set; the app
+         degrades gracefully at runtime when a feature is absent.
+         - fingerprint: USE_BIOMETRIC/USE_FINGERPRINT (Credential Manager) would
+           exclude every phone/tablet without a fingerprint sensor (e.g. budget
+           Galaxy A-series, many tablets, face-unlock-only devices).
+         - vibration: the VIBRATE permission would exclude devices with no motor.
+         - touchscreen: implicitly required by default; excludes Chromebooks /
+           non-touch Android devices. -->
+    <uses-feature android:name="android.hardware.fingerprint" android:required="false" />
+    <uses-feature android:name="android.hardware.vibration" android:required="false" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
     <!-- Push (FCM) + local notification posting on Android 13+ -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
