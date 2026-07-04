@@ -4,6 +4,7 @@ import { useMutation } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import { triggerHapticSelection } from "@/lib/haptics";
 import { stripDashes } from "@/lib/utils";
+import { springs } from "@/lib/motion";
 import { AnimatedCheckbox, XpFloat } from "@/components/coach/TickReward";
 import { WizardAuroraBackground } from "@/components/onboarding/WizardAuroraBackground";
 
@@ -162,7 +163,7 @@ export function SparringAssignmentRow({
 
       // On mastery we do NOT self-remove the row. The server drops the mastered
       // assignment from the list on the next query tick; the parent's
-      // <AnimatePresence> then plays this row's `exit` (a smooth scale+fade) as
+      // <AnimatePresence> then plays this row's `exit` (fade + height collapse) as
       // it leaves the keyed list. Self-removing here raced that server drop and
       // made the row vanish instantly without the exit ever playing.
     } catch (err) {
@@ -178,16 +179,31 @@ export function SparringAssignmentRow({
   // The root is a keyed motion element whose EXIT is owned by the parent's
   // <AnimatePresence> around the assignment list (MasterySpine). When the server
   // drops the mastered assignment, the parent removes this key and the exit
-  // (scale + fade) plays smoothly instead of the row blinking out.
+  // (fade + height/margin collapse) plays smoothly instead of the row blinking
+  // out — the rows below slide up via natural reflow in one continuous motion.
+  // Zeroing marginTop matters because the space-y-3 host gives this row its
+  // own margin-top; leaving it would cause a 12px jump on unmount. New rows
+  // fade in and rise ~12px into place. `layout="position"` is the cheap
+  // position-only FLIP for any residual reordering. iOS-safe: opacity/
+  // transform/height only, no scale.
   if (isGraduated) {
     return (
       <motion.div
-        layout
+        layout="position"
         className="relative rounded-lg overflow-hidden border border-primary/15"
+        initial={reduced ? { opacity: 0 } : { opacity: 0, y: 12 }}
+        animate={reduced ? { opacity: 1 } : { opacity: 1, y: 0 }}
+        transition={springs.gentle}
         exit={
           reduced
-            ? { opacity: 0 }
-            : { opacity: 0, scale: 0.96, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] } }
+            ? { opacity: 0, transition: { duration: 0.15 } }
+            : {
+                opacity: 0,
+                height: 0,
+                marginTop: 0,
+                marginBottom: 0,
+                transition: { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
+              }
         }
       >
         {/* Wizard-blue ambient backdrop (subtle) — replaces the old red
@@ -307,15 +323,34 @@ export function SparringAssignmentRow({
   // ── Legacy row — binary checkbox ─────────────────────────────────────────
   return (
     <motion.div
-      layout
+      layout="position"
       className="relative rounded-lg overflow-hidden"
-      exit={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.96, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] } }}
+      initial={reduced ? { opacity: 0 } : { opacity: 0, y: 12 }}
+      exit={
+        reduced
+          ? { opacity: 0, transition: { duration: 0.15 } }
+          : {
+              opacity: 0,
+              height: 0,
+              marginTop: 0,
+              marginBottom: 0,
+              transition: { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
+            }
+      }
       animate={{
+        opacity: 1,
+        y: 0,
         // Neutral surface (no red discipline wash) so the legacy row matches
         // the graduated card and the drill card's checkbox-row system.
         backgroundColor: done
           ? "hsla(0,0%,100%,0.05)"
           : "hsla(0,0%,100%,0.03)",
+      }}
+      transition={{
+        ...springs.gentle,
+        // Keep the done/undone surface swap on its previous quick tween
+        // instead of the entrance spring.
+        backgroundColor: { duration: 0.3, ease: "easeOut" },
       }}
     >
       {/* Brief accent flash on completion. */}

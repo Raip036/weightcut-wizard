@@ -2,6 +2,8 @@ import { v } from "convex/values";
 import { internalQuery } from "./_generated/server";
 import type { SafetyInput } from "./_shared/coachSafety";
 import { computeFightWeekProjection } from "./_shared/fightWeekMath";
+import { resolveWeighInIso } from "./_shared/weighInTiming";
+import { resolveCutPace, plannedRatePctPerWeek } from "./_shared/cutPace";
 
 /**
  * Phase 3 — Fight Camp Coach redesign: the safety data loader.
@@ -58,7 +60,12 @@ export const getSafetyInput = internalQuery({
         .filter((c) => !c.isCompleted && c.fightDate >= today)
         .sort((a, b) => a.fightDate.localeCompare(b.fightDate))[0] ?? null;
 
-    const daysToWeighIn = daysUntil(activeCamp?.fightDate);
+    // Weigh-in day (fight date adjusted by timing) is the cut's true end day.
+    const daysToWeighIn = daysUntil(
+      activeCamp
+        ? resolveWeighInIso(activeCamp.fightDate, activeCamp.weighInTiming)
+        : null,
+    );
 
     // ── Rate of loss over the last ~7 days of weight logs ──────────────────
     // %BW/week = (earliest - latest)/bodyweight, normalised to a 7-day span.
@@ -125,6 +132,15 @@ export const getSafetyInput = internalQuery({
     const hrvBaseline: number | null = null;
     const rhrBaseline: number | null = null;
 
+    // ── Current weight (latest log) — shared by the risk + plan reads ─────
+    const latestWeightLog = await ctx.db
+      .query("weight_logs")
+      .withIndex("by_user_date", (q) => q.eq("userId", userId))
+      .order("desc")
+      .first();
+    const currentWeight =
+      latestWeightLog?.weightKg ?? activeCamp?.startingWeightKg ?? null;
+
     // ── Fight-week risk level ──────────────────────────────────────────────
     // Derived from the deterministic fight-week math (same engine the cut
     // plan uses): feed current weight, the camp's target weigh-in weight and
@@ -138,24 +154,34 @@ export const getSafetyInput = internalQuery({
       daysToWeighIn !== null &&
       daysToWeighIn >= 0 &&
       activeCamp.endWeightKg !== undefined &&
-      activeCamp.endWeightKg !== null
+      activeCamp.endWeightKg !== null &&
+      currentWeight !== null &&
+      currentWeight > 0
     ) {
-      const latestWeight = await ctx.db
-        .query("weight_logs")
-        .withIndex("by_user_date", (q) => q.eq("userId", userId))
-        .order("desc")
-        .first();
-      const currentWeight =
-        latestWeight?.weightKg ?? activeCamp.startingWeightKg ?? null;
-      if (currentWeight !== null && currentWeight > 0) {
-        const projection = computeFightWeekProjection({
-          currentWeight,
-          targetWeighIn: activeCamp.endWeightKg,
-          daysUntilWeighIn: Math.max(1, daysToWeighIn),
-        });
-        fightWeekRiskLevel = mapRisk(projection.riskLevel);
-      }
+      const projection = computeFightWeekProjection({
+        currentWeight,
+        targetWeighIn: activeCamp.endWeightKg,
+        daysUntilWeighIn: Math.max(1, daysToWeighIn),
+      });
+      fightWeekRiskLevel = mapRisk(projection.riskLevel);
     }
+
+    // ── Plan-aware pace context ────────────────────────────────────────────
+    // The generated cut plan's intended rate for THIS week (and the drift
+    // against this week's target) lets the evaluator's warn tier tolerate a
+    // pace the athlete's own plan prescribes — keeping the coach's safety
+    // line consistent with the dashboard's plan-based "on plan" verdict.
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique();
+    const pace = resolveCutPace({
+      cutPlanJson: profile?.cutPlanJson ?? null,
+      profileTargetDate: profile?.targetDate ?? null,
+      fightDate: activeCamp?.fightDate ?? null,
+      currentKg: currentWeight,
+      asOfIso: today,
+    });
 
     return {
       rateOfLossPct7d,
@@ -166,6 +192,8 @@ export const getSafetyInput = internalQuery({
       rhrBaseline,
       daysToWeighIn,
       fightWeekRiskLevel,
+      plannedRatePct7d: plannedRatePctPerWeek(pace, currentWeight),
+      planDriftKg: pace?.driftKg ?? null,
     };
   },
 });

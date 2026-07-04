@@ -29,6 +29,7 @@ import {
 } from "./_shared/coachBlocks";
 import { resolvePhase } from "../src/scoring/phaseWeights";
 import { CURRENT_CONFIG } from "../src/scoring/config";
+import { resolveWeighInIso } from "./_shared/weighInTiming";
 
 // ── Public return shape (client imports this with `import type`) ──────────
 
@@ -141,6 +142,8 @@ export const getCockpit = query({
         age: profile.age,
         height_cm: profile.heightCm,
         athlete_type: profile.athleteType ?? null,
+        target_date: profile.targetDate ?? null,
+        cut_plan_json: profile.cutPlanJson ?? null,
       },
       upcomingCamp: upcomingCamp
         ? {
@@ -184,7 +187,9 @@ export const getCockpit = query({
     return {
       phase,
       daysToWeighIn: derived.daysOut,
-      weighInDateISO: upcomingCamp ? upcomingCamp.fightDate : null,
+      weighInDateISO: upcomingCamp
+        ? resolveWeighInIso(upcomingCamp.fightDate, upcomingCamp.weighInTiming)
+        : null,
       currentKg: derived.currentKg,
       targetKg: derived.targetKg,
       deltaKg: derived.deltaKg,

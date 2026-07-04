@@ -10,7 +10,7 @@
  * meals × ≤20 items each) so this is fine to compute on read.
  */
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { requireUserId } from "./lib/auth";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -281,6 +281,29 @@ export const createMealWithItems = mutation({
       date: args.date,
     });
     return mealId;
+  },
+});
+
+/**
+ * Patch a meal's whole-food health grade after the fact. Called
+ * fire-and-forget by the classifyFoodHealth action so meals logged without a
+ * grade (manual entry, meal-plan idea, day-plan log, recents pick) get one.
+ *
+ * Internal so it can take `userId` for ownership without exposing a public
+ * write. No-ops silently when the meal is missing, not owned, or already
+ * graded — an existing score (e.g. from the AI scanner) is never clobbered.
+ */
+export const setHealthScoreInternal = internalMutation({
+  args: {
+    mealId: v.id("meals"),
+    userId: v.id("users"),
+    healthScore: v.number(),
+  },
+  handler: async (ctx, { mealId, userId, healthScore }) => {
+    const meal = await ctx.db.get(mealId);
+    if (!meal || meal.userId !== userId) return;
+    if (meal.healthScore !== undefined) return;
+    await ctx.db.patch(mealId, { healthScore });
   },
 });
 

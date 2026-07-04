@@ -17,6 +17,7 @@ import { Camera as CapCamera } from "@capacitor/camera";
 import { triggerHaptic, triggerHapticSelection } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
 import { logger } from "@/lib/logger";
+import type { FoodHealthInputs } from "@/lib/foodHealthScore";
 
 interface ScannedProduct {
   productName: string;
@@ -36,6 +37,9 @@ interface ScannedProduct {
   serving_size: string;
   serving_grams: number;
   source: string;
+  // Deterministic whole-food processing signals from OpenFoodFacts. Absent
+  // when the product data is too thin to classify (falls back to AI on log).
+  health?: FoodHealthInputs;
 }
 
 interface BarcodeScannerProps {
@@ -46,6 +50,7 @@ interface BarcodeScannerProps {
     carbs_g: number;
     fats_g: number;
     serving_size: string;
+    health?: FoodHealthInputs;
   }) => void;
   disabled?: boolean;
   className?: string;
@@ -150,6 +155,9 @@ export const BarcodeScanner = ({ onFoodScanned, disabled, className, label }: Ba
         serving_size: data.serving_size,
         serving_grams: data.serving_grams,
         source: data.source,
+        // Undefined when OFF data was too thin — the log path's AI fallback
+        // grades it instead.
+        health: data.health,
       };
 
       setScannedProduct(product);
@@ -583,6 +591,7 @@ export const BarcodeScanner = ({ onFoodScanned, disabled, className, label }: Ba
                         carbs_g: live.carbs,
                         fats_g: live.fats,
                         serving_size: `${grams}g`,
+                        health: scannedProduct.health,
                       });
                       setIsOpen(false);
                     }}

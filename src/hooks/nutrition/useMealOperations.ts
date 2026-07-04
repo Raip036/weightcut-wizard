@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useAction } from "convex/react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
 import { useSafeAsync } from "@/hooks/useSafeAsync";
@@ -17,6 +17,11 @@ import {
   type RpcItemPayload,
 } from "@/lib/buildMealRpcArgs";
 import { track, EVENTS } from "@/lib/analytics";
+import {
+  coerceHealthInputs,
+  scoreFood,
+  type FoodHealthInputs,
+} from "@/lib/foodHealthScore";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { Meal, Ingredient, DayPlanMeal } from "@/pages/nutrition/types";
@@ -127,6 +132,10 @@ export function useMealOperations(params: UseMealOperationsParams) {
   const { isMounted: _isMounted } = useSafeAsync();
   const createMealMut = useMutation(api.meals.createMealWithItems);
   const deleteMealMut = useMutation(api.meals.deleteMeal);
+  // AI-backed fallback grader for meals logged without a deterministic health
+  // score (manual entry, meal-plan ideas, recents picks, thin barcode/search
+  // rows). Fired fire-and-forget after a successful insert.
+  const classifyHealth = useAction(api.actions.classifyFoodHealth.run);
   const [loggingMeal, setLoggingMeal] = useState<string | null>(null);
   const [savingAllMeals, setSavingAllMeals] = useState(false);
   // `savingMeal` is the single-meal insert lock surfaced to button `disabled`
@@ -141,6 +150,50 @@ export function useMealOperations(params: UseMealOperationsParams) {
   const inFlightRef = useRef(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [mealToDelete, setMealToDelete] = useState<Meal | null>(null);
+
+  /**
+   * Fire-and-forget health-grade enrichment. When a meal is inserted without a
+   * deterministic grade, hand its item names to the AI fallback classifier
+   * (which patches the meal's `healthScore` server-side) and, if the user is
+   * still viewing the meal's date, patch it into local state + the date-keyed
+   * caches so the grade appears without a reload. Never awaited in a save path
+   * and never surfaces a toast on failure. `capturedDate`/`capturedUserId` are
+   * passed by the caller so a late resolve writes to the right date, not
+   * whatever is on screen when the promise settles.
+   */
+  const enrichHealthGrade = useCallback((
+    mealId: string,
+    items: Array<{ name: string; calories: number }>,
+    capturedDate: string,
+    capturedUserId: string,
+  ) => {
+    // Cap at 20 to match the action's validation; drop unnamed items.
+    const payloadItems = items
+      .filter((it) => it.name && it.name.trim().length > 0)
+      .slice(0, 20)
+      .map((it) => ({ name: it.name, calories: it.calories }));
+    if (payloadItems.length === 0) return;
+
+    classifyHealth({ mealId: mealId as unknown as Id<"meals">, items: payloadItems })
+      .then((result) => {
+        if (!result || typeof result.score !== "number") return;
+        const score = result.score;
+        setMeals((prev) => {
+          // Only patch when the enriched meal is actually in the current list.
+          // If the user switched dates, its id won't be here — leaving both the
+          // list and (crucially) the other date's cache untouched. The server
+          // patch already persisted the grade for the next load.
+          if (!prev.some((m) => m.id === mealId)) return prev;
+          const updated = prev.map((m) =>
+            m.id === mealId ? { ...m, health_score: score } : m,
+          );
+          localCache.setForDate(capturedUserId, "nutrition_logs", capturedDate, updated);
+          nutritionCache.setMeals(capturedUserId, capturedDate, updated);
+          return updated;
+        });
+      })
+      .catch((e) => logger.warn("health grade enrichment failed", { error: String(e) }));
+  }, [classifyHealth, setMeals]);
 
   /**
    * Single point-of-truth for every insert path. Fires an optimistic cache
@@ -234,6 +287,18 @@ export function useMealOperations(params: UseMealOperationsParams) {
         });
       }
 
+      // Passive grading fallback: if this insert carried no deterministic
+      // health score, let the AI classifier grade it after the fact. Never
+      // awaited so it can't slow or fail the save.
+      if (opts.healthScore == null && canonicalId) {
+        enrichHealthGrade(
+          canonicalId as unknown as string,
+          opts.args.p_items.map((it) => ({ name: it.name, calories: it.calories })),
+          selectedDate,
+          userId,
+        );
+      }
+
       celebrateSuccess();
       if (opts.successToast) toast(opts.successToast);
       return canonicalId;
@@ -256,7 +321,7 @@ export function useMealOperations(params: UseMealOperationsParams) {
       inFlightRef.current = false;
       setSavingMeal(false);
     }
-  }, [userId, selectedDate, setMeals, toast, createMealMut]);
+  }, [userId, selectedDate, setMeals, toast, createMealMut, enrichHealthGrade]);
 
   // ── Insert path 1: manual submit ──
   const saveMealToDb = useCallback(async (mealData: {
@@ -496,9 +561,16 @@ export function useMealOperations(params: UseMealOperationsParams) {
     portion_size: string;
     food_id?: string | null;
     grams?: number | null;
+    // Deterministic processing signals from the barcode (OpenFoodFacts) or
+    // search (USDA) source. Present → grade computed here, no AI call. Absent
+    // (e.g. recents picks, thin source data) → runInsertFlow's AI fallback.
+    health?: FoodHealthInputs;
   }, foodSearchMealType: string, method: "search" | "barcode" = "search") => {
     if (!userId) return;
     const mealType = resolveMealType(foodSearchMealType);
+    // Deterministic grade when the source supplied processing signals.
+    const inputs = coerceHealthInputs(food.health);
+    const healthScore = inputs ? scoreFood(inputs) : null;
     const args = buildCreateMealRpcArgs({
       header: {
         meal_name: food.meal_name,
@@ -521,6 +593,7 @@ export function useMealOperations(params: UseMealOperationsParams) {
     const result = await runInsertFlow({
       args,
       portion_size: food.portion_size,
+      healthScore,
       successToast: { title: "Food logged!", description: `${food.meal_name} · ${food.calories} kcal` },
     });
     // Analytics: one MEAL_LOGGED per successful insert. `runInsertFlow`
@@ -543,14 +616,25 @@ export function useMealOperations(params: UseMealOperationsParams) {
       name: g.name, grams: g.grams, calories: g.calories,
       proteinG: g.protein_g, carbsG: g.carbs_g, fatsG: g.fats_g,
     }));
-    await createMealMut({
+    const newId = await createMealMut({
       date: dateIso, mealType: meal.type, mealName: meal.name || meal.timingLabel,
       isAiGenerated: true, items, idempotencyKey: `dayplan_${dateIso}_${meal.id}`,
     });
+    // Day-plan meals carry no deterministic grade — let the AI fallback grade
+    // them. Fire-and-forget; the server patch surfaces on the next load, and
+    // enrichHealthGrade patches local state when this is the visible date.
+    if (newId && userId) {
+      enrichHealthGrade(
+        newId as unknown as string,
+        meal.ingredients.map((g) => ({ name: g.name, calories: g.calories })),
+        dateIso,
+        userId,
+      );
+    }
     // The meal list is loaded one-shot per date (not reactive), so pull a fresh
     // copy after inserting into the currently-displayed day.
     if (refresh && dateIso === selectedDate) await loadMeals(true);
-  }, [createMealMut, selectedDate, loadMeals]);
+  }, [createMealMut, selectedDate, loadMeals, userId, enrichHealthGrade]);
 
   // ── Insert path 6: log every meal in a day plan ──
   const logWholeDay = useCallback(async (meals: DayPlanMeal[], dateIso: string) => {

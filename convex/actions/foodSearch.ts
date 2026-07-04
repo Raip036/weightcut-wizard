@@ -14,6 +14,7 @@ import { action } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "../_generated/api";
 import { rankFoods } from "../lib/foodRanking";
+import { healthFromUsda } from "../_shared/foodHealthHeuristics";
 
 interface USDANutrient {
   nutrientId: number;
@@ -37,6 +38,9 @@ interface USDAFood {
   dataType: string;
   brandOwner?: string;
   brandName?: string;
+  // Branded foods: the label ingredient string (used to derive whole-food
+  // health signals). Absent on Foundation / SR Legacy rows.
+  ingredients?: string;
   // Branded foods: explicit serving size on the row.
   servingSize?: number;
   servingSizeUnit?: string;
@@ -89,6 +93,15 @@ function normalizeFood(food: USDAFood) {
   const carbs = getNutrient(food.foodNutrients, "205");
   const fat = getNutrient(food.foodNutrients, "204");
   const serving = extractServingGrams(food);
+  // Deterministic whole-food health signals from the USDA record — Branded
+  // rows classify from the ingredient string, generic rows from the
+  // description. Undefined (omitted) when the row can't be classified.
+  const health = healthFromUsda({
+    dataType: food.dataType,
+    description: food.description,
+    brand: food.brandOwner || food.brandName,
+    ingredientsText: food.ingredients,
+  });
   return {
     id: String(food.fdcId),
     name: food.description,
@@ -100,6 +113,7 @@ function normalizeFood(food: USDAFood) {
     fats_per_100g: Math.round(fat * 10) / 10,
     serving_size: serving?.label ?? "100g",
     serving_grams: serving?.grams ?? null,
+    ...(health ? { health } : {}),
   };
 }
 

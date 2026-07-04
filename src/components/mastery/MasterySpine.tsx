@@ -40,6 +40,14 @@ interface MasterySpineProps {
   userId: Id<"users">;
 }
 
+// ─── Shared cross-fade transitions ───────────────────────────────────────────
+// House pattern (see Community.tsx feed branches): AnimatePresence
+// mode="popLayout" + short opacity cross-fades on the iOS system ease.
+// Cheap on native: opacity/translate only — no scale, no blur, no layout anims.
+const EASE_IOS: [number, number, number, number] = [0.32, 0.72, 0, 1];
+const BRANCH_ENTER_S = 0.25;
+const BRANCH_EXIT_S = 0.15;
+
 // ─── Aurora background (GPU-cheap, iOS-safe) ─────────────────────────────────
 
 /**
@@ -420,13 +428,21 @@ function DisciplineCard({
 // ─── Drill regeneration wrapper ────────────────────────────────────────────────
 
 /**
- * Wraps a DisciplineCard that already exists in the flow but is regenerating
- * its drills. While the held "drills" latch is on, a drills loader cross-fades
- * IN over the card; once it releases, the loader cross-fades OUT to reveal the
- * real card. Once released AND a mission exists, the optimistic "drills" signal
- * is reconciled (cleared) so the store stops re-feeding the latch.
+ * The ONE stable per-discipline wrapper. Owns the loader ↔ card swap for a
+ * discipline, whether that's:
+ *   - FIRST generation (no card in the flow yet → children is null, the drills
+ *     loader shows), or
+ *   - REGENERATION (card exists, the held "drills" latch puts the loader up).
  *
- * When not regenerating, this is a transparent pass-through (renders children).
+ * The parent keys this wrapper by discipline (lowercased), so the element
+ * identity NEVER changes across "no card yet" → "first card arrived". The
+ * AnimatePresence stays mounted in BOTH states (it used to unmount wholesale
+ * when not regenerating, which made loader → card a hard cut); popLayout
+ * cross-fades the outgoing loader and incoming card concurrently — one
+ * continuous transition, no flash, no dead gap.
+ *
+ * Once the latch releases, the optimistic "drills" signal is reconciled
+ * (cleared) so the store stops re-feeding the latch.
  */
 function DrillRegenWrapper({
   discipline,
@@ -444,20 +460,35 @@ function DrillRegenWrapper({
     if (!regeneratingDrills) clearMasterySignal(discipline, "drills");
   }, [regeneratingDrills, discipline]);
 
-  if (!regeneratingDrills) return <>{children}</>;
+  const fade = {
+    initial: reducedMotion ? false : { opacity: 0 },
+    animate: { opacity: 1 },
+    exit: {
+      opacity: 0,
+      transition: { duration: reducedMotion ? 0 : BRANCH_EXIT_S, ease: EASE_IOS },
+    },
+    transition: { duration: reducedMotion ? 0 : BRANCH_ENTER_S, ease: EASE_IOS },
+  } as const;
 
   return (
-    <AnimatePresence mode="wait" initial={false}>
-      <motion.div
-        key="drill-loader"
-        initial={reducedMotion ? false : { opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: reducedMotion ? 0 : 0.3 }}
-      >
-        <MasteryGeneratingCard kind="drills" accentToken={disciplineToken(discipline)} />
-      </motion.div>
-    </AnimatePresence>
+    // relative: the popLayout'd exiting element positions against this box, so
+    // the loader fades out exactly where it stood while the card fades in.
+    <div className="relative">
+      <AnimatePresence mode="popLayout" initial={false}>
+        {regeneratingDrills ? (
+          <motion.div key="drill-loader" {...fade}>
+            <MasteryGeneratingCard kind="drills" accentToken={disciplineToken(discipline)} />
+          </motion.div>
+        ) : (
+          // Opacity-only on the card branch: a lingering transform here would
+          // turn the card's `fixed` celebration overlay into a mis-anchored
+          // child, so no y/scale on this inner swap.
+          <motion.div key="drill-content" {...fade}>
+            {children}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 
@@ -503,6 +534,17 @@ export function MasterySpine(_props: MasterySpineProps) {
     activeCamp === undefined ? "skip" : { campId: activeCamp?._id },
   ) as GenerationJob[] | undefined;
 
+  // ── Data latch: never re-blank once we've had data ────────────────────────
+  // The camp-scoped `flow` query (`{ campId: activeCamp?._id }`) briefly
+  // resolves back to `undefined` whenever getActiveCamp re-resolves. Previously
+  // that collapsed the whole widget to the loading branch mid-view (a visible
+  // re-blank). Keep the last non-undefined result in a ref and render from it
+  // through the blip; the fresh result replaces it the moment it lands. Only a
+  // TRUE first load (nothing ever latched) shows the loading branch.
+  const lastFlowRef = useRef<MasteryFlowEntry[] | null>(null);
+  if (flow !== undefined) lastFlowRef.current = flow;
+  const latchedFlow = flow ?? lastFlowRef.current;
+
   // Optimistic client signals pushed at the moment generation was kicked off
   // (logging a session, ticking the last drill) — see masteryGenerationSignals.
   const signals = useMasterySignals();
@@ -543,9 +585,13 @@ export function MasterySpine(_props: MasterySpineProps) {
   // from >0 to 0 the cycle is complete. This does NOT rely on the imperative
   // onCycleComplete callback bubbling up (which races), but shares its
   // celebrated-Set guard so the two paths can't double-fire.
+  // Derived from the LATCHED flow: during a flow blip the raw query goes
+  // undefined, which would collapse counts to {} and read to the detector as
+  // "every >0 count just fell to 0" — a false cycle-complete cutscene. The
+  // latch keeps the counts steady through the blip.
   const graduatedCounts = useMemo<GraduatedCounts>(() => {
     const counts: GraduatedCounts = {};
-    for (const e of flow ?? []) {
+    for (const e of latchedFlow ?? []) {
       counts[e.discipline] = e.assignments.filter(
         (a) =>
           (a as { source?: string }).source === "graduated" &&
@@ -553,7 +599,7 @@ export function MasterySpine(_props: MasterySpineProps) {
       ).length;
     }
     return counts;
-  }, [flow]);
+  }, [latchedFlow]);
 
   const cycleDetector = useCycleCompletionDetector(graduatedCounts);
 
@@ -622,20 +668,21 @@ export function MasterySpine(_props: MasterySpineProps) {
   // flicker). So instead of early-returning for loading / not-Pro / empty, we
   // compute a `body` that varies while the return STRUCTURE stays constant
   // (<style>, then {body}, then <MasteryCutscene> — the cutscene always at the
-  // same child slot). The camp-scoped `flow` (`{ campId: activeCamp?._id }`) can
-  // briefly resolve to `undefined` when the active camp re-resolves; treating it
-  // as [] here keeps the cutscene mounted straight through that blip.
-  const isReady = feature !== undefined && flow !== undefined;
+  // same child slot). Re-blank blips are handled by the `latchedFlow` ref
+  // above: when the camp-scoped `flow` momentarily resolves back to undefined,
+  // we keep rendering the last-known data, so `isReady` only goes false on a
+  // TRUE first load.
+  const isReady = feature !== undefined && latchedFlow !== null;
   const isPro = feature?.isPro === true;
-  const flowList = flow ?? [];
+  const flowList = latchedFlow ?? [];
 
   const flowDisciplines = new Set(flowList.map((e) => e.discipline.toLowerCase()));
 
   // All disciplines currently held in the "drills" generating set (active OR
-  // within the min-display window). Standalone loader cards render for those
-  // with no card in the flow yet; for disciplines that ALREADY have a card
-  // (regeneration) the loader is shown over the card via the `generatingDrills`
-  // flag passed down (it cross-fades back into the real card when released).
+  // within the min-display window). Disciplines with no card in the flow yet
+  // get a loader-only DrillRegenWrapper (entry = null); disciplines that
+  // ALREADY have a card (regeneration) show the loader over the card via the
+  // same wrapper, cross-fading back to the real card when the latch releases.
   const heldDrillsDisciplines = Array.from(
     new Map(
       heldGeneration.jobs
@@ -644,8 +691,7 @@ export function MasterySpine(_props: MasterySpineProps) {
     ).values(),
   );
 
-  // Standalone loader cards (top of list) for disciplines generating their
-  // FIRST drills — no card in the flow yet.
+  // Disciplines generating their FIRST drills — no card in the flow yet.
   const generatingDrills = heldDrillsDisciplines.filter(
     (disc) => !flowDisciplines.has(disc.toLowerCase()),
   );
@@ -654,49 +700,81 @@ export function MasterySpine(_props: MasterySpineProps) {
   const showEmpty =
     isReady && isPro && flowList.length === 0 && generatingDrills.length === 0 && !cutscene;
 
-  // The varying part of the tree. Computed as a single child so the return
-  // structure (and the cutscene's slot) never changes.
-  let body: ReactNode = null;
-  if (!isReady) {
-    body = null; // queries resolving — hold the slot, keep the cutscene mounted
-  } else if (!isPro) {
-    body = cutscene ? null : <LockedMissionCard />;
-  } else if (showEmpty) {
-    body = <MasteryEmptyCard />;
-  } else {
-    body = (
-      <div className="space-y-3">
-        {/* Loader cards for disciplines generating their first drills. */}
-        {generatingDrills.map((disc) => (
-          <MasteryGeneratingCard
-            key={`gen-${disc}`}
-            kind="drills"
-            accentToken={disciplineToken(disc)}
-          />
-        ))}
+  // Branch key for the top-level cross-fade. Exactly one branch renders at a
+  // time; the AnimatePresence in the return cross-fades on key change.
+  const branch: "loading" | "locked" | "empty" | "content" = !isReady
+    ? "loading"
+    : !isPro
+      ? "locked"
+      : showEmpty
+        ? "empty"
+        : "content";
 
-        {flowList.map((entry) => {
-          // Regenerating drills for a discipline that already has a card: show
-          // the drills loader OVER the card for the held min-window, then it
-          // cross-fades back into the real card once the latch releases.
-          const regeneratingDrills = heldGeneration.has(entry.discipline, "drills");
+  // Unified per-discipline render list. Disciplines generating their FIRST
+  // drills (entry = null → wrapper shows the loader) render at the top; the
+  // flow is ordered by recent activity, so that's where the new card lands.
+  // Keyed by LOWERCASED discipline so the SAME DrillRegenWrapper element
+  // carries a discipline across "loader only" → "card arrived". (The old
+  // `gen-${disc}` / `entry.discipline` key split changed element identity at
+  // exactly that moment — an unmount/remount flash right as the first drill
+  // appeared.)
+  const renderEntries: Array<{
+    key: string;
+    discipline: string;
+    entry: MasteryFlowEntry | null;
+  }> = [
+    ...generatingDrills.map((disc) => ({
+      key: disc.toLowerCase(),
+      discipline: disc,
+      entry: null as MasteryFlowEntry | null,
+    })),
+    ...flowList.map((entry) => ({
+      key: entry.discipline.toLowerCase(),
+      discipline: entry.discipline,
+      entry: entry as MasteryFlowEntry | null,
+    })),
+  ];
+
+  // The varying part of the tree. Rendered inside a keyed motion.div so branch
+  // swaps cross-fade instead of hard-cutting.
+  let branchContent: ReactNode = null;
+  if (branch === "loading") {
+    // Reserved-height invisible placeholder: holds the widget's slot on TRUE
+    // first load so the card doesn't cause a layout jump when it arrives.
+    // (Previously this branch rendered nothing — 0px — and the whole widget
+    // popped in abruptly once the queries resolved.)
+    branchContent = <div aria-hidden className="h-24" />;
+  } else if (branch === "locked") {
+    branchContent = cutscene ? null : <LockedMissionCard />;
+  } else if (branch === "empty") {
+    branchContent = <MasteryEmptyCard />;
+  } else {
+    branchContent = (
+      <div className="space-y-3">
+        {renderEntries.map(({ key, discipline, entry }) => {
+          // The held "drills" latch covers BOTH first generation (entry null,
+          // wrapper shows the loader) and regeneration (loader over the card
+          // for the held min-window, then a cross-fade back to the real card).
+          const regeneratingDrills = heldGeneration.has(discipline, "drills");
           return (
             <DrillRegenWrapper
-              key={entry.discipline}
-              discipline={entry.discipline}
+              key={key}
+              discipline={discipline}
               regeneratingDrills={regeneratingDrills}
               reducedMotion={reducedMotion}
             >
-              <DisciplineCard
-                discipline={entry.discipline}
-                missions={entry.missions as Mission[]}
-                assignments={entry.assignments as SparringAssignment[]}
-                serverPhase={entry.phase}
-                reducedMotion={reducedMotion}
-                onAllMissionsComplete={() => {/* drills-cleared celebration owned by DisciplineCard */}}
-                onCycleComplete={handleCycleComplete}
-                generatingSparring={heldGeneration.has(entry.discipline, "sparring")}
-              />
+              {entry ? (
+                <DisciplineCard
+                  discipline={entry.discipline}
+                  missions={entry.missions as Mission[]}
+                  assignments={entry.assignments as SparringAssignment[]}
+                  serverPhase={entry.phase}
+                  reducedMotion={reducedMotion}
+                  onAllMissionsComplete={() => {/* drills-cleared celebration owned by DisciplineCard */}}
+                  onCycleComplete={handleCycleComplete}
+                  generatingSparring={heldGeneration.has(entry.discipline, "sparring")}
+                />
+              ) : null}
             </DrillRegenWrapper>
           );
         })}
@@ -704,16 +782,49 @@ export function MasterySpine(_props: MasterySpineProps) {
     );
   }
 
-  // Stable structure: <style>, {body}, <MasteryCutscene> — the cutscene is
-  // ALWAYS the third child at the same slot, so swapping `body` (loading /
-  // locked / empty / cards) can never unmount it. THIS is what kills the
-  // "camp page flashes then the cutscene comes back" flicker for good.
+  // Stable structure: <style>, the body AnimatePresence, <MasteryCutscene> —
+  // the cutscene is ALWAYS the third child at the same slot, so swapping the
+  // body branch (loading / locked / empty / content) can never unmount it.
+  // THIS is what kills the "camp page flashes then the cutscene comes back"
+  // flicker for good. The AnimatePresence occupies the old `{body}` slot: it
+  // never unmounts itself; only the keyed branch inside it swaps, with
+  // popLayout cross-fading old and new branches concurrently (house pattern,
+  // see Community.tsx). Reduced motion renders branch swaps instantly.
   return (
     <>
       {/* Keyframe definitions injected once alongside the component tree. */}
       <style>{KEYFRAMES}</style>
 
-      {body}
+      <AnimatePresence mode="popLayout" initial={false}>
+        <motion.div
+          key={branch}
+          className="w-full"
+          initial={
+            reducedMotion
+              ? false
+              : {
+                  opacity: 0,
+                  // Small rise for the data-bearing branches only; loading and
+                  // locked fade in place.
+                  y: branch === "content" || branch === "empty" ? 8 : 0,
+                }
+          }
+          animate={{ opacity: 1, y: 0 }}
+          exit={{
+            opacity: 0,
+            transition: {
+              duration: reducedMotion ? 0 : BRANCH_EXIT_S,
+              ease: EASE_IOS,
+            },
+          }}
+          transition={{
+            duration: reducedMotion ? 0 : BRANCH_ENTER_S,
+            ease: EASE_IOS,
+          }}
+        >
+          {branchContent}
+        </motion.div>
+      </AnimatePresence>
 
       {/* Mastered "trophy" shelf moved to the bottom of the Camp page (below
           Recent activity) and made collapsible — see <MasteredShelf> in Camp.tsx. */}

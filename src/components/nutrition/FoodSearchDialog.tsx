@@ -11,6 +11,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/hooks/use-toast";
 import { triggerHapticSelection } from "@/lib/haptics";
+import type { FoodHealthInputs } from "@/lib/foodHealthScore";
 
 interface FoodSearchResult {
   id: string;
@@ -23,6 +24,9 @@ interface FoodSearchResult {
   fats_per_100g: number;
   serving_size?: string;
   serving_grams?: number | null;
+  // Deterministic processing signals from the USDA row. Present on live search
+  // hits; absent on recents rows (they fall back to the AI grader on log).
+  health?: FoodHealthInputs;
 }
 
 interface FoodSearchDialogProps {
@@ -37,6 +41,7 @@ interface FoodSearchDialogProps {
     serving_size: string;
     portion_size: string;
     meal_type?: string;
+    health?: FoodHealthInputs;
   }) => void;
   mealType?: string;
   /** Pre-seeds the search box when the dialog opens (e.g. a diet-analysis
@@ -324,6 +329,7 @@ export function FoodSearchDialog({ open, onOpenChange, onFoodSelected, mealType,
       serving_size: `${servingGrams}g`,
       portion_size: `${servingGrams}g`,
       meal_type: chosenMealType,
+      health: selectedFood.health,
     });
     void recordRecent({
       foodId: (selectedFood.foodId ?? selectedFood.id) as Id<"foods">,
@@ -356,6 +362,7 @@ export function FoodSearchDialog({ open, onOpenChange, onFoodSelected, mealType,
       serving_size: `${grams}g`,
       portion_size: `${grams}g`,
       meal_type: chosenMealType,
+      health: food.health,
     });
     void recordRecent({
       foodId: (food.foodId ?? food.id) as Id<"foods">,

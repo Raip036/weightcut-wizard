@@ -178,6 +178,8 @@ export const fetchSnapshotData = internalQuery({
             ai_recommended_carbs_g: profile.aiRecommendedCarbsG ?? null,
             ai_recommended_fats_g: profile.aiRecommendedFatsG ?? null,
             manual_nutrition_override: profile.manualNutritionOverride ?? null,
+            cut_plan_json: profile.cutPlanJson ?? null,
+            weigh_in_timing: profile.weighInTiming ?? null,
           }
         : null,
       weight14d: weight14d.map((w) => ({ date: w.date, weight_kg: w.weightKg })),
@@ -732,6 +734,8 @@ export const fetchFightWeekData = internalQuery({
             age: profile.age,
             height_cm: profile.heightCm,
             athlete_type: profile.athleteType ?? null,
+            target_date: profile.targetDate ?? null,
+            cut_plan_json: profile.cutPlanJson ?? null,
           }
         : null,
       upcomingCamp: upcomingCamp

@@ -332,6 +332,8 @@ export const getBriefing = query({
         age: profile.age,
         height_cm: profile.heightCm,
         athlete_type: profile.athleteType ?? null,
+        target_date: profile.targetDate ?? null,
+        cut_plan_json: profile.cutPlanJson ?? null,
       },
       upcomingCamp: {
         id: upcomingCamp._id,

@@ -8,6 +8,7 @@ import { triggerHapticSelection, triggerHapticSuccess } from "@/lib/haptics";
 import { disciplineLabel, disciplineToken } from "@/lib/coachColors";
 import { levelFromXp } from "@/lib/xp";
 import { cn, stripDashes } from "@/lib/utils";
+import { springs } from "@/lib/motion";
 import { CompleteCelebration } from "@/components/motion";
 import { AnimatedCheckbox, XpFloat } from "@/components/coach/TickReward";
 import { WizardAuroraBackground } from "@/components/onboarding/WizardAuroraBackground";
@@ -145,7 +146,6 @@ function TickRow({
       type="button"
       onClick={handle}
       disabled={disabled}
-      layout
       className="relative w-full min-h-[36px] flex items-start gap-2.5 px-2.5 py-2 rounded-xs text-left overflow-hidden"
       animate={{
         backgroundColor: done
@@ -337,14 +337,27 @@ export function MissionCard({ mission, expanded, onToggle, onAllMissionsComplete
       {/* Root is a keyed motion element; its EXIT is owned by the parent's
           <AnimatePresence> in MasterySpine. When all drills are ticked the
           mission auto-archives server-side and leaves the flow, so this card
-          plays a smooth scale+fade out instead of blinking away. `layout` lets
-          the remaining drill cards slide up to fill the gap. */}
+          fades while its height (and space-y margin) collapses to 0 — the
+          remaining cards slide up via natural reflow in one continuous motion,
+          with no jump when the element unmounts. New cards fade in and rise
+          ~12px into place. `layout="position"` (cheap position-only FLIP)
+          smooths any residual reordering. iOS-safe: opacity/transform/height
+          only, no scale. */}
       <motion.div
-        layout
+        layout="position"
+        initial={prefersReduced ? { opacity: 0 } : { opacity: 0, y: 12 }}
+        animate={prefersReduced ? { opacity: 1 } : { opacity: 1, y: 0 }}
+        transition={springs.gentle}
         exit={
           prefersReduced
-            ? { opacity: 0 }
-            : { opacity: 0, scale: 0.96, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] } }
+            ? { opacity: 0, transition: { duration: 0.15 } }
+            : {
+                opacity: 0,
+                height: 0,
+                marginTop: 0,
+                marginBottom: 0,
+                transition: { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
+              }
         }
         className="relative w-full rounded-2xl card-surface border border-primary/20 overflow-hidden"
       >

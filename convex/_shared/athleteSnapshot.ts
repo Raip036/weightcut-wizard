@@ -8,6 +8,9 @@
  * Pure TS; no DB access here.
  */
 
+import { resolveCutPace } from "./cutPace";
+import { resolveWeighInIso } from "./weighInTiming";
+
 export interface AthleteSnapshot {
   userId: string;
   weightClass?: string;
@@ -19,6 +22,15 @@ export interface AthleteSnapshot {
   targetWeight?: number;
   kgToCut?: number;
   daysToFight?: number;
+  /** Days to the WEIGH-IN (fight date adjusted by weigh-in timing). */
+  daysToWeighIn?: number;
+  /** Plan-aware weekly pace (from the generated cut plan, when present). */
+  planWeek?: number;
+  planTotalWeeks?: number;
+  weeklyTargetKg?: number;
+  /** current − this week's plan target (+ = over plan). */
+  planDriftKg?: number;
+  paceVerdict?: "on_plan" | "over_plan" | "under_plan";
   fightCampPhase?: "early" | "mid" | "fight-week" | null;
   weightSlope7d?: number;
   calorieAvg7d?: number;
@@ -51,6 +63,10 @@ export interface AthleteSnapshotInputs {
     bmr?: number | null;
     tdee?: number | null;
     athlete_type?: string | null;
+    /** `profiles.cutPlanJson` — enables the plan-aware pace read. */
+    cut_plan_json?: unknown;
+    /** `profiles.weighInTiming` — anchors days-to-weigh-in. */
+    weigh_in_timing?: string | null;
   } | null;
   weight14d: Array<{ date: string; weight_kg: number }>;
   mealTotals7d: Array<{
@@ -157,11 +173,36 @@ export function buildAthleteSnapshot(input: AthleteSnapshotInputs): AthleteSnaps
   if (fightDate) {
     const days = Math.floor((new Date(fightDate).getTime() - Date.now()) / 86400000);
     snap.daysToFight = days;
+    const weighIn = resolveWeighInIso(
+      fightDate.slice(0, 10),
+      profile?.weigh_in_timing ?? null,
+    );
+    snap.daysToWeighIn = Math.floor(
+      (new Date(`${weighIn}T00:00:00Z`).getTime() - Date.now()) / 86400000,
+    );
     if (days <= 7) snap.fightCampPhase = "fight-week";
     else if (days <= 28) snap.fightCampPhase = "mid";
     else snap.fightCampPhase = "early";
   } else {
     snap.fightCampPhase = null;
+  }
+
+  // Plan-aware weekly pace — the SAME resolveCutPace read every coach surface
+  // and the dashboard use, so any prose the LLM writes about "pace" can be
+  // grounded in this week's plan target instead of the final weigh-in weight.
+  const pace = resolveCutPace({
+    cutPlanJson: profile?.cut_plan_json,
+    profileTargetDate: profile?.target_date ?? null,
+    fightDate,
+    currentKg: snap.currentWeight ?? null,
+    asOfIso: new Date().toISOString().slice(0, 10),
+  });
+  if (pace) {
+    snap.planWeek = pace.planWeek;
+    snap.planTotalWeeks = pace.totalWeeks;
+    snap.weeklyTargetKg = pace.weeklyTargetKg;
+    snap.planDriftKg = pace.driftKg;
+    snap.paceVerdict = pace.verdict;
   }
   if (input.weight14d.length >= 2) {
     const slope = linearSlope(input.weight14d.map((w) => ({ date: w.date, weight: Number(w.weight_kg) })));
@@ -254,13 +295,34 @@ export function buildAthleteSnapshot(input: AthleteSnapshotInputs): AthleteSnaps
 export function snapshotToPromptBlock(s: AthleteSnapshot): string {
   const lines: string[] = ["ATHLETE STATE"];
   const w = s.currentWeight != null ? `${s.currentWeight.toFixed(1)}kg` : "?";
-  const tw = s.targetWeight != null ? `${s.targetWeight.toFixed(1)}kg target` : "?";
-  const over = s.kgToCut != null ? `(${s.kgToCut.toFixed(1)}kg over)` : "";
+  const tw =
+    s.targetWeight != null ? `${s.targetWeight.toFixed(1)}kg final target` : "?";
+  // "still to cut" (total distance to the FINAL weigh-in weight) is NOT a
+  // pace judgement — mid-camp an on-plan athlete is always above the final
+  // target. Pace lives in the "Plan pace" line below.
+  const over =
+    s.kgToCut != null ? `(${s.kgToCut.toFixed(1)}kg still to cut in total)` : "";
   const dtf =
     s.daysToFight != null
-      ? ` | ${s.daysToFight} days to fight${s.fightCampPhase ? ` (${s.fightCampPhase})` : ""}`
+      ? ` | ${s.daysToFight} days to fight${
+          s.daysToWeighIn != null && s.daysToWeighIn !== s.daysToFight
+            ? `, ${s.daysToWeighIn} to weigh-in`
+            : ""
+        }${s.fightCampPhase ? ` (${s.fightCampPhase})` : ""}`
       : "";
   lines.push(`Current: ${w} -> ${tw} ${over}${dtf}`.trim());
+  if (s.weeklyTargetKg != null && s.planDriftKg != null && s.planWeek != null) {
+    const sign = s.planDriftKg >= 0 ? "+" : "";
+    const verdict =
+      s.paceVerdict === "on_plan"
+        ? "on plan"
+        : s.paceVerdict === "over_plan"
+          ? "over plan"
+          : "under plan";
+    lines.push(
+      `Plan pace: week ${s.planWeek}/${s.planTotalWeeks ?? "?"} of the cut plan, this week's target ${s.weeklyTargetKg.toFixed(1)}kg, drift ${sign}${s.planDriftKg.toFixed(1)}kg (${verdict}). Judge cut pace by THIS, not by the total still to cut`,
+    );
+  }
   const idBits: string[] = [];
   if (s.sex) idBits.push(s.sex);
   if (s.age != null) idBits.push(`${s.age}y`);
@@ -279,7 +341,7 @@ export function snapshotToPromptBlock(s: AthleteSnapshot): string {
     const kgPerWeek = (s.weightSlope7d * 7).toFixed(2);
     let trend = `Trend: ${kgPerWeek}kg/wk (${direction})`;
     if (s.weightProjectionAtFight != null) {
-      trend += ` -> projection at fight ${s.weightProjectionAtFight.toFixed(1)}kg`;
+      trend += ` -> straight-line projection at fight date ${s.weightProjectionAtFight.toFixed(1)}kg (ignores the planned fight-week water cut, not a pace verdict)`;
     }
     lines.push(trend);
   }

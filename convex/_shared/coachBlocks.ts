@@ -35,7 +35,13 @@ import {
   buildSleepCards,
   summarizeSleep,
 } from "./coachDomains/recovery";
-import { weighInTimingLabel } from "./weighInTiming";
+import { weighInTimingLabel, resolveWeighInIso } from "./weighInTiming";
+import {
+  resolveCutPace,
+  paceVerdictLabel,
+  ON_PLAN_BAND_KG,
+  type CutPaceResult,
+} from "./cutPace";
 
 // ── Input shape (subset of fetchFightWeekData) ──────────────────────────
 // Spelled out structurally rather than imported from the generated API to
@@ -51,6 +57,10 @@ export interface CoachFightWeekData {
     age?: number | null;
     height_cm?: number | null;
     athlete_type?: string | null;
+    /** `profiles.targetDate` — the fight date the cut plan was built for. */
+    target_date?: string | null;
+    /** `profiles.cutPlanJson` — the generated cut plan (weekly ladder). */
+    cut_plan_json?: unknown;
   } | null;
   upcomingCamp: {
     id: string;
@@ -82,8 +92,15 @@ export interface CoachDeterministicBundle {
     currentKg: number | null;
     targetKg: number | null;
     deltaKg: number | null;
+    /** Days to WEIGH-IN (fight date adjusted by weigh-in timing). */
     daysOut: number | null;
     onTrack: boolean | null;
+    /** Plan-aware weekly read (null when the user has no usable cut plan). */
+    planWeek: number | null;
+    weeklyTargetKg: number | null;
+    /** current − this week's plan target (+ = over plan). */
+    planDriftKg: number | null;
+    paceVerdict: "on_plan" | "over_plan" | "under_plan" | null;
   };
 }
 
@@ -119,56 +136,89 @@ function latestWeight(data: CoachFightWeekData): number | null {
   return typeof pw === "number" && Number.isFinite(pw) ? pw : null;
 }
 
-/** The weight the cut is aiming at: fight-week target wins, then the camp
- *  starting weight is NOT a target so we fall back to goal weight. */
+/** The FINAL weight the cut is aiming at (the weigh-in number). Goal weight
+ *  wins: `fight_week_target_kg` is only a legacy fallback because it can go
+ *  stale when a plan is regenerated (project rule: never trust it over the
+ *  plan/goal). */
 function targetWeight(data: CoachFightWeekData): number | null {
-  const fwt = data.profile?.fight_week_target_kg;
-  if (typeof fwt === "number" && Number.isFinite(fwt)) return fwt;
   const goal = data.profile?.goal_weight_kg;
-  return typeof goal === "number" && Number.isFinite(goal) ? goal : null;
+  if (typeof goal === "number" && Number.isFinite(goal)) return goal;
+  const fwt = data.profile?.fight_week_target_kg;
+  return typeof fwt === "number" && Number.isFinite(fwt) ? fwt : null;
+}
+
+/** Weigh-in date (the cut's true end day): fight date adjusted by the camp's
+ *  weigh-in timing. Never let the fight date stand in for the weigh-in date. */
+function weighInIso(data: CoachFightWeekData): string | null {
+  if (!data.upcomingCamp) return null;
+  return resolveWeighInIso(
+    data.upcomingCamp.fight_date,
+    data.upcomingCamp.weigh_in_timing,
+  );
 }
 
 // ── Deterministic blocks ────────────────────────────────────────────────
 
 /**
- * `weight_target` block. `on_track` compares the latest actual weight to the
- * implied SAFE glide path between today and weigh-in: if you still need to
- * lose weight, you're on track when actual ≤ a linear glide allowance
- * (here: within the remaining delta, i.e. not already behind the line). A
- * tiny tolerance avoids false "behind" flags from normal daily noise.
+ * `weight_target` block.
+ *
+ * `on_track` is PLAN-AWARE: when the user has a generated cut plan, it grades
+ * this week's drift against the plan's weekly target via `resolveCutPace`
+ * (the same `resolvePlanWeek` math + ±0.5 kg band the dashboard Camp Status
+ * cards use), so the coach and the dashboard can never disagree on pace.
+ * Only when no usable plan exists does it fall back to the legacy glide-path
+ * test (remaining drop vs a 1.5% bodyweight/week ceiling). Days are counted
+ * to the WEIGH-IN date, not the fight date.
  */
 export function buildWeightTargetBlock(
   data: CoachFightWeekData,
-): { block: CoachBlock | null; current: number | null; target: number | null; delta: number | null; days: number | null; onTrack: boolean | null } {
+): {
+  block: CoachBlock | null;
+  current: number | null;
+  target: number | null;
+  delta: number | null;
+  days: number | null;
+  onTrack: boolean | null;
+  pace: CutPaceResult | null;
+} {
   const current = latestWeight(data);
   const target = targetWeight(data);
-  const days =
-    data.upcomingCamp != null ? daysUntil(data.upcomingCamp.fight_date) : null;
+  const weighIn = weighInIso(data);
+  const days = weighIn != null ? daysUntil(weighIn) : null;
+
+  const pace = resolveCutPace({
+    cutPlanJson: data.profile?.cut_plan_json,
+    profileTargetDate: data.profile?.target_date ?? null,
+    fightDate: data.upcomingCamp?.fight_date ?? null,
+    currentKg: current,
+    asOfIso: new Date().toISOString().slice(0, 10),
+  });
 
   if (current == null || target == null) {
-    return { block: null, current, target, delta: null, days, onTrack: null };
+    return { block: null, current, target, delta: null, days, onTrack: null, pace };
   }
 
   const delta = round1(current - target);
-  // Glide path: with N days left you may still be carrying delta; you're
-  // "on track" if you're at or under the straight-line allowance for the
-  // days elapsed. With no date or already at weight, on_track = delta<=tol.
   const tol = Math.max(0.2, current * 0.004); // ~0.3kg for an 80kg athlete
   let onTrack: boolean;
-  if (delta <= tol) {
+  if (pace != null) {
+    // Plan-aware: on track unless OVER this week's plan target by more than
+    // the dashboard's on-plan band (under plan = ahead, still on track).
+    onTrack = pace.driftKg <= ON_PLAN_BAND_KG;
+  } else if (delta <= tol) {
     onTrack = true;
   } else if (days == null || days <= 0) {
     onTrack = false; // weigh-in here / past and still over target
   } else {
-    // Behind only if the remaining drop demands an unsafe pace
-    // (>1.5% bodyweight per week is the safetyBounds ceiling). Otherwise
-    // there is still runway, so treat as on track.
+    // Legacy glide path: behind only if the remaining drop demands an unsafe
+    // pace (>1.5% bodyweight per week, the safetyBounds ceiling).
     const perWeek = (delta / Math.max(1, days)) * 7;
     onTrack = perWeek <= current * 0.015;
   }
 
-  const note =
-    delta <= tol
+  const note = pace
+    ? `Week ${pace.planWeek}/${pace.totalWeeks}: target ${pace.weeklyTargetKg} kg, ${paceVerdictLabel(pace)}.`
+    : delta <= tol
       ? "At or under target."
       : days != null && days > 0
         ? `${delta} kg to go, ${days} day${days === 1 ? "" : "s"} out.`
@@ -183,7 +233,7 @@ export function buildWeightTargetBlock(
     on_track: onTrack,
     note: note.slice(0, 80),
   };
-  return { block, current, target, delta, days, onTrack };
+  return { block, current, target, delta, days, onTrack, pace };
 }
 
 /**
@@ -215,13 +265,17 @@ export function buildWeightChartBlock(
 
 /**
  * `metric_row` block — objective stats only (no advice). Avg fluid over the
- * logged window, days to fight, and kg/week pace implied by the remaining
- * cut. Each metric carries an optional tone for the renderer.
+ * logged window, days to weigh-in, and a pace metric. When a cut plan exists
+ * the pace metric is THIS week's drift vs the plan target (the same number,
+ * band and tone the dashboard shows), so the coach never tones a "Pace" card
+ * red while its own facts say "on plan". Without a plan it falls back to the
+ * legacy required-rate-to-final-target metric.
  */
 export function buildMetricRowBlock(
   data: CoachFightWeekData,
   delta: number | null,
   days: number | null,
+  pace: CutPaceResult | null,
 ): CoachBlock | null {
   const metrics: { label: string; value: string; tone?: "good" | "warn" | "bad" }[] = [];
 
@@ -247,13 +301,33 @@ export function buildMetricRowBlock(
 
   if (days != null) {
     metrics.push({
-      label: "Days to fight",
+      label: "Days to weigh-in",
       value: `${Math.max(0, days)}`,
       tone: days <= 2 ? "warn" : undefined,
     });
   }
 
-  if (delta != null && delta > 0 && days != null && days > 0) {
+  if (pace != null) {
+    // Plan-aware: mirror the dashboard's "vs this week's plan target" pill.
+    const sign = pace.driftKg > 0 ? "+" : pace.driftKg < 0 ? "−" : "";
+    const tone: "good" | "warn" | "bad" =
+      pace.verdict === "on_plan"
+        ? "good"
+        : pace.verdict === "over_plan"
+          ? Math.abs(pace.driftKg) > 1.5
+            ? "bad"
+            : "warn"
+          : "good"; // under plan = ahead of the cut
+    metrics.push({
+      label: "vs plan",
+      value:
+        pace.verdict === "on_plan"
+          ? "on plan"
+          : `${sign}${Math.abs(pace.driftKg).toFixed(1)} kg`,
+      tone,
+    });
+  } else if (delta != null && delta > 0 && days != null && days > 0) {
+    // Legacy (no plan): required average rate to the final target.
     const perWeek = round1((delta / days) * 7);
     const cur = latestWeight(data) ?? 0;
     const tone: "good" | "warn" | "bad" | undefined =
@@ -292,7 +366,7 @@ export function computeDeterministicBundle(
 ): CoachDeterministicBundle {
   const wt = buildWeightTargetBlock(data);
   const chart = buildWeightChartBlock(data, wt.target);
-  const metrics = buildMetricRowBlock(data, wt.delta, wt.days);
+  const metrics = buildMetricRowBlock(data, wt.delta, wt.days, wt.pace);
 
   const blocks: CoachBlock[] = [];
   if (wt.block) blocks.push(wt.block);
@@ -301,9 +375,19 @@ export function computeDeterministicBundle(
 
   const factLines: string[] = [];
   if (wt.current != null) factLines.push(`Current weight: ${round1(wt.current)} kg`);
-  if (wt.target != null) factLines.push(`Target weight: ${round1(wt.target)} kg`);
-  if (wt.delta != null) factLines.push(`Delta to target: ${wt.delta} kg`);
-  if (wt.days != null) factLines.push(`Days to fight: ${wt.days}`);
+  if (wt.target != null)
+    factLines.push(`Final weigh-in target: ${round1(wt.target)} kg`);
+  if (wt.delta != null)
+    factLines.push(`Total still to cut (to final target): ${wt.delta} kg`);
+  if (wt.pace) {
+    factLines.push(
+      `This week's plan target (week ${wt.pace.planWeek} of ${wt.pace.totalWeeks}): ${wt.pace.weeklyTargetKg} kg`,
+    );
+    factLines.push(
+      `Cut pace vs plan: ${wt.pace.driftKg >= 0 ? "+" : ""}${wt.pace.driftKg} kg vs this week's target (${paceVerdictLabel(wt.pace)})`,
+    );
+  }
+  if (wt.days != null) factLines.push(`Days to weigh-in: ${wt.days}`);
   if (wt.onTrack != null) factLines.push(`On track: ${wt.onTrack ? "yes" : "no"}`);
   if (data.upcomingCamp) {
     factLines.push(
@@ -330,6 +414,10 @@ export function computeDeterministicBundle(
       deltaKg: wt.delta,
       daysOut: wt.days,
       onTrack: wt.onTrack,
+      planWeek: wt.pace?.planWeek ?? null,
+      weeklyTargetKg: wt.pace?.weeklyTargetKg ?? null,
+      planDriftKg: wt.pace?.driftKg ?? null,
+      paceVerdict: wt.pace?.verdict ?? null,
     },
   };
 }

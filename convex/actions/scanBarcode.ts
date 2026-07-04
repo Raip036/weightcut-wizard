@@ -12,6 +12,7 @@ import { v } from "convex/values";
 import { action } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "../_generated/api";
+import { healthFromOpenFoodFacts } from "../_shared/foodHealthHeuristics";
 
 const BARCODE_RE = /^\d{8,14}$/;
 
@@ -44,6 +45,15 @@ export const run = action({
         serving_size: string;
         serving_grams: number;
         source: string;
+        // Processing-based whole-food signals, derived deterministically from
+        // the OpenFoodFacts record (NOVA + ingredients + additives). Omitted
+        // when the product data is too thin to classify.
+        health?: {
+          novaClass: 1 | 2 | 3 | 4;
+          ingredientCount: number;
+          additivesCount: number;
+          isWholeFood: boolean;
+        };
       }
   > => {
     const userId = await getAuthUserId(ctx);
@@ -142,6 +152,10 @@ export const run = action({
     const brandName: string | undefined =
       (product.brands || "").split(",")[0]?.trim() || undefined;
 
+    // Whole-food health signals from the OFF record — no LLM, fully
+    // deterministic. Undefined when the product lacks NOVA/ingredient data.
+    const health = healthFromOpenFoodFacts(product);
+
     let foodId: string | null = null;
     if (calories100 > 0 && productName.trim().length > 0) {
       foodId = await ctx.runMutation(internal.foods.upsertFromExternal, {
@@ -178,6 +192,7 @@ export const run = action({
       serving_size: servingText || `${servingGrams}g`,
       serving_grams: servingGrams,
       source: "openfoodfacts",
+      ...(health ? { health } : {}),
     };
   },
 });

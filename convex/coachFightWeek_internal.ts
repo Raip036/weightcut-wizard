@@ -19,6 +19,7 @@
 import { v } from "convex/values";
 import { internalQuery } from "./_generated/server";
 import type { FightWeekCornermanData } from "./_shared/coachDomains/fightWeekCornerman";
+import { resolveWeighInIso } from "./_shared/weighInTiming";
 
 /** Only surface cornerman cards inside this window before weigh-in. */
 const FIGHT_WEEK_WINDOW_DAYS = 7;
@@ -132,14 +133,13 @@ export const getFightWeekCornerman = internalQuery({
 
     if (!camp) return empty;
 
-    // Best-effort days-to-weigh-in even when there's no usable plan.
-    // No explicit weigh-in date on the camp; weigh-in defaults to the day
-    // before the fight (matches weightProtocolMath's fallback).
+    // Best-effort days-to-weigh-in even when there's no usable plan. The
+    // weigh-in day comes from the camp's timing via resolveWeighInIso (the
+    // single source of truth), so same-day weigh-ins are not mis-dated.
     const fightIso = (camp.fightDate || "").slice(0, 10);
-    const fallbackWeighInMs = (() => {
-      const fightMs = isoMidnightMs(fightIso);
-      return Number.isFinite(fightMs) ? fightMs - 86_400_000 : NaN;
-    })();
+    const fallbackWeighInMs = isoMidnightMs(
+      resolveWeighInIso(fightIso, camp.weighInTiming),
+    );
     const fallbackDaysToWeighIn = ceilDaysBetween(fallbackWeighInMs, todayMs);
 
     // 2. Stored fight_plan protocol for (user, camp).

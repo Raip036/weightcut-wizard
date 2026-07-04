@@ -52,6 +52,12 @@ export interface SafetyInput {
   daysToWeighIn: number | null;
   /** Risk level from fight-week math, when available. */
   fightWeekRiskLevel: "low" | "moderate" | "high" | null;
+  /** The cut plan's INTENDED loss rate this week (% bodyweight/week), when a
+   *  generated plan exists. Lets the warn tier tolerate a pace the athlete's
+   *  own plan prescribes instead of contradicting the dashboard's "on plan". */
+  plannedRatePct7d: number | null;
+  /** current − this week's plan target (kg, + = over plan), when known. */
+  planDriftKg: number | null;
 }
 
 export type SafetyTier = "ok" | "warn" | "danger";
@@ -104,14 +110,27 @@ export function evaluateSafety(input: SafetyInput): SafetyResult {
   const warnReasons: string[] = [];
 
   // 1. Rate of loss.
+  //
+  // The DANGER tier (>1.5%/week) is an unconditional health floor. The WARN
+  // tier is PLAN-AWARE: a generated cut plan can legitimately prescribe more
+  // than the generic 1%/week guideline for a given week, and flagging the
+  // athlete for executing their own plan contradicts the dashboard's
+  // "on plan" verdict. So the warn threshold is raised to the plan's intended
+  // rate (+25% margin) whenever a plan exists.
   if (has(input.rateOfLossPct7d)) {
+    const plannedCeiling = has(input.plannedRatePct7d)
+      ? Math.max(RATE_WARN_PCT, input.plannedRatePct7d * 1.25)
+      : RATE_WARN_PCT;
     if (input.rateOfLossPct7d > RATE_DANGER_PCT) {
       dangerReasons.push(
         `Cutting too fast (${input.rateOfLossPct7d.toFixed(1)}%/week)`,
       );
-    } else if (input.rateOfLossPct7d > RATE_WARN_PCT) {
+    } else if (input.rateOfLossPct7d > plannedCeiling) {
+      const vsPlan = has(input.plannedRatePct7d)
+        ? ` vs ~${input.plannedRatePct7d.toFixed(1)}%/week planned`
+        : "";
       warnReasons.push(
-        `Cut pace is high (${input.rateOfLossPct7d.toFixed(1)}%/week)`,
+        `Cut pace is high (${input.rateOfLossPct7d.toFixed(1)}%/week${vsPlan})`,
       );
     }
   }

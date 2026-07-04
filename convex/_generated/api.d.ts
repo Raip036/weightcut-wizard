@@ -24,10 +24,13 @@ import type * as _shared_coachDomains_trainingLoad from "../_shared/coachDomains
 import type * as _shared_coachDomains_types from "../_shared/coachDomains/types.js";
 import type * as _shared_coachSafety from "../_shared/coachSafety.js";
 import type * as _shared_cutFeasibility from "../_shared/cutFeasibility.js";
+import type * as _shared_cutPace from "../_shared/cutPace.js";
 import type * as _shared_errorReporter from "../_shared/errorReporter.js";
 import type * as _shared_fcmAccessToken from "../_shared/fcmAccessToken.js";
 import type * as _shared_featureGates from "../_shared/featureGates.js";
 import type * as _shared_fightWeekMath from "../_shared/fightWeekMath.js";
+import type * as _shared_foodHealthHeuristics from "../_shared/foodHealthHeuristics.js";
+import type * as _shared_foodHealthScore from "../_shared/foodHealthScore.js";
 import type * as _shared_groq from "../_shared/groq.js";
 import type * as _shared_loadMetrics from "../_shared/loadMetrics.js";
 import type * as _shared_math from "../_shared/math.js";
@@ -54,6 +57,7 @@ import type * as actions__trainingCoach_prompts from "../actions/_trainingCoach/
 import type * as actions_activatePremium from "../actions/activatePremium.js";
 import type * as actions_analyseDiet from "../actions/analyseDiet.js";
 import type * as actions_analyzeMeal from "../actions/analyzeMeal.js";
+import type * as actions_classifyFoodHealth from "../actions/classifyFoodHealth.js";
 import type * as actions_dailyWisdom from "../actions/dailyWisdom.js";
 import type * as actions_deleteAccount from "../actions/deleteAccount.js";
 import type * as actions_feelCheckFeedback from "../actions/feelCheckFeedback.js";
@@ -187,10 +191,13 @@ declare const fullApi: ApiFromModules<{
   "_shared/coachDomains/types": typeof _shared_coachDomains_types;
   "_shared/coachSafety": typeof _shared_coachSafety;
   "_shared/cutFeasibility": typeof _shared_cutFeasibility;
+  "_shared/cutPace": typeof _shared_cutPace;
   "_shared/errorReporter": typeof _shared_errorReporter;
   "_shared/fcmAccessToken": typeof _shared_fcmAccessToken;
   "_shared/featureGates": typeof _shared_featureGates;
   "_shared/fightWeekMath": typeof _shared_fightWeekMath;
+  "_shared/foodHealthHeuristics": typeof _shared_foodHealthHeuristics;
+  "_shared/foodHealthScore": typeof _shared_foodHealthScore;
   "_shared/groq": typeof _shared_groq;
   "_shared/loadMetrics": typeof _shared_loadMetrics;
   "_shared/math": typeof _shared_math;
@@ -217,6 +224,7 @@ declare const fullApi: ApiFromModules<{
   "actions/activatePremium": typeof actions_activatePremium;
   "actions/analyseDiet": typeof actions_analyseDiet;
   "actions/analyzeMeal": typeof actions_analyzeMeal;
+  "actions/classifyFoodHealth": typeof actions_classifyFoodHealth;
   "actions/dailyWisdom": typeof actions_dailyWisdom;
   "actions/deleteAccount": typeof actions_deleteAccount;
   "actions/feelCheckFeedback": typeof actions_feelCheckFeedback;

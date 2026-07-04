@@ -13,6 +13,7 @@ import { logger } from "@/lib/logger";
 import { useAITask } from "@/contexts/AITaskContext";
 
 import type { Meal, ManualMealForm } from "@/pages/nutrition/types";
+import type { FoodHealthInputs } from "@/lib/foodHealthScore";
 import {
   useNutritionState,
   useNutritionData,
@@ -363,6 +364,7 @@ export default function NutritionPage() {
     carbs_g: number;
     fats_g: number;
     serving_size: string;
+    health?: FoodHealthInputs;
   }) => {
     const hour = new Date().getHours();
     const mealType = hour < 10 ? "breakfast" : hour < 15 ? "lunch" : hour < 21 ? "dinner" : "snack";
@@ -378,6 +380,7 @@ export default function NutritionPage() {
         portion_size: food.serving_size,
         food_id: null,
         grams: Number.isFinite(grams) ? grams : null,
+        health: food.health,
       },
       mealType,
       // Tag the analytics MEAL_LOGGED event as a barcode scan rather than a

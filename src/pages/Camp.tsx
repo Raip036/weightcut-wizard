@@ -297,6 +297,16 @@ export default function Camp() {
     // PageTransition drives a single page-level fade; tiles render statically
     // so we don't compose a per-tile cascade on top of it. A faster, simpler
     // entrance than the previous staggered framer-motion sequence.
+    //
+    // Every top-level section lives in a permanent "slot" div rendered in a
+    // fixed order, with the conditional content INSIDE the slot. This keeps
+    // the `.dashboard-enter-stagger > *` :nth-child delays stable (no
+    // reshuffle when a late Convex query resolves) and lets a late-arriving
+    // section re-run the entrance animation: `empty:hidden` (display:none)
+    // while the slot has no content, and the display:none → visible flip
+    // restarts `dashboardSectionEnter` so the section fades/rises in instead
+    // of popping. NOTE: `:empty` fails on whitespace text nodes, so each slot
+    // must contain exactly one expression child, never literal text.
     <div className="dashboard-enter-stagger space-y-4 px-5 pt-3 pb-3 sm:px-5 sm:pt-5 md:px-6 md:pt-6 md:pb-4 w-full max-w-2xl mx-auto">
       {/* Page header */}
       <header className="pt-1">
@@ -308,42 +318,48 @@ export default function Camp() {
           the natural home for the fight-camp wrap-up; self-hides (renders
           null) unless a debrief is pending, so it sits just under the header
           to prompt a returning fighter first. ──────────────────────────── */}
-      <ErrorBoundary fallback={null} silent>
-        <PostFightDebrief />
-      </ErrorBoundary>
+      <div className="empty:hidden">
+        <ErrorBoundary fallback={<></>} silent>
+          <PostFightDebrief />
+        </ErrorBoundary>
+      </div>
 
       {/* ── No active camp → aurora CTA to start the next fight camp. Sits at
           the top of the otherwise-empty page (the hero/XP/plan all hide with
           no camp). Taps run through the Pro gate: eligible users open the
           new-camp wizard, free users hit CampLimitProGate (the conversion
           moment). Gated on a resolved query so it doesn't flash on load. ── */}
-      {activeCamp !== undefined && !hasActiveCamp && (
-        <StartCampAuroraCta
-          variant="hero"
-          onStart={() => guardCreate(() => setNextCampOpen(true))}
-        />
-      )}
+      <div className="empty:hidden">
+        {activeCamp !== undefined && !hasActiveCamp && (
+          <StartCampAuroraCta
+            variant="hero"
+            onStart={() => guardCreate(() => setNextCampOpen(true))}
+          />
+        )}
+      </div>
 
       {/* ── Active camp hero, the headline camp details, first on the page
           for fighters with an active camp (name → days-left → progress ring →
           fight date → day-of-camp). ──────────────────────────────────────── */}
-      {heroShown && (
-        <CampHeroCard
-          campName={activeCamp.name}
-          campProgress={campProgress}
-          phase={phase}
-          onTap={() => goTo("/fight-camps")}
-          onViewPlan={planUrl ? () => goTo(planUrl) : undefined}
-        />
-      )}
+      <div className="empty:hidden">
+        {heroShown && (
+          <CampHeroCard
+            campName={activeCamp.name}
+            campProgress={campProgress}
+            phase={phase}
+            onTap={() => goTo("/fight-camps")}
+            onViewPlan={planUrl ? () => goTo(planUrl) : undefined}
+          />
+        )}
+      </div>
 
       {/* ── XP summary ("Your level"), only when there is NO active-camp
           hero. When the hero IS shown, the discipline level rings flank its
           main fight-progress ring instead, so this standalone card would be
           redundant. ──────────────────────────────────────────────────────── */}
-      {userId && hasActiveCamp && !heroShown && (
-        <XpSummaryCard />
-      )}
+      <div className="empty:hidden">
+        {userId && hasActiveCamp && !heroShown && <XpSummaryCard />}
+      </div>
 
       {/* ── Camp plan area, progression panel + view-full-plan button.
           Wrapped in a single sentinel so the tutorial can spotlight both. */}
@@ -377,8 +393,10 @@ export default function Camp() {
 
       {/* ── Mastery Spine: unified Training Missions + Sparring widget.
           Owns its own Pro wall (LockedMissionCard), queries, and
-          per-discipline drill→spar flow. */}
-      {userId && <MasterySpine userId={userId} />}
+          per-discipline drill→spar flow. Plain stable slot WITHOUT
+          empty:hidden, MasterySpine always renders a <style> tag so the slot
+          would never match :empty anyway; it owns its own loading state. */}
+      <div>{userId && <MasterySpine userId={userId} />}</div>
 
       {/* ── Navigation menu ─────────────────────────────────────────────── */}
       {/* iOS-native grouped list: one inset surface, hairline-separated rows,
@@ -437,19 +455,23 @@ export default function Camp() {
       </div>
 
       {/* ── Recent activity, last few events across logging surfaces.
-          Component renders null when empty, so the page degrades cleanly. */}
-      <ErrorBoundary silent fallback={<></>}>
-        <div data-tutorial="camp-recent-activity">
+          Component renders null when empty, so the page degrades cleanly.
+          The tutorial anchor sits on the slot itself so the slot stays
+          :empty (and hidden) while the feed renders null. */}
+      <div data-tutorial="camp-recent-activity" className="empty:hidden">
+        <ErrorBoundary silent fallback={<></>}>
           <CampActivityFeed userId={userId} limit={7} />
-        </div>
-      </ErrorBoundary>
+        </ErrorBoundary>
+      </div>
 
       {/* ── "Mastered this camp" trophy shelf — pinned to the very bottom,
           below Recent activity, and collapsible (the user can hide it). It
           owns its own query, so it renders null when there's nothing mastered. */}
-      <ErrorBoundary silent fallback={<></>}>
-        <MasteredShelf />
-      </ErrorBoundary>
+      <div className="empty:hidden">
+        <ErrorBoundary silent fallback={<></>}>
+          <MasteredShelf />
+        </ErrorBoundary>
+      </div>
 
       <NextCampFlow
         open={nextCampOpen}
