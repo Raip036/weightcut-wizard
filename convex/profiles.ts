@@ -17,6 +17,7 @@ import {
   internalMutation,
 } from "./_generated/server";
 import { requireUserId } from "./lib/auth";
+import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 
 // ───────────────────────────────────────────────────────────────────────
@@ -78,6 +79,9 @@ function toClientShape(
     pro_ended_shown_at: row.proEndedShownAt,
     onboarding_tutorial_shown_at: row.onboardingTutorialShownAt,
     onboarding_paywall_shown_at: row.onboardingPaywallShownAt,
+    // null = never set on the server; the client falls back to its device-local
+    // opt-in flag in that case (see useReminderSync reconcile).
+    reminders_enabled: row.remindersEnabled ?? null,
     updated_at: row.updatedAt,
     is_premium:
       row.subscriptionTier !== "free" &&
@@ -203,6 +207,24 @@ export const markOnboardingPaywallShown = mutation({
     if (row.onboardingPaywallShownAt != null) return { firstTime: false };
     await ctx.db.patch(row._id, { onboardingPaywallShownAt: Date.now() });
     return { firstTime: true };
+  },
+});
+
+/**
+ * Persist the user's adaptive-reminder opt-in server-side so the preference
+ * survives a reinstall (which clears the device-local localStorage flag). The
+ * device flag stays the scheduler's source of truth; this write-through just
+ * mirrors it so `useReminderSync` can reconcile it back on a fresh install.
+ * Idempotent and non-destructive — absent rows are a no-op.
+ */
+export const setRemindersEnabled = mutation({
+  args: { enabled: v.boolean() },
+  handler: async (ctx, { enabled }): Promise<null> => {
+    const userId = await requireUserId(ctx);
+    const row = await findByUser(ctx, userId);
+    if (!row) return null;
+    await ctx.db.patch(row._id, { remindersEnabled: enabled });
+    return null;
   },
 });
 
@@ -537,17 +559,68 @@ export const updateGoals = mutation({
     manualNutritionOverride: v.optional(v.boolean()),
     normalDailyCarbsG: v.optional(v.number()),
     cutPlanJson: v.optional(v.any()),
+    // Client-local "YYYY-MM-DD" for the silent first weigh-in auto-log
+    // below. `weight_logs.date` is a client-local calendar date everywhere
+    // else in the app and the server only knows UTC, so callers (Onboarding)
+    // pass their local date; we fall back to UTC-today when absent.
+    clientDate: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
     const existing = await findByUser(ctx, userId);
     if (!existing) throw new Error("Profile not found");
+    // `clientDate` is NOT a profile column — keep it out of the patch.
+    const { clientDate, ...profileArgs } = args;
     // Strip undefined keys so `ctx.db.patch` doesn't overwrite with undefined.
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
-    for (const [k, val] of Object.entries(args)) {
+    for (const [k, val] of Object.entries(profileArgs)) {
       if (val !== undefined) patch[k] = val;
     }
     await ctx.db.patch(existing._id, patch as any);
+
+    // ── Silent first weigh-in auto-log ─────────────────────────────────
+    // Onboarding already collects the current weight, yet most onboarders
+    // never logged a weight afterwards. When this patch carries a sane
+    // currentWeightKg (same 30-250 finite range as weight_logs.logWeight)
+    // AND the user has zero weight_logs rows, seed today's log for them.
+    // The zero-rows guard makes every later updateGoals call a no-op, so
+    // this can never overwrite or duplicate a real log.
+    let firstWeightLogged = false;
+    const weightKg = args.currentWeightKg;
+    if (
+      typeof weightKg === "number" &&
+      Number.isFinite(weightKg) &&
+      weightKg >= 30 &&
+      weightKg <= 250
+    ) {
+      const anyLog = await ctx.db
+        .query("weight_logs")
+        .withIndex("by_user_date", (q) => q.eq("userId", userId))
+        .first();
+      if (!anyLog) {
+        const date =
+          clientDate && /^\d{4}-\d{2}-\d{2}$/.test(clientDate)
+            ? clientDate
+            : new Date().toISOString().slice(0, 10); // UTC-today fallback
+        await ctx.db.insert("weight_logs", { userId, date, weightKg });
+        firstWeightLogged = true;
+        // Mirror logWeight's side effect: recompute the fight-form score.
+        // We deliberately do NOT schedule the weight-protocol drift regen
+        // (logWeight's other side effect) — it is guarded on an active
+        // fight camp, and a user with zero weight logs has no protocol to
+        // regenerate; skipping keeps this write cheap and side-effect-safe.
+        try {
+          await ctx.runMutation(internal.fightFormScore.scheduleRecompute, {
+            userId,
+            date,
+          });
+        } catch (err) {
+          console.warn("fight-form recompute schedule failed", err);
+        }
+      }
+    }
+    // Backward compatible: existing callers ignore the return value.
+    return { firstWeightLogged };
   },
 });
 

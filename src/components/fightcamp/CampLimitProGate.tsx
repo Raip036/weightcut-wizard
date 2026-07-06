@@ -46,12 +46,13 @@ export function CampLimitProGate({ open, onClose }: CampLimitProGateProps) {
       style={{ pointerEvents: "auto" }}
     >
       <ProUpsellScreen
+        source="camp_limit"
         title={TITLE}
         blurb={BLURB}
         perks={PERKS}
         onUpgrade={() => {
           triggerHapticSelection();
-          openPaywall();
+          openPaywall("camp_limit");
         }}
         onDismiss={onClose}
       />

@@ -1,8 +1,9 @@
 import { useQuery } from "convex/react";
-import { Trophy } from "lucide-react";
+import { Trophy, Share2 } from "lucide-react";
 import { api } from "@/../convex/_generated/api";
 import type { Id } from "@/../convex/_generated/dataModel";
 import { disciplineLabel, disciplineToken } from "@/lib/coachColors";
+import { triggerHapticSelection } from "@/lib/haptics";
 import { LevelRing } from "@/components/coach/LevelRing";
 
 /** Lands required to master — mirrors the backend constant (see MasteredShelf). */
@@ -11,6 +12,8 @@ const LAND_THRESHOLD = 3;
 interface CampTrophyCaseProps {
   /** The camp whose XP + mastery badges to display. */
   campId: Id<"fight_camps">;
+  /** Opens the camp's Trophy Hero share dialog. Renders a primary CTA when set. */
+  onShare?: () => void;
 }
 
 /**
@@ -18,11 +21,12 @@ interface CampTrophyCaseProps {
  * technique-mastery badges earned during it. Rendered on the FightCampDetail
  * route only (never the camp LIST page) so per-camp stats load lazily.
  *
- * Self-contained and side-effect free: no mutations, no taps. Visual structure
- * mirrors XpSummaryCard (LevelRing + XP rows) and MasteredShelf (trophy chips)
- * so it reads as native to the dark Apple-Fitness aesthetic.
+ * Self-contained: no mutations. The only interaction is the optional
+ * "Share camp card" CTA, which just opens the parent's share dialog. Visual
+ * structure mirrors XpSummaryCard (LevelRing + XP rows) and MasteredShelf
+ * (trophy chips) so it reads as native to the dark Apple-Fitness aesthetic.
  */
-export function CampTrophyCase({ campId }: CampTrophyCaseProps) {
+export function CampTrophyCase({ campId, onShare }: CampTrophyCaseProps) {
   const xp = useQuery(
     api.user_discipline_xp.getAllForUser,
     campId ? { campId } : "skip",
@@ -144,6 +148,22 @@ export function CampTrophyCase({ campId }: CampTrophyCaseProps) {
               </div>
             )}
           </>
+        )}
+
+        {/* Primary share CTA: the prompted entry point for the Trophy Hero
+            camp share card (the header icon is easy to miss). */}
+        {onShare && (
+          <button
+            type="button"
+            onClick={() => {
+              triggerHapticSelection();
+              onShare();
+            }}
+            className="w-full h-11 rounded-xs bg-primary text-primary-foreground text-[14px] font-semibold inline-flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+          >
+            <Share2 className="h-4 w-4" />
+            Share camp card
+          </button>
         )}
       </div>
     </section>

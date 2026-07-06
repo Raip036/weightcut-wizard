@@ -1111,7 +1111,7 @@ export function CampCompassCard({ userId, className = "" }: CampCompassCardProps
   if (!hasRecoveryAccess) {
     return (
       <LockedCompass
-        onUpgrade={openPaywall}
+        onUpgrade={() => openPaywall("camp_compass")}
         className={className}
         prefersReduced={prefersReduced}
       />

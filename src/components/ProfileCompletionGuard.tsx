@@ -7,21 +7,34 @@ export function ProfileCompletionGuard({ children }: { children: React.ReactNode
   // `isCoach` resolves SYNCHRONOUSLY from JWT user_metadata + localStorage,
   // so coaches are routed to /coach even before profile.role finishes loading.
   // Without this, coaches signing in fresh would briefly see /onboarding.
-  const { hasProfile, isLoading, isCoach } = useAuth();
+  const { hasProfile, isLoading, isCoach, isProfileResolved, everCompletedProfile } =
+    useAuth();
 
-  if (!isLoading) {
+  // `isLoading` only tracks AUTH, which resolves BEFORE the profile query. If
+  // we acted on `hasProfile` here we would redirect a returning, onboarded
+  // user to /onboarding during the profile-loading window (the reported bounce
+  // bug). So keep booting until the profile query has actually resolved. Once
+  // a complete profile has been latched this session, treat it as booted even
+  // if a later reconnect blips the query back to loading.
+  const booting = isLoading || (!isProfileResolved && !everCompletedProfile);
+
+  if (!booting) {
     if (isCoach) return <Navigate to="/coach" replace />;
-    if (!hasProfile) return <Navigate to="/onboarding" replace />;
+    // Redirect only a genuinely incomplete profile that has resolved and was
+    // never complete this session — never an onboarded user caught in a blip.
+    if (!hasProfile && !everCompletedProfile) {
+      return <Navigate to="/onboarding" replace />;
+    }
   }
 
   // Keep both the splash and the real content mounted briefly so the transition
-  // is a crossfade — no jarring swap when isLoading flips.
+  // is a crossfade — no jarring swap when booting flips.
   return (
     <>
       <AnimatePresence mode="sync">
-        {isLoading && <WizardLoader key="wizard-loader" />}
+        {booting && <WizardLoader key="wizard-loader" />}
       </AnimatePresence>
-      {!isLoading && (
+      {!booting && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

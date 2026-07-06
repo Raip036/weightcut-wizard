@@ -20,6 +20,7 @@ import {
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import IOSAlert from "@/components/ui/IOSAlert";
+import DeleteReasonPrompt, { type DeleteReasonValue } from "@/components/DeleteReasonPrompt";
 import { SettingsPanel } from "@/components/nav/SettingsPanel";
 import { ReviewSheet } from "@/components/community/ReviewSheet";
 import {
@@ -82,9 +83,10 @@ export const BottomNav = memo(function BottomNav() {
   const goalType = (profile?.goal_type as 'cutting' | 'losing') ?? 'cutting';
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
-  // Two-step delete confirmation: "warn" (data-loss warning) -> "confirm"
-  // (last chance, runs the deletion). "idle" = no prompt showing.
-  const [deleteStep, setDeleteStep] = useState<"idle" | "warn" | "confirm">("idle");
+  // Delete confirmation flow: "warn" (data-loss warning) -> "confirm"
+  // (last chance) -> "reason" (optional exit-reason picker, then runs the
+  // deletion). "idle" = no prompt showing.
+  const [deleteStep, setDeleteStep] = useState<"idle" | "warn" | "confirm" | "reason">("idle");
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [editedName, setEditedName] = useState(userName);
@@ -239,10 +241,13 @@ export const BottomNav = memo(function BottomNav() {
     setLoggingOut(false);
   };
 
-  const handleDeleteAccount = async () => {
+  // `reason` is the optional exit reason from the picker. Undefined = skipped,
+  // in which case we send nothing and the server records "not_given". The
+  // reason never blocks deletion — it's the last optional tap before this runs.
+  const handleDeleteAccount = async (reason?: DeleteReasonValue) => {
     setDeleteLoading(true);
     try {
-      await deleteAccount({});
+      await deleteAccount(reason ? { reason } : {});
       await signOut();
       setDeleteStep("idle");
       setSettingsDialogOpen(false);
@@ -534,17 +539,24 @@ export const BottomNav = memo(function BottomNav() {
           { label: "Cancel", style: "cancel", onPress: () => setDeleteStep("idle") },
         ]}
       />
-      {/* Step 2 - last chance, actually deletes. */}
+      {/* Step 2 - last chance, then hands off to the reason picker. */}
       <IOSAlert
         open={deleteStep === "confirm"}
-        loading={deleteLoading}
         title="Are you absolutely sure?"
         message="This is your last chance. Your account and everything in it will be permanently erased."
-        onBackdrop={() => { if (!deleteLoading) setDeleteStep("idle"); }}
+        onBackdrop={() => setDeleteStep("idle")}
         actions={[
-          { label: "Confirm Delete", style: "destructive", loadingLabel: "Deleting...", onPress: handleDeleteAccount },
+          { label: "Confirm Delete", style: "destructive", onPress: () => setDeleteStep("reason") },
           { label: "Cancel", style: "cancel", onPress: () => setDeleteStep("idle") },
         ]}
+      />
+      {/* Step 3 - optional exit-reason picker; any pick (or Skip) deletes. */}
+      <DeleteReasonPrompt
+        open={deleteStep === "reason"}
+        loading={deleteLoading}
+        onPick={(reason) => handleDeleteAccount(reason)}
+        onSkip={() => handleDeleteAccount()}
+        onDismiss={() => setDeleteStep("idle")}
       />
     </>
   );

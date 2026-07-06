@@ -47,7 +47,7 @@ export function DietAnalysisTeaserDialog({ open, onOpenChange }: DietAnalysisTea
 
   const handleUpgrade = () => {
     onOpenChange(false);
-    openPaywall();
+    openPaywall("diet_analysis");
   };
 
   const reveal = (delay: number, fromY = 10) =>

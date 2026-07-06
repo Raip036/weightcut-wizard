@@ -29,6 +29,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { triggerHaptic, triggerHapticSuccess, triggerHapticWarning } from "@/lib/haptics";
+import { track, EVENTS } from "@/lib/analytics";
 
 type Reason = "spam" | "inappropriate" | "harassment" | "other";
 
@@ -113,6 +114,9 @@ export function ReportPostSheet({
         note:
           reason === "other" && trimmedNote.length > 0 ? trimmedNote : undefined,
       });
+      // `reason` is a fixed enum (spam/inappropriate/harassment/other);
+      // the free-text note is deliberately NOT sent — privacy rule.
+      track(EVENTS.POST_ENGAGED, { action: "report", reason, post_id: postId });
       await triggerHapticSuccess();
       toast({
         title: "Reported",

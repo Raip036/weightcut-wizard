@@ -176,6 +176,7 @@ export default function CutPlanReview() {
     return (
       <div className="min-h-screen w-full overflow-y-auto bg-background">
         <ProUpsellScreen
+          source="cut_plan_review"
           title="Unlock your full fight camp"
           blurb="Your starter plan is yours to keep. Go Pro for everything that wins fight week."
           perks={[
@@ -187,7 +188,7 @@ export default function CutPlanReview() {
           ]}
           upgradeLabel="Unlock Pro"
           dismissLabel="Continue with my free plan"
-          onUpgrade={openPaywall}
+          onUpgrade={() => openPaywall("cut_plan_review")}
           onDismiss={goToDashboard}
         />
       </div>

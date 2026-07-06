@@ -601,6 +601,7 @@ export function TrainingSummarySection({ userId, selectedDate, sessionLoggedTrig
             <ProExplainerOverlay
                 open={recapExplainerOpen}
                 onOpenChange={setRecapExplainerOpen}
+                source="weekly_recap"
                 title="Weekly Recap is a Pro feature"
                 blurb="Your AI corner reads every session note and writes you a coach-voice debrief of the week."
                 perks={RECAP_PERKS}

@@ -15,9 +15,10 @@ interface ProExplainerOverlayProps {
   perks: string[];
   upgradeLabel?: string;
   dismissLabel?: string;
-  /** Short, PII-free key for where this explainer was opened (e.g.
-   *  "training_missions", "weekly_recap"). Recorded on PAYWALL_VIEWED. */
-  source?: string;
+  /** Short, PII-free, snake_case key for where this explainer was opened
+   *  (e.g. "training_missions", "weekly_recap"). Required; recorded on
+   *  PAYWALL_VIEWED and PAYWALL_DISMISSED. */
+  source: string;
 }
 
 /**

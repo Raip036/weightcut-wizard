@@ -99,10 +99,11 @@ export function MealIdeasSection({ onOpen, lastPlanSummary }: {
             style={{ pointerEvents: "auto" }}
           >
             <ProUpsellScreen
+              source="meal_ideas"
               title="Unlock AI meal plans"
               blurb="Let the Wizard plan a full day of meals tuned to your targets and training - then log it in a tap."
               perks={MEAL_PLAN_PERKS}
-              onUpgrade={() => { triggerHapticSelection(); setWallOpen(false); openPaywall(); }}
+              onUpgrade={() => { triggerHapticSelection(); setWallOpen(false); openPaywall("meal_ideas"); }}
               onDismiss={() => setWallOpen(false)}
             />
           </div>,

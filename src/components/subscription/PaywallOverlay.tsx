@@ -256,6 +256,11 @@ export function PaywallOverlay() {
           return;
         }
 
+        // Purchase intent (native): RC's own paywall UI owns the Subscribe
+        // CTA, so the closest instrumentable moment is right before we
+        // present it. Mirrors the web fire in handlePurchase below.
+        track(EVENTS.SUBSCRIBE_STARTED, { platform: "native" });
+
         const result = await presentPaywall();
         logger.info("Native paywall closed", { result: JSON.stringify(result) });
         if (cancelled) return;
@@ -270,6 +275,7 @@ export function PaywallOverlay() {
         // mistakenly granted premium to non-paying users.
         if (paywallResult !== "PURCHASED" && paywallResult !== "RESTORED") {
           logger.info("Paywall dismissed without confirmed purchase", { paywallResult });
+          track(EVENTS.PAYWALL_DISMISSED, { surface: "checkout", platform: "native" });
           if (!cancelled) closePaywall();
           return;
         }
@@ -279,6 +285,16 @@ export function PaywallOverlay() {
         // defence in depth; the server-side RC REST call inside
         // `activatePremium` is the real source of truth.
         const info = result?.customerInfo ?? await getCustomerInfo();
+        // Truth-moment `subscribed`: fire exactly once per completed paywall
+        // transaction. SubscriptionContext deliberately no longer fires this
+        // on reactive free->pro edges (those re-trigger on every entitlement
+        // reconcile and inflated the count). RESTORED is tracked too but
+        // tagged so restores are filterable from new-purchase counts.
+        track(EVENTS.SUBSCRIBED, {
+          tier: getSubscriptionFromCustomerInfo(info)?.tier,
+          platform: "native",
+          purchase_type: paywallResult === "RESTORED" ? "restore" : "new",
+        });
         await activatePro(info);
       } catch (err) {
         logger.error("Native paywall error", err);
@@ -343,6 +359,15 @@ function WebFallbackPaywall({ activatePro }: { activatePro: (info: any) => Promi
     try {
       const { customerInfo, cancelled } = await purchasePackage(pkg);
       if (cancelled) return;
+      // Truth-moment `subscribed` (web): the StoreKit purchase completed and
+      // was not cancelled. Mirrors the native PURCHASED branch; the reactive
+      // free->pro edge in SubscriptionContext no longer fires this event.
+      track(EVENTS.SUBSCRIBED, {
+        tier: getSubscriptionFromCustomerInfo(customerInfo)?.tier,
+        plan: selectedPlan,
+        platform: "web",
+        purchase_type: "new",
+      });
       // Call activatePro unconditionally after a non-cancelled purchase
       // (matching the native flow). activatePro already handles the
       // StoreKit-propagation race where customerInfo isn't premium yet by
@@ -379,7 +404,10 @@ function WebFallbackPaywall({ activatePro }: { activatePro: (info: any) => Promi
       style={{ pointerEvents: "auto" }}
     >
       <button
-        onClick={closePaywall}
+        onClick={() => {
+          track(EVENTS.PAYWALL_DISMISSED, { surface: "checkout", platform: "web" });
+          closePaywall();
+        }}
         className="absolute right-4 z-10 h-11 w-11 flex items-center justify-center rounded-full bg-muted/50 border border-border/30 active:scale-90 transition-transform"
         style={{ top: "calc(env(safe-area-inset-top, 0px) + 12px)" }}
       >

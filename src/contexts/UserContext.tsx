@@ -7,6 +7,7 @@ import { localCache } from "@/lib/localCache";
 import { nutritionCache, startCacheCleanup, stopCacheCleanup } from "@/lib/nutritionCache";
 import { AIPersistence } from "@/lib/aiPersistence";
 import { logger } from "@/lib/logger";
+import { track, EVENTS } from "@/lib/analytics";
 import { isProfileComplete } from "@/lib/profileComplete";
 import { usePushRegistration } from "@/hooks/usePushRegistration";
 import { clearLocalSubscriptionState } from "@/contexts/SubscriptionContext";
@@ -77,6 +78,16 @@ interface AuthContextType {
   isSessionValid: boolean;
   isLoading: boolean;
   hasProfile: boolean;
+  /** True once the Convex profile query has actually resolved (to data OR
+   *  null) for an authenticated user. `isLoading` only tracks AUTH, which
+   *  resolves first, so guards must wait on this before acting on
+   *  `hasProfile` — otherwise a returning, fully-onboarded user gets
+   *  redirected to /onboarding during the profile-loading window. */
+  isProfileResolved: boolean;
+  /** Latches true once the profile has been seen complete this session, so a
+   *  transient profile blip (e.g. a reconnect momentarily returning null)
+   *  can never bounce an onboarded user back to /onboarding. Reset on logout. */
+  everCompletedProfile: boolean;
   authError: boolean;
   isOffline: boolean;
   /** True if auth fetch failed in a way the UI should surface. With Convex
@@ -125,6 +136,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [currentWeight, setCurrentWeight] = useState<number | null>(null);
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [hasProfile, setHasProfile] = useState<boolean>(false);
+  // Session latch: once a complete profile has been observed, stay latched so
+  // a later transient null/undefined (reconnect blip) can't trigger a bogus
+  // /onboarding redirect. Cleared when the user signs out (isAuthenticated
+  // goes false), so a fresh account on the same device is not wrongly latched.
+  const [everCompletedProfile, setEverCompletedProfile] = useState<boolean>(false);
   const [authError, setAuthError] = useState<boolean>(false);
   const [authTimedOut, setAuthTimedOut] = useState<boolean>(false);
   const [isProfileStale, setIsProfileStale] = useState<boolean>(false);
@@ -179,6 +195,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           setProfile(cached);
           profileRef.current = cached;
           setHasProfile(isProfileComplete(cached));
+          if (isProfileComplete(cached)) setEverCompletedProfile(true);
           if (cached.avatar_url) setAvatarUrl(cached.avatar_url);
           if (cached.current_weight_kg) setCurrentWeight(cached.current_weight_kg);
           const cachedAt = localCache.cachedAt(uid, "profiles");
@@ -207,6 +224,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setProfile(next);
       profileRef.current = next;
       setHasProfile(isProfileComplete(next));
+      if (isProfileComplete(next)) setEverCompletedProfile(true);
       if (next.avatar_url) setAvatarUrl(next.avatar_url);
       if (next.current_weight_kg != null) setCurrentWeight(next.current_weight_kg);
       if (uid) localCache.set(uid, "profiles", next);
@@ -375,8 +393,21 @@ export function UserProvider({ children }: { children: ReactNode }) {
     let appResumeHandle: { remove: () => void } | null = null;
     let visibilityHandler: (() => void) | null = null;
 
+    // Throttle for app_opened(resume): rapid app-switcher flips can fire
+    // appStateChange / visibilitychange several times within seconds — count
+    // only one "open" per window. Note the native and web listeners below are
+    // mutually exclusive (if/else on isNativePlatform), so both paths can
+    // never be active at once; this guard is purely for rapid re-foregrounds.
+    const RESUME_TRACK_THROTTLE_MS = 5000;
+    let lastResumeTrackAt = 0;
+
     const handleAppResume = () => {
       logger.info("App resumed — letting Convex reconnect naturally");
+      const now = Date.now();
+      if (now - lastResumeTrackAt >= RESUME_TRACK_THROTTLE_MS) {
+        lastResumeTrackAt = now;
+        track(EVENTS.APP_OPENED, { launch_type: "resume" });
+      }
     };
 
     if (Capacitor.isNativePlatform()) {
@@ -445,11 +476,25 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const isSessionValid = isAuthenticated;
   const isLoading = isAuthLoading;
 
+  // The profile query has resolved once it is no longer `undefined` (Convex
+  // uses `undefined` for "in flight", and null/data for "resolved"). When
+  // unauthenticated there is nothing to resolve. Guards use this to avoid
+  // acting on a not-yet-loaded `hasProfile`.
+  const isProfileResolved = !isAuthenticated || profileFromConvex !== undefined;
+
+  // Clear the completion latch on sign-out so the next account on this device
+  // starts fresh (a brand-new signup must still be routed to /onboarding).
+  useEffect(() => {
+    if (!isAuthenticated) setEverCompletedProfile(false);
+  }, [isAuthenticated]);
+
   const authValue = useMemo(() => ({
     userId: userId === "pending" ? null : userId,
     isSessionValid,
     isLoading,
     hasProfile,
+    isProfileResolved,
+    everCompletedProfile,
     authError,
     authTimedOut,
     isOffline,
@@ -460,7 +505,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     refreshSession,
     loadUserData,
     signOut,
-  }), [userId, isSessionValid, isLoading, hasProfile, authError, authTimedOut, isOffline, isCoach, isRoleResolved,
+  }), [userId, isSessionValid, isLoading, hasProfile, isProfileResolved, everCompletedProfile, authError, authTimedOut, isOffline, isCoach, isRoleResolved,
        retryAuth, checkSessionValidity, refreshSession, loadUserData, signOut]);
 
   const profileValue = useMemo(() => ({
@@ -489,6 +534,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
 const AUTH_FALLBACK: AuthContextType = {
   userId: null,
   hasProfile: false,
+  isProfileResolved: false,
+  everCompletedProfile: false,
   isLoading: true,
   authError: false,
   authTimedOut: false,

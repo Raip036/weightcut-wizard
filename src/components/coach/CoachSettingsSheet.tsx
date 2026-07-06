@@ -45,6 +45,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import type { Id } from "../../../convex/_generated/dataModel";
+import DeleteReasonPrompt, { type DeleteReasonValue } from "@/components/DeleteReasonPrompt";
 
 const DISCIPLINES = [
   "MMA",
@@ -80,6 +81,9 @@ export function CoachSettingsSheet({ open, onOpenChange }: Props) {
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  // Optional exit-reason picker shown after the delete confirmation, right
+  // before the destructive call. Mirrors the fighter (BottomNav) flow.
+  const [reasonOpen, setReasonOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const deleteAccount = useAction(api.actions.deleteAccount.run);
   const setUserNameMut = useMutation(api.profiles.setUserName);
@@ -196,20 +200,24 @@ export function CoachSettingsSheet({ open, onOpenChange }: Props) {
     }
   };
 
-  const handleDelete = async () => {
+  // `reason` is the optional exit reason from the picker. Undefined = skipped,
+  // in which case we send nothing and the server records "not_given". The
+  // reason never blocks deletion.
+  const handleDelete = async (reason?: DeleteReasonValue) => {
     setDeleting(true);
     globalLoading.show("Deleting account…", "This may take a moment");
     try {
-      await deleteAccount({});
+      await deleteAccount(reason ? { reason } : {});
       await signOut();
       onOpenChange(false);
-      setDeleteOpen(false);
+      setReasonOpen(false);
       navigate("/auth");
       globalLoading.hideAfterPaint();
       toast({ title: "Account deleted" });
     } catch (err: any) {
       logger.error("CoachSettings: delete failed", err);
       globalLoading.hide();
+      setReasonOpen(false);
       toast({
         title: "Could not delete account",
         description: err?.message ?? "Please try again.",
@@ -524,12 +532,25 @@ export function CoachSettingsSheet({ open, onOpenChange }: Props) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} disabled={deleting} className="bg-destructive hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={() => { setDeleteOpen(false); setReasonOpen(true); }}
+              disabled={deleting}
+              className="bg-destructive hover:bg-destructive/90"
+            >
               {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete forever"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Optional exit-reason picker; any pick (or Skip) deletes. */}
+      <DeleteReasonPrompt
+        open={reasonOpen}
+        loading={deleting}
+        onPick={(reason) => handleDelete(reason)}
+        onSkip={() => handleDelete()}
+        onDismiss={() => setReasonOpen(false)}
+      />
     </>
   );
 }

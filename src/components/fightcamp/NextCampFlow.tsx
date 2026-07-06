@@ -14,7 +14,9 @@ import { useUser } from "@/contexts/UserContext";
 import { useToast } from "@/hooks/use-toast";
 import { triggerHapticSelection, celebrateSuccess } from "@/lib/haptics";
 import { logger } from "@/lib/logger";
+import { track, EVENTS } from "@/lib/analytics";
 import { armReviewPending } from "@/lib/appReview";
+import { armSharePrompt } from "@/lib/sharePrompt";
 import { WizardCharacter } from "@/tutorial/WizardCharacter";
 import { NewCampWelcomeCutscene } from "./NewCampWelcomeCutscene";
 import { WrapUpStepper, type WrapUpValues } from "./WrapUpStepper";
@@ -241,8 +243,11 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
             : {}),
         });
         // Win moment: an engaged (non-skipped) wrap-up. Arm the review card to
-        // show on the next Dashboard visit (eligibility checked inside).
+        // show on the next Dashboard visit (eligibility checked inside), and
+        // arm the camp-share prompt so this camp's detail page auto-opens the
+        // Trophy Hero share dialog on the next visit.
         armReviewPending();
+        armSharePrompt(activeCamp._id);
       } else {
         await completeCampMut({ id: activeCamp._id });
       }
@@ -384,6 +389,7 @@ export function NextCampFlow({ open, onOpenChange, activeCamp, onCreated }: Next
         : null;
 
       if (planPayload) {
+        track(EVENTS.PLAN_GENERATED, { type: "cut", context: "new_camp" });
         try {
           localStorage.setItem("wcw_cut_plan", JSON.stringify(planPayload));
         } catch { /* iOS WebView may block; non-fatal */ }

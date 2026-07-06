@@ -21,6 +21,8 @@ import { useSafeAsync } from "@/hooks/useSafeAsync";
 import { ShareCardDialog } from "@/components/share/ShareCardDialog";
 import { FightCampSummaryCard } from "@/components/share/cards/FightCampSummaryCard";
 import { CampTrophyCase } from "@/components/fightcamp/CampTrophyCase";
+import { consumeSharePrompt } from "@/lib/sharePrompt";
+import { track, EVENTS } from "@/lib/analytics";
 
 interface FightCamp {
   id: string;
@@ -138,6 +140,26 @@ export default function FightCampDetail() {
   }, [campRow, safeAsync]);
 
   const loading = campRow === undefined && !camp;
+
+  // Win-moment share prompt: a non-skipped camp wrap-up (NextCampFlow) arms a
+  // pending flag with the wrapped camp's id. When that camp's detail page next
+  // loads, consume the flag and auto-open the Trophy Hero share dialog after a
+  // short delay so the page-in animation settles first. Safe to overlay here:
+  // this page's only other layers (EditFieldSheet, the dialog itself) are
+  // tap-driven and closed on mount, and the wrap-up cutscenes live on other
+  // routes, so nothing competes at this moment.
+  const sharePromptChecked = useRef(false);
+  useEffect(() => {
+    if (!camp || sharePromptChecked.current) return;
+    sharePromptChecked.current = true;
+    const pendingId = consumeSharePrompt();
+    if (pendingId !== camp.id) return;
+    const t = setTimeout(() => {
+      track(EVENTS.FEATURE_OPENED, { feature: "share_camp_prompt" });
+      setShareOpen(true);
+    }, 600);
+    return () => clearTimeout(t);
+  }, [camp]);
 
   // ── Auto-save ────────────────────────────────────────────────────────
   // Each field commit merges overrides into local state + persists via the
@@ -350,7 +372,12 @@ export default function FightCampDetail() {
       <div className="space-y-6">
         {/* Per-camp XP + mastery badges (read-only). Stats load only here on
             the detail route — never on the camp list page. */}
-        {id && <CampTrophyCase campId={id as Id<"fight_camps">} />}
+        {id && (
+          <CampTrophyCase
+            campId={id as Id<"fight_camps">}
+            onShare={() => setShareOpen(true)}
+          />
+        )}
 
         {/* WEIGHT CUT group */}
         <SettingsGroup title="Weight cut">

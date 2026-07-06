@@ -31,6 +31,7 @@
  *    call to `internal.profiles.ensureExists` once that mutation lands.
  */
 import { convexAuth, createAccount } from "@convex-dev/auth/server";
+import { internal } from "./_generated/api";
 import Apple from "@auth/core/providers/apple";
 import Google from "@auth/core/providers/google";
 import { Password } from "@convex-dev/auth/providers/Password";
@@ -469,6 +470,32 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         // profile fields shift), don't block the sign-in. The client can
         // call `profiles.ensureExists` to recover.
         console.warn("[auth] profile bootstrap failed", err);
+      }
+
+      // Server-side `signed_up` capture — fires EXACTLY ONCE per newly
+      // created user, covering every provider (the client used to fire it
+      // only on the password branches, so OAuth signups went untracked and
+      // the client can't tell a new OAuth signup from a returning login).
+      // Mutations can't do network I/O, so hop to a Node action via the
+      // scheduler; the schedule is transactional with this user insert.
+      // `provider.id` is "password" | "apple" | "google" here — the native
+      // ConvexCredentials providers upsert via createAccount under the
+      // canonical "apple"/"google" ids, so they map cleanly too.
+      try {
+        const providerId = args.provider?.id ?? "unknown";
+        const method = providerId.includes("apple")
+          ? "apple"
+          : providerId.includes("google")
+            ? "google"
+            : providerId; // "password" or a future provider's raw id
+        await ctx.scheduler.runAfter(0, internal.authAnalytics.captureSignedUp, {
+          userId,
+          method,
+          role: profileRole,
+        });
+      } catch (err) {
+        // Analytics must never block account creation.
+        console.warn("[auth] signed_up capture schedule failed", err);
       }
 
       return userId;

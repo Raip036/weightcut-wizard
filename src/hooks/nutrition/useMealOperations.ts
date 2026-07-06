@@ -8,6 +8,8 @@ import { localCache } from "@/lib/localCache";
 import { nutritionCache } from "@/lib/nutritionCache";
 import { celebrateSuccess } from "@/lib/haptics";
 import { logger } from "@/lib/logger";
+import { isNativePlatform } from "@/hooks/useIsNative";
+import { resyncReminders } from "@/lib/reminderScheduler";
 import { resolveMealType } from "@/lib/buildMealPayload";
 import { coerceMealName } from "@/lib/mealName";
 import {
@@ -300,6 +302,22 @@ export function useMealOperations(params: UseMealOperationsParams) {
       }
 
       celebrateSuccess();
+
+      // Suppress today's nutrition reminder once a meal is logged for today.
+      // `runInsertFlow` is the single choke point for the manual, AI, food-
+      // search and meal-plan-idea insert paths, so this one hook covers them
+      // all. Native-only + self-guarded (opt-in flag + granted permission);
+      // fire-and-forget so it never blocks or fails the save.
+      if (isNativePlatform) {
+        const _t = new Date();
+        const todayIso = `${_t.getFullYear()}-${String(_t.getMonth() + 1).padStart(2, "0")}-${String(_t.getDate()).padStart(2, "0")}`;
+        if (opts.args.p_date === todayIso) {
+          resyncReminders({ nutritionLoggedToday: true, openedToday: true }).catch(
+            (reminderErr) => logger.warn("Reminder resync after meal log failed", reminderErr),
+          );
+        }
+      }
+
       if (opts.successToast) toast(opts.successToast);
       return canonicalId;
     } catch (err) {

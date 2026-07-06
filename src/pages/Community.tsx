@@ -44,6 +44,7 @@ import { ActivitySheet } from "@/components/community/ActivitySheet";
 import { CommentsSheet } from "@/components/gym-feed/CommentsSheet";
 import { useFeedEngagement } from "@/hooks/useFeedEngagement";
 import { logger } from "@/lib/logger";
+import { track, EVENTS } from "@/lib/analytics";
 import { useTutorial } from "@/tutorial/useTutorial";
 import { AnnouncementsSection } from "@/components/coach/AnnouncementsSection";
 import { LeaderboardSection } from "@/components/leaderboard/LeaderboardSection";
@@ -198,6 +199,8 @@ export default function Community() {
     markPostViewed({ postId: pending }).catch((err) => {
       logger.warn("markPostViewed failed", { err: String(err) });
     });
+    // Lurker-depth signal: one event per card the viewer swiped through.
+    track(EVENTS.DECK_POST_VIEWED, { post_id: pending });
   }, [markPostViewed]);
 
   // Engagement-seen mutation, clear the bottom-nav red dot once the
@@ -817,6 +820,8 @@ const CommunityFeedSection = React.memo(function CommunityFeedSection({
       try {
         await addCommentMut({ postId: topPost.id, body: text });
         topEngagement.incrementCommentCount();
+        // No comment text in props — privacy rule.
+        track(EVENTS.POST_ENGAGED, { action: "comment", post_id: topPost.id });
       } catch (err) {
         logger.warn("addComment failed", { err: String(err) });
       }

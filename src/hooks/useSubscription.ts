@@ -45,7 +45,7 @@ export function useSubscription() {
         // to self-heal; don't spam the paywall on a stale profile.
         return true;
       }
-      ctx.openPaywall();
+      ctx.openPaywall(featureKey);
       return true;
     },
     [ctx],

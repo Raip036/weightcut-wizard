@@ -367,6 +367,24 @@ export const getCounts = query({
 });
 
 /**
+ * O(1) existence check: has this user EVER logged a meal? Powers the
+ * first-meal nudge on the Nutrition page. Uses `.first()` on the
+ * (userId, _creationTime) index — never collects rows, so it stays
+ * constant-cost for power users (unlike `getCounts`).
+ */
+export const hasAnyMeal = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireUserId(ctx);
+    const row = await ctx.db
+      .query("meals")
+      .withIndex("by_user_created", (q) => q.eq("userId", userId))
+      .first();
+    return row !== null;
+  },
+});
+
+/**
  * Returns `[{ date, calories }]` aggregated server-side for every day in
  * [from, to] inclusive (ISO YYYY-MM-DD). Used by the baseline computer to
  * replace 90 sequential per-date queries with one call. Days with no meals

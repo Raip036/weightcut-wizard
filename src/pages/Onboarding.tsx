@@ -23,6 +23,7 @@ import { celebrateSuccess, triggerHaptic, triggerHapticSelection } from "@/lib/h
 import { ImpactStyle } from "@capacitor/haptics";
 import { logger } from "@/lib/logger";
 import { track, EVENTS } from "@/lib/analytics";
+import { todayIsoLocal } from "@/lib/dateParam";
 import { seedDemoData } from "@/lib/demoData";
 import { Capacitor } from "@capacitor/core";
 import { AnimatePresence, motion } from "motion/react";
@@ -877,7 +878,7 @@ export default function Onboarding() {
         const fuel = maintenanceMacros(tdeeKcal, Number(formData.current_weight_kg));
         const trainingFreq = parseInt(formData.training_frequency) || 3;
 
-        await updateGoalsMut({
+        const goalsResult = await updateGoalsMut({
           age: ageNum,
           sex: formData.sex || "male",
           heightCm: Number(formData.height_cm),
@@ -900,7 +901,15 @@ export default function Onboarding() {
           aiRecommendedCarbsG: fuel.carbs_g,
           aiRecommendedFatsG: fuel.fats_g,
           aiRecommendationsUpdatedAt: Date.now(),
+          // Local calendar date for the server's silent first weigh-in
+          // auto-log (weight_logs.date is client-local everywhere).
+          clientDate: todayIsoLocal(),
         });
+        if (goalsResult?.firstWeightLogged) {
+          // Server seeded the user's first weight_logs row from the
+          // onboarding weight — count it toward the activation metric.
+          track(EVENTS.WEIGHT_LOGGED, { method: "onboarding" });
+        }
 
         await refreshProfile();
         if (userId) seedDemoData(userId);
@@ -991,7 +1000,7 @@ export default function Onboarding() {
       // 1. Save profile via the Convex `updateGoals` mutation. The auth
       //    callback already inserted a placeholder profile row; this is the
       //    first authoritative write of the user's onboarding answers.
-      await updateGoalsMut({
+      const goalsResult = await updateGoalsMut({
         age: ageNum,
         sex: formData.sex || "male",
         heightCm: parseFloat(formData.height_cm),
@@ -1014,7 +1023,15 @@ export default function Onboarding() {
         primaryStruggle: formData.primary_struggle || undefined,
         planAggressiveness: formData.plan_aggressiveness || "balanced",
         bodyFatPct: formData.body_fat_pct ? parseFloat(formData.body_fat_pct) : undefined,
+        // Local calendar date for the server's silent first weigh-in
+        // auto-log (weight_logs.date is client-local everywhere).
+        clientDate: todayIsoLocal(),
       });
+      if (goalsResult?.firstWeightLogged) {
+        // Server seeded the user's first weight_logs row from the
+        // onboarding weight — count it toward the activation metric.
+        track(EVENTS.WEIGHT_LOGGED, { method: "onboarding" });
+      }
 
       // 1b. Auto-create a fight_camps row for the fighter flow so the user
       //     has a real camp object from day one. Idempotent on the Convex
@@ -1099,6 +1116,7 @@ export default function Onboarding() {
                   aiRecommendedFatsG: week1.fats_g,
                 } : {}),
               });
+              track(EVENTS.PLAN_GENERATED, { type: "cut", context: "onboarding" });
               return planPayload;
             }
             return null;
@@ -1145,6 +1163,7 @@ export default function Onboarding() {
                   aiRecommendedFatsG: week1.fats_g,
                 } : {}),
               });
+              track(EVENTS.PLAN_GENERATED, { type: "weight", context: "onboarding" });
               return planPayload;
             }
             return null;
@@ -2779,7 +2798,7 @@ export default function Onboarding() {
             ]}
             upgradeLabel="Unlock Pro"
             dismissLabel="Continue with free"
-            onUpgrade={() => { setStayOnOnboarding(false); openPaywall(); }}
+            onUpgrade={() => { setStayOnOnboarding(false); openPaywall("onboarding"); }}
             onDismiss={() => { setStayOnOnboarding(false); navigate("/dashboard"); }}
           />
         </div>

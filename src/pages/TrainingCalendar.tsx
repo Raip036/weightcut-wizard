@@ -35,6 +35,8 @@ import { ShareButton } from "@/components/share/ShareButton";
 import { ShareCardDialog } from "@/components/share/ShareCardDialog";
 import { TrainingCalendarCard } from "@/components/share/cards/TrainingCalendarCard";
 import { logger } from "@/lib/logger";
+import { isNativePlatform } from "@/hooks/useIsNative";
+import { resyncReminders } from "@/lib/reminderScheduler";
 import { track, EVENTS } from "@/lib/analytics";
 import { getUserColors, setUserColor } from "@/lib/sessionColors";
 import { encodeRunMeta, decodeRunMeta, formatPace } from "@/lib/runMeta";
@@ -696,6 +698,15 @@ export default function TrainingCalendar() {
                     discipline: sessionType,
                     activity: tagToSave ?? undefined,
                 });
+
+                // Suppress today's training reminder once a session is logged.
+                // Only for a session dated today; native-only + self-guarded
+                // (opt-in flag + granted permission); never blocks the save.
+                if (isNativePlatform && payload!.date === format(new Date(), "yyyy-MM-dd")) {
+                    resyncReminders({ trainingLoggedToday: true, openedToday: true }).catch(
+                        (reminderErr) => logger.warn("Reminder resync after session log failed", reminderErr),
+                    );
+                }
             }
 
             // Multi-attachment upload pass. Run in parallel because each

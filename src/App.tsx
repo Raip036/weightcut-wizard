@@ -134,6 +134,15 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
 import { isAndroid } from "@/lib/platform";
 import { logger } from "@/lib/logger";
+import { useReminderSync } from "@/hooks/useReminderSync";
+
+// Keeps adaptive local-notification reminders alive after onboarding: re-syncs
+// on cold start + foreground resume and routes notification taps. Native-only
+// (no-op on web). Mounted once inside the router so it has navigate + convex.
+function ReminderSync() {
+  useReminderSync();
+  return null;
+}
 
 function RouteTracker() {
   const location = useLocation();
@@ -392,6 +401,7 @@ const App = () => (
               <NavigationDirectionProvider>
               <TutorialProvider>
               <RouteTracker />
+              <ReminderSync />
               <AnalyticsBridge />
               <CampCompletionOverlay />
               <Routes>

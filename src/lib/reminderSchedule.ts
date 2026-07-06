@@ -23,6 +23,23 @@ export function reminderCopy(pillar: ReminderPillar) {
   return PILLAR_COPY[pillar];
 }
 
+/**
+ * In-app route a reminder should deep-link to when tapped. Read from the
+ * scheduled notification's `extra.route` by the tap handler. `/weight` is the
+ * default fallback (the morning weigh-in is the primary retention lever).
+ */
+const PILLAR_ROUTE: Record<ReminderPillar, string> = {
+  weight: "/weight",
+  sleep: "/sleep",
+  training: "/training-calendar",
+  wellness: "/recovery/check-in",
+  nutrition: "/nutrition",
+};
+
+export function reminderRoute(pillar: ReminderPillar): string {
+  return PILLAR_ROUTE[pillar];
+}
+
 function minusMinutes(t: ClockTime, mins: number): ClockTime {
   let total = t.hour * 60 + t.minute - mins;
   if (total < 0) total += 24 * 60;

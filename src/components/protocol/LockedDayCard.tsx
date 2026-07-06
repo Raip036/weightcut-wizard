@@ -80,7 +80,7 @@ export function LockedDayCard({
 
   const handleUnlock = () => {
     triggerHapticSelection();
-    (onUnlock ?? onUpgrade ?? openPaywall)();
+    (onUnlock ?? onUpgrade ?? (() => openPaywall("locked_day")))();
   };
 
   const lockedCount = days.length;

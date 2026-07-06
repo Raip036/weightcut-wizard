@@ -18,6 +18,7 @@
 
 import { useCallback, useState } from "react";
 import { Bell, BellOff } from "lucide-react";
+import { useMutation } from "convex/react";
 import { cn } from "@/lib/utils";
 import { logger } from "@/lib/logger";
 import {
@@ -26,6 +27,7 @@ import {
   syncAdaptiveReminders,
 } from "@/lib/reminderScheduler";
 import type { ReminderPlanInput } from "@/lib/reminderSchedule";
+import { api } from "@/../convex/_generated/api";
 
 /** Cold-start defaults: no log history yet so we use reasonable morning/evening anchors. */
 const COLD_START_INPUT: ReminderPlanInput = {
@@ -55,6 +57,19 @@ interface ReminderStepProps {
 
 export function ReminderStep({ onAdvance, className }: ReminderStepProps): JSX.Element {
   const [loading, setLoading] = useState(false);
+  const persistRemindersEnabled = useMutation(api.profiles.setRemindersEnabled);
+
+  // Write the opt-in through to the profile so it survives a reinstall.
+  // Fire-and-forget: the device flag is the scheduler's source of truth, so a
+  // failed server write never blocks onboarding.
+  const persistPref = useCallback(
+    (enabled: boolean) => {
+      persistRemindersEnabled({ enabled }).catch((err) =>
+        logger.warn("ReminderStep: persist reminders pref failed", err),
+      );
+    },
+    [persistRemindersEnabled],
+  );
 
   const handleTurnOn = useCallback(async () => {
     if (loading) return;
@@ -63,6 +78,7 @@ export function ReminderStep({ onAdvance, className }: ReminderStepProps): JSX.E
       const granted = await requestReminderPermission();
       if (granted) {
         setRemindersEnabled(true);
+        persistPref(true);
         try {
           await syncAdaptiveReminders(COLD_START_INPUT);
         } catch (schedErr) {
@@ -74,20 +90,23 @@ export function ReminderStep({ onAdvance, className }: ReminderStepProps): JSX.E
         // User denied the iOS prompt, or we're on web, so store the preference
         // so we don't re-ask next time the app opens.
         setRemindersEnabled(false);
+        persistPref(false);
       }
     } catch (err) {
       logger.warn("ReminderStep: requestReminderPermission failed", err);
       setRemindersEnabled(false);
+      persistPref(false);
     } finally {
       setLoading(false);
       onAdvance();
     }
-  }, [loading, onAdvance]);
+  }, [loading, onAdvance, persistPref]);
 
   const handleSkip = useCallback(() => {
     setRemindersEnabled(false);
+    persistPref(false);
     onAdvance();
-  }, [onAdvance]);
+  }, [onAdvance, persistPref]);
 
   return (
     <div className={cn("flex flex-col gap-5 pt-4 px-1", className)}>

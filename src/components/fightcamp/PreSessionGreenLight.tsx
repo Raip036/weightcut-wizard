@@ -464,7 +464,7 @@ export function PreSessionGreenLight({
     return (
       <LockedGreenLight
         session={upcoming}
-        onUpgrade={openPaywall}
+        onUpgrade={() => openPaywall("pre_session")}
         className={className}
         prefersReduced={prefersReduced}
       />

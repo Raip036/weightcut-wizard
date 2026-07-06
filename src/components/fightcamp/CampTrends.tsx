@@ -149,7 +149,7 @@ export function CampTrends({ className = "" }: CampTrendsProps): JSX.Element | n
   );
 
   if (!hasAccess) {
-    return <LockedTrends onUpgrade={openPaywall} className={className} />;
+    return <LockedTrends onUpgrade={() => openPaywall("camp_trends")} className={className} />;
   }
 
   // Loading or no history yet: render nothing.

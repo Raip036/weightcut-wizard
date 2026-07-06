@@ -138,7 +138,7 @@ export function ReadinessFlexSheet({
         title: "Weekly limit reached",
         description: "Upgrade for unlimited flex cards.",
       });
-      openPaywall();
+      openPaywall("readiness_flex");
       return;
     }
     await captureAndShare(
@@ -166,7 +166,7 @@ export function ReadinessFlexSheet({
         title: "Weekly limit reached",
         description: "Upgrade for unlimited flex cards.",
       });
-      openPaywall();
+      openPaywall("readiness_flex");
       return;
     }
     await captureAndDownload(`readiness-${format(date, "yyyy-MM-dd")}.png`, transparent, "readiness");
@@ -213,7 +213,7 @@ export function ReadinessFlexSheet({
               </div>
               <button
                 type="button"
-                onClick={openPaywall}
+                onClick={() => openPaywall("readiness_flex")}
                 className="mt-1 inline-flex items-center justify-center gap-2 h-9 px-5 rounded-full bg-primary text-primary-foreground text-[13px] font-semibold transition-opacity active:opacity-80"
               >
                 Upgrade

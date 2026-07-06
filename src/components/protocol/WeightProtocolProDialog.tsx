@@ -24,6 +24,7 @@ export function WeightProtocolProDialog({ open, onOpenChange }: WeightProtocolPr
     <ProExplainerOverlay
       open={open}
       onOpenChange={onOpenChange}
+      source="weight_protocol_explainer"
       title="Unlock your fight-week plan"
       blurb="Your AI corner builds a science-backed cut and rehydration plan tuned to your exact fight metrics."
       perks={PERKS}

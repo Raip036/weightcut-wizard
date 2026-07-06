@@ -62,7 +62,7 @@ export function useMealPlanGeneration(params: UseMealPlanGenerationParams) {
     }
 
     if (!hasAiAccess) {
-      openPaywall();
+      openPaywall("meal_planner");
       return;
     }
 
@@ -263,7 +263,7 @@ export function useMealPlanGeneration(params: UseMealPlanGenerationParams) {
     if (!targets || !userId) return;
 
     if (!hasAiAccess) {
-      openPaywall();
+      openPaywall("meal_planner");
       return;
     }
 

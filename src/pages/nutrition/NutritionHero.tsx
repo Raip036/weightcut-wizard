@@ -1,8 +1,14 @@
 import { format, startOfWeek, subWeeks, addDays, isSameDay, isAfter } from "date-fns";
 import { useLayoutEffect, useRef } from "react";
+import { motion } from "framer-motion";
+import { Flame, Sun, Moon } from "lucide-react";
+import { ImpactStyle } from "@capacitor/haptics";
 import { MacroPieChart } from "@/components/nutrition/MacroPieChart";
 import { SyncingIndicator } from "@/components/SyncingIndicator";
-import { triggerHapticSelection } from "@/lib/haptics";
+import { triggerHapticSelection, triggerHaptic } from "@/lib/haptics";
+import { track, EVENTS } from "@/lib/analytics";
+import type { CarbCycleTarget } from "@/hooks/nutrition/useNutritionData";
+import type { TrainingDay } from "@/lib/dayType";
 import type { MacroGoals } from "@/pages/nutrition/types";
 
 interface NutritionHeroProps {
@@ -17,6 +23,11 @@ interface NutritionHeroProps {
   setSelectedDate: (date: string) => void;
   mealsLoading: boolean;
   mealsVisibleCount: number;
+  /**
+   * Resolved carb-cycle target, owned by NutritionPage so the ring and the
+   * meal-plan generator stay in sync. `active: false` for non-cut users.
+   */
+  carbCycle: CarbCycleTarget;
 }
 
 /**
@@ -38,7 +49,19 @@ export function NutritionHero({
   setSelectedDate,
   mealsLoading,
   mealsVisibleCount,
+  carbCycle,
 }: NutritionHeroProps) {
+  // Cut-plan users follow a Hard/Medium/Rest carb cycle: calories stay
+  // constant while carbs/protein swing with the day's training. When active,
+  // the macro tiles + ring read the resolved cycle target for the viewed day
+  // (auto from that day's session, or a manual override). Maintenance / no-plan
+  // users get `active: false` and the flat target is kept unchanged. The cycle
+  // is resolved once at NutritionPage level and passed in as a prop.
+  const goals = carbCycle.active && carbCycle.macroGoals ? carbCycle.macroGoals : effectiveMacroGoals;
+  const calorieTarget = carbCycle.active && carbCycle.macroGoals
+    ? carbCycle.macroGoals.recommendedCalories
+    : dailyCalorieTarget;
+
   return (
     <>
       {/* Horizontal date strip — 7-day scrollable picker */}
@@ -49,18 +72,87 @@ export function NutritionHero({
       <div className="relative pt-2">
         <MacroPieChart
           calories={totalCalories}
-          calorieTarget={dailyCalorieTarget}
+          calorieTarget={calorieTarget}
           protein={totalProtein}
           carbs={totalCarbs}
           fats={totalFats}
-          proteinGoal={effectiveMacroGoals.proteinGrams}
-          carbsGoal={effectiveMacroGoals.carbsGrams}
-          fatsGoal={effectiveMacroGoals.fatsGrams}
+          proteinGoal={goals.proteinGrams}
+          carbsGoal={goals.carbsGrams}
+          fatsGoal={goals.fatsGrams}
           onEditTargets={onEditTargets}
         />
         <SyncingIndicator active={mealsLoading && mealsVisibleCount > 0} />
       </div>
+
+      {/* Carb-cycle reason line + Hard/Med/Rest override — cut plans only. */}
+      {carbCycle.active && <CarbCycleControl carbCycle={carbCycle} />}
     </>
+  );
+}
+
+// ── Carb-cycle reason + override ───────────────────────────────────────
+// A slim reason line ("Hard day, plus Xg carbs" · "Rest day, protein led" ·
+// "Medium day") plus a Hard / Medium / Rest segmented control that reuses the
+// DailyFuelCard toggle idiom. The override applies only to the viewed day.
+const DAY_TABS: { key: TrainingDay; label: string; Icon: typeof Flame }[] = [
+  { key: "hard", label: "Hard", Icon: Flame },
+  { key: "medium", label: "Medium", Icon: Sun },
+  { key: "rest", label: "Rest", Icon: Moon },
+];
+
+function CarbCycleControl({
+  carbCycle,
+}: {
+  carbCycle: CarbCycleTarget;
+}) {
+  const { dayType, reason, setOverride } = carbCycle;
+
+  return (
+    <div className="mt-1 px-1">
+      {reason && (
+        <p className="text-center text-[12px] font-medium text-muted-foreground">
+          {reason}
+        </p>
+      )}
+
+      <div className="relative mt-2.5 flex rounded-full bg-muted/25 p-0.5">
+        {DAY_TABS.map((t) => {
+          const activeTab = t.key === dayType;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => {
+                if (t.key !== dayType) {
+                  setOverride(t.key);
+                  triggerHaptic(ImpactStyle.Light);
+                  track(EVENTS.FEATURE_OPENED, {
+                    feature: "carb_cycle_override",
+                    day_type: t.key,
+                  });
+                }
+              }}
+              className={`relative z-10 flex-1 flex items-center justify-center gap-1 rounded-full py-1.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${
+                activeTab ? "text-foreground" : "text-muted-foreground"
+              }`}
+            >
+              {activeTab && (
+                <motion.span
+                  layoutId="carbcycle-active-tab"
+                  className="absolute inset-0 -z-10 rounded-full bg-foreground/10 border border-border/50"
+                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                />
+              )}
+              <t.Icon
+                className={`h-3.5 w-3.5 ${activeTab ? "text-primary" : ""}`}
+                strokeWidth={2.4}
+              />
+              <span>{t.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

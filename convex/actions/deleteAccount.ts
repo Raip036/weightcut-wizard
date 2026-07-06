@@ -14,15 +14,35 @@
  * deletion.
  */
 import { action } from "../_generated/server";
+import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "../_generated/api";
 import { createPostHogClient } from "../_shared/posthog";
 
+// Fixed allow-list of self-reported exit reasons captured on the final
+// delete confirmation. Kept as a closed set (no free-text) so we never
+// ingest PII into analytics. Anything outside this set — including a
+// missing arg from an older client that predates the reason picker —
+// collapses to "not_given" so the property is always present.
+const ALLOWED_DELETE_REASONS = new Set([
+  "too_expensive",
+  "not_using",
+  "missing_features",
+  "found_alternative",
+  "technical_issues",
+  "other",
+]);
+
 export const run = action({
-  args: {},
-  handler: async (ctx) => {
+  // `reason` is optional for backward compatibility: old clients call
+  // `deleteAccount({})` with no reason and must keep working unchanged.
+  args: { reason: v.optional(v.string()) },
+  handler: async (ctx, { reason }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
+
+    const cleanReason =
+      reason && ALLOWED_DELETE_REASONS.has(reason) ? reason : "not_given";
 
     // Cascade across every user-scoped table. Each step is its own
     // mutation so write budgets are per-call instead of shared, and so a
@@ -57,7 +77,11 @@ export const run = action({
 
     const posthog = createPostHogClient();
     if (posthog) {
-      posthog.capture({ distinctId: userId, event: "account deleted" });
+      posthog.capture({
+        distinctId: userId,
+        event: "account deleted",
+        properties: { reason: cleanReason },
+      });
       await posthog.shutdown();
     }
 

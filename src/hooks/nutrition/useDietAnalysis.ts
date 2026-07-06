@@ -54,7 +54,7 @@ export function useDietAnalysis(params: UseDietAnalysisParams) {
     }
 
     if (!hasAiAccess) {
-      openPaywall();
+      openPaywall("diet_analysis");
       return;
     }
 

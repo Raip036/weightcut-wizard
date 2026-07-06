@@ -57,6 +57,10 @@ export function initAnalytics(): void {
     session_recording: {
       maskAllInputs: true,
     },
+    // Uncaught exceptions → PostHog error tracking. Session replays showed
+    // console errors in over half of sessions while error tracking sat empty;
+    // this gives crash/error visibility without a separate SDK.
+    capture_exceptions: true,
     persistence: "localStorage+cookie",
     // Don't fire a $pageview/$pageleave for bots or our own dev noise.
     loaded: (ph) => {
@@ -102,23 +106,32 @@ export const EVENTS = {
   SIGNED_UP: "signed_up",
   ONBOARDING_STEP_COMPLETED: "onboarding_step_completed",
   ONBOARDING_COMPLETED: "onboarding_completed",
+  // App lifecycle — fired on cold start and on native foreground resume so
+  // "opens" are countable even when no route change happens.
+  APP_OPENED: "app_opened",
   // Core logging loop
   WEIGHT_LOGGED: "weight_logged",
   MEAL_LOGGED: "meal_logged",
   SESSION_LOGGED: "session_logged",
-  RECOVERY_CHECKIN: "recovery_checkin",
   WELLNESS_CHECKIN: "wellness_checkin",
   // Plans / AI features
   PLAN_GENERATED: "plan_generated",
   // Navigation intent (a feature surface was opened) — complements autocapture
   // with a clean, queryable "top features" event.
   FEATURE_OPENED: "feature_opened",
+  // Re-engagement — a local-notification reminder was tapped (props: { pillar }).
+  REMINDER_TAPPED: "reminder_tapped",
   // Monetisation
   PAYWALL_VIEWED: "paywall_viewed",
+  PAYWALL_DISMISSED: "paywall_dismissed",
   SUBSCRIBE_STARTED: "subscribe_started",
   SUBSCRIBED: "subscribed",
   // Sharing / virality
   SHARE_CARD_SHARED: "share_card_shared",
+  // Community — separates posters from lurkers (deck views) in the gym feed.
+  POST_CREATED: "post_created",
+  POST_ENGAGED: "post_engaged", // props: { action: "like" | "reaction" | "comment" | "report" }
+  DECK_POST_VIEWED: "deck_post_viewed",
 } as const;
 
 export type AnalyticsEvent = (typeof EVENTS)[keyof typeof EVENTS];

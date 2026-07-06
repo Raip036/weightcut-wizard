@@ -324,7 +324,7 @@ export default function TrainingLibrary() {
               "Grouped by discipline with quick cues",
               "Tracks how often you've drilled each one",
             ]}
-            onUpgrade={openPaywall}
+            onUpgrade={() => openPaywall("training_library")}
             onDismiss={() => setTab("gallery")}
           >
             <div className="px-4 pt-4">
@@ -630,6 +630,7 @@ function TabGate({
   if (unlocked) return <>{children}</>;
   return (
     <ProUpsellScreen
+      source="training_library"
       title={title}
       blurb={blurb}
       perks={perks}

@@ -130,6 +130,15 @@ export default defineSchema({
     // when the user closes /cut-plan after reviewing their free starter plan),
     // independent of device / reinstall. Set via markOnboardingPaywallShown.
     onboardingPaywallShownAt: v.optional(v.number()),
+    // Device-independent opt-in for adaptive local-notification reminders.
+    // Mirrors the device-local `adaptive_reminders_enabled` localStorage flag
+    // (source of truth for the scheduler) so the user's stated preference
+    // survives a reinstall, which clears localStorage. Absent → never set;
+    // the client then keeps whatever the device flag says. Set via
+    // profiles.setRemindersEnabled. NOTE: the iOS notification permission is a
+    // separate OS grant that reinstall also clears, so restoring this flag
+    // preserves intent but does not itself re-enable notifications.
+    remindersEnabled: v.optional(v.boolean()),
     // Epoch ms the full-screen "start your next camp" overlay was last shown
     // to a fighter who has no active camp. Drives the 7-day cooldown so the
     // nudge doesn't fire on every cold start. See convex/campCompletion.ts.

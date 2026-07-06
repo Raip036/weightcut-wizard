@@ -111,7 +111,7 @@ export function RecoveryCoachChat({ userId, userName }: RecoveryCoachChatProps) 
     if (isListening) stopListening();
 
     if (!hasAiAccess) {
-      openPaywall();
+      openPaywall("recovery_coach");
       return;
     }
 

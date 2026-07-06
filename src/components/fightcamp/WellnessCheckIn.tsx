@@ -7,6 +7,8 @@ import { api } from "@/../convex/_generated/api";
 import { triggerHapticSelection, celebrateSuccess } from "@/lib/haptics";
 import type { WellnessCheckIn as WellnessCheckInData } from "@/utils/performanceEngine";
 import { logger } from "@/lib/logger";
+import { isNativePlatform } from "@/hooks/useIsNative";
+import { resyncReminders } from "@/lib/reminderScheduler";
 import { track, EVENTS } from "@/lib/analytics";
 import { WizardCharacter } from "@/tutorial/WizardCharacter";
 import type { WizardPose } from "@/tutorial/types";
@@ -327,6 +329,20 @@ export function WellnessCheckIn({ userId, onSubmit, isSubmitting, streak, date }
         hooper_index: hooperIndex,
         band: hooperLabel,
       });
+
+      // Suppress today's wellness reminder once the check-in is logged for
+      // today. `logDate` can be a past date via the dashboard catch-up flow,
+      // so only suppress when it's actually today. Native-only + self-guarded
+      // (opt-in flag + granted permission); never blocks the check-in.
+      if (isNativePlatform) {
+        const _today = new Date();
+        const todayIso = `${_today.getFullYear()}-${String(_today.getMonth() + 1).padStart(2, "0")}-${String(_today.getDate()).padStart(2, "0")}`;
+        if (logDate === todayIso) {
+          resyncReminders({ wellnessLoggedToday: true, openedToday: true }).catch(
+            (reminderErr) => logger.warn("Reminder resync after wellness check-in failed", reminderErr),
+          );
+        }
+      }
     } catch (err) {
       logger.error("Failed to persist wellness check-in", err);
     }

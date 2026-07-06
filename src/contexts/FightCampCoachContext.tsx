@@ -206,7 +206,7 @@ export function FightCampCoachProvider({ children }: { children: ReactNode }) {
         ];
         setMessages(limited);
         persist(limited);
-        openPaywall();
+        openPaywall("coach_chat");
         setIsLoading(false);
         return;
       }

@@ -19,6 +19,7 @@ import type { Id } from "@/../convex/_generated/dataModel";
 import { useToast } from "@/hooks/use-toast";
 import { triggerHaptic } from "@/lib/haptics";
 import { ImpactStyle } from "@capacitor/haptics";
+import { track, EVENTS } from "@/lib/analytics";
 
 interface ServerSnapshot {
   viewerLiked: boolean;
@@ -124,6 +125,8 @@ export function useFeedEngagement(
     if (nextLiked) {
       setBurstKey((k) => k + 1);
       triggerHaptic(ImpactStyle.Medium);
+      // Likes only — un-likes are noise, not engagement.
+      track(EVENTS.POST_ENGAGED, { action: "like", post_id: postId });
     }
 
     toggleLikeMut({ postId }).catch(() => {
@@ -164,6 +167,10 @@ export function useFeedEngagement(
   const toggleReaction = useCallback(
     (key: string) => {
       triggerHaptic(ImpactStyle.Light);
+      // `key` is a fixed ASCII slug (heart/fire/muscle/praise/clap), never
+      // free text — safe as an event prop. This path can't distinguish
+      // react vs un-react (no local mirror), so it fires on both.
+      track(EVENTS.POST_ENGAGED, { action: "reaction", key, post_id: postId });
       toggleReactionMut({ postId, key }).catch(() => {
         toast({ title: "Couldn't update reaction", variant: "destructive" });
       });
@@ -180,6 +187,11 @@ export function useFeedEngagement(
       const nextActive = !currentlyActive;
       setReactionOverrides((prev) => ({ ...prev, [key]: nextActive }));
       triggerHaptic(ImpactStyle.Light);
+      // Only when ADDING a reaction — removals are noise. Each tap goes
+      // through exactly one of the two toggle paths, so no double-fire.
+      if (nextActive) {
+        track(EVENTS.POST_ENGAGED, { action: "reaction", key, post_id: postId });
+      }
       toggleReactionMut({ postId, key }).catch(() => {
         // Roll back this key to its pre-tap state and surface a toast.
         setReactionOverrides((prev) => ({ ...prev, [key]: currentlyActive }));

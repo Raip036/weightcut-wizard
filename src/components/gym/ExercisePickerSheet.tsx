@@ -6,6 +6,7 @@ import { motion, AnimatePresence, LayoutGroup } from "motion/react";
 import { staggerContainer, staggerItem } from "@/lib/motion";
 import { CATEGORIES, EQUIPMENT_OPTIONS } from "@/data/exerciseDatabase";
 import type { Exercise, ExerciseCategory, Equipment } from "@/pages/gym/types";
+import { useClearStuckPointerEvents } from "@/hooks/useClearStuckPointerEvents";
 
 interface ExercisePickerSheetProps {
   open: boolean;
@@ -70,6 +71,13 @@ export function ExercisePickerSheet({
   const [recentIds, setRecentIds] = useState<string[]>(() => loadIdList(RECENT_KEY));
   const [favIds, setFavIds] = useState<string[]>(() => loadIdList(FAV_KEY));
 
+  // A Radix/vaul overlay can leave `document.body { pointer-events: none }`
+  // stuck after it closes badly, which then freezes every tap inside this
+  // bottom-sheet (the documented /gym "text-less rage click, zero JS error"
+  // freeze). Clear it on mount and also force `pointer-events: auto` on the
+  // sheet root below so it stays tappable even if the body style reappears.
+  useClearStuckPointerEvents();
+
   // Reset transient state when the sheet closes so reopening starts clean.
   useEffect(() => {
     if (!open) {
@@ -77,6 +85,7 @@ export function ExercisePickerSheet({
       setSmartTab("all");
       setCategoryFilter(null);
       setEquipmentFilter(null);
+      setFiltersOpen(false);
     }
   }, [open]);
 
@@ -145,6 +154,7 @@ export function ExercisePickerSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
+        style={{ pointerEvents: "auto" }}
         className="h-[88vh] rounded-t-3xl border-0 bg-card/95 backdrop-blur-xl p-0 flex flex-col"
       >
         {/* Header */}
@@ -217,9 +227,10 @@ export function ExercisePickerSheet({
           </LayoutGroup>
           <button
             type="button"
-            onClick={() => setFiltersOpen(true)}
+            onClick={() => setFiltersOpen((v) => !v)}
+            aria-expanded={filtersOpen}
             className={`shrink-0 h-10 w-10 rounded-full flex items-center justify-center transition relative ${
-              activeFilters > 0
+              activeFilters > 0 || filtersOpen
                 ? "bg-primary text-primary-foreground"
                 : "bg-muted/30 border border-border/30 text-muted-foreground"
             }`}
@@ -233,6 +244,102 @@ export function ExercisePickerSheet({
             )}
           </button>
         </div>
+
+        {/* Inline filter panel: an expander INSIDE this sheet (category +
+            equipment), NOT a second Radix/vaul Sheet mounted over the first.
+            Nesting a sheet-in-sheet was the highest-risk source of the stuck
+            pointer-events freeze, so the filters live here as a collapsible
+            section. Same options, same live-filter state, same Clear/Apply. */}
+        <AnimatePresence initial={false}>
+          {filtersOpen && (
+            <motion.div
+              key="filters-panel"
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+              className="px-4 pb-3 shrink-0 overflow-hidden"
+            >
+              <div className="rounded-2xl border border-border/30 bg-muted/20 p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-[15px] font-bold tracking-tight">Filters</p>
+                  <button
+                    type="button"
+                    onClick={() => setFiltersOpen(false)}
+                    className="h-8 w-8 rounded-full bg-muted/40 flex items-center justify-center text-muted-foreground active:bg-muted/60 transition"
+                    aria-label="Close filters"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/70 mb-2">Category</p>
+                  <div className="flex flex-wrap gap-2">
+                    {CATEGORIES.map((c) => {
+                      const active = categoryFilter === c.value;
+                      return (
+                        <button
+                          key={c.value}
+                          onClick={() => setCategoryFilter(active ? null : (c.value as ExerciseCategory))}
+                          className={`inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition active:scale-[0.97] ${
+                            active
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted/40 text-foreground border border-border/40"
+                          }`}
+                        >
+                          {active && <Check className="h-3 w-3" />}
+                          {c.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/70 mb-2">Equipment</p>
+                  <div className="flex flex-wrap gap-2">
+                    {EQUIPMENT_OPTIONS.map((e) => {
+                      const active = equipmentFilter === e.value;
+                      return (
+                        <button
+                          key={e.value}
+                          onClick={() => setEquipmentFilter(active ? null : (e.value as Equipment))}
+                          className={`inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition active:scale-[0.97] ${
+                            active
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted/40 text-foreground border border-border/40"
+                          }`}
+                        >
+                          {active && <Check className="h-3 w-3" />}
+                          {e.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => { setCategoryFilter(null); setEquipmentFilter(null); }}
+                    disabled={activeFilters === 0}
+                    className="flex-1 h-11 rounded-xs bg-muted/40 border border-border/40 text-[13px] font-semibold disabled:opacity-40 active:scale-[0.98] transition-transform"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFiltersOpen(false)}
+                    className="flex-1 h-11 rounded-xs bg-primary text-primary-foreground font-bold text-[13px] active:scale-[0.98] transition-transform"
+                  >
+                    Apply
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Exercise list */}
         <div className="overflow-y-auto flex-1 px-4 pb-2">
@@ -332,96 +439,6 @@ export function ExercisePickerSheet({
           </button>
         </div>
       </SheetContent>
-
-      {/* Filters bottom-sheet: category + equipment in one polished surface */}
-      <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
-        <SheetContent
-          side="bottom"
-          className="rounded-t-3xl p-0 max-h-[78vh] overflow-y-auto [&>button]:hidden"
-          style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1.25rem)" }}
-        >
-          <div className="flex justify-center pt-2 pb-1">
-            <div className="w-10 h-1 rounded-full bg-muted-foreground/25" aria-hidden />
-          </div>
-          <div className="px-5 pt-2 pb-5 space-y-5">
-            <div className="flex items-center justify-between">
-              <SheetTitle className="text-[17px] font-bold tracking-tight">Filters</SheetTitle>
-              <button
-                type="button"
-                onClick={() => setFiltersOpen(false)}
-                className="h-9 w-9 rounded-full bg-muted/40 flex items-center justify-center text-muted-foreground active:bg-muted/60 transition"
-                aria-label="Close"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/70 mb-2">Category</p>
-              <div className="flex flex-wrap gap-2">
-                {CATEGORIES.map((c) => {
-                  const active = categoryFilter === c.value;
-                  return (
-                    <button
-                      key={c.value}
-                      onClick={() => setCategoryFilter(active ? null : (c.value as ExerciseCategory))}
-                      className={`inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition active:scale-[0.97] ${
-                        active
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted/40 text-foreground border border-border/40"
-                      }`}
-                    >
-                      {active && <Check className="h-3 w-3" />}
-                      {c.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/70 mb-2">Equipment</p>
-              <div className="flex flex-wrap gap-2">
-                {EQUIPMENT_OPTIONS.map((e) => {
-                  const active = equipmentFilter === e.value;
-                  return (
-                    <button
-                      key={e.value}
-                      onClick={() => setEquipmentFilter(active ? null : (e.value as Equipment))}
-                      className={`inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition active:scale-[0.97] ${
-                        active
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted/40 text-foreground border border-border/40"
-                      }`}
-                    >
-                      {active && <Check className="h-3 w-3" />}
-                      {e.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="flex gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => { setCategoryFilter(null); setEquipmentFilter(null); }}
-                disabled={activeFilters === 0}
-                className="flex-1 h-11 rounded-xs bg-muted/40 border border-border/40 text-[13px] font-semibold disabled:opacity-40 active:scale-[0.98] transition-transform"
-              >
-                Clear
-              </button>
-              <button
-                type="button"
-                onClick={() => setFiltersOpen(false)}
-                className="flex-1 h-11 rounded-xs bg-primary text-primary-foreground font-bold text-[13px] active:scale-[0.98] transition-transform"
-              >
-                Apply
-              </button>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
     </Sheet>
   );
 }

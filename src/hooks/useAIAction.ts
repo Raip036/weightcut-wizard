@@ -57,7 +57,7 @@ export function useAIAction<TRef extends AnyActionRef>(
       if (featureKey) {
         const required = FEATURE_GATES[featureKey].minTier;
         if (!meetsTier(tier, required)) {
-          openPaywall();
+          openPaywall(featureKey);
           return Promise.reject(
             new Error(`${PRO_REQUIRED_PREFIX}${featureKey}`),
           );

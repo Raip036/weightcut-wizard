@@ -256,7 +256,7 @@ export const TrainingInsightsWidget = memo(function TrainingInsightsWidget({
   const handleCardPress = useCallback(() => {
     triggerHapticSelection();
     if (!isPremium) {
-      openPaywall();
+      openPaywall("training_insights");
       return;
     }
     setOpen(true);
@@ -353,7 +353,7 @@ export const TrainingInsightsWidget = memo(function TrainingInsightsWidget({
 
         if (results.some((r) => "premiumRequired" in r && r.premiumRequired)) {
           setOpen(false);
-          openPaywall();
+          openPaywall("training_insights");
           return;
         }
 

@@ -241,6 +241,7 @@ export default function WeightProtocol() {
   if (!isPremium) {
     return (
       <ProUpsellScreen
+        source="weight_protocol"
         title="Your Weight Protocol is a Pro feature"
         blurb="A day-by-day cut and a rehydration plan, tuned to your body, training load, and weigh-in window."
         perks={[
@@ -252,7 +253,7 @@ export default function WeightProtocol() {
         upgradeLabel="Upgrade to Pro"
         onUpgrade={() => {
           triggerHapticSelection();
-          openPaywall();
+          openPaywall("weight_protocol");
         }}
         onDismiss={dismiss}
       />

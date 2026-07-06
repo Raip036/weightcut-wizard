@@ -254,11 +254,11 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     const wasPremium = wasPremiumRef.current;
     wasPremiumRef.current = isPremium;
     if (!isPremium || wasPremium || !userId) return;
-    // Genuine free→pro transition this session = premium just activated
-    // client-side (RC purchase verified or webhook landed). Fire once per
-    // upgrade; the wasPremium guard above prevents duplicates on re-render.
-    track(EVENTS.SUBSCRIBED, { tier: profileRef.current?.subscription_tier ?? "premium" });
-    if (profileRef.current?.welcome_pro_shown_at != null) return;
+    // NOTE: the `subscribed` analytics event is NOT fired here anymore.
+    // Entitlement reconciles (cold start, resume, RC listener) re-drive the
+    // free->pro edge every session and massively inflated the count. It now
+    // fires at the purchase truth moment in PaywallOverlay.tsx (native
+    // PURCHASED/RESTORED branch + web handlePurchase success).
     let cancelled = false;
     (async () => {
       try {

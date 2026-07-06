@@ -198,7 +198,7 @@ export function useAIMealAnalysis(params: UseAIMealAnalysisParams) {
       toast({ title: "No photo", description: "Take a photo first", variant: "destructive" });
       return;
     }
-    if (!hasMealAccess) { openPaywall(); return; }
+    if (!hasMealAccess) { openPaywall("meal_scanner"); return; }
 
     const captionRaw = description ?? aiMealDescription;
     const caption = captionRaw?.trim() || undefined;
@@ -322,7 +322,7 @@ export function useAIMealAnalysis(params: UseAIMealAnalysisParams) {
 
     // If no cache, check Pro access before showing any overlay
     if (!cachedData && !hasMealAccess) {
-      openPaywall();
+      openPaywall("meal_scanner");
       return;
     }
 
@@ -510,7 +510,7 @@ export function useAIMealAnalysis(params: UseAIMealAnalysisParams) {
     }
 
     if (!hasMealAccess) {
-      openPaywall();
+      openPaywall("meal_scanner");
       return;
     }
 

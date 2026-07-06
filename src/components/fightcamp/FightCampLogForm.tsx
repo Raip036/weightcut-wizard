@@ -328,20 +328,44 @@ export function FightCampLogForm({
     triggerHapticSelection();
   };
 
-  // Wrap the parent's save so we can optimistically tell the Mastery widget a
-  // drill generation is kicking off. The backend only generates drills when the
-  // "What went well / to improve" reflection (`notes`) is non-empty, so we
-  // mirror that guard here and push for the session's PRIMARY discipline
-  // (`sessionType`). Pushed before delegating to `onSave` so the wizard loader
-  // shows immediately, before any navigation/close. Parent owns validation and
-  // the button is already gated by `canSave`/`saving`, so a tap here is a real
-  // submit — no extra validation-failure path to guard.
-  const handleSave = useCallback(() => {
+  // The Save button must NEVER render as a dead, disabled "Loading account…"
+  // button while `userId`/`canSave` is still resolving on a cold start (up to
+  // ~2s), because users tap the dead button repeatedly. Instead we keep Save
+  // always tappable: if the account isn't ready yet when they tap, we remember
+  // the tap (`pendingSubmit`), show an inline spinner ON the button, and fire
+  // the real submit the moment `canSave` flips true (effect below).
+  const [pendingSubmit, setPendingSubmit] = useState(false);
+
+  // The actual submit. Optimistically tells the Mastery widget a drill
+  // generation is kicking off before delegating to `onSave`. The backend only
+  // generates drills when the "to improve" reflection (`notes`) is non-empty,
+  // so we mirror that guard here and push for the session's PRIMARY discipline
+  // (`sessionType`). Pushed first so the wizard loader shows immediately, before
+  // any navigation/close.
+  const doSave = useCallback(() => {
     if (sessionType && notes.trim()) {
       pushMasterySignal(sessionType, "drills");
     }
     onSave();
   }, [sessionType, notes, onSave]);
+
+  const handleSave = useCallback(() => {
+    if (saving) return;
+    // Account not resolved yet: queue the submit and show the pending spinner.
+    if (!canSave) {
+      setPendingSubmit(true);
+      return;
+    }
+    doSave();
+  }, [saving, canSave, doSave]);
+
+  // Fire a queued submit as soon as the account resolves.
+  useEffect(() => {
+    if (pendingSubmit && canSave) {
+      setPendingSubmit(false);
+      doSave();
+    }
+  }, [pendingSubmit, canSave, doSave]);
 
   return (
     <div className="space-y-4">
@@ -859,14 +883,14 @@ export function FightCampLogForm({
       <button
         type="button"
         onClick={handleSave}
-        disabled={saving || !canSave}
+        disabled={saving}
         className="w-full h-12 rounded-xs bg-primary text-primary-foreground text-[15px] font-semibold active:scale-[0.98] transition-transform flex items-center justify-center gap-2 disabled:opacity-40 disabled:active:scale-100"
       >
-        {saving && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
+        {(saving || pendingSubmit) && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
         {saving
           ? (isEditing ? "Updating…" : pendingMedia.length > 0 ? `Saving + uploading ${pendingMedia.length}…` : "Saving…")
-          : !canSave
-            ? "Loading account…"
+          : pendingSubmit
+            ? "Saving…"
             : (isEditing ? "Update session" : pendingMedia.length > 0 ? `Save with ${pendingMedia.length} media` : "Save session")}
       </button>
     </div>

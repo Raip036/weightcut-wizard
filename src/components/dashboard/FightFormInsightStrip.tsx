@@ -1,4 +1,7 @@
-import type { FightFormLabel, FightFormState, ScoringPhase, SubScoreKey } from "@/scoring/types";
+import { useNavigate } from "react-router-dom";
+import { triggerHapticSelection } from "@/lib/haptics";
+import { track, EVENTS } from "@/lib/analytics";
+import type { FightFormLabel, FightFormState, ScoringPhase, SubScore, SubScoreKey } from "@/scoring/types";
 
 type Adherence = {
   weight: boolean;
@@ -30,6 +33,13 @@ type Props = {
   adherence: Adherence;
   calibration: CalibrationProgress | null;
   onHeadlineTap?: () => void;
+  /** Largest staleness gap (days since last log) across contributing
+   *  pillars — same field the ring's "as of Nd ago" line and the old
+   *  standalone "Holding at N" pill both read from. */
+  dataAgeDays?: number;
+  /** Per-pillar sub-scores (for `completeness`), used to name the stalest
+   *  contributing pillar the same way the old "Holding at N" pill did. */
+  subScores?: Record<SubScoreKey, SubScore> | null;
 };
 
 type SourceKey = "sleep" | "weight" | "training" | "wellness" | "nutrition";
@@ -126,7 +136,166 @@ function headlineFor(p: Props): string {
   return "At risk. Check the limiter and fix it first.";
 }
 
+// Threshold (days since last log) above which contributing data counts as
+// stale. Matches the ring's own "as of Nd ago" line and the old standalone
+// "Holding at N" pill (both used `dataAgeDays >= 2`), so the two never
+// disagree about when data has gone stale.
+const STALE_THRESHOLD_DAYS = 2;
+
+type RouteInfo = { cause: string; route: string };
+
+// Where tapping the "X is holding your score back" line should send you.
+// `weightCut` goes to the cut plan (the fix is reviewing/adjusting the
+// plan), distinct from `STALE_ROUTE.weightCut` below which is about the raw
+// weight log itself.
+const LIMITER_ROUTE: Record<SubScoreKey, RouteInfo> = {
+  nutritionAdherence: { cause: "nutrition", route: "/nutrition" },
+  weightCut: { cause: "weight-cut", route: "/cut-plan" },
+  wellness: { cause: "recovery", route: "/recovery/check-in" },
+  sleep: { cause: "sleep", route: "/sleep" },
+  trainingLoad: { cause: "training", route: "/training-calendar" },
+};
+
+// Where tapping the "Running on Nd old data" line should send you — the fix
+// is to log fresh data for that pillar, so weightCut here means "go log
+// your weight" rather than "go review the cut plan".
+const STALE_ROUTE: Record<SubScoreKey, RouteInfo> = {
+  nutritionAdherence: { cause: "nutrition", route: "/nutrition" },
+  weightCut: { cause: "stale-weight", route: "/weight" },
+  wellness: { cause: "wellness", route: "/recovery/check-in" },
+  sleep: { cause: "sleep", route: "/sleep" },
+  trainingLoad: { cause: "training", route: "/training-calendar" },
+};
+
+const LIMITER_ACTION: Record<SubScoreKey, string> = {
+  nutritionAdherence: "log a meal",
+  weightCut: "review your plan",
+  wellness: "complete your check-in",
+  sleep: "log last night's sleep",
+  trainingLoad: "log today's session",
+};
+
+const STALE_ACTION: Record<SubScoreKey, string> = {
+  nutritionAdherence: "log a meal",
+  weightCut: "log your weight",
+  wellness: "log your check-in",
+  sleep: "log last night's sleep",
+  trainingLoad: "log today's session",
+};
+
+const STALE_NOUN: Record<SubScoreKey, string> = {
+  nutritionAdherence: "nutrition",
+  weightCut: "weight",
+  wellness: "recovery",
+  sleep: "sleep",
+  trainingLoad: "training",
+};
+
+const CEILING_COPY: Record<string, { reason: string; action: string } & RouteInfo> = {
+  weight_cut_dangerous: {
+    reason: "cut too aggressive this week",
+    action: "review your plan",
+    cause: "cut",
+    route: "/cut-plan",
+  },
+  sleep_debt: {
+    reason: "sleep debt is piling up",
+    action: "log sleep to catch up",
+    cause: "sleep",
+    route: "/sleep",
+  },
+  training_spike: {
+    reason: "training load is spiking",
+    action: "ease up this week",
+    cause: "training",
+    route: "/training-calendar",
+  },
+};
+
+type Prescription = { text: string; cause: string; route: string | null };
+
+// Same "stalest contributing pillar" logic the old "Holding at N" pill used:
+// lowest `completeness` among pillars that actually carry weight this phase.
+function findStalestPillar(subScores?: Record<SubScoreKey, SubScore> | null): SubScoreKey | null {
+  if (!subScores) return null;
+  let laggard: SubScoreKey | null = null;
+  let lowest = Infinity;
+  for (const [key, s] of Object.entries(subScores) as [SubScoreKey, SubScore][]) {
+    if (!s || s.weight <= 0) continue;
+    const c = s.completeness ?? 1;
+    if (c < lowest) {
+      lowest = c;
+      laggard = key;
+    }
+  }
+  return laggard;
+}
+
+// Decides the single tappable line under the ring, in priority order:
+// applied ceiling > top limiter > stale data > positive driver. The "sharp"
+// label skips the limiter branch (that copy is reserved for camps that
+// actually need a fix), so a genuinely peaking camp falls through to the
+// staleness check and, failing that, a positive driver line instead of
+// nagging about whichever pillar happens to be relatively lowest.
+function computePrescription(p: Props): Prescription | null {
+  if (p.appliedCeiling) {
+    const copy = CEILING_COPY[p.appliedCeiling.ruleId];
+    if (copy) {
+      return {
+        text: `Score capped: ${copy.reason}, ${copy.action}.`,
+        cause: copy.cause,
+        route: copy.route,
+      };
+    }
+    return {
+      text: `Score capped at ${p.appliedCeiling.cap}, review your plan.`,
+      cause: "cut",
+      route: "/cut-plan",
+    };
+  }
+
+  if (p.label !== "sharp" && p.topLimiter) {
+    const pillar = p.topLimiter;
+    return {
+      text: `${SUBSCORE_HUMAN[pillar]} is holding your score back, ${LIMITER_ACTION[pillar]}.`,
+      cause: LIMITER_ROUTE[pillar].cause,
+      route: LIMITER_ROUTE[pillar].route,
+    };
+  }
+
+  const dataAgeDays = p.dataAgeDays ?? 0;
+  if (dataAgeDays >= STALE_THRESHOLD_DAYS) {
+    const laggard = findStalestPillar(p.subScores);
+    const days = Math.round(dataAgeDays);
+    if (laggard) {
+      return {
+        text: `Running on ${days} day old ${STALE_NOUN[laggard]} data, ${STALE_ACTION[laggard]} to refresh.`,
+        cause: STALE_ROUTE[laggard].cause,
+        route: STALE_ROUTE[laggard].route,
+      };
+    }
+    return {
+      text: `Running on ${days} day old data, log today to refresh.`,
+      cause: "stale",
+      route: null,
+    };
+  }
+
+  if (p.topDriver) {
+    return {
+      text: `${SUBSCORE_HUMAN[p.topDriver]} is carrying your score today.`,
+      cause: "driver",
+      route: null,
+    };
+  }
+
+  // Strong score, every pillar fresh, nothing to single out — say nothing.
+  return null;
+}
+
 export function FightFormInsightStrip(p: Props) {
+  const navigate = useNavigate();
+
   // Paused renders nothing (no "Camp is paused" copy) — post-fight the camp
   // keeps running, and an explicit pause is surfaced elsewhere.
   if (p.state === "paused") return null;
@@ -155,10 +324,33 @@ export function FightFormInsightStrip(p: Props) {
     return null;
   }
 
-  // Scored states (ok / stale) used to render the insight headline here
-  // ("You're peaking…", "At risk. Nutrition needs attention now. Why?", "Score
-  // capped…", etc.). That headline is intentionally removed — the ring's own
-  // label and the delta pill below already carry the read, so no text sits
-  // under the ring for a scored camp.
-  return null;
+  // Scored states (ok / stale): a single tappable prescription line — what's
+  // capping/limiting the score, a truthful "data is stale" read, or (only
+  // when there's genuinely nothing to flag) a short positive note. Ranked by
+  // `computePrescription`; falls through to nothing for a strong, fresh camp.
+  const prescription = computePrescription(p);
+  if (!prescription) return null;
+
+  const handleTap = () => {
+    triggerHapticSelection();
+    track(EVENTS.FEATURE_OPENED, { feature: "ring_prescription", cause: prescription.cause });
+    if (prescription.route) {
+      navigate(prescription.route);
+    } else {
+      p.onHeadlineTap?.();
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleTap}
+      aria-label="Fight Form Score details"
+      className="mt-2 w-full max-w-xs mx-auto px-6 py-1 rounded-xl text-center card-press"
+    >
+      <span className="text-[12px] font-medium text-muted-foreground leading-snug">
+        {prescription.text}
+      </span>
+    </button>
+  );
 }

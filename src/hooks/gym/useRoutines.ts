@@ -56,7 +56,7 @@ export function useRoutines() {
   const generateRoutine = useCallback(
     async (params: RoutineGenerationParams) => {
       if (!hasAiAccess) {
-        openPaywall();
+        openPaywall("routine_builder");
         return null;
       }
 

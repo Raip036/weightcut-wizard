@@ -121,7 +121,7 @@ export function TrialBanner() {
   return (
     <motion.button
       type="button"
-      onClick={openPaywall}
+      onClick={() => openPaywall("trial_banner")}
       initial={{ opacity: 0, y: 16, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ type: "spring", damping: 22, stiffness: 280 }}

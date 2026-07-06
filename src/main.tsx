@@ -1,3 +1,5 @@
+// Runtime polyfills MUST load before any other module runs (older WebViews).
+import "./lib/polyfills";
 import { createRoot } from "react-dom/client";
 import * as Sentry from "@sentry/react";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
@@ -5,13 +7,17 @@ import { Capacitor } from "@capacitor/core";
 import { Keyboard, KeyboardResize } from "@capacitor/keyboard";
 import App from "./App.tsx";
 import { convex } from "./integrations/convex/client";
-import { initAnalytics } from "./lib/analytics";
+import { initAnalytics, track, EVENTS } from "./lib/analytics";
 import "./index.css";
 
 // Product analytics (PostHog). No-ops when VITE_POSTHOG_KEY is unset, so dev
 // builds without a key are unaffected. Init at module-eval, before render, so
 // the first $pageview (fired by RouteTracker on mount) is captured.
 initAnalytics();
+
+// Cold-start app open. Resumes (foregrounding without a reload) are tracked in
+// UserContext's app-resume handler with launch_type: "resume".
+track(EVENTS.APP_OPENED, { launch_type: "cold" });
 
 // ---------------------------------------------------------------------------
 // iOS keyboard behavior

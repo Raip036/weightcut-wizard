@@ -23,6 +23,7 @@ export function RoutineGenProDialog({ open, onOpenChange }: RoutineGenProDialogP
     <ProExplainerOverlay
       open={open}
       onOpenChange={onOpenChange}
+      source="routine_builder"
       title="AI Routine Builder is a Pro feature"
       blurb="Tell the coach your goal and it writes you a complete, structured training plan."
       perks={PERKS}

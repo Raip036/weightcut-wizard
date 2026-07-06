@@ -10,6 +10,8 @@ import { nutritionLogSchema } from "@/lib/validation";
 import { readDateParam } from "@/lib/dateParam";
 import { useUser } from "@/contexts/UserContext";
 import { logger } from "@/lib/logger";
+import { track, EVENTS } from "@/lib/analytics";
+import { Icon } from "@/components/ui/Icon";
 import { useAITask } from "@/contexts/AITaskContext";
 
 import type { Meal, ManualMealForm } from "@/pages/nutrition/types";
@@ -24,6 +26,7 @@ import {
   useMacroCalculation,
   useQuickMealActions,
 } from "@/hooks/nutrition";
+import { useCarbCycleTarget } from "@/hooks/nutrition/useNutritionData";
 import { useSaveNutritionTargets } from "@/hooks/nutrition/useSaveNutritionTargets";
 import { useNutritionPageEffects } from "@/hooks/nutrition/useNutritionPageEffects";
 
@@ -112,20 +115,49 @@ export default function NutritionPage() {
     };
   }, [aiMacroGoals, dailyCalorieTarget]);
 
-  // Day-plan targets fed into the meal-plan generator.
-  const mealTargets = useMemo(() => ({
-    kcal: dailyCalorieTarget,
-    protein: effectiveMacroGoals.proteinGrams,
-    carbs: effectiveMacroGoals.carbsGrams,
-    fats: effectiveMacroGoals.fatsGrams,
-  }), [dailyCalorieTarget, effectiveMacroGoals]);
-
   // Today's planned training session — drives meal timing/structure in the
-  // day-plan prompt. Rest days (or no session) contribute no context.
+  // day-plan prompt AND the carb-cycle day type below. Rest days (or no
+  // session) contribute no context.
   const todaySessions = useQuery(
     api.fight_camp.listCalendar,
     userId ? { from: selectedDate, to: selectedDate } : "skip",
   );
+
+  // Carb-cycle resolution, owned HERE (once) so the hero ring and the meal-plan
+  // generator target the SAME cycled macros. Fed the EFFECTIVE calorie target
+  // (honours manual edits) as the kcal base + the sessions already queried
+  // above. Non-cut / maintenance users get `active: false` (flat behaviour).
+  const carbCycle = useCarbCycleTarget({
+    selectedDate,
+    kcal: dailyCalorieTarget,
+    sessions: todaySessions,
+  });
+
+  // Day-plan targets fed into the meal-plan generator. When the carb cycle is
+  // active, target the resolved cycled macros so generated day plans match the
+  // hero ring; otherwise keep the flat split unchanged.
+  const mealTargets = useMemo(() => {
+    if (carbCycle.active && carbCycle.macroGoals) {
+      return {
+        kcal: carbCycle.macroGoals.recommendedCalories,
+        protein: carbCycle.macroGoals.proteinGrams,
+        carbs: carbCycle.macroGoals.carbsGrams,
+        fats: carbCycle.macroGoals.fatsGrams,
+      };
+    }
+    return {
+      kcal: dailyCalorieTarget,
+      protein: effectiveMacroGoals.proteinGrams,
+      carbs: effectiveMacroGoals.carbsGrams,
+      fats: effectiveMacroGoals.fatsGrams,
+    };
+  }, [carbCycle.active, carbCycle.macroGoals, dailyCalorieTarget, effectiveMacroGoals]);
+
+  // First-meal nudge gate: `false` = user has never logged a meal (show the
+  // nudge), `true` = hide, `undefined` = loading (render nothing). Reactive,
+  // so the card disappears the moment the first meal is inserted.
+  const hasAnyMeal = useQuery(api.meals.hasAnyMeal, userId ? {} : "skip");
+
   const trainingContext = useMemo(() => {
     const s = todaySessions?.[0];
     if (!s || s.sessionType === "Rest") return null;
@@ -445,10 +477,35 @@ export default function NutritionPage() {
           setSelectedDate={setSelectedDate}
           mealsLoading={nutritionData.mealsLoading}
           mealsVisibleCount={meals.length}
+          carbCycle={carbCycle}
         />
 
         {/* EmptyMealsBanner suppressed — the new MealSections renders
             its own wizard-led empty state with quick chips. */}
+
+        {/* First-meal nudge: only for users who have NEVER logged a meal
+            (any date). Strictly `=== false` — undefined means the query is
+            still loading, so render nothing to avoid a flash. */}
+        {hasAnyMeal === false && (
+          <button
+            onClick={() => {
+              track(EVENTS.FEATURE_OPENED, { feature: "first_meal_nudge" });
+              openQuickAdd();
+            }}
+            className="w-full card-surface rounded-2xl p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all"
+          >
+            <div className="h-9 w-9 rounded-xs bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <Icon name="cameraOutline" size={16} className="text-primary" />
+            </div>
+            <div className="flex-1 text-left min-w-0">
+              <p className="text-note font-semibold">Scan your first meal</p>
+              <p className="text-note text-muted-foreground leading-snug">
+                Point your camera at any food. The AI logs calories and macros for you.
+              </p>
+            </div>
+            <Icon name="chevronForwardOutline" size={14} className="text-muted-foreground shrink-0" />
+          </button>
+        )}
 
         {showMealSuccess && (
           <div className="flex items-center justify-center gap-1.5 text-success animate-[fadeSlideUp_0.3s_ease-out_both]">

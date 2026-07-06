@@ -22,7 +22,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
-import { Crown } from "lucide-react";
 import { Icon } from "@/components/ui/Icon";
 import { triggerHapticSelection } from "@/lib/haptics";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -185,11 +184,11 @@ export function QuickAddDialog({
   });
 
   // ── Pro gate for the AI capture surface ───────────────────────────
-  // Photo, voice, and Analyze are all Pro-only. Rather than block each
-  // control, a free tap on any of them opens a full-screen explainer that
-  // sells AI photo + natural-language tracking before the paywall.
+  // Free users may capture a photo, use voice, and type a description
+  // exactly like Pro users so they can reach a pressable Analyze button.
+  // The wall lives solely in `handleAnalyze` below, which runs before any
+  // AI network call is fired, so no AI is ever spent on a free user.
   const { isPremium, isSubscriptionResolved } = useSubscription();
-  const prefersReduced = useReducedMotion();
   const [aiUpsellOpen, setAiUpsellOpen] = useState(false);
   // Treat an unresolved subscription as unlocked to avoid a lock flash on
   // cold start (mirrors ProGate's own behaviour).
@@ -259,10 +258,6 @@ export function QuickAddDialog({
   };
 
   const handleVoiceToggle = () => {
-    if (aiLocked) {
-      openAiUpsell();
-      return;
-    }
     if (isListening) stopListening();
     else startListening();
   };
@@ -375,10 +370,6 @@ export function QuickAddDialog({
                 ) : (
                   <SnapPhotoHero
                     onTap={async () => {
-                      if (aiLocked) {
-                        openAiUpsell();
-                        return;
-                      }
                       const result = await aiMeal.capturePhoto();
                       if (result) setPendingCaption(true);
                     }}
@@ -419,61 +410,29 @@ export function QuickAddDialog({
                   }
                 />
 
-                {aiLocked ? (
-                  // Free users: a premium crowned CTA that opens the AI
-                  // tracking explainer (photo + natural-language) before the
-                  // paywall — replaces ProGate's plain lock button here.
-                  <button
-                    type="button"
-                    onClick={openAiUpsell}
-                    aria-label="Upgrade to Pro to unlock AI meal tracking"
-                    className="relative w-full h-12 overflow-hidden rounded-2xl text-[15px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform"
-                  >
-                    <span className="relative z-10 inline-flex w-full items-center justify-center gap-2">
-                      <Crown
-                        className="h-[18px] w-[18px]"
-                        strokeWidth={2}
-                        fill="currentColor"
-                      />
-                      Upgrade to Pro
+                {/* Free and Pro users see the same pressable Analyze button.
+                    Free users reach this button after capturing a photo or
+                    typing a description; the Pro wall is enforced solely
+                    inside `handleAnalyze`, which checks `aiLocked` before
+                    firing any AI action, so no AI is spent on a free tap. */}
+                <button
+                  type="button"
+                  onClick={handleAnalyze}
+                  disabled={!canAnalyze}
+                  className="w-full h-12 rounded-2xl text-[15px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40"
+                >
+                  {aiMeal.aiAnalyzing ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Icon name="syncOutline" size={16} className="animate-spin" />
+                      Analyzing…
                     </span>
-                    {!prefersReduced && (
-                      <motion.span
-                        aria-hidden
-                        className="absolute inset-y-0 -left-1/3 w-1/3 bg-white/25"
-                        style={{ transform: "skewX(-20deg)" }}
-                        initial={{ x: "-120%" }}
-                        animate={{ x: "440%" }}
-                        transition={{
-                          duration: 1.1,
-                          ease: "easeOut",
-                          repeat: Infinity,
-                          repeatDelay: 2.8,
-                          delay: 1.1,
-                        }}
-                      />
-                    )}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleAnalyze}
-                    disabled={!canAnalyze}
-                    className="w-full h-12 rounded-2xl text-[15px] font-semibold bg-primary text-primary-foreground active:scale-[0.98] transition-transform disabled:opacity-40"
-                  >
-                    {aiMeal.aiAnalyzing ? (
-                      <span className="inline-flex items-center gap-2">
-                        <Icon name="syncOutline" size={16} className="animate-spin" />
-                        Analyzing…
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5">
-                        Analyze
-                        <Icon name="arrowForwardOutline" size={16} />
-                      </span>
-                    )}
-                  </button>
-                )}
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5">
+                      Analyze
+                      <Icon name="arrowForwardOutline" size={16} />
+                    </span>
+                  )}
+                </button>
 
                 {/* Manual fallback — a comfortable, tappable pill that stays
                     low-emphasis (muted, no primary fill) so it doesn't compete
@@ -505,7 +464,12 @@ export function QuickAddDialog({
                   // textarea's last keystroke hasn't flushed yet).
                   aiMeal.setAiMealDescription(description);
                   setPendingCaption(false);
-                  aiMeal.handlePhotoAnalyze();
+                  // Route through handleAnalyze (not aiMeal.handlePhotoAnalyze
+                  // directly) so the aiLocked wall is enforced here too — a
+                  // free user can now capture a photo and reach this caption
+                  // step, so this is a live AI-trigger path, not just the
+                  // ai-input Analyze button.
+                  handleAnalyze();
                 }}
                 onRetake={async () => {
                   // Drop the current photo and re-fire the camera. If the user

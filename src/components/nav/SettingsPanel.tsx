@@ -185,7 +185,7 @@ function SubscriptionSection() {
     <>
       <button
         type="button"
-        onClick={openPaywall}
+        onClick={() => openPaywall("settings")}
         className="mt-5 w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-transform active:scale-[0.99] bg-gradient-to-br from-primary/25 via-primary/10 to-primary/[0.04] ring-1 ring-primary/40 shadow-[0_0_28px_-4px_rgba(33,97,241,0.55),inset_0_0_24px_-8px_rgba(33,97,241,0.45)]"
       >
         <ShimmerCrownBadge size={38} />

@@ -12,7 +12,7 @@ export function LockedState() {
       </p>
       <button
         type="button"
-        onClick={openPaywall}
+        onClick={() => openPaywall("training_coach")}
         className="rounded-2xl bg-primary text-primary-foreground px-4 py-2 text-[13px] font-semibold"
       >
         Upgrade to Pro

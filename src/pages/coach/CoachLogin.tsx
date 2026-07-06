@@ -19,7 +19,6 @@ import { ImpactStyle } from "@capacitor/haptics";
 import { routeAfterAuth } from "@/lib/roleRouter";
 import { mapAuthError } from "@/lib/authErrors";
 import { logger } from "@/lib/logger";
-import { track, EVENTS } from "@/lib/analytics";
 
 const inputClass =
   "h-[50px] rounded-xs bg-muted/40 dark:bg-white/[0.06] border-border/40 text-foreground placeholder:text-muted-foreground/50 px-4 text-[16px] focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all";
@@ -102,9 +101,9 @@ export default function CoachLogin() {
           setErrorMsg(mapAuthError(err, "signUp"));
           return;
         }
-        // Brand-new coach account created (signUp flow, not signIn) —
-        // activation funnel entry point. Fired only after the await resolves.
-        track(EVENTS.SIGNED_UP, { method: "password", role: "coach" });
+        // `signed_up` is now captured SERVER-side (convex/auth.ts →
+        // authAnalytics.captureSignedUp) so OAuth coach signups count too;
+        // no client-side track here or the event would double-fire.
         // Belt-and-braces: convex/auth.ts now persists `role: "coach"` on
         // the bootstrap row directly from the signUp params, so this is a
         // no-op for fresh accounts. We keep the call to cover the edge

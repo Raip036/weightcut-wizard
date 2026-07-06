@@ -8,6 +8,8 @@ import { weightLogSchema } from "@/lib/validation";
 import { localCache } from "@/lib/localCache";
 import { triggerHapticSuccess, celebrateSuccess } from "@/lib/haptics";
 import { logger } from "@/lib/logger";
+import { isNativePlatform } from "@/hooks/useIsNative";
+import { resyncReminders } from "@/lib/reminderScheduler";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { WeightLog, Profile } from "@/pages/weight/types";
@@ -178,6 +180,17 @@ export function useWeightData({ profile }: UseWeightDataParams) {
       }
 
       celebrateSuccess();
+
+      // Reschedule adaptive reminders so today's morning weigh-in reminder is
+      // suppressed (when the logged date is today) while tomorrow's stays set.
+      // Native-only + self-guarded (opt-in flag + granted permission); never
+      // blocks or fails the log.
+      if (isNativePlatform) {
+        const today = format(new Date(), "yyyy-MM-dd");
+        resyncReminders({ weightLoggedToday: newDate === today, openedToday: true }).catch(
+          (reminderErr) => logger.warn("Reminder resync after weight log failed", reminderErr),
+        );
+      }
 
       setNewWeight("");
       setEditingLogId(null);

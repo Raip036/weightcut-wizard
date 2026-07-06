@@ -1,10 +1,16 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { Check } from "lucide-react";
 import wizardImg from "@/assets/wizard_3D.png";
 import { Icon } from "@/components/ui/Icon";
 import { cn } from "@/lib/utils";
 import { track, EVENTS } from "@/lib/analytics";
+import { useUser } from "@/contexts/UserContext";
+import {
+  readUpsellViews,
+  recordUpsellView,
+  UPSELL_ESCALATION_THRESHOLD,
+} from "@/lib/paywallImpressions";
 
 interface ProUpsellScreenProps {
   title: string;
@@ -13,9 +19,11 @@ interface ProUpsellScreenProps {
   perks?: string[];
   upgradeLabel?: string;
   dismissLabel?: string;
-  /** Short, PII-free key for where this wall was shown (e.g. "recovery",
-   *  "training_library", "cut_plan"). Recorded on the PAYWALL_VIEWED event. */
-  source?: string;
+  /** Short, PII-free, snake_case key for where this wall was shown (e.g.
+   *  "recovery", "training_library", "cut_plan_review"). Required so every
+   *  placement is distinguishable in PostHog. Recorded on the PAYWALL_VIEWED
+   *  and PAYWALL_DISMISSED events. */
+  source: string;
   onUpgrade: () => void;
   onDismiss: () => void;
 }
@@ -32,6 +40,16 @@ const MOTES: Array<{ left: string; size: number; dur: number; delay: number }> =
   { left: "72%", size: 5, dur: 7.8, delay: 2.0 },
   { left: "83%", size: 3, dur: 9.3, delay: 1.0 },
   { left: "93%", size: 4, dur: 8.6, delay: 0.5 },
+];
+
+/** Extra motes layered on for the escalated (warm repeat viewer) variant —
+ *  same blue idiom, just a fuller field. */
+const ESCALATED_MOTES: Array<{ left: string; size: number; dur: number; delay: number }> = [
+  { left: "12%", size: 4, dur: 8.2, delay: 0.9 },
+  { left: "34%", size: 3, dur: 7.6, delay: 1.8 },
+  { left: "56%", size: 5, dur: 8.8, delay: 0.3 },
+  { left: "78%", size: 3, dur: 7.9, delay: 1.3 },
+  { left: "88%", size: 4, dur: 9.2, delay: 2.2 },
 ];
 
 /**
@@ -56,14 +74,48 @@ export function ProUpsellScreen({
   onDismiss,
 }: ProUpsellScreenProps) {
   const prefersReduced = useReducedMotion();
+  const { userId } = useUser();
+
+  // Prior impression count, read once (before this view is counted) so the
+  // escalation decision is stable for the lifetime of the mount. Analytics
+  // showed repeat viewers (4-8 walls seen) rarely convert on the generic
+  // pitch, and the 7-day trial was surfaced nowhere before the native RC
+  // paywall, so warm repeats get a trial-first escalation instead.
+  const [priorViews] = useState(() => readUpsellViews(userId));
+  const escalated = priorViews >= UPSELL_ESCALATION_THRESHOLD;
+
+  // Escalated variant intentionally overrides the caller's copy: the generic
+  // pitch already failed 3+ times, so the trial pitch takes over wholesale.
+  const shownTitle = escalated ? "Try Pro free for 7 days" : title;
+  const shownBlurb = escalated
+    ? "Full access to every AI tool in the app. Cancel anytime, nothing charged today."
+    : blurb;
+  const shownUpgradeLabel = escalated ? "Start free trial" : upgradeLabel;
 
   // This wall renders independently of `openPaywall` (route gates, locked
   // tabs), so record the impression here. The downstream checkout modal fires
   // its own PAYWALL_VIEWED with surface:"checkout" when the user taps upgrade.
+  // The ref guards StrictMode's dev double-effect from double-counting.
+  const impressionCounted = useRef(false);
   useEffect(() => {
-    track(EVENTS.PAYWALL_VIEWED, { source, surface: "upsell_screen" });
+    if (impressionCounted.current) return;
+    impressionCounted.current = true;
+    recordUpsellView(userId);
+    track(EVENTS.PAYWALL_VIEWED, {
+      source,
+      surface: "upsell_screen",
+      escalated,
+      view_count: priorViews + 1,
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Single dismiss choke point: record the bounce, then hand off to the
+  // caller's onDismiss (close / navigate away).
+  const handleDismiss = () => {
+    track(EVENTS.PAYWALL_DISMISSED, { source, surface: "upsell_screen" });
+    onDismiss();
+  };
 
   const reveal = (delay: number, fromY = 12) =>
     prefersReduced
@@ -96,8 +148,10 @@ export function ProUpsellScreen({
         aria-hidden
         className="pointer-events-none absolute inset-0"
         style={{
-          background:
-            "linear-gradient(180deg, transparent 0%, hsl(var(--primary) / 0.08) 55%, hsl(217 91% 58% / 0.16) 82%, hsl(213 94% 68% / 0.22) 100%)",
+          // Escalated repeat-viewer variant: same blue idiom, fuller aurora.
+          background: escalated
+            ? "linear-gradient(180deg, transparent 0%, hsl(var(--primary) / 0.12) 50%, hsl(217 91% 58% / 0.24) 80%, hsl(213 94% 68% / 0.32) 100%)"
+            : "linear-gradient(180deg, transparent 0%, hsl(var(--primary) / 0.08) 55%, hsl(217 91% 58% / 0.16) 82%, hsl(213 94% 68% / 0.22) 100%)",
         }}
         initial={prefersReduced ? false : { opacity: 0, y: 60 }}
         animate={prefersReduced ? { opacity: 1, y: 0 } : { opacity: 1, y: 0, scale: [1, 1.05, 1] }}
@@ -115,7 +169,7 @@ export function ProUpsellScreen({
       {/* Drifting motes across the whole screen */}
       {!prefersReduced && (
         <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-          {MOTES.map((m, i) => (
+          {(escalated ? [...MOTES, ...ESCALATED_MOTES] : MOTES).map((m, i) => (
             <motion.span
               key={i}
               className="absolute bottom-0 rounded-full bg-blue-300/70"
@@ -207,7 +261,7 @@ export function ProUpsellScreen({
           {...reveal(0.24)}
           className="mt-4 text-[24px] font-extrabold tracking-tight leading-tight text-foreground"
         >
-          {title}
+          {shownTitle}
         </motion.h1>
 
         {/* Blurb. */}
@@ -215,7 +269,7 @@ export function ProUpsellScreen({
           {...reveal(0.32)}
           className="mt-2 text-[14px] leading-snug text-muted-foreground"
         >
-          {blurb}
+          {shownBlurb}
         </motion.p>
 
         {/* Optional value bullets. */}
@@ -245,9 +299,13 @@ export function ProUpsellScreen({
             "relative mt-7 w-full h-12 rounded-2xl text-[15px] font-bold text-primary-foreground overflow-hidden",
             "bg-gradient-to-r from-primary to-secondary active:scale-[0.98] transition-transform",
           )}
-          style={{ boxShadow: "0 0 24px hsl(var(--primary) / 0.35)" }}
+          style={{
+            boxShadow: escalated
+              ? "0 0 36px hsl(var(--primary) / 0.55)"
+              : "0 0 24px hsl(var(--primary) / 0.35)",
+          }}
         >
-          <span className="relative z-10">{upgradeLabel}</span>
+          <span className="relative z-10">{shownUpgradeLabel}</span>
           {!prefersReduced && (
             <motion.span
               aria-hidden
@@ -260,12 +318,22 @@ export function ProUpsellScreen({
           )}
         </motion.button>
 
+        {/* Trial reassurance — the 7-day free trial was previously only
+            surfaced on the native RC paywall, after the point where most
+            repeat viewers bail. Same copy as CoachProGate. */}
+        <motion.p
+          {...reveal(ctaDelay + 0.04)}
+          className="mt-3 text-xs text-muted-foreground"
+        >
+          Includes a 7-day free trial. Cancel anytime.
+        </motion.p>
+
         {/* Ghost dismiss. */}
         <motion.button
-          {...reveal(ctaDelay + 0.08)}
+          {...reveal(ctaDelay + 0.1)}
           type="button"
-          onClick={onDismiss}
-          className="mt-3 h-10 text-[14px] font-semibold text-muted-foreground active:text-foreground transition-colors"
+          onClick={handleDismiss}
+          className="mt-2 h-10 text-[14px] font-semibold text-muted-foreground active:text-foreground transition-colors"
         >
           {dismissLabel}
         </motion.button>

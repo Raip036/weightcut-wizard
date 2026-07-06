@@ -53,6 +53,7 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { useToast } from "@/hooks/use-toast";
 import { logger } from "@/lib/logger";
+import { track, EVENTS } from "@/lib/analytics";
 
 /**
  * Argument shape for the returned `createPost` function.
@@ -159,6 +160,11 @@ export function useCreatePost() {
           thumbDataUrl,
           width,
           height,
+        });
+        // No caption/content in props — privacy rule for the health app.
+        track(EVENTS.POST_CREATED, {
+          post_id: result.postId,
+          is_private: !!isPrivate,
         });
         return { postId: result.postId };
       } catch (err) {

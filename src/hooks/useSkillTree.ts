@@ -113,7 +113,7 @@ export function useSkillTree() {
   ) => {
     try {
       if (!hasAiAccess) {
-        openPaywall();
+        openPaywall("technique_chains");
         return;
       }
 

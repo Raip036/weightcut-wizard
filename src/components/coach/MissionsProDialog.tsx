@@ -25,6 +25,7 @@ export function MissionsProDialog({ open, onOpenChange }: MissionsProDialogProps
     <ProExplainerOverlay
       open={open}
       onOpenChange={onOpenChange}
+      source="training_missions"
       title="Training Missions is a Pro feature"
       blurb="Your AI corner turns every session note into a plan that keeps you improving."
       perks={PERKS}

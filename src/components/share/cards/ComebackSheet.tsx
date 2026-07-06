@@ -138,7 +138,7 @@ export function ComebackSheet({
         title: "Monthly limit reached",
         description: "Upgrade for unlimited comeback cards.",
       });
-      openPaywall();
+      openPaywall("comeback_sheet");
       return;
     }
     await captureAndShare(
@@ -165,7 +165,7 @@ export function ComebackSheet({
         title: "Monthly limit reached",
         description: "Upgrade for unlimited comeback cards.",
       });
-      openPaywall();
+      openPaywall("comeback_sheet");
       return;
     }
     await captureAndDownload(`comeback-${format(newDate, "yyyy-MM-dd")}.png`, undefined, "comeback");
@@ -210,7 +210,7 @@ export function ComebackSheet({
               </div>
               <button
                 type="button"
-                onClick={openPaywall}
+                onClick={() => openPaywall("comeback_sheet")}
                 className="mt-1 inline-flex items-center justify-center gap-2 h-9 px-5 rounded-full bg-primary text-primary-foreground text-[13px] font-semibold transition-opacity active:opacity-80"
               >
                 Upgrade

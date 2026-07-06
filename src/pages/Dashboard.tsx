@@ -554,6 +554,15 @@ export default function Dashboard() {
 
   const checkAndGenerateWisdom = async (profileData: any, logs: any[], calories: number, hydration: number) => {
     if (!userId || !profileData) return;
+    // Daily wisdom is a Pro feature (AI_DAILY_WISDOM). Gate the call client-side:
+    // firing it for free/trial users made the server throw PRO_FEATURE_REQUIRED,
+    // which the Convex client logs as a "Server Error" on every dashboard load
+    // (~7 per session for free users) even though we swallow it below. Only call
+    // once the subscription has resolved AND the user is Pro.
+    if (!isSubscriptionResolved || !isPremium) {
+      safeAsync(setWisdomLoading)(false);
+      return;
+    }
     const today = new Date().toISOString().split('T')[0];
     const hasTodayLog = logs.some((l: any) => l.date === today);
     if (!hasTodayLog) {
@@ -1046,69 +1055,27 @@ export default function Dashboard() {
               appliedCeiling={ffScore.appliedCeiling}
               adherence={adherence}
               calibration={ffCalibration ?? null}
+              dataAgeDays={ffScore.dataAgeDays}
+              subScores={ffScore.subScores}
               onHeadlineTap={() => setScoreSheetOpen(true)}
             />
             {/* Calibration countdown card removed: the hero ring already
                 surfaces the day count while the score is calibrating, so a
                 separate countdown card was redundant. */}
-            {(ffScore.state === "ok" || ffScore.state === "stale") && (() => {
-              const SUBSCORE_HUMAN_DASH: Record<string, string> = {
-                trainingLoad: "training load",
-                sleep: "sleep",
-                weightCut: "weight cut",
-                wellness: "recovery",
-                nutritionAdherence: "nutrition",
-              };
-              // Truthful "held" chip. The score coasts on EMA-smoothed data, so
-              // when a contributing pillar's input has gone stale we say so
-              // honestly and point at the freshest fix. We DON'T reuse
-              // `topLimiter` here: that's the lowest-SCORING pillar, which may be
-              // logged daily yet simply behind plan — calling it "not logged"
-              // was a lie. Instead we name the stalest contributing pillar (the
-              // lowest `completeness`, i.e. least-fresh data) and phrase it as
-              // "to refresh", which is true whether it was logged days ago or
-              // never. Driven entirely off the same reactive `getToday` row as
-              // the ring's "as of Nd ago", so the two can never disagree.
-              const heldActive =
-                !!ffScoreData &&
-                (ffScoreData.state === "stale" || (ffScoreData.dataAgeDays ?? 0) >= 2);
-              let ffHeld: { score: number; reason: string } | null = null;
-              if (heldActive && ffScoreData) {
-                const subs = ffScoreData.subScores as
-                  | Record<string, { weight: number; completeness?: number }>
-                  | null;
-                let laggard: string | null = null;
-                let lowest = Infinity;
-                if (subs) {
-                  for (const [k, s] of Object.entries(subs)) {
-                    if (!s || s.weight <= 0) continue;
-                    const c = s.completeness ?? 1;
-                    if (c < lowest) {
-                      lowest = c;
-                      laggard = k;
-                    }
-                  }
-                }
-                const age = ffScoreData.dataAgeDays ?? 0;
-                const label = laggard ? SUBSCORE_HUMAN_DASH[laggard] ?? laggard : null;
-                const reason =
-                  label && lowest < 1
-                    ? `log ${label} to refresh`
-                    : age >= 2
-                      ? `running on ${age}d-old data`
-                      : "running on older data";
-                ffHeld = { score: ffScoreData.displayedScore, reason };
-              }
-              return (
-                <FightFormDeltaBanner
-                  delta={ffDelta?.delta ?? null}
-                  topDriver={ffScore.topDriver}
-                  topLimiter={ffScore.topLimiter}
-                  held={ffHeld}
-                  onTap={() => setScoreSheetOpen(true)}
-                />
-              );
-            })()}
+            {(ffScore.state === "ok" || ffScore.state === "stale") && (
+              // No `held` prop here: the stale/"holding" read now lives in the
+              // single prescription line rendered by FightFormInsightStrip
+              // above (same dataAgeDays/completeness inputs), so passing a
+              // held reason here would duplicate that line. This banner keeps
+              // its other job — the day-over-day delta chip — and simply
+              // renders nothing when there's no notable movement.
+              <FightFormDeltaBanner
+                delta={ffDelta?.delta ?? null}
+                topDriver={ffScore.topDriver}
+                topLimiter={ffScore.topLimiter}
+                onTap={() => setScoreSheetOpen(true)}
+              />
+            )}
           </div>
 
           {/* Gym invites + announcements — below the hero ring so they
@@ -1709,7 +1676,7 @@ export default function Dashboard() {
             ]}
             upgradeLabel="Unlock Pro"
             dismissLabel="Continue with free"
-            onUpgrade={() => { openPaywall(); setShowFallbackPaywall(false); }}
+            onUpgrade={() => { openPaywall("maintenance_fuel_fallback"); setShowFallbackPaywall(false); }}
             onDismiss={() => setShowFallbackPaywall(false)}
           />
         </div>

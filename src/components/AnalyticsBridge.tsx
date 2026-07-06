@@ -15,7 +15,10 @@ import { identifyUser, resetAnalytics } from "@/lib/analytics";
 
 export function AnalyticsBridge() {
   const { userId, profile } = useUser();
-  const { tier, isPremium, isInTrial } = useSubscription();
+  // `isTrialActive` is the RC-derived billing-phase signal (periodType
+  // "trial"/"intro"). The profile-based `isInTrial` reads `trial_ends_at`,
+  // which the server never populates, so it is false for all Pro users.
+  const { tier, isPremium, isTrialActive } = useSubscription();
   const prevUserId = useRef<string | null>(null);
 
   useEffect(() => {
@@ -26,7 +29,7 @@ export function AnalyticsBridge() {
       identifyUser(realId, {
         tier,
         is_premium: isPremium,
-        is_in_trial: isInTrial,
+        is_in_trial: isTrialActive,
         goal_type: profile?.goal_type ?? null,
         weigh_in_timing: profile?.weigh_in_timing ?? null,
       });
@@ -36,7 +39,7 @@ export function AnalyticsBridge() {
     }
 
     prevUserId.current = realId;
-  }, [userId, tier, isPremium, isInTrial, profile?.goal_type, profile?.weigh_in_timing]);
+  }, [userId, tier, isPremium, isTrialActive, profile?.goal_type, profile?.weigh_in_timing]);
 
   return null;
 }

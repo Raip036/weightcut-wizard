@@ -24,6 +24,7 @@ export function NutritionProDialog({ open, onOpenChange }: NutritionProDialogPro
     <ProExplainerOverlay
       open={open}
       onOpenChange={onOpenChange}
+      source="meal_tracking"
       title="AI meal tracking is a Pro feature"
       blurb="Stop weighing and guessing. Snap a photo or just say what you ate, and your AI corner logs the calories and macros for you."
       perks={PERKS}
