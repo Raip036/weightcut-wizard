@@ -1,5 +1,12 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+  type MutationCtx,
+  type QueryCtx,
+} from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireUserId } from "./lib/auth";
@@ -642,6 +649,132 @@ export const readTimesLogged = internalQuery({
       )
       .first();
     return row?.timesLogged ?? 0;
+  },
+});
+
+// ── Graduation self-heal (stuck-cycle detector + reschedule) ──────────────────
+//
+// Graduation (`graduateCycleToSparring`) is scheduled ONLY from
+// `markItemCompleted` when the last drill of a cycle is ticked. Convex does not
+// auto-retry a failed scheduled action, so if that run throws (e.g. a Groq
+// outage in the legacy path) the discipline is left stuck at phase "spar" with
+// completed-but-ungraduated missions and 0 sparring assignments — and nothing
+// re-schedules it. The drills path self-heals via the hourly sweep; this is the
+// equivalent backstop for graduation.
+//
+// A cycle is "stuck" when, for a (userId, discipline/sport, campId):
+//   • it has graduation-ELIGIBLE completed missions — exactly the filter
+//     `graduateCycleToSparring` uses: status "completed", `graduatedAt` unset,
+//     `focusTechnique` + `focusTechniqueNormalized` set — plus `cycleId` set
+//     (which `markItemCompleted` requires before it ever schedules), AND
+//   • NO active mission remains for that discipline (mirrors the
+//     `allMissionsComplete` gate in `markItemCompleted` and the client's
+//     phase !== "drill").
+// `graduatedAt` is stamped by `graduateCycleToSparring` only AFTER it upserts
+// each mission's sparring assignment, so an un-graduated eligible mission is by
+// definition one with no sparring row yet — i.e. the discipline reads as phase
+// "spar" with 0 graduated assignments. Re-running `graduateCycleToSparring` is
+// safe: it upserts (dedup by normalised technique) and skips already-graduated
+// missions.
+
+/**
+ * Find every "stuck graduation" cycle for a single user. Bounded reads only.
+ * Returns one `{ discipline, cycleId }` per stuck cycle (deduped by cycleId).
+ * Shared by the auth-scoped `retryStuckGraduation` mutation and the cron
+ * `graduationSweep` action (via `listStuckGraduationCycles`).
+ */
+async function collectStuckGraduationCycles(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">,
+): Promise<Array<{ discipline: string; cycleId: string }>> {
+  // Completed missions for the user. Bounded — un-graduated ones are the
+  // anomaly, so the filter below narrows sharply; the cap keeps the read safe
+  // even for a heavy history.
+  const completed = await ctx.db
+    .query("training_missions")
+    .withIndex("by_user_status", (q) =>
+      q.eq("userId", userId).eq("status", "completed"),
+    )
+    .take(500);
+
+  // Group graduation-eligible, un-graduated completed missions by cycleId.
+  const byCycle = new Map<string, { discipline: string }>();
+  for (const m of completed) {
+    if (
+      m.graduatedAt == null &&
+      m.cycleId != null &&
+      m.focusTechnique != null &&
+      m.focusTechniqueNormalized != null
+    ) {
+      if (!byCycle.has(m.cycleId)) {
+        byCycle.set(m.cycleId, { discipline: m.sport });
+      }
+    }
+  }
+  if (byCycle.size === 0) return [];
+
+  const stuck: Array<{ discipline: string; cycleId: string }> = [];
+  // Cache active-mission presence per sport so we don't re-query per cycle.
+  const activeBySport = new Map<string, boolean>();
+  for (const [cycleId, { discipline }] of byCycle) {
+    let hasActive = activeBySport.get(discipline);
+    if (hasActive === undefined) {
+      const active = await ctx.db
+        .query("training_missions")
+        .withIndex("by_user_sport_status", (q) =>
+          q.eq("userId", userId).eq("sport", discipline).eq("status", "active"),
+        )
+        .take(1);
+      hasActive = active.length > 0;
+      activeBySport.set(discipline, hasActive);
+    }
+    // Still drilling — phase "drill", graduation not yet due. Not stuck.
+    if (hasActive) continue;
+    stuck.push({ discipline, cycleId });
+  }
+  return stuck;
+}
+
+/**
+ * Internal read: stuck-graduation cycles for a user. Called by the cron
+ * `graduationSweep` action (which cannot touch the DB directly).
+ */
+export const listStuckGraduationCycles = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (
+    ctx,
+    { userId },
+  ): Promise<Array<{ discipline: string; cycleId: string }>> => {
+    return await collectStuckGraduationCycles(ctx, userId);
+  },
+});
+
+/**
+ * Auth-scoped fast heal: the client calls this the moment the Mastery Spine
+ * detects a discipline stuck at phase "spar" with 0 assignments, so a stuck
+ * graduation resolves on return instead of waiting for the next cron. Runs the
+ * SAME detection + reschedule for the CURRENT user only (never accepts a
+ * userId). Idempotent — re-running `graduateCycleToSparring` upserts safely.
+ */
+export const retryStuckGraduation = mutation({
+  args: {},
+  handler: async (ctx): Promise<{ rescheduled: number }> => {
+    const userId = await requireUserId(ctx);
+    const stuck = await collectStuckGraduationCycles(ctx, userId);
+    let rescheduled = 0;
+    for (const { discipline, cycleId } of stuck) {
+      try {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.actions.trainingMissions.graduate.graduateCycleToSparring,
+          { userId, discipline, cycleId },
+        );
+        rescheduled += 1;
+      } catch (err) {
+        console.warn("training_missions.retryStuckGraduation: schedule failed", err);
+      }
+    }
+    return { rescheduled };
   },
 });
 

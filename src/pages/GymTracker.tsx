@@ -69,6 +69,7 @@ import { AICompactOverlay } from "@/components/AICompactOverlay";
 import { ImpactStyle } from "@capacitor/haptics";
 import { ShareCardDialog } from "@/components/share/ShareCardDialog";
 import { GymSessionCard } from "@/components/share/cards/GymSessionCard";
+import { WorkoutRecapCutscene, type WorkoutRecapStats } from "@/components/gym/WorkoutRecapCutscene";
 import type { SessionType, SessionWithSets, Exercise, SavedRoutine } from "@/pages/gym/types";
 
 type GymTab = "workouts" | "routines" | "progress";
@@ -142,17 +143,30 @@ export default function GymTracker() {
   const [pendingMediaSessionId, setPendingMediaSessionId] = useState<Id<"fight_camp_calendar"> | null>(null);
   const [pendingMediaSessionType, setPendingMediaSessionType] = useState<string | undefined>(undefined);
 
+  // Post-finish win-moment recap. Holds the stats snapshot (captured in
+  // ActiveSessionView before the active session clears) + the calendar entry id
+  // returned by finishSession, so the recap can offer Share / Add a photo. The
+  // media sheet NO LONGER auto-opens on finish — it opens only via the recap's
+  // "Add a photo" CTA.
+  const [recap, setRecap] = useState<WorkoutRecapStats | null>(null);
+  const [recapCalendarId, setRecapCalendarId] = useState<Id<"fight_camp_calendar"> | null>(null);
+
   // Wrap `finishSession` so the GymTracker (not the inner ActiveSessionView)
-  // owns the post-save UX. We capture the active session's type BEFORE
-  // calling finish since it clears `activeSession` on success.
-  const handleFinishSession = useCallback(async (opts: { durationMinutes?: number; notes?: string; perceivedFatigue?: number }) => {
-    const sessionTypeAtFinish = activeSession?.sessionType;
+  // owns the post-save UX. The enriched stats are snapshotted in
+  // ActiveSessionView before finish clears `activeSession`, then handed here.
+  const handleFinishSession = useCallback(async (
+    opts: { durationMinutes?: number; notes?: string; perceivedFatigue?: number },
+    recapStats: WorkoutRecapStats,
+  ) => {
     const result = await finishSession(opts);
-    if (result.ok && result.calendarEntryId) {
-      setPendingMediaSessionType(sessionTypeAtFinish);
-      setPendingMediaSessionId(result.calendarEntryId);
+    // Only surface the recap when finish actually succeeded. calendarEntryId
+    // may be null (calendar logging is best-effort) — the recap still shows,
+    // but the Add-a-photo CTA is hidden without an entry to attach media to.
+    if (result.ok) {
+      setRecap(recapStats);
+      setRecapCalendarId(result.calendarEntryId);
     }
-  }, [activeSession?.sessionType, finishSession]);
+  }, [finishSession]);
 
   const [startingWorkout, setStartingWorkout] = useState(false);
   const handleStartWorkout = useCallback(async () => {
@@ -446,35 +460,32 @@ export default function GymTracker() {
                   <div className="flex-1 min-w-0 pt-0.5">
                     <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary/80">Coach</p>
                     <p className="mt-0.5 text-[15px] font-bold leading-tight text-foreground">Ready to train?</p>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground leading-snug">Pick a focus - we'll start the timer.</p>
                   </div>
                 </div>
 
-                {/* Restricted session-type picker — single horizontally
-                    scrollable row so all chips read in one glance and
-                    extra options (when added) just extend the scroll. */}
-                <div className="-mx-4 px-4 overflow-x-auto scrollbar-hide">
-                  <div className="flex items-center gap-2 w-max">
-                    {VISIBLE_SESSION_TYPES.map((t) => {
-                      const active = sessionType === t;
-                      return (
-                        <button
-                          key={t}
-                          onClick={() => {
-                            setSessionType(t as SessionType);
-                            triggerHaptic(ImpactStyle.Light);
-                          }}
-                          className={`relative shrink-0 flex items-center justify-center rounded-xs border px-4 py-2.5 active:scale-[0.97] transition-all ${
-                            active
-                              ? "bg-primary text-primary-foreground border-primary"
-                              : "bg-muted/30 border-border/30 hover:bg-muted/50"
-                          }`}
-                        >
-                          <span className="text-[13px] font-semibold whitespace-nowrap">{t}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                {/* Session-focus picker — three equal-width segments that fit
+                    the card in one row (no scroll). If more focuses are added
+                    later this becomes a wrap grid rather than an overflow. */}
+                <div className="flex items-stretch gap-2">
+                  {VISIBLE_SESSION_TYPES.map((t) => {
+                    const active = sessionType === t;
+                    return (
+                      <button
+                        key={t}
+                        onClick={() => {
+                          setSessionType(t as SessionType);
+                          triggerHaptic(ImpactStyle.Light);
+                        }}
+                        className={`relative flex-1 min-w-0 flex items-center justify-center rounded-xs border px-2 py-2 active:scale-[0.97] transition-all ${
+                          active
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-muted/30 border-border/30 hover:bg-muted/50"
+                        }`}
+                      >
+                        <span className="text-[12px] font-semibold truncate">{t}</span>
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* Big start button — no sparkle icon */}
@@ -640,6 +651,50 @@ export default function GymTracker() {
           setPendingMediaSessionType(undefined);
         }}
       />
+
+      {/* Win-moment recap. Absorbs the old media-attach step: Share opens the
+          existing GymSessionCard share dialog, Add a photo opens the media
+          sheet (via the returned calendarEntryId), Done dismisses. The recap
+          is dismissed before opening either flow so the Dialog/Sheet (lower
+          z-index) isn't hidden behind this full-screen takeover. */}
+      {recap && (
+        <WorkoutRecapCutscene
+          stats={recap}
+          canAddPhoto={recapCalendarId !== null}
+          onShare={() => {
+            // Synthesize a SessionWithSets snapshot the share card can render.
+            const shareSnapshot = {
+              id: "recap",
+              user_id: "",
+              date: recap.date,
+              session_type: recap.sessionType as SessionType,
+              session_tag: null,
+              duration_minutes: recap.durationMinutes,
+              notes: null,
+              perceived_fatigue: null,
+              status: "completed" as const,
+              created_at: "",
+              updated_at: "",
+              sets: [],
+              exercises: [],
+              exerciseGroups: recap.exerciseGroups,
+              totalVolume: recap.totalVolume,
+              exerciseCount: recap.exerciseCount,
+            } satisfies SessionWithSets;
+            setShareSession(shareSnapshot);
+            setRecap(null);
+            setShareOpen(true);
+          }}
+          onAddPhoto={() => {
+            if (recapCalendarId) {
+              setPendingMediaSessionType(recap.sessionType);
+              setPendingMediaSessionId(recapCalendarId);
+            }
+            setRecap(null);
+          }}
+          onDone={() => setRecap(null)}
+        />
+      )}
 
       <RoutineGeneratorSheet
         open={generatorOpen}

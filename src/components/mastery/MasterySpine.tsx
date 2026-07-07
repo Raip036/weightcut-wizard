@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { api } from "@/../convex/_generated/api";
 import type { Doc, Id } from "@/../convex/_generated/dataModel";
@@ -16,12 +16,13 @@ import { StageIndicator } from "./StageIndicator";
 import { SealedStage } from "./SealedStage";
 import { MasteryCutscene } from "./MasteryCutscene";
 import { MasteryGeneratingCard } from "./MasteryGeneratingCard";
-import { MasteryEmptyCard } from "./MasteryEmptyCard";
 import {
   useMinimumDisplay,
   useCycleCompletionDetector,
+  SPARRING_LOADER_MIN_DISPLAY_MS,
   type GenerationJob,
   type GraduatedCounts,
+  type LoaderMinDisplay,
 } from "./useMinimumDisplay";
 import {
   useMasterySignals,
@@ -167,12 +168,30 @@ function DisciplineCard({
   // Graduation celebration state: fires once when allMissionsComplete arrives.
   const [unlockOpen, setUnlockOpen] = useState(false);
   const [unlockXp, setUnlockXp] = useState(0);
+  // Timer that sequences the "Sparring unlocked" celebration AFTER the ~3s
+  // sparring generation loader, so graduation plays as one continuous process:
+  // final drill tick -> ~3s animated generation -> celebration -> sparring rows.
+  const rewardTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleAllMissionsComplete = (_discipline: string, xp: number) => {
     setUnlockXp(xp);
-    setUnlockOpen(true);
     onAllMissionsComplete(xp);
+    // Ticking the final drill also pushes a "sparring" generation signal
+    // (MissionCard), which the min-display latch holds for
+    // SPARRING_LOADER_MIN_DISPLAY_MS. Delay the celebration to match so it lands
+    // as the loader releases rather than flashing over it. Reduced motion skips
+    // the forced window and shows the reward at once.
+    if (rewardTimerRef.current) clearTimeout(rewardTimerRef.current);
+    const delay = reducedMotion ? 0 : SPARRING_LOADER_MIN_DISPLAY_MS;
+    rewardTimerRef.current = setTimeout(() => setUnlockOpen(true), delay);
   };
+
+  // Clear the reward timer on unmount so it can't fire after teardown.
+  useEffect(() => {
+    return () => {
+      if (rewardTimerRef.current) clearTimeout(rewardTimerRef.current);
+    };
+  }, []);
 
   // Fire haptic + auto-dismiss for the graduation celebration.
   useEffect(() => {
@@ -578,7 +597,14 @@ export function MasterySpine(_props: MasterySpineProps) {
 
   // Latch generating jobs so the wizard-aurora loader always plays for a brief
   // minimum even when generation is instant/cached (see useMinimumDisplay).
-  const heldGeneration = useMinimumDisplay(generationJobs);
+  // Per-kind floors: sparring holds ~3s (SPARRING_LOADER_MIN_DISPLAY_MS) so
+  // graduation plays as one continuous process; reduced motion drops the forced
+  // sparring window so the reward shows without the long animation.
+  const loaderFloors = useMemo<LoaderMinDisplay | undefined>(
+    () => (reducedMotion ? { sparring: 0 } : undefined),
+    [reducedMotion],
+  );
+  const heldGeneration = useMinimumDisplay(generationJobs, loaderFloors);
 
   // ── Deterministic cycle-complete detection ────────────────────────────────
   // Track per-discipline graduated, un-mastered sparring count; when it falls
@@ -601,7 +627,18 @@ export function MasterySpine(_props: MasterySpineProps) {
     return counts;
   }, [latchedFlow]);
 
-  const cycleDetector = useCycleCompletionDetector(graduatedCounts);
+  // Camp-scope the detector: a camp switch swaps graduatedCounts wholesale, so
+  // pass the active camp id as the resetKey. The third arg is a stability flag:
+  // graduatedCounts is derived from `latchedFlow`, which holds the OLD camp's
+  // counts while `flow` is briefly undefined during a camp switch. Passing
+  // `flow !== undefined` tells the detector to ignore those blip renders and
+  // only (re)baseline / detect against settled data, so the swap never reads
+  // as a batch of false completions.
+  const cycleDetector = useCycleCompletionDetector(
+    graduatedCounts,
+    activeCamp?._id,
+    flow !== undefined,
+  );
 
   // Full-screen congrats cutscene for a discipline that just finished its
   // whole cycle (drills + sparring). The discipline stays "hidden" on the
@@ -658,6 +695,39 @@ export function MasterySpine(_props: MasterySpineProps) {
     }
   }, [flow]);
 
+  // ── Graduation self-heal nudge ────────────────────────────────────────────
+  // A discipline that derives to phase "spar" with 0 assignments is one whose
+  // drills are cleared but whose graduation never produced sparring rows — the
+  // same condition the "generating sparring" derivation flags below. If the
+  // last drill tick's scheduled graduation threw (e.g. a Groq outage), nothing
+  // re-schedules it, so the discipline sits stuck. Prompt an immediate server
+  // re-schedule the moment we detect this on return, rather than waiting for
+  // the 15-minute cron backstop. Guarded by a per-discipline Set so it fires at
+  // most once per stuck discipline per mount (never spams). Best-effort — the
+  // cron covers any failure.
+  const retryStuckGraduation = useMutation(
+    api.training_missions.retryStuckGraduation,
+  );
+  const nudgedStuckRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!flow) return;
+    let hasNew = false;
+    for (const e of flow) {
+      if (e.phase === "spar" && e.assignments.length === 0) {
+        const key = e.discipline.toLowerCase();
+        if (!nudgedStuckRef.current.has(key)) {
+          nudgedStuckRef.current.add(key);
+          hasNew = true;
+        }
+      }
+    }
+    if (hasNew) {
+      void retryStuckGraduation({}).catch(() => {
+        /* best-effort self-heal; the cron backstop covers failures */
+      });
+    }
+  }, [flow, retryStuckGraduation]);
+
   // All hooks must run unconditionally — guards come after.
 
   // ── Guards (after all hooks) ──────────────────────────────────────────────
@@ -696,19 +766,15 @@ export function MasterySpine(_props: MasterySpineProps) {
     (disc) => !flowDisciplines.has(disc.toLowerCase()),
   );
 
-  // First-run empty state — rendered as the BODY (never an early return).
-  const showEmpty =
-    isReady && isPro && flowList.length === 0 && generatingDrills.length === 0 && !cutscene;
-
   // Branch key for the top-level cross-fade. Exactly one branch renders at a
-  // time; the AnimatePresence in the return cross-fades on key change.
-  const branch: "loading" | "locked" | "empty" | "content" = !isReady
+  // time; the AnimatePresence in the return cross-fades on key change. A Pro
+  // user with no drills and nothing generating falls through to "content" (an
+  // empty list renders nothing) — there is no dedicated first-run empty card.
+  const branch: "loading" | "locked" | "content" = !isReady
     ? "loading"
     : !isPro
       ? "locked"
-      : showEmpty
-        ? "empty"
-        : "content";
+      : "content";
 
   // Unified per-discipline render list. Disciplines generating their FIRST
   // drills (entry = null → wrapper shows the loader) render at the top; the
@@ -746,8 +812,6 @@ export function MasterySpine(_props: MasterySpineProps) {
     branchContent = <div aria-hidden className="h-24" />;
   } else if (branch === "locked") {
     branchContent = cutscene ? null : <LockedMissionCard />;
-  } else if (branch === "empty") {
-    branchContent = <MasteryEmptyCard />;
   } else {
     branchContent = (
       <div className="space-y-3">
@@ -804,9 +868,9 @@ export function MasterySpine(_props: MasterySpineProps) {
               ? false
               : {
                   opacity: 0,
-                  // Small rise for the data-bearing branches only; loading and
+                  // Small rise for the data-bearing branch only; loading and
                   // locked fade in place.
-                  y: branch === "content" || branch === "empty" ? 8 : 0,
+                  y: branch === "content" ? 8 : 0,
                 }
           }
           animate={{ opacity: 1, y: 0 }}

@@ -187,6 +187,10 @@ export function useGymSessions() {
           rpe: opts.perceivedFatigue ?? 5,
           intensity: durationMin >= 60 ? "high" : durationMin >= 30 ? "moderate" : "low",
           notes: opts.notes ?? undefined,
+          // Mark this as the gym-synthesized mirror of the gym_sessions row.
+          // The Fight Form load pillar excludes source:"gym" calendar rows so
+          // the workout (already counted via gym_sessions) isn't double-counted.
+          source: "gym",
         })) as unknown as Id<"fight_camp_calendar">;
       } catch (calErr) {
         logger.warn("Failed to log gym session to training calendar", { error: String(calErr) });

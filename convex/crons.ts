@@ -38,6 +38,24 @@ crons.hourly(
 );
 
 // ──────────────────────────────────────────────────────────────────────
+// Training Missions — graduation self-heal sweep (every 15 minutes).
+//
+// The drills sweep above self-heals mission generation. Graduation
+// (graduateCycleToSparring) has no such backstop: it is scheduled only from
+// the final drill tick, and Convex does not auto-retry a failed scheduled
+// action. A throw leaves a discipline stuck at phase "spar" with 0 sparring
+// assignments. This sweep re-schedules graduation for stuck cycles (idempotent,
+// bounded to users active in the last 30 days) and prunes orphan generation
+// jobs. See actions/trainingMissions/sweep.ts (graduationSweep).
+// ──────────────────────────────────────────────────────────────────────
+crons.interval(
+  "training-missions-graduation-sweep",
+  { minutes: 15 },
+  internal.actions.trainingMissions.sweep.graduationSweep,
+  {},
+);
+
+// ──────────────────────────────────────────────────────────────────────
 // Camp Compass — Sunday 20:00 UTC weekly recovery report.
 //
 // Flagship Pro feature (spec §7.1). Iterates every currently-Pro user

@@ -8,9 +8,31 @@ import { useEffect, useMemo, useRef, useState } from "react";
 /** One in-flight generation job surfaced by `getGenerationStatus`. */
 export type GenerationJob = { discipline: string; kind: "drills" | "sparring" };
 
-/** Minimum time (ms) a loader stays visible once it first appears for a given
- *  discipline+kind, even if the underlying job has already cleared. */
+/** Minimum time (ms) a "drills" loader stays visible once it first appears for
+ *  a given discipline+kind, even if the underlying job has already cleared. */
 export const LOADER_MIN_DISPLAY_MS = 2500;
+
+/** Minimum time (ms) a "sparring" loader stays visible. Longer than the drills
+ *  floor so graduation (final drill tick -> sparring generation) always plays
+ *  as one continuous ~3s process, even when sparring is already generated and
+ *  the reveal would otherwise be instant. */
+export const SPARRING_LOADER_MIN_DISPLAY_MS = 3000;
+
+/** Default per-kind minimum-display floor. */
+const DEFAULT_MIN_DISPLAY_BY_KIND: Record<"drills" | "sparring", number> = {
+  drills: LOADER_MIN_DISPLAY_MS,
+  sparring: SPARRING_LOADER_MIN_DISPLAY_MS,
+};
+
+/**
+ * Per-kind minimum-display override: a partial map or a function returning the
+ * floor (ms) for a given job kind. Lets callers vary the floor per kind (e.g.
+ * shorten the sparring window under reduced motion). Missing kinds fall back to
+ * the defaults above.
+ */
+export type LoaderMinDisplay =
+  | Partial<Record<"drills" | "sparring", number>>
+  | ((kind: "drills" | "sparring") => number);
 
 function makeKey(discipline: string, kind: "drills" | "sparring"): string {
   return `${discipline.toLowerCase()}|${kind}`;
@@ -34,7 +56,10 @@ export interface MinimumDisplay {
  * A re-render is scheduled when a held key's minimum window elapses so the
  * loader can retract on its own without any further job tick.
  */
-export function useMinimumDisplay(jobs: GenerationJob[]): MinimumDisplay {
+export function useMinimumDisplay(
+  jobs: GenerationJob[],
+  minDisplay?: LoaderMinDisplay,
+): MinimumDisplay {
   // Per-key state: first-seen timestamp + the original-cased job (so a held-
   // but-cleared loader can still be listed for its full window). Persists
   // across renders; pruned once the window elapses AND the job is gone.
@@ -53,6 +78,12 @@ export function useMinimumDisplay(jobs: GenerationJob[]): MinimumDisplay {
   const now = Date.now();
   const seen = seenRef.current;
 
+  // Resolve the per-kind minimum-display floor (caller override or default).
+  const floorFor = (kind: "drills" | "sparring"): number => {
+    if (typeof minDisplay === "function") return minDisplay(kind);
+    return minDisplay?.[kind] ?? DEFAULT_MIN_DISPLAY_BY_KIND[kind];
+  };
+
   // Record first-seen for any newly-active key (keep the original-cased job).
   for (const job of jobs) {
     const key = makeKey(job.discipline, job.kind);
@@ -63,14 +94,15 @@ export function useMinimumDisplay(jobs: GenerationJob[]): MinimumDisplay {
   const held = new Set<string>();
   const heldJobs: GenerationJob[] = [];
   for (const [key, { seenAt, job }] of seen) {
-    const withinWindow = now - seenAt < LOADER_MIN_DISPLAY_MS;
+    const minMs = floorFor(job.kind);
+    const withinWindow = now - seenAt < minMs;
     if (activeKeys.has(key) || withinWindow) {
       held.add(key);
       heldJobs.push(job);
       // Schedule a re-render when this key's window expires so a held-but-
       // cleared loader can retract on its own (no further job tick needed).
       if (!activeKeys.has(key) && withinWindow && !timersRef.current.has(key)) {
-        const delay = LOADER_MIN_DISPLAY_MS - (now - seenAt);
+        const delay = minMs - (now - seenAt);
         const t = setTimeout(() => {
           timersRef.current.delete(key);
           force((n) => n + 1);
@@ -140,39 +172,97 @@ export interface CycleDetector {
   markCelebrated: (discipline: string) => void;
 }
 
-export function useCycleCompletionDetector(
+/** Mutable state of the cycle detector, held across renders (in the hook, via a
+ *  ref). Exported so the transition logic can be unit-tested without a React
+ *  renderer. */
+export interface CycleDetectorState {
+  prevCounts: GraduatedCounts;
+  celebrated: Set<string>;
+  resetKey: string | number | null | undefined;
+  awaitingBaseline: boolean;
+}
+
+/** Fresh detector state. `awaitingBaseline` starts true so the first stable
+ *  step seeds the baseline from real data instead of comparing against {}. */
+export function createCycleDetectorState(
+  resetKey?: string | number | null,
+): CycleDetectorState {
+  return { prevCounts: {}, celebrated: new Set(), resetKey, awaitingBaseline: true };
+}
+
+/**
+ * PURE step of the cycle-completion detector. Mutates `state` in place (matching
+ * the hook's ref-based render model) and returns the disciplines whose cycle
+ * just completed this step (an un-mastered graduated count going >0 -> 0).
+ *
+ * Camp-scope + stability rules (this is the regression fix):
+ * - When `resetKey` changes (the active camp switched), clear the celebrated Set
+ *   and mark that we await a fresh baseline. Do NOT baseline yet: `counts` is
+ *   derived from a latched flow still holding the OLD camp's counts during the
+ *   switch blip, so reseeding here would capture stale counts and false-fire
+ *   when the new camp's counts land.
+ * - While `!stable` (a query blip; `counts` = latched/old data), emit nothing and
+ *   do not move the baseline. Detection resumes on the next stable step.
+ * - The first stable step after mount or a camp switch seeds the baseline from
+ *   the settled counts and emits nothing (it is the baseline, not a transition).
+ */
+export function stepCycleDetection(
+  state: CycleDetectorState,
   counts: GraduatedCounts,
-): CycleDetector {
-  const prevCountsRef = useRef<GraduatedCounts>({});
-  const celebratedRef = useRef<Set<string>>(new Set());
+  resetKey: string | number | null | undefined,
+  stable: boolean,
+): CycleCompletion[] {
+  if (state.resetKey !== resetKey) {
+    state.resetKey = resetKey;
+    state.celebrated = new Set();
+    state.awaitingBaseline = true;
+  }
 
   const completions: CycleCompletion[] = [];
-  const prev = prevCountsRef.current;
+  if (!stable) return completions;
 
+  if (state.awaitingBaseline) {
+    state.awaitingBaseline = false;
+    state.prevCounts = { ...counts };
+    return completions;
+  }
+
+  const prev = state.prevCounts;
   for (const [discipline, prevCount] of Object.entries(prev)) {
     const current = counts[discipline] ?? 0;
-    // Transition from >0 to 0 = the final graduated assignment was mastered.
-    if (prevCount > 0 && current === 0 && !celebratedRef.current.has(discipline)) {
-      celebratedRef.current.add(discipline);
+    if (prevCount > 0 && current === 0 && !state.celebrated.has(discipline)) {
+      state.celebrated.add(discipline);
       const xp = prevCount * XP_PER_GRADUATED_TECHNIQUE + CYCLE_BONUS_XP;
       completions.push({ discipline, xp });
     }
   }
 
-  // Reset the celebrated guard for a discipline that re-enters the cycle (a new
-  // graduated batch appears after its trophy was already shown), so a future
-  // cycle can celebrate again.
+  // Re-entry: a discipline that gets a new graduated batch after its trophy was
+  // shown clears its celebrated guard, so a future cycle can celebrate again.
   for (const [discipline, current] of Object.entries(counts)) {
     if (current > 0 && (prev[discipline] ?? 0) === 0) {
-      celebratedRef.current.delete(discipline);
+      state.celebrated.delete(discipline);
     }
   }
 
-  prevCountsRef.current = { ...counts };
+  state.prevCounts = { ...counts };
+  return completions;
+}
+
+export function useCycleCompletionDetector(
+  counts: GraduatedCounts,
+  resetKey?: string | number | null,
+  stable: boolean = true,
+): CycleDetector {
+  const stateRef = useRef<CycleDetectorState | null>(null);
+  if (stateRef.current === null) stateRef.current = createCycleDetectorState(resetKey);
+  const state = stateRef.current;
+
+  const completions = stepCycleDetection(state, counts, resetKey, stable);
 
   return {
     completions,
-    isCelebrated: (discipline) => celebratedRef.current.has(discipline),
-    markCelebrated: (discipline) => celebratedRef.current.add(discipline),
+    isCelebrated: (discipline) => state.celebrated.has(discipline),
+    markCelebrated: (discipline) => state.celebrated.add(discipline),
   };
 }

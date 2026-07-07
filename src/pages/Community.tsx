@@ -26,7 +26,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
-import { ArrowRight, ChevronDown, Check, Sparkles, Trophy } from "lucide-react";
+import { ArrowRight, ChevronDown, Check } from "lucide-react";
 import wizardMascot from "@/assets/wizard_3D.png";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -382,8 +382,7 @@ export default function Community() {
                           transition={{ type: "spring", stiffness: 400, damping: 32 }}
                         />
                       )}
-                      <span className="relative z-10 inline-flex items-center justify-center gap-1.5">
-                        {t === "feed" ? <Sparkles className="h-3.5 w-3.5" /> : <Trophy className="h-3.5 w-3.5" />}
+                      <span className="relative z-10 inline-flex items-center justify-center">
                         {t === "feed" ? "Feed" : "Leaderboard"}
                       </span>
                     </button>

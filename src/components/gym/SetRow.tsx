@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Trash2, Check, Trophy } from "lucide-react";
 import { motion } from "motion/react";
@@ -24,25 +24,30 @@ interface SetRowProps {
   /** Toggle the completed state (parent persists + starts the rest timer). */
   onToggleComplete: (setId: string, next: boolean) => void;
   onDelete: (setId: string) => void;
+  /** Which field on THIS row the docked keypad is currently editing (null = none). */
+  activeField?: "weight" | "reps" | null;
+  /** Tapping a value cell opens the docked keypad targeting that field. */
+  onActivateField?: (setId: string, field: "weight" | "reps") => void;
 }
 
 function fmtNum(n: number): string {
   return Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100);
 }
 
-export function SetRow({ set, index, prTypes, previous, onUpdate, onToggleComplete, onDelete }: SetRowProps) {
+export function SetRow({ set, index, prTypes, previous, onUpdate, onToggleComplete, onDelete, activeField, onActivateField }: SetRowProps) {
   const [weightStr, setWeightStr] = useState(set.weight_kg?.toString() ?? "");
   const [repsStr, setRepsStr] = useState(set.reps ? set.reps.toString() : "");
 
-  const handleWeightBlur = useCallback(() => {
-    const val = weightStr === "" ? null : parseFloat(weightStr);
-    if (val !== set.weight_kg) onUpdate(set.id, { weight_kg: val != null && !isNaN(val) ? val : null });
-  }, [weightStr, set.id, set.weight_kg, onUpdate]);
-
-  const handleRepsBlur = useCallback(() => {
-    const val = parseInt(repsStr, 10);
-    if (!isNaN(val) && val > 0 && val !== set.reps) onUpdate(set.id, { reps: val });
-  }, [repsStr, set.id, set.reps, onUpdate]);
+  // Editing now happens through the docked keypad, which commits on change.
+  // Mirror the committed set values into the display buffers so keypad edits
+  // (and reactive Convex reconciliation) show immediately. The inputs are
+  // readOnly, so this never fights a user keystroke.
+  useEffect(() => {
+    setWeightStr(set.weight_kg?.toString() ?? "");
+  }, [set.weight_kg]);
+  useEffect(() => {
+    setRepsStr(set.reps ? set.reps.toString() : "");
+  }, [set.reps]);
 
   const hasPR = !!(prTypes && prTypes.length > 0);
   const done = set.completed;
@@ -50,15 +55,6 @@ export function SetRow({ set, index, prTypes, previous, onUpdate, onToggleComple
   const prevLabel = previous
     ? `${previous.weight_kg != null ? fmtNum(previous.weight_kg) : "BW"}×${previous.reps}`
     : "-";
-
-  const copyPrevious = () => {
-    if (!previous) return;
-    triggerHaptic(ImpactStyle.Light);
-    const w = previous.weight_kg;
-    setWeightStr(w != null ? fmtNum(w) : "");
-    setRepsStr(String(previous.reps));
-    onUpdate(set.id, { weight_kg: w ?? null, reps: previous.reps });
-  };
 
   const toggleComplete = () => {
     const next = !done;
@@ -79,8 +75,9 @@ export function SetRow({ set, index, prTypes, previous, onUpdate, onToggleComple
   };
 
   const inputCls =
-    "h-9 w-full px-1 text-center text-[15px] font-bold tabular-nums rounded-lg bg-background/50 border-border/40 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:border-primary/40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
+    "h-9 w-full px-1 text-center text-[15px] font-bold tabular-nums rounded-lg bg-background/50 border-border/40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none cursor-pointer";
   const inputDone = done ? " !bg-transparent !border-transparent text-success" : "";
+  const activeCls = " ring-2 ring-primary/60 border-primary/60 bg-primary/10";
 
   return (
     <motion.div
@@ -96,55 +93,72 @@ export function SetRow({ set, index, prTypes, previous, onUpdate, onToggleComple
         <span aria-hidden className="absolute left-0 top-0 bottom-0 w-[3px] bg-func-warning-yellow rounded-l-2xl" />
       )}
 
-      {/* Set badge: tap to toggle warmup. */}
-      <button
-        type="button"
-        onClick={() => onUpdate(set.id, { is_warmup: !set.is_warmup })}
-        aria-label={set.is_warmup ? "Mark as working set" : "Mark as warmup"}
-        className={`h-8 w-8 rounded-[10px] flex items-center justify-center text-[13px] font-extrabold shrink-0 transition-colors ${
-          done
-            ? "bg-success text-white"
-            : set.is_warmup
-              ? "bg-func-carbs-orange/18 text-func-carbs-orange"
-              : hasPR
-                ? "bg-func-warning-yellow text-black"
-                : "bg-gradient-to-br from-primary/22 to-primary/8 text-primary"
-        }`}
-      >
-        {set.is_warmup ? "W" : index + 1}
-      </button>
+      {/* Set number: plain, non-interactive label. Warmup is toggled only via
+          the discrete "W" chip below it, never by tapping the number. */}
+      <div className="flex flex-col items-center gap-0.5 shrink-0">
+        <span
+          className={`h-8 w-8 rounded-[10px] flex items-center justify-center text-[13px] font-extrabold transition-colors ${
+            done
+              ? "bg-success text-white"
+              : set.is_warmup
+                ? "bg-func-carbs-orange/18 text-func-carbs-orange"
+                : hasPR
+                  ? "bg-func-warning-yellow text-black"
+                  : "bg-gradient-to-br from-primary/22 to-primary/8 text-primary"
+          }`}
+        >
+          {set.is_warmup ? "W" : index + 1}
+        </span>
+        <button
+          type="button"
+          onClick={() => onUpdate(set.id, { is_warmup: !set.is_warmup })}
+          aria-label={set.is_warmup ? "Mark as working set" : "Mark as warmup"}
+          aria-pressed={set.is_warmup}
+          className={`h-4 min-w-[20px] px-1 rounded-full flex items-center justify-center text-[8px] font-black tracking-wider leading-none transition-colors ${
+            set.is_warmup
+              ? "bg-primary/15 text-primary"
+              : "bg-muted/40 text-muted-foreground/40 active:bg-muted/70"
+          }`}
+        >
+          W
+        </button>
+      </div>
 
-      {/* Previous: tap to copy into the inputs. */}
-      <button
-        type="button"
-        onClick={copyPrevious}
-        disabled={!previous}
-        className="min-w-0 truncate text-left text-[13px] font-semibold tabular-nums text-muted-foreground/40 active:text-primary disabled:active:text-muted-foreground/40 pl-0.5"
-      >
+      {/* Previous: display-only reference, never mutates the current set. */}
+      <span className="min-w-0 truncate text-left text-[13px] font-semibold tabular-nums text-muted-foreground/40 pl-0.5">
         {prevLabel}
-      </button>
+      </span>
 
-      {/* Weight */}
+      {/* Weight — tapping opens the docked keypad instead of the OS keyboard.
+          `readOnly` + `inputMode="none"` guarantees iOS never raises the
+          software keyboard for this cell. */}
       <Input
-        type="number"
-        inputMode="decimal"
+        type="text"
+        inputMode="none"
+        readOnly
         placeholder={previous?.weight_kg != null ? fmtNum(previous.weight_kg) : set.is_bodyweight ? "BW" : "kg"}
         value={weightStr}
-        onChange={(e) => setWeightStr(e.target.value)}
-        onBlur={handleWeightBlur}
-        className={inputCls + inputDone}
+        onClick={() => !set.is_bodyweight && onActivateField?.(set.id, "weight")}
+        className={inputCls + inputDone + (activeField === "weight" ? activeCls : "")}
         disabled={set.is_bodyweight}
+        aria-label="Edit weight"
+        // Marks this cell as a keypad-activation target so the keypad's
+        // full-screen dismiss catcher (which sits above the set list) can
+        // hit-test taps and retarget onto this cell instead of only dismissing.
+        data-keypad-target="true"
       />
 
-      {/* Reps */}
+      {/* Reps — same docked-keypad activation. */}
       <Input
-        type="number"
-        inputMode="numeric"
+        type="text"
+        inputMode="none"
+        readOnly
         placeholder={previous?.reps != null ? String(previous.reps) : "reps"}
         value={repsStr}
-        onChange={(e) => setRepsStr(e.target.value)}
-        onBlur={handleRepsBlur}
-        className={inputCls + inputDone}
+        onClick={() => onActivateField?.(set.id, "reps")}
+        className={inputCls + inputDone + (activeField === "reps" ? activeCls : "")}
+        aria-label="Edit reps"
+        data-keypad-target="true"
       />
 
       {/* Complete ✓: the emotional payload. */}

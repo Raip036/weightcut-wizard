@@ -494,7 +494,7 @@ export default function NutritionPage() {
             }}
             className="w-full card-surface rounded-2xl p-3 flex items-center gap-2.5 active:scale-[0.99] transition-all"
           >
-            <div className="h-9 w-9 rounded-xs bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <div className="h-9 w-9 flex items-center justify-center flex-shrink-0">
               <Icon name="cameraOutline" size={16} className="text-primary" />
             </div>
             <div className="flex-1 text-left min-w-0">

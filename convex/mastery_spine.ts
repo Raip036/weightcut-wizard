@@ -422,3 +422,32 @@ export const getGenerationStatus = query({
       .map((r) => ({ discipline: r.discipline, kind: r.kind }));
   },
 });
+
+/** Orphan-job pruning window. Well past STALE_MS (3 min, the point
+ *  `getGenerationStatus` already ignores a row), so pruning never races a
+ *  legitimately in-flight generation. */
+const ORPHAN_JOB_MS = 15 * 60 * 1000;
+
+/**
+ * Delete orphaned `mastery_generation_jobs` rows whose `startedAt` is older
+ * than ORPHAN_JOB_MS. A row should be removed by its owning action's `finally`;
+ * this is a backstop for the rare crash that never reached it, so the table
+ * doesn't accumulate. Bounded: scans one page of the oldest rows (orphans sort
+ * to the front by `_creationTime`); the 15-min cron drains any backlog over
+ * successive runs. Called from the graduation sweep.
+ */
+export const pruneStaleGenerationJobs = internalMutation({
+  args: {},
+  handler: async (ctx): Promise<{ deleted: number }> => {
+    const cutoff = Date.now() - ORPHAN_JOB_MS;
+    const rows = await ctx.db.query("mastery_generation_jobs").take(200);
+    let deleted = 0;
+    for (const r of rows) {
+      if (r.startedAt < cutoff) {
+        await ctx.db.delete(r._id);
+        deleted += 1;
+      }
+    }
+    return { deleted };
+  },
+});

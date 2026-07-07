@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { Plus, Copy, X, ChevronRight, ChevronDown, Trophy } from "lucide-react";
+import { Plus, Copy, X, BarChart3, ChevronDown, Trophy } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { staggerItem } from "@/lib/motion";
 import { SetRow, SET_GRID } from "./SetRow";
@@ -27,6 +27,10 @@ interface ExerciseBlockProps {
   onExerciseTap?: (exerciseId: string) => void;
   /** Latest bodyweight (kg), used to count added-load-only volume for weighted exercises. */
   bodyweightKg?: number | null;
+  /** Docked keypad wiring (owned by ActiveSessionView, threaded to SetRow). */
+  activeSetId?: string | null;
+  activeField?: "weight" | "reps" | null;
+  onActivateSetField?: (setId: string, exerciseOrder: number, field: "weight" | "reps") => void;
 }
 
 const MUSCLE_BORDER_COLORS: Record<string, string> = {
@@ -67,6 +71,7 @@ export function ExerciseBlock({
   group, pr, newPRSetIds, previousSets, collapsed = false, onToggleCollapse,
   onAddSet, onUpdateSet, onDeleteSet,
   onDuplicateLastSet, onRemoveExercise, onExerciseTap, bodyweightKg,
+  activeSetId, activeField, onActivateSetField,
 }: ExerciseBlockProps) {
   const trackingType = resolveTrackingType(group.exercise.tracking_type, group.exercise.is_bodyweight);
   // Volume of all working sets, surfaced in the collapsed header so the
@@ -121,21 +126,30 @@ export function ExerciseBlock({
       variants={staggerItem}
       className={`card-surface rounded-xs border-l-[3px] ${borderColor} overflow-hidden`}
     >
-      {/* Header, tappable to toggle collapse when onToggleCollapse is wired.
-          The exercise name + chevron-right is the existing tap into stats
-          (onExerciseTap); we expose a separate area on the right for collapse
-          to avoid swallowing the user's intent. */}
+      {/* Header: tapping the name/badge area toggles expand/collapse (same
+          handler as the chevron). Viewing stats is now an explicit, separate
+          icon button so it can never be triggered by accident. */}
       <div className="flex items-center justify-between p-3 pb-2">
         <button
-          onClick={() => onExerciseTap?.(group.exercise.id)}
-          className="flex items-center gap-2 min-w-0 group flex-1 text-left"
+          onClick={onToggleCollapse}
+          className="flex items-center gap-2 min-w-0 flex-1 text-left"
+          aria-label={collapsed ? "Expand exercise" : "Collapse exercise"}
+          aria-expanded={!collapsed}
         >
           <h3 className="font-bold text-[15px] tracking-tight truncate">{group.exercise.name}</h3>
           <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-medium ${muscleColor}`}>
             {group.exercise.muscle_group.replace("_", " ")}
           </span>
-          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0 group-hover:text-muted-foreground transition-colors" />
         </button>
+        {onExerciseTap && (
+          <button
+            onClick={() => onExerciseTap(group.exercise.id)}
+            className="shrink-0 p-1.5 rounded-xs text-muted-foreground/60 hover:text-foreground hover:bg-muted/40 transition-colors"
+            aria-label="View exercise stats"
+          >
+            <BarChart3 className="h-4 w-4" />
+          </button>
+        )}
         {onToggleCollapse && (
           <button
             onClick={onToggleCollapse}
@@ -245,6 +259,12 @@ export function ExerciseBlock({
               onUpdate={handleUpdate}
               onToggleComplete={handleToggleComplete}
               onDelete={handleDelete}
+              activeField={activeSetId === set.id ? activeField ?? null : null}
+              onActivateField={
+                onActivateSetField
+                  ? (setId, field) => onActivateSetField(setId, group.exerciseOrder, field)
+                  : undefined
+              }
             />
           );
         })}

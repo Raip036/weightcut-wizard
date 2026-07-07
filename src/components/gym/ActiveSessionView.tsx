@@ -8,9 +8,14 @@ import { staggerContainer, springs } from "@/lib/motion";
 import { AnimatedNumber } from "@/components/motion";
 import { ExerciseBlock } from "./ExerciseBlock";
 import { RestTimerPill } from "./RestTimerPill";
+import { SetEntryKeypad } from "./SetEntryKeypad";
+import { startRest, getRestForExercise } from "./restTimer";
+import { triggerHaptic, triggerHapticSuccess } from "@/lib/haptics";
+import { ImpactStyle } from "@capacitor/haptics";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { formatVolume } from "@/lib/gymCalculations";
 import { resolveTrackingType, effectiveVolumeWeight } from "@/lib/exerciseTypes";
+import type { WorkoutRecapStats } from "./WorkoutRecapCutscene";
 import type { ActiveWorkout, Exercise, ExercisePR, GymSet } from "@/pages/gym/types";
 
 interface ActiveSessionViewProps {
@@ -25,7 +30,7 @@ interface ActiveSessionViewProps {
   onDeleteSet: (setId: string, exerciseOrder: number) => void;
   onDuplicateLastSet: (exerciseOrder: number) => void;
   onRemoveExercise: (exerciseOrder: number) => void;
-  onFinish: (opts: { durationMinutes?: number; notes?: string; perceivedFatigue?: number }) => void;
+  onFinish: (opts: { durationMinutes?: number; notes?: string; perceivedFatigue?: number }, recap: WorkoutRecapStats) => void;
   onDiscard: () => void;
   onExerciseTap?: (exerciseId: string) => void;
   /** Latest bodyweight (kg), counts added-load-only volume for weighted exercises. */
@@ -78,6 +83,113 @@ export function ActiveSessionView({
   const [notes, setNotes] = useState("");
   const [fatigue, setFatigue] = useState([5]);
 
+  // ─── Docked set-entry keypad ───
+  // ONE keypad instance serves whichever set is being edited. We track the
+  // target set + exercise + active field here; SetRow only reports taps.
+  const [keypadTarget, setKeypadTarget] = useState<
+    { setId: string; exerciseOrder: number; field: "weight" | "reps" } | null
+  >(null);
+  // After "Log set" adds the next set we don't yet know its id (onAddSet is
+  // async + optimistic). This flag lets an effect retarget the keypad to the
+  // freshly appended set once it lands, and blocks a second add in the meantime.
+  const [pendingAdvance, setPendingAdvance] = useState<
+    { exerciseOrder: number; prevLastSetId: string | null } | null
+  >(null);
+
+  const activeGroup = useMemo(
+    () =>
+      keypadTarget
+        ? workout.exerciseGroups.find((g) => g.exerciseOrder === keypadTarget.exerciseOrder) ?? null
+        : null,
+    [keypadTarget, workout.exerciseGroups],
+  );
+  const activeSet = useMemo(
+    () => (keypadTarget && activeGroup ? activeGroup.sets.find((s) => s.id === keypadTarget.setId) ?? null : null),
+    [keypadTarget, activeGroup],
+  );
+
+  // Close the keypad if its target set vanished (deleted, exercise removed).
+  useEffect(() => {
+    if (keypadTarget && !activeSet) setKeypadTarget(null);
+  }, [keypadTarget, activeSet]);
+
+  // Retarget the keypad onto the auto-advanced set once it appears.
+  useEffect(() => {
+    if (!pendingAdvance) return;
+    const group = workout.exerciseGroups.find((g) => g.exerciseOrder === pendingAdvance.exerciseOrder);
+    if (!group) {
+      setPendingAdvance(null);
+      return;
+    }
+    const last = group.sets[group.sets.length - 1];
+    if (last && last.id !== pendingAdvance.prevLastSetId) {
+      setKeypadTarget({
+        setId: last.id,
+        exerciseOrder: pendingAdvance.exerciseOrder,
+        field: last.is_bodyweight ? "reps" : "weight",
+      });
+      setPendingAdvance(null);
+    }
+  }, [workout.exerciseGroups, pendingAdvance]);
+
+  const handleActivateSetField = useCallback(
+    (setId: string, exerciseOrder: number, field: "weight" | "reps") => {
+      setKeypadTarget({ setId, exerciseOrder, field });
+    },
+    [],
+  );
+
+  // Commit-on-change: guard exactly like the old blur handlers so invalid /
+  // empty entries never overwrite good data.
+  const handleKeypadChange = useCallback(
+    (field: "weight" | "reps", value: number | null) => {
+      if (!keypadTarget) return;
+      if (field === "weight") {
+        onUpdateSet(keypadTarget.setId, keypadTarget.exerciseOrder, {
+          weight_kg: value != null && !isNaN(value) ? value : null,
+        });
+      } else if (value != null && !isNaN(value) && value > 0) {
+        onUpdateSet(keypadTarget.setId, keypadTarget.exerciseOrder, { reps: value });
+      }
+    },
+    [keypadTarget, onUpdateSet],
+  );
+
+  const handleToggleField = useCallback(() => {
+    setKeypadTarget((prev) => (prev ? { ...prev, field: prev.field === "weight" ? "reps" : "weight" } : prev));
+  }, []);
+
+  const handleLogSet = useCallback(() => {
+    if (pendingAdvance) return; // an advance is still settling — ignore repeat taps
+    if (!keypadTarget || !activeGroup || !activeSet) {
+      setKeypadTarget(null);
+      return;
+    }
+    const group = activeGroup;
+    const set = activeSet;
+    const prevLastSetId = group.sets[group.sets.length - 1]?.id ?? null;
+
+    // 1. Complete via the SAME mechanism the ✓ uses: persist completed + start
+    //    the rest timer (restTimer module bus, see restTimer.ts). Skip if the
+    //    set is already complete so Log set never double-fires the timer.
+    if (!set.completed) {
+      onUpdateSet(set.id, group.exerciseOrder, { completed: true });
+      startRest(getRestForExercise(group.exercise.id));
+      if (newPRSetIds?.has(set.id)) triggerHapticSuccess();
+      else triggerHaptic(ImpactStyle.Medium);
+    }
+
+    // 2. Auto-advance: seed a pre-filled next set from the just-logged set
+    //    (same progressive-overload seed as ExerciseBlock's Add Set), then let
+    //    the effect above move the keypad onto it.
+    onAddSet(group.exerciseOrder, {
+      weight_kg: set.weight_kg ?? null,
+      reps: set.reps ?? 10,
+      is_bodyweight: set.is_bodyweight,
+    });
+    setPendingAdvance({ exerciseOrder: group.exerciseOrder, prevLastSetId });
+  }, [pendingAdvance, keypadTarget, activeGroup, activeSet, onUpdateSet, onAddSet, newPRSetIds]);
+
   const totalSets = workout.exerciseGroups.reduce((sum, g) => sum + g.sets.filter(s => !s.is_warmup).length, 0);
   const completedSets = workout.exerciseGroups.reduce((sum, g) => sum + g.sets.filter(s => !s.is_warmup && s.completed).length, 0);
 
@@ -95,12 +207,54 @@ export function ActiveSessionView({
   }, [workout.exerciseGroups, bodyweightKg]);
 
   const handleFinish = useCallback(() => {
-    onFinish({
-      notes: notes || undefined,
-      perceivedFatigue: fatigue[0],
-    });
+    // Snapshot the finished-session stats BEFORE onFinish → finishSession clears
+    // `activeSession` (and unmounts this view). finishSession returns only
+    // { ok, calendarEntryId }, so the recap's enriched stats must be captured
+    // here off the live workout + counters.
+    const elapsedMs = Date.now() - workout.startedAt;
+    const durationMinutes = Math.max(1, Math.round(elapsedMs / 60000));
+
+    const muscleGroups = Array.from(
+      new Set(
+        workout.exerciseGroups.map((g) =>
+          (g.exercise.muscle_group ?? "other").replace(/_/g, " "),
+        ),
+      ),
+    );
+
+    // PR count = this session's sets that flagged a new PR (newPRSetIds can
+    // carry ids from earlier sessions in the same mount, so intersect).
+    const workoutSetIds = new Set<string>();
+    for (const g of workout.exerciseGroups) {
+      for (const s of g.sets) workoutSetIds.add(s.id);
+    }
+    let prCount = 0;
+    for (const id of newPRSetIds) {
+      if (workoutSetIds.has(id)) prCount++;
+    }
+
+    const recap: WorkoutRecapStats = {
+      sessionType: workout.sessionType,
+      date: new Date().toISOString().split("T")[0],
+      durationMinutes,
+      // Effort number = total working-set VOLUME (kg), already computed live.
+      totalVolume,
+      completedSets,
+      exerciseCount: workout.exerciseGroups.length,
+      muscleGroups,
+      prCount,
+      exerciseGroups: workout.exerciseGroups,
+    };
+
+    onFinish(
+      {
+        notes: notes || undefined,
+        perceivedFatigue: fatigue[0],
+      },
+      recap,
+    );
     setFinishSheetOpen(false);
-  }, [notes, fatigue, onFinish]);
+  }, [workout, totalVolume, completedSets, newPRSetIds, notes, fatigue, onFinish]);
 
   return (
     <div className="space-y-4">
@@ -196,6 +350,9 @@ export function ActiveSessionView({
             onRemoveExercise={onRemoveExercise}
             onExerciseTap={onExerciseTap}
             bodyweightKg={bodyweightKg}
+            activeSetId={keypadTarget?.setId ?? null}
+            activeField={keypadTarget?.field ?? null}
+            onActivateSetField={handleActivateSetField}
           />
         ))}
       </motion.div>
@@ -220,11 +377,30 @@ export function ActiveSessionView({
       {/* Finish lives in the header HUD now (green pill, top-right). */}
 
       {/* Auto rest timer (floating), fixed-positioned and self-managed via
-          its module bus. */}
-      <RestTimerPill />
+          its module bus. Lifted above the docked keypad (and given higher
+          z-index) whenever the keypad is open, so it isn't covered and its
+          controls stay reachable — see RestTimerPill's keypadOpen prop. */}
+      <RestTimerPill keypadOpen={!!keypadTarget && !!activeSet} />
 
-      {/* Bottom spacer for nav bar + rest pill clearance */}
-      <div className="h-4" />
+      {/* Docked set-entry keypad — replaces the OS keyboard for fast logging. */}
+      <SetEntryKeypad
+        open={!!keypadTarget && !!activeSet}
+        activeField={keypadTarget?.field ?? "weight"}
+        targetKey={keypadTarget ? `${keypadTarget.setId}:${keypadTarget.field}` : ""}
+        weightKg={activeSet?.weight_kg ?? null}
+        reps={activeSet?.reps ?? null}
+        isBodyweight={activeSet?.is_bodyweight ?? false}
+        label={activeGroup?.exercise.name}
+        onChange={handleKeypadChange}
+        onToggleField={handleToggleField}
+        onLogSet={handleLogSet}
+        onDismiss={() => setKeypadTarget(null)}
+        logDisabled={!!pendingAdvance}
+      />
+
+      {/* Bottom spacer for nav bar + rest pill clearance. Grows while the
+          keypad is docked so the active row stays visible above it. */}
+      <div className={keypadTarget ? "h-80" : "h-4"} />
 
       {/* Finish workout dialog */}
       <Dialog open={finishSheetOpen} onOpenChange={setFinishSheetOpen}>

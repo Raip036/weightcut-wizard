@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, subMonths, addMonths, subDays, startOfWeek, isToday as isDateToday, isYesterday as isDateYesterday, getISOWeek } from "date-fns";
 import { ChevronLeft, ChevronRight, Plus, Images, CalendarDays } from "lucide-react";
@@ -38,7 +38,7 @@ import { logger } from "@/lib/logger";
 import { isNativePlatform } from "@/hooks/useIsNative";
 import { resyncReminders } from "@/lib/reminderScheduler";
 import { track, EVENTS } from "@/lib/analytics";
-import { getUserColors, setUserColor } from "@/lib/sessionColors";
+import { getUserColors, setUserColor, getSessionColor } from "@/lib/sessionColors";
 import { encodeRunMeta, decodeRunMeta, formatPace } from "@/lib/runMeta";
 import { Skeleton } from "@/components/ui/skeleton-loader";
 
@@ -1305,6 +1305,7 @@ export default function TrainingCalendar() {
                             </div>
                         ) : sessionsForSelectedDate.length === 0 ? (
                             <WizardTrainingEmptyState
+                                customColors={customColors}
                                 onQuickLog={(type) => {
                                     triggerHapticSelection();
                                     setSessionType(type);
@@ -1463,16 +1464,37 @@ export default function TrainingCalendar() {
 // Shown when the selected day has no logged sessions. Wizard mascot +
 // "What did you train?" + 3 quick chips that pre-fill the log form
 // with that discipline before opening it.
+// Default chips for athletes with no logged history yet. Real users see their
+// own most-logged disciplines (see `getTopDisciplines`); these only fill the
+// card until the first session is logged, or pad it out when a user trains
+// just one or two disciplines.
+const FALLBACK_QUICK_TYPES = ["BJJ", "Boxing", "Run"];
+
 function WizardTrainingEmptyState({
   onQuickLog,
+  customColors,
 }: {
   onQuickLog: (sessionType: string) => void;
+  customColors: Record<string, string>;
 }) {
-  const quickTypes: Array<{ label: string; type: string }> = [
-    { label: "BJJ", type: "BJJ" },
-    { label: "Boxing", type: "Boxing" },
-    { label: "Run", type: "Run" },
-  ];
+  // The user's real most-logged disciplines, ranked by frequency then recency.
+  // `undefined` while the query resolves; we render the fallback in the
+  // meantime so the card never flashes empty.
+  const topDisciplines = useQuery(api.fight_camp.getTopDisciplines, { limit: 3 });
+
+  const quickTypes = useMemo<string[]>(() => {
+    const logged = (topDisciplines ?? []).map((d) => d.sessionType);
+    const out = [...logged];
+    // Pad to 3 with defaults not already present, so a one-discipline athlete
+    // still gets a full, useful row. Capped at the top 3 so the chips fit
+    // comfortably on one line without shrinking.
+    for (const d of FALLBACK_QUICK_TYPES) {
+      if (out.length >= 3) break;
+      if (!out.includes(d)) out.push(d);
+    }
+    return out.slice(0, 3);
+  }, [topDisciplines]);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -1480,7 +1502,14 @@ function WizardTrainingEmptyState({
       transition={{ duration: 0.35, ease: "easeOut" }}
       className="relative overflow-hidden rounded-xs card-surface p-4"
     >
-      <div className="flex items-start gap-3 mb-3">
+      {/* Subtle blue coach aurora (radial gradient, no blur so it stays cheap
+          on device) behind the wizard, tying the card to the coach identity. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -left-8 -top-10 h-44 w-44 rounded-full opacity-50"
+        style={{ background: "radial-gradient(circle, hsl(var(--primary) / 0.22), transparent 70%)" }}
+      />
+      <div className="relative flex items-start gap-3 mb-4">
         <div className="relative shrink-0" style={{ width: 64, height: 64 }}>
           <div style={{ width: 140, height: 140, transform: "scale(0.46)", transformOrigin: "top left" }}>
             <WizardCharacter pose="wave" />
@@ -1494,18 +1523,26 @@ function WizardTrainingEmptyState({
             What did you train?
           </h4>
           <p className="mt-1 text-[12px] text-muted-foreground leading-snug">
-            Pick a discipline or tap Log a session for the full form.
+            Tap a discipline to log it fast, or tap Log a session for the full form.
           </p>
         </div>
       </div>
-      <div className="flex flex-wrap gap-2">
-        {quickTypes.map((q) => (
+      {/* Discipline chips on a single row: equal-width shrinking segments,
+          each dotted with its own session color. flex-1 + truncate keeps them
+          on one line and never lets a long name push off screen. */}
+      <div className="relative flex items-stretch gap-1.5">
+        {quickTypes.map((type) => (
           <button
-            key={q.type}
-            onClick={() => onQuickLog(q.type)}
-            className="inline-flex items-center gap-1.5 rounded-full bg-muted/40 border border-border/40 px-3 py-1.5 text-[12px] font-semibold text-foreground hover:bg-muted/60 active:scale-[0.97] transition"
+            key={type}
+            onClick={() => onQuickLog(type)}
+            className="flex-1 min-w-0 inline-flex items-center justify-center gap-1.5 rounded-full bg-muted/40 border border-border/50 px-2.5 py-2 text-[12px] font-semibold text-foreground hover:bg-muted/60 hover:border-border active:scale-[0.97] transition"
           >
-            {q.label}
+            <span
+              aria-hidden
+              className="h-2 w-2 shrink-0 rounded-full"
+              style={{ backgroundColor: getSessionColor(type, customColors) }}
+            />
+            <span className="truncate">{type}</span>
           </button>
         ))}
       </div>

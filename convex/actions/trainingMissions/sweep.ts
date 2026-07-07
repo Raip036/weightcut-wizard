@@ -55,3 +55,86 @@ export const run = internalAction({
     return { scheduled, pairs: pairs.length };
   },
 });
+
+/**
+ * Graduation self-heal sweep — 15-minute backstop.
+ *
+ * Graduation (`graduateCycleToSparring`) is scheduled only from the final drill
+ * tick (`markItemCompleted`). Convex does not auto-retry a failed scheduled
+ * action, so a throw (e.g. a Groq outage in the legacy path) leaves a discipline
+ * stuck at phase "spar" with completed-but-ungraduated missions and 0 sparring
+ * assignments, with nothing to re-schedule it. This is the graduation analogue
+ * of the drills sweep above.
+ *
+ * Bounded like the drills sweep: the candidate set is the distinct users with a
+ * session note in the last 30 days (`listSessionPairsWithNotesSince`), never all
+ * users. For each, an internal query returns the stuck cycles and we re-schedule
+ * `graduateCycleToSparring` per cycle. Idempotent — a re-run over a cycle that
+ * has since graduated upserts safely and skips already-graduated missions. Also
+ * prunes orphaned `mastery_generation_jobs` so that table can't accumulate.
+ */
+export const graduationSweep = internalAction({
+  args: {},
+  handler: async (
+    ctx,
+  ): Promise<{ scheduled: number; users: number; prunedJobs: number }> => {
+    const since = Date.now() - LOOKBACK_MS;
+
+    const pairs = await ctx.runQuery(
+      internal.fight_camp.listSessionPairsWithNotesSince,
+      { since },
+    );
+
+    // Distinct users with recent activity — bounded by the 30d lookback.
+    const userIds = Array.from(new Set(pairs.map((p) => p.userId)));
+
+    let scheduled = 0;
+    for (const userId of userIds) {
+      let stuck: Array<{ discipline: string; cycleId: string }>;
+      try {
+        stuck = await ctx.runQuery(
+          internal.training_missions.listStuckGraduationCycles,
+          { userId },
+        );
+      } catch (err) {
+        console.warn(
+          "trainingMissions.graduationSweep: detect failed for",
+          userId,
+          err,
+        );
+        continue;
+      }
+      for (const { discipline, cycleId } of stuck) {
+        try {
+          await ctx.scheduler.runAfter(
+            0,
+            internal.actions.trainingMissions.graduate.graduateCycleToSparring,
+            { userId, discipline, cycleId },
+          );
+          scheduled += 1;
+        } catch (err) {
+          console.warn(
+            "trainingMissions.graduationSweep: schedule failed for",
+            userId,
+            discipline,
+            err,
+          );
+        }
+      }
+    }
+
+    // Prune orphaned generation-job markers (cheap, bounded, best-effort).
+    let prunedJobs = 0;
+    try {
+      const res = await ctx.runMutation(
+        internal.mastery_spine.pruneStaleGenerationJobs,
+        {},
+      );
+      prunedJobs = res.deleted;
+    } catch (err) {
+      console.warn("trainingMissions.graduationSweep: prune jobs failed", err);
+    }
+
+    return { scheduled, users: userIds.length, prunedJobs };
+  },
+});

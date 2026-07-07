@@ -271,3 +271,72 @@ export const backfillCampIdOnSparring = internalMutation({
     };
   },
 });
+
+/**
+ * One-time backfill that stamps `source:"gym"` on EXISTING
+ * `fight_camp_calendar` rows that were synthesized by the GymTracker finish
+ * flow (`useGymSessions.finishSession` → `createCalendarEntry`) before the
+ * `source` field carried the `"gym"` marker.
+ *
+ * Why: the Fight Form training-load pillar now UNIONs `gym_sessions` with
+ * non-gym `fight_camp_calendar` rows, excluding `source:"gym"` rows so a gym
+ * workout (which has BOTH a gym_sessions row and a calendar mirror) counts
+ * exactly once. Legacy gym-mirror rows have no `source`, so without this
+ * backfill they would be double-counted as non-gym training.
+ *
+ * MATCH RULE (a calendar row is treated as a gym mirror when):
+ *   - the calendar row has NO `source` set (untouched by newer flows), AND
+ *   - there exists a `gym_sessions` row for the SAME `userId` and SAME `date`
+ *     with `status === "completed"` and the SAME `sessionType`.
+ * This mirrors exactly what `finishSession` writes: date = today, sessionType
+ * = the gym session's type, off a completed gym session. Rows already carrying
+ * a source (quicklog / round_card / manual / gym) are left untouched, so the
+ * migration is idempotent and safe to re-run.
+ *
+ * Paginated + resumable via a `cursor` arg. Bounded per invocation.
+ *
+ * Run via:
+ *   npx convex run migrations:backfillGymSourceOnCalendar '{"cursor":null}'
+ *   …repeat with the returned continueCursor until done: true.
+ */
+export const backfillGymSourceOnCalendar = internalMutation({
+  args: { cursor: v.union(v.string(), v.null()) },
+  handler: async (ctx, { cursor }) => {
+    const page = await ctx.db
+      .query("fight_camp_calendar")
+      .paginate({ cursor, numItems: 200 });
+
+    let stamped = 0;
+    let skipped = 0;
+    for (const row of page.page) {
+      // Only untagged rows are candidates — anything already sourced
+      // (including prior `gym` stamps) is left alone → idempotent.
+      if (row.source != null) {
+        skipped++;
+        continue;
+      }
+      const gymSessions = await ctx.db
+        .query("gym_sessions")
+        .withIndex("by_user_date", (q) =>
+          q.eq("userId", row.userId).eq("date", row.date),
+        )
+        .collect();
+      const isGymMirror = gymSessions.some(
+        (g) => g.status === "completed" && g.sessionType === row.sessionType,
+      );
+      if (!isGymMirror) {
+        skipped++;
+        continue;
+      }
+      await ctx.db.patch(row._id, { source: "gym" });
+      stamped++;
+    }
+
+    return {
+      stamped,
+      skipped,
+      done: page.isDone,
+      continueCursor: page.continueCursor,
+    };
+  },
+});

@@ -551,11 +551,15 @@ export default defineSchema({
     // Provenance of the row — which entry surface created it. Optional so
     // historical rows pre-dating this field still validate. Set by the
     // photo-first round-card flow (`"round_card"`), the QuickLogDialog
-    // (`"quicklog"`), and the manual full-editor (`"manual"`).
+    // (`"quicklog"`), the manual full-editor (`"manual"`), and the
+    // GymTracker finish flow (`"gym"`, a synthesized mirror of a
+    // `gym_sessions` row — excluded from the Fight Form load pillar so a
+    // gym workout counts exactly once).
     source: v.optional(v.union(
       v.literal("quicklog"),
       v.literal("round_card"),
       v.literal("manual"),
+      v.literal("gym"),
     )),
   })
     .index("by_user_date", ["userId", "date"])

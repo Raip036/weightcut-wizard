@@ -520,6 +520,47 @@ export const getSmartDefaults = query({
 });
 
 /**
+ * The disciplines the user logs most, ranked by how often they appear in
+ * the calendar (ties broken by most-recent). Powers the "What did you train?"
+ * quick chips so they reflect the athlete's real training instead of a
+ * hard-coded BJJ/Boxing/Run list. "Rest" is excluded (it is not a discipline).
+ *
+ * Bounded scan: reads at most the 500 most-recent rows (typical users log far
+ * fewer), which is more than enough to rank the handful of disciplines a
+ * fighter actually trains. Returns [] for users with no logged sessions, so
+ * the client can fall back to sensible defaults.
+ */
+export const getTopDisciplines = query({
+  args: { limit: v.optional(v.number()) },
+  returns: v.array(v.object({ sessionType: v.string(), count: v.number() })),
+  handler: async (ctx, { limit }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+    const rows = await ctx.db
+      .query("fight_camp_calendar")
+      .withIndex("by_user_date", (q) => q.eq("userId", userId))
+      .order("desc")
+      .take(500);
+    // Aggregate by discipline. `rank` preserves first-seen order, and since we
+    // scanned newest-first, a lower rank means "logged more recently" — the
+    // natural tiebreaker when two disciplines share a count.
+    const stats = new Map<string, { count: number; rank: number }>();
+    for (const row of rows) {
+      const type = row.sessionType;
+      if (!type || type === "Rest") continue;
+      const existing = stats.get(type);
+      if (existing) existing.count += 1;
+      else stats.set(type, { count: 1, rank: stats.size });
+    }
+    const ranked = Array.from(stats.entries())
+      .sort((a, b) => b[1].count - a[1].count || a[1].rank - b[1].rank)
+      .slice(0, Math.max(1, limit ?? 4))
+      .map(([sessionType, s]) => ({ sessionType, count: s.count }));
+    return ranked;
+  },
+});
+
+/**
  * Step 1 of the training-media upload flow: returns a one-time POST URL.
  * The client posts the image/video to it, receives a `storageId`, then
  * passes it to `createCalendarEntry` / `updateCalendarEntry` below.
@@ -574,10 +615,14 @@ export const createCalendarEntry = mutation({
     // Provenance of the row — set by whichever entry surface created it.
     // Optional so historical callers (legacy QuickLog, manual editor) still
     // type-check while the photo-first round-card flow opts in explicitly.
+    // `"gym"` marks the synthesized mirror of a `gym_sessions` row (written
+    // by the GymTracker finish flow) so the Fight Form load pillar can
+    // exclude it and avoid double-counting gym workouts.
     source: v.optional(v.union(
       v.literal("quicklog"),
       v.literal("round_card"),
       v.literal("manual"),
+      v.literal("gym"),
     )),
   },
   handler: async (ctx, args) => {

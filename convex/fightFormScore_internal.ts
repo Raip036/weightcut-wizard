@@ -158,16 +158,51 @@ export const fetchScoringInputs = internalQuery({
       .map((r) => ({ date: r.date, pillar: SKIP_PILLAR_TO_KEY[r.pillar] }))
       .filter((s): s is { date: string; pillar: "sleep" | "weightCut" | "nutritionAdherence" | "wellness" } => s.pillar != null);
 
+    // Training-load pillar = ALL training, de-duped. Gym workouts come from
+    // `gym_sessions` (below); martial-arts / fight-camp sessions come from
+    // `fight_camp_calendar`. A gym workout writes BOTH a `gym_sessions` row
+    // AND a synthesized `source:"gym"` calendar mirror, so we EXCLUDE
+    // `source:"gym"` calendar rows here — the workout is already counted via
+    // `gym_sessions`. Net: gym workouts once, non-gym training once.
+    //
+    // gym_sessions has no session-level `rpe`; use `perceivedFatigue` as proxy.
+    const gymLoadSessions = sessions
+      .filter((s) => s.durationMinutes != null && s.perceivedFatigue != null)
+      .map((s) => ({ date: s.date, rpe: s.perceivedFatigue!, durationMinutes: s.durationMinutes! }));
+    // Deploy-ordering guard: legacy gym-mirror calendar rows written BEFORE the
+    // `source:"gym"` tagging change have `source` unset, so `source !== "gym"`
+    // (undefined passes) would let them through and double-count the workout
+    // until `backfillGymSourceOnCalendar` runs. A gym mirror is written with
+    // the IDENTICAL date, sessionType, and durationMinutes as its gym_sessions
+    // row, so build a Set of that exact triple from the fetched gym_sessions
+    // rows and exclude any calendar row that matches one — belt-and-suspenders
+    // with the `source !== "gym"` check. Normalize sessionType the same way as
+    // the rest-day comparison above (lowercased) so casing can't split a match.
+    const gymMirrorKey = (s: { date: string; sessionType: string; durationMinutes?: number | null }) =>
+      `${s.date}|${(s.sessionType ?? "").toLowerCase()}|${s.durationMinutes ?? ""}`;
+    const gymSessionKeys = new Set(sessions.map(gymMirrorKey));
+    // Non-gym calendar sessions: skip the gym mirror (counted above — tagged
+    // `source:"gym"` OR matching a fetched gym_sessions row by exact triple),
+    // skip rest days (they carry 0 load; see `restDays` below), and skip rows
+    // missing rpe/duration (nothing to compute load from).
+    const calendarLoadSessions = calendarEntries
+      .filter(
+        (c) =>
+          c.source !== "gym" &&
+          !gymSessionKeys.has(gymMirrorKey(c)) &&
+          (c.sessionType ?? "").toLowerCase() !== "rest" &&
+          c.rpe != null &&
+          c.durationMinutes != null,
+      )
+      .map((c) => ({ date: c.date, rpe: c.rpe!, durationMinutes: c.durationMinutes! }));
+
     return {
       date,
       profile,
       weights: mergedWeights,
       sleepHours: sleepLogsForScoring,
       assumedSleepDates,
-      // gym_sessions has no session-level `rpe`; use `perceivedFatigue` as proxy.
-      sessions: sessions
-        .filter((s) => s.durationMinutes != null && s.perceivedFatigue != null)
-        .map((s) => ({ date: s.date, rpe: s.perceivedFatigue!, durationMinutes: s.durationMinutes! })),
+      sessions: [...gymLoadSessions, ...calendarLoadSessions],
       restDays,
       hooperByDate: wellness
         .filter((w) => w.hooperIndex != null)

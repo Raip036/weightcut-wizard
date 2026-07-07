@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import { staggerContainer, staggerItem } from "@/lib/motion";
 import { Calendar, Dumbbell } from "lucide-react";
 import { formatVolume } from "@/lib/gymCalculations";
+import { WizardAuroraBackground } from "@/components/onboarding/WizardAuroraBackground";
 import type { SessionWithSets } from "@/pages/gym/types";
 
 // Colored edge per discipline. Keeps the history
@@ -65,12 +66,15 @@ export const SessionHistoryList = memo(function SessionHistoryList({ sessions, l
 
   if (sessions.length === 0) {
     return (
-      <div className="card-surface rounded-xs border border-border/50 p-8 text-center">
-        <div className="h-12 w-12 rounded-xs bg-muted/50 flex items-center justify-center mx-auto mb-3">
-          <Dumbbell className="h-6 w-6 text-muted-foreground/30" />
+      <div className="relative overflow-hidden card-surface rounded-xs border border-border/50 p-8 text-center">
+        <WizardAuroraBackground intensity="subtle" motes={false} />
+        <div className="relative z-10">
+          <div className="h-12 w-12 rounded-xs bg-primary/10 flex items-center justify-center mx-auto mb-3">
+            <Dumbbell className="h-6 w-6 text-primary/60" />
+          </div>
+          <p className="text-sm font-semibold text-foreground">Your history starts here</p>
+          <p className="text-xs text-muted-foreground/70 mt-1">Every workout you log builds your training story.</p>
         </div>
-        <p className="text-sm font-medium text-muted-foreground">No workouts yet</p>
-        <p className="text-xs text-muted-foreground/60 mt-1">Start your first workout to see history here</p>
       </div>
     );
   }

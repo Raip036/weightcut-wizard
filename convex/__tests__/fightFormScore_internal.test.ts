@@ -110,3 +110,199 @@ describe("fetchScoringInputs — manual sleep/weight sourcing", () => {
     expect(inputs.weights.find((w) => w.date === date)).toBeUndefined();
   });
 });
+
+/**
+ * Load-pillar sourcing: the training-load pillar must reflect ALL training
+ * (gym workouts via `gym_sessions` + martial-arts / fight-camp sessions via
+ * `fight_camp_calendar`), de-duped so a gym workout — which writes BOTH a
+ * `gym_sessions` row AND a synthesized `source:"gym"` calendar row — counts
+ * exactly once.
+ */
+describe("fetchScoringInputs — training-load union (gym + calendar, de-duped)", () => {
+  it("does NOT double-count a gym workout that has both a gym_sessions row and a source:'gym' calendar row", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+    const date = "2026-05-15";
+    await t.run(async (ctx) => {
+      // The gym finish flow writes BOTH rows for the same workout.
+      await ctx.db.insert("gym_sessions", {
+        userId,
+        date,
+        sessionType: "S&C",
+        status: "completed",
+        durationMinutes: 60,
+        perceivedFatigue: 7,
+        updatedAt: Date.now(),
+      });
+      await ctx.db.insert("fight_camp_calendar", {
+        userId,
+        date,
+        sessionType: "S&C",
+        intensity: "high",
+        durationMinutes: 60,
+        rpe: 7,
+        source: "gym",
+      });
+    });
+
+    const inputs = await t.query(internal.fightFormScore_internal.fetchScoringInputs, {
+      userId,
+      date,
+    });
+
+    // Exactly one load session for the day — the gym_sessions row. The
+    // source:"gym" calendar row must be excluded so load isn't doubled.
+    const forDate = inputs.sessions.filter((s) => s.date === date);
+    expect(forDate.length).toBe(1);
+    expect(forDate[0]).toMatchObject({ date, rpe: 7, durationMinutes: 60 });
+  });
+
+  it("does NOT double-count a legacy gym mirror whose `source` is UNSET (pre-backfill deploy window) but that matches a gym_sessions row on date+sessionType+durationMinutes", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+    const date = "2026-05-15";
+    await t.run(async (ctx) => {
+      // Gym workout: canonical gym_sessions row.
+      await ctx.db.insert("gym_sessions", {
+        userId,
+        date,
+        sessionType: "S&C",
+        status: "completed",
+        durationMinutes: 60,
+        perceivedFatigue: 7,
+        updatedAt: Date.now(),
+      });
+      // Legacy gym mirror written BEFORE the source-tagging change: `source`
+      // is unset. `undefined !== "gym"` passes the source filter, so without
+      // the presence-based dedup this row would be double-counted until the
+      // backfill runs. It matches the gym_sessions row on date+type+duration.
+      await ctx.db.insert("fight_camp_calendar", {
+        userId,
+        date,
+        sessionType: "S&C",
+        intensity: "high",
+        durationMinutes: 60,
+        rpe: 7,
+        // source deliberately omitted (legacy pre-backfill row)
+      });
+    });
+
+    const inputs = await t.query(internal.fightFormScore_internal.fetchScoringInputs, {
+      userId,
+      date,
+    });
+
+    // Exactly one load session for the day — the gym_sessions row only. The
+    // untagged mirror must be excluded by matching it against the fetched
+    // gym_sessions rows, closing the deploy-ordering window.
+    const forDate = inputs.sessions.filter((s) => s.date === date);
+    expect(forDate.length).toBe(1);
+    expect(forDate[0]).toMatchObject({ date, rpe: 7, durationMinutes: 60 });
+  });
+
+  it("adds load for a non-gym calendar session (e.g. a logged BJJ round with rpe + duration)", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+    const date = "2026-05-15";
+    await t.run(async (ctx) => {
+      // Martial-arts session logged via FightCampLogForm — NO gym_sessions row.
+      await ctx.db.insert("fight_camp_calendar", {
+        userId,
+        date,
+        sessionType: "BJJ",
+        intensity: "high",
+        durationMinutes: 45,
+        rpe: 8,
+        source: "round_card",
+      });
+    });
+
+    const inputs = await t.query(internal.fightFormScore_internal.fetchScoringInputs, {
+      userId,
+      date,
+    });
+
+    const forDate = inputs.sessions.filter((s) => s.date === date);
+    expect(forDate.length).toBe(1);
+    expect(forDate[0]).toMatchObject({ date, rpe: 8, durationMinutes: 45 });
+  });
+
+  it("excludes rest-day calendar rows from load and skips calendar rows missing rpe/duration", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+    const date = "2026-05-15";
+    await t.run(async (ctx) => {
+      // Rest day — must not contribute load.
+      await ctx.db.insert("fight_camp_calendar", {
+        userId,
+        date,
+        sessionType: "Rest",
+        intensity: "low",
+        durationMinutes: 0,
+        rpe: 0,
+        source: "manual",
+      });
+    });
+
+    const inputs = await t.query(internal.fightFormScore_internal.fetchScoringInputs, {
+      userId,
+      date,
+    });
+
+    expect(inputs.sessions.filter((s) => s.date === date).length).toBe(0);
+    // Rest-day detection is preserved (used by the training-load cold-start gate).
+    expect(inputs.restDays).toContain(date);
+  });
+
+  it("counts BOTH a gym workout (via gym_sessions) and a separate non-gym session on the same day exactly once each", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+    const date = "2026-05-15";
+    await t.run(async (ctx) => {
+      // Gym workout: gym_sessions row + its synthesized source:"gym" calendar row.
+      await ctx.db.insert("gym_sessions", {
+        userId,
+        date,
+        sessionType: "S&C",
+        status: "completed",
+        durationMinutes: 50,
+        perceivedFatigue: 6,
+        updatedAt: Date.now(),
+      });
+      await ctx.db.insert("fight_camp_calendar", {
+        userId,
+        date,
+        sessionType: "S&C",
+        intensity: "moderate",
+        durationMinutes: 50,
+        rpe: 6,
+        source: "gym",
+      });
+      // Separate martial-arts session the same day — no gym_sessions row.
+      await ctx.db.insert("fight_camp_calendar", {
+        userId,
+        date,
+        sessionType: "Muay Thai",
+        intensity: "high",
+        durationMinutes: 40,
+        rpe: 9,
+        source: "quicklog",
+      });
+    });
+
+    const inputs = await t.query(internal.fightFormScore_internal.fetchScoringInputs, {
+      userId,
+      date,
+    });
+
+    const forDate = inputs.sessions.filter((s) => s.date === date);
+    // Two distinct load contributions: the gym workout (once) + the MT session.
+    expect(forDate.length).toBe(2);
+    expect(forDate).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ date, rpe: 6, durationMinutes: 50 }),
+        expect.objectContaining({ date, rpe: 9, durationMinutes: 40 }),
+      ]),
+    );
+  });
+});
