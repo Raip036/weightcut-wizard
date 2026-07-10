@@ -6,10 +6,8 @@ import type { Doc, Id } from "@/../convex/_generated/dataModel";
 import { api } from "@/../convex/_generated/api";
 import { triggerHapticSelection, triggerHapticSuccess } from "@/lib/haptics";
 import { disciplineLabel, disciplineToken } from "@/lib/coachColors";
-import { levelFromXp } from "@/lib/xp";
 import { cn, stripDashes } from "@/lib/utils";
 import { springs } from "@/lib/motion";
-import { CompleteCelebration } from "@/components/motion";
 import { AnimatedCheckbox, XpFloat } from "@/components/coach/TickReward";
 import { WizardAuroraBackground } from "@/components/onboarding/WizardAuroraBackground";
 import { pushMasterySignal } from "@/components/mastery/masteryGenerationSignals";
@@ -26,13 +24,6 @@ interface MissionCardProps {
   expanded: boolean;
   /** Toggle expand/collapse from a header tap. */
   onToggle: () => void;
-  /**
-   * Called when completing the final item clears ALL missions for the
-   * discipline (backend `allMissionsComplete === true`). The parent
-   * (MasterySpine) owns the discipline-level celebration so only one
-   * CompleteCelebration fires for the unlock moment.
-   */
-  onAllMissionsComplete?: (discipline: string, xpForCelebration: number) => void;
 }
 
 const COLLAPSED_ITEM_COUNT = 5;
@@ -204,10 +195,11 @@ function TickRow({
  * is always visible (discipline label, level, title, progress, chevron) and
  * the body (rationale disclosure + checklist) appears only when `expanded`.
  *
- * Items support tick AND untick (in case of accidental taps). Ticking the
- * final unchecked item fires a full-screen completion celebration.
+ * Items support tick AND untick (in case of accidental taps). Ticking an item
+ * floats its "+20 XP" inline; the only full-screen celebration in the Mastery
+ * flow is MasteryCutscene, fired once per completed discipline cycle.
  */
-export function MissionCard({ mission, expanded, onToggle, onAllMissionsComplete }: MissionCardProps) {
+export function MissionCard({ mission, expanded, onToggle }: MissionCardProps) {
   // Discipline accent — used ONLY for the discipline name label. Every other
   // accent on the card (level ring, progress bar, checkboxes, chips, XP) uses
   // the wizard-blue primary so the card reads as one calm blue system and only
@@ -252,12 +244,6 @@ export function MissionCard({ mission, expanded, onToggle, onAllMissionsComplete
   const [pending, setPending] = useState<Id<"training_mission_items"> | null>(
     null,
   );
-  const [completeOpen, setCompleteOpen] = useState(false);
-  const [completionAward, setCompletionAward] = useState<{
-    xpAwarded: number;
-    leveledUp: boolean;
-    newLevel: number;
-  }>({ xpAwarded: 0, leveledUp: false, newLevel: 1 });
 
   // Per-discipline XP, drives the LevelRing on the card header. Lives behind a
   // dedicated query so the header still renders instantly when this comes back
@@ -271,7 +257,6 @@ export function MissionCard({ mission, expanded, onToggle, onAllMissionsComplete
   });
   const xpLevel = disciplineXp?.level ?? 1;
   const xpProgress = disciplineXp?.progress ?? 0;
-  const xpTotal = disciplineXp?.totalXp ?? 0;
 
   const markItemCompleted = useMutation(api.training_missions.markItemCompleted);
 
@@ -282,16 +267,12 @@ export function MissionCard({ mission, expanded, onToggle, onAllMissionsComplete
     if (pending) return;
     setPending(itemId);
     triggerHapticSelection();
-    // Snapshot the pre-tick XP so we can detect a level-up by comparing the
-    // synchronous derived level before vs. after applying `xpAwarded`.
-    const prevTotalXp = xpTotal;
     try {
       const result = await markItemCompleted({
         itemId,
         completed: !currentlyCompleted,
       });
-      // Only show a celebration when we just transitioned TO completed
-      // (tick), never on an untick.
+      // Only react when we just transitioned TO completed (tick), never untick.
       if (!currentlyCompleted && result.missionCompleted) {
         // The final drill of the mission was just ticked: this kicks off the
         // async drill→spar graduation backend-side. Push an optimistic signal
@@ -299,19 +280,7 @@ export function MissionCard({ mission, expanded, onToggle, onAllMissionsComplete
         // racing the job marker. `result.missionCompleted` (+ the !untick
         // guard) means we only push on the transition to fully complete, once.
         pushMasterySignal(mission.sport, "sparring");
-        const awarded = result.xpAwarded ?? 0;
-        if (result.allMissionsComplete && onAllMissionsComplete) {
-          // The last mission of the discipline is done: bubble up to the
-          // parent so it fires the single discipline-level unlock
-          // celebration. Skip the per-mission overlay to avoid double-fire.
-          onAllMissionsComplete(mission.sport, awarded);
-        } else {
-          const newLevel = levelFromXp(prevTotalXp + awarded).level;
-          const leveledUp =
-            awarded > 0 && newLevel > levelFromXp(prevTotalXp).level;
-          setCompletionAward({ xpAwarded: awarded, leveledUp, newLevel });
-          setCompleteOpen(true);
-        }
+        void triggerHapticSuccess();
       }
     } catch (err) {
       console.warn("MissionCard: markItemCompleted failed", err);
@@ -320,29 +289,16 @@ export function MissionCard({ mission, expanded, onToggle, onAllMissionsComplete
     }
   };
 
-  // Fire success haptic + auto-dismiss the celebration. Auto-dismiss runs
-  // shorter under reduced motion; a tap also closes it (see overlay button).
-  useEffect(() => {
-    if (!completeOpen) return;
-    void triggerHapticSuccess();
-    const t = setTimeout(
-      () => setCompleteOpen(false),
-      prefersReduced ? 1600 : 2600,
-    );
-    return () => clearTimeout(t);
-  }, [completeOpen, prefersReduced]);
-
   return (
-    <>
-      {/* Root is a keyed motion element; its EXIT is owned by the parent's
-          <AnimatePresence> in MasterySpine. When all drills are ticked the
-          mission auto-archives server-side and leaves the flow, so this card
-          fades while its height (and space-y margin) collapses to 0 — the
-          remaining cards slide up via natural reflow in one continuous motion,
-          with no jump when the element unmounts. New cards fade in and rise
-          ~12px into place. `layout="position"` (cheap position-only FLIP)
-          smooths any residual reordering. iOS-safe: opacity/transform/height
-          only, no scale. */}
+    /* Root is a keyed motion element; its EXIT is owned by the parent's
+       <AnimatePresence> in MasterySpine. When all drills are ticked the
+       mission auto-archives server-side and leaves the flow, so this card
+       fades while its height (and space-y margin) collapses to 0, and the
+       remaining cards slide up via natural reflow in one continuous motion,
+       with no jump when the element unmounts. New cards fade in and rise
+       ~12px into place. `layout="position"` (cheap position-only FLIP)
+       smooths any residual reordering. iOS-safe: opacity/transform/height
+       only, no scale. */
       <motion.div
         layout="position"
         initial={prefersReduced ? { opacity: 0 } : { opacity: 0, y: 12 }}
@@ -484,31 +440,5 @@ export function MissionCard({ mission, expanded, onToggle, onAllMissionsComplete
           </div>
         )}
       </motion.div>
-
-      {/* Full-screen completion celebration: replaces the old modal. */}
-      <AnimatePresence>
-        {completeOpen && (
-          <button
-            type="button"
-            onClick={() => setCompleteOpen(false)}
-            aria-label="Dismiss"
-            className="fixed inset-0 z-[100] cursor-default"
-          >
-            <CompleteCelebration
-              prefersReduced={prefersReduced}
-              accentToken={accent}
-              xp={completionAward.xpAwarded}
-              eyebrow={completionAward.leveledUp ? "Level up" : "Mission complete"}
-              title={
-                completionAward.leveledUp
-                  ? `Level ${completionAward.newLevel} reached`
-                  : "Every drill ticked"
-              }
-              subtitle="Log your next session to unlock your next mission."
-            />
-          </button>
-        )}
-      </AnimatePresence>
-    </>
   );
 }

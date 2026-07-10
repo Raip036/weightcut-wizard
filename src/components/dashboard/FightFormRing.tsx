@@ -9,6 +9,13 @@ type Props = {
   score: number;
   label: "sharp" | "sharpening" | "off_pace" | "at_risk";
   state: "ok" | "calibrating" | "no_camp" | "paused" | "stale";
+  // True while the parent's score query is still resolving with NO cached
+  // value yet (genuine cold-load). Renders a calm neutral hold instead of the
+  // cyan "calibrating" visual, and suppresses the unlock victory-lap so a
+  // load→ok resolve is never mistaken for a first-score unlock. On navigation
+  // the score query is kept warm app-wide, so this is only ever briefly true
+  // on a true cold start.
+  loading?: boolean;
   calibratingDays?: { current: number; needed: number };
   // Used to render the ghost arc beyond the cap when a soft ceiling fires:
   // the displayed `score` is the clamped value, while `rawScore` is what the
@@ -119,6 +126,7 @@ export function FightFormRing({
   score,
   label,
   state,
+  loading = false,
   calibratingDays,
   rawScore,
   appliedCeiling,
@@ -160,7 +168,7 @@ export function FightFormRing({
   const lockX = size / 2 + radius * Math.sin(lockAngleRad);
   const lockY = size / 2 - radius * Math.cos(lockAngleRad);
 
-  const isCalib = state === "calibrating";
+  const isCalib = state === "calibrating" && !loading;
   // Calibration progress drives saturation: floor at 0.18 so day 0 still
   // shows life, ceil at 1 so the last day reads almost-fully-formed.
   const calibProgress = isCalib && calibratingDays && calibratingDays.needed > 0
@@ -216,7 +224,11 @@ export function FightFormRing({
   // all-five-pills day. Previously this referenced `calibratingDays.current`
   // (any-signal days), which over-fired the celebration.
   const prevRitualDaysRef = useRef(ritualDaysCount ?? 0);
-  const prevStateRef = useRef(state);
+  // Last REAL (non-loading) state. Initialised to null on a cold-load mount so
+  // the first real state that resolves is never seen as a transition (which
+  // would otherwise fire the unlock lap on load→ok). On a warm navigation
+  // mount `loading` is already false, so it seeds with the real state.
+  const prevRealStateRef = useRef<Props["state"] | null>(loading ? null : state);
 
   // Containment-arc gradient id (sanitised, useId() contains colons which are
   // invalid inside an SVG url(#...) reference).
@@ -235,8 +247,12 @@ export function FightFormRing({
   // this the user gets one flash of the fully-unlocked arc before the
   // animation rewinds to zero.
   useLayoutEffect(() => {
-    const prev = prevStateRef.current;
-    prevStateRef.current = state;
+    // Never treat a loading placeholder as a real prior state — a load→ok
+    // resolve must not animate as a first-score unlock.
+    if (loading) return;
+    const prev = prevRealStateRef.current;
+    prevRealStateRef.current = state;
+    if (prev === null) return; // first real state after loading → no lap
     if (prev !== "calibrating" || !isScoredState(state)) return;
 
     setUnlocking(true);
@@ -273,7 +289,7 @@ export function FightFormRing({
       window.clearTimeout(done);
       cancelAnimationFrame(raf);
     };
-  }, [state]);
+  }, [state, loading]);
 
   useEffect(() => {
     if (!isCalib) return;
@@ -373,6 +389,35 @@ export function FightFormRing({
   const showPhasePeak = isScoredState(state) && phase === "peak";
   const showPhaseFightWeek = isScoredState(state) && phase === "fightWeek";
   const phaseRadius = radius + 5;
+
+  // Calm neutral hold — only while the score is genuinely loading with no
+  // cached/warm value (cold start). Identical ring geometry so there is zero
+  // layout shift when the real ring swaps in: a dim, gently breathing track
+  // with no number, no arc, no particles, and none of the cyan calibrating
+  // treatment. Placed AFTER every hook above so hook order stays stable.
+  if (loading) {
+    return (
+      <button
+        type="button"
+        onClick={onTap}
+        className="relative flex flex-col items-center justify-center"
+        aria-label="Fight Form Score, loading"
+        style={{ width: size, height: size }}
+      >
+        <svg width={size} height={size} className="-rotate-90">
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            stroke="hsl(var(--muted-foreground))"
+            strokeWidth={10}
+            fill="none"
+            className="ff-ring-calib-track"
+          />
+        </svg>
+      </button>
+    );
+  }
 
   return (
     <button

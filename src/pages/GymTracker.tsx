@@ -464,9 +464,11 @@ export default function GymTracker() {
                 </div>
 
                 {/* Session-focus picker — three equal-width segments that fit
-                    the card in one row (no scroll). If more focuses are added
-                    later this becomes a wrap grid rather than an overflow. */}
-                <div className="flex items-stretch gap-2">
+                    the card in one row (no scroll). Segments never shrink below
+                    their label, so a long focus name can't clip or bleed into a
+                    neighbour. If more focuses are added later this becomes a
+                    wrap grid rather than an overflow. */}
+                <div className="flex items-stretch gap-1.5">
                   {VISIBLE_SESSION_TYPES.map((t) => {
                     const active = sessionType === t;
                     return (
@@ -476,13 +478,16 @@ export default function GymTracker() {
                           setSessionType(t as SessionType);
                           triggerHaptic(ImpactStyle.Light);
                         }}
-                        className={`relative flex-1 min-w-0 flex items-center justify-center rounded-xs border px-2 py-2 active:scale-[0.97] transition-all ${
+                        className={`relative flex-1 flex items-center justify-center rounded-xs border px-1 py-2.5 active:scale-[0.97] transition-all ${
                           active
                             ? "bg-primary text-primary-foreground border-primary"
                             : "bg-muted/30 border-border/30 hover:bg-muted/50"
                         }`}
                       >
-                        <span className="text-[12px] font-semibold truncate">{t}</span>
+                        {/* 11px + tight tracking so the longest label
+                            ("Explosiveness") fits an equal third of the card
+                            down to 320pt screens without ellipsis. */}
+                        <span className="text-[11px] font-semibold leading-none tracking-[-0.01em] whitespace-nowrap">{t}</span>
                       </button>
                     );
                   })}

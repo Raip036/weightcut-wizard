@@ -863,10 +863,14 @@ export default function Dashboard() {
   // loading we use a calibrating placeholder so the structural layout
   // stays stable across the resolve.
   if (FEATURE_FLAGS.enableFightFormScore) {
-    // Shadow the query value with a defaulted local so the JSX below
-    // never sees `undefined` while the score query is still loading. This
-    // is what prevents the legacy layout from briefly flashing on first
-    // navigation into /dashboard.
+    // Shadow the query value with a defaulted local so the JSX below never
+    // sees `undefined` while the score query is still loading (keeps the
+    // structural layout stable and prevents the legacy layout from flashing).
+    // The default's `state: "calibrating"` is NOT what paints during loading —
+    // the ring receives `loading={ffScoreData === undefined}` and renders a
+    // calm neutral hold instead of the cyan "calibrating" ring. On navigation
+    // the score query is kept warm in AppLayoutContent, so `ffScoreData` is
+    // already resident on remount and this default is skipped entirely.
     const ffScore = ffScoreData ?? {
       displayedScore: 0,
       rawScore: 0,
@@ -1029,6 +1033,11 @@ export default function Dashboard() {
                 score={ffScore.displayedScore}
                 label={ffScore.label}
                 state={ffScore.state}
+                // Genuine cold-load only: the score query is kept warm at the
+                // app layout, so on navigation `ffScoreData` is already resident
+                // and this is false — the real ring renders straight away with
+                // no cyan "calibrating" flash. True only on a true first load.
+                loading={ffScoreData === undefined}
                 calibratingDays={ringCalibratingDays}
                 rawScore={ffScore.rawScore}
                 appliedCeiling={ffScore.appliedCeiling}

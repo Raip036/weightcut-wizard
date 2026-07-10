@@ -38,6 +38,7 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { triggerHapticSelection } from "@/lib/haptics";
 import Sparkline from "@/components/charts/Sparkline";
 import { getSessionColor } from "@/lib/sessionColors";
+import { isRestSession } from "@/lib/sessionTypes";
 import ErrorBoundary from "@/components/ErrorBoundary";
 
 interface CampCompassCardProps {
@@ -221,26 +222,12 @@ function shortWeekday(value: string): string {
   }
 }
 
-// "5 sessions · 3h 40m · RPE 6.8 · load 240" — the summary stat clause under
-// the week range. Each segment self-hides when its value is absent so the
-// line never shows a stray "·" or null.
-function formatBreakdownSummary(b: WeekBreakdown): string {
-  const parts: string[] = [];
-  const count = b.sessionCount ?? 0;
-  parts.push(`${count} ${count === 1 ? "session" : "sessions"}`);
-
-  const mins = b.totalMinutes ?? 0;
-  if (mins > 0) {
-    const h = Math.floor(mins / 60);
-    const m = mins % 60;
-    parts.push(h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`);
-  }
-  if (typeof b.avgRpe === "number" && b.avgRpe > 0)
-    parts.push(`RPE ${b.avgRpe.toFixed(1)}`);
-  if (typeof b.totalLoad === "number" && b.totalLoad > 0)
-    parts.push(`load ${Math.round(b.totalLoad)}`);
-
-  return parts.join(" · ");
+// "3" — day-of-month from an ISO date, local-parsed to dodge the UTC gotcha.
+// Drives the tiny date under the weekday in the compact "Next 7 days" column.
+function dayOfMonth(iso: string): string {
+  const [y, m, d] = iso.split("-").map((n) => parseInt(n, 10));
+  if (!y || !m || !d) return "";
+  return String(new Date(y, m - 1, d).getDate());
 }
 
 // ── Skeleton ───────────────────────────────────────────────────────────
@@ -394,8 +381,13 @@ function useWeekData(userId: string | null, weekStartIso: string): WeekData {
     );
     const inWeek = new Set(weekDays);
 
+    // Exclude Rest sessions so the top stat strip matches the server's
+    // `getWeekBreakdown` "trained" definition (rows from `listCalendar` are
+    // already legacy-normalized, so `sessionType` is the primary category).
+    // A zero-minute Rest row is why the strip previously over-counted (5 vs 4).
     const sessions = (sessionsRaw ?? [])
       .filter((s) => inWeek.has(s.date))
+      .filter((s) => !isRestSession(s.sessionType))
       .sort((a, b) => a.date.localeCompare(b.date));
 
     // Sleep: map by date, build a 7-slot ordered series.
@@ -457,11 +449,12 @@ function useWeekData(userId: string | null, weekStartIso: string): WeekData {
 // ── Weekly stats strip ────────────────────────────────────────────────
 function StatTile({ value, label }: { value: string; label: string }) {
   return (
-    <div className="surface-inset rounded-xl px-3 py-2.5 flex flex-col items-center justify-center text-center">
-      <span className="display-number text-[18px] leading-none text-foreground">
+    <div className="surface-inset rounded-xl px-2 py-2.5 flex flex-col items-center justify-center text-center">
+      <span className="display-number text-[18px] leading-none text-foreground tabular-nums">
         {value}
       </span>
-      <span className="mt-1 text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground/70">
+      {/* nowrap + tight tracking keeps "Avg RPE" / "Avg Sleep" on ONE line */}
+      <span className="mt-1.5 w-full text-[9px] font-semibold uppercase tracking-[0.02em] text-muted-foreground/70 whitespace-nowrap">
         {label}
       </span>
     </div>
@@ -484,7 +477,7 @@ function StatStrip({ stats }: { stats: WeekData["stats"] }) {
   if (tiles.length === 0) return null;
 
   return (
-    <div className="grid grid-cols-4 gap-2">
+    <div className="grid grid-cols-4 gap-1.5">
       {tiles.slice(0, 4).map((t) => (
         <StatTile key={t.label} value={t.value} label={t.label} />
       ))}
@@ -658,13 +651,13 @@ function BreakdownRow({ session }: { session: WeekBreakdownSession }) {
       >
         {type.charAt(0).toUpperCase()}
       </span>
-      <span className="shrink-0 w-[44px] text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground/80">
+      <span className="shrink-0 w-8 text-[10px] font-bold uppercase tracking-[0.04em] text-muted-foreground/80">
         {dayLabel}
       </span>
       <span className="flex-1 min-w-0 text-[13px] font-medium text-foreground truncate">
         {type}
       </span>
-      <span className="shrink-0 text-[12px] text-foreground/80 tabular-nums">
+      <span className="shrink-0 text-[11px] text-foreground/80 tabular-nums whitespace-nowrap">
         {typeof mins === "number" && mins > 0 ? `${mins}m` : "—"}
         {typeof rpe === "number" && rpe > 0 ? ` · RPE ${rpe}` : ""}
       </span>
@@ -674,13 +667,11 @@ function BreakdownRow({ session }: { session: WeekBreakdownSession }) {
 
 function LiveBreakdownSkeleton({ expanded }: { expanded: boolean }) {
   return (
-    <div className="card-surface rounded-xl border border-border/40 p-3.5">
-      <div className={SECTION_LABEL}>This week</div>
-      <Skeleton className="mt-2 h-4 w-2/3" />
-      <Skeleton className="mt-2 h-3 w-1/2" />
-      <div className="mt-3 space-y-2">
+    <div>
+      <div className={SECTION_LABEL}>This week's sessions</div>
+      <div className="mt-2 space-y-2">
         {Array.from({ length: expanded ? 4 : 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-7 w-full rounded-md" />
+          <Skeleton key={i} className="h-9 w-full rounded-md" />
         ))}
       </div>
     </div>
@@ -712,40 +703,43 @@ function LiveBreakdown({
   const startIso = breakdown.weekStartIso ?? weekStartIso;
   const endIso = breakdown.weekEndIso ?? addDaysIso(weekStartIso, 6);
   const range = `${formatRangeDay(startIso)} – ${formatRangeDay(endIso)}`;
-  const summary = formatBreakdownSummary(breakdown);
   const sessions = breakdown.sessions ?? [];
   const restDays = breakdown.restOrMissedDays ?? [];
   const sessionCount = breakdown.sessionCount ?? sessions.length;
+  const load =
+    typeof breakdown.totalLoad === "number" && breakdown.totalLoad > 0
+      ? Math.round(breakdown.totalLoad)
+      : null;
 
   // In the compact card cap rows so the carousel page stays tidy; the sheet
   // shows the full list.
   const shown = expanded ? sessions : sessions.slice(0, 6);
   const moreCount = sessions.length - shown.length;
 
+  // Bare section (no nested card) so its label sits at the SAME flush-left
+  // edge as every other section — "hardest" + "load" become chips (values the
+  // top stat pills don't already show), avoiding a redundant summary line.
   return (
-    <div className="card-surface rounded-xl border border-border/40 p-3.5">
-      {/* Header: week range + summary stat line (consistent with top cards) */}
+    <div>
+      {/* Header: label + week range, flush-left */}
       <div className="flex items-baseline justify-between gap-3">
-        <div className={SECTION_LABEL}>This week</div>
-        <div className="text-[10px] font-semibold tracking-tight text-muted-foreground/70 tabular-nums">
+        <div className={SECTION_LABEL}>This week's sessions</div>
+        <div className="shrink-0 text-[10px] font-semibold text-muted-foreground/60 tabular-nums whitespace-nowrap">
           {range}
         </div>
       </div>
-      <p className="mt-1 text-[13px] font-semibold text-foreground/90 tabular-nums">
-        {summary}
-      </p>
 
-      {/* Optional callouts — hardest day / avg sleep */}
-      {(breakdown.hardestDay || typeof breakdown.avgSleepH === "number") && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
+      {/* Callout chips — hardest day + total load (not shown in the pills) */}
+      {(breakdown.hardestDay || load !== null) && (
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
           {breakdown.hardestDay && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-muted/40 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+            <span className="inline-flex items-center rounded-full bg-muted/40 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
               Hardest · {shortWeekday(breakdown.hardestDay)}
             </span>
           )}
-          {typeof breakdown.avgSleepH === "number" && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-muted/40 px-2 py-0.5 text-[10px] font-medium text-muted-foreground tabular-nums">
-              Sleep · {breakdown.avgSleepH.toFixed(1)}h avg
+          {load !== null && (
+            <span className="inline-flex items-center rounded-full bg-muted/40 px-2 py-0.5 text-[10px] font-medium text-muted-foreground tabular-nums">
+              Load {load}
             </span>
           )}
         </div>
@@ -753,11 +747,11 @@ function LiveBreakdown({
 
       {/* Empty state */}
       {sessionCount === 0 ? (
-        <p className="mt-3 text-[12px] text-muted-foreground/60 leading-snug">
+        <p className="mt-2 text-[12px] text-muted-foreground/60 leading-snug">
           No sessions logged this week.
         </p>
       ) : (
-        <ul className="mt-3 divide-y divide-border/40 rounded-md border border-border/30 overflow-hidden">
+        <ul className="mt-2 divide-y divide-border/40 rounded-md border border-border/30 overflow-hidden">
           {shown.map((s, i) => (
             <BreakdownRow key={`${s.date}-${i}`} session={s} />
           ))}
@@ -771,7 +765,7 @@ function LiveBreakdown({
 
       {/* Rest / missed days */}
       {restDays.length > 0 && (
-        <p className="mt-2.5 text-[11px] text-muted-foreground/70">
+        <p className="mt-2 text-[11px] text-muted-foreground/70">
           Rest: {restDays.map(shortWeekday).join(", ")}
         </p>
       )}
@@ -856,13 +850,20 @@ function ReportBody({
             {actions.map((a, i) => (
               <li
                 key={`${a.dayIso}-${i}`}
-                className="flex items-start gap-3 px-3 py-2.5"
+                className="flex items-start gap-2.5 px-3 py-2"
               >
-                <span className="shrink-0 text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground/80 w-[88px] tabular-nums">
-                  {formatDayLabel(a.dayIso)}
+                {/* Narrow weekday + tiny date stacked — frees horizontal room
+                    for the action so smaller text fits more per line. */}
+                <span className="shrink-0 w-8 flex flex-col items-center pt-0.5 leading-none">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.02em] text-muted-foreground/80">
+                    {shortWeekday(a.dayIso)}
+                  </span>
+                  <span className="mt-0.5 text-[9px] text-muted-foreground/45 tabular-nums">
+                    {dayOfMonth(a.dayIso)}
+                  </span>
                 </span>
                 <span
-                  className={`flex-1 ${expanded ? "text-[14px]" : "text-[13px]"} text-foreground leading-snug`}
+                  className={`flex-1 min-w-0 ${expanded ? "text-[13px]" : "text-[12px]"} text-foreground/90 leading-[1.4]`}
                 >
                   {cleanText(a.action)}
                 </span>
@@ -873,10 +874,10 @@ function ReportBody({
       )}
 
       {report.campArc && (
-        <div className="card-surface rounded-xl border border-border/40 p-3.5">
+        <div>
           <div className={SECTION_LABEL}>Camp arc</div>
           <p
-            className={`mt-1.5 ${expanded ? "text-[14px]" : "text-[13px]"} text-foreground/85 leading-relaxed`}
+            className={`mt-1.5 ${expanded ? "text-[14px]" : "text-[13px]"} text-foreground/80 leading-relaxed`}
           >
             {cleanText(report.campArc)}
           </p>

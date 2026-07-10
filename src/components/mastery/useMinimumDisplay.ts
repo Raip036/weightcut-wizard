@@ -142,10 +142,32 @@ export interface CycleCompletion {
   xp: number;
 }
 
-/** XP awarded per graduated technique (3 lands × 15 XP each). */
+/**
+ * XP ESTIMATE, used only by the deterministic detection path below.
+ *
+ * The imperative path carries the server's real `cycleXp` (returned by
+ * `markLanded` alongside `cycleComplete`), counted from actual items, missions
+ * and masteries. The detector never sees a mutation result, so when it notices
+ * a cycle completing on its own (a query tick, a land recorded on another
+ * device) it can only approximate: 3 lands × 15 XP per graduated technique plus
+ * the flat cycle bonus. This is the backstop, not the source of truth.
+ */
 const XP_PER_GRADUATED_TECHNIQUE = 3 * 15;
-/** Flat bonus for completing a whole discipline cycle. */
+/** Flat bonus for completing a whole discipline cycle. The floor, never the
+ *  whole figure. */
 const CYCLE_BONUS_XP = 50;
+
+/**
+ * The XP figure the cutscene counts up for a completed discipline cycle.
+ *
+ * `markLanded` returns the real `cycleXp` alongside `cycleComplete`, counted
+ * from the cycle's actual ticked items, completed missions and mastered
+ * assignments. Only a server that predates that field sends nothing, and then
+ * we show the flat bonus rather than inventing a total.
+ */
+export function resolveCycleXp(cycleXp?: number): number {
+  return typeof cycleXp === "number" ? cycleXp : CYCLE_BONUS_XP;
+}
 
 /**
  * Deterministic cycle-complete detector.

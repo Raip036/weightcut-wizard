@@ -128,55 +128,96 @@ Use real coaching terms (positional sparring, isolated drilling, hand-fighting, 
 }`;
 
 // ───────────────────────────────────────────────────────────────────────
-// Stage A — DIAGNOSE (cheap/fast model). Reads the notes and emits a
+// Stage A: DIAGNOSE (strong model, REQUIRED). Reads the notes and emits a
 // compact, structured diagnosis that Stage B builds drills around. Keeping
 // diagnosis a first-class artifact makes it loggable, evaluable, and lets
 // us ground/verify against it.
+//
+// The role fields (athleteRole / opponentAction / athleteResponse) exist
+// because the stimulus and the response used to collapse into a single
+// `targetTechnique` string. When the opponent's action was the salient named
+// technique in the note, the drills coached the opponent. Splitting them here
+// is the only place the inversion can be caught: a verifier reading a
+// corrupted diagnosis has nothing to compare the drills against.
 // ───────────────────────────────────────────────────────────────────────
 
-export const DIAGNOSE_MISSION_PROMPT = `You are FightCamp Wizard's diagnostic coach for {sport}. Read the athlete's recent session notes and output ONE strict JSON object that pinpoints the single most important problem to fix next. You are NOT writing drills — only the diagnosis.
+export const DIAGNOSE_MISSION_PROMPT = `You are FightCamp Wizard's diagnostic coach for {sport}. Read the athlete's recent session notes and output ONE strict JSON object that pinpoints the single most important problem to fix next. You are NOT writing drills, only the diagnosis.
 
 ${SECOND_PERSON_DIRECTIVE}
 
 ${PROMPT_INJECTION_GUARD_INSTRUCTION}
 
-How to diagnose:
+=== WHOSE TECHNIQUE ARE YOU NAMING? (most important rule) ===
+The notes are written by the ATHLETE. A note often describes TWO things: what the OPPONENT did to them, and what the athlete failed to do about it. You must separate them.
+- "opponentAction" = what the OPPONENT does. The stimulus. Write "" if the athlete initiates and there is no opponent action.
+- "athleteResponse" = what the ATHLETE must do about it. Their half of the exchange.
+- "targetTechnique" = THE ATHLETE'S OWN RESPONSE, always. It is never the opponent's action, even when the opponent's action is the only technique named by name in the note. The next mission drills the athlete, not their opponent.
+- "athleteRole" = the athlete's role in this exchange:
+  - "attacker" = they initiate and want to land or finish something.
+  - "defender" = they must stop, block, check, frame, or deny what the opponent is doing.
+  - "counter_attacker" = they must defend the opponent's action and then immediately answer.
+
+=== WORKED EXAMPLE ===
+Note: "I can't check the kick my opponent throws after a boxing combination"
+CORRECT:
+  athleteRole: "defender"
+  opponentAction: "boxing combination followed by a kick"
+  athleteResponse: "check the kick"
+  targetTechnique: "leg check"
+WRONG:
+  targetTechnique: "boxing combination"
+That is wrong because the boxing combination is what the OPPONENT throws. Naming it as the target technique would send the athlete off to drill throwing boxing combinations, which is the opponent's job. The athlete's problem is that they cannot check the kick, so the target technique is the leg check.
+
+=== HOW TO DIAGNOSE ===
 - Pick the SINGLE biggest issue. If several appear, choose the one mentioned most often or carrying the strongest emotional language ("frustrated", "panicked", "kept getting stuck").
 - Classify it into exactly one category:
   - "technical"   = wrong mechanics / order of operations.
   - "conceptual"  = doesn't know when/why to use it, or picks the wrong response to a stimulus.
   - "conditioning" = gassed / lost grip / faded before they could execute.
   - "mental"      = froze, panicked, hesitated, indecision under pressure.
-  - "tactical"    = right move, wrong moment — timing / spacing / range.
+  - "tactical"    = right move at the wrong moment: timing, spacing, range.
 - Name the SPECIFIC failing component (the discrete thing breaking down), not the whole technique.
-- Name the target technique / position / situation the next mission should drill.
 - Quote or closely paraphrase the exact words from the notes that drove your read.
 - If the notes are too vague to diagnose confidently, set confidence "low" and make your best honest guess.
+- No em dashes or en dashes anywhere in your output.
 
 Output ONLY this JSON object (no prose, no markdown fences):
 {
   "category": "technical" | "conceptual" | "conditioning" | "mental" | "tactical",
   "problem": "one plain-English sentence naming the core problem",
   "failingComponent": "the specific component that is breaking down",
-  "targetTechnique": "the named technique / position / situation to drill",
+  "athleteRole": "attacker" | "defender" | "counter_attacker",
+  "opponentAction": "what the OPPONENT does, or \\"\\" if none",
+  "athleteResponse": "what the ATHLETE must do about it",
+  "targetTechnique": "the athlete's own response, named as a technique / position / situation to drill",
   "notesEvidence": "the exact phrase or close paraphrase from the notes",
   "confidence": "low" | "medium" | "high"
 }`;
 
 // ───────────────────────────────────────────────────────────────────────
-// Stage C — VERIFY (cheap/fast model). Critiques the generated drills
-// against the diagnosis before they're persisted. Returns "revise" with
-// specific issues to trigger ONE regeneration pass, or "pass".
+// Stage C: VERIFY (strong model). Critiques the generated drills against
+// the diagnosis AND the raw note before they're persisted. Returns "revise"
+// with specific issues to trigger ONE regeneration pass, or "pass".
+//
+// It sees the raw note because a verifier that only sees the diagnosis cannot
+// catch an error baked into that diagnosis.
 // ───────────────────────────────────────────────────────────────────────
 
-export const VERIFY_MISSION_PROMPT = `You are a strict but fair training-quality reviewer for {sport}. You are given a DIAGNOSIS and 3 generated drills. Check the drills and return ONE strict JSON verdict. Only flag REAL problems — if the drills are good, pass them.
+export const VERIFY_MISSION_PROMPT = `You are a strict but fair training-quality reviewer for {sport}. You are given the athlete's ORIGINAL NOTE, a DIAGNOSIS derived from it, and 3 generated drills. Check them and return ONE strict JSON verdict. Only flag REAL problems: if the drills are good, pass them.
 
+${PROMPT_INJECTION_GUARD_INSTRUCTION}
+
+=== FIRST, CHECK THE DIAGNOSIS AGAINST THE NOTE ===
+The note is written by the ATHLETE. It often names what the OPPONENT did to them. The diagnosis must have the roles the right way round: "opponentAction" is what the opponent does, "athleteResponse" and "targetTechnique" are what the ATHLETE must do about it. If the diagnosis has taken the opponent's action and made it the athlete's target technique, the whole mission is inverted. Flag it at index 0 with a problem that names the inversion, quotes the note, and states the athlete's real response. Example: the note says they cannot check the kick thrown after a boxing combination, so the target technique is the leg check, never the boxing combination.
+
+=== THEN, CHECK EACH DRILL ===
 Flag a drill (by its 0-based index) if it:
-1. Is vague — doesn't name a specific drill, or lacks reps/rounds/duration, or has no clear cue/constraint.
-2. Does NOT actually drill the diagnosed failing component (off-target).
-3. Names a technique, combo, grip or position that is fake, biomechanically wrong, or not real for this sport.
-4. Is unsafe or clearly too advanced for someone working on this exact problem (e.g. hard live sparring to fix a brand-new mechanical hole, or loading an injury mentioned in the notes).
-5. Is hard to understand on first read, or duplicates another drill's "way in" (the 3 should differ: ideally one solo/shadow, one partner, one live).
+1. Makes the athlete rehearse the OPPONENT's action instead of their own response. This is the worst failure: the athlete asked how to stop something and the drill teaches them to do that something.
+2. Is vague: doesn't name a specific drill, or lacks reps/rounds/duration, or has no clear cue/constraint.
+3. Does NOT actually drill the diagnosed failing component (off-target).
+4. Names a technique, combo, grip or position that is fake, biomechanically wrong, or not real for this sport.
+5. Is unsafe or clearly too advanced for someone working on this exact problem (e.g. hard live sparring to fix a brand-new mechanical hole, or loading an injury mentioned in the notes).
+6. Is hard to understand on first read, or duplicates another drill's "way in" (the 3 should differ: ideally one solo/shadow, one partner, one live).
 
 Output ONLY this JSON object (no prose, no markdown fences):
 {

@@ -32,14 +32,17 @@
  *     `insertMissionInternal` with the shared cycleId. The first insert uses
  *     `skipMarkPrior: false` (clears any residual stragglers); subsequent
  *     inserts use `skipMarkPrior: true` so sibling missions in this cycle are
- *     not inadvertently completed.
+ *     not inadvertently completed. DIAGNOSE is REQUIRED: an issue whose
+ *     diagnosis fails is skipped rather than generated unanchored.
  *  8. Advance the notes cursor (notesWindowStart = now) on every insert so
  *     the window is not re-processed.
  *  9. Returns `{ created: firstMissionId }` if at least one mission was
  *     persisted. Returns `{ skipped: "no_new_notes" }` if all issues were
  *     deduped away (notes still advance via the first-insert path; if
  *     literally nothing survived dedupe we still advance to avoid a spin-loop
- *     on permanently-deduped notes).
+ *     on permanently-deduped notes). Returns `{ skipped: "diagnose_failed" }`
+ *     when nothing was persisted and at least one issue lost its diagnosis;
+ *     the cursor is left alone so the hourly sweep retries those notes.
  */
 
 import { v } from "convex/values";
@@ -64,6 +67,7 @@ import {
 } from "./prompts";
 import { buildGroundingBlock } from "./groundingReference";
 import { extractIssues } from "./extractIssues";
+import { checkPerspective } from "./perspective";
 
 // ───────────────────────────────────────────────────────────────────────
 // Zod schemas
@@ -135,11 +139,36 @@ const DiagnosisSchema = z.object({
   ]),
   problem: z.string().min(3).max(220),
   failingComponent: z.string().min(3).max(180),
+  /** The athlete's role in the exchange the notes describe. */
+  athleteRole: z.enum(["attacker", "defender", "counter_attacker"]),
+  /** What the OPPONENT does. The stimulus. "" when the athlete initiates. */
+  opponentAction: z.string().max(180),
+  /** What the ATHLETE must do about it. Their half of the exchange. */
+  athleteResponse: z.string().max(180),
+  /** The athlete's own response, named as a technique. Never the opponent's action. */
   targetTechnique: z.string().min(2).max(90),
   notesEvidence: z.string().min(2).max(220),
   confidence: z.enum(["low", "medium", "high"]),
 });
-type Diagnosis = z.infer<typeof DiagnosisSchema>;
+export type Diagnosis = z.infer<typeof DiagnosisSchema>;
+
+/**
+ * Thrown when the required DIAGNOSE stage fails. Callers skip that issue and
+ * leave the notes watermark untouched so the hourly sweep retries it. Every
+ * downstream stage is anchored to the diagnosis; generating without one is
+ * what let the drills coach the opponent instead of the athlete.
+ */
+export class DiagnoseFailedError extends Error {
+  /** The underlying failure. Held as a field rather than passed to `super`,
+   *  because the app tsconfig targets a lib without the ES2022 `cause` option. */
+  readonly cause?: unknown;
+
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message);
+    this.name = "DiagnoseFailedError";
+    this.cause = options?.cause;
+  }
+}
 
 const VerifySchema = z.object({
   verdict: z.enum(["pass", "revise"]),
@@ -165,7 +194,12 @@ function formatDiagnosisBlock(d: Diagnosis): string {
     `Category: ${d.category}`,
     `Problem: ${d.problem}`,
     `Failing component: ${d.failingComponent}`,
-    `Target technique / situation: ${d.targetTechnique}`,
+    `THE ATHLETE'S ROLE in this exchange: ${d.athleteRole}`,
+    `What the OPPONENT does (never drill this, it is not the athlete's job): ${
+      d.opponentAction.trim() || "(nothing, the athlete initiates)"
+    }`,
+    `What the ATHLETE must do (drill THIS): ${d.athleteResponse}`,
+    `Target technique / situation (the athlete's own response): ${d.targetTechnique}`,
     `From the notes: ${d.notesEvidence}`,
     `Confidence: ${d.confidence}`,
   ].join("\n");
@@ -220,11 +254,11 @@ async function generateAndVerifySparring({
   focusTechnique: string;
   objective: string;
   rationale: string;
-  diagnosis: Diagnosis | null;
+  diagnosis: Diagnosis;
   groundingBlock: string;
 }): Promise<StoredSparringPlan | null> {
   const fillSport = (tpl: string) => tpl.replace(/\{sport\}/g, sport);
-  const diagnosisBlock = diagnosis ? formatDiagnosisBlock(diagnosis) : "";
+  const diagnosisBlock = formatDiagnosisBlock(diagnosis);
 
   const userMsg = [
     `Discipline: ${sport}`,
@@ -269,7 +303,7 @@ async function generateAndVerifySparring({
   // drilled defensive/pressure objective). One revision pass on "revise".
   try {
     const review = await callGroqWithRetry({
-      model: "llama-3.1-8b-instant",
+      model: "openai/gpt-oss-120b",
       messages: [
         { role: "system", content: fillSport(MISSION_SPARRING_VERIFY_PROMPT) },
         {
@@ -277,7 +311,7 @@ async function generateAndVerifySparring({
           content: [
             `OBJECTIVE: ${objective}`,
             `Technique: ${focusTechnique}`,
-            diagnosis ? `Problem drilled to fix: ${diagnosis.problem}` : "",
+            `Problem drilled to fix: ${diagnosis.problem}`,
             rationale ? `Mission rationale: ${rationale}` : "",
             "=== PLAN TO REVIEW ===",
             `whenToUse: ${plan.whenToUse}`,
@@ -352,28 +386,38 @@ async function runGeneratePipeline({
     ? `Focus specifically on this coaching issue: ${issueFocus}\n\n`
     : "";
 
-  // Stage A — DIAGNOSE (cheap model, best-effort).
-  let diagnosis: Diagnosis | null = null;
+  // Stage A: DIAGNOSE (strong model, REQUIRED). It is the anchor every later
+  // stage reads, so a failure throws rather than degrading to an unanchored
+  // generation. The caller skips the issue and leaves the notes watermark
+  // alone, letting the hourly sweep retry.
+  let diagnosis: Diagnosis;
   try {
     diagnosis = await callGroqWithRetry({
-      model: "llama-3.1-8b-instant",
+      model: "openai/gpt-oss-120b",
       messages: [
         { role: "system", content: fillSport(DIAGNOSE_MISSION_PROMPT) },
         { role: "user", content: `${issueNote}${userMsg}` },
       ],
       temperature: 0.3,
-      max_tokens: 400,
+      max_tokens: 700,
       response_format: { type: "json_object" },
       timeoutMs: 12000,
       schema: DiagnosisSchema,
-      maxRetries: 1,
+      maxRetries: 2,
     });
   } catch (err) {
-    console.warn("trainingMissions.generate: diagnose stage failed", err);
+    throw new DiagnoseFailedError(
+      err instanceof GroqError
+        ? `${err.code}: ${err.message}`
+        : err instanceof Error
+          ? err.message
+          : String(err),
+      { cause: err },
+    );
   }
 
-  // Stage B — GENERATE (strong model).
-  const diagnosisBlock = diagnosis ? formatDiagnosisBlock(diagnosis) : "";
+  // Stage B: GENERATE (strong model).
+  const diagnosisBlock = formatDiagnosisBlock(diagnosis);
   const genUserMsg = [
     issueNote,
     diagnosisBlock,
@@ -405,18 +449,38 @@ async function runGeneratePipeline({
 
   const parsed = await generate();
 
-  // Stage C — VERIFY (cheap model, best-effort; one regeneration pass).
+  // Problems that trigger the single revision pass, from both the
+  // deterministic perspective gate and VERIFY.
+  const revisionIssues: Array<{ index: number; problem: string }> = [];
+
+  // Stage B2: PERSPECTIVE GATE (deterministic, no LLM call). A defender
+  // handed an offensive objective is being drilled on the opponent's half of
+  // the exchange. VERIFY cannot see this on its own: the drills faithfully
+  // serve the objective they were given.
+  const perspective = checkPerspective(
+    diagnosis,
+    normalizeObjective(parsed.objective),
+  );
+  if (!perspective.ok) {
+    revisionIssues.push({ index: 0, problem: perspective.problem });
+  }
+
+  // Stage C: VERIFY (strong model, best-effort; one regeneration pass). It
+  // sees the raw note as well as the diagnosis so it can catch an inversion
+  // baked into the diagnosis itself.
   let verifyVerdict: "pass" | "revise" | "skipped" = "skipped";
   let finalPayload = parsed;
   try {
     const review = await callGroqWithRetry({
-      model: "llama-3.1-8b-instant",
+      model: "openai/gpt-oss-120b",
       messages: [
         { role: "system", content: fillSport(VERIFY_MISSION_PROMPT) },
         {
           role: "user",
           content: [
-            diagnosisBlock || "(no separate diagnosis provided)",
+            "=== ATHLETE'S ORIGINAL NOTE ===",
+            userMsg,
+            diagnosisBlock,
             "=== DRILLS TO REVIEW ===",
             parsed.items
               .map(
@@ -430,28 +494,47 @@ async function runGeneratePipeline({
         },
       ],
       temperature: 0.2,
-      max_tokens: 500,
+      max_tokens: 700,
       response_format: { type: "json_object" },
       timeoutMs: 12000,
       schema: VerifySchema,
       maxRetries: 1,
     });
     verifyVerdict = review.verdict;
-    if (review.verdict === "revise" && review.issues.length > 0) {
-      try {
-        finalPayload = await generate(formatVerifierFeedback(review.issues));
-      } catch (err) {
-        console.warn("trainingMissions.generate: revision pass failed", err);
-      }
+    if (review.verdict === "revise") {
+      revisionIssues.push(...review.issues);
     }
   } catch (err) {
     console.warn("trainingMissions.generate: verify stage failed", err);
   }
 
-  // Stage D — SPARRING PLAN (generated from the SAME diagnosis + objective so
+  if (revisionIssues.length > 0) {
+    try {
+      finalPayload = await generate(formatVerifierFeedback(revisionIssues));
+    } catch (err) {
+      console.warn("trainingMissions.generate: revision pass failed", err);
+    }
+  }
+
+  // The revision pass is single-shot, so a stubborn model can hand back an
+  // objective that still inverts the athlete's role. Stage D builds the sparring
+  // plan FROM this objective, so an inverted value would leak all the way into
+  // the live-round game plan. Coerce it deterministically instead: a defender
+  // defends, a counter-attacker counters. Cheaper and stricter than a second
+  // regeneration, and it cannot fail.
+  let objective = normalizeObjective(finalPayload.objective);
+  const postRevision = checkPerspective(diagnosis, objective);
+  if (!postRevision.ok) {
+    objective = diagnosis.athleteRole === "defender" ? "defense" : "counter";
+    console.warn(
+      "trainingMissions.generate: objective still inverted after revision, coercing",
+      { athleteRole: diagnosis.athleteRole, coercedTo: objective },
+    );
+  }
+
+  // Stage D: SPARRING PLAN (generated from the SAME diagnosis + objective so
   // the live-round plan can never invert the drilled intent). Best-effort: if
   // it fails, the mission still persists and graduation falls back to the LLM.
-  const objective = normalizeObjective(finalPayload.objective);
   const focusTechnique = stripEmDashes(finalPayload.focusTechnique).slice(0, 60);
   let sparringPlan: StoredSparringPlan | null = null;
   try {
@@ -483,6 +566,7 @@ export const generateMissionIfReady = internalAction({
     | { skipped: "cycle_in_progress" }
     | { skipped: "no_new_notes" }
     | { skipped: "all_deduped" }
+    | { skipped: "diagnose_failed" }
     | { created: Id<"training_missions"> }
     | { error: string }
   > => {
@@ -586,6 +670,7 @@ export const generateMissionIfReady = internalAction({
 
     let firstMissionId: Id<"training_missions"> | null = null;
     let insertCount = 0;
+    let diagnoseFailures = 0;
     const auditIssues: Array<{
       technique: string;
       normalized: string;
@@ -639,11 +724,23 @@ export const generateMissionIfReady = internalAction({
           }));
       } catch (err) {
         const message =
-          err instanceof GroqError
-            ? `${err.code}: ${err.message}`
-            : err instanceof Error
-              ? err.message
-              : String(err);
+          err instanceof DiagnoseFailedError
+            ? err.message
+            : err instanceof GroqError
+              ? `${err.code}: ${err.message}`
+              : err instanceof Error
+                ? err.message
+                : String(err);
+        // DIAGNOSE is the anchor for every downstream stage, so a failure
+        // there never falls through to an unanchored generation. Skip the
+        // issue and leave the watermark untouched (see Step 9) so the hourly
+        // sweep retries these notes.
+        if (err instanceof DiagnoseFailedError) {
+          console.warn("trainingMissions.generate: diagnose stage failed, skipping issue", err);
+          diagnoseFailures += 1;
+          auditIssues.push({ technique: rawTechnique, normalized: normKey, skippedReason: `diagnose_failed: ${message}` });
+          continue;
+        }
         // If even the first issue fails to generate, propagate the error.
         // If a later one fails, log and skip.
         if (insertCount === 0 && firstMissionId === null) {
@@ -710,15 +807,24 @@ export const generateMissionIfReady = internalAction({
         cycleId,
         missionsCreated: insertCount,
         firstMissionId,
+        diagnoseFailures,
         issues: auditIssues,
       },
       model:
-        "extract:llama-3.1-8b-instant+diagnose:llama-3.1-8b-instant+generate:openai/gpt-oss-120b",
+        "extract:llama-3.1-8b-instant+diagnose:openai/gpt-oss-120b+generate:openai/gpt-oss-120b",
     });
 
     // ── Step 9: Return ───────────────────────────────────────────────────
     if (firstMissionId !== null) {
       return { created: firstMissionId };
+    }
+
+    // Nothing was inserted and at least one issue lost its DIAGNOSE. Those
+    // notes were never consumed, so the watermark must NOT move: the hourly
+    // sweep re-reads them and retries. Advancing here would silently drop a
+    // real coaching issue on a transient LLM failure.
+    if (diagnoseFailures > 0) {
+      return { skipped: "diagnose_failed" };
     }
 
     // All issues were deduped away — no mission was inserted, so the notes

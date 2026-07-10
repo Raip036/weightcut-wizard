@@ -1,5 +1,10 @@
 import { v } from "convex/values";
-import { internalMutation, mutation, query } from "./_generated/server";
+import {
+  internalMutation,
+  mutation,
+  query,
+  type MutationCtx,
+} from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireUserId } from "./lib/auth";
@@ -17,10 +22,117 @@ import { resolveActiveCampId } from "./fight_camp";
 
 const LAND_THRESHOLD = 3;
 const LAND_XP = 15;
+const CYCLE_BONUS_XP = 50;
+
+// XP the user actually banked along the way, mirrored here purely so the
+// cutscene can total it up. These MUST stay in step with the awards made in
+// `training_missions.markItemCompleted` (20 per ticked item, 100 per finished
+// mission) and with `LAND_XP` above. Nothing here awards anything.
+const ITEM_XP = 20;
+const MISSION_XP = 100;
+const MASTERY_XP = LAND_XP * LAND_THRESHOLD; // 45 = 3 lands x 15
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mutations
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Total XP the just-finished mastery cycle yielded, for the cutscene to count
+ * up. There is no XP event ledger (`user_discipline_xp` stores running totals
+ * only), so we re-derive it from the rows the cycle actually produced:
+ *
+ *   cycleXp = completedItems   * 20   (tick_item)
+ *           + completedMissions * 100  (complete_mission)
+ *           + masteredAssignments * 45 (3 lands x 15)
+ *           + 50                       (cycle_complete bonus)
+ *
+ * Real counts only: never assume 3 items per mission or 3 missions per cycle.
+ *
+ * Scope. `graduate.ts` stamps `sourceMissionId` on every assignment it creates,
+ * so one `get` resolves the mission whose `cycleId` names THIS cycle, and the
+ * `by_user_cycle` index gives us its siblings. That matters because a long camp
+ * runs several cycles per discipline: a camp-wide count would re-bill every
+ * earlier cycle's XP into this one's total. Legacy assignments written before
+ * `sourceMissionId` existed fall back to the camp + discipline graduated set,
+ * which is the same scope `cycleComplete` itself uses.
+ *
+ * Bounded reads: <= 20 cycle missions (a notes window fans out to at most 3),
+ * <= 50 fallback missions, and one indexed item read per mission. `siblings` is
+ * already capped at 100 by the caller.
+ */
+async function computeCycleXp(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  row: Doc<"sparring_assignments">,
+  siblings: Doc<"sparring_assignments">[],
+): Promise<number> {
+  const graduatedSiblings = siblings.filter((s) => s.source === "graduated");
+
+  const sourceMission = row.sourceMissionId
+    ? await ctx.db.get(row.sourceMissionId)
+    : null;
+  const cycleId = sourceMission?.cycleId ?? null;
+
+  const candidateMissions = cycleId
+    ? await ctx.db
+        .query("training_missions")
+        .withIndex("by_user_cycle", (q) =>
+          q.eq("userId", userId).eq("cycleId", cycleId),
+        )
+        .take(20)
+    : (
+        await ctx.db
+          .query("training_missions")
+          .withIndex("by_user_sport_status", (q) =>
+            q
+              .eq("userId", userId)
+              .eq("sport", row.discipline)
+              .eq("status", "completed"),
+          )
+          // Newest first: an un-graduated mission is minutes old at most, and
+          // the current cycle's graduated ones are the freshest rows here.
+          .order("desc")
+          .take(50)
+      ).filter((m) => m.campId === row.campId);
+
+  const graduatedMissions = candidateMissions.filter(
+    (m) => m.status === "completed" && m.graduatedAt != null,
+  );
+  const graduatedMissionIds = new Set<string>(
+    graduatedMissions.map((m) => m._id),
+  );
+
+  const itemsPerMission = await Promise.all(
+    graduatedMissions.map((m) =>
+      ctx.db
+        .query("training_mission_items")
+        .withIndex("by_mission_position", (q) => q.eq("missionId", m._id))
+        .collect(),
+    ),
+  );
+  const completedItems = itemsPerMission
+    .flat()
+    .filter((item) => item.completed).length;
+
+  // Without a cycleId we cannot tell one cycle's assignments from another's,
+  // so count the whole camp + discipline graduated set (they are all mastered
+  // at this point, which is what made the cycle complete).
+  const masteredAssignments = cycleId
+    ? graduatedSiblings.filter(
+        (s) =>
+          s._id === row._id ||
+          (s.sourceMissionId != null &&
+            graduatedMissionIds.has(s.sourceMissionId)),
+      ).length
+    : graduatedSiblings.length;
+
+  return (
+    completedItems * ITEM_XP +
+    graduatedMissions.length * MISSION_XP +
+    masteredAssignments * MASTERY_XP +
+    CYCLE_BONUS_XP
+  );
+}
 
 /**
  * Record a single live-sparring landing for the given assignment.
@@ -35,16 +147,24 @@ const LAND_XP = 15;
  *   The row will drop from the active list on the next query tick.
  * - Cycle-complete detection: when THIS land masters the final un-mastered
  *   graduated assignment for (userId, discipline), schedules a +50 XP bonus
- *   (reason: "cycle_complete") and returns `cycleComplete: true`.
+ *   (reason: "cycle_complete") and returns `cycleComplete: true` alongside
+ *   `cycleXp`: the total the cycle yielded, for the cutscene to count up.
+ *   `cycleXp` is a DISPLAY value: it awards nothing, and is omitted when the
+ *   cycle is not complete.
  *
- * Returns `{ landedCount, mastered, cycleComplete }`.
+ * Returns `{ landedCount, mastered, cycleComplete, cycleXp? }`.
  */
 export const markLanded = mutation({
   args: { assignmentId: v.id("sparring_assignments") },
   handler: async (
     ctx,
     { assignmentId },
-  ): Promise<{ landedCount: number; mastered: boolean; cycleComplete: boolean }> => {
+  ): Promise<{
+    landedCount: number;
+    mastered: boolean;
+    cycleComplete: boolean;
+    cycleXp?: number;
+  }> => {
     const userId = await requireUserId(ctx);
 
     const row = await ctx.db.get(assignmentId);
@@ -83,6 +203,7 @@ export const markLanded = mutation({
     // ── Cycle-complete detection ─────────────────────────────────────────────
     // Only check when THIS land just mastered the row.
     let cycleComplete = false;
+    let cycleXp: number | undefined;
     if (mastered) {
       // Scope the sibling scan to THIS row's camp so a technique still pending
       // in another camp can't keep the current camp's cycle from completing.
@@ -103,12 +224,14 @@ export const markLanded = mutation({
 
       if (remainingUnmastered.length === 0) {
         cycleComplete = true;
+        // Display only. It awards nothing; the scheduled bonus below does.
+        cycleXp = await computeCycleXp(ctx, userId, row, siblings);
         try {
           await ctx.scheduler.runAfter(0, internal.user_discipline_xp.awardXp, {
             userId,
             sport: row.discipline,
             campId: row.campId,
-            amount: 50,
+            amount: CYCLE_BONUS_XP,
             reason: "cycle_complete",
           });
         } catch (err) {
@@ -117,7 +240,7 @@ export const markLanded = mutation({
       }
     }
 
-    return { landedCount: nextLandedCount, mastered, cycleComplete };
+    return { landedCount: nextLandedCount, mastered, cycleComplete, cycleXp };
   },
 });
 
@@ -170,7 +293,7 @@ type MissionWithItems = Doc<"training_missions"> & { items: MissionItem[] };
 
 export type MasteryFlowEntry = {
   discipline: string;
-  phase: "drill" | "spar" | "idle";
+  phase: "drill" | "graduating" | "spar" | "idle";
   missions: MissionWithItems[];
   assignments: Doc<"sparring_assignments">[];
 };
@@ -178,14 +301,19 @@ export type MasteryFlowEntry = {
 /**
  * Unified query powering the MasterySpine widget.
  *
- * Returns one entry per discipline that has active missions OR non-mastered
- * graduated sparring assignments. The backend derives the phase so the
- * client never needs to compute it from raw data.
+ * Returns one entry per discipline that has active missions, completed missions
+ * still awaiting graduation, OR non-mastered graduated sparring assignments.
+ * The backend derives the phase so the client never needs to compute it.
  *
- * Phase rules (per discipline):
- *   "drill" — any active mission has at least one incomplete item
- *   "spar"  — no incomplete drill items; non-mastered graduated assignments exist
- *   "idle"  — neither (normally excluded from results; included defensively)
+ * Phase rules (per discipline, first match wins):
+ *   "drill":      any active mission has at least one incomplete item
+ *   "spar":       no incomplete drill items; non-mastered graduated assignments exist
+ *   "graduating": the cycle's last drill is ticked and its sparring plan is
+ *                 still being generated (completed missions, `graduatedAt` unset)
+ *   "idle":       none of the above (normally excluded; included defensively)
+ *
+ * `spar` outranks `graduating` on purpose: a partially graduated cycle already
+ * has assignments to show, so it must render those rather than a loader.
  *
  * Guarantees:
  *   - Uses indexes only; no .filter() on DB queries.
@@ -198,24 +326,51 @@ export const getMasteryFlow = query({
     const userId = await requireUserId(ctx).catch(() => null as unknown as Id<"users">);
     if (!userId) return [];
 
-    // ── 1. Active missions (status "active") with items inline ─────────────
-    // When a camp is supplied, scope to that camp (by_user_camp) and keep only
-    // active missions; otherwise read all active missions for the user.
-    const activeMissions = campId
-      ? (
-          await ctx.db
-            .query("training_missions")
-            .withIndex("by_user_camp", (q) =>
-              q.eq("userId", userId).eq("campId", campId),
-            )
-            .collect()
-        ).filter((m) => m.status === "active")
-      : await ctx.db
+    // ── 1. Missions, split two ways ────────────────────────────────────────
+    //   • active:      the drill list the card renders
+    //   • graduating:  completed but `graduatedAt` unset, the window
+    //     between the last tick and the sparring plan landing. These keep the
+    //     discipline in the flow but are never returned in `entry.missions`,
+    //     so the drill list renders empty under the loader.
+    let activeMissions: Doc<"training_missions">[];
+    let graduatingMissions: Doc<"training_missions">[];
+
+    if (campId) {
+      // One read serves both splits. Bounded by the camp's own mission history
+      // (a few dozen rows), which is what the active-mission read already
+      // collected before the graduating split existed.
+      const campMissions = await ctx.db
+        .query("training_missions")
+        .withIndex("by_user_camp", (q) =>
+          q.eq("userId", userId).eq("campId", campId),
+        )
+        .collect();
+      activeMissions = campMissions.filter((m) => m.status === "active");
+      graduatingMissions = campMissions.filter(
+        (m) => m.status === "completed" && m.graduatedAt == null,
+      );
+    } else {
+      activeMissions = await ctx.db
+        .query("training_missions")
+        .withIndex("by_user_status", (q) =>
+          q.eq("userId", userId).eq("status", "active"),
+        )
+        .collect();
+      // Completed missions accumulate for the life of the account, so this one
+      // must be bounded: newest 100. A mission sits un-graduated for seconds
+      // (or until the stuck-graduation sweep heals it), so the rows we want are
+      // always among the most recent. `.order("desc")` is what makes the take
+      // read the newest page rather than the oldest.
+      graduatingMissions = (
+        await ctx.db
           .query("training_missions")
           .withIndex("by_user_status", (q) =>
-            q.eq("userId", userId).eq("status", "active"),
+            q.eq("userId", userId).eq("status", "completed"),
           )
-          .collect();
+          .order("desc")
+          .take(100)
+      ).filter((m) => m.graduatedAt == null);
+    }
 
     // Load items per mission in parallel, sorted by position.
     const missionsWithItems: MissionWithItems[] = await Promise.all(
@@ -272,12 +427,19 @@ export const getMasteryFlow = query({
       ensureEntry(a.discipline).assignments.push(a);
     }
 
+    // Register the graduating disciplines so the card stays mounted while its
+    // sparring plan generates. Deliberately NOT pushed into `missions`.
+    const graduatingDisciplines = new Set<string>();
+    for (const m of graduatingMissions) {
+      graduatingDisciplines.add(m.sport);
+      ensureEntry(m.sport);
+    }
+
     // ── 4. Derive phase per discipline and build result ────────────────────
     const result: MasteryFlowEntry[] = [];
 
     for (const [discipline, { missions, assignments }] of disciplineMap) {
-      // Derive phase: "drill" if any mission has an incomplete item.
-      let phase: "drill" | "spar" | "idle";
+      let phase: MasteryFlowEntry["phase"];
       const hasIncompleteDrill = missions.some((m) =>
         m.items.some((item) => !item.completed),
       );
@@ -285,6 +447,8 @@ export const getMasteryFlow = query({
         phase = "drill";
       } else if (assignments.length > 0) {
         phase = "spar";
+      } else if (graduatingDisciplines.has(discipline)) {
+        phase = "graduating";
       } else {
         phase = "idle";
       }

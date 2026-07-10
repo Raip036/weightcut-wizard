@@ -49,11 +49,13 @@ interface SparringAssignmentRowProps {
    */
   token?: string;
   /**
-   * Called when `markLanded` returns `cycleComplete: true` — the final
+   * Called when `markLanded` returns `cycleComplete: true`: the final
    * un-mastered graduated assignment for this discipline was just mastered.
-   * Mirrors the `onAllMissionsComplete` callback pattern from MissionCard.
+   * `cycleXp` is the server's real XP total for the completed cycle, counted
+   * from actual items/missions/masteries. It is absent on servers that predate
+   * the field, in which case the parent falls back to the flat cycle bonus.
    */
-  onCycleComplete?: (discipline: string) => void;
+  onCycleComplete?: (discipline: string, cycleXp?: number) => void;
 }
 
 /**
@@ -158,7 +160,13 @@ export function SparringAssignmentRow({
       // from the task), so overlapping resolutions can't fire it twice.
       if (result.cycleComplete && !cycleFiredRef.current) {
         cycleFiredRef.current = true;
-        onCycleCompleteRef.current?.(assignment.discipline);
+        // `cycleXp` accompanies `cycleComplete`. Read defensively so the client
+        // still fires the cutscene against a server that has not shipped it.
+        const cycleXp =
+          "cycleXp" in result && typeof result.cycleXp === "number"
+            ? result.cycleXp
+            : undefined;
+        onCycleCompleteRef.current?.(assignment.discipline, cycleXp);
       }
 
       // On mastery we do NOT self-remove the row. The server drops the mastered

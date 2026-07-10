@@ -63,6 +63,10 @@ async function seedMission(
     cycleId?: string;
     itemCount?: number;
     status?: "active" | "completed";
+    /** Stamp graduation so the mission is NOT in the "graduating" window. */
+    graduatedAt?: number;
+    /** Seed every item already ticked (a finished cycle's drills). */
+    itemsCompleted?: boolean;
   } = {},
 ): Promise<{ missionId: Id<"training_missions">; itemIds: Id<"training_mission_items">[] }> {
   const now = Date.now();
@@ -79,16 +83,19 @@ async function seedMission(
       createdAt: now,
       lastActivityAt: now,
       cycleId: opts.cycleId,
+      graduatedAt: opts.graduatedAt,
     } as any);
 
     const count = opts.itemCount ?? 2;
+    const completed = opts.itemsCompleted ?? false;
     const itemIds: Id<"training_mission_items">[] = [];
     for (let i = 0; i < count; i++) {
       const itemId = await ctx.db.insert("training_mission_items", {
         missionId,
         position: i,
         text: `Drill item ${i + 1}`,
-        completed: false,
+        completed,
+        ...(completed ? { completedAt: now } : {}),
       } as any);
       itemIds.push(itemId);
     }
@@ -105,6 +112,8 @@ async function seedGraduatedAssignment(
     technique?: string;
     landedCount?: number;
     masteredAt?: number;
+    /** Links the assignment to the mission it graduated from (as graduate.ts does). */
+    sourceMissionId?: Id<"training_missions">;
   } = {},
 ): Promise<Id<"sparring_assignments">> {
   const now = Date.now();
@@ -126,6 +135,9 @@ async function seedGraduatedAssignment(
       source: "graduated",
       landedCount: opts.landedCount ?? 0,
       ...(opts.masteredAt != null ? { masteredAt: opts.masteredAt } : {}),
+      ...(opts.sourceMissionId != null
+        ? { sourceMissionId: opts.sourceMissionId }
+        : {}),
     } as any);
   });
 }
@@ -453,5 +465,179 @@ describe("Mastery Spine state-machine", () => {
     // markLanded itself has no Pro gate — it is a landing event, not AI generation.
     // The code path we care about: getMissionFeatureStatus.isPro === false.
     // This is the primary Pro-gate used by the widget UI.
+  });
+
+  // ── Case 7: the "graduating" window keeps the discipline in the flow ──────
+
+  test("completed mission awaiting graduation → phase graduating, empty mission list, discipline retained", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+    const asUser = t.withIdentity({ subject: userId });
+
+    // The last drill was ticked (mission archived) but graduateCycleToSparring
+    // has not landed yet: status "completed", graduatedAt unset, no assignments.
+    await seedMission(t, userId, {
+      sport: "BJJ",
+      cycleId: "BJJ:graduating",
+      itemCount: 3,
+      status: "completed",
+      itemsCompleted: true,
+    });
+
+    const flow = await asUser.query(api.mastery_spine.getMasteryFlow, {});
+    const bjj = flow.find((e) => e.discipline === "BJJ");
+
+    // The discipline must NOT vanish. That unmount is the reported defect.
+    expect(bjj).toBeDefined();
+    expect(bjj!.phase).toBe("graduating");
+    // The drill list renders empty under the loader.
+    expect(bjj!.missions).toEqual([]);
+    expect(bjj!.assignments).toEqual([]);
+  });
+
+  // ── Case 8: spar outranks graduating ──────────────────────────────────────
+
+  test("a partially graduated cycle shows its assignments: spar outranks graduating", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+    const asUser = t.withIdentity({ subject: userId });
+
+    // One mission graduated (assignment exists), one still awaiting graduation.
+    const graduated = await seedMission(t, userId, {
+      sport: "BJJ",
+      cycleId: "BJJ:partial",
+      itemCount: 2,
+      status: "completed",
+      itemsCompleted: true,
+      graduatedAt: Date.now(),
+    });
+    await seedMission(t, userId, {
+      sport: "BJJ",
+      cycleId: "BJJ:partial",
+      itemCount: 2,
+      status: "completed",
+      itemsCompleted: true,
+    });
+    await seedGraduatedAssignment(t, userId, {
+      discipline: "BJJ",
+      technique: "Arm Bar",
+      sourceMissionId: graduated.missionId,
+    });
+
+    const flow = await asUser.query(api.mastery_spine.getMasteryFlow, {});
+    const bjj = flow.find((e) => e.discipline === "BJJ");
+
+    expect(bjj?.phase).toBe("spar");
+    expect(bjj?.assignments.length).toBe(1);
+  });
+
+  // ── Case 9: everything graduated and mastered → idle / absent ─────────────
+
+  test("all graduated + all mastered leaves the flow; a fully-ticked active mission reads idle", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+    const asUser = t.withIdentity({ subject: userId });
+    const now = Date.now();
+
+    // Nothing left to drill, graduate or spar → the discipline drops out.
+    const done = await seedMission(t, userId, {
+      sport: "BJJ",
+      cycleId: "BJJ:done",
+      itemCount: 2,
+      status: "completed",
+      itemsCompleted: true,
+      graduatedAt: now,
+    });
+    await seedGraduatedAssignment(t, userId, {
+      discipline: "BJJ",
+      technique: "Arm Bar",
+      landedCount: 3,
+      masteredAt: now,
+      sourceMissionId: done.missionId,
+    });
+
+    const flow = await asUser.query(api.mastery_spine.getMasteryFlow, {});
+    expect(flow.find((e) => e.discipline === "BJJ")).toBeUndefined();
+
+    // "idle" itself is only reachable while an ACTIVE mission has every item
+    // ticked (the instant before markItemCompleted archives it). Assert that
+    // the graduating branch does not steal it.
+    await seedMission(t, userId, {
+      sport: "Muay Thai",
+      cycleId: "MT:idle",
+      itemCount: 2,
+      status: "active",
+      itemsCompleted: true,
+    });
+
+    const flow2 = await asUser.query(api.mastery_spine.getMasteryFlow, {});
+    expect(flow2.find((e) => e.discipline === "Muay Thai")?.phase).toBe("idle");
+  });
+
+  // ── Case 10: markLanded returns cycleXp on the final land ─────────────────
+
+  test("markLanded on the final assignment returns cycleComplete + the cycle's real XP total", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+    const asUser = t.withIdentity({ subject: userId });
+    const now = Date.now();
+    const cycleId = "BJJ:cyclexp";
+
+    // Deliberately non-uniform: 3 items in one mission, 2 in the other, so a
+    // hardcoded "3 items per mission" assumption would produce a wrong total.
+    const m1 = await seedMission(t, userId, {
+      sport: "BJJ",
+      cycleId,
+      itemCount: 3,
+      status: "completed",
+      itemsCompleted: true,
+      graduatedAt: now,
+    });
+    const m2 = await seedMission(t, userId, {
+      sport: "BJJ",
+      cycleId,
+      itemCount: 2,
+      status: "completed",
+      itemsCompleted: true,
+      graduatedAt: now,
+    });
+
+    // m1's technique is already mastered; m2's is one land short.
+    await seedGraduatedAssignment(t, userId, {
+      discipline: "BJJ",
+      technique: "Arm Bar",
+      landedCount: 3,
+      masteredAt: now,
+      sourceMissionId: m1.missionId,
+    });
+    const finalId = await seedGraduatedAssignment(t, userId, {
+      discipline: "BJJ",
+      technique: "Triangle Choke",
+      landedCount: 1,
+      sourceMissionId: m2.missionId,
+    });
+
+    // Land 2 of 3: cycle not complete, so no cycleXp.
+    const r2 = await asUser.mutation(api.mastery_spine.markLanded, {
+      assignmentId: finalId,
+    });
+    expect(r2.mastered).toBe(false);
+    expect(r2.cycleComplete).toBe(false);
+    expect(r2.cycleXp).toBeUndefined();
+
+    // Land 3: masters the last assignment and closes the cycle.
+    const r3 = await asUser.mutation(api.mastery_spine.markLanded, {
+      assignmentId: finalId,
+    });
+    expect(r3.mastered).toBe(true);
+    expect(r3.cycleComplete).toBe(true);
+
+    //   5 completed items   x 20  = 100
+    //   2 graduated missions x 100 = 200
+    //   2 mastered assignments x 45 =  90
+    //   cycle bonus                 =  50
+    //                                 ---
+    //                                 440
+    expect(r3.cycleXp).toBe(440);
   });
 });

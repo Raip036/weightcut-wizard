@@ -28,6 +28,9 @@ import { BottomNav } from "@/components/BottomNav";
 import { FloatingWizardChat } from "@/components/FloatingWizardChat";
 import { AppUpdateGate } from "@/components/AppUpdateGate";
 import { MaintenanceGate } from "@/components/MaintenanceGate";
+import { useQuery } from "convex/react";
+import { api } from "@/../convex/_generated/api";
+import { FEATURE_FLAGS } from "@/lib/featureFlags";
 const FloatingWorkoutIndicator = lazy(() => import("@/components/gym/FloatingWorkoutIndicator").then(m => ({ default: m.FloatingWorkoutIndicator })));
 const AIFloatingIndicator = lazy(() => import("@/components/AIFloatingIndicator").then(m => ({ default: m.AIFloatingIndicator })));
 import * as Sentry from "@sentry/react";
@@ -266,6 +269,21 @@ function RouteTracker() {
 }
 
 const AppLayoutContent = () => {
+  // Keep the Fight Form score query warm at the (persistent) app shell. The
+  // Dashboard fully unmounts on bottom-nav switches (PageTransition keys the
+  // page by pathname), and Camp/other pages don't subscribe to this query — so
+  // without a live subscriber here the Convex store entry goes cold and the
+  // remounted Dashboard reads `undefined` for a frame, flashing the cyan
+  // "calibrating" ring before the real score arrives. This layout never
+  // unmounts across those navigations, so keeping the subscription alive means
+  // the Dashboard's own `useQuery` reads the resident value synchronously on
+  // remount. Convex dedupes it into one subscription; it stays reactive, so the
+  // value is always fresh. Read-only query, no side effects on other pages.
+  useQuery(
+    api.fightFormScore.getToday,
+    FEATURE_FLAGS.enableFightFormScore ? {} : "skip",
+  );
+
   // Warm the bottom-nav chunk cache once the protected shell mounts.
   //
   // Every primary destination (Dashboard, Camp, Nutrition, Community,
